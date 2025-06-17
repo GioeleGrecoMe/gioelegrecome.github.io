@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Audio Denoising System | Your Name</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <nav id="navbar">
+        <a href="../index.html" class="logo">SignalPro<span>Engineer</span></a>
+        <ul class="nav-links">
+            <li><a href="../index.html#about">About</a></li>
+            <li><a href="../index.html#projects">Projects</a></li>
+            <li><a href="../index.html#contact">Contact</a></li>
+        </ul>
+    </nav>
+
+    <section class="project-detail">
+        <div class="container">
+            <a href="../index.html#projects" class="back-button">
+                <i class="fas fa-arrow-left"></i> Back to Projects
+            </a>
+
+            <h1>Neural Audio Denoising System</h1>
+
+            <div class="project-meta">
+                <span class="date">Completed: June 2023</span>
+                <span class="tags">
+                    <span class="tag">Audio Processing</span>
+                    <span class="tag">Deep Learning</span>
+                    <span class="tag">Real-time</span>
+                </span>
+            </div>
+
+            <div class="project-hero">
+                <div class="project-links">
+                    <a href="#" class="btn"><i class="fab fa-github"></i> View Code</a>
+                    <a href="#" class="btn"><i class="fas fa-file-pdf"></i> Research Paper</a>
+                    <a href="#" class="btn"><i class="fas fa-video"></i> Demo Video</a>
+                </div>
+            </div>
+
+            <div class="project-content">
+                <div class="project-section">
+                    <h2>Project Overview</h2>
+                    <p>Developed a real-time audio denoising system using deep neural networks that achieves 20dB noise reduction while preserving speech quality. The system was implemented with TensorFlow Lite for embedded deployment on low-power devices.</p>
+                </div>
+
+                <div class="project-section">
+
+
+                        <header>
+                            <h1>Simulazione Acustica di una Stanza</h1>
+                            <p class="tagline">Heatmap dell'intensità sonora basata sulla teoria delle sorgenti immagine</p>
+                        </header>
+
+                        <main>
+                            <div id="simulation-container">
+                                <canvas id="simulationCanvas"></canvas>
+                                <div id="controls">
+                                    <label for="reflectionOrder">Ordine Riflessioni (n):</label>
+                                    <input type="number" id="reflectionOrder" value="3" min="0" max="10">
+                                    <p id="info-text">Clicca dentro la stanza per posizionare la sorgente sonora</p>
+                                    <div class="control-group">
+                                        <label for="absorptionCoefficient">Coefficiente di Assorbimento (0-1):</label>
+                                        <input type="range" id="absorptionCoefficient" min="0" max="0.99" step="0.01" value="0.3">
+                                        <span id="absorptionValue">0.3</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </main>
+
+                        <footer>
+                            <p>Una simulazione di propagazione acustica 2D.</p>
+                        </footer>
+
+                        <script src="script.js"></script>
+
+                </div>
+
+                <div class="project-section">
+                    <h2>Technical Details</h2>
+                    <div class="tech-specs">
+                        <div class="spec">
+                            <h3>Architecture</h3>
+                            <p>U-Net style convolutional neural network with skip connections</p>
+                        </div>
+                        <div class="spec">
+                            <h3>Input Processing</h3>
+                            <p>STFT with 512-point FFT, 50% overlap, Hann window</p>
+                        </div>
+                        <div class="spec">
+                            <h3>Performance</h3>
+                            <p>20dB SNR improvement, < 5ms latency on ARM Cortex-M7</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="project-section">
+                    <h2>Results</h2>
+                    <div class="results-gallery">
+                        <figure>
+                            <img src="https://via.placeholder.com/600x400" alt="Spectrogram comparison">
+                            <figcaption>Spectrogram before and after processing</figcaption>
+                        </figure>
+                        <figure>
+                            <img src="https://via.placeholder.com/600x400" alt="Performance metrics">
+                            <figcaption>Objective quality metrics</figcaption>
+                        </figure>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <p>&copy; <span id="year"></span> Your Name. All rights reserved.</p>
+    </footer>
+
+</body>
+
+</html>
