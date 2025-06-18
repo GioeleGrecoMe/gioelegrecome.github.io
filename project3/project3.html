@@ -1,18 +1,405 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>[PROJECT TITLE] | [YOUR NAME]</title>
+    <title>Data-Driven Saxophone Mouthpiece Modeling | Acoustic Research</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="../styles.css">
-    <link rel="stylesheet" href="styles.css">
-</head>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --accent: #e74c3c;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
+            --text: #333;
+            --background: #f8f9fa;
+        }
 
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        #navbar {
+            background-color: var(--primary);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .logo {
+            color: white;
+            text-decoration: none;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .logo span {
+            font-weight: 400;
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+        }
+
+        .nav-links li {
+            margin-left: 1.5rem;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--secondary);
+        }
+
+        .project-detail {
+            padding: 4rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 2.5rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            color: var(--secondary);
+            text-decoration: none;
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+        }
+
+        .back-button i {
+            margin-right: 0.5rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+
+        .project-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #eee;
+            flex-wrap: wrap;
+        }
+
+        .date {
+            font-style: italic;
+            color: #777;
+        }
+
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .tag {
+            background: var(--light);
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: var(--dark);
+        }
+
+        .project-hero {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .hero-image {
+            flex: 1;
+            min-width: 300px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .hero-image::before {
+            content: "Saxophone Mouthpiece Visualization";
+            position: absolute;
+            color: #777;
+            font-style: italic;
+        }
+
+        .project-links {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .project-content {
+            margin-top: 2rem;
+        }
+
+        .project-section {
+            margin-bottom: 3rem;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            color: var(--primary);
+            margin-bottom: 1.2rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--secondary);
+        }
+
+        h3 {
+            font-size: 1.3rem;
+            color: var(--secondary);
+            margin: 1.2rem 0 0.8rem;
+        }
+
+        p {
+            margin-bottom: 1.2rem;
+        }
+
+        .tech-specs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .spec {
+            background: var(--light);
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+        }
+
+        .spec h3 {
+            margin-top: 0;
+        }
+
+        .simulation-container {
+            background: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .simulation-container::before {
+            content: "Transfer Matrix Simulation Visualization";
+            position: absolute;
+            color: #777;
+            font-style: italic;
+        }
+
+        ul {
+            padding-left: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        .results-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        figure {
+            background: var(--light);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+        }
+
+        figure img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        figcaption {
+            padding: 1rem;
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .comparison-chart {
+            display: flex;
+            gap: 1.5rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .chart-container {
+            flex: 1;
+            min-width: 300px;
+            background: var(--light);
+            padding: 1.5rem;
+            border-radius: 8px;
+        }
+
+        .chart-title {
+            text-align: center;
+            margin-bottom: 1rem;
+            color: var(--secondary);
+            font-weight: 600;
+        }
+
+        .chart {
+            height: 200px;
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            padding: 1rem;
+            background: white;
+            border-radius: 4px;
+        }
+
+        .bar {
+            flex: 1;
+            background: var(--secondary);
+            position: relative;
+            min-height: 1px;
+        }
+
+        .bar-fnn {
+            background: var(--accent);
+        }
+
+        .bar-label {
+            position: absolute;
+            bottom: -25px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 0.8rem;
+        }
+
+        .bar-value {
+            position: absolute;
+            top: -25px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        footer {
+            background: var(--primary);
+            color: white;
+            text-align: center;
+            padding: 1.5rem;
+            margin-top: 3rem;
+        }
+
+        @media (max-width: 768px) {
+            .project-hero {
+                flex-direction: column;
+            }
+
+            .hero-image, .project-links {
+                min-width: 100%;
+            }
+
+            .nav-links {
+                display: none;
+            }
+        }
+
+        .metric-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+        }
+
+        .metric-table th, .metric-table td {
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        .metric-table th {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .metric-table tr:nth-child(even) {
+            background: var(--light);
+        }
+
+        .metric-table .highlight {
+            font-weight: bold;
+            color: var(--accent);
+        }
+
+        .author-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .author {
+            background: var(--light);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+    </style>
+</head>
 <body>
     <nav id="navbar">
-        <a href="../index.html" class="logo">[YOUR LOGO/NAME]<span>[OPTIONAL SLOGAN]</span></a>
+        <a href="../index.html" class="logo">Acoustic Research<span>Innovative Sound Solutions</span></a>
         <ul class="nav-links">
             <li><a href="../index.html#about">About</a></li>
             <li><a href="../index.html#projects">Projects</a></li>
@@ -26,111 +413,224 @@
                 <i class="fas fa-arrow-left"></i> Back to Projects
             </a>
 
-            <h1>[PROJECT MAIN TITLE]</h1>
+            <h1>Data-Driven Transfer Matrix Model for Saxophone Mouthpiece Design</h1>
 
             <div class="project-meta">
-                <span class="date">Completed: [COMPLETION DATE]</span>
+                <span class="date">Completed: June 2025</span>
                 <span class="tags">
-                    <span class="tag">[TAG 1]</span>
-                    <span class="tag">[TAG 2]</span>
-                    <span class="tag">[TAG 3]</span>
-                    </span>
+                    <span class="tag">Acoustic Modeling</span>
+                    <span class="tag">FEM Simulation</span>
+                    <span class="tag">Neural Networks</span>
+                    <span class="tag">Musical Acoustics</span>
+                    <span class="tag">Transfer Matrix</span>
+                </span>
             </div>
 
             <div class="project-hero">
+                <div class="hero-image"></div>
                 <div class="project-links">
+                    <p>This research presents a data-driven methodology to model saxophone mouthpieces using geometric parameters, FEM simulations, and neural networks. Our approach enables accurate prediction of acoustic properties for customized mouthpiece designs.</p>
+                    <div class="tech-specs">
+                        <div class="spec">
+                            <h3>Dataset</h3>
+                            <p>1,125 unique mouthpiece geometries with parametric variations</p>
+                        </div>
+                        <div class="spec">
+                            <h3>Simulation</h3>
+                            <p>FEM analysis on 10-8000 Hz frequency range</p>
+                        </div>
+                        <div class="spec">
+                            <h3>Model</h3>
+                            <p>Feedforward Neural Networks for transfer matrix prediction</p>
+                        </div>
                     </div>
+                </div>
             </div>
 
             <div class="project-content">
 
                 <div class="project-section">
                     <h2>Project Overview</h2>
-                    <p>[A concise summary of the project, its goals, and key outcomes. What problem does it solve? What was the main idea?]</p>
+                    <p>This study presents a data-driven methodology to estimate transfer matrices modeling saxophone mouthpieces based on their geometric parameters. We developed a novel parametric model to generate over 1,000 unique mouthpiece geometries, varying key features like chamber and throat cross-sections, shape radii, and baffle inclination angle.</p>
+                    <p>The training data was generated through Finite Element Method (FEM) simulations, from which transfer matrices were extracted and approximated using Chebyshev polynomials. Polynomial coefficients were then modeled using fully connected neural networks to enable efficient prediction of acoustic properties.</p>
+                    <p>Results demonstrate the system's ability to accurately predict transfer matrix coefficients, highlighting the potential of computational methods to enhance the customization and design of musical instrument components.</p>
                 </div>
 
                 <div class="project-section">
                     <h2>Technical Details</h2>
                     <div class="tech-specs">
                         <div class="spec">
-                            <h3>[TECHNOLOGY/AREA 1]</h3>
-                            <p>[Detailed description of Technology/Area 1 used, e.g., "Algorithm: Explain the core algorithm used and why it was chosen."]</p>
+                            <h3>Geometric Parameterization</h3>
+                            <p>Key parameters include chamber height (s<sub>c</sub>), throat height (s<sub>t</sub>), baffle angle (α), and shape radii (r<sub>c</sub>, r<sub>t</sub>). These parameters were varied within physically constrained ranges to ensure compatibility with commercial saxophone components.</p>
                         </div>
                         <div class="spec">
-                            <h3>[TECHNOLOGY/AREA 2]</h3>
-                            <p>[Detailed description of Technology/Area 2 used, e.g., "Network Model: Describe the network architecture or system design."]</p>
+                            <h3>Transfer Matrix Method</h3>
+                            <p>The acoustic system is modeled as a linear network with interconnected two-port elements characterized by a 2×2 transfer matrix T(ω). This method efficiently describes the relationship between input and output acoustic pressure and volume velocity.</p>
                         </div>
                         <div class="spec">
-                            <h3>[TECHNOLOGY/AREA 3]</h3>
-                            <p>[Detailed description of Technology/Area 3 used, e.g., "Implementation: Tools, languages, frameworks used for development."]</p>
+                            <h3>FEM Simulation</h3>
+                            <p>COMSOL Multiphysics was used for Pressure Acoustics, Frequency Domain analysis. Simulations covered 10-8000 Hz with 50Hz steps, with boundary conditions set to extract transfer matrix elements.</p>
                         </div>
+                        <div class="spec">
+                            <h3>Neural Network Model</h3>
+                            <p>Four Feedforward Neural Networks (FNN) with single hidden layer (10 neurons) were trained to map geometric parameters to Chebyshev polynomial coefficients representing transfer matrix terms. Tanh activation and Levenberg-Marquardt optimization were used.</p>
                         </div>
+                    </div>
                 </div>
 
                 <div class="project-section">
-                    <h2>[SIMULATION/INTERACTIVE DEMO TITLE]</h2>
+                    <h2>Geometric Parameter Visualization</h2>
                     <div class="simulation-container">
-                        <p>[Brief description of the simulation or interactive element. Explain what it demonstrates or how to interact with it.]</p>
+                        <p>The diagram would show the saxophone mouthpiece geometry with labeled parameters: baffle angle (α), chamber height (s<sub>c</sub>), throat height (s<sub>t</sub>), and shape radii (r<sub>c</sub>, r<sub>t</sub>). Interactive controls would allow adjusting parameters to see how they affect the internal cavity design.</p>
                     </div>
                 </div>
 
                 <div class="project-section">
                     <h2>Results & Outcomes</h2>
-                    <p>[Describe the key results, findings, or achievements of the project. What was the impact or success? You can use bullet points for clarity.]</p>
-                    <ul>
-                        <li>[Key Result 1]</li>
-                        <li>[Key Result 2]</li>
-                        <li>[Key Result 3]</li>
-                    </ul>
+                    <p>The neural network model demonstrated superior performance compared to linear regression in predicting mouthpiece acoustic properties:</p>
+
+                    <table class="metric-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>FNN Model</th>
+                                <th>Linear Regression</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>NMSE(|Z<sub>in,coupled</sub>|) [dB]</td>
+                                <td class="highlight">-55.6</td>
+                                <td>-39.9</td>
+                            </tr>
+                            <tr>
+                                <td>NMSE(|Z<sub>in</sub>|) [dB]</td>
+                                <td class="highlight">-81.1</td>
+                                <td>-57.1</td>
+                            </tr>
+                            <tr>
+                                <td>Average Frequency Shift (%)</td>
+                                <td class="highlight">0.32</td>
+                                <td>2.19</td>
+                            </tr>
+                            <tr>
+                                <td>R<sup>2</sup> Coefficient</td>
+                                <td class="highlight">0.9883</td>
+                                <td>0.8143</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
                     <div class="results-gallery">
                         <figure>
-                            <img src="[PATH_TO_RESULT_IMAGE_1]" alt="[ALT_TEXT_FOR_IMAGE_1]">
-                            <figcaption>[Caption for Image 1 - Describe what the image shows.]</figcaption>
+                            <img src="" alt="Impedance comparison">
+                            <figcaption>Input impedance magnitude and phase for closed mouthpiece configuration. FNN predictions closely match FEM results across frequencies.</figcaption>
                         </figure>
                         <figure>
-                            <img src="[PATH_TO_RESULT_IMAGE_2]" alt="[ALT_TEXT_FOR_IMAGE_2]">
-                            <figcaption>[Caption for Image 2 - Describe what the image shows.]</figcaption>
+                            <img src="" alt="Prediction accuracy">
+                            <figcaption>FNN model (left) shows significantly higher prediction accuracy (R²=0.9883) compared to linear regression (right, R²=0.8143).</figcaption>
                         </figure>
+                    </div>
+
+                    <div class="comparison-chart">
+                        <div class="chart-container">
+                            <div class="chart-title">Frequency Shift Comparison (%)</div>
+                            <div class="chart">
+                                <div class="bar bar-fnn" style="height: 30%">
+                                    <div class="bar-value">0.32%</div>
+                                    <div class="bar-label">FNN</div>
+                                </div>
+                                <div class="bar" style="height: 100%">
+                                    <div class="bar-value">2.19%</div>
+                                    <div class="bar-label">Linear</div>
+                                </div>
+                            </div>
                         </div>
+
+                        <div class="chart-container">
+                            <div class="chart-title">Normalized Mean Square Error (dB)</div>
+                            <div class="chart">
+                                <div class="bar bar-fnn" style="height: 50%">
+                                    <div class="bar-value">-55.6</div>
+                                    <div class="bar-label">FNN</div>
+                                </div>
+                                <div class="bar" style="height: 100%">
+                                    <div class="bar-value">-39.9</div>
+                                    <div class="bar-label">Linear</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="project-section">
                     <h2>Challenges and Solutions</h2>
-                    <p>[Discuss any significant challenges encountered during the project and how they were overcome. This demonstrates problem-solving skills.]</p>
                     <ul>
-                        <li><strong>Challenge 1:</strong> [Description of challenge] <br> <strong>Solution:</strong> [Description of solution]</li>
-                        <li><strong>Challenge 2:</strong> [Description of challenge] <br> <strong>Solution:</strong> [Description of solution]</li>
+                        <li><strong>Challenge:</strong> High computational cost of FEM simulations for 1,125 geometries across 159 frequencies<br>
+                            <strong>Solution:</strong> Implemented efficient parametric modeling and parallel processing to reduce simulation time</li>
+
+                        <li><strong>Challenge:</strong> Complex relationship between geometric parameters and acoustic properties<br>
+                            <strong>Solution:</strong> Developed neural network approach to capture nonlinear relationships more effectively than linear models</li>
+
+                        <li><strong>Challenge:</strong> Ensuring physical playability of generated mouthpiece designs<br>
+                            <strong>Solution:</strong> Constrained geometric parameters to maintain compatibility with commercial saxophone components</li>
                     </ul>
                 </div>
 
                 <div class="project-section">
                     <h2>Future Work & Improvements</h2>
-                    <p>[Outline potential future enhancements, extensions, or follow-up research for the project.]</p>
                     <ul>
-                        <li>[Future Work Item 1]</li>
-                        <li>[Future Work Item 2]</li>
+                        <li>Extend the methodology to other saxophone types (soprano, tenor, baritone)</li>
+                        <li>Incorporate reed vibration dynamics for more comprehensive acoustic modeling</li>
+                        <li>Develop a real-time interactive design tool for musicians and manufacturers</li>
+                        <li>Investigate 3D printing applications for customized mouthpiece production</li>
+                        <li>Explore transfer learning to reduce required training data for new designs</li>
                     </ul>
                 </div>
 
                 <div class="project-section">
                     <h2>Authors and Acknowledgments</h2>
                     <h3>Authors:</h3>
-                    <ul>
-                        <li>[Author Name 1] - [Affiliation/Role]</li>
-                        <li>[Author Name 2] - [Affiliation/Role]</li>
-                        </ul>
+                    <div class="author-list">
+                        <div class="author">
+                            <strong>Gioele Greco</strong><br>
+                            Dipartimento di Elettronica, Informazione e Bioingegneria, Politecnico di Milano, Italy
+                        </div>
+                        <div class="author">
+                            <strong>Xinmeng Luan</strong><br>
+                            Computational Acoustic Modeling Laboratory, McGill University, Canada
+                        </div>
+                        <div class="author">
+                            <strong>Alberto Bernardini</strong><br>
+                            Politecnico di Milano, Italy
+                        </div>
+                        <div class="author">
+                            <strong>Fabio Antonacci</strong><br>
+                            Politecnico di Milano, Italy
+                        </div>
+                        <div class="author">
+                            <strong>Augusto Sarti</strong><br>
+                            Politecnico di Milano, Italy
+                        </div>
+                    </div>
+
                     <h3>Acknowledgments:</h3>
-                    <p>[Acknowledge individuals, organizations, funding bodies, or resources that contributed to the project.]</p>
-                    <p>[Example: "We would like to thank [Name/Organization] for their invaluable support and guidance during this project."]</p>
+                    <p>We would like to acknowledge the Multilayered Urban Sustainability Action (MUSA) project, which is funded by the European Union, for their contributions to this work.</p>
+                    <p>We also thank the Computational Acoustic Modeling Laboratory at McGill University for their collaboration and resources.</p>
                 </div>
 
                 <div class="project-section">
                     <h2>Literature & References</h2>
-                    <p>[List any key academic papers, books, articles, or resources that were foundational or referenced in the project.]</p>
                     <ol>
-                        <li>[Full Citation 1, e.g., Author, A. A. (Year). *Title of work*. Publisher.]</li>
-                        <li>[Full Citation 2, e.g., Author, B. B., & Author, C. C. (Year). Title of article. *Title of Periodical*, Volume(Issue), pages. DOI (if applicable)]</li>
-                        </ol>
+                        <li>Carrala, S., Lorenzoniib, V., & Verlindenc, J. (2015). Influence of mouthpiece geometry on saxophone playing. Proceedings of the Third Vienna Talk on Music Acoustics, 16, 19.</li>
+                        <li>Benade, A. H. (1990). Fundamentals of musical acoustics. Courier Corporation.</li>
+                        <li>Hasbrook, V. R. (2005). Alto saxophone mouthpiece pitch and its relation to jazz and classical tone qualities. PhD thesis, University of Illinois at Urbana-Champaign.</li>
+                        <li>Lorenzoni, V. & Ragni, D. (2012). Experimental investigation of the flow inside a saxophone mouthpiece by particle image velocimetry. The Journal of the Acoustical Society of America, 131(1), 715-721.</li>
+                        <li>Wang, S., Scavone, G., & Maestre, E. (2020). Two methods for acoustic modeling of the saxophone mouthpiece. The Journal of the Acoustical Society of America, 148, 2611.</li>
+                        <li>Scavone, G. P. (2021). A tutorial on the transfer matrix method for acoustic modeling. Journal of the Acoustical Society of America, 149.</li>
+                        <li>Wang, S., Maestre, E., & Scavone, G. (2021). Acoustical modeling of the saxophone mouthpiece as a transfer matrix. The Journal of the Acoustical Society of America, 149(3), 1901-1912.</li>
+                        <li>Ozdemir, M., Chatziioannou, V., Verlinden, J., Cascini, G., & Pamies-Vila, M. (2021). Towards 3d printed saxophone mouthpiece personalization: Acoustical analysis of design variations. Acta Acustica, 5, 46.</li>
+                    </ol>
                 </div>
 
             </div>
@@ -138,10 +638,25 @@
     </section>
 
     <footer>
-        <p>&copy; <span id="year"></span> [YOUR NAME]. All rights reserved.</p>
+        <p>&copy; <span id="year">2025</span> Acoustic Research Group. All rights reserved.</p>
     </footer>
 
-    <script src="../script.js"></script>
-    </body>
+    <script>
+        // Set current year in footer
+        document.getElementById('year').textContent = new Date().getFullYear();
 
+        // Simple animation for metrics bars
+        document.addEventListener('DOMContentLoaded', function() {
+            const bars = document.querySelectorAll('.bar');
+            bars.forEach(bar => {
+                const height = bar.style.height;
+                bar.style.height = '0';
+                setTimeout(() => {
+                    bar.style.transition = 'height 1s ease-out';
+                    bar.style.height = height;
+                }, 300);
+            });
+        });
+    </script>
+</body>
 </html>
