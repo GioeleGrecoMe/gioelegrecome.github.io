@@ -6,7 +6,7 @@
     --acoustic: #8e44ad;
     --light: #f8f9fa;
     --dark: #1a252f;
-    --gray: #6c757d;
+    --gray: #c7cbce;
 }
 
 /* Base Styles */
@@ -193,7 +193,7 @@ h1 {
     margin-bottom: 0;
     padding-bottom: 0;
 }
-
+.
 h2 {
     color: var(--primary);
     font-size: 2.2rem; /* Slightly larger for section titles */
@@ -277,7 +277,7 @@ h2::before {
 .simulation-container canvas {
     background-color: white;
     border-radius: 8px;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 3px 10px rgba(255, 255, 255, 0.8);
     border: 1px solid #eee;
     width: 100%; /* Make canvas responsive within container */
     max-width: 800px; /* Max width for canvas */
@@ -286,7 +286,7 @@ h2::before {
 }
 
 .simulation-container p {
-    color: var(--gray);
+    color: var(--light);
     margin-bottom: 1.5rem;
 }
 
@@ -323,14 +323,14 @@ figure img {
 figcaption {
     padding: 1.2rem; /* More padding */
     text-align: center;
-    color: var(--gray);
+    color: var(--light);
     font-size: 0.95rem; /* Slightly larger text */
     line-height: 1.4;
 }
 
 /* Authors and Acknowledgments / Literature */
 h3 { /* Specific for Authors/Acknowledgments/Literature sub-headings */
-    color: var(--primary);
+    color: var(--light);
     font-size: 1.6rem; /* Adjusting font size for sub-headings */
     margin-top: 2.5rem; /* Spacing above sub-headings */
     margin-bottom: 1rem;
@@ -526,3 +526,67 @@ footer p {
     color: white;
     font-weight: bold;
 }
+.visualization-panel {
+            flex: 3;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .controls {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            height: fit-content;
+        }
+
+        .panel-title {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: #667eea;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(97, 99, 112, 0.3);
+        }
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        #resetBtn, #addAgentBtn {
+            display: none;
+        }
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    padding-top: 60px;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.9);
+}
+
+.modal-content {
+    display: block;
+    margin: auto;
+    max-width: 90%;
+    max-height: 80%;
+}
+
+.close {
+    position: absolute;
+    top: 20px;
+    right: 35px;
+    color: #f1f1f1;
+    font-size: 40px;
+    font-weight: bold;
+    cursor: pointer;
+}
+

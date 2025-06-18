@@ -155,10 +155,13 @@
         }
 
         .hero-image::before {
-            content: "Saxophone Mouthpiece Visualization";
+            content: url('mouthpieceMesh.png');
             position: absolute;
             color: #777;
             font-style: italic;
+            scale: 0.3;
+            width: auto;  /* You must control size via CSS */
+            height: auto;
         }
 
         .project-links {
@@ -481,6 +484,7 @@
                 <div class="project-section">
                     <h2>Geometric Parameter Visualization</h2>
                     <div class="simulation-container">
+                         <img src="mouthpieceDraw.png" alt="mouthpiece design" scale="auto">
                         <p>The diagram would show the saxophone mouthpiece geometry with labeled parameters: baffle angle (α), chamber height (s<sub>c</sub>), throat height (s<sub>t</sub>), and shape radii (r<sub>c</sub>, r<sub>t</sub>). Interactive controls would allow adjusting parameters to see how they affect the internal cavity design.</p>
                     </div>
                 </div>

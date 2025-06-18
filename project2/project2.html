@@ -12,17 +12,19 @@
 
 <body>
     <nav id="navbar">
-        <a href="#" class="logo">Acoustic<span>Research</span></a>
+        <a href="../index.html" class="logo">Acoustic Research<span>Innovative Sound Solutions</span></a>
         <ul class="nav-links">
-            <li><a href="#about">About</a></li>
-            <li><a href="#simulation">Simulation</a></li>
-            <li><a href="#details">Details</a></li>
-            <li><a href="#contact">Contact</a></li>
+            <li><a href="../index.html#about">About</a></li>
+            <li><a href="../index.html#projects">Projects</a></li>
+            <li><a href="../index.html#contact">Contact</a></li>
         </ul>
     </nav>
 
     <section class="project-detail">
         <div class="container">
+            <a href="../index.html#projects" class="back-button">
+                <i class="fas fa-arrow-left"></i> Back to Projects
+            </a>
             <h1>Early Reverberation Estimation for Room Impulse Response Reconstruction</h1>
 
             <div class="project-meta">
@@ -34,13 +36,6 @@
                 </span>
             </div>
 
-            <div class="project-hero">
-                <div class="project-links">
-                    <a href="#" class="btn"><i class="fab fa-github"></i> View Code</a>
-                    <a href="#" class="btn"><i class="fas fa-file-pdf"></i> Research Paper</a>
-                    <a href="#" class="btn"><i class="fas fa-video"></i> Demo Video</a>
-                </div>
-            </div>
 
             <div class="project-content">
                 <div class="project-section" id="about">
@@ -121,14 +116,18 @@
                     </div>
 
                     <div class="results-gallery">
-                        <figure>
-                            <img src="https://via.placeholder.com/600x400/3498db/ffffff?text=RIR+Comparison" alt="RIR comparison">
-                            <figcaption>Estimated vs ground-truth Room Impulse Response</figcaption>
-                        </figure>
-                        <figure>
-                            <img src="https://via.placeholder.com/600x400/e74c3c/ffffff?text=EDC+Analysis" alt="EDC analysis">
-                            <figcaption>Energy Decay Curve analysis</figcaption>
-                        </figure>
+                        <!-- This will fully replace your <figure> block -->
+                        <div id="plot" style="width: 100%; height: 400px; margin: auto;"></div>
+
+                        <!-- Load Plotly -->
+                        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+                        <!-- Load MathJax for rendering LaTeX -->
+                        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+
+                         <div id="plotEDT" style="width: 100%; height: 400px; margin: auto;"></div>
+
                     </div>
                 </div>
 

@@ -207,3 +207,108 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', setup);
     setup();
 });
+
+// Helper function to fetch and parse data files
+async function loadData(url) {
+    const response = await fetch(url);
+    const text = await response.text();
+
+    const x = [];
+    const y = [];
+
+    const lines = text.trim().split('\n');
+    lines.forEach(line => {
+        if (line.trim() === '') return; // skip empty lines
+        const [xVal, yVal] = line.trim().split(/\s+/); // split by whitespace
+        x.push(parseFloat(xVal));
+        y.push(parseFloat(yVal));
+    });
+
+    return { x, y };
+}
+
+async function createPlot(url1,url2) {
+    try {
+        // Load both datasets
+        const ideal = await loadData(url1);
+        const estimated = await loadData(url2);
+
+        // Prepare traces
+        const traceIdeal = {
+            x: ideal.x,
+            y: ideal.y,
+            mode: 'lines',
+            name: 'Ground truth',
+            line: { color: 'red', width: 3 }
+        };
+
+        const traceEstimated = {
+            x: estimated.x,
+            y: estimated.y,
+            mode: 'lines',
+            name: 'Estimated',
+            line: { color: 'blue', width: 2, dash: 'dot' }
+        };
+
+        const data = [traceIdeal, traceEstimated];
+
+        const layout = {
+            title: 'RIR Comparison',
+            xaxis: { title: 't', gridcolor: '#eee' },
+            yaxis: { title: 'Amplitude', gridcolor: '#eee' },
+            legend: { orientation: 'h', y: -0.2 },
+            margin: { t: 50 }
+        };
+
+        Plotly.newPlot('plot', data, layout);
+    } catch (error) {
+        console.error('Error loading or plotting data:', error);
+        document.getElementById('plot').innerHTML = '<p style="color:red; text-align:center;">Failed to load plot data.</p>';
+    }
+}
+
+// Run the plot function after page load
+createPlot('IdealRIR1.txt','ReconstrucdedRIR1.txt');
+
+async function createPlotEDT(url1,url2) {
+    try {
+        // Load both datasets
+        const ideal = await loadData(url1);
+        const estimated = await loadData(url2);
+
+        // Prepare traces
+        const traceIdeal = {
+            x: ideal.x,
+            y: ideal.y,
+            mode: 'lines',
+            name: 'Ground truth',
+            line: { color: 'red', width: 3 }
+        };
+
+        const traceEstimated = {
+            x: estimated.x,
+            y: estimated.y,
+            mode: 'lines',
+            name: 'Estimated',
+            line: { color: 'blue', width: 2, dash: 'dot' }
+        };
+
+        const data = [traceIdeal, traceEstimated];
+
+        const layout = {
+            title: 'Total energy comparison',
+            xaxis: { title: 't', gridcolor: '#eee' },
+            yaxis: { title: 'Total Energy %', gridcolor: '#eee' },
+            legend: { orientation: 'h', y: -0.2 },
+            margin: { t: 50 }
+        };
+
+        Plotly.newPlot('plotEDT', data, layout);
+    } catch (error) {
+        console.error('Error loading or plotting data:', error);
+        document.getElementById('plot').innerHTML = '<p style="color:red; text-align:center;">Failed to load plot data.</p>';
+    }
+}
+
+// Run the plot function after page load
+createPlotEDT('EDC_GT1.txt','EDC_est1.txt');

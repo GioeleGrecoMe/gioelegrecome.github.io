@@ -51,14 +51,48 @@
                     <p>This project implements a distributed adaptive learning algorithm in Wireless Sensor Networks (WSNs) using an Adapt-Then-Combine (ATC) diffusion strategy. The goal is to enable real-time distributed parameter estimation while reducing communication costs and improving energy efficiency. The solution builds on the methodology and results presented in "Distributed Adaptive Learning via Diffusion Strategy for Wireless Sensor Networks" (Sensors 2023, 25, 2078).</p>
                 </div>
 
-                <div class="project-section">
-                    <h2>WSN Distributed Processing Simulation</h2>
-                    <div class="simulation-container">
-                        <canvas id="networkCanvas"></canvas>
-                        <button onclick="resetSimulation()" class="btn">Reset Simulation</button>
+                <header>
+                        <h1>Interactive Network Visualization</h1>
+                        <p class="subtitle">Click anywhere to place signal sources. Agents will collaboratively estimate source locations through distributed coordination.</p>
+                    </header>
+
+                    <div class="container">
+                        <div class="visualization-panel">
+                            <canvas id="networkCanvas"></canvas>
+                        </div>
+
+                        <div class="controls">
+                            <h2 class="panel-title">Simulation Controls</h2>
+
+                            <div class="button-group">
+                                <button id="resetBtn" class="btn" hidden>Reset Simulation</button>
+                                <button id="addAgentBtn" class="btn" hidden>Add Agent</button>
+                                <button id="removeAgentBtn" class="btn">Renew Agent</button>
+                                <button id="clearSourcesBtn" class="btn">Clear Sources</button>
+                            </div>
+
+                            <div class="stats">
+                                <div class="stat-card">
+                                    <div class="stat-value" id="agentCount">12</div>
+                                    <div class="stat-label">Active Agents</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" id="sourceCount">0</div>
+                                    <div class="stat-label">Signal Sources</div>
+                                </div>
+                            </div>
+
+                            <div class="status">
+                                <p>Click anywhere on the canvas to place signal sources (max 2).</p>
+                                <p>Agents will estimate source locations and coordinate with neighbors.</p>
+                            </div>
+                        </div>
                     </div>
-                    <script src="ATC_animation.js"></script>
-                </div>
+
+                    <footer>
+                        Network Visualization System &copy; <span id="year"></span>
+                    </footer>
+
 
                 <div class="project-section">
                     <h2>Technical Details</h2>
@@ -82,17 +116,25 @@
                     <h2>Results</h2>
                     <div class="results-gallery">
                         <figure>
-                            <img src="networkTop.png" alt="WSN topology simulation">
+                            <img src="networkTop.png" alt="WSN topology simulation" style="cursor: zoom-in;" onclick="openModal('networkTop.png');">
                             <figcaption>Wireless Sensor Network topology used in the distributed learning simulation.</figcaption>
                         </figure>
+
+
                         <figure>
-                            <img src="stanza.png" alt="WSN topology simulation">
-                            <figcaption>Wireless Sensor Network topology used in the distributed learning simulation.</figcaption>
+                            <img src="stanza.png" alt="WSN topology simulation" style="cursor: zoom-in;" onclick="openModal('stanza.png');">
+                            <figcaption>Wireless Sensor Network path distributed learning simulation.</figcaption>
                         </figure>
+
                         <figure>
-                            <img src="results.png" alt="Performance metrics">
+                            <img src="results.png" alt="Performance metrics" style="cursor: zoom-in;" onclick="openModal('results.png');">
                             <figcaption>Comparison of Mean Square Deviation (MSD) between cooperative and non-cooperative learning strategies.</figcaption>
                         </figure>
+                        <!-- Modal container -->
+                        <div id="imgModal" class="modal" onclick="closeModal();">
+                            <span class="close">&times;</span>
+                            <img class="modal-content" id="modalImage">
+                        </div>
                     </div>
                 </div>
 
