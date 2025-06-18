@@ -1,38 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neural Audio Denoising System | Your Name</title>
+    <title>Early Reverberation Estimation | Politecnico di Milano</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 
 <body>
     <nav id="navbar">
-        <a href="../index.html" class="logo">SignalPro<span>Engineer</span></a>
+        <a href="#" class="logo">Acoustic<span>Research</span></a>
         <ul class="nav-links">
-            <li><a href="../index.html#about">About</a></li>
-            <li><a href="../index.html#projects">Projects</a></li>
-            <li><a href="../index.html#contact">Contact</a></li>
+            <li><a href="#about">About</a></li>
+            <li><a href="#simulation">Simulation</a></li>
+            <li><a href="#details">Details</a></li>
+            <li><a href="#contact">Contact</a></li>
         </ul>
     </nav>
 
     <section class="project-detail">
         <div class="container">
-            <a href="../index.html#projects" class="back-button">
-                <i class="fas fa-arrow-left"></i> Back to Projects
-            </a>
-
-            <h1>Neural Audio Denoising System</h1>
+            <h1>Early Reverberation Estimation for Room Impulse Response Reconstruction</h1>
 
             <div class="project-meta">
-                <span class="date">Completed: June 2023</span>
+                <span class="date">Presented at: IWSSPA 2024, July 2-5</span>
                 <span class="tags">
-                    <span class="tag">Audio Processing</span>
-                    <span class="tag">Deep Learning</span>
-                    <span class="tag">Real-time</span>
+                    <span class="tag">Acoustic Signal Processing</span>
+                    <span class="tag">Virtual Sources</span>
+                    <span class="tag">RIR Reconstruction</span>
                 </span>
             </div>
 
@@ -45,28 +43,53 @@
             </div>
 
             <div class="project-content">
-                <div class="project-section">
+                <div class="project-section" id="about">
                     <h2>Project Overview</h2>
-                    <p>Developed a real-time audio denoising system using deep neural networks that achieves 20dB noise reduction while preserving speech quality. The system was implemented with TensorFlow Lite for embedded deployment on low-power devices.</p>
+                    <p>This research introduces a novel method to extend parametric sound field reconstruction by modeling early reverberation through virtual sources, enabling more realistic acoustic scene reproduction for VR/AR applications.</p>
+
+                    <div class="overview-grid">
+                        <div class="overview-card">
+                            <i class="fas fa-microphone-alt"></i>
+                            <h3>HOM Array</h3>
+                            <p>4 Higher Order Microphones with 8 capsules each</p>
+                        </div>
+                        <div class="overview-card">
+                            <i class="fas fa-brain"></i>
+                            <h3>Gaussian Model</h3>
+                            <p>Early reflections modeled as sum of Gaussian functions</p>
+                        </div>
+                        <div class="overview-card">
+                            <i class="fas fa-wave-square"></i>
+                            <h3>Virtual Sources</h3>
+                            <p>Reflections localized through combinatorial optimization</p>
+                        </div>
+                        <div class="overview-card">
+                            <i class="fas fa-chart-line"></i>
+                            <h3>Performance</h3>
+                            <p>-54 dB average NMSE in simulated environment</p>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="project-section">
+                <div class="project-section" id="simulation">
+                    <h2>Acoustic Simulation</h2>
+                    <p>Interactive simulation showing the reconstruction of early reflections using virtual sources:</p>
 
-
+                    <div class="simulation-container">
                         <header>
-                            <h1>Simulazione Acustica di una Stanza</h1>
-                            <p class="tagline">Heatmap dell'intensità sonora basata sulla teoria delle sorgenti immagine</p>
+                            <h3>Room Acoustic Simulation</h3>
+                            <p class="tagline">Sound intensity heatmap based on image source theory</p>
                         </header>
 
                         <main>
                             <div id="simulation-container">
                                 <canvas id="simulationCanvas"></canvas>
                                 <div id="controls">
-                                    <label for="reflectionOrder">Ordine Riflessioni (n):</label>
+                                    <label for="reflectionOrder">Reflection Order (n):</label>
                                     <input type="number" id="reflectionOrder" value="3" min="0" max="10">
-                                    <p id="info-text">Clicca dentro la stanza per posizionare la sorgente sonora</p>
+                                    <p id="info-text">Click inside the room to position the sound source</p>
                                     <div class="control-group">
-                                        <label for="absorptionCoefficient">Coefficiente di Assorbimento (0-1):</label>
+                                        <label for="absorptionCoefficient">Absorption Coefficient (0-1):</label>
                                         <input type="range" id="absorptionCoefficient" min="0" max="0.99" step="0.01" value="0.3">
                                         <span id="absorptionValue">0.3</span>
                                     </div>
@@ -75,42 +98,62 @@
                         </main>
 
                         <footer>
-                            <p>Una simulazione di propagazione acustica 2D.</p>
+                            <p>A 2D acoustic propagation simulation showing early reflections as virtual sources.</p>
                         </footer>
-
-                        <script src="script.js"></script>
-
+                    </div>
                 </div>
 
-                <div class="project-section">
+                <div class="project-section" id="details">
                     <h2>Technical Details</h2>
                     <div class="tech-specs">
                         <div class="spec">
-                            <h3>Architecture</h3>
-                            <p>U-Net style convolutional neural network with skip connections</p>
+                            <h3>Signal Acquisition</h3>
+                            <p>Sound scenes acquired using K Higher Order Microphones (HOMs) with M capsules each</p>
                         </div>
                         <div class="spec">
-                            <h3>Input Processing</h3>
-                            <p>STFT with 512-point FFT, 50% overlap, Hann window</p>
+                            <h3>RIR Estimation</h3>
+                            <p>Generalized Cross Correlation (GCC) between capsules and source signal</p>
                         </div>
                         <div class="spec">
-                            <h3>Performance</h3>
-                            <p>20dB SNR improvement, < 5ms latency on ARM Cortex-M7</p>
+                            <h3>Reflection Model</h3>
+                           <p>Early reflections modeled as sum of Gaussian functions: \( g(t) = a \cdot \exp \left( - \frac{(t - \tau)^2}{2 \sigma^2} \right) \)</p>
+                         </div>
+                    </div>
+
+                    <div class="results-gallery">
+                        <figure>
+                            <img src="https://via.placeholder.com/600x400/3498db/ffffff?text=RIR+Comparison" alt="RIR comparison">
+                            <figcaption>Estimated vs ground-truth Room Impulse Response</figcaption>
+                        </figure>
+                        <figure>
+                            <img src="https://via.placeholder.com/600x400/e74c3c/ffffff?text=EDC+Analysis" alt="EDC analysis">
+                            <figcaption>Energy Decay Curve analysis</figcaption>
+                        </figure>
+                    </div>
+                </div>
+
+                <div class="research-team-container">
+                    <h2>Research Team</h2>
+                    <div class="team-grid">
+                        <div class="team-member">
+                            <h3>Gioele Greco <span class="role">Lead Researcher</span></h3>
+                            <p class="email">gioele.greco@polimi.it</p>
+                        </div>
+                        <div class="team-member">
+                            <h3>Mirco Pezzoli <span class="role">Methodology</span></h3>
+                            <p class="email">mirco.pezzoli@polimi.it</p>
+                        </div>
+                        <div class="team-member">
+                            <h3>Fabio Antonacci <span class="role">Principal Investigator</span></h3>
+                            <p class="email">fabio.antonacci@polimi.it</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="project-section">
-                    <h2>Results</h2>
-                    <div class="results-gallery">
-                        <figure>
-                            <img src="https://via.placeholder.com/600x400" alt="Spectrogram comparison">
-                            <figcaption>Spectrogram before and after processing</figcaption>
-                        </figure>
-                        <figure>
-                            <img src="https://via.placeholder.com/600x400" alt="Performance metrics">
-                            <figcaption>Objective quality metrics</figcaption>
-                        </figure>
+
+                    <div class="acknowledgment">
+                        <h3>Acknowledgments</h3>
+                        <p>This work has been funded by the REPERTORIUM project (Grant agreement number 101095065), Horizon Europe, and the NextGenerationEU partnership on "Telecommunications of the Future".</p>
                     </div>
                 </div>
             </div>
@@ -118,9 +161,9 @@
     </section>
 
     <footer>
-        <p>&copy; <span id="year"></span> Your Name. All rights reserved.</p>
+        <p>&copy; <span id="year"></span> Politecnico di Milano - Department of Electronics, Information and Bioengineering</p>
     </footer>
 
+    <script src="script.js"></script>
 </body>
-
 </html>

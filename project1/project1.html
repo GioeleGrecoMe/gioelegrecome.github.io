@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neural Audio Denoising System | Your Name</title>
+    <title>Distributed Adaptive Learning in WSN | SignalPro Engineer</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -25,33 +25,34 @@
                 <i class="fas fa-arrow-left"></i> Back to Projects
             </a>
 
-            <h1>Neural Audio Denoising System</h1>
+            <h1>Distributed Adaptive Learning in WSN</h1>
 
             <div class="project-meta">
-                <span class="date">Completed: June 2023</span>
+                <span class="date">Completed: April 2023</span>
                 <span class="tags">
-                    <span class="tag">Audio Processing</span>
-                    <span class="tag">Deep Learning</span>
-                    <span class="tag">Real-time</span>
+                    <span class="tag">Distributed Processing</span>
+                    <span class="tag">Wireless Sensor Networks</span>
+                    <span class="tag">Diffusion Strategy</span>
                 </span>
             </div>
 
             <div class="project-hero">
                 <div class="project-links">
-                    <a href="#" class="btn"><i class="fab fa-github"></i> View Code</a>
-                    <a href="#" class="btn"><i class="fas fa-file-pdf"></i> Research Paper</a>
-                    <a href="#" class="btn"><i class="fas fa-video"></i> Demo Video</a>
+                    <a href="https://doi.org/10.3390/s25072078" target="_blank" class="btn">
+                        <i class="fas fa-file-pdf"></i> Research Paper
+                    </a>
                 </div>
             </div>
 
             <div class="project-content">
+
                 <div class="project-section">
                     <h2>Project Overview</h2>
-                    <p>Developed a real-time audio denoising system using deep neural networks that achieves 20dB noise reduction while preserving speech quality. The system was implemented with TensorFlow Lite for embedded deployment on low-power devices.</p>
+                    <p>This project implements a distributed adaptive learning algorithm in Wireless Sensor Networks (WSNs) using an Adapt-Then-Combine (ATC) diffusion strategy. The goal is to enable real-time distributed parameter estimation while reducing communication costs and improving energy efficiency. The solution builds on the methodology and results presented in "Distributed Adaptive Learning via Diffusion Strategy for Wireless Sensor Networks" (Sensors 2023, 25, 2078).</p>
                 </div>
 
                 <div class="project-section">
-                    <h2>WSN Cooperative Localization Simulation</h2>
+                    <h2>WSN Distributed Processing Simulation</h2>
                     <div class="simulation-container">
                         <canvas id="networkCanvas"></canvas>
                         <button onclick="resetSimulation()" class="btn">Reset Simulation</button>
@@ -63,16 +64,16 @@
                     <h2>Technical Details</h2>
                     <div class="tech-specs">
                         <div class="spec">
-                            <h3>Architecture</h3>
-                            <p>U-Net style convolutional neural network with skip connections</p>
+                            <h3>Algorithm</h3>
+                            <p>The Adapt-Then-Combine (ATC) diffusion strategy is used for distributed adaptive estimation, allowing each node to locally update its estimate and then combine it with neighbors to achieve network-wide consensus.</p>
                         </div>
                         <div class="spec">
-                            <h3>Input Processing</h3>
-                            <p>STFT with 512-point FFT, 50% overlap, Hann window</p>
+                            <h3>Network Model</h3>
+                            <p>The system models a dynamic Wireless Sensor Network where nodes collaboratively estimate unknown parameters with a focus on low-latency and energy-efficient communication.</p>
                         </div>
                         <div class="spec">
                             <h3>Performance</h3>
-                            <p>20dB SNR improvement, < 5ms latency on ARM Cortex-M7</p>
+                            <p>The diffusion-based approach demonstrates fast convergence, robust tracking under changing conditions, and significantly reduced Mean Square Deviation (MSD) compared to non-cooperative strategies.</p>
                         </div>
                     </div>
                 </div>
@@ -81,21 +82,61 @@
                     <h2>Results</h2>
                     <div class="results-gallery">
                         <figure>
-                            <img src="https://via.placeholder.com/600x400" alt="Spectrogram comparison">
-                            <figcaption>Spectrogram before and after processing</figcaption>
+                            <img src="networkTop.png" alt="WSN topology simulation">
+                            <figcaption>Wireless Sensor Network topology used in the distributed learning simulation.</figcaption>
                         </figure>
                         <figure>
                             <img src="https://via.placeholder.com/600x400" alt="Performance metrics">
-                            <figcaption>Objective quality metrics</figcaption>
+                            <figcaption>Comparison of Mean Square Deviation (MSD) between cooperative and non-cooperative learning strategies.</figcaption>
                         </figure>
                     </div>
                 </div>
+
+                <div class="project-section">
+                    <h2>Challenges and Solutions</h2>
+                    <p>The project addressed several practical challenges during implementation:</p>
+                    <ul>
+                        <li><strong>Challenge 1:</strong> Efficient communication in a distributed setting. <br> <strong>Solution:</strong> Implemented the ATC diffusion strategy to minimize information exchange while preserving estimation accuracy.</li>
+                        <li><strong>Challenge 2:</strong> Robustness under node or link failures. <br> <strong>Solution:</strong> The adaptive nature of the algorithm ensures that the network can continue learning and tracking even in dynamic topologies.</li>
+                    </ul>
+                </div>
+
+                <div class="project-section">
+                    <h2>Future Work & Improvements</h2>
+                    <p>Potential directions for future research and enhancement include:</p>
+                    <ul>
+                        <li>Integration of more complex network models, such as mobile nodes or energy-harvesting sensors.</li>
+                        <li>Application of the diffusion strategy to large-scale networks with real-time deployment constraints.</li>
+                    </ul>
+                </div>
+
+                <div class="project-section">
+                  <h2>Authors and Acknowledgments</h2>
+                  <h3>Authors:</h3>
+                  <ul>
+                    <li>Davide Albertini – Dipartimento di Elettronica, Informazione e Bioingegneria, Politecnico di Milano</li>
+                    <li>Alberto Bernardini – Dipartimento di Elettronica, Informazione e Bioingegneria, Politecnico di Milano (Corresponding Author)</li>
+                    <li>Gioele Greco – Dipartimento di Elettronica, Informazione e Bioingegneria, Politecnico di Milano</li>
+                    <li>Augusto Sarti – Dipartimento di Elettronica, Informazione e Bioingegneria, Politecnico di Milano</li>
+                  </ul>
+                  <h3>Acknowledgments:</h3>
+                  <p>Authors acknowledge support from Dipartimento di Elettronica, Informazione e Bioingegneria, Politecnico di Milano.</p>
+                </div>
+
+                <div class="project-section">
+                  <h2>Literature & References</h2>
+                  <p>Key reference:</p>
+                  <ol>
+                    <li>Albertini, D.; Bernardini, A.; Greco, G.; Sarti, A. Diffusion‑Based Sound Source Localization Using a Distributed Network of Microphone Arrays. <em>Sensors</em> 2025, 25(7), 2078. https://doi.org/10.3390/s25072078</li>
+                  </ol>
+                </div>
+
             </div>
         </div>
     </section>
 
     <footer>
-        <p>&copy; <span id="year"></span> Your Name. All rights reserved.</p>
+        <p>&copy; <span id="year"></span> SignalPro Engineer. All rights reserved.</p>
     </footer>
 
     <script src="script.js"></script>
