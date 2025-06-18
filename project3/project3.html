@@ -227,7 +227,6 @@
         }
 
         .simulation-container::before {
-            content: "Transfer Matrix Simulation Visualization";
             position: absolute;
             color: #777;
             font-style: italic;
@@ -483,8 +482,8 @@
 
                 <div class="project-section">
                     <h2>Geometric Parameter Visualization</h2>
+                    <img src="mouthpieceDraw.png" alt="mouthpiece design" style="max-width: 100%; height: auto; display: block;">
                     <div class="simulation-container">
-                         <img src="mouthpieceDraw.png" alt="mouthpiece design" scale="auto">
                         <p>The diagram would show the saxophone mouthpiece geometry with labeled parameters: baffle angle (α), chamber height (s<sub>c</sub>), throat height (s<sub>t</sub>), and shape radii (r<sub>c</sub>, r<sub>t</sub>). Interactive controls would allow adjusting parameters to see how they affect the internal cavity design.</p>
                     </div>
                 </div>
@@ -527,11 +526,11 @@
 
                     <div class="results-gallery">
                         <figure>
-                            <img src="" alt="Impedance comparison">
+                            <img src="impedance.png" alt="Impedance comparison" style="max-width: 100%; height: auto; display: block;">
                             <figcaption>Input impedance magnitude and phase for closed mouthpiece configuration. FNN predictions closely match FEM results across frequencies.</figcaption>
                         </figure>
                         <figure>
-                            <img src="" alt="Prediction accuracy">
+                            <img src="prediction.png" alt="Prediction accuracy" style="max-width: 100%; height: auto; display: block;">
                             <figcaption>FNN model (left) shows significantly higher prediction accuracy (R²=0.9883) compared to linear regression (right, R²=0.8143).</figcaption>
                         </figure>
                     </div>
