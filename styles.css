@@ -176,25 +176,40 @@ section {
     border-radius: 2px;
 }
 
-/* About Section */
 .about-content {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 3rem;
-}
-
-.profile-pic {
-    flex: 1;
-    min-width: 300px;
-    position: relative;
+    align-items: center; /* Vertically align photo and text */
+    gap: 2rem; /* Space between image and text */
+    flex-wrap: wrap; /* Make it responsive on smaller screens */
 }
 
 .profile-pic img {
-    width: 100%;
-    border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    transition: transform 0.5s;
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 10%; /* Makes the image perfectly circular */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    display: block;
+}
+
+.profile-pic {
+    flex-shrink: 0; /* Prevents image from shrinking on small screens */
+}
+
+.about-text {
+    flex: 1; /* Take up the remaining space */
+}
+
+@media (max-width: 768px) {
+    .about-content {
+        flex-direction: column;
+        align-items: center; /* Center everything on smaller screens */
+        text-align: center;
+    }
+
+    .about-text {
+        text-align: center;
+    }
 }
 
 .profile-pic:hover img {
@@ -204,8 +219,8 @@ section {
 .profile-pic::before {
     content: '';
     position: absolute;
-    top: -20px;
-    left: -20px;
+    top: -10px;
+    left: -10px;
     width: 100%;
     height: 100%;
     border: 3px solid var(--secondary);
@@ -215,8 +230,8 @@ section {
 }
 
 .profile-pic:hover::before {
-    top: -15px;
-    left: -15px;
+    top: -5px;
+    left: -5px;
 }
 
 .about-text {
@@ -497,7 +512,8 @@ footer i.fa-heart {
     }
     
     .profile-pic {
-        margin-bottom: 2rem;
+    margin-bottom: 2rem;
+    text-align: center; /* Center the image inside the div */
     }
     
     .projects-grid {
