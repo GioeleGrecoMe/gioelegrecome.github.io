@@ -98,3 +98,26 @@ document.addEventListener('DOMContentLoaded', function() {
         resizeCanvas();
     });
 });
+ // Simple animation for progress bars when they come into view
+        document.addEventListener('DOMContentLoaded', function() {
+            const progressBars = document.querySelectorAll('.progress-fill');
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const progressFill = entry.target;
+                        const width = progressFill.style.width;
+                        progressFill.style.width = '0';
+                        setTimeout(() => {
+                            progressFill.style.transition = 'width 1.5s ease-in-out';
+                            progressFill.style.width = width;
+                        }, 300);
+                        observer.unobserve(progressFill);
+                    }
+                });
+            }, { threshold: 0.5 });
+
+            progressBars.forEach(bar => {
+                observer.observe(bar);
+            });
+        });
