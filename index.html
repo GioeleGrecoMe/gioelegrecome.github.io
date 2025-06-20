@@ -188,33 +188,9 @@
         </section>
     </div>
 
-    <script>
-        // Simple animation for progress bars when they come into view
-        document.addEventListener('DOMContentLoaded', function() {
-            const progressBars = document.querySelectorAll('.progress-fill');
 
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const progressFill = entry.target;
-                        const width = progressFill.style.width;
-                        progressFill.style.width = '0';
-                        setTimeout(() => {
-                            progressFill.style.transition = 'width 1.5s ease-in-out';
-                            progressFill.style.width = width;
-                        }, 300);
-                        observer.unobserve(progressFill);
-                    }
-                });
-            }, { threshold: 0.5 });
 
-            progressBars.forEach(bar => {
-                observer.observe(bar);
-            });
-        });
-    </script>
-
-    <section id="projects" class="projects-section" style="display: none;">
+    <section id="projects" class="projects-section">
         <div class="section-title">
             <h2>Featured Projects</h2>
         </div>
@@ -280,7 +256,7 @@
     </section>
 
       <div class="container">
-        <section id="projects-in-progress" class="projects-section">
+        <section id="projects-artistic" class="projects-section" style="display: none;">
             <div class="section-title">
                 <h2>Artistic Projects</h2>
             </div>
