@@ -73,8 +73,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             for (let x = 0; x < canvas.width; x++) {
                 const y = canvas.height / 2 +
-                          wave.amplitude * Math.sin(x * wave.frequency + time * wave.speed) +
-                          10 * Math.sin(x * 0.05 + time * 0.1);
+                    wave.amplitude * Math.sin(x * wave.frequency + time * wave.speed) +
+                    10 * Math.sin(x * 0.05 + time * 0.1);
 
                 if (x === 0) {
                     ctx.moveTo(x, y);
@@ -98,26 +98,26 @@ document.addEventListener('DOMContentLoaded', function() {
         resizeCanvas();
     });
 });
- // Simple animation for progress bars when they come into view
-        document.addEventListener('DOMContentLoaded', function() {
-            const progressBars = document.querySelectorAll('.progress-fill');
+// Simple animation for progress bars when they come into view
+document.addEventListener('DOMContentLoaded', function() {
+    const progressBars = document.querySelectorAll('.progress-fill');
 
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const progressFill = entry.target;
-                        const width = progressFill.style.width;
-                        progressFill.style.width = '0';
-                        setTimeout(() => {
-                            progressFill.style.transition = 'width 1.5s ease-in-out';
-                            progressFill.style.width = width;
-                        }, 300);
-                        observer.unobserve(progressFill);
-                    }
-                });
-            }, { threshold: 0.5 });
-
-            progressBars.forEach(bar => {
-                observer.observe(bar);
-            });
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const progressFill = entry.target;
+                const width = progressFill.style.width;
+                progressFill.style.width = '0';
+                setTimeout(() => {
+                    progressFill.style.transition = 'width 1.5s ease-in-out';
+                    progressFill.style.width = width;
+                }, 300);
+                observer.unobserve(progressFill);
+            }
         });
+    }, { threshold: 0.5 });
+
+    progressBars.forEach(bar => {
+        observer.observe(bar);
+    });
+});
