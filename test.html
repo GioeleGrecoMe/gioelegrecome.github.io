@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAME: Federated Mixture-of-Experts for Efficient Spatial Acoustic Characterization</title>
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --text-color: #333;
+            --background-light: #f5f7fa;
+            --success-color: #48bb78;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .main-content {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 20px;
+            padding: 40px 60px;
+            margin: 40px auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        h1 {
+            font-size: 2.8em;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .conference-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .authors {
+            font-size: 1.2em;
+            margin: 20px 0;
+            color: #555;
+        }
+
+        .author {
+            display: inline-block;
+            margin: 0 15px;
+            transition: all 0.3s ease;
+        }
+
+        .author:hover {
+            color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+
+        .affiliations {
+            margin-top: 15px;
+            font-size: 0.95em;
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .buttons {
+            margin: 40px 0;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn svg {
+            margin-right: 8px;
+            width: 20px;
+            height: 20px;
+        }
+
+        .section {
+            margin: 50px 0;
+            padding: 40px;
+            background: linear-gradient(135deg, var(--background-light) 0%, #c3cfe2 100%);
+            border-radius: 15px;
+        }
+
+        .section h2, .section h3 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 2em;
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .section h3 {
+            font-size: 1.5em;
+            margin-top: 40px;
+        }
+
+        .section h2::before, .section h3::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 5px;
+            height: 30px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: 3px;
+        }
+
+        .architecture-diagram img, .room-map img {
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+            display: block;
+            margin: 20px auto;
+        }
+
+        .architecture-diagram img:hover, .room-map img:hover {
+            transform: scale(1.02);
+        }
+
+        .headphones-note {
+            background-color: #fff3cd;
+            border-left: 5px solid #ffeeba;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: bold;
+            border-radius: 5px;
+        }
+
+        .audio-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .audio-sample {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .audio-sample:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .audio-sample h4 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .audio-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            transition: background 0.3s ease;
+        }
+
+        .audio-row:hover {
+            background: #e8ebf0;
+        }
+
+        .audio-label {
+            flex: 0 0 100px;
+            font-weight: 600;
+            color: #555;
+            font-size: 0.9em;
+        }
+
+        .comparison-table {
+            overflow-x: auto;
+            margin: 30px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+        }
+
+        th {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+        }
+
+        tbody tr:nth-child(even) {
+            background-color: var(--background-light);
+        }
+
+        tbody tr:hover {
+            background-color: #e2e8f0;
+        }
+
+        .best-value {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .bibtex {
+            background: #2d3748;
+            color: #a0aec0;
+            padding: 25px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            position: relative;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .copy-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .copy-button:hover {
+            transform: scale(1.05);
+        }
+
+        .copy-button.copied {
+            background: var(--success-color);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 60px;
+            padding: 30px;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 30px;
+            }
+            h1 {
+                font-size: 2em;
+            }
+            .buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            .btn {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-content">
+            <header>
+                <div class="conference-badge">ICASSP 2026</div>
+                <h1>FAME: Federated Mixture-of-Experts for Efficient Spatial Acoustic Characterization</h1>
+                <div class="authors">
+                    <span class="author">Gioele Greco¹</span>
+                    <span class="author">Dongzhe Zhang²</span>
+                    <span class="author">Mirco Pezzoli¹</span>
+                    <span class="author">Fabio Antonacci¹</span>
+                </div>
+                <div class="affiliations">
+                    [cite_start]¹ Department of Electronics, Information and Bioengineering, Politecnico di Milano, Italy [cite: 7]<br>
+                    [cite_start]² School of Marine Science and Technology, Northwestern Polytechnical University, Xi'an, China [cite: 7]
+                </div>
+            </header>
+
+            <div class="buttons">
+                <a href="OJSP_2026_ICASSP (1).pdf" class="btn" target="_blank">
+                    <svg fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm-2.5.5H9v-1h.5v1zm6.5 2.5h-3V9H17v1.5h-1.5v1H17V14h-3v1.5h3.5c.83 0 1.5-.67 1.5-1.5v-3c0-.83-.67-1.5-1.5-1.5h-3.5v6zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6z"/></svg>
+                    Paper (PDF)
+                </a>
+                <a href="https://github.com/gioelegrecome" class="btn" target="_blank">
+                    <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    Code
+                </a>
+                <a href="#audio-demos" class="btn">
+                    <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                    Audio Demos
+                </a>
+                <a href="https://gioelegrecome.github.io/" class="btn">
+                    <svg fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                    Back to Main Page
+                </a>
+            </div>
+
+            <section class="section">
+                <h2>Abstract</h2>
+                <p>
+                    [cite_start]Accurate and efficient spatial acoustic characterization is crucial for immersive audio applications, such as virtual and augmented reality, which require real-time, high-fidelity rendering of sound fields[cite: 12]. [cite_start]Traditional methods, including physics-based simulations and centralized deep learning models, face significant challenges in scalability, data efficiency, and generalization under sparse measurement conditions[cite: 13]. [cite_start]This paper introduces FAME, a Federated Acoustic Mixture-of-Experts framework designed for large-area spatial acoustic modeling[cite: 14]. [cite_start]FAME decomposes the global sound field reconstruction task into localized sub-problems, each handled by a specialized neural network expert trained on region-specific data[cite: 15]. [cite_start]A lightweight gating network intelligently combines these experts' predictions based on spatial queries, enabling seamless integration of new measurements without full retraining[cite: 16]. [cite_start]Evaluated on a benchmark dataset of higher-order ambisonic room impulse responses, FAME significantly outperforms state-of-the-art baselines in reconstruction accuracy, directional error, and energy decay preservation[cite: 17]. [cite_start]The framework offers a scalable, data-efficient solution for real-time spatial audio applications, supporting incremental expansion and robust performance in sparse-data regimes[cite: 18].
+                </p>
+            </section>
+
+            <section class="section">
+                <h2>Method Overview</h2>
+                <p>
+                    [cite_start]The key innovation of FAME is the decomposition of the complex spatial prediction task into localized sub-problems handled by specialized "expert" networks[cite: 31, 36]. [cite_start]The measurement space is partitioned into distinct receiver regions, and each expert is trained only on the Higher Order Ambisonic (HOA) RIRs from its assigned region[cite: 36, 55]. [cite_start]A lightweight, learnable gating network then intelligently blends the contributions of these experts to form a globally consistent prediction[cite: 37, 43]. [cite_start]This modular architecture avoids the need to retrain the entire model when expanding to new areas; one only needs to train a new local expert and update the gating mechanism[cite: 39, 44].
+                </p>
+                <div class="architecture-diagram">
+                    <img src="https://i.imgur.com/G5iM48L.png" alt="FAME Architecture Diagram" />
+                    <p style="margin-top: 15px; font-style: italic; color: #666;">
+                        Figure 1: The FAME framework. Data from distinct regions (Agents) are used to train local experts. A gating network learns to weigh their predictions to form the final output.
+                    </p>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>Results</h2>
+                <p>
+                    [cite_start]We evaluated FAME against several state-of-the-art methods in a challenging sparse-data regime, using only 8 HOA measurements for training[cite: 136, 165]. [cite_start]The remaining 17 measurements were used for testing[cite: 137]. [cite_start]The results demonstrate FAME's superior performance in reconstruction accuracy (NMSE), spatial accuracy (DoA Error), and reverberation modeling (EDR Error)[cite: 166]. [cite_start]In contrast to interpolation methods like PVM and PCKI which degrade rapidly when extrapolating, FAME maintains high accuracy by effectively bridging large unmeasured gaps between locally dense data clusters[cite: 171, 238].
+                </p>
+                <div class="comparison-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Method</th>
+                                <th>NMSE (dB)</th>
+                                <th>DoA Error (°)</th>
+                                <th>EDR Error (dB)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>FAME (Proposed)</strong></td>
+                                <td class="best-value">~ -8.0</td>
+                                <td class="best-value">~ 8</td>
+                                <td class="best-value">~ -42</td>
+                            </tr>
+                            <tr>
+                                <td>Centralized</td>
+                                <td class="best-value">~ -8.0</td>
+                                <td>~ 10</td>
+                                <td>~ -40</td>
+                            </tr>
+                            <tr>
+                                [cite_start]<td>PINN [cite: 12]</td>
+                                <td>~ -1.0</td>
+                                <td>~ 100</td>
+                                <td>~ -11</td>
+                            </tr>
+                            <tr>
+                                [cite_start]<td>PCKI [cite: 11]</td>
+                                <td>~ -5.0</td>
+                                <td>~ 25</td>
+                                <td>~ -28</td>
+                            </tr>
+                            <tr>
+                                [cite_start]<td>PVM [cite: 13]</td>
+                                <td>~ -1.0</td>
+                                <td>~ 25</td>
+                                <td>~ -24</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                     [cite_start]<p style="margin-top: 15px; font-style: italic; color: #666;">Table 1: Comparison of mean performance metrics, derived from the evaluation on 17 test positions[cite: 137, 211]. Lower is better for all metrics.</p>
+                </div>
+            </section>
+
+            <section class="section" id="audio-demos">
+                <h2>Audio Demonstrations</h2>
+                <div class="headphones-note">
+                    🎧 For the best listening experience, please use headphones.
+                </div>
+                [cite_start]<p>The following are binaural renderings of the estimated second-order HOA Room Impulse Responses (RIRs) at unseen test positions within the classroom environment from the Homula RIR dataset[cite: 122]. An impulsive sound source is used to highlight the acoustic characteristics.</p>
+
+                <h3>Source 1</h3>
+                <div class="room-map">
+                    <img src="https://i.imgur.com/c4Y9C7L.png" alt="Map of the room showing source and receiver positions" style="max-width: 600px;">
+                    [cite_start]<p style="text-align: center; font-style: italic; color: #666;">Room setup showing training points (colored) and test points (black)[cite: 130].</p>
+                </div>
+                <div class="audio-grid">
+                    <div class="audio-sample">
+                        <h4>Test Position 1</h4>
+                        <div class="audio-row"><span class="audio-label">Ground Truth</span><audio controls src="audio/source1_pos1_truth.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">FAME (Ours)</span><audio controls src="audio/source1_pos1_fame.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">Centralized</span><audio controls src="audio/source1_pos1_centralized.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">PINN</span><audio controls src="audio/source1_pos1_pinn.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">PCKI</span><audio controls src="audio/source1_pos1_pcki.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">PVM</span><audio controls src="audio/source1_pos1_pvm.wav"></audio></div>
+                    </div>
+                    <div class="audio-sample">
+                        <h4>Test Position 2</h4>
+                        <div class="audio-row"><span class="audio-label">Ground Truth</span><audio controls src="audio/source1_pos2_truth.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">FAME (Ours)</span><audio controls src="audio/source1_pos2_fame.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">Centralized</span><audio controls src="audio/source1_pos2_centralized.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">PINN</span><audio controls src="audio/source1_pos2_pinn.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">PCKI</span><audio controls src="audio/source1_pos2_pcki.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">PVM</span><audio controls src="audio/source1_pos2_pvm.wav"></audio></div>
+                    </div>
+                </div>
+
+                <h3>Source 2</h3>
+                <div class="room-map">
+                    <img src="https://i.imgur.com/c4Y9C7L.png" alt="Map of the room showing source and receiver positions" style="max-width: 600px;">
+                    [cite_start]<p style="text-align: center; font-style: italic; color: #666;">Room setup showing training points (colored) and test points (black)[cite: 130].</p>
+                </div>
+                 <div class="audio-grid">
+                    <div class="audio-sample">
+                        <h4>Test Position 1</h4>
+                        <div class="audio-row"><span class="audio-label">Ground Truth</span><audio controls src="audio/source2_pos1_truth.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">FAME (Ours)</span><audio controls src="audio/source2_pos1_fame.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">Centralized</span><audio controls src="audio/source2_pos1_centralized.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">PINN</span><audio controls src="audio/source2_pos1_pinn.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">PCKI</span><audio controls src="audio/source2_pos1_pcki.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">PVM</span><audio controls src="audio/source2_pos1_pvm.wav"></audio></div>
+                    </div>
+                    <div class="audio-sample">
+                        <h4>Test Position 2</h4>
+                        <div class="audio-row"><span class="audio-label">Ground Truth</span><audio controls src="audio/source2_pos2_truth.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">FAME (Ours)</span><audio controls src="audio/source2_pos2_fame.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">Centralized</span><audio controls src="audio/source2_pos2_centralized.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">PINN</span><audio controls src="audio/source2_pos2_pinn.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">PCKI</span><audio controls src="audio/source2_pos2_pcki.wav"></audio></div>
+                        <div class="audio-row"><span class="audio-label">PVM</span><audio controls src="audio/source2_pos2_pvm.wav"></audio></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section" id="citation">
+                <h2>Citation</h2>
+                <div class="bibtex">
+                    <button class="copy-button" onclick="copyBibtex(this)">Copy</button>
+                    <pre><code>@inproceedings{greco2026fame,
+    title={Federated Mixture-of-Experts for Efficient Spatial Acoustic Characterization},
+    author={Greco, Gioele and Zhang, Dongzhe and Pezzoli, Mirco and Antonacci, Fabio},
+    booktitle={IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+    year={2026}
+}</code></pre>
+                </div>
+            </section>
+
+        </div>
+        <footer>
+            <p>&copy; 2025 Gioele Greco. All Rights Reserved.</p>
+        </footer>
+    </div>
+    <script>
+        function copyBibtex(button) {
+            const text = button.nextElementSibling.innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                button.innerText = 'Copied!';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.innerText = 'Copy';
+                    button.classList.remove('copied');
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>
