@@ -620,23 +620,23 @@ footer i.fa-heart {
 }
 
 .expertise-card {
-    background: rgba(30, 50, 100, 0.5);
+    background: rgba(235, 235, 238, 0.5);
     border-radius: 15px;
     padding: 25px;
     transition: transform 0.3s ease;
-    border: 1px solid rgba(52, 152, 219, 0.3);
+    border: 1px solid rgba(246, 243, 243, 0.3);
 }
 
 .expertise-card:hover {
     transform: translateY(-5px);
-    background: rgba(30, 50, 100, 0.7);
+    background: rgba(219, 222, 229, 0.7);
     border-color: #3498db;
 }
 
 .expertise-card h3 {
     font-size: 1.4rem;
     margin-bottom: 15px;
-    color: #1abc9c;
+    color: #227c67;
     display: flex;
     align-items: center;
     gap: 10px;

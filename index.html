@@ -6,6 +6,14 @@
     <title>Signal Processing Portfolio | Gioele Greco</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
+    <!-- Aggiungi nel tuo <head> -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'GA_MEASUREMENT_ID');
+    </script>
 </head>
 <body>
     <nav id="navbar">
@@ -104,108 +112,6 @@
             </div>
         </div>
 </section>
-    <div class="container">
-        <section id="projects-in-progress" class="projects-section">
-            <div class="section-title">
-                <h2>Projects in Progress</h2>
-            </div>
-            <div class="projects-grid">
-                <!-- Project 1 -->
-                <div class="project-card in-progress animate-on-scroll">
-                    <div class="project-image">
-                        <img src="6dof.png" alt="Deep Learning Audio Processing">
-                        <div class="project-tags">
-                            <span class="project-tag">VR/AR</span>
-                            <span class="project-tag">Spatial Audio</span>
-                            <span class="project-tag">Binaural</span>
-                        </div>
-                    </div>
-                    <div class="project-info">
-                        <h3>Parametric 6 DoF Sound Field Reconstruction </h3>
-                         <p>Creating a real-time binaural audio rendering system for virtual reality applications that dynamically adapts to user head movements and environmental changes, providing an immersive spatial audio experience.</p>
-                        <div class="progress-indicator">
-                            <span>in progress</span>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="--progress-width: 65%; width: 65%;"></div>
-                            </div>
-                        </div>
-                        <div class="project-links">
-                            <a href="#" class="project-link disabled"><i class="fas fa-code"></i> View Details</a>
-                            <a href="#" class="project-link disabled"><i class="fas fa-file-pdf"></i> Paper</a>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Project 2 -->
-                <div class="project-card in-progress animate-on-scroll">
-                    <div class="project-image">
-                        <img src="https://images.unsplash.com/photo-1563089145-599997674d42?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80" alt="Acoustic Sensing">
-                        <div class="project-tags">
-                            <span class="project-tag">IoT</span>
-                            <span class="project-tag">Acoustic Sensing</span>
-                            <span class="project-tag">Machine Learning</span>
-                        </div>
-                    </div>
-                    <div class="project-info">
-                        <h3>Distributed Acoustic Sensing for Smart Building Applications</h3>
-                        <p>Implementing a network of low-cost acoustic sensors for occupancy detection, activity recognition, and environmental monitoring in smart buildings using advanced signal processing and machine learning techniques.</p>
-                        <div class="progress-indicator">
-                            <span>in progress</span>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="--progress-width: 30%; width: 30%;"></div>
-                            </div>
-                        </div>
-                        <!---<div class="project-links">
-                            <a href="#" class="project-link disabled"><i class="fas fa-code"></i> View Details</a>
-                            <a href="#" class="project-link disabled"><i class="fas fa-file-pdf"></i> Paper</a>
-                        </div>--->
-                    </div>
-                </div>
-                <!-- Project 3 -->
-                <div class="project-card in-progress animate-on-scroll">
-                    <div class="project-image">
-                        <img src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80" alt="Audio VR Environment">
-                        <div class="project-tags">
-                            <span class="project-tag">Biomedical Signal Processing</span>
-                            <span class="project-tag">Deep Learning</span>
-                            <span class="project-tag">Healthcare AI</span>
-                        </div>
-                    </div>
-                    <div class="project-info">
-                        <h3>Children Heart Murmur Denoising and Classification</h3>
-                        <p>Developing a deep learning framework for accurate detection and classification of pathological heart murmurs in pediatric patients. The system combines adaptive noise suppression with a hybrid CNN-RNN architecture to analyze phonocardiogram signals in noisy clinical environments.</p>
-                        <div class="progress-indicator">
-                            <span>in progress</span>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="--progress-width: 45%; width: 45%;"></div>
-                            </div>
-                        </div>
-                        <!---<div class="project-links">
-                            <a href="#" class="project-link disabled"><i class="fas fa-code"></i> View Details</a>
-                            <a href="#" class="project-link disabled"><i class="fas fa-file-pdf"></i> Paper</a>
-                        </div>--->
-                    </div>
-                </div>
-                <!-- Project 4 -->
-                <div class="project-card in-progress animate-on-scroll">
-                    <div class="project-image">
-                        <img src="project4/ripeness.jpg" alt="watermelon">
-                        <div class="project-tags">
-                            <span class="project-tag">Acoustics Biology</span>
-                            <span class="project-tag">Deep learning</span>
-                        </div>
-                    </div>
-                    <div class="project-info">
-                        <h3>Fruit Ripeness — IR Measurement Tool</h3>
-                        <p>Data-driven methodology to predict the fruit ripeness using geometric simple acoustics properties</p>
-                        <div class="project-links">
-                            <a href="project4/project4.html" class="project-link"><i class="fas fa-code"></i> View Details</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-    </div>
 
 
 
@@ -362,6 +268,109 @@
             </div>
         </section>
     </div>
+        <div class="container">
+        <section id="projects-in-progress" class="projects-section">
+            <div class="section-title">
+                <h2>Projects in Progress</h2>
+            </div>
+            <div class="projects-grid">
+                <!-- Project 1 -->
+                <div class="project-card in-progress animate-on-scroll">
+                    <div class="project-image">
+                        <img src="6dof.png" alt="Deep Learning Audio Processing">
+                        <div class="project-tags">
+                            <span class="project-tag">VR/AR</span>
+                            <span class="project-tag">Spatial Audio</span>
+                            <span class="project-tag">Binaural</span>
+                        </div>
+                    </div>
+                    <div class="project-info">
+                        <h3>Parametric 6 DoF Sound Field Reconstruction </h3>
+                         <p>Creating a real-time binaural audio rendering system for virtual reality applications that dynamically adapts to user head movements and environmental changes, providing an immersive spatial audio experience.</p>
+                        <div class="progress-indicator">
+                            <span>in progress</span>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="--progress-width: 65%; width: 65%;"></div>
+                            </div>
+                        </div>
+                        <div class="project-links">
+                            <a href="#" class="project-link disabled"><i class="fas fa-code"></i> View Details</a>
+                            <a href="#" class="project-link disabled"><i class="fas fa-file-pdf"></i> Paper</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project 2 -->
+                <div class="project-card in-progress animate-on-scroll">
+                    <div class="project-image">
+                        <img src="https://images.unsplash.com/photo-1563089145-599997674d42?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80" alt="Acoustic Sensing">
+                        <div class="project-tags">
+                            <span class="project-tag">IoT</span>
+                            <span class="project-tag">Acoustic Sensing</span>
+                            <span class="project-tag">Machine Learning</span>
+                        </div>
+                    </div>
+                    <div class="project-info">
+                        <h3>Distributed Acoustic Sensing for Smart Building Applications</h3>
+                        <p>Implementing a network of low-cost acoustic sensors for occupancy detection, activity recognition, and environmental monitoring in smart buildings using advanced signal processing and machine learning techniques.</p>
+                        <div class="progress-indicator">
+                            <span>in progress</span>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="--progress-width: 30%; width: 30%;"></div>
+                            </div>
+                        </div>
+                        <!---<div class="project-links">
+                            <a href="#" class="project-link disabled"><i class="fas fa-code"></i> View Details</a>
+                            <a href="#" class="project-link disabled"><i class="fas fa-file-pdf"></i> Paper</a>
+                        </div>--->
+                    </div>
+                </div>
+                <!-- Project 3 -->
+                <div class="project-card in-progress animate-on-scroll">
+                    <div class="project-image">
+                        <img src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80" alt="Audio VR Environment">
+                        <div class="project-tags">
+                            <span class="project-tag">Biomedical Signal Processing</span>
+                            <span class="project-tag">Deep Learning</span>
+                            <span class="project-tag">Healthcare AI</span>
+                        </div>
+                    </div>
+                    <div class="project-info">
+                        <h3>Children Heart Murmur Denoising and Classification</h3>
+                        <p>Developing a deep learning framework for accurate detection and classification of pathological heart murmurs in pediatric patients. The system combines adaptive noise suppression with a hybrid CNN-RNN architecture to analyze phonocardiogram signals in noisy clinical environments.</p>
+                        <div class="progress-indicator">
+                            <span>in progress</span>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="--progress-width: 45%; width: 45%;"></div>
+                            </div>
+                        </div>
+                        <!---<div class="project-links">
+                            <a href="#" class="project-link disabled"><i class="fas fa-code"></i> View Details</a>
+                            <a href="#" class="project-link disabled"><i class="fas fa-file-pdf"></i> Paper</a>
+                        </div>--->
+                    </div>
+                </div>
+                <!-- Project 4 -->
+                <div class="project-card in-progress animate-on-scroll">
+                    <div class="project-image">
+                        <img src="project4/ripeness.jpg" alt="watermelon">
+                        <div class="project-tags">
+                            <span class="project-tag">Acoustics Biology</span>
+                            <span class="project-tag">Deep learning</span>
+                        </div>
+                    </div>
+                    <div class="project-info">
+                        <h3>Fruit Ripeness — IR Measurement Tool</h3>
+                        <p>Data-driven methodology to predict the fruit ripeness using geometric simple acoustics properties</p>
+                        <div class="project-links">
+                            <a href="project4/project4.html" class="project-link"><i class="fas fa-code"></i> View Details</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
     <section id="contact" class="contact-section">
         <div class="section-title">
              <h2 style="color: lightgoldenrodyellow">Get In Touch</h2>

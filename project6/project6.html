@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Federated Mixture-of-Experts for Efficient Spatial Acoustic Characterization</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --light-color: #ecf0f1;
+            --dark-color: #2c3e50;
+            --text-color: #333;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: #f9f9f9;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+        }
+
+        .back-button {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            background-color: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .back-button:hover {
+            background-color: var(--secondary-color);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin: 2rem 0 1rem;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            font-size: 1.4rem;
+            margin: 1.5rem 0 1rem;
+            color: var(--secondary-color);
+        }
+
+        h4 {
+            font-size: 1.2rem;
+            margin: 1rem 0;
+            color: var(--dark-color);
+        }
+
+        .authors {
+            font-style: italic;
+            margin-bottom: 1rem;
+        }
+
+        .abstract {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        .abstract h2 {
+            margin-top: 0;
+        }
+
+        .section {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        .demo-container {
+            margin: 1.5rem 0;
+        }
+
+        .room-map {
+            width: 100%;
+            max-width: 600px;
+            margin: 1rem auto;
+            display: block;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .audio-demo {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border-left: 4px solid var(--secondary-color);
+        }
+
+        .audio-player {
+            width: 100%;
+            margin: 0.5rem 0;
+        }
+
+        .caption {
+            font-style: italic;
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        .note {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .reference {
+            font-size: 0.9rem;
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+            text-indent: -1.5rem;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding: 1rem;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            h2 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Federated Mixture-of-Experts for Efficient Spatial Acoustic Characterization</h1>
+            <p class="authors">Gioele Greco¹, Dongzhe Zhang², Mirco Pezzoli¹, Member, IEEE, and Fabio Antonacci¹</p>
+            <p>¹Politecnico di Milano, Italy | ²Northwestern Polytechnical University, China</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <a href="https://gioelegrecome.github.io/" class="back-button">← Back to Main Page</a>
+
+        <div class="abstract">
+            <h2>Abstract</h2>
+            <p>Accurate and efficient spatial acoustic characterization is crucial for immersive audio applications, such as virtual and augmented reality, which require real-time, high-fidelity rendering of sound fields. Traditional methods, including physics-based simulations and centralized deep learning models, face significant challenges in scalability, data efficiency, and generalization under sparse measurement conditions. This paper introduces FAME, a Federated Acoustic Mixture-of-Experts framework designed for large-area spatial acoustic modeling. FAME decomposes the global sound field reconstruction task into localized sub-problems, each handled by a specialized neural network expert trained on region-specific data. A lightweight gating network intelligently combines these experts' predictions based on spatial queries, enabling seamless integration of new measurements without full retraining.</p>
+        </div>
+
+        <div class="section">
+            <h2>Introduction</h2>
+            <p>The spatial room impulse response (RIR) encapsulates how an acoustic environment transforms sound from a fixed source to a receiver location. Predicting these source-specific responses across large spatial regions is fundamental for six degrees of freedom (6DoF) audio rendering in virtual and augmented reality [1], architectural acoustics, and immersive audio applications. The challenge lies in modeling complex wave phenomena with strong spatial dependencies while maintaining real-time computational efficiency for streaming applications.</p>
+
+            <p>We propose FAME a Federated Experts Learning framework for higher-order Ambisonic sound field reconstruction that addresses these scalability challenges. Following the standard approach in spatial RIR modeling, our method learns the mapping from receiver positions to HOA RIRs for a given source location.</p>
+        </div>
+
+        <div class="section">
+            <h2>Audio Demonstrations</h2>
+            <div class="note">
+                <p><strong>Note:</strong> For optimal experience, please use earphones when listening to the audio demonstrations. The spatial audio effects are best perceived with headphones.</p>
+            </div>
+
+            <h3>Source 1</h3>
+
+            <h4>Test Position 1</h4>
+            <div class="demo-container">
+                <img src="room_map_source1_pos1.png" alt="Room map for Source 1, Test Position 1" class="room-map">
+                <p class="caption">Figure: Room layout with Source 1 (red) and Test Position 1 (blue)</p>
+
+                <div class="audio-demo">
+                    <p><strong>Original Recording:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/GT3.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+
+                <div class="audio-demo">
+                    <p><strong>FAME Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/FAME3.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+
+                <div class="audio-demo">
+                    <p><strong>PINN Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/PINN3.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+                <div class="audio-demo">
+                    <p><strong>PVM Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/VM3.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+                <div class="audio-demo">
+                    <p><strong>PCKI Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/kernel3.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+            </div>
+
+            <h4>Test Position 1</h4>
+            <div class="demo-container">
+                <img src="room_map_source1_pos2.png" alt="Room map for Source 1, Test Position 1" class="room-map">
+                <p class="caption">Figure: Room layout with Source 1 (red) and Test Position 2 (blue)</p>
+
+                <div class="audio-demo">
+                    <p><strong>Original Recording:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/GT20.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+
+                <div class="audio-demo">
+                    <p><strong>FAME Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/FAME20.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+
+                <div class="audio-demo">
+                    <p><strong>PINN Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/PINN20.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+                <div class="audio-demo">
+                    <p><strong>PVM Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/VM20.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+                <div class="audio-demo">
+                    <p><strong>PCKI Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/Kernel20.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+            </div>
+
+            <h3>Source 2</h3>
+
+            <h4>Test Position 1</h4>
+            <div class="demo-container">
+                <img src="room_map_source2_pos1.png" alt="Room map for Source 2, Test Position 1" class="room-map">
+                <p class="caption">Figure: Room layout with Source 2 (red) and Test Position 1 (blue)</p>
+
+                <div class="audio-demo">
+                    <p><strong>Original Recording:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/GT28.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+
+                <div class="audio-demo">
+                    <p><strong>FAME Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/FAME28.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+
+                <div class="audio-demo">
+                    <p><strong>PINN Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/PINN28.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+                <div class="audio-demo">
+                    <p><strong>PVM Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/VM28.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+                <div class="audio-demo">
+                    <p><strong>PCKI Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/Kernel28.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+            </div>
+
+            <h4>Test Position 2</h4>
+            <div class="demo-container">
+                <img src="room_map_source2_pos2.png" alt="Room map for Source 2, Test Position 2" class="room-map">
+                <p class="caption">Figure: Room layout with Source 2 (red) and Test Position 2 (blue)</p>
+
+                <div class="audio-demo">
+                    <p><strong>Original Recording:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/GT45.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+
+                <div class="audio-demo">
+                    <p><strong>FAME Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/FAME45.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+
+                <div class="audio-demo">
+                    <p><strong>PINN Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/PINN45.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+                <div class="audio-demo">
+                    <p><strong>PVM Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/VM45.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+                <div class="audio-demo">
+                    <p><strong>PCKI Reconstruction:</strong></p>
+                    <audio controls class="audio-player">
+                        <source src="audio/Kernel45.mp3" type="audio/wav">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Method Overview</h2>
+            <p>FAME decomposes the global sound field reconstruction task into localized sub-problems, each handled by a specialized neural network expert trained on region-specific data. A lightweight gating network intelligently combines these experts' predictions based on spatial queries, enabling seamless integration of new measurements without full retraining.</p>
+
+            <p>Our federated setup assumes that the measuring space is spatially partitioned into K non-overlapping subsets corresponding to distinct receiver regions. Each expert network learns the local mapping from coordinates to the preprocessed, normalized HOA RIR.</p>
+        </div>
+
+        <div class="section">
+            <h2>Results</h2>
+            <p>Evaluated on a benchmark dataset of higher-order ambisonic room impulse responses [10], FAME significantly outperforms state-of-the-art baselines in reconstruction accuracy, directional error, and energy decay preservation. The framework offers a scalable, data-efficient solution for real-time spatial audio applications, supporting incremental expansion and robust performance in sparse-data regimes.</p>
+
+            <p>Key advantages of FAME:</p>
+            <ul>
+                <li>Scalable deployment - new spatial regions can be incorporated without retraining existing models</li>
+                <li>Real-time estimation capabilities with lightweight expert networks</li>
+                <li>Straightforward implementation with modular design</li>
+                <li>Superior spatial extrapolation compared to monolithic models</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>References</h2>
+            <p class="reference">[1] M. Ralph et al., "A survey of spatial audio in virtual and augmented reality," in Proc. IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP). IEEE, 2020, pp. 4362-4366.</p>
+            <p class="reference">[10] M. Miolicito and Others, "Homma RIR dataset: A comprehensive collection of higher-order ambisonic room impulse responses," Journal of Audio Engineering Society, vol. 72, no. 4, pp. 122-135, 2024.</p>
+            <p class="reference">[11] Juliano G. C. Ribeiro, Shoichi Koyama, Ryosuke Horiuchi, and Hiroshi Saruwatari, "Sound field estimation based on physics-constrained kernel interpolation adapted to environment," IEEE/ACM Transactions on Audio, Speech, and Language Processing, vol. 32, pp. 4369-4383, 2024.</p>
+            <p class="reference">[12] Xenofon Karakonstantis, Diego Caviedes-Nozal, Antoine Richard, and Efrem Fernandez-Graude, "Room impulse response reconstruction with physics-informed deep learning," The Journal of the Acoustical Society of America, vol. 155, no. 2, pp. 1048-1059, 02 2024.</p>
+            <p class="reference">[13] Mirco Pezzoli, Federico Borra, Fabio Antonacci, Stefano Tubaro, and Augusto Sarti, "A parametric approach to virtual mixing for sources of arbitrary directivity," IEEE/ACM Transactions on Audio, Speech, and Language Processing, vol. 28, pp. 2333-2348, 2020.</p>
+        </div>
+
+        <a href="https://gioelegrecome.github.io/" class="back-button">← Back to Main Page</a>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>© 2024 Gioele Greco | Politecnico di Milano</p>
+            <p>For more information, please contact: gioele.greco@polimi.it</p>
+        </div>
+    </footer>
+</body>
+</html>
