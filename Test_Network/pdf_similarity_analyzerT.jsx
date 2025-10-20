@@ -46,6 +46,22 @@ const XIcon = ({ className }) => (
 
 // --- 2. Helper Functions ---
 
+// Singleton class to handle loading the ML model pipeline
+class PipelineSingleton {
+    static task = 'feature-extraction';
+    static model = 'Xenova/all-MiniLM-L6-v2';
+    static instance = null;
+
+    static async getInstance(progress_callback = null) {
+        if (this.instance === null) {
+            const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1');
+            this.instance = pipeline(this.task, this.model, { progress_callback });
+        }
+        return this.instance;
+    }
+}
+
+
 const ENGLISH_STOP_WORDS = new Set([
   'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', 'aren\'t', 'as', 'at',
   'be', 'because', 'been', 'before', 'being', 'below', 'between', 'both', 'but', 'by', 'can\'t', 'cannot', 'could',
@@ -129,10 +145,20 @@ const removeBibliography = (text) => {
 };
 
 /**
- * Extracts the top 5 most relevant keyword descriptors from a text based on TF-IDF scores.
+ * Extracts the top 5 most relevant keyword descriptors from a text.
  */
-const extractDescriptorsFromTfidf = (tfidfScores) => {
-    return Object.entries(tfidfScores)
+const extractDescriptorsFromText = (text) => {
+    if (!text) return [];
+    const wordCounts = new Map();
+    const words = text.toLowerCase().match(/\b\w+\b/g) || [];
+
+    for (const word of words) {
+        if (word.length >= 4 && !ENGLISH_STOP_WORDS.has(word)) {
+            wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
+        }
+    }
+
+    return Array.from(wordCounts.entries())
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
         .map(entry => entry[0]);
@@ -153,68 +179,31 @@ const createSimpleHash = (text) => {
 };
 
 /**
- * Calculates the Cosine Similarity between two TF-IDF score objects.
+ * Calculates the Cosine Similarity between two dense vectors (arrays).
  */
-const cosineSimilarity = (tfidfA, tfidfB) => {
+const cosineSimilarity = (vecA, vecB) => {
     let dotProduct = 0;
     let magnitudeA = 0;
     let magnitudeB = 0;
 
-    const allKeys = new Set([...Object.keys(tfidfA), ...Object.keys(tfidfB)]);
-
-    allKeys.forEach(key => {
-        const valA = tfidfA[key] || 0;
-        const valB = tfidfB[key] || 0;
-        dotProduct += valA * valB;
-    });
-
-    for (const val of Object.values(tfidfA)) {
-        magnitudeA += val * val;
+    if (!vecA || !vecB || vecA.length !== vecB.length) {
+        console.error("Vector dimensions do not match or vectors are invalid!");
+        return 0;
     }
+
+    for (let i = 0; i < vecA.length; i++) {
+        dotProduct += vecA[i] * vecB[i];
+        magnitudeA += vecA[i] * vecA[i];
+        magnitudeB += vecB[i] * vecB[i];
+    }
+
     magnitudeA = Math.sqrt(magnitudeA);
-
-    for (const val of Object.values(tfidfB)) {
-        magnitudeB += val * val;
-    }
     magnitudeB = Math.sqrt(magnitudeB);
 
     if (magnitudeA === 0 || magnitudeB === 0) return 0;
 
     return dotProduct / (magnitudeA * magnitudeB);
 };
-
-const getTopConnectingTerms = (tfidfA, tfidfB) => {
-    const termContributions = [];
-    let dotProduct = 0;
-
-    const allKeys = new Set([...Object.keys(tfidfA), ...Object.keys(tfidfB)]);
-
-    allKeys.forEach(key => {
-        const valA = tfidfA[key] || 0;
-        const valB = tfidfB[key] || 0;
-        if (valA > 0 && valB > 0) { // Only consider terms present in both
-            const contribution = valA * valB;
-            dotProduct += contribution;
-            termContributions.push({ term: key, contribution });
-        }
-    });
-
-    if (dotProduct === 0) {
-        return [];
-    }
-
-    // Sort by contribution and calculate percentage
-    const topTerms = termContributions
-        .sort((a, b) => b.contribution - a.contribution)
-        .slice(0, 5) // Get top 5
-        .map(item => ({
-            ...item,
-            percentage: (item.contribution / dotProduct) * 100
-        }));
-
-    return topTerms;
-};
-
 
 /**
  * Finds the shortest path between two nodes using Breadth-First Search.
@@ -506,7 +495,26 @@ const InfoPanel = ({ selectedElement, documents, proximityMatrix }) => {
         if (edge) {
             const docA = documents.find(d => d.id === edge.source);
             const docB = documents.find(d => d.id === edge.target);
-            const topTerms = getTopConnectingTerms(docA.vector, docB.vector);
+
+            const getCommonTerms = (textA, textB) => {
+                const wordsA = new Set((textA.toLowerCase().match(/\b\w+\b/g) || []).filter(w => w.length >= 4 && !ENGLISH_STOP_WORDS.has(w)));
+                const wordsB = new Set((textB.toLowerCase().match(/\b\w+\b/g) || []).filter(w => w.length >= 4 && !ENGLISH_STOP_WORDS.has(w)));
+                const commonWords = [...wordsA].filter(word => wordsB.has(word));
+                const combinedText = textA + " " + textB;
+                const wordCounts = new Map();
+                (combinedText.toLowerCase().match(/\b\w+\b/g) || []).forEach(word => {
+                    if (commonWords.includes(word)) {
+                        wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
+                    }
+                });
+                return Array.from(wordCounts.entries())
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5)
+                    .map(entry => entry[0]);
+            };
+
+            const commonTerms = getCommonTerms(docA.fullText, docB.fullText);
+
             content = (
                  <div className="p-4">
                     <h3 className="font-bold text-lg text-emerald-300">Similarity: {(edge.similarity * 100).toFixed(2)}%</h3>
@@ -515,19 +523,16 @@ const InfoPanel = ({ selectedElement, documents, proximityMatrix }) => {
                          <p className="text-sm text-gray-300 break-words"><span className="font-semibold text-gray-400">Doc B:</span> {docB.title}</p>
                      </div>
                      <div className="mt-4">
-                        <h4 className="font-semibold text-gray-400 mb-2">Statistiche di Connessione</h4>
-                        <p className="text-xs text-gray-500 mb-3">I termini che contribuiscono maggiormente alla similarità:</p>
-                        {topTerms.length > 0 ? (
-                            <ul className="space-y-2">
-                                {topTerms.map(item => (
-                                    <li key={item.term} className="text-sm text-gray-300 flex justify-between items-center">
-                                        <span>{item.term}</span>
-                                        <span className="font-mono text-xs bg-gray-700 px-2 py-1 rounded">{item.percentage.toFixed(1)}%</span>
-                                    </li>
+                        <h4 className="font-semibold text-gray-400 mb-2">Termini Semantici Comuni</h4>
+                        <p className="text-xs text-gray-500 mb-3">I concetti più rilevanti condivisi tra i due documenti:</p>
+                        {commonTerms.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                                {commonTerms.map(term => (
+                                    <span key={term} className="px-2 py-1 bg-gray-700 text-gray-200 text-xs rounded-md">{term}</span>
                                 ))}
-                            </ul>
+                            </div>
                         ) : (
-                            <p className="text-sm text-gray-400 italic">Nessun termine in comune significativo.</p>
+                            <p className="text-sm text-gray-400 italic">Nessun termine comune significativo trovato.</p>
                         )}
                     </div>
                 </div>
@@ -582,6 +587,7 @@ const DocumentList = ({ documents, pathNodes, onTogglePathNode, onDeselectAll })
 
 function App() {
     const [isPdfJsReady, setIsPdfJsReady] = useState(false);
+    const [pipelineStatus, setPipelineStatus] = useState({ready: false, message: 'Initializing AI model...'});
     const [files, setFiles] = useState([]);
     const [documents, setDocuments] = useState([]);
     const [processingState, setProcessingState] = useState({ isLoading: false, progress: 0, message: '' });
@@ -609,6 +615,20 @@ function App() {
         return () => clearInterval(checkPdfJs);
     }, []);
 
+    // Initialize the AI pipeline
+    useEffect(() => {
+        setPipelineStatus({ready: false, message: 'Loading AI model...'});
+        PipelineSingleton.getInstance(progress => {
+            const percent = (progress.progress || 0).toFixed(2);
+            setPipelineStatus({ready: false, message: `Downloading model... ${percent}%`});
+        }).then(() => {
+            setPipelineStatus({ready: true, message: 'AI Model Ready'});
+        }).catch(err => {
+            setErrorMessage("Failed to load AI model. Please refresh the page.");
+            console.error(err);
+        });
+    }, []);
+
     const handleFileChange = (event) => {
         const newFiles = Array.from(event.target.files);
         setFiles(prevFiles => {
@@ -619,7 +639,7 @@ function App() {
     };
 
     const performAnalysis = useCallback(async () => {
-        if (files.length === 0) return;
+        if (files.length === 0 || !pipelineStatus.ready) return;
         setErrorMessage(null);
         setInfoMessage(null);
         setProcessingState({ isLoading: true, progress: 0, message: 'Initializing...' });
@@ -633,7 +653,7 @@ function App() {
 
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
-            setProcessingState(prev => ({ ...prev, progress: ((i + 1) / files.length) * 50, message: `Reading ${file.name}...` }));
+            setProcessingState(prev => ({ ...prev, progress: ((i + 1) / files.length) * 40, message: `Reading ${file.name}...` }));
 
             try {
                 const fileReader = new FileReader();
@@ -668,59 +688,41 @@ function App() {
                 });
             } catch (error) {
                 console.error(`Failed to process ${file.name}:`, error);
-                setErrorMessage(`Errore during l'elaborazione di "${file.name}". Il file potrebbe essere protetto da password, corrotto o in un formato non supportato.`);
+                setErrorMessage(`Errore durante l'elaborazione di "${file.name}". Il file potrebbe essere protetto da password, corrotto o in un formato non supportato.`);
                 setProcessingState({ isLoading: false, progress: 0, message: 'Analysis failed.' });
                 return;
             }
         }
 
         if (docData.length > 0) {
-            setProcessingState(prev => ({ ...prev, progress: 50, message: 'Calculating semantic features...' }));
+            try {
+                setProcessingState({ isLoading: true, progress: 50, message: 'Generating semantic vectors...' });
+                const textsToEmbed = docData.map(doc => doc.fullText);
 
-            const allDocsTokens = docData.map(doc => {
-                const words = doc.fullText.toLowerCase().match(/\b\w+\b/g) || [];
-                return words.filter(word => word.length >= 4 && !ENGLISH_STOP_WORDS.has(word));
-            });
+                const extractor = await PipelineSingleton.getInstance();
+                const embeddings = await extractor(textsToEmbed, { pooling: 'mean', normalize: true });
+                const semanticVectors = embeddings.tolist();
 
-            const docCount = allDocsTokens.length;
+                if (semanticVectors.length !== docData.length) {
+                    throw new Error("Mismatch between documents and returned vectors.");
+                }
 
-            const documentFrequencies = new Map();
-            allDocsTokens.forEach(tokens => {
-                const uniqueTokens = new Set(tokens);
-                uniqueTokens.forEach(token => {
-                    documentFrequencies.set(token, (documentFrequencies.get(token) || 0) + 1);
-                });
-            });
-
-            const idfScores = new Map();
-            documentFrequencies.forEach((df, token) => {
-                idfScores.set(token, Math.log(docCount / (1 + df)));
-            });
-
-            const finalProcessedDocs = allDocsTokens.map((tokens, i) => {
-                setProcessingState(prev => ({ ...prev, progress: 50 + ((i + 1) / docCount) * 50, message: `Vectorizing ${docData[i].title}...` }));
-                const docInfo = docData[i];
-
-                const termFrequencies = new Map();
-                tokens.forEach(token => termFrequencies.set(token, (termFrequencies.get(token) || 0) + 1));
-
-                const tfidfScores = {};
-                termFrequencies.forEach((tf_count, token) => {
-                    const tf = tf_count / tokens.length;
-                    const idf = idfScores.get(token) || 0;
-                    tfidfScores[token] = tf * idf;
+                const finalProcessedDocs = docData.map((doc, i) => {
+                    return {
+                        ...doc,
+                        vector: semanticVectors[i],
+                        descriptors: extractDescriptorsFromText(doc.fullText)
+                    };
                 });
 
-                return {
-                    ...docInfo,
-                    descriptors: extractDescriptorsFromTfidf(tfidfScores),
-                    vector: tfidfScores
-                };
-            });
+                setDocuments(finalProcessedDocs);
 
-            setDocuments(finalProcessedDocs);
+            } catch (apiError) {
+                setErrorMessage(`AI Model Error: ${apiError.message}.`);
+                setProcessingState({ isLoading: false, progress: 0, message: '' });
+                return;
+            }
         }
-
 
         setProcessingState({ isLoading: false, progress: 100, message: 'Analysis Complete!' });
 
@@ -728,7 +730,7 @@ function App() {
             setErrorMessage(`I seguenti file sono stati ignorati perché duplicati: ${skippedFiles.join(', ')}`);
         }
 
-    }, [files]);
+    }, [files, pipelineStatus.ready]);
 
     const proximityMatrix = useMemo(() => {
         if (documents.length < 2) return [];
@@ -795,6 +797,7 @@ function App() {
     };
 
     const uploadButtonText = errorMessage ? 'Error' : isPdfJsReady ? 'Upload PDFs' : 'Initializing...';
+    const analyzeButtonDisabled = files.length === 0 || processingState.isLoading || !pipelineStatus.ready;
 
     return (
         <div className="bg-gray-900 text-gray-100 font-sans w-full h-screen flex flex-col p-4 gap-4 relative">
@@ -825,7 +828,9 @@ function App() {
                             <span>{uploadButtonText}</span>
                         </button>
                         <input type="file" multiple accept=".pdf" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                        <button onClick={performAnalysis} disabled={files.length === 0 || processingState.isLoading} className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">Analyze Documents ({files.length})</button>
+                        <button onClick={performAnalysis} disabled={analyzeButtonDisabled} className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">
+                            {pipelineStatus.ready ? `Analyze Documents (${files.length})` : 'Loading AI...'}
+                        </button>
                         <button onClick={handleDownloadCSV} disabled={documents.length === 0 || processingState.isLoading} className="px-4 py-2 bg-gray-600 text-white rounded-md flex items-center gap-2 hover:bg-gray-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"><DownloadIcon className="h-5 w-5"/>Download CSV</button>
                     </div>
                 </div>
@@ -836,8 +841,14 @@ function App() {
                     <DocumentList documents={documents} pathNodes={pathNodes} onTogglePathNode={handleTogglePathNode} onDeselectAll={handleDeselectAll} />
                 </aside>
                 <section className="col-span-3 flex flex-col gap-2">
-                    {processingState.isLoading && <div className="w-full bg-gray-700 rounded-full h-2.5 mb-2"><div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${processingState.progress}%` }}></div></div>}
-                     <p className="text-xs text-center text-gray-400 h-4">{processingState.isLoading ? processingState.message : documents.length > 0 ? "Analysis complete. Interact with the graph." : "Ready for analysis."}</p>
+                    <div className="h-4 text-xs text-center text-gray-400">
+                        {processingState.isLoading ? (
+                            <div className="w-full bg-gray-700 rounded-full h-2.5 "><div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${processingState.progress}%` }}></div></div>
+                        ) : (
+                            <p>{!pipelineStatus.ready ? pipelineStatus.message : "Ready for analysis."}</p>
+                        )}
+                         <p>{processingState.isLoading ? processingState.message : ""}</p>
+                    </div>
                     <GraphViewer documents={documents} proximityMatrix={proximityMatrix} onSelect={setSelectedElement} selectedElement={selectedElement} pathNodes={pathNodes} highlightedPath={highlightedPath} similarityThreshold={similarityThreshold}/>
                 </section>
                 <aside className="col-span-1 min-h-0">

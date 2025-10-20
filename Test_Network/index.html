@@ -18,6 +18,8 @@
     <!-- 4. Babel - The JSX Translator (IMPORTANT!) -->
     <!-- This script finds and translates your JSX code for the browser. -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Aggiungi questa riga per caricare la libreria Transformers.js -->
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1"></script>
 
 </head>
 <body class="bg-gray-900">
@@ -30,7 +32,7 @@
       Notice the type="text/babel". This tells the Babel script to translate this file.
       The "data-presets" attribute enables modern React features.
     -->
-    <script type="text/babel" data-presets="react" src="pdf_similarity_analyzer.jsx"></script>
+    <script type="text/babel" data-presets="react" src="pdf_similarity_analyzerT.jsx"></script>
 
 </body>
 </html>
