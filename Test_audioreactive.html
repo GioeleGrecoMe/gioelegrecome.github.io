@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galactic Tonality Weaver</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000000;
+            color: #e0e0e0;
+            font-family: 'Inter', 'Helvetica Neue', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            cursor: none;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #permission-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            z-index: 10;
+            padding: 2rem;
+            background-color: rgba(10, 0, 20, 0.7);
+            border-radius: 1rem;
+            border: 1px solid rgba(120, 80, 255, 0.3);
+            box-shadow: 0 0 30px rgba(120, 80, 255, 0.2);
+        }
+        h1 {
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin-bottom: 0.5rem;
+        }
+        p {
+            max-width: 500px;
+            line-height: 1.6;
+            color: #b0b0c0;
+            margin-bottom: 1.5rem;
+        }
+        button {
+            background: linear-gradient(135deg, #8a2be2, #4b0082);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(138, 43, 226, 0.4);
+        }
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(138, 43, 226, 0.6);
+        }
+        #controls-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 25px;
+            background-color: rgba(10, 0, 20, 0.6);
+            border-radius: 10px;
+            border: 1px solid rgba(120, 80, 255, 0.2);
+            z-index: 20;
+            width: 80%;
+            max-width: 500px;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+        .control-group label {
+            min-width: 130px;
+            font-size: 0.9rem;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 5px;
+            background: rgba(120, 80, 255, 0.3);
+            border-radius: 5px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #e0e0e0;
+            cursor: pointer;
+            border-radius: 50%;
+            border: 2px solid #8a2be2;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 15px;
+            height: 15px;
+            background: #e0e0e0;
+            cursor: pointer;
+            border-radius: 50%;
+             border: 2px solid #8a2be2;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="visualizer-canvas"></canvas>
+    <div id="permission-container">
+        <h1>Galactic Tonality Weaver</h1>
+        <p>This experience uses your microphone to orchestrate a cosmic dance. A persistent cloud of stardust is pulled through the void by a gravitational force born from the character of your sound.</p>
+        <button id="start-button">Allow Microphone & Enter the Cosmos</button>
+    </div>
+
+    <div id="controls-container">
+        <div class="control-group">
+            <label for="sensitivity">Mic Sensitivity</label>
+            <input type="range" id="sensitivity" min="0.5" max="10" value="1.5" step="0.1">
+        </div>
+        <div class="control-group">
+            <label for="viscosity">System Viscosity</label>
+            <input type="range" id="viscosity" min="900" max="995" value="970">
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const canvas = document.getElementById('visualizer-canvas');
+        const ctx = canvas.getContext('2d');
+        const permissionContainer = document.getElementById('permission-container');
+        const startButton = document.getElementById('start-button');
+        const controlsContainer = document.getElementById('controls-container');
+        const sensitivitySlider = document.getElementById('sensitivity');
+        const viscositySlider = document.getElementById('viscosity');
+
+        // --- Canvas & Mouse Setup ---
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+        const mousePos = { x: width / 2, y: height / 2 };
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+        window.addEventListener('mousemove', (e) => {
+            mousePos.x = e.clientX;
+            mousePos.y = e.clientY;
+        });
+
+        // --- Audio Context Setup ---
+        let audioContext;
+        let analyser;
+        let microphone;
+        let frequencyArray;
+
+        // --- The Physics of Our Universe ---
+        /*
+            UPDATED LAWS:
+            1.  STAGGERED BIRTH: Particles now begin their existence at a random point in their
+                lifespan. This ensures that from the very beginning, particles are continuously
+                dying and being reborn into the flux, creating a natural, persistent river.
+
+            2.  FINITE LIFESPAN: Each particle still has a maximum lifespan of ~3 seconds. When it
+                dies (or flows off-screen), it is reborn on the left, maintaining the river.
+
+            (Previous laws for dynamic gravity, river flux, color memory, etc., remain.)
+        */
+
+        const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        const MAX_PARTICLE_COUNT = 3000;
+        let particles = [];
+        let attractors = [];
+        let dipoleAngle = 0;
+        let sensitivity = 1.5;
+        let viscosity = 0.97;
+
+        // --- Utility Functions ---
+        function getNoteFromPitch(frequency) {
+            if (frequency === 0) return null;
+            const noteNum = 12 * (Math.log(frequency / 440) / Math.log(2));
+            const noteIndex = (Math.round(noteNum) + 69) % 12;
+            return noteStrings[noteIndex];
+        }
+
+        function getHueFromNote(note) {
+            if (!note) return 240;
+            const noteIndex = noteStrings.indexOf(note);
+            return (noteIndex / 12) * 360;
+        }
+
+        // --- Particle Class ---
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.baseSize = 0.5 + Math.random() * 1.5;
+                this.size = this.baseSize;
+                this.hue = Math.random() * 360;
+                this.saturation = 90;
+                this.lightness = 50;
+                this.maxAge = 120*6 + Math.random() * 60; // Lifespan of 2 to 3 seconds (at 60fps)
+                this.age = Math.random() * this.maxAge; // BUG FIX: Start at a random age
+            }
+
+            reset() {
+                this.x = -50; // Reborn on the left for the river
+                this.y = Math.random() * height;
+                this.vx = 0;
+                this.vy = (Math.random() - 0.5) * 0.5;
+                this.age = 0;
+                this.hue = Math.random() * 360; // Give it a new random color on rebirth
+            }
+
+            update(attractors, gravityStrength, targetHue, currentViscosity) {
+                let totalAx = 0;
+                let totalAy = 0;
+
+                for (const attractor of attractors) {
+                    const dx = attractor.x - this.x;
+                    const dy = attractor.y - this.y;
+                    let distSq = dx * dx + dy * dy;
+
+                    const minGravityRadius = 2000 + gravityStrength / 5;
+                    distSq = Math.max(minGravityRadius, distSq);
+
+                    const dist = Math.sqrt(distSq);
+
+                    const force = gravityStrength / distSq;
+                    const orbitalStrength = 0.15;
+
+                    const ax = (dx / dist) * force - (dy / dist) * force * orbitalStrength;
+                    const ay = (dy / dist) * force + (dx / dist) * force * orbitalStrength;
+
+                    totalAx += ax;
+                    totalAy += ay;
+                }
+
+                const riverTop = height * 0.3;
+                const riverBottom = height * 0.3;
+                let appliedRiverForce = 0.005;
+
+                if (this.y > riverTop && this.y < riverBottom) {
+                    appliedRiverForce = 0.1;
+                }
+
+                this.vx += totalAx + appliedRiverForce;
+                this.vy += totalAy;
+                this.vx *= currentViscosity;
+                this.vy *= currentViscosity;
+                this.x += this.vx;
+                this.y += this.vy;
+
+                this.age++;
+
+                const firstAttractor = attractors[0] || { x: this.x, y: this.y };
+                const distToCenter = Math.hypot(firstAttractor.x - this.x, firstAttractor.y - this.y);
+                const distanceRatio = Math.min(1, distToCenter / (width / 2.5));
+                const lerpFactor = 0.1 * (1 - distanceRatio);
+
+                let hueDiff = targetHue - this.hue;
+                if (hueDiff > 180) hueDiff -= 360;
+                if (hueDiff < -180) hueDiff += 360;
+                this.hue = (this.hue + hueDiff * lerpFactor + 360) % 360;
+
+                this.lightness = 50 + (this.vx * this.vx + this.vy * this.vy) * 20;
+                this.size = this.baseSize + (gravityStrength / 20000);
+
+                if (this.x > width + 50 || this.age > this.maxAge) {
+                    this.reset();
+                }
+                 if (this.y > height + 50) this.y = -50;
+                if (this.y < -50) this.y = height + 50;
+            }
+
+            draw() {
+                const color = `hsl(${this.hue}, ${this.saturation}%, ${this.lightness}%)`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 8;
+                ctx.fill();
+            }
+        }
+
+        function initParticles() {
+             for (let i = 0; i < MAX_PARTICLE_COUNT; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        // --- Main Animation Loop ---
+        function animate() {
+            if (!analyser) return;
+            requestAnimationFrame(animate);
+
+            analyser.getByteFrequencyData(frequencyArray);
+            const totalEnergy = frequencyArray.reduce((a, b) => a + b, 0);
+            const adjustedEnergy = totalEnergy * sensitivity;
+
+            const SILENCE_THRESHOLD = 500 * sensitivity;
+            let currentViscosity = viscosity;
+            let gravityStrength;
+
+            if (adjustedEnergy < SILENCE_THRESHOLD) {
+                currentViscosity = 0.92;
+                gravityStrength = 0;
+                attractors = [{ x: mousePos.x, y: mousePos.y }]; // Monopole
+            } else {
+                gravityStrength = 2000 + (adjustedEnergy / 255) * 40;
+                dipoleAngle += 0.02;
+                const radius = 150 + gravityStrength / 1000;
+                const noise = 15;
+                const noisyMouseX = mousePos.x + (Math.random() - 0.5) * noise;
+                const noisyMouseY = mousePos.y + (Math.random() - 0.5) * noise;
+
+                const attractor1 = {
+                    x: noisyMouseX + Math.cos(dipoleAngle) * radius,
+                    y: noisyMouseY + Math.sin(dipoleAngle) * radius
+                };
+                const attractor2 = {
+                    x: noisyMouseX - Math.cos(dipoleAngle) * radius,
+                    y: noisyMouseY - Math.sin(dipoleAngle) * radius
+                };
+                attractors = [attractor1, attractor2]; // Dipole
+            }
+
+            let maxVal = -1, maxIndex = -1;
+            for (let i = 0; i < frequencyArray.length; i++) {
+                if (frequencyArray[i] > maxVal && frequencyArray[i] > 128) {
+                    maxVal = frequencyArray[i];
+                    maxIndex = i;
+                }
+            }
+            const pitch = maxIndex * (audioContext.sampleRate / 2) / frequencyArray.length;
+            const currentNote = getNoteFromPitch(pitch);
+            const hue = getHueFromNote(currentNote);
+
+            ctx.fillStyle = 'rgb(0, 0, 0)';
+            ctx.fillRect(0, 0, width, height);
+
+            particles.forEach(p => p.update(attractors, gravityStrength, hue, currentViscosity));
+            particles.forEach(p => p.draw());
+        }
+
+        // --- Event Listeners for Controls ---
+        sensitivitySlider.addEventListener('input', (e) => {
+            sensitivity = parseFloat(e.target.value);
+        });
+        viscositySlider.addEventListener('input', (e) => {
+            viscosity = parseFloat(e.target.value) / 1000;
+        });
+
+        // --- Initialization on Button Click ---
+        startButton.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 2048;
+                analyser.smoothingTimeConstant = 0.8;
+
+                microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(analyser);
+
+                frequencyArray = new Uint8Array(analyser.frequencyBinCount);
+
+                permissionContainer.style.transition = 'opacity 0.5s ease';
+                permissionContainer.style.opacity = '0';
+                setTimeout(() => permissionContainer.style.display = 'none', 500);
+
+                controlsContainer.style.display = 'flex';
+
+                initParticles();
+                animate();
+            } catch (err) {
+                console.error("Error accessing microphone:", err);
+                permissionContainer.innerHTML = `
+                    <h1>Microphone Access Denied</h1>
+                    <p>Please allow microphone access in your browser settings and refresh the page to continue.</p>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>
+

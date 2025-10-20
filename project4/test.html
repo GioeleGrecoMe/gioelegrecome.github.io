@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Impulse Response Estimator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        
+        .control-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .control-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        label {
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        select, input {
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            background: #f8f9fa;
+        }
+        
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 14px 25px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        
+        button:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+        }
+        
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .status {
+            text-align: center;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+            background: #f8f9fa;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .status.active {
+            display: block;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .canvas-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        canvas {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            width: 100%;
+            height: 300px;
+        }
+        
+        .canvas-title {
+            text-align: center;
+            margin: 10px 0;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .info-box {
+            background: #e8f4fc;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            border-radius: 0 4px 4px 0;
+            margin: 20px 0;
+        }
+        
+        .info-box h3 {
+            margin-bottom: 10px;
+            color: #2980b9;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .control-group {
+                grid-template-columns: 1fr;
+            }
+            
+            .canvas-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Room Impulse Response Estimator</h1>
+            <p class="subtitle">Measure and visualize the acoustic response of your room using sine sweep deconvolution</p>
+        </header>
+        
+        <div class="card">
+            <div class="control-group">
+                <div class="control-item">
+                    <label for="micSelect">Microphone</label>
+                    <select id="micSelect">
+                        <option value="">Loading microphones...</option>
+                    </select>
+                </div>
+                <div class="control-item">
+                    <label for="speakerSelect">Speaker</label>
+                    <select id="speakerSelect">
+                        <option value="">Loading speakers...</option>
+                    </select>
+                </div>
+                <div class="control-item">
+                    <label for="timeInput">Measurement Duration (seconds)</label>
+                    <input type="number" id="timeInput" value="1" min="0.5" max="5" step="0.1">
+                </div>
+                <div class="control-item">
+                    <label>&nbsp;</label>
+                    <button id="measureBtn" disabled>Measure RIR</button>
+                </div>
+            </div>
+            
+            <div class="status" id="status">Measuring room impulse response...</div>
+            
+            <div class="info-box">
+                <h3>How to Use</h3>
+                <ol>
+                    <li>Select your microphone and speaker devices from the dropdowns</li>
+                    <li>Set the measurement duration (0.5-5 seconds)</li>
+                    <li>Click "Measure RIR" to start the process</li>
+                    <li>The app will play a sine sweep through your speaker while recording with your microphone</li>
+                    <li>After measurement, the RIR will be displayed in time and frequency domains</li>
+                </ol>
+                <p><strong>Note:</strong> Make sure your speakers are playing sound and microphone is capturing sound during measurement.</p>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="canvas-container">
+                <div>
+                    <div class="canvas-title">Time Domain RIR</div>
+                    <canvas id="timeCanvas"></canvas>
+                </div>
+                <div>
+                    <div class="canvas-title">Frequency Domain RIR</div>
+                    <canvas id="freqCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Room Impulse Response Estimator | Created with Web Audio API</p>
+            <p>Measure the acoustic characteristics of your room for audio processing applications</p>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/fft.js@0.0.0/fft.min.js"></script>
+    <script>
+        // Global variables
+        let audioContext = null;
+        let micStream = null;
+        let processor = null;
+        let gainNode = null;
+        let recordedSamples = [];
+        let isMeasuring = false;
+        let selectedMicId = null;
+        let selectedSpeakerId = null;
+        
+        // DOM elements
+        const micSelect = document.getElementById('micSelect');
+        const speakerSelect = document.getElementById('speakerSelect');
+        const timeInput = document.getElementById('timeInput');
+        const measureBtn = document.getElementById('measureBtn');
+        const statusDiv = document.getElementById('status');
+        const timeCanvas = document.getElementById('timeCanvas');
+        const freqCanvas = document.getElementById('freqCanvas');
+        
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', init);
+        
+        function init() {
+            // Load devices
+            enumerateDevices();
+            
+            // Set up event listeners
+            measureBtn.addEventListener('click', startMeasurement);
+            timeInput.addEventListener('change', checkEnableMeasure);
+            
+            // Check if we can measure
+            checkEnableMeasure();
+        }
+        
+        function enumerateDevices() {
+            navigator.mediaDevices.enumerateDevices()
+                .then(devices => {
+                    // Clear existing options
+                    micSelect.innerHTML = '';
+                    speakerSelect.innerHTML = '';
+                    
+                    // Add default options
+                    micSelect.appendChild(createOption('Select microphone', ''));
+                    speakerSelect.appendChild(createOption('Select speaker', ''));
+                    
+                    // Add device options
+                    devices.forEach(device => {
+                        if (device.kind === 'audioinput') {
+                            micSelect.appendChild(createOption(device.label || `Microphone ${micSelect.options.length}`, device.deviceId));
+                        } else if (device.kind === 'audiooutput') {
+                            speakerSelect.appendChild(createOption(device.label || `Speaker ${speakerSelect.options.length}`, device.deviceId));
+                        }
+                    });
+                    
+                    // Enable the measure button if devices are selected
+                    checkEnableMeasure();
+                })
+                .catch(err => {
+                    console.error('Error enumerating devices:', err);
+                    micSelect.innerHTML = '<option value="">Error loading devices</option>';
+                    speakerSelect.innerHTML = '<option value="">Error loading devices</option>';
+                });
+        }
+        
+        function createOption(text, value) {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = text;
+            return option;
+        }
+        
+        function checkEnableMeasure() {
+            const micSelected = micSelect.value !== '';
+            const speakerSelected = speakerSelect.value !== '';
+            const durationValid = timeInput.value >= 0.5 && timeInput.value <= 5;
+            
+            measureBtn.disabled = !(micSelected && speakerSelected && durationValid);
+        }
+        
+        function startMeasurement() {
+            if (isMeasuring) return;
+            
+            selectedMicId = micSelect.value;
+            selectedSpeakerId = speakerSelect.value;
+            const duration = parseFloat(timeInput.value);
+            
+            // Update status
+            statusDiv.textContent = 'Starting measurement...';
+            statusDiv.className = 'status active';
+            
+            // Disable button
+            measureBtn.disabled = true;
+            isMeasuring = true;
+            
+            // Start recording
+            startRecording()
+                .then(() => {
+                    statusDiv.textContent = 'Recording started. Playing sweep in 0.5 seconds...';
+                    return new Promise(resolve => setTimeout(resolve, 500));
+                })
+                .then(() => {
+                    // Generate and play sweep
+                    const sampleRate = 44100;
+                    const sweep = generateSweep(duration, sampleRate, 20, 20000);
+                    return playSweep(sweep, sampleRate, selectedSpeakerId);
+                })
+                .then(() => {
+                    statusDiv.textContent = `Measuring... (${duration} seconds remaining)`;
+                    return new Promise(resolve => setTimeout(resolve, duration * 1000));
+                })
+                .then(() => {
+                    // Stop recording
+                    stopRecording();
+                    statusDiv.textContent = 'Measurement complete. Processing data...';
+                    
+                    // Process the data
+                    processMeasurement(duration);
+                })
+                .catch(err => {
+                    console.error('Error during measurement:', err);
+                    statusDiv.textContent = `Error: ${err.message}`;
+                    statusDiv.className = 'status active error';
+                    measureBtn.disabled = false;
+                    isMeasuring = false;
+                });
+        }
+        
+        function startRecording() {
+            return new Promise((resolve, reject) => {
+                try {
+                    // Create audio context
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    
+                    // Get microphone stream
+                    navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            deviceId: { exact: selectedMicId },
+                            echoCancellation: true,
+                            autoGainControl: false,
+                            noiseSuppression: true
+                        }
+                    })
+                    .then(stream => {
+                        micStream = stream;
+                        
+                        // Create audio nodes
+                        const source = audioContext.createMediaStreamSource(stream);
+                        gainNode = audioContext.createGain();
+                        gainNode.gain.value = 0; // Avoid feedback
+                        
+                        // Create processor for recording
+                        const bufferSize = 4096;
+                        processor = audioContext.createScriptProcessor(bufferSize, 1, 1);
+                        
+                        // Connect nodes
+                        source.connect(processor);
+                        processor.connect(gainNode);
+                        gainNode.connect(audioContext.destination);
+                        
+                        // Clear recorded samples
+                        recordedSamples = [];
+                        
+                        // Set up processor
+                        processor.onaudioprocess = function(event) {
+                            const inputBuffer = event.inputBuffer;
+                            const channel = inputBuffer.getChannelData(0);
+                            recordedSamples.push(...Array.from(channel));
+                        };
+                        
+                        // Resume context if suspended
+                        if (audioContext.state === 'suspended') {
+                            audioContext.resume();
+                        }
+                        
+                        resolve();
+                    })
+                    .catch(reject);
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        }
+        
+        function playSweep(sweep, sampleRate, speakerDeviceId) {
+            return new Promise((resolve, reject) => {
+                try {
+                    // Generate WAV file
+                    const blob = generateWav(sweep, sampleRate);
+                    const url = URL.createObjectURL(blob);
+                    
+                    // Create audio element
+                    const audio = new Audio();
+                    audio.src = url;
+                    
+                    // Set sink ID if available
+                    if (audio.setSinkId) {
+                        audio.setSinkId(speakerDeviceId)
+                            .then(() => {
+                                audio.play()
+                                    .then(resolve)
+                                    .catch(reject);
+                            })
+                            .catch(() => {
+                                // Fallback to default speaker
+                                audio.play()
+                                    .then(resolve)
+                                    .catch(reject);
+                            });
+                    } else {
+                        audio.play()
+                            .then(resolve)
+                            .catch(reject);
+                    }
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        }
+        
+        function stopRecording() {
+            if (!audioContext) return;
+            
+            // Stop processor
+            if (processor) {
+                processor.onaudioprocess = null;
+                processor.disconnect();
+            }
+            
+            // Stop gain node
+            if (gainNode) {
+                gainNode.disconnect();
+            }
+            
+            // Stop microphone stream
+            if (micStream) {
+                micStream.getTracks().forEach(track => track.stop());
+                micStream = null;
+            }
+            
+            // Close audio context
+            audioContext.close();
+            audioContext = null;
+            
+            // Enable measure button
+            measureBtn.disabled = false;
+            isMeasuring = false;
+        }
+        
+        function generateWav(samples, sampleRate) {
+            // Convert to int16
+            const int16Samples = new Int16Array(samples.length);
+            for (let i = 0; i < samples.length; i++) {
+                int16Samples[i] = Math.round(samples[i] * 32767);
+            }
+            
+            // WAV header
+            const header = new Uint8Array(44);
+            // RIFF
+            header[0] = 'R'.charCodeAt(0);
+            header[1] = 'I'.charCodeAt(0);
+            header[2] = 'F'.charCodeAt(0);
+            header[3] = 'F'.charCodeAt(0);
+            // File size
+            const dataSize = int16Samples.length * 2;
+            const fileSize = 36 + dataSize;
+            header[4] = fileSize & 0xFF;
+            header[5] = (fileSize >> 8) & 0xFF;
+            header[6] = (fileSize >> 16) & 0xFF;
+            header[7] = (fileSize >> 24) & 0xFF;
+            // WAVE
+            header[8] = 'W'.charCodeAt(0);
+            header[9] = 'A'.charCodeAt(0);
+            header[10] = 'V'.charCodeAt(0);
+            header[11] = 'E'.charCodeAt(0);
+            // fmt
+            header[12] = 'f'.charCodeAt(0);
+            header[13] = 'm'.charCodeAt(0);
+            header[14] = 't'.charCodeAt(0);
+            header[15] = ' '.charCodeAt(0);
+            // fmt chunk size
+            header[16] = 16;
+            header[17] = 0;
+            header[18] = 0;
+            header[19] = 0;
+            // audio format (1 for PCM)
+            header[20] = 1;
+            header[21] = 0;
+            // channels
+            header[22] = 1;
+            header[23] = 0;
+            // sample rate
+            const sampleRateBytes = new DataView(new ArrayBuffer(4));
+            sampleRateBytes.setUint32(0, sampleRate, true);
+            header[24] = sampleRateBytes.getUint8(0);
+            header[25] = sampleRateBytes.getUint8(1);
+            header[26] = sampleRateBytes.getUint8(2);
+            header[27] = sampleRateBytes.getUint8(3);
+            // byte rate
+            const byteRate = sampleRate * 2;
+            const byteRateBytes = new DataView(new ArrayBuffer(4));
+            byteRateBytes.setUint32(0, byteRate, true);
+            header[28] = byteRateBytes.getUint8(0);
+            header[29] = byteRateBytes.getUint8(1);
+            header[30] = byteRateBytes.getUint8(2);
+            header[31] = byteRateBytes.getUint8(3);
+            // block align
+            header[32] = 2;
+            header[33] = 0;
+            // bits per sample
+            header[34] = 16;
+            header[35] = 0;
+            // data
+            header[36] = 'd'.charCodeAt(0);
+            header[37] = 'a'.charCodeAt(0);
+            header[38] = 't'.charCodeAt(0);
+            header[39] = 'a'.charCodeAt(0);
+            header[40] = dataSize & 0xFF;
+            header[41] = (dataSize >> 8) & 0xFF;
+            header[42] = (dataSize >> 16) & 0xFF;
+            header[43] = (dataSize >> 24) & 0xFF;
+            
+            // Create full buffer
+            const buffer = new ArrayBuffer(44 + dataSize);
+            const dataView = new DataView(buffer);
+            // Copy header
+            for (let i = 0; i < 44; i++) {
+                dataView.setUint8(i, header[i]);
+            }
+            // Copy data
+            for (let i = 0; i < int16Samples.length; i++) {
+                dataView.setInt16(44 + i*2, int16Samples[i], true);
+            }
+            
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+        
+        function generateSweep(duration, sampleRate, f0, f1) {
+            const n = Math.round(duration * sampleRate);
+            const t = new Float32Array(n);
+            for (let i = 0; i < n; i++) {
+                t[i] = i / sampleRate;
+            }
+            const k = (f1 - f0) / duration;
+            const phase = 2 * Math.PI * (f0 * t + 0.5 * k * t * t);
+            return Math.sin(phase);
+        }
+        
+        function processMeasurement(duration) {
+            const sampleRate = 44100;
+            const sweep = generateSweep(duration, sampleRate, 20, 20000);
+            const sweepReversed = [...sweep].reverse();
+            
+            statusDiv.textContent = 'Processing data...';
+            statusDiv.className = 'status active warning';
+            
+            // Deconvolve to get RIR
+            const rir = fftConvolve(recordedSamples, sweepReversed);
+            
+            // Normalize RIR
+            const maxVal = Math.max(...rir.map(x => Math.abs(x)));
+            const rirNormalized = rir.map(x => x / maxVal);
+            
+            // Plot results
+            plotTimeDomain(rirNormalized, sampleRate);
+            plotFrequencyDomain(rirNormalized, sampleRate);
+            
+            statusDiv.textContent = 'Measurement complete!';
+            statusDiv.className = 'status active success';
+        }
+        
+        function fftConvolve(a, b) {
+            const n = a.length + b.length - 1;
+            const N = nextPowerOfTwo(n);
+            
+            // Pad arrays
+            const a_padded = new Float32Array(N);
+            const b_padded = new Float32Array(N);
+            for (let i = 0; i < a.length; i++) a_padded[i] = a[i];
+            for (let i = 0; i < b.length; i++) b_padded[i] = b[i];
+            
+            // Convert to complex
+            const a_complex = new Float32Array(N * 2);
+            const b_complex = new Float32Array(N * 2);
+            for (let i = 0; i < N; i++) {
+                a_complex[i * 2] = a_padded[i];
+                a_complex[i * 2 + 1] = 0;
+                b_complex[i * 2] = b_padded[i];
+                b_complex[i * 2 + 1] = 0;
+            }
+            
+            // FFT
+            const fft = new FFT(N, 1);
+            fft.forward(a_complex);
+            fft.forward(b_complex);
+            
+            // Multiply
+            for (let i = 0; i < N; i++) {
+                const a_real = a_complex[i * 2];
+                const a_imag = a_complex[i * 2 + 1];
+                const b_real = b_complex[i * 2];
+                const b_imag = b_complex[i * 2 + 1];
+                const real = a_real * b_real - a_imag * b_imag;
+                const imag = a_real * b_imag + a_imag * b_real;
+                a_complex[i * 2] = real;
+                a_complex[i * 2 + 1] = imag;
+            }
+            
+            // IFFT
+            fft.inverse(a_complex);
+            
+            // Extract real part
+            const result = new Float32Array(n);
+            for (let i = 0; i < n; i++) {
+                result[i] = a_complex[i * 2];
+            }
+            
+            return result;
+        }
+        
+        function nextPowerOfTwo(x) {
+            return Math.pow(2, Math.ceil(Math.log2(x)));
+        }
+        
+        function plotTimeDomain(rir, sampleRate) {
+            const canvas = timeCanvas;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, width, height);
+            
+            // Draw axes
+            ctx.strokeStyle = '#ccc';
+            ctx.beginPath();
+            ctx.moveTo(0, height/2);
+            ctx.lineTo(width, height/2);
+            ctx.stroke();
+            
+            // Draw grid lines
+            ctx.strokeStyle = '#eee';
+            for (let i = 0; i < 5; i++) {
+                const y = height/2 + (i * height/10) - (height/2);
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(0, height/2 - (i * height/10));
+                ctx.lineTo(width, height/2 - (i * height/10));
+                ctx.stroke();
+            }
+            
+            // Scale the RIR to fit the canvas
+            const maxVal = Math.max(...rir.map(x => Math.abs(x)));
+            const scale = (height/2) / (maxVal || 1);
+            
+            // Draw RIR
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i < rir.length; i++) {
+                const x = (i / rir.length) * width;
+                const y = height/2 - rir[i] * scale;
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+            
+            // Add labels
+            ctx.fillStyle = '#555';
+            ctx.font = '12px Arial';
+            ctx.fillText('Time (s)', width/2, height - 10);
+            ctx.fillText('Amplitude', 10, height/2);
+            
+            // Add time markers
+            const timeMax = rir.length / sampleRate;
+            const timeSteps = 5;
+            for (let i = 0; i <= timeSteps; i++) {
+                const time = (i * timeMax) / timeSteps;
+                const x = (time / timeMax) * width;
+                ctx.beginPath();
+                ctx.moveTo(x, height/2 - 5);
+                ctx.lineTo(x, height/2 + 5);
+                ctx.stroke();
+                ctx.fillText(time.toFixed(3), x - 15, height/2 + 20);
+            }
+        }
+        
+        function plotFrequencyDomain(rir, sampleRate) {
+            const canvas = freqCanvas;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, width, height);
+            
+            // Compute FFT of RIR
+            const n = rir.length;
+            const fft = new FFT(n, 1);
+            const rir_fft = new Float32Array(n * 2);
+            for (let i = 0; i < n; i++) {
+                rir_fft[i * 2] = rir[i];
+                rir_fft[i * 2 + 1] = 0;
+            }
+            fft.forward(rir_fft);
+            
+            // Compute magnitude spectrum
+            const mag = new Float32Array(n/2);
+            for (let i = 0; i < n/2; i++) {
+                const real = rir_fft[i * 2];
+                const imag = rir_fft[i * 2 + 1];
+                mag[i] = Math.sqrt(real*real + imag*imag);
+            }
+            
+            // Convert to dB scale
+            const dB = mag.map(m => {
+                if (m === 0) return -100;
+                return 20 * Math.log10(m + 1e-10);
+            });
+            
+            // Find min and max dB
+            const minDb = Math.min(...dB);
+            const maxDb = Math.max(...dB);
+            
+            // Draw axes
+            ctx.strokeStyle = '#ccc';
+            ctx.beginPath();
+            ctx.moveTo(0, height/2);
+            ctx.lineTo(width, height/2);
+            ctx.stroke();
+            
+            // Draw grid lines
+            ctx.strokeStyle = '#eee';
+            for (let i = 0; i < 5; i++) {
+                const y = height/2 + (i * height/10) - (height/2);
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+            
+            // Draw spectrum
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i < dB.length; i++) {
+                const freq = (i * sampleRate) / (2 * n);
+                const x = (freq / (sampleRate/2)) * width;
+                const y = height/2 - ((dB[i] - minDb) / (maxDb - minDb)) * height;
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+            
+            // Add labels
+            ctx.fillStyle = '#555';
+            ctx.font = '12px Arial';
+            ctx.fillText('Frequency (Hz)', width/2, height - 10);
+            ctx.fillText('Magnitude (dB)', 10, height/2);
+            
+            // Add frequency markers
+            const freqSteps = 5;
+            for (let i = 0; i <= freqSteps; i++) {
+                const freq = (i * sampleRate/2) / freqSteps;
+                const x = (freq / (sampleRate/2)) * width;
+                ctx.beginPath();
+                ctx.moveTo(x, height/2 - 5);
+                ctx.lineTo(x, height/2 + 5);
+                ctx.stroke();
+                ctx.fillText(freq.toFixed(0), x - 15, height/2 + 20);
+            }
+        }
+    </script>
+</body>
+</html>
