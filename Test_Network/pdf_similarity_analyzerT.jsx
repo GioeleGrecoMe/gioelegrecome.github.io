@@ -513,13 +513,18 @@ const GraphViewer = ({ documents, proximityMatrix, onSelect, selectedElement, pa
         return minThickness + Math.pow(normalized, 3) * (maxThickness - minThickness);
     };
 
+    // [FIX 1 of 2] - The useMemo for clusterHulls
     const clusterHulls = useMemo(() => {
         if (!clusters || Object.keys(nodePositions).length === 0) return [];
-        return clusters.map(cluster => {
+        // Map over clusters and get their original index
+        return clusters.map((cluster, index) => {
             const points = cluster.map(nodeId => nodePositions[nodeId]).filter(Boolean);
+            // We still only compute hulls for 3+ points
             if (points.length < 3) return null;
-            return computeConvexHull(points);
-        }).filter(Boolean);
+            const hull = computeConvexHull(points);
+            // Return an object containing the hull AND its original index
+            return { hull, originalIndex: index };
+        }).filter(Boolean); // Filter out the nulls
     }, [clusters, nodePositions]);
 
     const handleClusterClick = (clusterIndex) => {
@@ -560,15 +565,17 @@ const GraphViewer = ({ documents, proximityMatrix, onSelect, selectedElement, pa
             {focusedCluster && <button onClick={() => {setFocusedCluster(null); setTransform({x:0,y:0,k:1});}} className="absolute top-2 left-2 z-10 bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded-md text-sm">Reset View</button>}
             <svg ref={svgRef} width="100%" height="100%">
                 <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
-                    {!focusedCluster && clusterHulls.map((hull, i) => (
+                    {/* [FIX 2 of 2] - The render loop for clusterHulls */}
+                    {/* Destructure the object to get hull and originalIndex */}
+                    {!focusedCluster && clusterHulls.map(({ hull, originalIndex }) => (
                         <path
-                            key={i}
+                            key={originalIndex} // Use originalIndex for key
                             d={`M ${hull.map(p => `${p.x} ${p.y}`).join(' L ')} Z`}
-                            fill={`hsla(${(i * 50) % 360}, 90%, 50%, 0.1)`}
-                            stroke={`hsla(${(i * 50) % 360}, 90%, 50%, 0.3)`}
+                            fill={`hsla(${(originalIndex * 50) % 360}, 90%, 50%, 0.1)`} // Use originalIndex for color
+                            stroke={`hsla(${(originalIndex * 50) % 360}, 90%, 50%, 0.3)`} // Use originalIndex for color
                             strokeWidth={2 / transform.k}
                             className="cursor-pointer"
-                            onClick={(e) => { e.stopPropagation(); handleClusterClick(i); }}
+                            onClick={(e) => { e.stopPropagation(); handleClusterClick(originalIndex); }} // Use originalIndex in click handler
                         />
                     ))}
 
@@ -997,10 +1004,12 @@ function App() {
         }
     }, [pathNodes, documents, proximityMatrix]);
 
+    // [FIX] - Changed cluster generation logic
     useEffect(() => {
         if(documents.length > 0) {
             const components = findConnectedComponents(documents, proximityMatrix);
-            setClusters(components.filter(c => c.length > 1));
+            // Only set clusters if they have 3 or more nodes
+            setClusters(components.filter(c => c.length >= 3));
         } else {
             setClusters([]);
         }
@@ -1090,4 +1099,3 @@ function App() {
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
-
