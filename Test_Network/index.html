@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Document Similarity Analyzer</title>
+
+    <!-- 1. Tailwind CSS for Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 2. PDF.js Library (required by your app) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+    <!-- 3. React Libraries -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <!-- 4. Babel - The JSX Translator (IMPORTANT!) -->
+    <!-- This script finds and translates your JSX code for the browser. -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+</head>
+<body class="bg-gray-900">
+
+    <!-- This is the empty container where your React app will be rendered. -->
+    <div id="root"></div>
+
+    <!--
+      5. Link to YOUR React App Code (IMPORTANT!)
+      Notice the type="text/babel". This tells the Babel script to translate this file.
+      The "data-presets" attribute enables modern React features.
+    -->
+    <script type="text/babel" data-presets="react" src="pdf_similarity_analyzer.jsx"></script>
+
+</body>
+</html>
