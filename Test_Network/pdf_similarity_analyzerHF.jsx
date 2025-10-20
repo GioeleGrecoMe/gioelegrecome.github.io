@@ -45,7 +45,6 @@ const XIcon = ({ className }) => (
 
 
 // --- 2. Helper Functions ---
-
 const ENGLISH_STOP_WORDS = new Set([
   'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', 'aren\'t', 'as', 'at',
   'be', 'because', 'been', 'before', 'being', 'below', 'between', 'both', 'but', 'by', 'can\'t', 'cannot', 'could',
@@ -66,6 +65,40 @@ const ENGLISH_STOP_WORDS = new Set([
 const BIBLIOGRAPHY_KEYWORDS = ['references', 'bibliography', 'works cited', 'literature cited'];
 const ABSTRACT_KEYWORDS = ['abstract', 'summary'];
 const INTRODUCTION_KEYWORDS = ['introduction', '1.', 'i.'];
+
+/**
+ * Gets semantic vectors from Hugging Face Inference API.
+ */
+async function getSemanticVectors(texts, apiKey) {
+    const modelUrl = 'https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2';
+
+    try {
+        const response = await fetch(modelUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                inputs: texts,
+                options: { wait_for_model: true }
+            })
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.json();
+            throw new Error(`Hugging Face API error: ${errorBody.error}`);
+        }
+
+        const vectors = await response.json();
+        return vectors;
+
+    } catch (error) {
+        console.error("Error fetching semantic vectors:", error);
+        throw error;
+    }
+}
+
 
 /**
  * Extracts the abstract from the text.
@@ -190,45 +223,10 @@ const cosineSimilarity = (vecA, vecB) => {
 };
 
 /**
- * Gets semantic vectors from Hugging Face Inference API.
+ * Finds all connected components in a graph using BFS.
  */
-async function getSemanticVectors(texts, apiKey) {
-    const modelUrl = 'https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2';
-
-    try {
-        const response = await fetch(modelUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                inputs: texts,
-                options: { wait_for_model: true }
-            })
-        });
-
-        if (!response.ok) {
-            const errorBody = await response.json();
-            throw new Error(`Hugging Face API error: ${errorBody.error}`);
-        }
-
-        const vectors = await response.json();
-        return vectors;
-
-    } catch (error) {
-        console.error("Error fetching semantic vectors:", error);
-        throw error;
-    }
-}
-
-
-/**
- * Finds the shortest path between two nodes using Breadth-First Search.
- */
-const findShortestPath = (sourceId, targetId, documents, proximityMatrix) => {
-    if (!sourceId || !targetId) return null;
-
+const findConnectedComponents = (documents, proximityMatrix) => {
+    if (documents.length === 0) return [];
     const adj = new Map();
     documents.forEach(doc => adj.set(doc.id, []));
     proximityMatrix.forEach(({ source, target }) => {
@@ -236,21 +234,66 @@ const findShortestPath = (sourceId, targetId, documents, proximityMatrix) => {
         adj.get(target).push(source);
     });
 
+    const visited = new Set();
+    const components = [];
+
+    documents.forEach(doc => {
+        if (!visited.has(doc.id)) {
+            const component = [];
+            const queue = [doc.id];
+            visited.add(doc.id);
+            while (queue.length > 0) {
+                const node = queue.shift();
+                component.push(node);
+                for (const neighbor of adj.get(node) || []) {
+                    if (!visited.has(neighbor)) {
+                        visited.add(neighbor);
+                        queue.push(neighbor);
+                    }
+                }
+            }
+            components.push(component);
+        }
+    });
+    return components;
+};
+
+/**
+ * Computes the convex hull of a set of points using the Monotone Chain algorithm.
+ */
+const computeConvexHull = (points) => {
+    points.sort((a, b) => a.x - b.x || a.y - b.y);
+    const lower = [];
+    for (const p of points) {
+        while (lower.length >= 2 && cross_product(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
+            lower.pop();
+        }
+        lower.push(p);
+    }
+    const upper = [];
+    for (let i = points.length - 1; i >= 0; i--) {
+        const p = points[i];
+        while (upper.length >= 2 && cross_product(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
+            upper.pop();
+        }
+        upper.push(p);
+    }
+    return lower.slice(0, -1).concat(upper.slice(0, -1));
+};
+
+const cross_product = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+
+
+/**
+ * Finds the shortest path between two nodes using Breadth-First Search.
+ */
+const findShortestPath = (sourceId, targetId, adj) => {
     const queue = [[sourceId]];
     const visited = new Set([sourceId]);
-
     while (queue.length > 0) {
         const path = queue.shift();
         const node = path[path.length - 1];
-
-        if (node === targetId) {
-            const pathEdges = new Set();
-            for (let i = 0; i < path.length - 1; i++) {
-                pathEdges.add([path[i], path[i+1]].sort().join('-'));
-            }
-            return { nodes: new Set(path), edges: pathEdges };
-        }
-
+        if (node === targetId) return path;
         for (const neighbor of adj.get(node) || []) {
             if (!visited.has(neighbor)) {
                 visited.add(neighbor);
@@ -286,14 +329,31 @@ const AlertMessage = ({ message, onDismiss, type = 'error' }) => {
 /**
  * GraphViewer: Renders and manages the interactive force-directed graph.
  */
-const GraphViewer = ({ documents, proximityMatrix, onSelect, selectedElement, pathNodes, highlightedPath, similarityThreshold }) => {
+const GraphViewer = ({ documents, proximityMatrix, onSelect, selectedElement, pathNodes, highlightedPath, similarityThreshold, clusters, onClusterClick, onResetView, focusedCluster }) => {
     const svgRef = useRef(null);
     const [nodePositions, setNodePositions] = useState({});
     const [isDragging, setIsDragging] = useState(null);
+    const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 });
+    const isPanning = useRef(false);
+    const panStart = useRef({ x: 0, y: 0 });
     const animationFrameRef = useRef();
     const [simulationActive, setSimulationActive] = useState(true);
     const energyRef = useRef(0);
     const dragInfo = useRef(null);
+
+    const nodeDegrees = useMemo(() => {
+        const degrees = new Map(documents.map(d => [d.id, 0]));
+        proximityMatrix.forEach(({ source, target }) => {
+            degrees.set(source, degrees.get(source) + 1);
+            degrees.set(target, degrees.get(target) + 1);
+        });
+        return degrees;
+    }, [documents, proximityMatrix]);
+
+    const getNodeRadius = useCallback((docId) => {
+        const degree = nodeDegrees.get(docId) || 0;
+        return 8 + Math.log(degree + 1) * 2;
+    }, [nodeDegrees]);
 
     useEffect(() => {
         if (!svgRef.current) return;
@@ -327,11 +387,11 @@ const GraphViewer = ({ documents, proximityMatrix, onSelect, selectedElement, pa
 
         const ATTRACTION_STRENGTH = 0.05;
         const IDEAL_DISTANCE = 150;
-        const DAMPING = 0.9; // Increased damping for higher inertia
+        const DAMPING = 0.9;
 
         const simulationStep = () => {
             setNodePositions(currentPositions => {
-                if (Object.keys(currentPositions).length !== nodeCount) return currentPositions;
+                if (Object.keys(currentPositions).length === 0) return {};
 
                 const newPositions = JSON.parse(JSON.stringify(currentPositions));
                 let totalKineticEnergy = 0;
@@ -385,18 +445,26 @@ const GraphViewer = ({ documents, proximityMatrix, onSelect, selectedElement, pa
     }, [simulationActive, documents, proximityMatrix, isDragging]);
 
     const handleNodeMouseDown = (e, docId) => {
-        e.preventDefault();
+        e.preventDefault(); e.stopPropagation();
         dragInfo.current = { startX: e.clientX, startY: e.clientY, moved: false };
         const { clientX, clientY } = e;
-        const svgPoint = svgRef.current.createSVGPoint();
-        svgPoint.x = clientX; svgPoint.y = clientY;
-        const { x, y } = svgPoint.matrixTransform(svgRef.current.getScreenCTM().inverse());
-        setIsDragging({ id: docId, offsetX: x - nodePositions[docId].x, offsetY: y - nodePositions[docId].y });
+        const point = svgRef.current.createSVGPoint();
+        point.x = clientX; point.y = clientY;
+        const { x, y } = point.matrixTransform(svgRef.current.getScreenCTM().inverse());
+
+        setIsDragging({ id: docId, offsetX: (x - transform.x)/transform.k - nodePositions[docId].x, offsetY: (y - transform.y)/transform.k - nodePositions[docId].y });
         onSelect({ type: 'node', id: docId });
     };
 
     const handleMouseMove = (e) => {
+        if (isPanning.current) {
+            setTransform(t => ({...t, x: t.x + e.clientX - panStart.current.x, y: t.y + e.clientY - panStart.current.y }));
+            panStart.current = { x: e.clientX, y: e.clientY };
+            return;
+        }
+
         if (!isDragging) return;
+
         if (dragInfo.current && !dragInfo.current.moved) {
             const dx = e.clientX - dragInfo.current.startX; const dy = e.clientY - dragInfo.current.startY;
             if (Math.sqrt(dx * dx + dy * dy) > 5) {
@@ -406,16 +474,40 @@ const GraphViewer = ({ documents, proximityMatrix, onSelect, selectedElement, pa
         }
         if (dragInfo.current?.moved) {
             const { clientX, clientY } = e;
-            const svgPoint = svgRef.current.createSVGPoint();
-            svgPoint.x = clientX; svgPoint.y = clientY;
-            const { x, y } = svgPoint.matrixTransform(svgRef.current.getScreenCTM().inverse());
-            setNodePositions(prev => ({ ...prev, [isDragging.id]: { ...prev[isDragging.id], x: x - isDragging.offsetX, y: y - isDragging.offsetY } }));
+            const point = svgRef.current.createSVGPoint();
+            point.x = clientX; point.y = clientY;
+            const { x, y } = point.matrixTransform(svgRef.current.getScreenCTM().inverse());
+
+            setNodePositions(prev => ({ ...prev, [isDragging.id]: { ...prev[isDragging.id], x: (x-transform.x)/transform.k - isDragging.offsetX, y: (y-transform.y)/transform.k - isDragging.offsetY } }));
         }
     };
 
     const handleMouseUp = () => {
         if (isDragging && dragInfo.current && !dragInfo.current.moved) setSimulationActive(false);
         setIsDragging(null); dragInfo.current = null;
+        isPanning.current = false;
+        if(svgRef.current) svgRef.current.style.cursor = 'grab';
+    };
+
+    const handleWheel = (e) => {
+        e.preventDefault();
+        const scaleFactor = 1.1;
+        const { clientX, clientY, deltaY } = e;
+        const point = svgRef.current.createSVGPoint();
+        point.x = clientX; point.y = clientY;
+        const { x: mouseX, y: mouseY } = point.matrixTransform(svgRef.current.getScreenCTM().inverse());
+
+        const newScale = deltaY < 0 ? transform.k * scaleFactor : transform.k / scaleFactor;
+        const newX = mouseX - (mouseX - transform.x) * (newScale / transform.k);
+        const newY = mouseY - (mouseY - transform.y) * (newScale / transform.k);
+        setTransform({ x: newX, y: newY, k: newScale });
+    };
+
+    const handlePanStart = (e) => {
+        if (isDragging) return;
+        isPanning.current = true;
+        panStart.current = { x: e.clientX, y: e.clientY };
+        svgRef.current.style.cursor = 'grabbing';
     };
 
     const handleEdgeClick = (edgeId) => { onSelect({ type: 'edge', id: edgeId }); setSimulationActive(false); };
@@ -427,43 +519,114 @@ const GraphViewer = ({ documents, proximityMatrix, onSelect, selectedElement, pa
         return minThickness + Math.pow(normalized, 3) * (maxThickness - minThickness);
     };
 
+    const clusterHulls = useMemo(() => {
+        if (!clusters || Object.keys(nodePositions).length === 0) return [];
+        return clusters.map(cluster => {
+            const points = cluster.map(nodeId => nodePositions[nodeId]).filter(Boolean);
+            if (points.length < 3) return null;
+            return computeConvexHull(points);
+        }).filter(Boolean);
+    }, [clusters, nodePositions]);
+
+    const handleClusterClick = (clusterIndex) => {
+        onClusterClick(clusterIndex);
+    };
+
+    useEffect(() => {
+        if (!focusedCluster) {
+            setTransform({x:0, y:0, k:1});
+            return;
+        }
+
+        const clusterNodeIds = clusters[focusedCluster.index];
+        const points = clusterNodeIds.map(id => nodePositions[id]);
+        if (points.length === 0 || !svgRef.current) return;
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        points.forEach(p => {
+            if(!p) return;
+            minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+            maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+        });
+
+        const { width, height } = svgRef.current.getBoundingClientRect();
+        const padding = 50;
+        const clusterWidth = maxX - minX;
+        const clusterHeight = maxY - minY;
+
+        if (clusterWidth === 0 || clusterHeight === 0) return;
+
+        const scaleX = width / (clusterWidth + padding * 2);
+        const scaleY = height / (clusterHeight + padding * 2);
+        const k = Math.min(scaleX, scaleY, 4); // Cap zoom at 4x
+
+        const newX = (width / 2) - ((minX + clusterWidth / 2) * k);
+        const newY = (height / 2) - ((minY + clusterHeight / 2) * k);
+
+        setTransform({ x: newX, y: newY, k });
+    }, [focusedCluster, clusters, nodePositions]);
+
     return (
-        <div className="w-full h-full bg-gray-800 rounded-lg shadow-inner overflow-hidden">
-            <svg ref={svgRef} width="100%" height="100%" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
-                {proximityMatrix.map(({ source, target, similarity }) => {
-                    const posA = nodePositions[source]; const posB = nodePositions[target];
-                    if (!posA || !posB) return null;
-                    const isSelected = selectedElement?.type === 'edge' && selectedElement.id === `${source}-${target}`;
-                    const inPath = highlightedPath?.edges.has([source, target].sort().join('-'));
-                    const thickness = getEdgeThickness(similarity);
-                    let stroke = '#4b5563';
-                    if(inPath) stroke = '#f59e0b';
-                    if(isSelected) stroke = '#34d399';
+        <div className="w-full h-full bg-gray-800 rounded-lg shadow-inner overflow-hidden relative" >
+            {focusedCluster && <button onClick={onResetView} className="absolute top-2 left-2 z-10 bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded-md text-sm">Reset View</button>}
+            <svg ref={svgRef} width="100%" height="100%"
+                onMouseDown={handlePanStart}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onWheel={handleWheel}
+                className="cursor-grab active:cursor-grabbing"
+            >
+                <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
+                    {clusterHulls.map((hull, i) => (
+                        <path
+                            key={i}
+                            d={`M ${hull.map(p => `${p.x} ${p.y}`).join(' L ')} Z`}
+                            fill={`hsla(${(i * 50) % 360}, 90%, 50%, 0.1)`}
+                            stroke={`hsla(${(i * 50) % 360}, 90%, 50%, 0.3)`}
+                            strokeWidth={2 / transform.k}
+                            className="cursor-pointer"
+                            onClick={(e) => { e.stopPropagation(); handleClusterClick(i); }}
+                        />
+                    ))}
 
-                    return <line key={`${source}-${target}`} x1={posA.x} y1={posA.y} x2={posB.x} y2={posB.y} stroke={stroke} strokeWidth={isSelected || inPath ? thickness + 2 : thickness} onClick={() => handleEdgeClick(`${source}-${target}`)} className="cursor-pointer transition-all duration-200"/>;
-                })}
-                {documents.map(doc => {
-                    const pos = nodePositions[doc.id];
-                    if (!pos) return null;
-                    const isSingleSelected = selectedElement?.type === 'node' && selectedElement.id === doc.id;
-                    const isPathEndpoint = pathNodes.includes(doc.id);
-                    const inPath = highlightedPath?.nodes.has(doc.id);
+                    {proximityMatrix.map(({ source, target, similarity }) => {
+                        const posA = nodePositions[source]; const posB = nodePositions[target];
+                        if (!posA || !posB) return null;
+                        const isSelected = selectedElement?.type === 'edge' && selectedElement.id === `${source}-${target}`;
+                        const inPath = highlightedPath?.edges.has([source, target].sort().join('-'));
+                        const thickness = getEdgeThickness(similarity);
+                        let stroke = '#4b5563';
+                        if(inPath) stroke = '#f59e0b';
+                        if(isSelected) stroke = '#34d399';
 
-                    let fill = '#93c5fd', stroke = '#60a5fa', r = 10;
-                    if(inPath) { fill = '#fde68a'; stroke = '#f59e0b'; }
-                    if(isPathEndpoint) { fill = '#fbbf24'; stroke = '#d97706'; r = 12;}
-                    if(isSingleSelected) { fill = '#60a5fa'; stroke = '#2563eb'; r = 14; }
+                        return <line key={`${source}-${target}`} x1={posA.x} y1={posA.y} x2={posB.x} y2={posB.y} stroke={stroke} strokeWidth={isSelected || inPath ? (thickness + 2) / transform.k : thickness / transform.k} onClick={(e) => { e.stopPropagation(); handleEdgeClick(`${source}-${target}`)}} className="cursor-pointer transition-all duration-200"/>;
+                    })}
+                    {documents.map(doc => {
+                        const pos = nodePositions[doc.id];
+                        if (!pos) return null;
+                        const isSingleSelected = selectedElement?.type === 'node' && selectedElement.id === doc.id;
+                        const isPathEndpoint = pathNodes.includes(doc.id);
+                        const inPath = highlightedPath?.nodes.has(doc.id);
 
-                    return (
-                        <g key={doc.id} transform={`translate(${pos.x}, ${pos.y})`}>
-                            <circle r={r} fill={fill} stroke={stroke} strokeWidth="2" onMouseDown={(e) => handleNodeMouseDown(e, doc.id)} className="cursor-grab active:cursor-grabbing transition-all duration-200" />
-                            <text x="0" y={r + 12} textAnchor="middle" fill="#e5e7eb" fontSize="10px" className="pointer-events-none select-none">
-                                {doc.title.length > 25 ? doc.title.substring(0, 22) + '...' : doc.title}
-                            </text>
-                            <title>{doc.title}</title>
-                        </g>
-                    );
-                })}
+                        let fill = '#93c5fd', stroke = '#60a5fa';
+                        const baseRadius = getNodeRadius(doc.id);
+                        let r = baseRadius;
+                        if(inPath) { fill = '#fde68a'; stroke = '#f59e0b'; }
+                        if(isPathEndpoint) { fill = '#fbbf24'; stroke = '#d97706'; r = baseRadius + 2;}
+                        if(isSingleSelected) { fill = '#60a5fa'; stroke = '#2563eb'; r = baseRadius + 4; }
+
+                        return (
+                            <g key={doc.id} transform={`translate(${pos.x}, ${pos.y})`}>
+                                <circle r={r / transform.k} fill={fill} stroke={stroke} strokeWidth={2 / transform.k} onMouseDown={(e) => handleNodeMouseDown(e, doc.id)} className="cursor-grab active:cursor-grabbing transition-all duration-200" />
+                                <text x="0" y={(r / transform.k) + 12 / transform.k} textAnchor="middle" fill="#e5e7eb" fontSize={10 / transform.k} className="pointer-events-none select-none">
+                                    {doc.title.length > 25 ? doc.title.substring(0, 22) + '...' : doc.title}
+                                </text>
+                                <title>{doc.title}</title>
+                            </g>
+                        );
+                    })}
+                </g>
             </svg>
         </div>
     );
@@ -513,6 +676,26 @@ const InfoPanel = ({ selectedElement, documents, proximityMatrix }) => {
         if (edge) {
             const docA = documents.find(d => d.id === edge.source);
             const docB = documents.find(d => d.id === edge.target);
+
+            const getCommonTerms = (textA, textB) => {
+                const wordsA = new Set((textA.toLowerCase().match(/\b\w+\b/g) || []).filter(w => w.length >= 4 && !ENGLISH_STOP_WORDS.has(w)));
+                const wordsB = new Set((textB.toLowerCase().match(/\b\w+\b/g) || []).filter(w => w.length >= 4 && !ENGLISH_STOP_WORDS.has(w)));
+                const commonWords = [...wordsA].filter(word => wordsB.has(word));
+                const combinedText = textA + " " + textB;
+                const wordCounts = new Map();
+                (combinedText.toLowerCase().match(/\b\w+\b/g) || []).forEach(word => {
+                    if (commonWords.includes(word)) {
+                        wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
+                    }
+                });
+                return Array.from(wordCounts.entries())
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5)
+                    .map(entry => entry[0]);
+            };
+
+            const commonTerms = getCommonTerms(docA.fullText, docB.fullText);
+
             content = (
                  <div className="p-4">
                     <h3 className="font-bold text-lg text-emerald-300">Similarity: {(edge.similarity * 100).toFixed(2)}%</h3>
@@ -520,7 +703,19 @@ const InfoPanel = ({ selectedElement, documents, proximityMatrix }) => {
                          <p className="text-sm text-gray-300 break-words"><span className="font-semibold text-gray-400">Doc A:</span> {docA.title}</p>
                          <p className="text-sm text-gray-300 break-words"><span className="font-semibold text-gray-400">Doc B:</span> {docB.title}</p>
                      </div>
-                     <p className="text-xs text-gray-500 mt-4">La similarità è calcolata usando embeddings semantici, non singole parole chiave.</p>
+                     <div className="mt-4">
+                        <h4 className="font-semibold text-gray-400 mb-2">Termini Semantici Comuni</h4>
+                        <p className="text-xs text-gray-500 mb-3">I concetti più rilevanti condivisi tra i due documenti:</p>
+                        {commonTerms.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                                {commonTerms.map(term => (
+                                    <span key={term} className="px-2 py-1 bg-gray-700 text-gray-200 text-xs rounded-md">{term}</span>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-gray-400 italic">Nessun termine comune significativo trovato.</p>
+                        )}
+                    </div>
                 </div>
             );
         }
@@ -574,7 +769,7 @@ const DocumentList = ({ documents, pathNodes, onTogglePathNode, onDeselectAll })
 function App() {
     const [isPdfJsReady, setIsPdfJsReady] = useState(false);
     const [files, setFiles] = useState([]);
-    const [documents, setDocuments] = useState([]);
+    const [documents, setDocuments] = useState([]); // Master list of all documents
     const [processingState, setProcessingState] = useState({ isLoading: false, progress: 0, message: '' });
     const [selectedElement, setSelectedElement] = useState(null);
     const [pathNodes, setPathNodes] = useState([]);
@@ -582,6 +777,7 @@ function App() {
     const [infoMessage, setInfoMessage] = useState(null);
     const [errorMessage, setErrorMessage] = useState(null);
     const [similarityThreshold, setSimilarityThreshold] = useState(70);
+    const [focusedCluster, setFocusedCluster] = useState(null);
     const fileInputRef = useRef(null);
 
     useEffect(() => {
@@ -611,9 +807,9 @@ function App() {
 
     const performAnalysis = useCallback(async () => {
         // --- INSERISCI LA TUA API KEY DI HUGGING FACE QUI ---
-        const HUGGING_FACE_API_KEY = ""; // Esempio: "hf_xxxxxxxxxxxxxxxxxxxxxx"
+        const HUGGING_FACE_API_KEY = "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"; // Esempio: "hf_xxxxxxxxxxxxxxxxxxxxxx"
 
-        if (!HUGGING_FACE_API_KEY) {
+        if (HUGGING_FACE_API_KEY === "") {
             setErrorMessage("Per favore, inserisci una API Key di Hugging Face nel codice per usare l'analisi semantica.");
             return;
         }
@@ -625,6 +821,7 @@ function App() {
         setDocuments([]);
         setSelectedElement(null);
         setPathNodes([]);
+        setFocusedCluster(null);
 
         const docData = [];
         const contentHashes = new Set();
@@ -677,6 +874,7 @@ function App() {
             try {
                 setProcessingState({ isLoading: true, progress: 50, message: 'Generating semantic vectors via API...' });
                 const textsToEmbed = docData.map(doc => doc.fullText);
+
                 const semanticVectors = await getSemanticVectors(textsToEmbed, HUGGING_FACE_API_KEY);
 
                 if (semanticVectors.length !== docData.length) {
@@ -708,14 +906,21 @@ function App() {
 
     }, [files]);
 
+    const visibleDocs = useMemo(() => {
+        if (!focusedCluster) return documents;
+        const clusterNodeIds = new Set(focusedCluster.nodes);
+        return documents.filter(doc => clusterNodeIds.has(doc.id));
+    }, [focusedCluster, documents]);
+
     const proximityMatrix = useMemo(() => {
-        if (documents.length < 2) return [];
+        const docsToProcess = documents; // Always calculate on all docs
+        if (docsToProcess.length < 2) return [];
         const threshold = similarityThreshold / 100;
         const matrix = [];
-        for (let i = 0; i < documents.length; i++) {
-            for (let j = i + 1; j < documents.length; j++) {
-                const docA = documents[i];
-                const docB = documents[j];
+        for (let i = 0; i < docsToProcess.length; i++) {
+            for (let j = i + 1; j < docsToProcess.length; j++) {
+                const docA = docsToProcess[i];
+                const docB = docsToProcess[j];
                 const similarity = cosineSimilarity(docA.vector, docB.vector);
                 if (similarity > threshold) {
                     matrix.push({ source: docA.id, target: docB.id, similarity });
@@ -724,6 +929,17 @@ function App() {
         }
         return matrix;
     }, [documents, similarityThreshold]);
+
+    const visibleMatrix = useMemo(() => {
+        if (!focusedCluster) return proximityMatrix;
+        const visibleIds = new Set(visibleDocs.map(d => d.id));
+        return proximityMatrix.filter(edge => visibleIds.has(edge.source) && visibleIds.has(edge.target));
+    }, [focusedCluster, proximityMatrix, visibleDocs]);
+
+    const clusters = useMemo(() => {
+        if (focusedCluster) return []; // Don't show sub-clusters for now
+        return findConnectedComponents(documents, proximityMatrix).filter(c => c.length > 1);
+    }, [documents, proximityMatrix, focusedCluster]);
 
     const handleTogglePathNode = (nodeId) => {
         setPathNodes(prev => {
@@ -743,15 +959,83 @@ function App() {
         setInfoMessage(null);
         if (pathNodes.length < 2) return;
 
-        const path = findShortestPath(pathNodes[0], pathNodes[pathNodes.length - 1], documents, proximityMatrix);
-        if (path) {
-            setHighlightedPath(path);
-        } else {
-            const doc1 = documents.find(d => d.id === pathNodes[0]);
-            const doc2 = documents.find(d => d.id === pathNodes[pathNodes.length - 1]);
-            if (doc1 && doc2) setInfoMessage(`Non è possibile connettere "${doc1.title}" e "${doc2.title}".`);
+        const adj = new Map();
+        visibleDocs.forEach(doc => adj.set(doc.id, []));
+        visibleMatrix.forEach(({ source, target }) => {
+            adj.get(source).push(target);
+            adj.get(target).push(source);
+        });
+
+        const allPairsPaths = new Map();
+        for (let i = 0; i < pathNodes.length; i++) {
+            for (let j = i + 1; j < pathNodes.length; j++) {
+                const path = findShortestPath(pathNodes[i], pathNodes[j], adj);
+                if (path) {
+                    allPairsPaths.set([pathNodes[i], pathNodes[j]].sort().join('-'), path);
+                }
+            }
         }
-    }, [pathNodes, documents, proximityMatrix]);
+
+        if (pathNodes.length > 2) {
+             const mstEdges = [];
+             const edges = [];
+             pathNodes.forEach(u => {
+                 pathNodes.forEach(v => {
+                     if (u < v) {
+                         const path = allPairsPaths.get([u, v].sort().join('-'));
+                         if(path) edges.push({ u, v, weight: path.length - 1 });
+                     }
+                 });
+             });
+             edges.sort((a,b) => a.weight - b.weight);
+
+             const parent = {};
+             const findSet = (i) => (parent[i] === i ? i : (parent[i] = findSet(parent[i])));
+             const uniteSets = (a,b) => { parent[findSet(a)] = findSet(b); };
+             pathNodes.forEach(node => parent[node] = node);
+
+             let count = 0;
+             for(const edge of edges) {
+                 if(findSet(edge.u) !== findSet(edge.v)) {
+                     mstEdges.push(edge);
+                     uniteSets(edge.u, edge.v);
+                     count++;
+                     if(count === pathNodes.length - 1) break;
+                 }
+             }
+
+            let finalNodes = new Set();
+            let finalEdges = new Set();
+            mstEdges.forEach(edge => {
+                const path = allPairsPaths.get([edge.u, edge.v].sort().join('-'));
+                if(path){
+                    path.forEach(node => finalNodes.add(node));
+                    for(let i=0; i < path.length - 1; i++) {
+                        finalEdges.add([path[i], path[i+1]].sort().join('-'));
+                    }
+                }
+            });
+            if(finalNodes.size > 0) {
+                setHighlightedPath({ nodes: finalNodes, edges: finalEdges });
+            } else {
+                setInfoMessage("Non è possibile connettere tutti i paper selezionati.")
+            }
+
+        } else if (pathNodes.length === 2) {
+            const path = allPairsPaths.get([pathNodes[0], pathNodes[1]].sort().join('-'));
+            if (path) {
+                 let finalEdges = new Set();
+                 for(let i=0; i < path.length - 1; i++) {
+                    finalEdges.add([path[i], path[i+1]].sort().join('-'));
+                }
+                setHighlightedPath({ nodes: new Set(path), edges: finalEdges });
+            } else {
+                 const doc1 = documents.find(d => d.id === pathNodes[0]);
+                 const doc2 = documents.find(d => d.id === pathNodes[1]);
+                 if (doc1 && doc2) setInfoMessage(`Non è possibile connettere "${doc1.title}" e "${doc2.title}".`);
+            }
+        }
+    }, [pathNodes, visibleDocs, visibleMatrix]);
 
     const handleDownloadCSV = () => {
         if (documents.length === 0) return;
@@ -773,6 +1057,7 @@ function App() {
     };
 
     const uploadButtonText = errorMessage ? 'Error' : isPdfJsReady ? 'Upload PDFs' : 'Initializing...';
+    const analyzeButtonDisabled = files.length === 0 || processingState.isLoading;
 
     return (
         <div className="bg-gray-900 text-gray-100 font-sans w-full h-screen flex flex-col p-4 gap-4 relative">
@@ -803,7 +1088,9 @@ function App() {
                             <span>{uploadButtonText}</span>
                         </button>
                         <input type="file" multiple accept=".pdf" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                        <button onClick={performAnalysis} disabled={files.length === 0 || processingState.isLoading} className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">Analyze Documents ({files.length})</button>
+                        <button onClick={performAnalysis} disabled={analyzeButtonDisabled} className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">
+                           `Analyze Documents (${files.length})`
+                        </button>
                         <button onClick={handleDownloadCSV} disabled={documents.length === 0 || processingState.isLoading} className="px-4 py-2 bg-gray-600 text-white rounded-md flex items-center gap-2 hover:bg-gray-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"><DownloadIcon className="h-5 w-5"/>Download CSV</button>
                     </div>
                 </div>
@@ -811,12 +1098,25 @@ function App() {
 
             <main className="flex-grow grid grid-cols-5 gap-4 min-h-0">
                 <aside className="col-span-1 min-h-0">
-                    <DocumentList documents={documents} pathNodes={pathNodes} onTogglePathNode={handleTogglePathNode} onDeselectAll={handleDeselectAll} />
+                    <DocumentList documents={visibleDocs} pathNodes={pathNodes} onTogglePathNode={handleTogglePathNode} onDeselectAll={handleDeselectAll} />
                 </aside>
                 <section className="col-span-3 flex flex-col gap-2">
-                    {processingState.isLoading && <div className="w-full bg-gray-700 rounded-full h-2.5 mb-2"><div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${processingState.progress}%` }}></div></div>}
-                     <p className="text-xs text-center text-gray-400 h-4">{processingState.isLoading ? processingState.message : documents.length > 0 ? "Analysis complete. Interact with the graph." : "Ready for analysis."}</p>
-                    <GraphViewer documents={documents} proximityMatrix={proximityMatrix} onSelect={setSelectedElement} selectedElement={selectedElement} pathNodes={pathNodes} highlightedPath={highlightedPath} similarityThreshold={similarityThreshold}/>
+                    <div className="h-4 text-xs text-center text-gray-400">
+                         <p>{processingState.isLoading ? processingState.message : documents.length > 0 ? "Analysis complete. Interact with the graph." : "Ready for analysis."}</p>
+                    </div>
+                    <GraphViewer
+                        documents={visibleDocs}
+                        proximityMatrix={visibleMatrix}
+                        onSelect={setSelectedElement}
+                        selectedElement={selectedElement}
+                        pathNodes={pathNodes}
+                        highlightedPath={highlightedPath}
+                        similarityThreshold={similarityThreshold}
+                        clusters={clusters}
+                        onClusterClick={(index) => setFocusedCluster({index, nodes: clusters[index]})}
+                        onResetView={() => setFocusedCluster(null)}
+                        focusedCluster={focusedCluster}
+                    />
                 </section>
                 <aside className="col-span-1 min-h-0">
                     <InfoPanel selectedElement={selectedElement} documents={documents} proximityMatrix={proximityMatrix}/>
