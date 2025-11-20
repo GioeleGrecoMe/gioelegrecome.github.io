@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
+    <!-- Viewport fondamentale per mobile: impedisce lo zoom della pagina UI -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PDF Document Similarity Analyzer</title>
 
@@ -53,108 +54,47 @@
         const { useState, useEffect, useCallback, useMemo, useRef } = React;
 
         // --- 1. Icons ---
-        const FileTextIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>);
-        const UploadCloudIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>);
-        const AlertTriangleIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>);
-        const XIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>);
-        const NetworkIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></svg>);
-        const ListIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>);
-        const InfoIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>);
-        const RulerIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0l12.6 12.6z"/><line x1="13" y1="5.3" x2="13" y2="8.6"/><line x1="16.3" y1="8.6" x2="16.3" y2="11.9"/><line x1="9.7" y1="8.6" x2="9.7" y2="11.9"/><line x1="6.4" y1="11.9" x2="6.4" y2="15.2"/><line x1="13" y1="15.2" x2="13" y2="18.5"/></svg>);
-        const ZapIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>);
-        const MapIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="6" x2="15" y2="21"/></svg>);
-        const ShareIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>);
-        const SettingsIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>);
+        const FileTextIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+        );
+        const UploadCloudIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+        );
+        const AlertTriangleIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        );
+        const XIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        );
+        const NetworkIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></svg>
+        );
+        const ListIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        );
+        const InfoIcon = ({ className }) => (
+             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        );
+        // Icons for Path Modes
+        const RulerIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0l12.6 12.6z"/><line x1="13" y1="5.3" x2="13" y2="8.6"/><line x1="16.3" y1="8.6" x2="16.3" y2="11.9"/><line x1="9.7" y1="8.6" x2="9.7" y2="11.9"/><line x1="6.4" y1="11.9" x2="6.4" y2="15.2"/><line x1="13" y1="15.2" x2="13" y2="18.5"/></svg>
+        );
+        const ZapIcon = ({ className }) => (
+             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        );
+
 
         // --- 2. Helpers & Logic ---
-
-        // Simple Principal Component Analysis for 2D Projection
-        class PCA {
-            constructor(vectors) {
-                this.vectors = vectors;
-                this.dim = vectors[0].length;
-                this.n = vectors.length;
-            }
-
-            compute() {
-                // 1. Center data
-                const mean = new Float32Array(this.dim);
-                for(let i=0; i<this.n; i++) for(let j=0; j<this.dim; j++) mean[j] += this.vectors[i][j];
-                for(let j=0; j<this.dim; j++) mean[j] /= this.n;
-
-                const centered = this.vectors.map(v => {
-                    const c = new Float32Array(this.dim);
-                    for(let j=0; j<this.dim; j++) c[j] = v[j] - mean[j];
-                    return c;
-                });
-
-                // Power Iteration helper to find dominant eigenvector
-                const getFirstPrincipalComponent = (data) => {
-                    let v = new Float32Array(this.dim).map(() => Math.random());
-                    let norm = Math.sqrt(v.reduce((a,b)=>a+b*b, 0));
-                    for(let i=0; i<this.dim; i++) v[i] /= norm;
-
-                    for(let iter=0; iter<20; iter++) {
-                        const t = new Float32Array(this.dim);
-                        const u = new Float32Array(this.n); // Projection onto candidate
-                        for(let i=0; i<this.n; i++) {
-                            let dot = 0;
-                            for(let j=0; j<this.dim; j++) dot += data[i][j] * v[j];
-                            u[i] = dot;
-                        }
-                        for(let i=0; i<this.n; i++) for(let j=0; j<this.dim; j++) t[j] += data[i][j] * u[i];
-
-                        let tNorm = Math.sqrt(t.reduce((a,b)=>a+b*b, 0));
-                        if(tNorm < 1e-9) break;
-                        for(let i=0; i<this.dim; i++) v[i] = t[i] / tNorm;
-                    }
-                    return v;
-                };
-
-                const pc1 = getFirstPrincipalComponent(centered);
-
-                // Deflate
-                const centered2 = centered.map(row => new Float32Array(row));
-                for(let i=0; i<this.n; i++) {
-                    let projection = 0;
-                    for(let j=0; j<this.dim; j++) projection += centered[i][j] * pc1[j];
-                    for(let j=0; j<this.dim; j++) centered2[i][j] -= projection * pc1[j];
-                }
-
-                const pc2 = getFirstPrincipalComponent(centered2);
-
-                // Project
-                let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
-                const points = [];
-                for(let i=0; i<this.n; i++) {
-                    let x = 0, y = 0;
-                    for(let j=0; j<this.dim; j++) {
-                        x += centered[i][j] * pc1[j];
-                        y += centered[i][j] * pc2[j];
-                    }
-                    points.push({x, y});
-                    if(x < minX) minX=x; if(x > maxX) maxX=x;
-                    if(y < minY) minY=y; if(y > maxY) maxY=y;
-                }
-
-                // Normalize 0-1
-                const rangeX = maxX - minX || 1;
-                const rangeY = maxY - minY || 1;
-                return points.map(p => ({
-                    x: (p.x - minX) / rangeX,
-                    y: (p.y - minY) / rangeY
-                }));
-            }
-        }
 
         class PipelineSingleton {
             static task = 'feature-extraction';
             static model = 'Xenova/all-MiniLM-L6-v2';
             static instance = null;
+
             static async getInstance(progress_callback = null) {
                 if (this.instance === null) {
                     const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1');
-                    env.allowLocalModels = false;
+                    env.allowLocalModels = false; // Force web download
                     this.instance = pipeline(this.task, this.model, { progress_callback });
                 }
                 return this.instance;
@@ -265,6 +205,7 @@
             return lower.slice(0, -1).concat(upper.slice(0, -1));
         };
 
+        // PATHFINDING: Shortest (BFS)
         const findShortestPath = (sourceId, targetId, adj) => {
             const queue = [[sourceId]];
             const visited = new Set([sourceId]);
@@ -282,10 +223,13 @@
             return null;
         };
 
+        // PATHFINDING: Strongest (Dijkstra with Cost = 1/Similarity)
         const findPathDijkstra = (sourceId, targetId, docIds, edges) => {
+            // Build weighted adjacency
             const adj = new Map();
             docIds.forEach(id => adj.set(id, []));
             edges.forEach(e => {
+                // Cost is inverse of similarity (1.0 = cheap/easy, 0.1 = expensive/hard)
                 const cost = 1 / (e.similarity + 0.001);
                 adj.get(e.source).push({ target: e.target, cost });
                 adj.get(e.target).push({ target: e.source, cost });
@@ -293,62 +237,48 @@
 
             const dist = new Map();
             const prev = new Map();
-            const pq = new Set(docIds);
+            const pq = new Set(docIds); // Using Set as simple priority queue
+
             docIds.forEach(id => dist.set(id, Infinity));
             dist.set(sourceId, 0);
 
             while (pq.size > 0) {
+                // Find node with min dist
                 let u = null;
                 let minD = Infinity;
                 for (const node of pq) {
                     const d = dist.get(node);
                     if (d < minD) { minD = d; u = node; }
                 }
+
                 if (u === null || u === targetId) break;
                 pq.delete(u);
+
                 if (minD === Infinity) break;
+
                 const neighbors = adj.get(u) || [];
                 for (const { target: v, cost } of neighbors) {
                     if (pq.has(v)) {
                         const alt = minD + cost;
-                        if (alt < dist.get(v)) { dist.set(v, alt); prev.set(v, u); }
+                        if (alt < dist.get(v)) {
+                            dist.set(v, alt);
+                            prev.set(v, u);
+                        }
                     }
                 }
             }
+
+            // Reconstruct
             const path = [];
             let curr = targetId;
             if (prev.has(curr) || curr === sourceId) {
-                while (curr) { path.unshift(curr); curr = prev.get(curr); }
+                while (curr) {
+                    path.unshift(curr);
+                    curr = prev.get(curr);
+                }
             }
             return (path.length > 0 && path[0] === sourceId) ? { path, cost: dist.get(targetId) } : null;
         };
-
-        // Helper to find explainable labels for axes
-        const getAxisKeywords = (docs, axis) => {
-            if (docs.length < 4) return { min: 'Low', max: 'High' };
-
-            // Sort by the given axis coordinate (0.0 to 1.0)
-            const sorted = [...docs].sort((a,b) => a.semanticPos[axis] - b.semanticPos[axis]);
-            const n = Math.max(1, Math.ceil(docs.length * 0.25)); // Top/Bottom 25%
-            const lowDocs = sorted.slice(0, n);
-            const highDocs = sorted.slice(-n);
-
-            const getFreq = (ds) => {
-                const map = {};
-                ds.forEach(d => d.descriptors.forEach(w => map[w] = (map[w]||0)+1));
-                return map;
-            }
-            const lowFreq = getFreq(lowDocs);
-            const highFreq = getFreq(highDocs);
-
-            // Find word that is most common in Target group AND least common in Anti group
-            const getTop = (targetFreq, antiFreq) => {
-                return Object.entries(targetFreq)
-                    .sort((a,b) => (b[1] - (antiFreq[b[0]]||0)) - (a[1] - (antiFreq[a[0]]||0)))[0]?.[0] || '...';
-            }
-
-            return { min: getTop(lowFreq, highFreq), max: getTop(highFreq, lowFreq) };
-        }
 
         // --- 3. UI Components ---
 
@@ -370,7 +300,7 @@
             );
         };
 
-        const GraphViewer = ({ documents, proximityMatrix, onSelect, selectedElement, pathNodes, highlightedPath, similarityThreshold, clusters, setFocusedCluster, focusedCluster, layoutMode, mapAxesLabels }) => {
+        const GraphViewer = ({ documents, proximityMatrix, onSelect, selectedElement, pathNodes, highlightedPath, similarityThreshold, clusters, setFocusedCluster, focusedCluster }) => {
             const svgRef = useRef(null);
             const [nodePositions, setNodePositions] = useState({});
             const [hoveredEdge, setHoveredEdge] = useState(null);
@@ -394,6 +324,7 @@
                 return degrees;
             }, [documents, proximityMatrix]);
 
+            // Initialization
             useEffect(() => {
                 if (!svgRef.current) return;
                 const { width, height } = svgRef.current.getBoundingClientRect();
@@ -407,14 +338,13 @@
                 setSimulationActive(true);
             }, [documents]);
 
-            // Physics Engine
+            // Simulation
             useEffect(() => {
                 if (!simulationActive) return;
                 const { width, height } = svgRef.current.getBoundingClientRect();
                 const nodeCount = visibleNodes.size;
                 const REPULSION = 2000 / Math.max(1, Math.sqrt(nodeCount));
                 const ATTRACTION = 0.05, IDEAL_DIST = 150, DAMPING = 0.9;
-                const SEMANTIC_STRENGTH = 0.1;
 
                 const step = () => {
                     setNodePositions(curr => {
@@ -423,49 +353,29 @@
                         let totalEnergy = 0;
                         const currentDocs = documents.filter(d => visibleNodes.has(d.id));
 
-                        if (layoutMode === 'network') {
-                            // NETWORK PHYSICS
-                            currentDocs.forEach(a => {
-                                next[a.id].vx *= DAMPING; next[a.id].vy *= DAMPING;
-                                currentDocs.forEach(b => {
-                                    if (a.id === b.id) return;
-                                    const pa = next[a.id], pb = next[b.id];
-                                    const dx = pa.x - pb.x, dy = pa.y - pb.y;
-                                    const dist = Math.sqrt(dx*dx + dy*dy) || 1;
-                                    const f = REPULSION / (dist*dist);
-                                    pa.vx += (dx/dist)*f; pa.vy += (dy/dist)*f;
-                                });
-                            });
-                            visibleProximityMatrix.forEach(e => {
-                                const pa = next[e.source], pb = next[e.target];
-                                if(!pa || !pb) return;
-                                const dx = pb.x - pa.x, dy = pb.y - pa.y;
+                        // Physics
+                        currentDocs.forEach(a => {
+                            next[a.id].vx *= DAMPING; next[a.id].vy *= DAMPING;
+                            currentDocs.forEach(b => {
+                                if (a.id === b.id) return;
+                                const pa = next[a.id], pb = next[b.id];
+                                const dx = pa.x - pb.x, dy = pa.y - pb.y;
                                 const dist = Math.sqrt(dx*dx + dy*dy) || 1;
-                                const f = (dist - IDEAL_DIST) * ATTRACTION;
-                                const fx = (dx/dist)*f, fy = (dy/dist)*f;
-                                pa.vx += fx; pa.vy += fy; pb.vx -= fx; pb.vy -= fy;
+                                const f = REPULSION / (dist*dist);
+                                pa.vx += (dx/dist)*f; pa.vy += (dy/dist)*f;
                             });
-                        } else {
-                            // SEMANTIC MAP PHYSICS (Drift to coordinate)
-                            const PADDING = 50;
-                            const mapW = width - PADDING*2;
-                            const mapH = height - PADDING*2;
+                        });
+                        visibleProximityMatrix.forEach(e => {
+                            const pa = next[e.source], pb = next[e.target];
+                            if(!pa || !pb) return;
+                            const dx = pb.x - pa.x, dy = pb.y - pa.y;
+                            const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+                            const f = (dist - IDEAL_DIST) * ATTRACTION;
+                            const fx = (dx/dist)*f, fy = (dy/dist)*f;
+                            pa.vx += fx; pa.vy += fy; pb.vx -= fx; pb.vy -= fy;
+                        });
 
-                            currentDocs.forEach(d => {
-                                if (!d.semanticPos) return;
-                                // Map 0..1 to screen space
-                                const targetX = PADDING + d.semanticPos.x * mapW;
-                                const targetY = height - (PADDING + d.semanticPos.y * mapH); // Flip Y for cartesian feel
-
-                                const dx = targetX - next[d.id].x;
-                                const dy = targetY - next[d.id].y;
-
-                                next[d.id].vx = dx * SEMANTIC_STRENGTH;
-                                next[d.id].vy = dy * SEMANTIC_STRENGTH;
-                            });
-                        }
-
-                        // Update & Bounds
+                        // Update
                         currentDocs.forEach(d => {
                             if (isDragging && isDragging.id === d.id) { next[d.id].vx = 0; next[d.id].vy = 0; }
                             else {
@@ -478,16 +388,12 @@
                         energyRef.current = totalEnergy;
                         return next;
                     });
-
-                    if (energyRef.current > 0.01 || layoutMode === 'semantic') animationFrameRef.current = requestAnimationFrame(step);
-                    else if (energyRef.current < 0.01) setSimulationActive(false);
+                    if (energyRef.current < 0.001 * nodeCount && !isDragging) setSimulationActive(false);
+                    else animationFrameRef.current = requestAnimationFrame(step);
                 };
                 animationFrameRef.current = requestAnimationFrame(step);
                 return () => cancelAnimationFrame(animationFrameRef.current);
-            }, [simulationActive, documents, visibleProximityMatrix, isDragging, visibleNodes, layoutMode]);
-
-            // Trigger simulation restart on mode change
-            useEffect(() => { setSimulationActive(true); }, [layoutMode]);
+            }, [simulationActive, documents, visibleProximityMatrix, isDragging, visibleNodes]);
 
             const getClientPoint = (e) => {
                 if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -554,39 +460,6 @@
                 return pts.length < 3 ? null : { hull: computeConvexHull(pts), idx: i };
             }).filter(Boolean), [clusters, nodePositions]);
 
-            // Semantic Background Grid with Labels
-            const GridLines = () => {
-                if (layoutMode !== 'semantic') return null;
-                const lines = [];
-                const step = 100;
-                // Visual grid
-                for(let i=-2000; i<4000; i+=step) {
-                    lines.push(<line key={`v${i}`} x1={i} y1={-2000} x2={i} y2={4000} stroke="#374151" strokeWidth="1" strokeDasharray="5,5"/>);
-                    lines.push(<line key={`h${i}`} x1={-2000} y1={i} x2={4000} y2={i} stroke="#374151" strokeWidth="1" strokeDasharray="5,5"/>);
-                }
-
-                const { xLabels, yLabels } = mapAxesLabels || { xLabels: {min:'', max:''}, yLabels: {min:'', max:''} };
-
-                return (
-                    <g opacity="0.5">
-                        {lines}
-                        <line x1="0" y1="0" x2="2000" y2="0" stroke="#6b7280" strokeWidth="2"/>
-                        <line x1="0" y1="0" x2="0" y2="2000" stroke="#6b7280" strokeWidth="2"/>
-
-                        {/* Origin / Center */}
-                        <text x="10" y="-10" fill="#9ca3af" fontSize="12">0,0</text>
-
-                        {/* X Axis Labels */}
-                        <text x="50" y="20" fill="#60a5fa" fontSize="14" fontWeight="bold">← {xLabels.min}</text>
-                        <text x="800" y="20" fill="#60a5fa" fontSize="14" fontWeight="bold" textAnchor="end">{xLabels.max} →</text>
-
-                        {/* Y Axis Labels (SVG y is inverted relative to cartesian logic visually) */}
-                        <text x="10" y="-50" fill="#f472b6" fontSize="14" fontWeight="bold" style={{writingMode: 'vertical-rl'}} >↓ {yLabels.min}</text>
-                        <text x="10" y="-800" fill="#f472b6" fontSize="14" fontWeight="bold" style={{writingMode: 'vertical-rl'}}>↑ {yLabels.max}</text>
-                    </g>
-                );
-            };
-
             return (
                 <div className="w-full h-full bg-gray-800 rounded-lg shadow-inner relative overflow-hidden touch-none"
                     onMouseDown={(e) => handleStart(e)}
@@ -601,11 +474,10 @@
                     {focusedCluster && <button onClick={(e) => {e.stopPropagation(); setFocusedCluster(null); setTransform({x:0,y:0,k:1});}} className="absolute top-2 left-2 z-10 bg-gray-700 text-white px-3 py-1 rounded text-sm shadow-md border border-gray-600">Reset View</button>}
                     <svg ref={svgRef} width="100%" height="100%" className="cursor-grab active:cursor-grabbing">
                         <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
-                            <GridLines />
-                            {!focusedCluster && layoutMode === 'network' && clusterHulls.map(({ hull, idx }) => (
+                            {!focusedCluster && clusterHulls.map(({ hull, idx }) => (
                                 <path key={idx} d={`M ${hull.map(p => `${p.x} ${p.y}`).join(' L ')} Z`}
                                     fill={`hsla(${(idx*50)%360}, 90%, 50%, 0.1)`} stroke={`hsla(${(idx*50)%360}, 90%, 50%, 0.3)`} strokeWidth={2/transform.k}
-                                    style={{ pointerEvents: 'none' }} />
+                                    onClick={(e) => { e.stopPropagation(); setFocusedCluster({index: idx}); }} className="cursor-pointer" />
                             ))}
                             {visibleProximityMatrix.map(({ source, target, similarity }) => {
                                 const pa = nodePositions[source], pb = nodePositions[target];
@@ -730,14 +602,7 @@
             const [processing, setProcessing] = useState({ active: false, progress: 0, msg: '' });
             const [data, setData] = useState({ files: [], documents: [], matrix: [], clusters: [] });
             const [ui, setUi] = useState({ selected: null, pathNodes: [], highlightedPath: null, threshold: 70, error: null, info: null, activeTab: 'graph' });
-
-            // View Modes
-            const [pathMode, setPathMode] = useState('shortest');
-            const [layoutMode, setLayoutMode] = useState('network'); // 'network' | 'semantic'
-            const [mapAxesMode, setMapAxesMode] = useState('pca'); // 'pca' | 'custom'
-            const [customAxisDocs, setCustomAxisDocs] = useState({ x: null, y: null });
-            const [mapAxesLabels, setMapAxesLabels] = useState({ xLabels: {min:'Low',max:'High'}, yLabels: {min:'Low',max:'High'} });
-
+            const [pathMode, setPathMode] = useState('shortest'); // 'shortest' | 'strongest'
             const [focusedCluster, setFocusedCluster] = useState(null);
             const fileInputRef = useRef(null);
 
@@ -788,15 +653,6 @@
                     const vectors = output.tolist();
                     docs.forEach((d, i) => { d.vector = vectors[i]; d.descriptors = extractDescriptorsFromText(d.fullText); });
 
-                    // 3. Initial PCA Compute (can be overridden by custom axes later)
-                    if (docs.length >= 2) {
-                         const pca = new PCA(docs.map(d => d.vector));
-                         const coords = pca.compute();
-                         docs.forEach((d, i) => { d.pcaPos = coords[i]; d.semanticPos = coords[i]; }); // Store base PCA
-                    } else if (docs.length === 1) {
-                         docs[0].semanticPos = { x: 0.5, y: 0.5 }; docs[0].pcaPos = { x: 0.5, y: 0.5 };
-                    }
-
                     setData(d => ({ ...d, documents: docs }));
                 } catch (e) {
                     console.error(e);
@@ -807,7 +663,7 @@
                 }
             }, [data.files]);
 
-            // Recompute Matrix
+            // Recompute Matrix when threshold/docs change
             useEffect(() => {
                 if (data.documents.length < 2) { setData(d => ({ ...d, matrix: [], clusters: [] })); return; }
                 const mat = [];
@@ -821,68 +677,46 @@
                 setData(d => ({ ...d, matrix: mat, clusters: findConnectedComponents(data.documents, mat).filter(c => c.length >= 3) }));
             }, [data.documents, ui.threshold]);
 
-            // Map Coordinate & Label Logic (PCA vs Custom)
-            useEffect(() => {
-                if (data.documents.length === 0) return;
-                const updatedDocs = [...data.documents];
-
-                if (mapAxesMode === 'custom' && customAxisDocs.x && customAxisDocs.y) {
-                    // Custom Projection
-                    const docX = data.documents.find(d => d.id === customAxisDocs.x);
-                    const docY = data.documents.find(d => d.id === customAxisDocs.y);
-                    if (docX && docY) {
-                        updatedDocs.forEach(d => {
-                            d.semanticPos = {
-                                x: cosineSimilarity(d.vector, docX.vector), // 0 to 1 (usually)
-                                y: cosineSimilarity(d.vector, docY.vector)
-                            };
-                        });
-                        setMapAxesLabels({
-                            xLabels: {min: 'Low Similarity', max: docX.title.substring(0,15)+'...'},
-                            yLabels: {min: 'Low Similarity', max: docY.title.substring(0,15)+'...'}
-                        });
-                    }
-                } else {
-                    // PCA Mode (Default)
-                    updatedDocs.forEach(d => { if(d.pcaPos) d.semanticPos = d.pcaPos; });
-                    // Calculate Descriptive Labels for PCA
-                    const xKw = getAxisKeywords(updatedDocs, 'x');
-                    const yKw = getAxisKeywords(updatedDocs, 'y');
-                    setMapAxesLabels({ xLabels: xKw, yLabels: yKw });
-                }
-                // Trigger render update if needed (here we modify objects in place but might need state ref)
-                // In React strictly we should setDocuments, but for performance with large lists we might rely on the graph re-render
-            }, [mapAxesMode, customAxisDocs, data.documents, layoutMode]);
-
-
             // Pathfinding Effect
             useEffect(() => {
                 if (ui.pathNodes.length < 2) { setUi(u => ({ ...u, highlightedPath: null })); return; }
+
                 const docIds = data.documents.map(d => d.id);
+                // BFS Adjacency
                 const adjBFS = new Map(docIds.map(id => [id, []]));
                 data.matrix.forEach(e => { adjBFS.get(e.source).push(e.target); adjBFS.get(e.target).push(e.source); });
 
+                // Calculate paths for all pairs of selected nodes
                 const allPairsPaths = new Map();
                 for (let i = 0; i < ui.pathNodes.length; i++) {
                     for (let j = i + 1; j < ui.pathNodes.length; j++) {
                         const u = ui.pathNodes[i];
                         const v = ui.pathNodes[j];
+
                         let pathRes = null;
                         if (pathMode === 'shortest') {
                             const p = findShortestPath(u, v, adjBFS);
                             if (p) pathRes = { path: p, weight: p.length - 1 };
                         } else {
+                            // Strongest: Use Dijkstra with weights
                             pathRes = findPathDijkstra(u, v, docIds, data.matrix);
-                            if (pathRes) pathRes.weight = pathRes.cost;
+                            if (pathRes) pathRes.weight = pathRes.cost; // Use cost as weight for MST
                         }
-                        if (pathRes) allPairsPaths.set([u, v].sort().join('-'), pathRes);
+
+                        if (pathRes) {
+                            allPairsPaths.set([u, v].sort().join('-'), pathRes);
+                        }
                     }
                 }
 
+                // If > 2 nodes, compute MST on the clique of selected nodes
                 let finalNodes = new Set();
                 let finalEdges = new Set();
+
                 if (ui.pathNodes.length > 2) {
+                    // Build edges for meta-graph (Clique)
                     const metaEdges = [];
+                    const visited = new Set([ui.pathNodes[0]]);
                     ui.pathNodes.forEach(u => {
                         ui.pathNodes.forEach(v => {
                             if (u < v) {
@@ -891,33 +725,49 @@
                             }
                         });
                     });
+
+                    // Simple MST (Kruskal's)
                     metaEdges.sort((a,b) => a.weight - b.weight);
                     const parent = new Map();
                     ui.pathNodes.forEach(n => parent.set(n, n));
                     const find = (i) => { if (parent.get(i) === i) return i; return find(parent.get(i)); };
                     const union = (i, j) => parent.set(find(i), find(j));
+
                     metaEdges.forEach(edge => {
                         if (find(edge.u) !== find(edge.v)) {
                             union(edge.u, edge.v);
+                            // Add this path to final result
                             const res = allPairsPaths.get([edge.u, edge.v].sort().join('-'));
                             if (res) {
                                 res.path.forEach(n => finalNodes.add(n));
-                                for(let k=0; k < res.path.length - 1; k++) finalEdges.add([res.path[k], res.path[k+1]].sort().join('-'));
+                                for(let k=0; k < res.path.length - 1; k++) {
+                                    finalEdges.add([res.path[k], res.path[k+1]].sort().join('-'));
+                                }
                             }
                         }
                     });
+
                 } else {
+                    // Just 2 nodes
                     const res = allPairsPaths.get([ui.pathNodes[0], ui.pathNodes[1]].sort().join('-'));
                     if (res) {
                          res.path.forEach(n => finalNodes.add(n));
-                         for(let k=0; k < res.path.length - 1; k++) finalEdges.add([res.path[k], res.path[k+1]].sort().join('-'));
+                         for(let k=0; k < res.path.length - 1; k++) {
+                             finalEdges.add([res.path[k], res.path[k+1]].sort().join('-'));
+                         }
                     } else {
                         setUi(u => ({ ...u, info: "No path found between selected nodes" }));
                     }
                 }
-                if (finalNodes.size > 0) setUi(u => ({ ...u, highlightedPath: { nodes: finalNodes, edges: finalEdges } }));
-                else setUi(u => ({ ...u, highlightedPath: null }));
+
+                if (finalNodes.size > 0) {
+                    setUi(u => ({ ...u, highlightedPath: { nodes: finalNodes, edges: finalEdges } }));
+                } else {
+                    setUi(u => ({ ...u, highlightedPath: null }));
+                }
+
             }, [ui.pathNodes, data.matrix, pathMode]);
+
 
             const ready = status.pdfReady && status.modelReady;
 
@@ -931,47 +781,24 @@
                          <div className="flex items-center gap-2">
                             <NetworkIcon className="h-6 w-6 text-blue-500"/>
                             <h1 className="font-bold text-lg hidden md:block">PDF Similarity</h1>
+                            <h1 className="font-bold text-lg md:hidden">PDF Sim</h1>
                          </div>
                          <div className="flex items-center gap-3">
-                            {/* Layout Mode Toggle */}
-                            <div className="flex items-center bg-gray-700 rounded-lg p-1 gap-1" title="View Mode">
-                                <button onClick={()=>setLayoutMode('network')} className={`p-1.5 rounded ${layoutMode === 'network' ? 'bg-gray-600 text-emerald-400 shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}><ShareIcon className="h-4 w-4"/></button>
-                                <button onClick={()=>setLayoutMode('semantic')} className={`p-1.5 rounded ${layoutMode === 'semantic' ? 'bg-gray-600 text-purple-400 shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}><MapIcon className="h-4 w-4"/></button>
+
+                            {/* Path Mode Toggle */}
+                            <div className="flex items-center bg-gray-700 rounded-lg p-1 gap-1" title="Toggle Path Mode">
+                                <button onClick={()=>setPathMode('shortest')} className={`p-1.5 rounded ${pathMode === 'shortest' ? 'bg-gray-600 text-blue-400 shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}>
+                                    <RulerIcon className="h-4 w-4"/>
+                                </button>
+                                <button onClick={()=>setPathMode('strongest')} className={`p-1.5 rounded ${pathMode === 'strongest' ? 'bg-gray-600 text-yellow-400 shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}>
+                                    <ZapIcon className="h-4 w-4"/>
+                                </button>
                             </div>
 
-                            {layoutMode === 'network' ? (
-                                <>
-                                    <div className="flex items-center bg-gray-700 rounded-lg p-1 gap-1" title="Path Mode">
-                                        <button onClick={()=>setPathMode('shortest')} className={`p-1.5 rounded ${pathMode === 'shortest' ? 'bg-gray-600 text-blue-400 shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}><RulerIcon className="h-4 w-4"/></button>
-                                        <button onClick={()=>setPathMode('strongest')} className={`p-1.5 rounded ${pathMode === 'strongest' ? 'bg-gray-600 text-yellow-400 shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}><ZapIcon className="h-4 w-4"/></button>
-                                    </div>
-                                    <div className="flex flex-col md:flex-row items-end md:items-center gap-1 md:gap-3">
-                                        <label className="text-xs text-gray-400">Threshold: {ui.threshold}%</label>
-                                        <input type="range" min="30" max="99" value={ui.threshold} onChange={(e)=>setUi(u=>({...u, threshold: Number(e.target.value)}))} className="w-24 md:w-32 h-1 bg-gray-600 rounded appearance-none"/>
-                                    </div>
-                                </>
-                            ) : (
-                                // Map Settings (In Header if space permits, mostly for custom axes)
-                                <div className="flex items-center gap-2">
-                                    <select value={mapAxesMode} onChange={(e) => setMapAxesMode(e.target.value)} className="bg-gray-700 text-xs text-gray-200 p-1 rounded border border-gray-600">
-                                        <option value="pca">Auto (PCA)</option>
-                                        <option value="custom">Custom Axes</option>
-                                    </select>
-                                    {mapAxesMode === 'custom' && (
-                                        <div className="flex gap-1">
-                                            <select className="w-20 bg-gray-700 text-xs text-gray-200 p-1 rounded border border-gray-600" value={customAxisDocs.x || ''} onChange={(e) => setCustomAxisDocs(d => ({...d, x: e.target.value}))}>
-                                                <option value="" disabled>X-Axis Doc</option>
-                                                {data.documents.map(d => <option key={d.id} value={d.id}>{d.title.substring(0,10)}...</option>)}
-                                            </select>
-                                            <select className="w-20 bg-gray-700 text-xs text-gray-200 p-1 rounded border border-gray-600" value={customAxisDocs.y || ''} onChange={(e) => setCustomAxisDocs(d => ({...d, y: e.target.value}))}>
-                                                <option value="" disabled>Y-Axis Doc</option>
-                                                {data.documents.map(d => <option key={d.id} value={d.id}>{d.title.substring(0,10)}...</option>)}
-                                            </select>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
+                            <div className="flex flex-col md:flex-row items-end md:items-center gap-1 md:gap-3">
+                                <label className="text-xs text-gray-400">Threshold: {ui.threshold}%</label>
+                                <input type="range" min="30" max="99" value={ui.threshold} onChange={(e)=>setUi(u=>({...u, threshold: Number(e.target.value)}))} className="w-24 md:w-32 h-1 bg-gray-600 rounded appearance-none"/>
+                            </div>
                             <button onClick={()=>fileInputRef.current.click()} disabled={!ready || processing.active} className="p-2 bg-blue-600 rounded hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
                                 <UploadCloudIcon className="h-5 w-5 text-white"/>
                             </button>
@@ -984,10 +811,19 @@
 
                     {/* MAIN CONTENT */}
                     <div className="flex-grow relative overflow-hidden flex flex-col md:grid md:grid-cols-4 lg:grid-cols-5 gap-0 md:gap-4 md:p-4">
+
+                        {/* MOBILE: TABBED VIEW / DESKTOP: GRID VIEW */}
+
+                        {/* Left Panel: List (Mobile: Tab 1, Desktop: Col 1) */}
                         <aside className={`${ui.activeTab === 'list' ? 'flex' : 'hidden'} md:flex col-span-1 flex-col min-h-0 h-full absolute md:relative inset-0 md:inset-auto z-10 bg-gray-900 md:bg-transparent p-2 md:p-0`}>
-                            <DocumentList documents={data.documents} pathNodes={ui.pathNodes} onTogglePathNode={(id)=>setUi(u=>{ const set = new Set(u.pathNodes); if (set.has(id)) set.delete(id); else set.add(id); return { ...u, pathNodes: Array.from(set) }; })} onDeselectAll={()=>setUi(u=>({...u, pathNodes:[]}))} />
+                            <DocumentList documents={data.documents} pathNodes={ui.pathNodes} onTogglePathNode={(id)=>setUi(u=>{
+                                const set = new Set(u.pathNodes);
+                                if (set.has(id)) set.delete(id); else { set.add(id); }
+                                return { ...u, pathNodes: Array.from(set) };
+                            })} onDeselectAll={()=>setUi(u=>({...u, pathNodes:[]}))} />
                         </aside>
 
+                        {/* Center Panel: Graph (Mobile: Tab 2, Desktop: Col 2-4) */}
                         <main className={`${ui.activeTab === 'graph' ? 'flex' : 'hidden'} md:flex col-span-1 md:col-span-2 lg:col-span-3 flex-col min-h-0 h-full absolute md:relative inset-0 md:inset-auto z-0 p-2 md:p-0`}>
                             {processing.active && (
                                 <div className="absolute inset-0 z-50 bg-gray-900/80 flex flex-col items-center justify-center backdrop-blur-sm">
@@ -996,15 +832,26 @@
                                     <div className="w-64 h-2 bg-gray-700 rounded-full mt-4 overflow-hidden"><div className="h-full bg-blue-500 transition-all duration-300" style={{width: `${processing.progress}%`}}></div></div>
                                 </div>
                             )}
-                            {!ready && !processing.active && (<div className="absolute top-4 left-1/2 -translate-x-1/2 bg-yellow-900/80 text-yellow-200 text-xs px-3 py-1 rounded-full border border-yellow-700 backdrop-blur">{status.msg}</div>)}
+                            {!ready && !processing.active && (
+                                <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-yellow-900/80 text-yellow-200 text-xs px-3 py-1 rounded-full border border-yellow-700 backdrop-blur">
+                                    {status.msg}
+                                </div>
+                            )}
                             <GraphViewer
-                                documents={data.documents} proximityMatrix={data.matrix} onSelect={(el)=>{ setUi(u=>({...u, selected: el, activeTab: window.innerWidth < 768 ? 'info' : 'graph'})); }}
-                                selectedElement={ui.selected} pathNodes={ui.pathNodes} highlightedPath={ui.highlightedPath} similarityThreshold={ui.threshold}
-                                clusters={data.clusters} focusedCluster={focusedCluster} setFocusedCluster={setFocusedCluster}
-                                layoutMode={layoutMode} mapAxesLabels={mapAxesLabels}
+                                documents={data.documents}
+                                proximityMatrix={data.matrix}
+                                onSelect={(el)=>{ setUi(u=>({...u, selected: el, activeTab: window.innerWidth < 768 ? 'info' : 'graph'})); }}
+                                selectedElement={ui.selected}
+                                pathNodes={ui.pathNodes}
+                                highlightedPath={ui.highlightedPath}
+                                similarityThreshold={ui.threshold}
+                                clusters={data.clusters}
+                                focusedCluster={focusedCluster}
+                                setFocusedCluster={setFocusedCluster}
                             />
                         </main>
 
+                        {/* Right Panel: Info (Mobile: Tab 3, Desktop: Col 5) */}
                         <aside className={`${ui.activeTab === 'info' ? 'flex' : 'hidden'} md:flex col-span-1 flex-col min-h-0 h-full absolute md:relative inset-0 md:inset-auto z-10 bg-gray-900 md:bg-transparent p-2 md:p-0`}>
                             <div className="bg-gray-800 rounded-lg shadow-lg h-full overflow-hidden border border-gray-700">
                                 <InfoPanel selectedElement={ui.selected} documents={data.documents} proximityMatrix={data.matrix} />
@@ -1012,10 +859,17 @@
                         </aside>
                     </div>
 
+                    {/* MOBILE BOTTOM NAVIGATION */}
                     <nav className="md:hidden flex-none h-14 bg-gray-800 border-t border-gray-700 flex justify-around items-center text-xs z-30">
-                        <button onClick={()=>setUi(u=>({...u, activeTab: 'list'}))} className={`flex flex-col items-center gap-1 p-2 ${ui.activeTab === 'list' ? 'text-blue-400' : 'text-gray-400'}`}><ListIcon className="h-5 w-5"/> <span>List</span></button>
-                        <button onClick={()=>setUi(u=>({...u, activeTab: 'graph'}))} className={`flex flex-col items-center gap-1 p-2 ${ui.activeTab === 'graph' ? 'text-blue-400' : 'text-gray-400'}`}><NetworkIcon className="h-5 w-5"/> <span>Graph</span></button>
-                        <button onClick={()=>setUi(u=>({...u, activeTab: 'info'}))} className={`flex flex-col items-center gap-1 p-2 ${ui.activeTab === 'info' ? 'text-blue-400' : 'text-gray-400'}`}><InfoIcon className="h-5 w-5"/> <span>Details</span></button>
+                        <button onClick={()=>setUi(u=>({...u, activeTab: 'list'}))} className={`flex flex-col items-center gap-1 p-2 ${ui.activeTab === 'list' ? 'text-blue-400' : 'text-gray-400'}`}>
+                            <ListIcon className="h-5 w-5"/> <span>List</span>
+                        </button>
+                        <button onClick={()=>setUi(u=>({...u, activeTab: 'graph'}))} className={`flex flex-col items-center gap-1 p-2 ${ui.activeTab === 'graph' ? 'text-blue-400' : 'text-gray-400'}`}>
+                            <NetworkIcon className="h-5 w-5"/> <span>Graph</span>
+                        </button>
+                        <button onClick={()=>setUi(u=>({...u, activeTab: 'info'}))} className={`flex flex-col items-center gap-1 p-2 ${ui.activeTab === 'info' ? 'text-blue-400' : 'text-gray-400'}`}>
+                            <InfoIcon className="h-5 w-5"/> <span>Details</span>
+                        </button>
                     </nav>
                 </div>
             );
