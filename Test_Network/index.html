@@ -21,6 +21,7 @@
                     },
                     animation: {
                         'fade-in': 'fadeIn 0.3s ease-out',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                     },
                     keyframes: {
                         fadeIn: {
@@ -64,86 +65,46 @@
         const ZapIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>);
         const MapIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="6" x2="15" y2="21"/></svg>);
         const ShareIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>);
-        const SettingsIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>);
+        const HelpIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>);
 
         // --- 2. Helpers & Logic ---
 
-        // Simple Principal Component Analysis for 2D Projection
         class PCA {
-            constructor(vectors) {
-                this.vectors = vectors;
-                this.dim = vectors[0].length;
-                this.n = vectors.length;
-            }
-
+            constructor(vectors) { this.vectors = vectors; this.dim = vectors[0].length; this.n = vectors.length; }
             compute() {
-                // 1. Center data
                 const mean = new Float32Array(this.dim);
                 for(let i=0; i<this.n; i++) for(let j=0; j<this.dim; j++) mean[j] += this.vectors[i][j];
                 for(let j=0; j<this.dim; j++) mean[j] /= this.n;
-
-                const centered = this.vectors.map(v => {
-                    const c = new Float32Array(this.dim);
-                    for(let j=0; j<this.dim; j++) c[j] = v[j] - mean[j];
-                    return c;
-                });
-
-                // Power Iteration helper to find dominant eigenvector
+                const centered = this.vectors.map(v => { const c = new Float32Array(this.dim); for(let j=0; j<this.dim; j++) c[j] = v[j] - mean[j]; return c; });
                 const getFirstPrincipalComponent = (data) => {
                     let v = new Float32Array(this.dim).map(() => Math.random());
                     let norm = Math.sqrt(v.reduce((a,b)=>a+b*b, 0));
                     for(let i=0; i<this.dim; i++) v[i] /= norm;
-
                     for(let iter=0; iter<20; iter++) {
-                        const t = new Float32Array(this.dim);
-                        const u = new Float32Array(this.n); // Projection onto candidate
-                        for(let i=0; i<this.n; i++) {
-                            let dot = 0;
-                            for(let j=0; j<this.dim; j++) dot += data[i][j] * v[j];
-                            u[i] = dot;
-                        }
+                        const t = new Float32Array(this.dim); const u = new Float32Array(this.n);
+                        for(let i=0; i<this.n; i++) { let dot = 0; for(let j=0; j<this.dim; j++) dot += data[i][j] * v[j]; u[i] = dot; }
                         for(let i=0; i<this.n; i++) for(let j=0; j<this.dim; j++) t[j] += data[i][j] * u[i];
-
                         let tNorm = Math.sqrt(t.reduce((a,b)=>a+b*b, 0));
-                        if(tNorm < 1e-9) break;
-                        for(let i=0; i<this.dim; i++) v[i] = t[i] / tNorm;
+                        if(tNorm < 1e-9) break; for(let i=0; i<this.dim; i++) v[i] = t[i] / tNorm;
                     }
                     return v;
                 };
-
                 const pc1 = getFirstPrincipalComponent(centered);
-
-                // Deflate
                 const centered2 = centered.map(row => new Float32Array(row));
                 for(let i=0; i<this.n; i++) {
-                    let projection = 0;
-                    for(let j=0; j<this.dim; j++) projection += centered[i][j] * pc1[j];
+                    let projection = 0; for(let j=0; j<this.dim; j++) projection += centered[i][j] * pc1[j];
                     for(let j=0; j<this.dim; j++) centered2[i][j] -= projection * pc1[j];
                 }
-
                 const pc2 = getFirstPrincipalComponent(centered2);
-
-                // Project
                 let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
                 const points = [];
                 for(let i=0; i<this.n; i++) {
-                    let x = 0, y = 0;
-                    for(let j=0; j<this.dim; j++) {
-                        x += centered[i][j] * pc1[j];
-                        y += centered[i][j] * pc2[j];
-                    }
+                    let x = 0, y = 0; for(let j=0; j<this.dim; j++) { x += centered[i][j] * pc1[j]; y += centered[i][j] * pc2[j]; }
                     points.push({x, y});
-                    if(x < minX) minX=x; if(x > maxX) maxX=x;
-                    if(y < minY) minY=y; if(y > maxY) maxY=y;
+                    if(x < minX) minX=x; if(x > maxX) maxX=x; if(y < minY) minY=y; if(y > maxY) maxY=y;
                 }
-
-                // Normalize 0-1
-                const rangeX = maxX - minX || 1;
-                const rangeY = maxY - minY || 1;
-                return points.map(p => ({
-                    x: (p.x - minX) / rangeX,
-                    y: (p.y - minY) / rangeY
-                }));
+                const rangeX = maxX - minX || 1; const rangeY = maxY - minY || 1;
+                return points.map(p => ({ x: (p.x - minX) / rangeX, y: (p.y - minY) / rangeY }));
             }
         }
 
@@ -209,37 +170,21 @@
         const cosineSimilarity = (vecA, vecB) => {
             let dot = 0, magA = 0, magB = 0;
             if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
-            for (let i = 0; i < vecA.length; i++) {
-                dot += vecA[i] * vecB[i];
-                magA += vecA[i] * vecA[i];
-                magB += vecB[i] * vecB[i];
-            }
+            for (let i = 0; i < vecA.length; i++) { dot += vecA[i] * vecB[i]; magA += vecA[i] * vecA[i]; magB += vecB[i] * vecB[i]; }
             magA = Math.sqrt(magA); magB = Math.sqrt(magB);
             return (magA === 0 || magB === 0) ? 0 : dot / (magA * magB);
         };
 
         const findConnectedComponents = (documents, proximityMatrix) => {
             const adj = new Map(documents.map(doc => [doc.id, []]));
-            proximityMatrix.forEach(({ source, target }) => {
-                adj.get(source).push(target);
-                adj.get(target).push(source);
-            });
-            const visited = new Set();
-            const components = [];
+            proximityMatrix.forEach(({ source, target }) => { adj.get(source).push(target); adj.get(target).push(source); });
+            const visited = new Set(); const components = [];
             documents.forEach(doc => {
                 if (!visited.has(doc.id)) {
-                    const component = [];
-                    const queue = [doc.id];
-                    visited.add(doc.id);
+                    const component = []; const queue = [doc.id]; visited.add(doc.id);
                     while (queue.length > 0) {
-                        const node = queue.shift();
-                        component.push(node);
-                        for (const neighbor of adj.get(node) || []) {
-                            if (!visited.has(neighbor)) {
-                                visited.add(neighbor);
-                                queue.push(neighbor);
-                            }
-                        }
+                        const node = queue.shift(); component.push(node);
+                        for (const neighbor of adj.get(node) || []) if (!visited.has(neighbor)) { visited.add(neighbor); queue.push(neighbor); }
                     }
                     components.push(component);
                 }
@@ -251,102 +196,47 @@
             if(points.length < 3) return points;
             points.sort((a, b) => a.x - b.x || a.y - b.y);
             const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-            const lower = [];
-            for (const p of points) {
-                while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
-                lower.push(p);
-            }
-            const upper = [];
-            for (let i = points.length - 1; i >= 0; i--) {
-                const p = points[i];
-                while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
-                upper.push(p);
-            }
+            const lower = []; for (const p of points) { while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop(); lower.push(p); }
+            const upper = []; for (let i = points.length - 1; i >= 0; i--) { const p = points[i]; while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop(); upper.push(p); }
             return lower.slice(0, -1).concat(upper.slice(0, -1));
         };
 
         const findShortestPath = (sourceId, targetId, adj) => {
-            const queue = [[sourceId]];
-            const visited = new Set([sourceId]);
+            const queue = [[sourceId]]; const visited = new Set([sourceId]);
             while (queue.length > 0) {
-                const path = queue.shift();
-                const node = path[path.length - 1];
+                const path = queue.shift(); const node = path[path.length - 1];
                 if (node === targetId) return path;
-                for (const neighbor of adj.get(node) || []) {
-                    if (!visited.has(neighbor)) {
-                        visited.add(neighbor);
-                        queue.push([...path, neighbor]);
-                    }
-                }
+                for (const neighbor of adj.get(node) || []) if (!visited.has(neighbor)) { visited.add(neighbor); queue.push([...path, neighbor]); }
             }
             return null;
         };
 
         const findPathDijkstra = (sourceId, targetId, docIds, edges) => {
-            const adj = new Map();
-            docIds.forEach(id => adj.set(id, []));
-            edges.forEach(e => {
-                const cost = 1 / (e.similarity + 0.001);
-                adj.get(e.source).push({ target: e.target, cost });
-                adj.get(e.target).push({ target: e.source, cost });
-            });
-
-            const dist = new Map();
-            const prev = new Map();
-            const pq = new Set(docIds);
-            docIds.forEach(id => dist.set(id, Infinity));
-            dist.set(sourceId, 0);
-
+            const adj = new Map(); docIds.forEach(id => adj.set(id, []));
+            edges.forEach(e => { const cost = 1 / (e.similarity + 0.001); adj.get(e.source).push({ target: e.target, cost }); adj.get(e.target).push({ target: e.source, cost }); });
+            const dist = new Map(); const prev = new Map(); const pq = new Set(docIds);
+            docIds.forEach(id => dist.set(id, Infinity)); dist.set(sourceId, 0);
             while (pq.size > 0) {
-                let u = null;
-                let minD = Infinity;
-                for (const node of pq) {
-                    const d = dist.get(node);
-                    if (d < minD) { minD = d; u = node; }
-                }
+                let u = null; let minD = Infinity;
+                for (const node of pq) { const d = dist.get(node); if (d < minD) { minD = d; u = node; } }
                 if (u === null || u === targetId) break;
-                pq.delete(u);
-                if (minD === Infinity) break;
+                pq.delete(u); if (minD === Infinity) break;
                 const neighbors = adj.get(u) || [];
-                for (const { target: v, cost } of neighbors) {
-                    if (pq.has(v)) {
-                        const alt = minD + cost;
-                        if (alt < dist.get(v)) { dist.set(v, alt); prev.set(v, u); }
-                    }
-                }
+                for (const { target: v, cost } of neighbors) if (pq.has(v)) { const alt = minD + cost; if (alt < dist.get(v)) { dist.set(v, alt); prev.set(v, u); } }
             }
-            const path = [];
-            let curr = targetId;
-            if (prev.has(curr) || curr === sourceId) {
-                while (curr) { path.unshift(curr); curr = prev.get(curr); }
-            }
+            const path = []; let curr = targetId;
+            if (prev.has(curr) || curr === sourceId) { while (curr) { path.unshift(curr); curr = prev.get(curr); } }
             return (path.length > 0 && path[0] === sourceId) ? { path, cost: dist.get(targetId) } : null;
         };
 
-        // Helper to find explainable labels for axes
         const getAxisKeywords = (docs, axis) => {
             if (docs.length < 4) return { min: 'Low', max: 'High' };
-
-            // Sort by the given axis coordinate (0.0 to 1.0)
             const sorted = [...docs].sort((a,b) => a.semanticPos[axis] - b.semanticPos[axis]);
-            const n = Math.max(1, Math.ceil(docs.length * 0.25)); // Top/Bottom 25%
-            const lowDocs = sorted.slice(0, n);
-            const highDocs = sorted.slice(-n);
-
-            const getFreq = (ds) => {
-                const map = {};
-                ds.forEach(d => d.descriptors.forEach(w => map[w] = (map[w]||0)+1));
-                return map;
-            }
-            const lowFreq = getFreq(lowDocs);
-            const highFreq = getFreq(highDocs);
-
-            // Find word that is most common in Target group AND least common in Anti group
-            const getTop = (targetFreq, antiFreq) => {
-                return Object.entries(targetFreq)
-                    .sort((a,b) => (b[1] - (antiFreq[b[0]]||0)) - (a[1] - (antiFreq[a[0]]||0)))[0]?.[0] || '...';
-            }
-
+            const n = Math.max(1, Math.ceil(docs.length * 0.25));
+            const lowDocs = sorted.slice(0, n); const highDocs = sorted.slice(-n);
+            const getFreq = (ds) => { const map = {}; ds.forEach(d => d.descriptors.forEach(w => map[w] = (map[w]||0)+1)); return map; }
+            const lowFreq = getFreq(lowDocs); const highFreq = getFreq(highDocs);
+            const getTop = (targetFreq, antiFreq) => Object.entries(targetFreq).sort((a,b) => (b[1] - (antiFreq[b[0]]||0)) - (a[1] - (antiFreq[a[0]]||0)))[0]?.[0] || '...';
             return { min: getTop(lowFreq, highFreq), max: getTop(highFreq, lowFreq) };
         }
 
@@ -354,17 +244,77 @@
 
         const AlertMessage = ({ message, onDismiss, type = 'error' }) => {
             if (!message) return null;
-            const colors = {
-                error: { bg: 'bg-red-900', border: 'border-red-700', text: 'text-red-200', icon: <AlertTriangleIcon className="h-6 w-6 text-red-400" /> },
-                info: { bg: 'bg-blue-900', border: 'border-blue-700', text: 'text-blue-200', icon: <FileTextIcon className="h-6 w-6 text-blue-400" /> }
-            }
+            const colors = { error: { bg: 'bg-red-900', border: 'border-red-700', text: 'text-red-200', icon: <AlertTriangleIcon className="h-6 w-6 text-red-400" /> }, info: { bg: 'bg-blue-900', border: 'border-blue-700', text: 'text-blue-200', icon: <FileTextIcon className="h-6 w-6 text-blue-400" /> } }
             const color = colors[type];
             return (
                 <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-50 p-4 animate-fade-in">
                     <div className={`${color.bg} border ${color.border} ${color.text} p-4 rounded-lg shadow-2xl flex items-center gap-4`}>
-                        {color.icon}
-                        <p className="flex-grow text-sm">{message}</p>
-                        <button onClick={onDismiss} className="p-1 rounded-full hover:bg-black/20 transition-colors"><XIcon className="h-5 w-5"/></button>
+                        {color.icon} <p className="flex-grow text-sm">{message}</p> <button onClick={onDismiss} className="p-1 rounded-full hover:bg-black/20 transition-colors"><XIcon className="h-5 w-5"/></button>
+                    </div>
+                </div>
+            );
+        };
+
+        // GUIDE OVERLAY COMPONENT
+        const GuideOverlay = ({ active, onComplete }) => {
+            const [step, setStep] = useState(0);
+            if (!active) return null;
+
+            const steps = [
+                {
+                    title: "Welcome aboard! 🚀",
+                    text: "I'm your interactive guide. I'll show you how to use this PDF Similarity Analyzer to unlock hidden connections in your documents.",
+                    highlight: null
+                },
+                {
+                    title: "1. Start Here",
+                    text: (<span>Click the <span className="inline-flex items-center justify-center p-1 bg-blue-600 rounded mx-1 align-middle shadow-sm"><UploadCloudIcon className="h-4 w-4 text-white"/></span> button to upload your PDFs (at least 2). The AI will read them locally on your device—nothing is sent to the cloud.</span>),
+                    highlight: "btn-upload"
+                },
+                {
+                    title: "2. Network View",
+                    text: (<span>In this mode <span className="inline-flex items-center justify-center p-1 bg-gray-700 border border-gray-600 rounded mx-1 align-middle"><ShareIcon className="h-4 w-4 text-emerald-400"/></span>, files are nodes. Lines represent similarity. If nodes are close, they talk about similar topics. Drag them around!</span>),
+                    highlight: "mode-toggle"
+                },
+                {
+                    title: "3. Semantic Map",
+                    text: (<span>Switch to 'Map' <span className="inline-flex items-center justify-center p-1 bg-gray-700 border border-gray-600 rounded mx-1 align-middle"><MapIcon className="h-4 w-4 text-purple-400"/></span> to see a 2D plot. We mathematically calculate the 'meaning' of your docs and place them on a chart.</span>),
+                    highlight: "mode-toggle"
+                },
+                {
+                    title: "4. Pathfinding",
+                    text: (<span>Select multiple documents. Use the Ruler <span className="inline-flex items-center justify-center p-1 bg-gray-700 border border-gray-600 rounded mx-1 align-middle"><RulerIcon className="h-4 w-4 text-blue-400"/></span> for the shortest path, or the Zap <span className="inline-flex items-center justify-center p-1 bg-gray-700 border border-gray-600 rounded mx-1 align-middle"><ZapIcon className="h-4 w-4 text-yellow-400"/></span> for the 'Strongest' connection (highest similarity).</span>),
+                    highlight: "path-toggle"
+                },
+                {
+                    title: "5. Fine Tuning",
+                    text: "Use 'Threshold' to cut off weak links. Use 'Contrast' to apply an exponential filter—making strong connections stronger and weak ones much weaker.",
+                    highlight: "threshold-slider"
+                },
+                {
+                    title: "Ready?",
+                    text: (<span>Go ahead and upload your files. You can click the '?' <span className="inline-flex items-center justify-center mx-1 align-middle"><HelpIcon className="h-5 w-5 text-gray-400 hover:text-blue-400"/></span> icon anytime to see this again.</span>),
+                    highlight: "btn-help"
+                }
+            ];
+
+            const current = steps[step];
+
+            return (
+                <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center animate-fade-in">
+                    <div className="bg-gray-800 border border-gray-600 p-6 rounded-xl shadow-2xl max-w-sm w-full m-4 relative">
+                        <div className="mb-4 flex justify-between items-center">
+                            <span className="text-xs font-bold uppercase text-blue-400 tracking-wider">Step {step + 1} of {steps.length}</span>
+                            <button onClick={onComplete} className="text-gray-500 hover:text-white"><XIcon className="h-5 w-5"/></button>
+                        </div>
+                        <h2 className="text-xl font-bold text-white mb-2">{current.title}</h2>
+                        <div className="text-gray-300 text-sm mb-6 leading-relaxed">{current.text}</div>
+                        <div className="flex justify-between">
+                            <button onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0} className="text-gray-400 hover:text-white disabled:opacity-30 font-medium text-sm px-3 py-2">Back</button>
+                            <button onClick={() => { if(step === steps.length - 1) onComplete(); else setStep(s => s + 1); }} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors shadow-lg shadow-blue-900/50">
+                                {step === steps.length - 1 ? "Let's Start!" : "Next"}
+                            </button>
+                        </div>
                     </div>
                 </div>
             );
@@ -387,10 +337,7 @@
             const visibleProximityMatrix = useMemo(() => focusedCluster ? proximityMatrix.filter(e => visibleNodes.has(e.source) && visibleNodes.has(e.target)) : proximityMatrix, [focusedCluster, proximityMatrix, visibleNodes]);
             const nodeDegrees = useMemo(() => {
                 const degrees = new Map(documents.map(d => [d.id, 0]));
-                proximityMatrix.forEach(({ source, target }) => {
-                    degrees.set(source, (degrees.get(source) || 0) + 1);
-                    degrees.set(target, (degrees.get(target) || 0) + 1);
-                });
+                proximityMatrix.forEach(({ source, target }) => { degrees.set(source, (degrees.get(source) || 0) + 1); degrees.set(target, (degrees.get(target) || 0) + 1); });
                 return degrees;
             }, [documents, proximityMatrix]);
 
@@ -399,15 +346,12 @@
                 const { width, height } = svgRef.current.getBoundingClientRect();
                 setNodePositions(prev => {
                     const newPos = {...prev};
-                    documents.forEach(doc => {
-                        if (!newPos[doc.id]) newPos[doc.id] = { x: width/2 + (Math.random()-0.5)*100, y: height/2 + (Math.random()-0.5)*100, vx:0, vy:0 };
-                    });
+                    documents.forEach(doc => { if (!newPos[doc.id]) newPos[doc.id] = { x: width/2 + (Math.random()-0.5)*100, y: height/2 + (Math.random()-0.5)*100, vx:0, vy:0 }; });
                     return newPos;
                 });
                 setSimulationActive(true);
             }, [documents]);
 
-            // Physics Engine
             useEffect(() => {
                 if (!simulationActive) return;
                 const { width, height } = svgRef.current.getBoundingClientRect();
@@ -415,70 +359,29 @@
                 const REPULSION = 2000 / Math.max(1, Math.sqrt(nodeCount));
                 const ATTRACTION = 0.05, IDEAL_DIST = 150, DAMPING = 0.9;
                 const SEMANTIC_STRENGTH = 0.1;
-
                 const step = () => {
                     setNodePositions(curr => {
                         if (Object.keys(curr).length === 0) return {};
                         const next = JSON.parse(JSON.stringify(curr));
                         let totalEnergy = 0;
                         const currentDocs = documents.filter(d => visibleNodes.has(d.id));
-
                         if (layoutMode === 'network') {
-                            // NETWORK PHYSICS
                             currentDocs.forEach(a => {
                                 next[a.id].vx *= DAMPING; next[a.id].vy *= DAMPING;
-                                currentDocs.forEach(b => {
-                                    if (a.id === b.id) return;
-                                    const pa = next[a.id], pb = next[b.id];
-                                    const dx = pa.x - pb.x, dy = pa.y - pb.y;
-                                    const dist = Math.sqrt(dx*dx + dy*dy) || 1;
-                                    const f = REPULSION / (dist*dist);
-                                    pa.vx += (dx/dist)*f; pa.vy += (dy/dist)*f;
-                                });
+                                currentDocs.forEach(b => { if (a.id === b.id) return; const pa = next[a.id], pb = next[b.id]; const dx = pa.x - pb.x, dy = pa.y - pb.y; const dist = Math.sqrt(dx*dx + dy*dy) || 1; const f = REPULSION / (dist*dist); pa.vx += (dx/dist)*f; pa.vy += (dy/dist)*f; });
                             });
-                            visibleProximityMatrix.forEach(e => {
-                                const pa = next[e.source], pb = next[e.target];
-                                if(!pa || !pb) return;
-                                const dx = pb.x - pa.x, dy = pb.y - pa.y;
-                                const dist = Math.sqrt(dx*dx + dy*dy) || 1;
-                                const f = (dist - IDEAL_DIST) * ATTRACTION;
-                                const fx = (dx/dist)*f, fy = (dy/dist)*f;
-                                pa.vx += fx; pa.vy += fy; pb.vx -= fx; pb.vy -= fy;
-                            });
+                            visibleProximityMatrix.forEach(e => { const pa = next[e.source], pb = next[e.target]; if(!pa || !pb) return; const dx = pb.x - pa.x, dy = pb.y - pa.y; const dist = Math.sqrt(dx*dx + dy*dy) || 1; const f = (dist - IDEAL_DIST) * ATTRACTION; const fx = (dx/dist)*f, fy = (dy/dist)*f; pa.vx += fx; pa.vy += fy; pb.vx -= fx; pb.vy -= fy; });
                         } else {
-                            // SEMANTIC MAP PHYSICS (Drift to coordinate)
-                            const PADDING = 50;
-                            const mapW = width - PADDING*2;
-                            const mapH = height - PADDING*2;
-
-                            currentDocs.forEach(d => {
-                                if (!d.semanticPos) return;
-                                // Map 0..1 to screen space
-                                const targetX = PADDING + d.semanticPos.x * mapW;
-                                const targetY = height - (PADDING + d.semanticPos.y * mapH); // Flip Y for cartesian feel
-
-                                const dx = targetX - next[d.id].x;
-                                const dy = targetY - next[d.id].y;
-
-                                next[d.id].vx = dx * SEMANTIC_STRENGTH;
-                                next[d.id].vy = dy * SEMANTIC_STRENGTH;
-                            });
+                            const PADDING = 50; const mapW = width - PADDING*2; const mapH = height - PADDING*2;
+                            currentDocs.forEach(d => { if (!d.semanticPos) return; const targetX = PADDING + d.semanticPos.x * mapW; const targetY = height - (PADDING + d.semanticPos.y * mapH); const dx = targetX - next[d.id].x; const dy = targetY - next[d.id].y; next[d.id].vx = dx * SEMANTIC_STRENGTH; next[d.id].vy = dy * SEMANTIC_STRENGTH; });
                         }
-
-                        // Update & Bounds
                         currentDocs.forEach(d => {
                             if (isDragging && isDragging.id === d.id) { next[d.id].vx = 0; next[d.id].vy = 0; }
-                            else {
-                                next[d.id].x += next[d.id].vx; next[d.id].y += next[d.id].vy;
-                                next[d.id].x = Math.max(15, Math.min(width-15, next[d.id].x));
-                                next[d.id].y = Math.max(15, Math.min(height-15, next[d.id].y));
-                            }
+                            else { next[d.id].x += next[d.id].vx; next[d.id].y += next[d.id].vy; next[d.id].x = Math.max(15, Math.min(width-15, next[d.id].x)); next[d.id].y = Math.max(15, Math.min(height-15, next[d.id].y)); }
                             totalEnergy += next[d.id].vx**2 + next[d.id].vy**2;
                         });
-                        energyRef.current = totalEnergy;
-                        return next;
+                        energyRef.current = totalEnergy; return next;
                     });
-
                     if (energyRef.current > 0.01 || layoutMode === 'semantic') animationFrameRef.current = requestAnimationFrame(step);
                     else if (energyRef.current < 0.01) setSimulationActive(false);
                 };
@@ -486,168 +389,56 @@
                 return () => cancelAnimationFrame(animationFrameRef.current);
             }, [simulationActive, documents, visibleProximityMatrix, isDragging, visibleNodes, layoutMode]);
 
-            // Trigger simulation restart on mode change
             useEffect(() => { setSimulationActive(true); }, [layoutMode]);
 
-            const getClientPoint = (e) => {
-                if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                return { x: e.clientX, y: e.clientY };
-            }
-
+            const getClientPoint = (e) => { if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY }; return { x: e.clientX, y: e.clientY }; }
             const handleStart = (e, docId = null) => {
                 const point = getClientPoint(e);
-                if (docId) {
-                    e.stopPropagation();
-                    dragInfo.current = { startX: point.x, startY: point.y, moved: false };
-                    const svgPoint = svgRef.current.createSVGPoint();
-                    svgPoint.x = point.x; svgPoint.y = point.y;
-                    const { x, y } = svgPoint.matrixTransform(svgRef.current.getScreenCTM().inverse());
-                    setIsDragging({ id: docId, offsetX: (x - transform.x)/transform.k - nodePositions[docId].x, offsetY: (y - transform.y)/transform.k - nodePositions[docId].y });
-                    onSelect({ type: 'node', id: docId });
-                } else {
-                    isPanning.current = true;
-                    panStart.current = { x: point.x, y: point.y };
-                }
+                if (docId) { e.stopPropagation(); dragInfo.current = { startX: point.x, startY: point.y, moved: false }; const svgPoint = svgRef.current.createSVGPoint(); svgPoint.x = point.x; svgPoint.y = point.y; const { x, y } = svgPoint.matrixTransform(svgRef.current.getScreenCTM().inverse()); setIsDragging({ id: docId, offsetX: (x - transform.x)/transform.k - nodePositions[docId].x, offsetY: (y - transform.y)/transform.k - nodePositions[docId].y }); onSelect({ type: 'node', id: docId }); }
+                else { isPanning.current = true; panStart.current = { x: point.x, y: point.y }; }
             };
-
             const handleMove = (e) => {
                 const point = getClientPoint(e);
-                if (isPanning.current) {
-                    const dx = point.x - panStart.current.x;
-                    const dy = point.y - panStart.current.y;
-                    setTransform(t => ({ ...t, x: t.x + dx, y: t.y + dy }));
-                    panStart.current = { x: point.x, y: point.y };
-                    return;
-                }
-                if (isDragging) {
-                    e.preventDefault();
-                    if (dragInfo.current && !dragInfo.current.moved) {
-                        const dx = point.x - dragInfo.current.startX; const dy = point.y - dragInfo.current.startY;
-                        if (Math.sqrt(dx*dx + dy*dy) > 5) { dragInfo.current.moved = true; setSimulationActive(true); }
-                    }
-                    if (dragInfo.current?.moved) {
-                        const svgPoint = svgRef.current.createSVGPoint();
-                        svgPoint.x = point.x; svgPoint.y = point.y;
-                        const { x, y } = svgPoint.matrixTransform(svgRef.current.getScreenCTM().inverse());
-                        setNodePositions(prev => ({ ...prev, [isDragging.id]: { ...prev[isDragging.id], x: (x-transform.x)/transform.k - isDragging.offsetX, y: (y-transform.y)/transform.k - isDragging.offsetY } }));
-                    }
-                }
+                if (isPanning.current) { const dx = point.x - panStart.current.x; const dy = point.y - panStart.current.y; setTransform(t => ({ ...t, x: t.x + dx, y: t.y + dy })); panStart.current = { x: point.x, y: point.y }; return; }
+                if (isDragging) { e.preventDefault(); if (dragInfo.current && !dragInfo.current.moved) { const dx = point.x - dragInfo.current.startX; const dy = point.y - dragInfo.current.startY; if (Math.sqrt(dx*dx + dy*dy) > 5) { dragInfo.current.moved = true; setSimulationActive(true); } } if (dragInfo.current?.moved) { const svgPoint = svgRef.current.createSVGPoint(); svgPoint.x = point.x; svgPoint.y = point.y; const { x, y } = svgPoint.matrixTransform(svgRef.current.getScreenCTM().inverse()); setNodePositions(prev => ({ ...prev, [isDragging.id]: { ...prev[isDragging.id], x: (x-transform.x)/transform.k - isDragging.offsetX, y: (y-transform.y)/transform.k - isDragging.offsetY } })); } }
             };
+            const handleEnd = () => { if (isDragging && dragInfo.current && !dragInfo.current.moved) setSimulationActive(false); setIsDragging(null); dragInfo.current = null; isPanning.current = false; };
+            const handleWheel = (e) => { e.preventDefault(); const scaleFactor = 1.1; const svgPoint = svgRef.current.createSVGPoint(); svgPoint.x = e.clientX; svgPoint.y = e.clientY; const { x, y } = svgPoint.matrixTransform(svgRef.current.getScreenCTM().inverse()); const newScale = e.deltaY < 0 ? transform.k * scaleFactor : transform.k / scaleFactor; setTransform({ x: x - (x - transform.x) * (newScale / transform.k), y: y - (y - transform.y) * (newScale / transform.k), k: newScale }); };
+            const clusterHulls = useMemo(() => !clusters || Object.keys(nodePositions).length === 0 ? [] : clusters.map((c, i) => { const pts = c.map(id => nodePositions[id]).filter(Boolean); return pts.length < 3 ? null : { hull: computeConvexHull(pts), idx: i }; }).filter(Boolean), [clusters, nodePositions]);
 
-            const handleEnd = () => {
-                if (isDragging && dragInfo.current && !dragInfo.current.moved) setSimulationActive(false);
-                setIsDragging(null); dragInfo.current = null; isPanning.current = false;
-            };
-
-            const handleWheel = (e) => {
-                e.preventDefault();
-                const scaleFactor = 1.1;
-                const svgPoint = svgRef.current.createSVGPoint();
-                svgPoint.x = e.clientX; svgPoint.y = e.clientY;
-                const { x, y } = svgPoint.matrixTransform(svgRef.current.getScreenCTM().inverse());
-                const newScale = e.deltaY < 0 ? transform.k * scaleFactor : transform.k / scaleFactor;
-                setTransform({ x: x - (x - transform.x) * (newScale / transform.k), y: y - (y - transform.y) * (newScale / transform.k), k: newScale });
-            };
-
-            const clusterHulls = useMemo(() => !clusters || Object.keys(nodePositions).length === 0 ? [] : clusters.map((c, i) => {
-                const pts = c.map(id => nodePositions[id]).filter(Boolean);
-                return pts.length < 3 ? null : { hull: computeConvexHull(pts), idx: i };
-            }).filter(Boolean), [clusters, nodePositions]);
-
-            // Semantic Background Grid with Labels
             const GridLines = () => {
                 if (layoutMode !== 'semantic') return null;
-                const lines = [];
-                const step = 100;
-                // Visual grid
-                for(let i=-2000; i<4000; i+=step) {
-                    lines.push(<line key={`v${i}`} x1={i} y1={-2000} x2={i} y2={4000} stroke="#374151" strokeWidth="1" strokeDasharray="5,5"/>);
-                    lines.push(<line key={`h${i}`} x1={-2000} y1={i} x2={4000} y2={i} stroke="#374151" strokeWidth="1" strokeDasharray="5,5"/>);
-                }
-
+                const lines = []; const step = 100; for(let i=-2000; i<4000; i+=step) { lines.push(<line key={`v${i}`} x1={i} y1={-2000} x2={i} y2={4000} stroke="#374151" strokeWidth="1" strokeDasharray="5,5"/>); lines.push(<line key={`h${i}`} x1={-2000} y1={i} x2={4000} y2={i} stroke="#374151" strokeWidth="1" strokeDasharray="5,5"/>); }
                 const { xLabels, yLabels } = mapAxesLabels || { xLabels: {min:'', max:''}, yLabels: {min:'', max:''} };
-
                 return (
                     <g opacity="0.5">
-                        {lines}
-                        <line x1="0" y1="0" x2="2000" y2="0" stroke="#6b7280" strokeWidth="2"/>
-                        <line x1="0" y1="0" x2="0" y2="2000" stroke="#6b7280" strokeWidth="2"/>
-
-                        {/* Origin / Center */}
+                        {lines} <line x1="0" y1="0" x2="2000" y2="0" stroke="#6b7280" strokeWidth="2"/> <line x1="0" y1="0" x2="0" y2="2000" stroke="#6b7280" strokeWidth="2"/>
                         <text x="10" y="-10" fill="#9ca3af" fontSize="12">0,0</text>
-
-                        {/* X Axis Labels */}
-                        <text x="50" y="20" fill="#60a5fa" fontSize="14" fontWeight="bold">← {xLabels.min}</text>
-                        <text x="800" y="20" fill="#60a5fa" fontSize="14" fontWeight="bold" textAnchor="end">{xLabels.max} →</text>
-
-                        {/* Y Axis Labels (SVG y is inverted relative to cartesian logic visually) */}
-                        <text x="10" y="-50" fill="#f472b6" fontSize="14" fontWeight="bold" style={{writingMode: 'vertical-rl'}} >↓ {yLabels.min}</text>
-                        <text x="10" y="-800" fill="#f472b6" fontSize="14" fontWeight="bold" style={{writingMode: 'vertical-rl'}}>↑ {yLabels.max}</text>
+                        <text x="50" y="20" fill="#60a5fa" fontSize="14" fontWeight="bold">← {xLabels.min}</text> <text x="800" y="20" fill="#60a5fa" fontSize="14" fontWeight="bold" textAnchor="end">{xLabels.max} →</text>
+                        <text x="10" y="-50" fill="#f472b6" fontSize="14" fontWeight="bold" style={{writingMode: 'vertical-rl'}} >↓ {yLabels.min}</text> <text x="10" y="-800" fill="#f472b6" fontSize="14" fontWeight="bold" style={{writingMode: 'vertical-rl'}}>↑ {yLabels.max}</text>
                     </g>
                 );
             };
 
             return (
                 <div className="w-full h-full bg-gray-800 rounded-lg shadow-inner relative overflow-hidden touch-none"
-                    onMouseDown={(e) => handleStart(e)}
-                    onTouchStart={(e) => handleStart(e)}
-                    onMouseMove={handleMove}
-                    onTouchMove={handleMove}
-                    onMouseUp={handleEnd}
-                    onTouchEnd={handleEnd}
-                    onMouseLeave={handleEnd}
-                    onWheel={handleWheel}
+                    onMouseDown={(e) => handleStart(e)} onTouchStart={(e) => handleStart(e)} onMouseMove={handleMove} onTouchMove={handleMove} onMouseUp={handleEnd} onTouchEnd={handleEnd} onMouseLeave={handleEnd} onWheel={handleWheel}
                 >
                     {focusedCluster && <button onClick={(e) => {e.stopPropagation(); setFocusedCluster(null); setTransform({x:0,y:0,k:1});}} className="absolute top-2 left-2 z-10 bg-gray-700 text-white px-3 py-1 rounded text-sm shadow-md border border-gray-600">Reset View</button>}
                     <svg ref={svgRef} width="100%" height="100%" className="cursor-grab active:cursor-grabbing">
                         <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
                             <GridLines />
-                            {!focusedCluster && layoutMode === 'network' && clusterHulls.map(({ hull, idx }) => (
-                                <path key={idx} d={`M ${hull.map(p => `${p.x} ${p.y}`).join(' L ')} Z`}
-                                    fill={`hsla(${(idx*50)%360}, 90%, 50%, 0.1)`} stroke={`hsla(${(idx*50)%360}, 90%, 50%, 0.3)`} strokeWidth={2/transform.k}
-                                    style={{ pointerEvents: 'none' }} />
-                            ))}
+                            {!focusedCluster && layoutMode === 'network' && clusterHulls.map(({ hull, idx }) => ( <path key={idx} d={`M ${hull.map(p => `${p.x} ${p.y}`).join(' L ')} Z`} fill={`hsla(${(idx*50)%360}, 90%, 50%, 0.1)`} stroke={`hsla(${(idx*50)%360}, 90%, 50%, 0.3)`} strokeWidth={2/transform.k} style={{ pointerEvents: 'none' }} /> ))}
                             {visibleProximityMatrix.map(({ source, target, similarity }) => {
-                                const pa = nodePositions[source], pb = nodePositions[target];
-                                if (!pa || !pb) return null;
-                                const edgeId = `${source}-${target}`;
-                                const isSel = selectedElement?.type === 'edge' && selectedElement.id === edgeId;
-                                const inPath = highlightedPath?.edges.has([source, target].sort().join('-'));
-                                const isHovered = hoveredEdge === edgeId;
-
-                                const stroke = inPath ? '#f59e0b' : isSel ? '#34d399' : isHovered ? '#60a5fa' : '#4b5563';
-                                const baseWidth = ((isSel || inPath ? 4 : 1) + (similarity-0.5)*5);
-                                const visualWidth = (isHovered ? Math.max(baseWidth * 2.5, 3) : baseWidth) / transform.k;
-                                const hitWidth = 20 / transform.k;
-
-                                return (
-                                    <g key={edgeId}
-                                       onMouseEnter={() => setHoveredEdge(edgeId)}
-                                       onMouseLeave={() => setHoveredEdge(null)}
-                                       onClick={(e) => {e.stopPropagation(); onSelect({type:'edge', id:edgeId});}}
-                                       className="cursor-pointer"
-                                    >
-                                        <line x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y} stroke={stroke} strokeWidth={visualWidth} style={{transition: 'stroke-width 0.1s ease, stroke 0.1s ease'}} />
-                                        <line x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y} stroke="transparent" strokeWidth={hitWidth} />
-                                    </g>
-                                );
+                                const pa = nodePositions[source], pb = nodePositions[target]; if (!pa || !pb) return null;
+                                const edgeId = `${source}-${target}`; const isSel = selectedElement?.type === 'edge' && selectedElement.id === edgeId; const inPath = highlightedPath?.edges.has([source, target].sort().join('-')); const isHovered = hoveredEdge === edgeId;
+                                const stroke = inPath ? '#f59e0b' : isSel ? '#34d399' : isHovered ? '#60a5fa' : '#4b5563'; const baseWidth = ((isSel || inPath ? 4 : 1) + (similarity-0.5)*5); const visualWidth = (isHovered ? Math.max(baseWidth * 2.5, 3) : baseWidth) / transform.k; const hitWidth = 20 / transform.k;
+                                return ( <g key={edgeId} onMouseEnter={() => setHoveredEdge(edgeId)} onMouseLeave={() => setHoveredEdge(null)} onClick={(e) => {e.stopPropagation(); onSelect({type:'edge', id:edgeId});}} className="cursor-pointer"> <line x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y} stroke={stroke} strokeWidth={visualWidth} style={{transition: 'stroke-width 0.1s ease, stroke 0.1s ease'}} /> <line x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y} stroke="transparent" strokeWidth={hitWidth} /> </g> );
                             })}
                             {documents.filter(d => visibleNodes.has(d.id)).map(doc => {
-                                const pos = nodePositions[doc.id];
-                                if (!pos) return null;
-                                const isSel = selectedElement?.type === 'node' && selectedElement.id === doc.id;
-                                const inPath = highlightedPath?.nodes.has(doc.id);
-                                const r = ((nodeDegrees.get(doc.id)||0)*0.5 + 8 + (isSel?4:0)) / transform.k;
-                                const fill = inPath ? '#fcd34d' : isSel ? '#60a5fa' : '#93c5fd';
-                                return (
-                                    <g key={doc.id} transform={`translate(${pos.x}, ${pos.y})`}
-                                        onMouseDown={(e) => handleStart(e, doc.id)}
-                                        onTouchStart={(e) => handleStart(e, doc.id)}
-                                    >
-                                        <circle r={r} fill={fill} stroke="#1e3a8a" strokeWidth={1/transform.k} />
-                                        <text dy={r + 10/transform.k} textAnchor="middle" fill="#e5e7eb" fontSize={10/transform.k} className="pointer-events-none select-none">{doc.title.substring(0,15)}</text>
-                                    </g>
-                                );
+                                const pos = nodePositions[doc.id]; if (!pos) return null;
+                                const isSel = selectedElement?.type === 'node' && selectedElement.id === doc.id; const inPath = highlightedPath?.nodes.has(doc.id); const r = ((nodeDegrees.get(doc.id)||0)*0.5 + 8 + (isSel?4:0)) / transform.k; const fill = inPath ? '#fcd34d' : isSel ? '#60a5fa' : '#93c5fd';
+                                return ( <g key={doc.id} transform={`translate(${pos.x}, ${pos.y})`} onMouseDown={(e) => handleStart(e, doc.id)} onTouchStart={(e) => handleStart(e, doc.id)} > <circle r={r} fill={fill} stroke="#1e3a8a" strokeWidth={1/transform.k} /> <text dy={r + 10/transform.k} textAnchor="middle" fill="#e5e7eb" fontSize={10/transform.k} className="pointer-events-none select-none">{doc.title.substring(0,15)}</text> </g> );
                             })}
                         </g>
                     </svg>
@@ -658,68 +449,26 @@
         const AbstractViewer = ({ abstract }) => {
             const [expanded, setExpanded] = useState(false);
             if (abstract === "Abstract not found.") return <p className="text-xs text-gray-500 italic mt-2">{abstract}</p>
-            return (
-                <div className="mt-2">
-                    <button onClick={() => setExpanded(!expanded)} className="text-xs text-blue-400 hover:underline">{expanded ? 'Hide' : 'Show'} Abstract</button>
-                    {expanded && <p className="text-xs text-gray-300 mt-1 bg-gray-700 p-2 rounded max-h-40 overflow-y-auto leading-relaxed">{abstract}</p>}
-                </div>
-            )
+            return ( <div className="mt-2"> <button onClick={() => setExpanded(!expanded)} className="text-xs text-blue-400 hover:underline">{expanded ? 'Hide' : 'Show'} Abstract</button> {expanded && <p className="text-xs text-gray-300 mt-1 bg-gray-700 p-2 rounded max-h-40 overflow-y-auto leading-relaxed">{abstract}</p>} </div> )
         }
 
         const InfoPanel = ({ selectedElement, documents, proximityMatrix }) => {
-            if (!selectedElement) return (
-                <div className="flex flex-col items-center justify-center h-full text-gray-500 p-6 text-center">
-                    <InfoIcon className="w-12 h-12 mb-2 opacity-50"/>
-                    <p className="text-sm">Select a node or line to view details</p>
-                </div>
-            );
-
+            if (!selectedElement) return ( <div className="flex flex-col items-center justify-center h-full text-gray-500 p-6 text-center"> <InfoIcon className="w-12 h-12 mb-2 opacity-50"/> <p className="text-sm">Select a node or line to view details</p> </div> );
             if (selectedElement.type === 'node') {
                 const doc = documents.find(d => d.id === selectedElement.id);
-                return (
-                    <div className="p-4 h-full overflow-y-auto">
-                        <h3 className="font-bold text-lg text-blue-300 break-words">{doc.title}</h3>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                            {doc.descriptors.map(d => <span key={d} className="px-2 py-1 bg-gray-700 text-gray-200 text-xs rounded-full">{d}</span>)}
-                        </div>
-                        <AbstractViewer abstract={doc.abstract} />
-                    </div>
-                );
+                return ( <div className="p-4 h-full overflow-y-auto"> <h3 className="font-bold text-lg text-blue-300 break-words">{doc.title}</h3> <div className="mt-3 flex flex-wrap gap-2"> {doc.descriptors.map(d => <span key={d} className="px-2 py-1 bg-gray-700 text-gray-200 text-xs rounded-full">{d}</span>)} </div> <AbstractViewer abstract={doc.abstract} /> </div> );
             }
-
             const edge = proximityMatrix.find(e => `${e.source}-${e.target}` === selectedElement.id || `${e.target}-${e.source}` === selectedElement.id);
-            const docA = documents.find(d => d.id === edge.source);
-            const docB = documents.find(d => d.id === edge.target);
-            return (
-                <div className="p-4 h-full overflow-y-auto">
-                    <div className="flex items-center justify-between mb-4">
-                        <span className="text-gray-400 text-sm">Similarity</span>
-                        <span className="text-xl font-bold text-emerald-400">{(edge.similarity * 100).toFixed(1)}%</span>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                        <div className="p-2 bg-gray-800 rounded border border-gray-700"><p className="text-gray-400 text-xs">Doc A</p><p className="truncate">{docA.title}</p></div>
-                        <div className="p-2 bg-gray-800 rounded border border-gray-700"><p className="text-gray-400 text-xs">Doc B</p><p className="truncate">{docB.title}</p></div>
-                    </div>
-                </div>
-            );
+            const docA = documents.find(d => d.id === edge.source); const docB = documents.find(d => d.id === edge.target);
+            // Display original raw similarity if possible, or current filtered one.
+            // Let's show the current effective similarity.
+            return ( <div className="p-4 h-full overflow-y-auto"> <div className="flex items-center justify-between mb-4"> <span className="text-gray-400 text-sm">Similarity</span> <span className="text-xl font-bold text-emerald-400">{(edge.similarity * 100).toFixed(1)}%</span> </div> <div className="space-y-2 text-sm"> <div className="p-2 bg-gray-800 rounded border border-gray-700"><p className="text-gray-400 text-xs">Doc A</p><p className="truncate">{docA.title}</p></div> <div className="p-2 bg-gray-800 rounded border border-gray-700"><p className="text-gray-400 text-xs">Doc B</p><p className="truncate">{docB.title}</p></div> </div> </div> );
         };
 
         const DocumentList = ({ documents, pathNodes, onTogglePathNode, onDeselectAll }) => (
             <div className="h-full flex flex-col bg-gray-800 rounded-lg overflow-hidden">
-                <div className="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-850">
-                    <h3 className="font-bold text-sm text-gray-300">Documents ({documents.length})</h3>
-                    {pathNodes.length > 0 && <button onClick={onDeselectAll} className="text-xs text-blue-400">Clear Path</button>}
-                </div>
-                <div className="flex-grow overflow-y-auto p-2 space-y-1">
-                    {documents.length === 0 ? <p className="text-xs text-gray-500 text-center mt-4">No files</p> :
-                        documents.map(doc => (
-                            <button key={doc.id} onClick={() => onTogglePathNode(doc.id)}
-                                className={`w-full text-left px-3 py-2 rounded text-xs truncate transition-colors ${pathNodes.includes(doc.id) ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}>
-                                {doc.title}
-                            </button>
-                        ))
-                    }
-                </div>
+                <div className="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-850"> <h3 className="font-bold text-sm text-gray-300">Documents ({documents.length})</h3> {pathNodes.length > 0 && <button onClick={onDeselectAll} className="text-xs text-blue-400">Clear Path</button>} </div>
+                <div className="flex-grow overflow-y-auto p-2 space-y-1"> {documents.length === 0 ? <p className="text-xs text-gray-500 text-center mt-4">No files</p> : documents.map(doc => ( <button key={doc.id} onClick={() => onTogglePathNode(doc.id)} className={`w-full text-left px-3 py-2 rounded text-xs truncate transition-colors ${pathNodes.includes(doc.id) ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}> {doc.title} </button> )) } </div>
             </div>
         );
 
@@ -729,200 +478,111 @@
             const [status, setStatus] = useState({ pdfReady: false, modelReady: false, msg: 'Initializing...' });
             const [processing, setProcessing] = useState({ active: false, progress: 0, msg: '' });
             const [data, setData] = useState({ files: [], documents: [], matrix: [], clusters: [] });
-            const [ui, setUi] = useState({ selected: null, pathNodes: [], highlightedPath: null, threshold: 70, error: null, info: null, activeTab: 'graph' });
-
-            // View Modes
+            // Added 'contrast' to ui state, default 1
+            const [ui, setUi] = useState({ selected: null, pathNodes: [], highlightedPath: null, threshold: 60, contrast: 1, error: null, info: null, activeTab: 'graph' });
             const [pathMode, setPathMode] = useState('shortest');
-            const [layoutMode, setLayoutMode] = useState('network'); // 'network' | 'semantic'
-            const [mapAxesMode, setMapAxesMode] = useState('pca'); // 'pca' | 'custom'
+            const [layoutMode, setLayoutMode] = useState('network');
+            const [mapAxesMode, setMapAxesMode] = useState('pca');
             const [customAxisDocs, setCustomAxisDocs] = useState({ x: null, y: null });
             const [mapAxesLabels, setMapAxesLabels] = useState({ xLabels: {min:'Low',max:'High'}, yLabels: {min:'Low',max:'High'} });
-
             const [focusedCluster, setFocusedCluster] = useState(null);
+            const [showGuide, setShowGuide] = useState(false);
             const fileInputRef = useRef(null);
 
             useEffect(() => {
-                const checkPdf = setInterval(() => {
-                    if (window.pdfjsLib) {
-                        clearInterval(checkPdf);
-                        setStatus(prev => ({ ...prev, pdfReady: true }));
-                    }
-                }, 200);
-                PipelineSingleton.getInstance(p => setStatus(s => ({...s, msg: `Downloading AI Model: ${Math.round(p.progress || 0)}%` })))
-                    .then(() => setStatus(s => ({ ...s, modelReady: true, msg: 'AI Ready' })))
-                    .catch(e => setUi(u => ({ ...u, error: "AI Load Error" })));
+                const checkPdf = setInterval(() => { if (window.pdfjsLib) { clearInterval(checkPdf); setStatus(prev => ({ ...prev, pdfReady: true })); } }, 200);
+                PipelineSingleton.getInstance(p => setStatus(s => ({...s, msg: `Downloading AI Model: ${Math.round(p.progress || 0)}%` }))).then(() => setStatus(s => ({ ...s, modelReady: true, msg: 'AI Ready' }))).catch(e => setUi(u => ({ ...u, error: "AI Load Error" })));
+                const hasSeenGuide = localStorage.getItem('hasSeenGuide');
+                if(!hasSeenGuide) setShowGuide(true);
                 return () => clearInterval(checkPdf);
             }, []);
 
-            const handleFiles = async (e) => {
-                const newFiles = Array.from(e.target.files);
-                setData(prev => ({ ...prev, files: [...prev.files, ...newFiles] }));
+            const handleGuideComplete = () => {
+                setShowGuide(false);
+                localStorage.setItem('hasSeenGuide', 'true');
             };
+
+            const handleFiles = async (e) => { const newFiles = Array.from(e.target.files); setData(prev => ({ ...prev, files: [...prev.files, ...newFiles] })); };
 
             const runAnalysis = useCallback(async () => {
                 if (data.files.length === 0) return;
                 setProcessing({ active: true, progress: 0, msg: 'Reading PDFs...' });
                 setUi(u => ({ ...u, error: null, selected: null, pathNodes: [] }));
-
                 const docs = [];
                 try {
-                    // 1. Read PDFs
                     for (let i=0; i<data.files.length; i++) {
-                        const f = data.files[i];
-                        setProcessing({ active: true, progress: (i/data.files.length)*40, msg: `Reading ${f.name}` });
-                        const buf = await f.arrayBuffer();
-                        const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
-                        let text = '';
-                        for(let j=1; j<=Math.min(pdf.numPages, 5); j++) {
-                            const p = await pdf.getPage(j);
-                            text += (await p.getTextContent()).items.map(s=>s.str).join(' ') + ' ';
-                        }
-                        text = removeBibliography(text);
-                        docs.push({ id: f.name, title: f.name, fullText: text, abstract: extractAbstract(text) });
+                        const f = data.files[i]; setProcessing({ active: true, progress: (i/data.files.length)*40, msg: `Reading ${f.name}` });
+                        const buf = await f.arrayBuffer(); const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+                        let text = ''; for(let j=1; j<=Math.min(pdf.numPages, 5); j++) { const p = await pdf.getPage(j); text += (await p.getTextContent()).items.map(s=>s.str).join(' ') + ' '; }
+                        text = removeBibliography(text); docs.push({ id: f.name, title: f.name, fullText: text, abstract: extractAbstract(text) });
                     }
-
-                    // 2. Embeddings
                     setProcessing({ active: true, progress: 50, msg: 'Analyzing Semantics...' });
                     const extractor = await PipelineSingleton.getInstance();
                     const output = await extractor(docs.map(d => d.fullText.substring(0, 2000)), { pooling: 'mean', normalize: true });
                     const vectors = output.tolist();
                     docs.forEach((d, i) => { d.vector = vectors[i]; d.descriptors = extractDescriptorsFromText(d.fullText); });
-
-                    // 3. Initial PCA Compute (can be overridden by custom axes later)
-                    if (docs.length >= 2) {
-                         const pca = new PCA(docs.map(d => d.vector));
-                         const coords = pca.compute();
-                         docs.forEach((d, i) => { d.pcaPos = coords[i]; d.semanticPos = coords[i]; }); // Store base PCA
-                    } else if (docs.length === 1) {
-                         docs[0].semanticPos = { x: 0.5, y: 0.5 }; docs[0].pcaPos = { x: 0.5, y: 0.5 };
-                    }
-
+                    if (docs.length >= 2) { const pca = new PCA(docs.map(d => d.vector)); const coords = pca.compute(); docs.forEach((d, i) => { d.pcaPos = coords[i]; d.semanticPos = coords[i]; }); } else if (docs.length === 1) { docs[0].semanticPos = { x: 0.5, y: 0.5 }; docs[0].pcaPos = { x: 0.5, y: 0.5 }; }
                     setData(d => ({ ...d, documents: docs }));
-                } catch (e) {
-                    console.error(e);
-                    setUi(u => ({ ...u, error: "Analysis Failed. Check file format." }));
-                } finally {
-                    setProcessing({ active: false, progress: 100, msg: '' });
-                    setUi(u => ({ ...u, activeTab: 'graph' }));
-                }
+                } catch (e) { console.error(e); setUi(u => ({ ...u, error: "Analysis Failed. Check file format." })); } finally { setProcessing({ active: false, progress: 100, msg: '' }); setUi(u => ({ ...u, activeTab: 'graph' })); }
             }, [data.files]);
 
-            // Recompute Matrix
+            // Recompute Matrix - Updated to use Contrast/Exponent
             useEffect(() => {
                 if (data.documents.length < 2) { setData(d => ({ ...d, matrix: [], clusters: [] })); return; }
                 const mat = [];
                 const th = ui.threshold / 100;
+                const contrastExp = ui.contrast || 1; // Default to 1 if undefined
+
                 for(let i=0; i<data.documents.length; i++) {
                     for(let j=i+1; j<data.documents.length; j++) {
-                        const sim = cosineSimilarity(data.documents[i].vector, data.documents[j].vector);
+                        const rawSim = cosineSimilarity(data.documents[i].vector, data.documents[j].vector);
+                        // Apply Exponential Filter: (val)^exponent
+                        // We use Math.max(0, rawSim) to avoid NaN for negative cosine similarities
+                        const sim = Math.pow(Math.max(0, rawSim), contrastExp);
+
                         if (sim > th) mat.push({ source: data.documents[i].id, target: data.documents[j].id, similarity: sim });
                     }
                 }
                 setData(d => ({ ...d, matrix: mat, clusters: findConnectedComponents(data.documents, mat).filter(c => c.length >= 3) }));
-            }, [data.documents, ui.threshold]);
+            }, [data.documents, ui.threshold, ui.contrast]);
 
-            // Map Coordinate & Label Logic (PCA vs Custom)
             useEffect(() => {
                 if (data.documents.length === 0) return;
                 const updatedDocs = [...data.documents];
-
                 if (mapAxesMode === 'custom' && customAxisDocs.x && customAxisDocs.y) {
-                    // Custom Projection
-                    const docX = data.documents.find(d => d.id === customAxisDocs.x);
-                    const docY = data.documents.find(d => d.id === customAxisDocs.y);
-                    if (docX && docY) {
-                        updatedDocs.forEach(d => {
-                            d.semanticPos = {
-                                x: cosineSimilarity(d.vector, docX.vector), // 0 to 1 (usually)
-                                y: cosineSimilarity(d.vector, docY.vector)
-                            };
-                        });
-                        setMapAxesLabels({
-                            xLabels: {min: 'Low Similarity', max: docX.title.substring(0,15)+'...'},
-                            yLabels: {min: 'Low Similarity', max: docY.title.substring(0,15)+'...'}
-                        });
-                    }
+                    const docX = data.documents.find(d => d.id === customAxisDocs.x); const docY = data.documents.find(d => d.id === customAxisDocs.y);
+                    if (docX && docY) { updatedDocs.forEach(d => { d.semanticPos = { x: cosineSimilarity(d.vector, docX.vector), y: cosineSimilarity(d.vector, docY.vector) }; }); setMapAxesLabels({ xLabels: {min: 'Low Similarity', max: docX.title.substring(0,15)+'...'}, yLabels: {min: 'Low Similarity', max: docY.title.substring(0,15)+'...'} }); }
                 } else {
-                    // PCA Mode (Default)
                     updatedDocs.forEach(d => { if(d.pcaPos) d.semanticPos = d.pcaPos; });
-                    // Calculate Descriptive Labels for PCA
-                    const xKw = getAxisKeywords(updatedDocs, 'x');
-                    const yKw = getAxisKeywords(updatedDocs, 'y');
-                    setMapAxesLabels({ xLabels: xKw, yLabels: yKw });
+                    const xKw = getAxisKeywords(updatedDocs, 'x'); const yKw = getAxisKeywords(updatedDocs, 'y'); setMapAxesLabels({ xLabels: xKw, yLabels: yKw });
                 }
-                // Trigger render update if needed (here we modify objects in place but might need state ref)
-                // In React strictly we should setDocuments, but for performance with large lists we might rely on the graph re-render
             }, [mapAxesMode, customAxisDocs, data.documents, layoutMode]);
 
-
-            // Pathfinding Effect
             useEffect(() => {
                 if (ui.pathNodes.length < 2) { setUi(u => ({ ...u, highlightedPath: null })); return; }
-                const docIds = data.documents.map(d => d.id);
-                const adjBFS = new Map(docIds.map(id => [id, []]));
-                data.matrix.forEach(e => { adjBFS.get(e.source).push(e.target); adjBFS.get(e.target).push(e.source); });
-
+                const docIds = data.documents.map(d => d.id); const adjBFS = new Map(docIds.map(id => [id, []])); data.matrix.forEach(e => { adjBFS.get(e.source).push(e.target); adjBFS.get(e.target).push(e.source); });
                 const allPairsPaths = new Map();
                 for (let i = 0; i < ui.pathNodes.length; i++) {
                     for (let j = i + 1; j < ui.pathNodes.length; j++) {
-                        const u = ui.pathNodes[i];
-                        const v = ui.pathNodes[j];
-                        let pathRes = null;
-                        if (pathMode === 'shortest') {
-                            const p = findShortestPath(u, v, adjBFS);
-                            if (p) pathRes = { path: p, weight: p.length - 1 };
-                        } else {
-                            pathRes = findPathDijkstra(u, v, docIds, data.matrix);
-                            if (pathRes) pathRes.weight = pathRes.cost;
-                        }
+                        const u = ui.pathNodes[i]; const v = ui.pathNodes[j]; let pathRes = null;
+                        if (pathMode === 'shortest') { const p = findShortestPath(u, v, adjBFS); if (p) pathRes = { path: p, weight: p.length - 1 }; } else { pathRes = findPathDijkstra(u, v, docIds, data.matrix); if (pathRes) pathRes.weight = pathRes.cost; }
                         if (pathRes) allPairsPaths.set([u, v].sort().join('-'), pathRes);
                     }
                 }
-
-                let finalNodes = new Set();
-                let finalEdges = new Set();
+                let finalNodes = new Set(); let finalEdges = new Set();
                 if (ui.pathNodes.length > 2) {
-                    const metaEdges = [];
-                    ui.pathNodes.forEach(u => {
-                        ui.pathNodes.forEach(v => {
-                            if (u < v) {
-                                const res = allPairsPaths.get([u, v].sort().join('-'));
-                                if (res) metaEdges.push({ u, v, weight: res.weight });
-                            }
-                        });
-                    });
-                    metaEdges.sort((a,b) => a.weight - b.weight);
-                    const parent = new Map();
-                    ui.pathNodes.forEach(n => parent.set(n, n));
-                    const find = (i) => { if (parent.get(i) === i) return i; return find(parent.get(i)); };
-                    const union = (i, j) => parent.set(find(i), find(j));
-                    metaEdges.forEach(edge => {
-                        if (find(edge.u) !== find(edge.v)) {
-                            union(edge.u, edge.v);
-                            const res = allPairsPaths.get([edge.u, edge.v].sort().join('-'));
-                            if (res) {
-                                res.path.forEach(n => finalNodes.add(n));
-                                for(let k=0; k < res.path.length - 1; k++) finalEdges.add([res.path[k], res.path[k+1]].sort().join('-'));
-                            }
-                        }
-                    });
-                } else {
-                    const res = allPairsPaths.get([ui.pathNodes[0], ui.pathNodes[1]].sort().join('-'));
-                    if (res) {
-                         res.path.forEach(n => finalNodes.add(n));
-                         for(let k=0; k < res.path.length - 1; k++) finalEdges.add([res.path[k], res.path[k+1]].sort().join('-'));
-                    } else {
-                        setUi(u => ({ ...u, info: "No path found between selected nodes" }));
-                    }
-                }
-                if (finalNodes.size > 0) setUi(u => ({ ...u, highlightedPath: { nodes: finalNodes, edges: finalEdges } }));
-                else setUi(u => ({ ...u, highlightedPath: null }));
+                    const metaEdges = []; ui.pathNodes.forEach(u => { ui.pathNodes.forEach(v => { if (u < v) { const res = allPairsPaths.get([u, v].sort().join('-')); if (res) metaEdges.push({ u, v, weight: res.weight }); } }); });
+                    metaEdges.sort((a,b) => a.weight - b.weight); const parent = new Map(); ui.pathNodes.forEach(n => parent.set(n, n)); const find = (i) => { if (parent.get(i) === i) return i; return find(parent.get(i)); }; const union = (i, j) => parent.set(find(i), find(j));
+                    metaEdges.forEach(edge => { if (find(edge.u) !== find(edge.v)) { union(edge.u, edge.v); const res = allPairsPaths.get([edge.u, edge.v].sort().join('-')); if (res) { res.path.forEach(n => finalNodes.add(n)); for(let k=0; k < res.path.length - 1; k++) finalEdges.add([res.path[k], res.path[k+1]].sort().join('-')); } } });
+                } else { const res = allPairsPaths.get([ui.pathNodes[0], ui.pathNodes[1]].sort().join('-')); if (res) { res.path.forEach(n => finalNodes.add(n)); for(let k=0; k < res.path.length - 1; k++) finalEdges.add([res.path[k], res.path[k+1]].sort().join('-')); } else { setUi(u => ({ ...u, info: "No path found between selected nodes" })); } }
+                if (finalNodes.size > 0) setUi(u => ({ ...u, highlightedPath: { nodes: finalNodes, edges: finalEdges } })); else setUi(u => ({ ...u, highlightedPath: null }));
             }, [ui.pathNodes, data.matrix, pathMode]);
 
             const ready = status.pdfReady && status.modelReady;
 
             return (
                 <div className="flex flex-col h-full w-full bg-gray-900">
+                    <GuideOverlay active={showGuide} onComplete={handleGuideComplete} />
                     <AlertMessage message={ui.error} onDismiss={()=>setUi(u=>({...u, error:null}))} type="error"/>
                     <AlertMessage message={ui.info} onDismiss={()=>setUi(u=>({...u, info:null}))} type="info"/>
 
@@ -933,25 +593,33 @@
                             <h1 className="font-bold text-lg hidden md:block">PDF Similarity</h1>
                          </div>
                          <div className="flex items-center gap-3">
-                            {/* Layout Mode Toggle */}
-                            <div className="flex items-center bg-gray-700 rounded-lg p-1 gap-1" title="View Mode">
+                            <button onClick={() => setShowGuide(true)} className="text-gray-400 hover:text-blue-400 p-1 btn-help" title="Show Guide"><HelpIcon className="h-5 w-5"/></button>
+
+                            <div className="flex items-center bg-gray-700 rounded-lg p-1 gap-1 mode-toggle" title="View Mode">
                                 <button onClick={()=>setLayoutMode('network')} className={`p-1.5 rounded ${layoutMode === 'network' ? 'bg-gray-600 text-emerald-400 shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}><ShareIcon className="h-4 w-4"/></button>
                                 <button onClick={()=>setLayoutMode('semantic')} className={`p-1.5 rounded ${layoutMode === 'semantic' ? 'bg-gray-600 text-purple-400 shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}><MapIcon className="h-4 w-4"/></button>
                             </div>
 
                             {layoutMode === 'network' ? (
                                 <>
-                                    <div className="flex items-center bg-gray-700 rounded-lg p-1 gap-1" title="Path Mode">
+                                    <div className="flex items-center bg-gray-700 rounded-lg p-1 gap-1 path-toggle" title="Path Mode">
                                         <button onClick={()=>setPathMode('shortest')} className={`p-1.5 rounded ${pathMode === 'shortest' ? 'bg-gray-600 text-blue-400 shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}><RulerIcon className="h-4 w-4"/></button>
                                         <button onClick={()=>setPathMode('strongest')} className={`p-1.5 rounded ${pathMode === 'strongest' ? 'bg-gray-600 text-yellow-400 shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}><ZapIcon className="h-4 w-4"/></button>
                                     </div>
-                                    <div className="flex flex-col md:flex-row items-end md:items-center gap-1 md:gap-3">
-                                        <label className="text-xs text-gray-400">Threshold: {ui.threshold}%</label>
-                                        <input type="range" min="30" max="99" value={ui.threshold} onChange={(e)=>setUi(u=>({...u, threshold: Number(e.target.value)}))} className="w-24 md:w-32 h-1 bg-gray-600 rounded appearance-none"/>
+
+                                    {/* New Filter Group */}
+                                    <div className="flex flex-col md:flex-row gap-3 md:gap-4 border-l border-gray-600 pl-3 threshold-slider">
+                                        <div className="flex flex-col items-start">
+                                            <label className="text-[10px] uppercase font-bold text-gray-400">Threshold {ui.threshold}%</label>
+                                            <input type="range" min="10" max="99" value={ui.threshold} onChange={(e)=>setUi(u=>({...u, threshold: Number(e.target.value)}))} className="w-20 md:w-24 h-1 bg-blue-900/50 rounded appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"/>
+                                        </div>
+                                        <div className="flex flex-col items-start">
+                                            <label className="text-[10px] uppercase font-bold text-gray-400">Contrast x{ui.contrast}</label>
+                                            <input type="range" min="0.5" max="3" step="0.1" value={ui.contrast} onChange={(e)=>setUi(u=>({...u, contrast: Number(e.target.value)}))} className="w-20 md:w-24 h-1 bg-purple-900/50 rounded appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-purple-500 [&::-webkit-slider-thumb]:rounded-full"/>
+                                        </div>
                                     </div>
                                 </>
                             ) : (
-                                // Map Settings (In Header if space permits, mostly for custom axes)
                                 <div className="flex items-center gap-2">
                                     <select value={mapAxesMode} onChange={(e) => setMapAxesMode(e.target.value)} className="bg-gray-700 text-xs text-gray-200 p-1 rounded border border-gray-600">
                                         <option value="pca">Auto (PCA)</option>
@@ -960,11 +628,11 @@
                                     {mapAxesMode === 'custom' && (
                                         <div className="flex gap-1">
                                             <select className="w-20 bg-gray-700 text-xs text-gray-200 p-1 rounded border border-gray-600" value={customAxisDocs.x || ''} onChange={(e) => setCustomAxisDocs(d => ({...d, x: e.target.value}))}>
-                                                <option value="" disabled>X-Axis Doc</option>
+                                                <option value="" disabled>X-Axis</option>
                                                 {data.documents.map(d => <option key={d.id} value={d.id}>{d.title.substring(0,10)}...</option>)}
                                             </select>
                                             <select className="w-20 bg-gray-700 text-xs text-gray-200 p-1 rounded border border-gray-600" value={customAxisDocs.y || ''} onChange={(e) => setCustomAxisDocs(d => ({...d, y: e.target.value}))}>
-                                                <option value="" disabled>Y-Axis Doc</option>
+                                                <option value="" disabled>Y-Axis</option>
                                                 {data.documents.map(d => <option key={d.id} value={d.id}>{d.title.substring(0,10)}...</option>)}
                                             </select>
                                         </div>
@@ -972,7 +640,7 @@
                                 </div>
                             )}
 
-                            <button onClick={()=>fileInputRef.current.click()} disabled={!ready || processing.active} className="p-2 bg-blue-600 rounded hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <button onClick={()=>fileInputRef.current.click()} disabled={!ready || processing.active} className="p-2 bg-blue-600 rounded hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed btn-upload">
                                 <UploadCloudIcon className="h-5 w-5 text-white"/>
                             </button>
                             <input type="file" multiple accept=".pdf" ref={fileInputRef} onChange={handleFiles} className="hidden"/>
