@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HF Pro Infinite Pop Station</title>
+    <style>
+        :root { --accent: #1ED760; --bg: #000; --panel: #121212; }
+        body {
+            margin: 0; background: var(--bg); color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden; height: 100vh; display: flex; flex-direction: column;
+        }
+
+        /* VIDEO BACKGROUND */
+        #video-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; opacity: 0.3; filter: blur(5px) grayscale(0.5); z-index: 0;
+            transition: filter 2s;
+        }
+
+        /* MAIN UI */
+        #ui-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10; display: flex; flex-direction: column; justify-content: space-between;
+            padding: 40px; box-sizing: border-box;
+        }
+
+        /* TOP BAR */
+        .top-bar { display: flex; justify-content: space-between; align-items: flex-start; }
+        .status-badge {
+            background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 20px;
+            font-size: 0.8rem; backdrop-filter: blur(5px); border: 1px solid #333;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .dot { width: 8px; height: 8px; background: #555; border-radius: 50%; }
+        .dot.active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+        .dot.error { background: #ff4444; }
+        .dot.loading { background: #ffbb00; animation: blink 1s infinite; }
+
+        @keyframes blink { 50% { opacity: 0.4; } }
+
+        /* CENTER LYRICS */
+        .lyrics-area {
+            text-align: center; margin-bottom: 20px;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.8);
+        }
+        .current-line { font-size: 2.5rem; font-weight: 800; color: #fff; margin-bottom: 10px; transition: all 0.5s; opacity: 0; transform: translateY(20px); }
+        .current-line.visible { opacity: 1; transform: translateY(0); }
+        .meta-info { color: var(--accent); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px; }
+
+        /* SETUP MODAL */
+        #setup-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        input {
+            background: #222; border: 1px solid #444; color: white; padding: 15px;
+            width: 300px; border-radius: 8px; margin-bottom: 15px; font-size: 1rem; outline: none; text-align: center;
+        }
+        button {
+            background: var(--accent); color: #000; padding: 15px 40px; border-radius: 30px;
+            font-weight: bold; font-size: 1.1rem; border: none; cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover { transform: scale(1.05); }
+
+        /* DEBUG CONSOLE */
+        #console-log {
+            font-family: monospace; font-size: 0.7rem; color: #666;
+            max-width: 300px; text-align: left;
+        }
+    </style>
+</head>
+<body>
+
+<div id="setup-modal">
+    <h1 style="margin-bottom: 10px;">Infinite AI Radio</h1>
+    <p style="color: #888; margin-bottom: 30px;">Powered by HuggingFace (Zephyr + MusicGen)</p>
+    <input type="password" id="hf-token" placeholder="Paste HF_TOKEN here (Read/Write)">
+    <button id="start-btn">Start Stream</button>
+</div>
+
+<video id="video-bg" autoplay playsinline muted></video>
+
+<div id="ui-container">
+    <div class="top-bar">
+        <div id="console-log">System Ready.</div>
+        <div class="status-badge">
+            <div id="status-dot" class="dot"></div>
+            <span id="status-text">Idle</span>
+        </div>
+    </div>
+
+    <div class="lyrics-area">
+        <div id="meta-tag" class="meta-info"></div>
+        <div id="lyrics-display" class="current-line"></div>
+    </div>
+</div>
+
+<canvas id="vision-canvas" style="display:none;"></canvas>
+
+<script type="module">
+    // --- SETTINGS ---
+    // Usiamo Zephyr (più smart di Mistral) e MusicGen Small (più stabile di Large sul free tier)
+    const MODELS = {
+        vision: "Salesforce/blip-image-captioning-large",
+        llm: "HuggingFaceH4/zephyr-7b-beta",
+        audio: "facebook/musicgen-small"
+    };
+
+    let HF_KEY = "";
+
+    // --- STATE ---
+    let audioCtx;
+    let isGenerating = false;
+    let bufferQueue = []; // Coda di brani pronti
+    let currentSource = null;
+    let gainNode = null;
+
+    // --- DOM ---
+    const logDiv = document.getElementById('console-log');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const lyricsDiv = document.getElementById('lyrics-display');
+    const metaDiv = document.getElementById('meta-tag');
+    const video = document.getElementById('video-bg');
+
+    // --- UTILS ---
+    function log(msg) {
+        logDiv.innerText = `> ${msg}`;
+        console.log(msg);
+    }
+
+    function setStatus(state, msg) {
+        statusDot.className = `dot ${state}`;
+        statusText.innerText = msg;
+    }
+
+    // --- 1. ROBUST FETCH (FIX FOR 503 ERROR) ---
+    // Questa funzione è fondamentale. Se il modello sta caricando, aspetta.
+    async function hfFetch(model, inputs, type = 'json') {
+        // We prepend a CORS proxy to the URL
+        const proxy = "https://cors-anywhere.herokuapp.com/";
+        const url = proxy + `https://api-inference.huggingface.co/models/${model}`;
+        let retries = 0;
+
+        while (true) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        Authorization: `Bearer ${HF_KEY}`,
+                        "Content-Type": "application/json"
+                    },
+                    method: "POST",
+                    body: JSON.stringify(inputs),
+                });
+
+                if (response.status === 503) {
+                    const errorJson = await response.json();
+                    const waitTime = errorJson.estimated_time || 20;
+                    setStatus('loading', `Model waking up... (${Math.ceil(waitTime)}s)`);
+                    log(`Model ${model} is loading. Waiting ${waitTime}s...`);
+                    await new Promise(r => setTimeout(r, (waitTime * 1000) + 1000));
+                    continue; // Retry loop
+                }
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+                if (type === 'blob') return await response.blob();
+                return await response.json();
+
+            } catch (e) {
+                log(`Error: ${e.message}`);
+                throw e;
+            }
+        }
+    }
+
+    // --- 2. GENERATION PIPELINE ---
+
+    async function generateNextTrack() {
+        if (isGenerating) return;
+        isGenerating = true;
+        setStatus('loading', 'Composing next track...');
+
+        try {
+            // A. VISION
+            log("Capturing scene...");
+            const blob = await captureImage();
+            const visionRes = await hfFetch(MODELS.vision, blob, 'json');
+            const sceneDesc = visionRes[0].generated_text;
+            log(`Seen: "${sceneDesc}"`);
+
+            // B. LLM (Lyrics & Music Prompt)
+            log("Writing song structure...");
+            // Usiamo un prompt strutturato per forzare output JSON valido da Zephyr
+            const prompt = `<|system|>
+You are a pop music producer.
+</s>
+<|user|>
+Create a short song concept based on this scene: "${sceneDesc}".
+Return ONLY a JSON object with this format:
+{
+  "mood": "2 words describing mood",
+  "style": "music genre and instruments",
+  "lyrics": ["line 1", "line 2", "line 3", "line 4"]
+}
+</s>
+<|assistant|>`;
+
+            const llmRes = await hfFetch(MODELS.llm, {
+                inputs: prompt,
+                parameters: { max_new_tokens: 150, return_full_text: false }
+            }, 'json');
+
+            // Parsing JSON (Zephyr a volte aggiunge testo extra, puliamo)
+            let jsonStr = llmRes[0].generated_text;
+            jsonStr = jsonStr.substring(jsonStr.indexOf('{'), jsonStr.lastIndexOf('}') + 1);
+            const songData = JSON.parse(jsonStr);
+
+            // C. AUDIO GENERATION
+            log(`Generating Audio (${songData.style})... this takes time.`);
+            // Costruiamo un prompt audio molto specifico per MusicGen
+            const musicPrompt = `${songData.style}, ${songData.mood}, ${sceneDesc}, high quality, clear drums, catchy melody, pop structure, 4/4 time signature`;
+
+            const audioBlob = await hfFetch(MODELS.audio, { inputs: musicPrompt }, 'blob');
+            const audioBuffer = await decodeAudio(audioBlob);
+
+            // D. ADD TO QUEUE
+            bufferQueue.push({
+                buffer: audioBuffer,
+                data: songData,
+                image: sceneDesc
+            });
+
+            log("Track ready & queued.");
+            setStatus('active', 'Buffer Ready');
+
+            // Se non sta suonando nulla, inizia subito
+            if (!currentSource) playNextInQueue();
+
+        } catch (e) {
+            setStatus('error', 'Gen failed. Retrying...');
+            console.error(e);
+            setTimeout(generateNextTrack, 2000); // Retry rapido
+        } finally {
+            isGenerating = false;
+            // Se la coda è corta, pre-generane un altro
+            if (bufferQueue.length < 2) generateNextTrack();
+        }
+    }
+
+    // --- 3. PLAYBACK ENGINE ---
+
+    function playNextInQueue() {
+        if (bufferQueue.length === 0) {
+            setStatus('loading', 'Buffering...');
+            generateNextTrack(); // Force generation
+            return;
+        }
+
+        const track = bufferQueue.shift();
+
+        // Setup Audio
+        const src = audioCtx.createBufferSource();
+        src.buffer = track.buffer;
+        src.connect(gainNode);
+
+        // Crossfade logic could go here, simplistic version:
+        src.start();
+        currentSource = src;
+
+        // UI Update
+        setStatus('active', 'Playing');
+        metaDiv.innerText = `${track.data.mood} • ${track.data.style}`;
+
+        // Lyrics & TTS Visualization
+        animateLyrics(track.data.lyrics, track.buffer.duration);
+        speakLyrics(track.data.lyrics.join(". "), track.data.mood);
+
+        // Schedule next
+        src.onended = () => {
+            currentSource = null;
+            playNextInQueue();
+        };
+
+        // Ensure buffer is full
+        if (bufferQueue.length < 2) generateNextTrack();
+    }
+
+    // --- 4. VISUALS & TTS ---
+
+    function animateLyrics(lines, duration) {
+        let timePerLine = (duration * 1000) / lines.length;
+        // Togli un po' di tempo per l'intro
+        const offset = 2000;
+
+        lines.forEach((line, i) => {
+            setTimeout(() => {
+                lyricsDiv.innerText = line;
+                lyricsDiv.classList.add('visible');
+
+                // Effetto pulsazione video
+                video.style.filter = "blur(0px) grayscale(0)";
+                setTimeout(() => {
+                    video.style.filter = "blur(5px) grayscale(0.5)";
+                }, 500);
+
+            }, offset + (i * timePerLine));
+
+            // Hide previous
+            if(i > 0) {
+                setTimeout(() => {
+                   // lyricsDiv.classList.remove('visible');
+                }, offset + (i * timePerLine) - 200);
+            }
+        });
+
+        setTimeout(() => lyricsDiv.innerText = "", duration * 1000);
+    }
+
+    function speakLyrics(text, mood) {
+        if(window.speechSynthesis.speaking) window.speechSynthesis.cancel();
+
+        // Ritarda un po' per far entrare la musica
+        setTimeout(() => {
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'en-US';
+            u.rate = 1.0;
+            // Se il mood è triste, voce più profonda
+            if (mood.toLowerCase().includes('sad') || mood.toLowerCase().includes('dark')) {
+                u.pitch = 0.6; u.rate = 0.8;
+            } else {
+                u.pitch = 1.1;
+            }
+            u.volume = 1.0;
+            window.speechSynthesis.speak(u);
+        }, 2000);
+    }
+
+    // --- 5. HARDWARE ACCESS ---
+
+    async function captureImage() {
+        const canvas = document.getElementById('vision-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        return new Promise(r => canvas.toBlob(r, 'image/jpeg'));
+    }
+
+    async function decodeAudio(blob) {
+        const arrayBuffer = await blob.arrayBuffer();
+        return await audioCtx.decodeAudioData(arrayBuffer);
+    }
+
+    // --- INIT ---
+    document.getElementById('start-btn').addEventListener('click', async () => {
+        HF_KEY = document.getElementById('hf-token').value.trim();
+        if (!HF_KEY.startsWith("hf_")) { alert("Invalid Token"); return; }
+
+        document.getElementById('setup-modal').style.display = 'none';
+
+        // Audio Init
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        gainNode = audioCtx.createGain();
+        gainNode.gain.value = 0.8;
+
+        // Compressor per un suono più "Pop"
+        const comp = audioCtx.createDynamicsCompressor();
+        gainNode.connect(comp);
+        comp.connect(audioCtx.destination);
+
+        // Camera Init
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            video.srcObject = stream;
+            video.play();
+            generateNextTrack(); // Start loop
+        } catch(e) {
+            alert("Camera needed for AI vision.");
+        }
+    });
+
+</script>
+</body>
+</html>
