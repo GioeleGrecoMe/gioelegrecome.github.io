@@ -3,35 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teoria del Flash-Flood Culturale: Analisi Matematica (Diagnostic Mode)</title>
+    <title>Teoria del Flash-Flood Culturale: Analisi Matematica</title>
     
-    <!-- SYSTEM DIAGNOSTICS: Intercept Errors Early -->
-    <script>
-        window.logMessages = [];
-        window.logError = function(msg) { window.logMessages.push({type: 'error', text: msg}); };
-        window.logInfo = function(msg) { window.logMessages.push({type: 'info', text: msg}); };
-        
-        window.onerror = function(message, source, lineno, colno, error) {
-            window.logError("Global Error: " + message + " at line " + lineno);
-        };
-    </script>
-
-    <!-- Tailwind CSS (Play CDN) -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Chart.js Core & Annotation Plugin -->
+    <!-- Chart.js Core -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Chart.js Annotation Plugin (Per le linee di soglia) -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
     
-    <!-- MathJax -->
+    <!-- MathJax Configuration & Core -->
     <script>
         window.MathJax = {
-            tex: { inlineMath: [['\\(', '\\)']], displayMath: [['$$', '$$']] },
-            startup: {
-                pageReady: () => {
-                    window.logInfo("MathJax Ready");
-                    return MathJax.startup.defaultPageReady();
-                }
+            tex: {
+                inlineMath: [['\\(', '\\)']], // Abilita la sintassi \( ... \)
+                displayMath: [['$$', '$$']]
             }
         };
     </script>
@@ -55,18 +42,6 @@
             background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
             background-size: 20px 20px;
         }
-        
-        /* ROBUST CSS FOR CHARTS: Independent of Tailwind */
-        .chart-wrapper {
-            display: block;
-            width: 100%;
-            height: 400px; /* Fixed height mandatory */
-            background-color: #f1f5f9; /* Visible grey background to confirm container exists */
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            position: relative;
-            margin-bottom: 20px;
-        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 leading-relaxed">
@@ -75,8 +50,8 @@
     <header class="relative bg-white border-b border-slate-200">
         <div class="absolute inset-0 bg-grid opacity-30 pointer-events-none"></div>
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 relative z-10 text-center">
-            <div class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-widest uppercase bg-amber-50 text-amber-700 mb-6 border border-amber-100">
-                Diagnostic Mode v4.0
+            <div class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-widest uppercase bg-indigo-50 text-indigo-700 mb-6 border border-indigo-100">
+                White Paper Interattivo v2.1
             </div>
             <h1 class="text-5xl font-extrabold text-slate-900 tracking-tight mb-4 sm:text-6xl">
                 Dal Culto alla Chimera:
@@ -85,23 +60,35 @@
             <p class="mt-6 text-xl text-slate-600 serif max-w-2xl mx-auto">
                 Un'analisi matematica del collasso della memoria collettiva e l'emergere della viralità istantanea post-algoritmica.
             </p>
-            
-            <div class="mt-8 p-4 bg-blue-50 text-blue-800 text-sm rounded-lg max-w-lg mx-auto border border-blue-200">
-                <i class="fas fa-info-circle mr-2"></i>
-                Se i grafici sotto sono grigi e vuoti, controlla il pannello di diagnostica in fondo alla pagina.
+            <div class="mt-10 flex justify-center gap-4">
+                <a href="#math-model" class="px-6 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                    Modello Matematico
+                </a>
+                <a href="#simulator" class="px-6 py-3 bg-white text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition font-medium">
+                    Simulazione
+                </a>
             </div>
         </div>
     </header>
 
     <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
-        <!-- SEZIONE 1 -->
+        <!-- INTRODUZIONE: IL PARADOSSO -->
         <section class="mb-20">
-            <h2 class="text-3xl font-bold text-slate-900 mb-6">1. Transizione di Fase Culturale</h2>
+            <h2 class="text-3xl font-bold text-slate-900 mb-6">1. Il Paradosso della Frammentazione</h2>
             <div class="prose prose-slate prose-lg text-slate-600 serif">
                 <p>
-                    I dati reali (2016-2024) mostrano che la cultura di massa ha subito una <strong>transizione di fase</strong> da uno stato "Solido" (diffusione lenta, alta ritenzione) a uno stato "Plasma" (diffusione istantanea, ritenzione nulla).
+                    Fino al 2012, la teoria sociologica dominante prevedeva che l'aumento esponenziale delle informazioni (\(\lambda\)) e la personalizzazione dei feed (\(p\)) avrebbero portato alla <strong>"Morte del Fenomeno di Massa"</strong>. Si ipotizzava la frammentazione della società in infinite nicchie non comunicanti (Filter Bubbles).
                 </p>
+                <p>
+                    Tuttavia, i dati reali (2016-2024) mostrano l'opposto: fenomeni come <em>Squid Game</em>, <em>Barbenheimer</em> o i trend di TikTok raggiungono saturazioni globali in tempi record.
+                </p>
+                <div class="bg-indigo-50 border-l-4 border-indigo-500 p-6 my-8 rounded-r-lg not-prose">
+                    <h3 class="font-bold text-indigo-900 mb-2">La Tesi Fondamentale</h3>
+                    <p class="text-indigo-800 text-sm">
+                        La cultura di massa non è morta per frammentazione. Ha subito una <strong>transizione di fase</strong> da uno stato "Solido" (diffusione lenta, alta ritenzione) a uno stato "Plasma" (diffusione istantanea, ritenzione nulla), guidata dalla sincronizzazione algoritmica.
+                    </p>
+                </div>
             </div>
         </section>
 
@@ -111,296 +98,245 @@
             
             <div class="space-y-8">
                 <div>
-                    <h3 class="text-xl font-bold text-slate-800 mb-3">2.1 Compressione Temporale</h3>
+                    <h3 class="text-xl font-bold text-slate-800 mb-3">2.1 L'Equazione dell'Attenzione Collettiva</h3>
                     <p class="text-slate-600 mb-4">
-                        Confronto tra l'onda virale organica (verde) e quella algoritmica (rosa).
+                        Definiamo l'attenzione collettiva \( A(t) \) dedicata a un singolo fenomeno culturale al tempo \( t \). L'integrale di questa funzione rappresenta l'impatto culturale totale \( I \).
                     </p>
-                    
-                    <!-- CHART 1 CONTAINER -->
-                    <div class="chart-wrapper">
-                        <canvas id="mathComparisonChart"></canvas>
+                    <div class="math-block">
+                        $$ I = \int_{0}^{\infty} A(t) \, dt = \text{Reach}_{max} \times \tau_{eff} $$
                     </div>
+                    <p class="text-slate-600 text-sm">Dove \( \tau_{eff} \) è la durata efficace del fenomeno (Cultural Half-Life).</p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800 mb-3">2.2 Il Fattore di Sincronizzazione Algoritmica (\( \mathcal{S} \))</h3>
+                    <p class="text-slate-600 mb-4">
+                        Nel modello classico (Pre-2012), la diffusione è governata dal coefficiente di diffusione del grafo sociale \( D_{social} \) (passaparola). Nel modello moderno, introduciamo il termine di forzante algoritmica \( \mathcal{S} \).
+                    </p>
+                    <div class="math-block">
+                        $$ \frac{dA}{dt} = \underbrace{\beta A(1 - A/N)}_{\text{Crescita Logistica Organica}} + \underbrace{\mathcal{S}(p) \cdot \delta(t - t_0)}_{\text{Shock Algoritmico}} - \underbrace{\lambda A}_{\text{Decadimento per Rumore}} $$
+                    </div>
+                    <ul class="list-disc list-inside text-slate-600 mt-4 space-y-2">
+                        <li><strong>\( \beta \):</strong> Tasso di contagio virale (passaparola).</li>
+                        <li><strong>\( \mathcal{S}(p) \):</strong> Funzione di sincronizzazione. Quando la personalizzazione \( p \to 1 \) (TikTok), l'algoritmo identifica il contenuto "Perfetto" e lo inietta simultaneamente a milioni di utenti.</li>
+                        <li><strong>\( \lambda \):</strong> Tasso di arrivo di nuovi contenuti (Information Pressure). Agisce come forza di attrito/dimenticanza.</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800 mb-3">2.3 Il Limite della Chimera (\( \lambda \to \infty \))</h3>
+                    <p class="text-slate-600 mb-4">
+                        Quando \( \lambda \) (sovrainformazione) è alto, per mantenere \( I \) costante, il sistema deve compensare aumentando il picco.
+                    </p>
+                    <div class="bg-white border border-slate-200 p-6 rounded-lg shadow-sm">
+                        <canvas id="mathComparisonChart" height="200"></canvas>
+                    </div>
+                    <p class="text-slate-500 text-sm mt-4 text-center italic">
+                        Fig 1: Al crescere di \( \mathcal{S} \) e \( \lambda \), la curva si comprime temporalmente (Flash-Flood).
+                    </p>
                 </div>
             </div>
         </section>
 
         <!-- IL PUNTO DI NON RITORNO -->
         <section class="mb-20 border-t border-slate-200 pt-12 relative">
-            <h2 class="text-3xl font-bold text-slate-900 mb-6">3. Il Diagramma di Fase</h2>
+            <h2 class="text-3xl font-bold text-slate-900 mb-6">3. Il Punto di Non Ritorno (2016-2017)</h2>
             <p class="text-slate-600 text-lg mb-8">
-                Ogni bolla è un fenomeno globale. Notare la migrazione verso l'alto a sinistra (Alta Reach, Bassa Durata).
+                L'analisi dei dati storici individua una discontinuità critica tra il 2016 e il 2017. Questo è il momento in cui la capacità di spinta degli algoritmi (\( \mathcal{S} \)) ha superato la resistenza inerziale delle reti sociali organiche.
             </p>
 
-            <!-- CHART 2 CONTAINER -->
-            <div class="chart-wrapper" style="height: 500px;">
-                <canvas id="phaseSpaceChart"></canvas>
+            <div class="relative bg-white border border-slate-200 rounded-xl shadow-lg p-8 overflow-hidden">
+                <!-- Timeline Items -->
+                <div class="space-y-12 relative z-10">
+                    
+                    <!-- 2012 -->
+                    <div class="flex">
+                        <div class="flex-shrink-0 w-24 text-right pr-6 pt-1">
+                            <span class="font-bold text-slate-400">2012</span>
+                        </div>
+                        <div class="border-l-2 border-slate-200 pl-6 pb-2">
+                            <h4 class="text-lg font-bold text-slate-800">Gangnam Style</h4>
+                            <p class="text-slate-600 text-sm">Il primo miliardo di views. Diffusione mista: condivisione manuale + primi suggerimenti YouTube. <br><span class="text-green-600 font-semibold">Tempo al picco: 5 mesi.</span></p>
+                        </div>
+                    </div>
+
+                    <!-- 2016: THE TIPPING POINT -->
+                    <div class="flex relative">
+                        <div class="absolute -left-4 top-0 bottom-0 w-full bg-red-50/50 -z-10 rounded-lg border-y border-red-100"></div>
+                        <div class="flex-shrink-0 w-24 text-right pr-6 pt-1">
+                            <span class="font-bold text-red-600">2016/17</span>
+                        </div>
+                        <div class="border-l-2 border-red-400 pl-6 pb-2 relative">
+                            <div class="absolute -left-[9px] top-2 w-4 h-4 rounded-full bg-red-500 ring-4 ring-white"></div>
+                            <h4 class="text-lg font-bold text-red-700">Il Punto di Rottura</h4>
+                            <p class="text-slate-700 text-sm font-medium">Transizione da Social Graph a Interest Graph.</p>
+                            <ul class="list-disc list-inside text-xs text-slate-600 mt-2 space-y-1">
+                                <li>TikTok (Douyin) affina l'algoritmo "For You".</li>
+                                <li>Instagram abbandona il feed cronologico.</li>
+                                <li>Fenomeno <em>Despacito</em>: accelerazione estrema.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- 2023 -->
+                    <div class="flex">
+                        <div class="flex-shrink-0 w-24 text-right pr-6 pt-1">
+                            <span class="font-bold text-slate-400">2023</span>
+                        </div>
+                        <div class="border-l-2 border-slate-200 pl-6 pb-2">
+                            <h4 class="text-lg font-bold text-slate-800">Threads / ChatGPT</h4>
+                            <p class="text-slate-600 text-sm">Adozione istantanea guidata da notifiche push e cross-platform injection. <br><span class="text-purple-600 font-semibold">Tempo al picco: 5 giorni.</span></p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Phase Space Diagram -->
+            <div class="mt-12">
+                <h3 class="text-xl font-bold text-slate-800 mb-4">3.1 Il Diagramma di Fase Culturale</h3>
+                <p class="text-slate-600 text-sm mb-4">
+                    Ogni bolla rappresenta un fenomeno culturale globale. Notare la migrazione verso l'alto a sinistra (Alta Reach, Bassa Durata) dopo il "muro" del 2016.
+                </p>
+                <div class="bg-slate-900 rounded-xl p-4 shadow-2xl">
+                    <canvas id="phaseSpaceChart" height="400"></canvas>
+                </div>
             </div>
         </section>
 
         <!-- SIMULATORE -->
         <section id="simulator" class="mb-20 border-t border-slate-200 pt-12">
             <h2 class="text-3xl font-bold text-slate-900 mb-6">4. Simulatore di Stabilità</h2>
-            
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="p-6 bg-white border border-slate-200 rounded-xl">
-                    <div class="mb-6">
-                        <label class="block font-bold text-sm mb-2 text-slate-700">Sincronizzazione (\(\mathcal{S}\))</label>
-                        <input type="range" id="syncFactor" min="0" max="100" value="95" class="w-full">
-                    </div>
-                    <div class="mb-6">
-                        <label class="block font-bold text-sm mb-2 text-slate-700">Pressione Info (\(\lambda\))</label>
-                        <input type="range" id="noiseFactor" min="1" max="10" value="9" class="w-full">
-                    </div>
-                    <div id="simResult" class="p-3 bg-slate-100 rounded text-center text-sm font-mono">In attesa...</div>
+            <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+                <div class="p-8 bg-slate-50 border-b border-slate-200">
+                    <p class="text-slate-600">
+                        Regola i parametri per osservare come l'ecosistema trasforma un contenuto.
+                    </p>
                 </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3">
+                    <!-- Controls -->
+                    <div class="p-8 space-y-8 bg-white lg:col-span-1 border-r border-slate-100">
+                        
+                        <div>
+                            <label class="flex justify-between text-sm font-bold text-slate-700 mb-2">
+                                <span>Sincronizzazione (\(\mathcal{S}\))</span>
+                                <span class="text-indigo-600" id="valSync">95%</span>
+                            </label>
+                            <input type="range" id="syncFactor" min="0" max="100" value="95" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                            <p class="text-xs text-slate-400 mt-1">Capacità dell'algoritmo di coordinare l'attenzione globale.</p>
+                        </div>
 
-                <!-- CHART 3 CONTAINER -->
-                <div class="lg:col-span-2 chart-wrapper">
-                    <canvas id="stabilityChart"></canvas>
+                        <div>
+                            <label class="flex justify-between text-sm font-bold text-slate-700 mb-2">
+                                <span>Pressione Info (\(\lambda\))</span>
+                                <span class="text-pink-600" id="valNoise">Alta</span>
+                            </label>
+                            <input type="range" id="noiseFactor" min="1" max="10" value="9" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-pink-600">
+                            <p class="text-xs text-slate-400 mt-1">Velocità di obsolescenza dei contenuti.</p>
+                        </div>
+
+                        <div class="pt-6">
+                            <div class="text-xs uppercase font-bold text-slate-400 mb-2">Classificazione Fenomeno</div>
+                            <div id="simResult" class="p-4 bg-slate-50 rounded-lg border border-slate-200 text-center">
+                                --
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visualizer -->
+                    <div class="p-8 lg:col-span-2 bg-white flex flex-col justify-center">
+                        <canvas id="stabilityChart"></canvas>
+                        <p class="text-center text-xs text-slate-400 mt-4">Asse X: Tempo (Settimane) | Asse Y: Attenzione Relativa</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- BIBLIOGRAFIA E RIFERIMENTI -->
+        <section class="border-t border-slate-200 pt-12 pb-20">
+            <h2 class="text-2xl font-bold text-slate-900 mb-6">5. Riferimenti e Dati</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm text-slate-600">
+                <div>
+                    <h4 class="font-bold text-slate-800 mb-2">Studi Accademici (Simulati/Reali)</h4>
+                    <ul class="space-y-2 list-disc list-inside">
+                        <li><strong>Lorenz-Spreen et al. (2019):</strong> "Accelerating dynamics of collective attention". Nature Comms. Dimostra empiricamente la contrazione del ciclo di attenzione.</li>
+                        <li><strong>Wu & Huberman (2007):</strong> Novelty and collective attention. Le basi del decadimento lognormale pre-algoritmico.</li>
+                        <li><strong>Dunbar (1992):</strong> Limiti cognitivi alle relazioni sociali (violati dall'algoritmo).</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-bold text-slate-800 mb-2">Dataset Utilizzati</h4>
+                    <ul class="space-y-2 list-disc list-inside">
+                        <li>Google Trends Data (2004-2024): Analisi durata picchi di ricerca.</li>
+                        <li>Spotify Viral 50: Turnover rate dei brani in classifica (da settimanale a giornaliero).</li>
+                        <li>TikTok Creative Center: Ciclo di vita medio dei trend audio (attualmente &lt; 7 giorni).</li>
+                    </ul>
                 </div>
             </div>
         </section>
 
     </main>
 
-    <!-- DEBUG CONSOLE FOOTER -->
-    <footer class="bg-slate-900 text-slate-300 py-8 text-sm font-mono">
-        <div class="max-w-4xl mx-auto px-4">
-            <h3 class="text-white font-bold border-b border-slate-700 pb-2 mb-4">
-                <i class="fas fa-terminal mr-2"></i>Diagnostica di Sistema
-            </h3>
-            <div id="console-output" class="space-y-1 h-48 overflow-y-auto">
-                <!-- Log messages will appear here -->
-                <div class="text-slate-500">Inizializzazione diagnostica...</div>
-            </div>
+    <!-- FOOTER -->
+    <footer class="bg-slate-900 text-slate-400 py-12">
+        <div class="max-w-4xl mx-auto px-4 text-center">
+            <p class="mb-4">&copy; 2024 Laboratorio di Dinamiche Culturali.</p>
+            <p class="text-xs text-slate-600">
+                Modello sviluppato per scopi dimostrativi. I dati storici sono approssimazioni basate su trend pubblici.
+            </p>
         </div>
     </footer>
 
-    <!-- LOGICA JS -->
+    <!-- LOGIC SCRIPT -->
     <script>
-        // Funzione helper per scrivere nel div di debug
-        function printLog(type, msg) {
-            const consoleDiv = document.getElementById('console-output');
-            const div = document.createElement('div');
-            div.textContent = `> ${msg}`;
-            if (type === 'error') div.className = "text-red-400 font-bold";
-            else if (type === 'success') div.className = "text-green-400";
-            else div.className = "text-slate-300";
-            consoleDiv.appendChild(div);
-        }
+        // --- 1. MATH COMPARISON CHART ---
+        // Avvolgiamo tutto in un DOMContentLoaded per sicurezza
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            // Registra il plugin delle annotazioni se non è automatico (versione UMD lo fa, ma per sicurezza)
+            // In Chart.js 4+ è meglio essere espliciti se possibile, ma l'UMD bundle di solito registra tutto.
 
-        // Recupera errori catturati prima del load
-        if(window.logMessages) {
-            window.logMessages.forEach(m => printLog(m.type, m.text));
-        }
-
-        window.addEventListener('load', function() {
-            printLog('info', 'Window Load Event fired.');
-
-            // 1. CHECK LIBRARIES
-            if (typeof Chart === 'undefined') {
-                printLog('error', 'CRITICO: Chart.js non è stato caricato. Verifica la connessione o adblocker.');
-                return;
-            } else {
-                printLog('success', 'Chart.js v' + Chart.version + ' caricato correttamente.');
-            }
-
-            if (typeof window['chartjs-plugin-annotation'] === 'undefined') {
-                printLog('error', 'Plugin Annotation mancante. Le linee di soglia non appariranno.');
-            } else {
-                printLog('success', 'Plugin Annotation caricato.');
-                Chart.register(window['chartjs-plugin-annotation']);
-            }
-
-            // 2. CHECK CANVAS DIMENSIONS
-            const canvasIds = ['mathComparisonChart', 'phaseSpaceChart', 'stabilityChart'];
-            canvasIds.forEach(id => {
-                const cvs = document.getElementById(id);
-                if (!cvs) {
-                    printLog('error', `Canvas #${id} non trovato nel DOM.`);
-                } else {
-                    const w = cvs.clientWidth;
-                    const h = cvs.clientHeight;
-                    if (w === 0 || h === 0) {
-                        printLog('error', `Canvas #${id} ha dimensioni 0x0. Problema CSS.`);
-                    } else {
-                        printLog('info', `Canvas #${id} pronto. Dim: ${w}x${h}px`);
-                    }
-                }
+            const ctxMath = document.getElementById('mathComparisonChart').getContext('2d');
+            const t = Array.from({length: 100}, (_, i) => i * 0.5);
+            
+            // Solid State (LogNormal-ish)
+            const solid = t.map(x => {
+                if(x===0) return 0;
+                return (1/x) * Math.exp(-Math.pow(Math.log(x/10), 2)) * 15;
+            });
+            
+            // Plasma State (Gamma/Exp decay rapid)
+            const plasma = t.map(x => {
+                return Math.pow(x, 1.5) * Math.exp(-x/1.5) * 5; // Higher peak relative to width
             });
 
-            // 3. GLOBAL CHART SETTINGS
-            Chart.defaults.font.family = "'Inter', sans-serif";
-            Chart.defaults.color = '#64748b';
-            Chart.defaults.maintainAspectRatio = false; // Importante per adattarsi al div
-
-            // --- CHART 1 ---
-            try {
-                const ctx1 = document.getElementById('mathComparisonChart').getContext('2d');
-                const t = Array.from({length: 100}, (_, i) => i * 0.5);
-                
-                new Chart(ctx1, {
-                    type: 'line',
-                    data: {
-                        labels: t.map(v => v.toFixed(1)),
-                        datasets: [
-                            {
-                                label: 'Modello Organico (Pre-2016)',
-                                data: t.map(x => x===0 ? 0 : (1/x) * Math.exp(-Math.pow(Math.log(x/10), 2)) * 15),
-                                borderColor: '#10b981',
-                                borderWidth: 2,
-                                fill: true,
-                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                                tension: 0.4,
-                                pointRadius: 0
-                            },
-                            {
-                                label: 'Modello Chimera (Post-2016)',
-                                data: t.map(x => Math.pow(x, 1.5) * Math.exp(-x/1.5) * 5),
-                                borderColor: '#db2777',
-                                borderWidth: 2,
-                                fill: true,
-                                backgroundColor: 'rgba(219, 39, 119, 0.1)',
-                                tension: 0.4,
-                                pointRadius: 0
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: { legend: { position: 'top' }, tooltip: { enabled: false } },
-                        scales: { x: { display: false }, y: { display: false } }
-                    }
-                });
-                printLog('success', 'Grafico 1 renderizzato.');
-            } catch(e) { printLog('error', 'Err Chart 1: ' + e.message); }
-
-            // --- CHART 2 ---
-            try {
-                const ctx2 = document.getElementById('phaseSpaceChart').getContext('2d');
-                const culturalData = [
-                    { x: 60, y: 40, r: 6, label: 'Nokia Snake', year: 2000, color: '#94a3b8' },
-                    { x: 45, y: 150, r: 8, label: 'Crazy Frog', year: 2005, color: '#64748b' },
-                    { x: 24, y: 1000, r: 12, label: 'Gangnam Style', year: 2012, color: '#10b981' },
-                    { x: 8, y: 2500, r: 18, label: 'Pokemon Go', year: 2016, color: '#ef4444' },
-                    { x: 3, y: 4000, r: 22, label: 'Squid Game', year: 2021, color: '#d946ef' },
-                    { x: 0.2, y: 3000, r: 25, label: 'Hawk Tuah', year: 2024, color: '#f43f5e' }
-                ];
-
-                new Chart(ctx2, {
-                    type: 'bubble',
-                    data: {
-                        datasets: [{
-                            label: 'Eventi',
-                            data: culturalData,
-                            backgroundColor: c => c.raw.color,
-                            borderColor: '#fff',
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: { display: false },
-                            annotation: {
-                                annotations: {
-                                    line1: {
-                                        type: 'line',
-                                        scaleID: 'x',
-                                        value: 7, 
-                                        borderColor: 'rgba(0,0,0,0.3)',
-                                        borderWidth: 2,
-                                        borderDash: [5, 5],
-                                        label: { content: '2016 Tipping Point', display: true, position: 'start' }
-                                    }
-                                }
-                            }
+            new Chart(ctxMath, {
+                type: 'line',
+                data: {
+                    labels: t.map(v => v.toFixed(1)),
+                    datasets: [
+                        {
+                            label: 'Modello Organico (Pre-2016)',
+                            data: solid,
+                            borderColor: '#10b981',
+                            borderWidth: 2,
+                            fill: true,
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4,
+                            pointRadius: 0
                         },
-                        scales: {
-                            x: {
-                                type: 'logarithmic',
-                                position: 'bottom',
-                                title: { display: true, text: 'Persistenza (Settimane)' },
-                                min: 0.1, max: 100, reverse: true 
-                            },
-                            y: { title: { display: true, text: 'Reach (Milioni)' } }
+                        {
+                            label: 'Modello Chimera (Post-2016)',
+                            data: plasma,
+                            borderColor: '#db2777',
+                            borderWidth: 2,
+                            fill: true,
+                            backgroundColor: 'rgba(219, 39, 119, 0.1)',
+                            tension: 0.4,
+                            pointRadius: 0
                         }
-                    }
-                });
-                printLog('success', 'Grafico 2 renderizzato.');
-            } catch(e) { printLog('error', 'Err Chart 2: ' + e.message); }
-
-            // --- CHART 3 (Simulator) ---
-            try {
-                const ctx3 = document.getElementById('stabilityChart').getContext('2d');
-                let simChart;
-
-                function runSimulation() {
-                    const sync = parseInt(document.getElementById('syncFactor').value);
-                    const noise = parseInt(document.getElementById('noiseFactor').value);
-                    
-                    const durationBase = 50; 
-                    const duration = durationBase / (Math.pow(noise, 1.5) * (1 + sync/30));
-                    const peak = 10 * Math.exp(sync / 25);
-
-                    const points = [];
-                    const labels = [];
-                    for(let t=0; t<60; t+=0.5) {
-                        let theta = duration / 2;
-                        let val = Math.pow(t, 2) * Math.exp(-t / theta);
-                        points.push(val * peak); 
-                        labels.push(t);
-                    }
-
-                    // Logica colore
-                    let color = "#3b82f6"; // Default Blue
-                    let status = "Hybrid";
-                    if (duration < 2 && peak > 200) { color = "#f43f5e"; status = "CHIMERA"; }
-                    else if (duration > 15 && peak > 50) { color = "#10b981"; status = "CLASSIC"; }
-
-                    document.getElementById('simResult').innerHTML = `Status: <b style="color:${color}">${status}</b> (Peak: ${peak.toFixed(0)}, Dur: ${duration.toFixed(1)})`;
-
-                    if (simChart) {
-                        simChart.data.labels = labels;
-                        simChart.data.datasets[0].data = points;
-                        simChart.data.datasets[0].borderColor = color;
-                        simChart.data.datasets[0].backgroundColor = color + '20';
-                        simChart.update();
-                    } else {
-                        simChart = new Chart(ctx3, {
-                            type: 'line',
-                            data: {
-                                labels: labels,
-                                datasets: [{
-                                    label: 'Simulazione',
-                                    data: points,
-                                    borderColor: color,
-                                    backgroundColor: color + '20',
-                                    fill: true,
-                                    tension: 0.4,
-                                    pointRadius: 0
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                animation: { duration: 0 },
-                                scales: { x: { display: true }, y: { display: false } },
-                                plugins: { legend: { display: false } }
-                            }
-                        });
-                    }
-                }
-
-                document.getElementById('syncFactor').addEventListener('input', runSimulation);
-                document.getElementById('noiseFactor').addEventListener('input', runSimulation);
-                runSimulation();
-                printLog('success', 'Simulatore attivato.');
-
-            } catch(e) { printLog('error', 'Err Chart 3: ' + e.message); }
-
-        });
-    </script>
-</body>
-</html>
-
-
+                    ]
+                },
+                options: {
+ 
