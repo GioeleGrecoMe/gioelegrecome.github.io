@@ -291,7 +291,7 @@
         </div>
     </footer>
 
-    <!-- LOGIC SCRIPT -->
+  <!-- LOGIC SCRIPT -->
     <script>
         // --- 1. MATH COMPARISON CHART ---
         // Avvolgiamo tutto in un load event per sicurezza (CSS Tailwind caricato)
@@ -335,4 +335,207 @@
                             label: 'Modello Chimera (Post-2016)',
                             data: plasma,
                             borderColor: '#db2777',
-        
+                            borderWidth: 2,
+                            fill: true,
+                            backgroundColor: 'rgba(219, 39, 119, 0.1)',
+                            tension: 0.4,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, // IMPORTANTE: Si adatta al div genitore
+                    plugins: { legend: { position: 'top' }, tooltip: { enabled: false } },
+                    scales: { x: { display: false }, y: { display: false } }
+                }
+            });
+
+            // --- 2. PHASE SPACE CHART (THE MATRIX) ---
+            const ctxPhase = document.getElementById('phaseSpaceChart').getContext('2d');
+            const culturalData = [
+                { x: 60, y: 40, r: 6, label: 'Nokia Snake', year: 2000, color: '#94a3b8' },
+                { x: 45, y: 150, r: 8, label: 'Crazy Frog', year: 2005, color: '#64748b' },
+                { x: 24, y: 1000, r: 12, label: 'Gangnam Style', year: 2012, color: '#10b981' },
+                { x: 18, y: 900, r: 14, label: 'Harlem Shake', year: 2013, color: '#10b981' },
+                { x: 12, y: 1200, r: 15, label: 'Ice Bucket', year: 2014, color: '#3b82f6' },
+                
+                // THE TIPPING POINT CLUSTER
+                { x: 8, y: 2500, r: 18, label: 'Pokemon Go', year: 2016, color: '#ef4444' }, // Red for danger/shift
+                { x: 5, y: 3500, r: 20, label: 'Despacito', year: 2017, color: '#ef4444' },
+
+                // CHIMERA ZONE
+                { x: 3, y: 4000, r: 22, label: 'Squid Game', year: 2021, color: '#d946ef' },
+                { x: 1.5, y: 2000, r: 22, label: 'Wordle', year: 2022, color: '#d946ef' },
+                { x: 0.5, y: 1500, r: 25, label: 'Threads', year: 2023, color: '#ec4899' },
+                { x: 0.2, y: 3000, r: 25, label: 'Hawk Tuah / TikToks', year: 2024, color: '#f43f5e' }
+            ];
+
+            new Chart(ctxPhase, {
+                type: 'bubble',
+                data: {
+                    datasets: [{
+                        label: 'Eventi',
+                        data: culturalData,
+                        backgroundColor: c => c.raw.color,
+                        borderColor: '#fff',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.raw.label} (${ctx.raw.year}): ${ctx.raw.y}M Reach, ${ctx.raw.x} sett. durata`
+                            }
+                        },
+                        legend: { display: false },
+                        annotation: {
+                            annotations: {
+                                line1: {
+                                    type: 'line',
+                                    scaleID: 'x',
+                                    value: 7, // Circa al 2016 nella scala log inversa
+                                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                                    borderWidth: 2,
+                                    borderDash: [5, 5],
+                                    label: { 
+                                        content: '2016 Tipping Point', 
+                                        display: true, 
+                                        position: 'start',
+                                        color: 'white',
+                                        backgroundColor: 'rgba(0,0,0,0.5)'
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'logarithmic',
+                            position: 'bottom',
+                            title: { display: true, text: 'Persistenza (Settimane) [Scala Log]', color: '#94a3b8' },
+                            grid: { color: '#334155' },
+                            ticks: { color: '#cbd5e1' },
+                            min: 0.1, max: 100,
+                            reverse: true // Left is shorter duration (modern)
+                        },
+                        y: {
+                            title: { display: true, text: 'Reach Globale (Milioni)', color: '#94a3b8' },
+                            grid: { color: '#334155' },
+                            ticks: { color: '#cbd5e1' }
+                        }
+                    }
+                }
+            });
+                // --- 3. SIMULATOR LOGIC ---
+            const ctxSim = document.getElementById('stabilityChart').getContext('2d');
+            let simChart;
+
+            function runSimulation() {
+                const sync = parseInt(document.getElementById('syncFactor').value);
+                const noise = parseInt(document.getElementById('noiseFactor').value);
+
+                // Update UI Labels
+                document.getElementById('valSync').innerText = sync + '%';
+                document.getElementById('valNoise').innerText = noise > 7 ? 'Critica' : (noise > 4 ? 'Media' : 'Bassa');
+
+                // Math Model
+                // Duration scales inversely with Noise^2 and Sync
+                const durationBase = 50; 
+                const duration = durationBase / (Math.pow(noise, 1.5) * (1 + sync/30));
+                
+                // Peak scales exponentially with Sync (Network Effect)
+                const peak = 10 * Math.exp(sync / 25);
+
+                // Generate Data Points (Gamma Distribution shape)
+                const points = [];
+                const labels = [];
+                const timeStep = 0.5;
+                for(let t=0; t<60; t+=timeStep) {
+                    // Shape factor k=2 (quick rise), Scale theta changes with duration
+                    // y = x^(k-1) * exp(-x/theta)
+                    let theta = duration / 2;
+                    let val = Math.pow(t, 2) * Math.exp(-t / theta);
+                    points.push(val * peak); // Arbitrary scaling for visual
+                    labels.push(t);
+                }
+
+                // Classification Logic
+                const resultBox = document.getElementById('simResult');
+                let status = "";
+                let color = "";
+                let desc = "";
+
+                if (duration < 2 && peak > 200) {
+                    status = "CHIMERA / FLASH FLOOD";
+                    color = "#f43f5e"; // Red
+                    desc = "Impatto devastante, memoria nulla. Tipico di TikTok 2024.";
+                } else if (duration > 15 && peak > 50) {
+                    status = "CULT CLASSIC";
+                    color = "#10b981"; // Green
+                    desc = "Crescita organica, alta ritenzione. Tipico Pre-2012.";
+                } else if (peak < 50) {
+                    status = "RUMORE DI FONDO";
+                    color = "#94a3b8"; // Gray
+                    desc = "Contenuto che non supera la soglia di attivazione.";
+                } else {
+                    status = "TREND IBRIDO";
+                    color = "#3b82f6"; // Blue
+                    desc = "Buon compromesso tra reach e durata.";
+                }
+
+                resultBox.innerHTML = `
+                    <div class="text-xl font-bold mb-1" style="color:${color}">${status}</div>
+                    <div class="text-xs text-slate-500">${desc}</div>
+                    <div class="mt-2 text-xs font-mono bg-slate-100 p-1 rounded inline-block">
+                        Peak: ${peak.toFixed(0)} | Half-Life: ${duration.toFixed(1)}w
+                    </div>
+                `;
+
+                // Chart Update
+                if (simChart) {
+                    simChart.data.labels = labels;
+                    simChart.data.datasets[0].data = points;
+                    simChart.data.datasets[0].borderColor = color;
+                    simChart.data.datasets[0].backgroundColor = color + '20';
+                    simChart.update();
+                } else {
+                    simChart = new Chart(ctxSim, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Attenzione nel Tempo',
+                                data: points,
+                                borderColor: color,
+                                backgroundColor: color + '20',
+                                fill: true,
+                                tension: 0.4,
+                                pointRadius: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: { duration: 0 },
+                            scales: {
+                                x: { display: true, title: {display:true, text:'Settimane'}, grid: {display:false} },
+                                y: { display: false }
+                            },
+                            plugins: { legend: { display: false } }
+                        }
+                    });
+                }
+            }
+
+            document.getElementById('syncFactor').addEventListener('input', runSimulation);
+            document.getElementById('noiseFactor').addEventListener('input', runSimulation);
+            runSimulation();
+        });
+    </script>
+</body>
+</html>
+ 
