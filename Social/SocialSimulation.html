@@ -128,8 +128,9 @@
                     <p class="text-slate-600 mb-4">
                         Quando \( \lambda \) (sovrainformazione) è alto, per mantenere \( I \) costante, il sistema deve compensare aumentando il picco.
                     </p>
-                    <div class="bg-white border border-slate-200 p-6 rounded-lg shadow-sm">
-                        <canvas id="mathComparisonChart" height="200"></canvas>
+                    <!-- FIX: Added inline style for explicit height -->
+                    <div class="bg-white border border-slate-200 p-6 rounded-lg shadow-sm" style="height: 350px; position: relative;">
+                        <canvas id="mathComparisonChart"></canvas>
                     </div>
                     <p class="text-slate-500 text-sm mt-4 text-center italic">
                         Fig 1: Al crescere di \( \mathcal{S} \) e \( \lambda \), la curva si comprime temporalmente (Flash-Flood).
@@ -198,8 +199,9 @@
                 <p class="text-slate-600 text-sm mb-4">
                     Ogni bolla rappresenta un fenomeno culturale globale. Notare la migrazione verso l'alto a sinistra (Alta Reach, Bassa Durata) dopo il "muro" del 2016.
                 </p>
-                <div class="bg-slate-900 rounded-xl p-4 shadow-2xl">
-                    <canvas id="phaseSpaceChart" height="400"></canvas>
+                <!-- FIX: Added inline style for explicit height -->
+                <div class="bg-slate-900 rounded-xl p-4 shadow-2xl" style="height: 500px; position: relative;">
+                    <canvas id="phaseSpaceChart"></canvas>
                 </div>
             </div>
         </section>
@@ -245,7 +247,8 @@
                     </div>
 
                     <!-- Visualizer -->
-                    <div class="p-8 lg:col-span-2 bg-white flex flex-col justify-center">
+                    <!-- FIX: Added inline style for explicit height -->
+                    <div class="p-8 lg:col-span-2 bg-white flex flex-col justify-center" style="height: 400px; position: relative;">
                         <canvas id="stabilityChart"></canvas>
                         <p class="text-center text-xs text-slate-400 mt-4">Asse X: Tempo (Settimane) | Asse Y: Attenzione Relativa</p>
                     </div>
@@ -291,11 +294,13 @@
     <!-- LOGIC SCRIPT -->
     <script>
         // --- 1. MATH COMPARISON CHART ---
-        // Avvolgiamo tutto in un DOMContentLoaded per sicurezza
-        document.addEventListener('DOMContentLoaded', function() {
+        // Avvolgiamo tutto in un load event per sicurezza (CSS Tailwind caricato)
+        window.addEventListener('load', function() {
             
-            // Registra il plugin delle annotazioni se non è automatico (versione UMD lo fa, ma per sicurezza)
-            // In Chart.js 4+ è meglio essere espliciti se possibile, ma l'UMD bundle di solito registra tutto.
+            // Registra il plugin delle annotazioni ESPLICITAMENTE
+            if (typeof window['chartjs-plugin-annotation'] !== 'undefined') {
+                 Chart.register(window['chartjs-plugin-annotation']);
+            }
 
             const ctxMath = document.getElementById('mathComparisonChart').getContext('2d');
             const t = Array.from({length: 100}, (_, i) => i * 0.5);
@@ -330,13 +335,4 @@
                             label: 'Modello Chimera (Post-2016)',
                             data: plasma,
                             borderColor: '#db2777',
-                            borderWidth: 2,
-                            fill: true,
-                            backgroundColor: 'rgba(219, 39, 119, 0.1)',
-                            tension: 0.4,
-                            pointRadius: 0
-                        }
-                    ]
-                },
-                options: {
- 
+        
