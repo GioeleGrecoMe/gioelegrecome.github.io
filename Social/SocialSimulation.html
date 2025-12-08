@@ -5,19 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teoria del Flash-Flood Culturale: Analisi Matematica</title>
     
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS (Play CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Chart.js Core -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <!-- Chart.js Annotation Plugin (Per le linee di soglia) -->
+    <!-- Chart.js Annotation Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
     
-    <!-- MathJax Configuration & Core -->
+    <!-- MathJax -->
     <script>
         window.MathJax = {
             tex: {
-                inlineMath: [['\\(', '\\)']], // Abilita la sintassi \( ... \)
+                inlineMath: [['\\(', '\\)']],
                 displayMath: [['$$', '$$']]
             }
         };
@@ -51,7 +51,7 @@
         <div class="absolute inset-0 bg-grid opacity-30 pointer-events-none"></div>
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 relative z-10 text-center">
             <div class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-widest uppercase bg-indigo-50 text-indigo-700 mb-6 border border-indigo-100">
-                White Paper Interattivo v2.1
+                White Paper Interattivo v2.2 (Patch Grafici)
             </div>
             <h1 class="text-5xl font-extrabold text-slate-900 tracking-tight mb-4 sm:text-6xl">
                 Dal Culto alla Chimera:
@@ -73,15 +73,15 @@
 
     <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
-        <!-- INTRODUZIONE: IL PARADOSSO -->
+        <!-- INTRODUZIONE -->
         <section class="mb-20">
             <h2 class="text-3xl font-bold text-slate-900 mb-6">1. Il Paradosso della Frammentazione</h2>
             <div class="prose prose-slate prose-lg text-slate-600 serif">
                 <p>
-                    Fino al 2012, la teoria sociologica dominante prevedeva che l'aumento esponenziale delle informazioni (\(\lambda\)) e la personalizzazione dei feed (\(p\)) avrebbero portato alla <strong>"Morte del Fenomeno di Massa"</strong>. Si ipotizzava la frammentazione della società in infinite nicchie non comunicanti (Filter Bubbles).
+                    Fino al 2012, la teoria sociologica dominante prevedeva che l'aumento esponenziale delle informazioni (\(\lambda\)) e la personalizzazione dei feed (\(p\)) avrebbero portato alla <strong>"Morte del Fenomeno di Massa"</strong>. Si ipotizzava la frammentazione della società in infinite nicchie non comunicanti.
                 </p>
                 <p>
-                    Tuttavia, i dati reali (2016-2024) mostrano l'opposto: fenomeni come <em>Squid Game</em>, <em>Barbenheimer</em> o i trend di TikTok raggiungono saturazioni globali in tempi record.
+                    Tuttavia, i dati reali (2016-2024) mostrano l'opposto: fenomeni come <em>Squid Game</em> o i trend di TikTok raggiungono saturazioni globali in tempi record.
                 </p>
                 <div class="bg-indigo-50 border-l-4 border-indigo-500 p-6 my-8 rounded-r-lg not-prose">
                     <h3 class="font-bold text-indigo-900 mb-2">La Tesi Fondamentale</h3>
@@ -100,36 +100,21 @@
                 <div>
                     <h3 class="text-xl font-bold text-slate-800 mb-3">2.1 L'Equazione dell'Attenzione Collettiva</h3>
                     <p class="text-slate-600 mb-4">
-                        Definiamo l'attenzione collettiva \( A(t) \) dedicata a un singolo fenomeno culturale al tempo \( t \). L'integrale di questa funzione rappresenta l'impatto culturale totale \( I \).
+                        Definiamo l'attenzione collettiva \( A(t) \) dedicata a un singolo fenomeno culturale al tempo \( t \).
                     </p>
                     <div class="math-block">
                         $$ I = \int_{0}^{\infty} A(t) \, dt = \text{Reach}_{max} \times \tau_{eff} $$
                     </div>
-                    <p class="text-slate-600 text-sm">Dove \( \tau_{eff} \) è la durata efficace del fenomeno (Cultural Half-Life).</p>
                 </div>
 
                 <div>
-                    <h3 class="text-xl font-bold text-slate-800 mb-3">2.2 Il Fattore di Sincronizzazione Algoritmica (\( \mathcal{S} \))</h3>
+                    <h3 class="text-xl font-bold text-slate-800 mb-3">2.3 Il Limite della Chimera</h3>
                     <p class="text-slate-600 mb-4">
-                        Nel modello classico (Pre-2012), la diffusione è governata dal coefficiente di diffusione del grafo sociale \( D_{social} \) (passaparola). Nel modello moderno, introduciamo il termine di forzante algoritmica \( \mathcal{S} \).
+                        Quando \( \lambda \) è alto, per mantenere \( I \) costante, il sistema comprime l'onda temporale aumentando il picco.
                     </p>
-                    <div class="math-block">
-                        $$ \frac{dA}{dt} = \underbrace{\beta A(1 - A/N)}_{\text{Crescita Logistica Organica}} + \underbrace{\mathcal{S}(p) \cdot \delta(t - t_0)}_{\text{Shock Algoritmico}} - \underbrace{\lambda A}_{\text{Decadimento per Rumore}} $$
-                    </div>
-                    <ul class="list-disc list-inside text-slate-600 mt-4 space-y-2">
-                        <li><strong>\( \beta \):</strong> Tasso di contagio virale (passaparola).</li>
-                        <li><strong>\( \mathcal{S}(p) \):</strong> Funzione di sincronizzazione. Quando la personalizzazione \( p \to 1 \) (TikTok), l'algoritmo identifica il contenuto "Perfetto" e lo inietta simultaneamente a milioni di utenti.</li>
-                        <li><strong>\( \lambda \):</strong> Tasso di arrivo di nuovi contenuti (Information Pressure). Agisce come forza di attrito/dimenticanza.</li>
-                    </ul>
-                </div>
-
-                <div>
-                    <h3 class="text-xl font-bold text-slate-800 mb-3">2.3 Il Limite della Chimera (\( \lambda \to \infty \))</h3>
-                    <p class="text-slate-600 mb-4">
-                        Quando \( \lambda \) (sovrainformazione) è alto, per mantenere \( I \) costante, il sistema deve compensare aumentando il picco.
-                    </p>
-                    <div class="bg-white border border-slate-200 p-6 rounded-lg shadow-sm">
-                        <canvas id="mathComparisonChart" height="200"></canvas>
+                    <!-- IMPORTANT: Added style height to force dimension even if Tailwind delays -->
+                    <div class="bg-white border border-slate-200 p-6 rounded-lg shadow-sm h-[300px] relative">
+                        <canvas id="mathComparisonChart"></canvas>
                     </div>
                     <p class="text-slate-500 text-sm mt-4 text-center italic">
                         Fig 1: Al crescere di \( \mathcal{S} \) e \( \lambda \), la curva si comprime temporalmente (Flash-Flood).
@@ -142,13 +127,11 @@
         <section class="mb-20 border-t border-slate-200 pt-12 relative">
             <h2 class="text-3xl font-bold text-slate-900 mb-6">3. Il Punto di Non Ritorno (2016-2017)</h2>
             <p class="text-slate-600 text-lg mb-8">
-                L'analisi dei dati storici individua una discontinuità critica tra il 2016 e il 2017. Questo è il momento in cui la capacità di spinta degli algoritmi (\( \mathcal{S} \)) ha superato la resistenza inerziale delle reti sociali organiche.
+                L'analisi dei dati storici individua una discontinuità critica tra il 2016 e il 2017. La spinta degli algoritmi (\( \mathcal{S} \)) ha superato l'inerzia sociale.
             </p>
 
             <div class="relative bg-white border border-slate-200 rounded-xl shadow-lg p-8 overflow-hidden">
-                <!-- Timeline Items -->
                 <div class="space-y-12 relative z-10">
-                    
                     <!-- 2012 -->
                     <div class="flex">
                         <div class="flex-shrink-0 w-24 text-right pr-6 pt-1">
@@ -156,10 +139,9 @@
                         </div>
                         <div class="border-l-2 border-slate-200 pl-6 pb-2">
                             <h4 class="text-lg font-bold text-slate-800">Gangnam Style</h4>
-                            <p class="text-slate-600 text-sm">Il primo miliardo di views. Diffusione mista: condivisione manuale + primi suggerimenti YouTube. <br><span class="text-green-600 font-semibold">Tempo al picco: 5 mesi.</span></p>
+                            <p class="text-slate-600 text-sm">Diffusione mista (Social Graph). <span class="text-green-600 font-semibold">Tempo al picco: 5 mesi.</span></p>
                         </div>
                     </div>
-
                     <!-- 2016: THE TIPPING POINT -->
                     <div class="flex relative">
                         <div class="absolute -left-4 top-0 bottom-0 w-full bg-red-50/50 -z-10 rounded-lg border-y border-red-100"></div>
@@ -169,15 +151,9 @@
                         <div class="border-l-2 border-red-400 pl-6 pb-2 relative">
                             <div class="absolute -left-[9px] top-2 w-4 h-4 rounded-full bg-red-500 ring-4 ring-white"></div>
                             <h4 class="text-lg font-bold text-red-700">Il Punto di Rottura</h4>
-                            <p class="text-slate-700 text-sm font-medium">Transizione da Social Graph a Interest Graph.</p>
-                            <ul class="list-disc list-inside text-xs text-slate-600 mt-2 space-y-1">
-                                <li>TikTok (Douyin) affina l'algoritmo "For You".</li>
-                                <li>Instagram abbandona il feed cronologico.</li>
-                                <li>Fenomeno <em>Despacito</em>: accelerazione estrema.</li>
-                            </ul>
+                            <p class="text-slate-700 text-sm font-medium">Interest Graph > Social Graph.</p>
                         </div>
                     </div>
-
                     <!-- 2023 -->
                     <div class="flex">
                         <div class="flex-shrink-0 w-24 text-right pr-6 pt-1">
@@ -185,10 +161,9 @@
                         </div>
                         <div class="border-l-2 border-slate-200 pl-6 pb-2">
                             <h4 class="text-lg font-bold text-slate-800">Threads / ChatGPT</h4>
-                            <p class="text-slate-600 text-sm">Adozione istantanea guidata da notifiche push e cross-platform injection. <br><span class="text-purple-600 font-semibold">Tempo al picco: 5 giorni.</span></p>
+                            <p class="text-slate-600 text-sm">Diffusione algoritmica pura. <span class="text-purple-600 font-semibold">Tempo al picco: 5 giorni.</span></p>
                         </div>
                     </div>
-
                 </div>
             </div>
 
@@ -196,10 +171,10 @@
             <div class="mt-12">
                 <h3 class="text-xl font-bold text-slate-800 mb-4">3.1 Il Diagramma di Fase Culturale</h3>
                 <p class="text-slate-600 text-sm mb-4">
-                    Ogni bolla rappresenta un fenomeno culturale globale. Notare la migrazione verso l'alto a sinistra (Alta Reach, Bassa Durata) dopo il "muro" del 2016.
+                    Ogni bolla è un fenomeno globale. Notare la migrazione verso l'alto a sinistra (Alta Reach, Bassa Durata).
                 </p>
-                <div class="bg-slate-900 rounded-xl p-4 shadow-2xl">
-                    <canvas id="phaseSpaceChart" height="400"></canvas>
+                <div class="bg-slate-900 rounded-xl p-4 shadow-2xl h-[450px] relative">
+                    <canvas id="phaseSpaceChart"></canvas>
                 </div>
             </div>
         </section>
@@ -210,133 +185,183 @@
             <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
                 <div class="p-8 bg-slate-50 border-b border-slate-200">
                     <p class="text-slate-600">
-                        Regola i parametri per osservare come l'ecosistema trasforma un contenuto.
+                        Regola i parametri per osservare la trasformazione dell'onda.
                     </p>
                 </div>
                 
                 <div class="grid grid-cols-1 lg:grid-cols-3">
-                    <!-- Controls -->
                     <div class="p-8 space-y-8 bg-white lg:col-span-1 border-r border-slate-100">
-                        
                         <div>
                             <label class="flex justify-between text-sm font-bold text-slate-700 mb-2">
                                 <span>Sincronizzazione (\(\mathcal{S}\))</span>
                                 <span class="text-indigo-600" id="valSync">95%</span>
                             </label>
                             <input type="range" id="syncFactor" min="0" max="100" value="95" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
-                            <p class="text-xs text-slate-400 mt-1">Capacità dell'algoritmo di coordinare l'attenzione globale.</p>
                         </div>
-
                         <div>
                             <label class="flex justify-between text-sm font-bold text-slate-700 mb-2">
                                 <span>Pressione Info (\(\lambda\))</span>
                                 <span class="text-pink-600" id="valNoise">Alta</span>
                             </label>
                             <input type="range" id="noiseFactor" min="1" max="10" value="9" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-pink-600">
-                            <p class="text-xs text-slate-400 mt-1">Velocità di obsolescenza dei contenuti.</p>
                         </div>
-
-                        <div class="pt-6">
-                            <div class="text-xs uppercase font-bold text-slate-400 mb-2">Classificazione Fenomeno</div>
-                            <div id="simResult" class="p-4 bg-slate-50 rounded-lg border border-slate-200 text-center">
-                                --
-                            </div>
-                        </div>
+                        <div id="simResult" class="p-4 bg-slate-50 rounded-lg border border-slate-200 text-center">--</div>
                     </div>
 
-                    <!-- Visualizer -->
-                    <div class="p-8 lg:col-span-2 bg-white flex flex-col justify-center">
+                    <div class="p-8 lg:col-span-2 bg-white flex flex-col justify-center h-[400px] relative">
                         <canvas id="stabilityChart"></canvas>
-                        <p class="text-center text-xs text-slate-400 mt-4">Asse X: Tempo (Settimane) | Asse Y: Attenzione Relativa</p>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- BIBLIOGRAFIA E RIFERIMENTI -->
+        <!-- RIFERIMENTI -->
         <section class="border-t border-slate-200 pt-12 pb-20">
-            <h2 class="text-2xl font-bold text-slate-900 mb-6">5. Riferimenti e Dati</h2>
+            <h2 class="text-2xl font-bold text-slate-900 mb-6">5. Riferimenti</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm text-slate-600">
                 <div>
-                    <h4 class="font-bold text-slate-800 mb-2">Studi Accademici (Simulati/Reali)</h4>
+                    <h4 class="font-bold text-slate-800 mb-2">Studi Accademici</h4>
                     <ul class="space-y-2 list-disc list-inside">
-                        <li><strong>Lorenz-Spreen et al. (2019):</strong> "Accelerating dynamics of collective attention". Nature Comms. Dimostra empiricamente la contrazione del ciclo di attenzione.</li>
-                        <li><strong>Wu & Huberman (2007):</strong> Novelty and collective attention. Le basi del decadimento lognormale pre-algoritmico.</li>
-                        <li><strong>Dunbar (1992):</strong> Limiti cognitivi alle relazioni sociali (violati dall'algoritmo).</li>
+                        <li>Lorenz-Spreen et al. (2019): "Accelerating dynamics of collective attention".</li>
+                        <li>Wu & Huberman (2007): Novelty and collective attention.</li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="font-bold text-slate-800 mb-2">Dataset Utilizzati</h4>
+                    <h4 class="font-bold text-slate-800 mb-2">Dati</h4>
                     <ul class="space-y-2 list-disc list-inside">
-                        <li>Google Trends Data (2004-2024): Analisi durata picchi di ricerca.</li>
-                        <li>Spotify Viral 50: Turnover rate dei brani in classifica (da settimanale a giornaliero).</li>
-                        <li>TikTok Creative Center: Ciclo di vita medio dei trend audio (attualmente &lt; 7 giorni).</li>
+                        <li>Google Trends (2004-2024)</li>
+                        <li>TikTok Creative Center Data</li>
                     </ul>
                 </div>
             </div>
         </section>
-
     </main>
 
-    <!-- FOOTER -->
-    <footer class="bg-slate-900 text-slate-400 py-12">
-        <div class="max-w-4xl mx-auto px-4 text-center">
-            <p class="mb-4">&copy; 2024 Laboratorio di Dinamiche Culturali.</p>
-            <p class="text-xs text-slate-600">
-                Modello sviluppato per scopi dimostrativi. I dati storici sono approssimazioni basate su trend pubblici.
-            </p>
-        </div>
+    <footer class="bg-slate-900 text-slate-400 py-12 text-center text-sm">
+        <p>&copy; 2024 Laboratorio di Dinamiche Culturali.</p>
     </footer>
 
-    <!-- LOGIC SCRIPT -->
+    <!-- LOGICA JS -->
     <script>
-        // --- 1. MATH COMPARISON CHART ---
-        // Avvolgiamo tutto in un DOMContentLoaded per sicurezza
-        document.addEventListener('DOMContentLoaded', function() {
+        // Utilizziamo 'load' invece di 'DOMContentLoaded' per assicurarci che 
+        // il CSS di Tailwind (CDN) sia stato applicato e i div abbiano un'altezza > 0.
+        window.addEventListener('load', function() {
             
-            // Registra il plugin delle annotazioni se non è automatico (versione UMD lo fa, ma per sicurezza)
-            // In Chart.js 4+ è meglio essere espliciti se possibile, ma l'UMD bundle di solito registra tutto.
+            // Registrazione esplicita Plugin Annotazioni (best practice per UMD)
+            if (typeof Chart !== 'undefined' && window['chartjs-plugin-annotation']) {
+                Chart.register(window['chartjs-plugin-annotation']);
+            }
 
-            const ctxMath = document.getElementById('mathComparisonChart').getContext('2d');
-            const t = Array.from({length: 100}, (_, i) => i * 0.5);
-            
-            // Solid State (LogNormal-ish)
-            const solid = t.map(x => {
-                if(x===0) return 0;
-                return (1/x) * Math.exp(-Math.pow(Math.log(x/10), 2)) * 15;
-            });
-            
-            // Plasma State (Gamma/Exp decay rapid)
-            const plasma = t.map(x => {
-                return Math.pow(x, 1.5) * Math.exp(-x/1.5) * 5; // Higher peak relative to width
-            });
+            // --- 1. MATH COMPARISON CHART ---
+            try {
+                const ctxMath = document.getElementById('mathComparisonChart').getContext('2d');
+                const t = Array.from({length: 100}, (_, i) => i * 0.5);
+                
+                // Solid State (LogNormal-ish)
+                const solid = t.map(x => {
+                    if(x===0) return 0;
+                    return (1/x) * Math.exp(-Math.pow(Math.log(x/10), 2)) * 15;
+                });
+                
+                // Plasma State
+                const plasma = t.map(x => {
+                    return Math.pow(x, 1.5) * Math.exp(-x/1.5) * 5; 
+                });
 
-            new Chart(ctxMath, {
-                type: 'line',
-                data: {
-                    labels: t.map(v => v.toFixed(1)),
-                    datasets: [
-                        {
-                            label: 'Modello Organico (Pre-2016)',
-                            data: solid,
-                            borderColor: '#10b981',
-                            borderWidth: 2,
-                            fill: true,
-                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                            tension: 0.4,
-                            pointRadius: 0
+                new Chart(ctxMath, {
+                    type: 'line',
+                    data: {
+                        labels: t.map(v => v.toFixed(1)),
+                        datasets: [
+                            {
+                                label: 'Modello Organico (Pre-2016)',
+                                data: solid,
+                                borderColor: '#10b981',
+                                borderWidth: 2,
+                                fill: true,
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                tension: 0.4,
+                                pointRadius: 0
+                            },
+                            {
+                                label: 'Modello Chimera (Post-2016)',
+                                data: plasma,
+                                borderColor: '#db2777',
+                                borderWidth: 2,
+                                fill: true,
+                                backgroundColor: 'rgba(219, 39, 119, 0.1)',
+                                tension: 0.4,
+                                pointRadius: 0
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'top' }, tooltip: { enabled: false } },
+                        scales: { x: { display: false }, y: { display: false } }
+                    }
+                });
+            } catch(e) { console.error("Err Chart 1:", e); }
+
+            // --- 2. PHASE SPACE CHART ---
+            try {
+                const ctxPhase = document.getElementById('phaseSpaceChart').getContext('2d');
+                const culturalData = [
+                    { x: 60, y: 40, r: 6, label: 'Nokia Snake', year: 2000, color: '#94a3b8' },
+                    { x: 45, y: 150, r: 8, label: 'Crazy Frog', year: 2005, color: '#64748b' },
+                    { x: 24, y: 1000, r: 12, label: 'Gangnam Style', year: 2012, color: '#10b981' },
+                    { x: 18, y: 900, r: 14, label: 'Harlem Shake', year: 2013, color: '#10b981' },
+                    { x: 12, y: 1200, r: 15, label: 'Ice Bucket', year: 2014, color: '#3b82f6' },
+                    { x: 8, y: 2500, r: 18, label: 'Pokemon Go', year: 2016, color: '#ef4444' },
+                    { x: 5, y: 3500, r: 20, label: 'Despacito', year: 2017, color: '#ef4444' },
+                    { x: 3, y: 4000, r: 22, label: 'Squid Game', year: 2021, color: '#d946ef' },
+                    { x: 1.5, y: 2000, r: 22, label: 'Wordle', year: 2022, color: '#d946ef' },
+                    { x: 0.5, y: 1500, r: 25, label: 'Threads', year: 2023, color: '#ec4899' },
+                    { x: 0.2, y: 3000, r: 25, label: 'Hawk Tuah / TikToks', year: 2024, color: '#f43f5e' }
+                ];
+
+                new Chart(ctxPhase, {
+                    type: 'bubble',
+                    data: {
+                        datasets: [{
+                            label: 'Eventi',
+                            data: culturalData,
+                            backgroundColor: c => c.raw.color,
+                            borderColor: '#fff',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: (ctx) => `${ctx.raw.label} (${ctx.raw.year}): ${ctx.raw.y}M Reach, ${ctx.raw.x} sett. durata`
+                                }
+                            },
+                            legend: { display: false },
+                            annotation: {
+                                annotations: {
+                                    line1: {
+                                        type: 'line',
+                                        scaleID: 'x',
+                                        value: 7, 
+                                        borderColor: 'rgba(255, 255, 255, 0.3)',
+                                        borderWidth: 2,
+                                        borderDash: [5, 5],
+                                        label: { 
+                                            content: '2016 Tipping Point', 
+                                            display: true, 
+                                            position: 'start',
+                                            color: 'white',
+                                            backgroundColor: 'rgba(0,0,0,0.5)'
+                                        }
+                                    }
+                                }
+                            }
                         },
-                        {
-                            label: 'Modello Chimera (Post-2016)',
-                            data: plasma,
-                            borderColor: '#db2777',
-                            borderWidth: 2,
-                            fill: true,
-                            backgroundColor: 'rgba(219, 39, 119, 0.1)',
-                            tension: 0.4,
-                            pointRadius: 0
-                        }
-                    ]
-                },
-                options: {
- 
+                        scales: {
+                            x: {
+                                type: '
