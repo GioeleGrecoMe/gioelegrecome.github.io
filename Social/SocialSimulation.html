@@ -1,10 +1,21 @@
-<!DOCTYPE html>
+
 <html lang="it">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teoria del Flash-Flood Culturale: Analisi Matematica</title>
+    <title>Teoria del Flash-Flood Culturale: Analisi Matematica (Diagnostic Mode)</title>
     
+    <!-- SYSTEM DIAGNOSTICS: Intercept Errors Early -->
+    <script>
+        window.logMessages = [];
+        window.logError = function(msg) { window.logMessages.push({type: 'error', text: msg}); };
+        window.logInfo = function(msg) { window.logMessages.push({type: 'info', text: msg}); };
+        
+        window.onerror = function(message, source, lineno, colno, error) {
+            window.logError("Global Error: " + message + " at line " + lineno);
+        };
+    </script>
+
     <!-- Tailwind CSS (Play CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -15,9 +26,12 @@
     <!-- MathJax -->
     <script>
         window.MathJax = {
-            tex: {
-                inlineMath: [['\\(', '\\)']],
-                displayMath: [['$$', '$$']]
+            tex: { inlineMath: [['\\(', '\\)']], displayMath: [['$$', '$$']] },
+            startup: {
+                pageReady: () => {
+                    window.logInfo("MathJax Ready");
+                    return MathJax.startup.defaultPageReady();
+                }
             }
         };
     </script>
@@ -41,12 +55,17 @@
             background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
             background-size: 20px 20px;
         }
-        /* Critical Chart Fixes */
-        .chart-container {
-            position: relative;
+        
+        /* ROBUST CSS FOR CHARTS: Independent of Tailwind */
+        .chart-wrapper {
+            display: block;
             width: 100%;
-            background-color: #f8fafc; /* Fallback color to verify visibility */
-            border-radius: 0.5rem;
+            height: 400px; /* Fixed height mandatory */
+            background-color: #f1f5f9; /* Visible grey background to confirm container exists */
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            position: relative;
+            margin-bottom: 20px;
         }
     </style>
 </head>
@@ -56,8 +75,8 @@
     <header class="relative bg-white border-b border-slate-200">
         <div class="absolute inset-0 bg-grid opacity-30 pointer-events-none"></div>
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 relative z-10 text-center">
-            <div class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-widest uppercase bg-indigo-50 text-indigo-700 mb-6 border border-indigo-100">
-                White Paper Interattivo v3.0 (Stable)
+            <div class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-widest uppercase bg-amber-50 text-amber-700 mb-6 border border-amber-100">
+                Diagnostic Mode v4.0
             </div>
             <h1 class="text-5xl font-extrabold text-slate-900 tracking-tight mb-4 sm:text-6xl">
                 Dal Culto alla Chimera:
@@ -66,35 +85,23 @@
             <p class="mt-6 text-xl text-slate-600 serif max-w-2xl mx-auto">
                 Un'analisi matematica del collasso della memoria collettiva e l'emergere della viralità istantanea post-algoritmica.
             </p>
-            <div class="mt-10 flex justify-center gap-4">
-                <a href="#math-model" class="px-6 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                    Modello Matematico
-                </a>
-                <a href="#simulator" class="px-6 py-3 bg-white text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition font-medium">
-                    Simulazione
-                </a>
+            
+            <div class="mt-8 p-4 bg-blue-50 text-blue-800 text-sm rounded-lg max-w-lg mx-auto border border-blue-200">
+                <i class="fas fa-info-circle mr-2"></i>
+                Se i grafici sotto sono grigi e vuoti, controlla il pannello di diagnostica in fondo alla pagina.
             </div>
         </div>
     </header>
 
     <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
-        <!-- INTRODUZIONE -->
+        <!-- SEZIONE 1 -->
         <section class="mb-20">
-            <h2 class="text-3xl font-bold text-slate-900 mb-6">1. Il Paradosso della Frammentazione</h2>
+            <h2 class="text-3xl font-bold text-slate-900 mb-6">1. Transizione di Fase Culturale</h2>
             <div class="prose prose-slate prose-lg text-slate-600 serif">
                 <p>
-                    Fino al 2012, la teoria sociologica dominante prevedeva che l'aumento esponenziale delle informazioni (\(\lambda\)) e la personalizzazione dei feed (\(p\)) avrebbero portato alla <strong>"Morte del Fenomeno di Massa"</strong>.
+                    I dati reali (2016-2024) mostrano che la cultura di massa ha subito una <strong>transizione di fase</strong> da uno stato "Solido" (diffusione lenta, alta ritenzione) a uno stato "Plasma" (diffusione istantanea, ritenzione nulla).
                 </p>
-                <p>
-                    Tuttavia, i dati reali (2016-2024) mostrano l'opposto: fenomeni come <em>Squid Game</em> raggiungono saturazioni globali in tempi record.
-                </p>
-                <div class="bg-indigo-50 border-l-4 border-indigo-500 p-6 my-8 rounded-r-lg not-prose">
-                    <h3 class="font-bold text-indigo-900 mb-2">La Tesi Fondamentale</h3>
-                    <p class="text-indigo-800 text-sm">
-                        La cultura di massa non è morta. Ha subito una <strong>transizione di fase</strong> da uno stato "Solido" (diffusione lenta, alta ritenzione) a uno stato "Plasma" (diffusione istantanea, ritenzione nulla).
-                    </p>
-                </div>
             </div>
         </section>
 
@@ -104,159 +111,134 @@
             
             <div class="space-y-8">
                 <div>
-                    <h3 class="text-xl font-bold text-slate-800 mb-3">2.1 L'Equazione dell'Attenzione Collettiva</h3>
-                    <div class="math-block">
-                        $$ I = \int_{0}^{\infty} A(t) \, dt = \text{Reach}_{max} \times \tau_{eff} $$
-                    </div>
-                </div>
-
-                <div>
-                    <h3 class="text-xl font-bold text-slate-800 mb-3">2.3 Il Limite della Chimera</h3>
+                    <h3 class="text-xl font-bold text-slate-800 mb-3">2.1 Compressione Temporale</h3>
                     <p class="text-slate-600 mb-4">
-                        Quando \( \lambda \) è alto, il sistema comprime l'onda temporale aumentando il picco.
+                        Confronto tra l'onda virale organica (verde) e quella algoritmica (rosa).
                     </p>
                     
-                    <!-- ROBUST CHART CONTAINER: Height enforced via inline style -->
-                    <div class="chart-container shadow-sm border border-slate-200" style="height: 350px;">
+                    <!-- CHART 1 CONTAINER -->
+                    <div class="chart-wrapper">
                         <canvas id="mathComparisonChart"></canvas>
                     </div>
-                    
-                    <p class="text-slate-500 text-sm mt-4 text-center italic">
-                        Fig 1: Al crescere di \( \mathcal{S} \) e \( \lambda \), la curva si comprime temporalmente (Flash-Flood).
-                    </p>
                 </div>
             </div>
         </section>
 
         <!-- IL PUNTO DI NON RITORNO -->
         <section class="mb-20 border-t border-slate-200 pt-12 relative">
-            <h2 class="text-3xl font-bold text-slate-900 mb-6">3. Il Punto di Non Ritorno (2016-2017)</h2>
+            <h2 class="text-3xl font-bold text-slate-900 mb-6">3. Il Diagramma di Fase</h2>
             <p class="text-slate-600 text-lg mb-8">
-                L'analisi dei dati storici individua una discontinuità critica tra il 2016 e il 2017.
+                Ogni bolla è un fenomeno globale. Notare la migrazione verso l'alto a sinistra (Alta Reach, Bassa Durata).
             </p>
 
-            <div class="relative bg-white border border-slate-200 rounded-xl shadow-lg p-8 overflow-hidden">
-                <div class="space-y-12 relative z-10">
-                    <!-- Timeline: 2012 -->
-                    <div class="flex">
-                        <div class="flex-shrink-0 w-24 text-right pr-6 pt-1">
-                            <span class="font-bold text-slate-400">2012</span>
-                        </div>
-                        <div class="border-l-2 border-slate-200 pl-6 pb-2">
-                            <h4 class="text-lg font-bold text-slate-800">Gangnam Style</h4>
-                            <p class="text-slate-600 text-sm">Tempo al picco: <span class="text-green-600 font-semibold">5 mesi</span>.</p>
-                        </div>
-                    </div>
-                    <!-- Timeline: 2016 -->
-                    <div class="flex relative">
-                        <div class="absolute -left-4 top-0 bottom-0 w-full bg-red-50/50 -z-10 rounded-lg border-y border-red-100"></div>
-                        <div class="flex-shrink-0 w-24 text-right pr-6 pt-1">
-                            <span class="font-bold text-red-600">2016/17</span>
-                        </div>
-                        <div class="border-l-2 border-red-400 pl-6 pb-2 relative">
-                            <div class="absolute -left-[9px] top-2 w-4 h-4 rounded-full bg-red-500 ring-4 ring-white"></div>
-                            <h4 class="text-lg font-bold text-red-700">Il Punto di Rottura</h4>
-                            <p class="text-slate-700 text-sm font-medium">Interest Graph > Social Graph (TikTok/Reels Era).</p>
-                        </div>
-                    </div>
-                    <!-- Timeline: 2023 -->
-                    <div class="flex">
-                        <div class="flex-shrink-0 w-24 text-right pr-6 pt-1">
-                            <span class="font-bold text-slate-400">2023</span>
-                        </div>
-                        <div class="border-l-2 border-slate-200 pl-6 pb-2">
-                            <h4 class="text-lg font-bold text-slate-800">Threads / ChatGPT</h4>
-                            <p class="text-slate-600 text-sm">Tempo al picco: <span class="text-purple-600 font-semibold">5 giorni</span>.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-12">
-                <h3 class="text-xl font-bold text-slate-800 mb-4">3.1 Il Diagramma di Fase Culturale</h3>
-                <p class="text-slate-600 text-sm mb-4">
-                    Ogni bolla è un fenomeno globale. Notare la migrazione verso l'alto a sinistra (Alta Reach, Bassa Durata).
-                </p>
-                
-                <!-- ROBUST CHART CONTAINER -->
-                <div class="chart-container shadow-2xl bg-slate-900 rounded-xl p-4" style="height: 500px;">
-                    <canvas id="phaseSpaceChart"></canvas>
-                </div>
+            <!-- CHART 2 CONTAINER -->
+            <div class="chart-wrapper" style="height: 500px;">
+                <canvas id="phaseSpaceChart"></canvas>
             </div>
         </section>
 
         <!-- SIMULATORE -->
         <section id="simulator" class="mb-20 border-t border-slate-200 pt-12">
             <h2 class="text-3xl font-bold text-slate-900 mb-6">4. Simulatore di Stabilità</h2>
-            <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-                <div class="p-8 bg-slate-50 border-b border-slate-200">
-                    <p class="text-slate-600">
-                        Regola i parametri per osservare la trasformazione dell'onda.
-                    </p>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="p-6 bg-white border border-slate-200 rounded-xl">
+                    <div class="mb-6">
+                        <label class="block font-bold text-sm mb-2 text-slate-700">Sincronizzazione (\(\mathcal{S}\))</label>
+                        <input type="range" id="syncFactor" min="0" max="100" value="95" class="w-full">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block font-bold text-sm mb-2 text-slate-700">Pressione Info (\(\lambda\))</label>
+                        <input type="range" id="noiseFactor" min="1" max="10" value="9" class="w-full">
+                    </div>
+                    <div id="simResult" class="p-3 bg-slate-100 rounded text-center text-sm font-mono">In attesa...</div>
                 </div>
-                
-                <div class="grid grid-cols-1 lg:grid-cols-3">
-                    <div class="p-8 space-y-8 bg-white lg:col-span-1 border-r border-slate-100">
-                        <div>
-                            <label class="flex justify-between text-sm font-bold text-slate-700 mb-2">
-                                <span>Sincronizzazione (\(\mathcal{S}\))</span>
-                                <span class="text-indigo-600" id="valSync">95%</span>
-                            </label>
-                            <input type="range" id="syncFactor" min="0" max="100" value="95" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
-                        </div>
-                        <div>
-                            <label class="flex justify-between text-sm font-bold text-slate-700 mb-2">
-                                <span>Pressione Info (\(\lambda\))</span>
-                                <span class="text-pink-600" id="valNoise">Alta</span>
-                            </label>
-                            <input type="range" id="noiseFactor" min="1" max="10" value="9" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-pink-600">
-                        </div>
-                        <div id="simResult" class="p-4 bg-slate-50 rounded-lg border border-slate-200 text-center">--</div>
-                    </div>
 
-                    <!-- ROBUST CHART CONTAINER -->
-                    <div class="lg:col-span-2 bg-white flex flex-col justify-center p-6 relative" style="height: 400px;">
-                        <canvas id="stabilityChart"></canvas>
-                    </div>
+                <!-- CHART 3 CONTAINER -->
+                <div class="lg:col-span-2 chart-wrapper">
+                    <canvas id="stabilityChart"></canvas>
                 </div>
             </div>
         </section>
 
-        <section class="border-t border-slate-200 pt-12 pb-20">
-            <h2 class="text-2xl font-bold text-slate-900 mb-6">5. Riferimenti</h2>
-            <ul class="space-y-2 list-disc list-inside text-sm text-slate-600">
-                <li>Lorenz-Spreen et al. (2019): "Accelerating dynamics of collective attention".</li>
-                <li>Google Trends Data (2004-2024).</li>
-            </ul>
-        </section>
     </main>
 
-    <footer class="bg-slate-900 text-slate-400 py-12 text-center text-sm">
-        <p>&copy; 2024 Laboratorio di Dinamiche Culturali.</p>
+    <!-- DEBUG CONSOLE FOOTER -->
+    <footer class="bg-slate-900 text-slate-300 py-8 text-sm font-mono">
+        <div class="max-w-4xl mx-auto px-4">
+            <h3 class="text-white font-bold border-b border-slate-700 pb-2 mb-4">
+                <i class="fas fa-terminal mr-2"></i>Diagnostica di Sistema
+            </h3>
+            <div id="console-output" class="space-y-1 h-48 overflow-y-auto">
+                <!-- Log messages will appear here -->
+                <div class="text-slate-500">Inizializzazione diagnostica...</div>
+            </div>
+        </div>
     </footer>
 
     <!-- LOGICA JS -->
     <script>
-        // Use 'load' event to ensure all styles (even CDN based) are settled.
-        window.addEventListener('load', function() {
-            
-            // --- GLOBAL CHART CONFIG ---
-            Chart.defaults.font.family = "'Inter', sans-serif";
-            Chart.defaults.color = '#64748b';
+        // Funzione helper per scrivere nel div di debug
+        function printLog(type, msg) {
+            const consoleDiv = document.getElementById('console-output');
+            const div = document.createElement('div');
+            div.textContent = `> ${msg}`;
+            if (type === 'error') div.className = "text-red-400 font-bold";
+            else if (type === 'success') div.className = "text-green-400";
+            else div.className = "text-slate-300";
+            consoleDiv.appendChild(div);
+        }
 
-            // Explicit Plugin Registration
-            if (typeof window['chartjs-plugin-annotation'] !== 'undefined') {
+        // Recupera errori catturati prima del load
+        if(window.logMessages) {
+            window.logMessages.forEach(m => printLog(m.type, m.text));
+        }
+
+        window.addEventListener('load', function() {
+            printLog('info', 'Window Load Event fired.');
+
+            // 1. CHECK LIBRARIES
+            if (typeof Chart === 'undefined') {
+                printLog('error', 'CRITICO: Chart.js non è stato caricato. Verifica la connessione o adblocker.');
+                return;
+            } else {
+                printLog('success', 'Chart.js v' + Chart.version + ' caricato correttamente.');
+            }
+
+            if (typeof window['chartjs-plugin-annotation'] === 'undefined') {
+                printLog('error', 'Plugin Annotation mancante. Le linee di soglia non appariranno.');
+            } else {
+                printLog('success', 'Plugin Annotation caricato.');
                 Chart.register(window['chartjs-plugin-annotation']);
             }
 
-            // --- 1. MATH COMPARISON CHART ---
+            // 2. CHECK CANVAS DIMENSIONS
+            const canvasIds = ['mathComparisonChart', 'phaseSpaceChart', 'stabilityChart'];
+            canvasIds.forEach(id => {
+                const cvs = document.getElementById(id);
+                if (!cvs) {
+                    printLog('error', `Canvas #${id} non trovato nel DOM.`);
+                } else {
+                    const w = cvs.clientWidth;
+                    const h = cvs.clientHeight;
+                    if (w === 0 || h === 0) {
+                        printLog('error', `Canvas #${id} ha dimensioni 0x0. Problema CSS.`);
+                    } else {
+                        printLog('info', `Canvas #${id} pronto. Dim: ${w}x${h}px`);
+                    }
+                }
+            });
+
+            // 3. GLOBAL CHART SETTINGS
+            Chart.defaults.font.family = "'Inter', sans-serif";
+            Chart.defaults.color = '#64748b';
+            Chart.defaults.maintainAspectRatio = false; // Importante per adattarsi al div
+
+            // --- CHART 1 ---
             try {
                 const ctx1 = document.getElementById('mathComparisonChart').getContext('2d');
                 const t = Array.from({length: 100}, (_, i) => i * 0.5);
                 
-                const solid = t.map(x => x===0 ? 0 : (1/x) * Math.exp(-Math.pow(Math.log(x/10), 2)) * 15);
-                const plasma = t.map(x => Math.pow(x, 1.5) * Math.exp(-x/1.5) * 5);
-
                 new Chart(ctx1, {
                     type: 'line',
                     data: {
@@ -264,7 +246,7 @@
                         datasets: [
                             {
                                 label: 'Modello Organico (Pre-2016)',
-                                data: solid,
+                                data: t.map(x => x===0 ? 0 : (1/x) * Math.exp(-Math.pow(Math.log(x/10), 2)) * 15),
                                 borderColor: '#10b981',
                                 borderWidth: 2,
                                 fill: true,
@@ -274,7 +256,7 @@
                             },
                             {
                                 label: 'Modello Chimera (Post-2016)',
-                                data: plasma,
+                                data: t.map(x => Math.pow(x, 1.5) * Math.exp(-x/1.5) * 5),
                                 borderColor: '#db2777',
                                 borderWidth: 2,
                                 fill: true,
@@ -286,26 +268,22 @@
                     },
                     options: {
                         responsive: true,
-                        maintainAspectRatio: false,
                         plugins: { legend: { position: 'top' }, tooltip: { enabled: false } },
                         scales: { x: { display: false }, y: { display: false } }
                     }
                 });
-            } catch(e) { console.error("Err Chart 1:", e); }
+                printLog('success', 'Grafico 1 renderizzato.');
+            } catch(e) { printLog('error', 'Err Chart 1: ' + e.message); }
 
-            // --- 2. PHASE SPACE CHART ---
+            // --- CHART 2 ---
             try {
                 const ctx2 = document.getElementById('phaseSpaceChart').getContext('2d');
                 const culturalData = [
                     { x: 60, y: 40, r: 6, label: 'Nokia Snake', year: 2000, color: '#94a3b8' },
                     { x: 45, y: 150, r: 8, label: 'Crazy Frog', year: 2005, color: '#64748b' },
                     { x: 24, y: 1000, r: 12, label: 'Gangnam Style', year: 2012, color: '#10b981' },
-                    { x: 12, y: 1200, r: 15, label: 'Ice Bucket', year: 2014, color: '#3b82f6' },
                     { x: 8, y: 2500, r: 18, label: 'Pokemon Go', year: 2016, color: '#ef4444' },
-                    { x: 5, y: 3500, r: 20, label: 'Despacito', year: 2017, color: '#ef4444' },
                     { x: 3, y: 4000, r: 22, label: 'Squid Game', year: 2021, color: '#d946ef' },
-                    { x: 1.5, y: 2000, r: 22, label: 'Wordle', year: 2022, color: '#d946ef' },
-                    { x: 0.5, y: 1500, r: 25, label: 'Threads', year: 2023, color: '#ec4899' },
                     { x: 0.2, y: 3000, r: 25, label: 'Hawk Tuah', year: 2024, color: '#f43f5e' }
                 ];
 
@@ -322,13 +300,7 @@
                     },
                     options: {
                         responsive: true,
-                        maintainAspectRatio: false,
                         plugins: {
-                            tooltip: {
-                                callbacks: {
-                                    label: (ctx) => `${ctx.raw.label} (${ctx.raw.year}): ${ctx.raw.y}M Reach`
-                                }
-                            },
                             legend: { display: false },
                             annotation: {
                                 annotations: {
@@ -336,16 +308,10 @@
                                         type: 'line',
                                         scaleID: 'x',
                                         value: 7, 
-                                        borderColor: 'rgba(255, 255, 255, 0.3)',
+                                        borderColor: 'rgba(0,0,0,0.3)',
                                         borderWidth: 2,
                                         borderDash: [5, 5],
-                                        label: { 
-                                            content: '2016 Tipping Point', 
-                                            display: true, 
-                                            position: 'start',
-                                            color: 'white',
-                                            backgroundColor: 'rgba(0,0,0,0.5)'
-                                        }
+                                        label: { content: '2016 Tipping Point', display: true, position: 'start' }
                                     }
                                 }
                             }
@@ -354,26 +320,87 @@
                             x: {
                                 type: 'logarithmic',
                                 position: 'bottom',
-                                title: { display: true, text: 'Persistenza (Settimane) [Scala Log]', color: '#94a3b8' },
-                                grid: { color: '#334155' },
-                                ticks: { color: '#cbd5e1' },
-                                min: 0.1, max: 100,
-                                reverse: true 
+                                title: { display: true, text: 'Persistenza (Settimane)' },
+                                min: 0.1, max: 100, reverse: true 
                             },
-                            y: {
-                                title: { display: true, text: 'Reach Globale (Milioni)', color: '#94a3b8' },
-                                grid: { color: '#334155' },
-                                ticks: { color: '#cbd5e1' }
-                            }
+                            y: { title: { display: true, text: 'Reach (Milioni)' } }
                         }
                     }
                 });
-            } catch(e) { console.error("Err Chart 2:", e); }
+                printLog('success', 'Grafico 2 renderizzato.');
+            } catch(e) { printLog('error', 'Err Chart 2: ' + e.message); }
 
-            // --- 3. SIMULATOR LOGIC ---
+            // --- CHART 3 (Simulator) ---
             try {
                 const ctx3 = document.getElementById('stabilityChart').getContext('2d');
                 let simChart;
 
                 function runSimulation() {
-                    const sync = parseInt(document.getElem
+                    const sync = parseInt(document.getElementById('syncFactor').value);
+                    const noise = parseInt(document.getElementById('noiseFactor').value);
+                    
+                    const durationBase = 50; 
+                    const duration = durationBase / (Math.pow(noise, 1.5) * (1 + sync/30));
+                    const peak = 10 * Math.exp(sync / 25);
+
+                    const points = [];
+                    const labels = [];
+                    for(let t=0; t<60; t+=0.5) {
+                        let theta = duration / 2;
+                        let val = Math.pow(t, 2) * Math.exp(-t / theta);
+                        points.push(val * peak); 
+                        labels.push(t);
+                    }
+
+                    // Logica colore
+                    let color = "#3b82f6"; // Default Blue
+                    let status = "Hybrid";
+                    if (duration < 2 && peak > 200) { color = "#f43f5e"; status = "CHIMERA"; }
+                    else if (duration > 15 && peak > 50) { color = "#10b981"; status = "CLASSIC"; }
+
+                    document.getElementById('simResult').innerHTML = `Status: <b style="color:${color}">${status}</b> (Peak: ${peak.toFixed(0)}, Dur: ${duration.toFixed(1)})`;
+
+                    if (simChart) {
+                        simChart.data.labels = labels;
+                        simChart.data.datasets[0].data = points;
+                        simChart.data.datasets[0].borderColor = color;
+                        simChart.data.datasets[0].backgroundColor = color + '20';
+                        simChart.update();
+                    } else {
+                        simChart = new Chart(ctx3, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: 'Simulazione',
+                                    data: points,
+                                    borderColor: color,
+                                    backgroundColor: color + '20',
+                                    fill: true,
+                                    tension: 0.4,
+                                    pointRadius: 0
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                animation: { duration: 0 },
+                                scales: { x: { display: true }, y: { display: false } },
+                                plugins: { legend: { display: false } }
+                            }
+                        });
+                    }
+                }
+
+                document.getElementById('syncFactor').addEventListener('input', runSimulation);
+                document.getElementById('noiseFactor').addEventListener('input', runSimulation);
+                runSimulation();
+                printLog('success', 'Simulatore attivato.');
+
+            } catch(e) { printLog('error', 'Err Chart 3: ' + e.message); }
+
+        });
+    </script>
+</body>
+</html>
+
+
