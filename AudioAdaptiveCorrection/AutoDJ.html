@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phantom DJ - Generalized Learning AI</title>
+    <title>Phantom DJ - Structural Flow Control</title>
     <!-- Importazione Meyda per Feature Extraction Professionale -->
     <script src="https://unpkg.com/meyda/dist/web/meyda.min.js"></script>
     <style>
@@ -227,7 +227,43 @@
         .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.8rem; }
         .color-dot { width: 10px; height: 10px; border-radius: 50%; }
 
-        /* Overlay iniziale */
+        /* TRAINING OVERLAY */
+        #training-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+
+        #training-overlay.active { display: flex; }
+
+        .progress-container {
+            width: 60%;
+            height: 10px;
+            background-color: #333;
+            border-radius: 5px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: var(--accent-color);
+            transition: width 0.1s linear;
+        }
+
+        .training-text {
+            color: white;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        /* Initial Overlay */
         #overlay {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -247,7 +283,7 @@
 <body>
 
     <header>
-        <h1>Phantom DJ <span style="font-size:0.8rem; color:#888;">// Generalized AI</span></h1>
+        <h1>Phantom DJ <span style="font-size:0.8rem; color:#888;">// Natural Flow</span></h1>
         <div class="controls">
             <button id="btn-aug" class="toggle-on" title="Genera varianti di intonazione">Augmentation: ON</button>
             <select id="beatSelect">
@@ -268,6 +304,15 @@
         <canvas id="djCanvas"></canvas>
         <div id="harmonic-info">Mix Info: In attesa...</div>
 
+        <!-- TRAINING OVERLAY -->
+        <div id="training-overlay">
+            <div class="training-text">Addestramento Rete Neurale...</div>
+            <div id="training-detail" style="color:#888; margin-bottom:10px;">Analisi sequenze</div>
+            <div class="progress-container">
+                <div id="train-progress" class="progress-bar"></div>
+            </div>
+        </div>
+
         <!-- VOTING PANEL -->
         <div id="voting-panel">
             <button class="vote-btn vote-dislike" onclick="voteTransition(false)" title="Transizione pessima">👎</button>
@@ -277,7 +322,7 @@
         <!-- NEURAL VISUALIZER PANEL -->
         <div id="dev-panel">
             <div class="dev-header">
-                <h3>Generalized Neural Decision</h3>
+                <h3>Neural Decision Layer</h3>
                 <span class="close-dev" onclick="toggleDevPanel()">✕</span>
             </div>
 
@@ -286,7 +331,7 @@
                 <!-- Filled by JS -->
             </div>
 
-            <div class="sub-header">History & Context Weights (Learned)</div>
+            <div class="sub-header">History & Context Weights</div>
 
             <div class="param-row">
                 <span class="param-name">Vs. Current (T)</span>
@@ -324,8 +369,8 @@
             <h2>Benvenuto in Phantom DJ</h2>
             <p>
                 1. Carica file audio (MP3, WAV).<br>
-                2. <strong>Experience Replay</strong>: L'IA impara dai voti passati per generalizzare.<br>
-                3. <strong>Visual cues</strong>: ▲ Inizio, ■ Fine, ● Corpo.<br>
+                2. <strong>Struttura Rigida</strong>: Mixa solo se coerente, altrimenti segue il brano.<br>
+                3. <strong>Auto-Outro</strong>: Cambio traccia forzato solo alla fine.<br>
                 4. Vota per addestrare i pesi temporali.
             </p>
             <label for="fileInput" class="file-label" style="font-size: 1.2rem; padding: 15px 30px;">CARICA AUDIO</label>
@@ -334,54 +379,57 @@
 
 <script>
 /**
- * PHANTOM DJ WEB ENGINE - GENERALIZED LEARNING EDITION
+ * PHANTOM DJ WEB ENGINE - STRUCTURAL FLOW EDITION
  * Features:
- * - Experience Replay Buffer (Generalization)
- * - Batch Training (Stability)
- * - LocalStorage Persistence
- * - Input Normalization
- * - Visual indicators for Start (Triangle), End (Square) and Body (Circle)
+ * - Smart Start (Only Intro/Start samples)
+ * - Strict Middle-to-Start prohibition (No body -> start jumps)
+ * - Natural Flow Fallback (If mix cost > threshold, continue track)
+ * - Mandatory End-to-Start transition
  */
 
 // --- CONFIGURAZIONE ---
 const CONFIG = {
     defaultBpm: 120,
     beatsPerSegment: 4,
-    crossfade: 0.15,
+    crossfade: 0.05,
     maxSamples: 1500,
     silenceThreshold: 0.01,
     enablePitchAug: true,
     semitoneShifts: [-1, 0, 1],
     bufferSize: 4096,
+    mixThreshold: 8.0, // Soglia di costo: se supera, non mixare, continua dritto
 
     // Hyperparameters
     learningRate: 0.05,
     momentum: 0.9,
-    batchSize: 8,
-    memorySize: 50
+    batchSize: 16,
+    memorySize: 200
 };
+
+const FADE_RES = 100;
+const FADE_IN_CURVE = new Float32Array(FADE_RES);
+const FADE_OUT_CURVE = new Float32Array(FADE_RES);
+
+for (let i = 0; i < FADE_RES; i++) {
+    const x = i / (FADE_RES - 1);
+    FADE_IN_CURVE[i] = Math.sin(x * Math.PI / 2);
+    FADE_OUT_CURVE[i] = Math.cos(x * Math.PI / 2);
+}
 
 // --- NEURAL MODEL DEFINITION ---
 let AI_MODEL = {
     cnnKernel: new Array(13).fill(0.5),
-    contextWeights: {
-        wCurrent: 2.0, wNextNat: 4.0, wPrev1: 1.0, wPrev2: 0.5
-    },
-    denseWeights: {
-        posFlow: 3.0, harmony: 2.0, bpm: 3.5, rmsDelta: 1.5, flatnessDelta: 2.5
-    }
+    contextWeights: { wCurrent: 2.0, wNextNat: 4.0, wPrev1: 1.0, wPrev2: 0.5 },
+    denseWeights: { posFlow: 3.0, harmony: 2.0, bpm: 3.5, rmsDelta: 1.5, flatnessDelta: 2.5 }
 };
 
-// Momentum Buffers
 let MODEL_MOMENTUM = {
     cnnKernel: new Array(13).fill(0),
     contextWeights: { wCurrent:0, wNextNat:0, wPrev1:0, wPrev2:0 },
     denseWeights: { posFlow:0, harmony:0, bpm:0, rmsDelta:0, flatnessDelta:0 }
 };
 
-// Experience Replay Buffer
 let replayMemory = [];
-
 const DEFAULT_MODEL = JSON.parse(JSON.stringify(AI_MODEL));
 const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -409,12 +457,11 @@ function initBrain() {
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
-            // Merge safe
             if(parsed.cnnKernel) AI_MODEL.cnnKernel = parsed.cnnKernel;
             if(parsed.contextWeights) Object.assign(AI_MODEL.contextWeights, parsed.contextWeights);
             if(parsed.denseWeights) Object.assign(AI_MODEL.denseWeights, parsed.denseWeights);
-            console.log("Brain loaded from storage.");
-        } catch(e) { console.warn("Invalid brain storage, using default."); }
+            console.log("Brain loaded.");
+        } catch(e) {}
     }
     updateNeuralUI();
 }
@@ -425,47 +472,100 @@ function saveBrain() {
 
 function resetBrain() {
     AI_MODEL = JSON.parse(JSON.stringify(DEFAULT_MODEL));
-    // Reset momentum
     MODEL_MOMENTUM.cnnKernel.fill(0);
     for(let k in MODEL_MOMENTUM.denseWeights) MODEL_MOMENTUM.denseWeights[k] = 0;
     for(let k in MODEL_MOMENTUM.contextWeights) MODEL_MOMENTUM.contextWeights[k] = 0;
-
-    replayMemory = []; // Clear memory on reset
+    replayMemory = [];
     saveBrain();
     updateNeuralUI();
 }
 
-// --- AI TRAINING FUNCTIONS (BATCH) ---
+// --- PRE-TRAINING LOGIC ---
 
+function startPreTraining() {
+    const sequences = sampleLibrary.filter(s => s.semitone === 0);
+    const trainingPairs = [];
+
+    for(let i=0; i<sequences.length-1; i++) {
+        const u = sequences[i];
+        const v = sequences[i+1];
+        if(u.trackIndex === v.trackIndex && v.id === u.id + 1) {
+            trainingPairs.push({ u: u.id, v: v.id });
+        }
+    }
+
+    if(trainingPairs.length === 0) {
+        finishPreTraining();
+        return;
+    }
+
+    document.getElementById('training-overlay').classList.add('active');
+    const progressBar = document.getElementById('train-progress');
+    const detailText = document.getElementById('training-detail');
+
+    let processed = 0;
+    const total = trainingPairs.length;
+    const batchSize = 10;
+
+    trainingPairs.sort(() => Math.random() - 0.5);
+
+    function processBatch() {
+        const end = Math.min(processed + batchSize, total);
+
+        for(let i=processed; i<end; i++) {
+            const pair = trainingPairs[i];
+            const vec = extractTransitionVector(pair.u, pair.v, true);
+            replayMemory.push({ input: vec, label: -1 });
+            if(replayMemory.length > CONFIG.memorySize) replayMemory.shift();
+        }
+
+        trainFromBuffer();
+
+        processed = end;
+        const pct = (processed / total) * 100;
+        progressBar.style.width = pct + '%';
+        detailText.innerText = `Appreso ${processed} di ${total} transizioni...`;
+
+        if(processed < total) {
+            requestAnimationFrame(processBatch);
+        } else {
+            setTimeout(finishPreTraining, 500);
+        }
+    }
+
+    requestAnimationFrame(processBatch);
+}
+
+function finishPreTraining() {
+    document.getElementById('training-overlay').classList.remove('active');
+    updateStatus(`Training Completato! Rete addestrata su sequenze native.`);
+    saveBrain();
+    updateNeuralUI();
+    document.getElementById('btn-play').disabled = false;
+}
+
+// --- AI TRAINING ---
 function voteTransition(isPositive) {
     if (!lastInputVector) return;
-
     const label = isPositive ? -1 : 1;
     replayMemory.push({ input: lastInputVector, label: label });
-
     if (replayMemory.length > CONFIG.memorySize) replayMemory.shift();
-
     trainFromBuffer();
-
     updateStatus(isPositive ? "Appreso (👍)." : "Appreso (👎).");
     document.getElementById('voting-panel').classList.remove('visible');
     lastInputVector = null;
-
     saveBrain();
 }
 
 function trainFromBuffer() {
     if (replayMemory.length === 0) return;
-
     const batch = [];
     const size = Math.min(replayMemory.length, CONFIG.batchSize);
-
     const indices = [];
     while(indices.length < size) {
         const r = Math.floor(Math.random() * replayMemory.length);
         if(!indices.includes(r)) indices.push(r);
     }
-
     indices.forEach(i => batch.push(replayMemory[i]));
 
     let gradCNN = new Array(13).fill(0);
@@ -473,16 +573,12 @@ function trainFromBuffer() {
     let gradDense = { posFlow:0, harmony:0, bpm:0, rmsDelta:0, flatnessDelta:0 };
 
     batch.forEach(exp => {
-        const dir = exp.label;
-        const vec = exp.input;
-
+        const dir = exp.label; const vec = exp.input;
         for(let i=0; i<13; i++) gradCNN[i] += dir * vec.mfccDiff[i];
-
         if(vec.distCurrent !== undefined) gradCtx.wCurrent += dir * vec.distCurrent;
         if(vec.distNextNat !== undefined) gradCtx.wNextNat += dir * vec.distNextNat;
         if(vec.distPrev1 !== undefined) gradCtx.wPrev1 += dir * vec.distPrev1;
         if(vec.distPrev2 !== undefined) gradCtx.wPrev2 += dir * vec.distPrev2;
-
         gradDense.posFlow += dir * vec.posFlow;
         gradDense.harmony += dir * (vec.harmony / 6.0);
         gradDense.bpm += dir * vec.bpm;
@@ -493,32 +589,27 @@ function trainFromBuffer() {
     for(let i=0; i<13; i++) gradCNN[i] /= size;
     for(let k in gradCtx) gradCtx[k] /= size;
     for(let k in gradDense) gradDense[k] /= size;
-
     applyGradients(gradCNN, gradCtx, gradDense);
 }
 
 function applyGradients(gradCNN, gradCtx, gradDense) {
     const lr = CONFIG.learningRate;
     const alpha = CONFIG.momentum;
-
     for(let i=0; i<13; i++) {
         MODEL_MOMENTUM.cnnKernel[i] = alpha * MODEL_MOMENTUM.cnnKernel[i] + (1-alpha) * gradCNN[i];
         AI_MODEL.cnnKernel[i] += lr * MODEL_MOMENTUM.cnnKernel[i];
         AI_MODEL.cnnKernel[i] = Math.max(0, Math.min(10, AI_MODEL.cnnKernel[i]));
     }
-
     for(let k in AI_MODEL.contextWeights) {
         MODEL_MOMENTUM.contextWeights[k] = alpha * MODEL_MOMENTUM.contextWeights[k] + (1-alpha) * gradCtx[k];
         AI_MODEL.contextWeights[k] += lr * MODEL_MOMENTUM.contextWeights[k];
         AI_MODEL.contextWeights[k] = Math.max(0, Math.min(10, AI_MODEL.contextWeights[k]));
     }
-
     for(let k in AI_MODEL.denseWeights) {
         MODEL_MOMENTUM.denseWeights[k] = alpha * MODEL_MOMENTUM.denseWeights[k] + (1-alpha) * gradDense[k];
         AI_MODEL.denseWeights[k] += lr * MODEL_MOMENTUM.denseWeights[k];
         AI_MODEL.denseWeights[k] = Math.max(0, Math.min(10, AI_MODEL.denseWeights[k]));
     }
-
     updateNeuralUI();
 }
 
@@ -537,17 +628,11 @@ function updateNeuralUI() {
             container.appendChild(cell);
         });
     }
-
-    const setVal = (id, val) => {
-        const el = document.getElementById(id);
-        if(el) el.innerText = val.toFixed(2);
-    };
-
+    const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val.toFixed(2); };
     setVal('val-current', AI_MODEL.contextWeights.wCurrent);
     setVal('val-nextnat', AI_MODEL.contextWeights.wNextNat);
     setVal('val-prev1', AI_MODEL.contextWeights.wPrev1);
     setVal('val-prev2', AI_MODEL.contextWeights.wPrev2);
-
     setVal('val-flow', AI_MODEL.denseWeights.posFlow);
     setVal('val-harmony', AI_MODEL.denseWeights.harmony);
     setVal('val-bpm', AI_MODEL.denseWeights.bpm);
@@ -592,47 +677,26 @@ function initAudioContext() {
 async function handleFiles(files) {
     initAudioContext();
     document.getElementById('overlay').style.display = 'none';
-
     const colors = ['#00ffcc', '#ff0055', '#ffff00', '#0099ff', '#ff9900', '#cc00ff'];
-
-    if (typeof Meyda === 'undefined') {
-        alert("Errore: Libreria Meyda non caricata.");
-        return;
-    }
+    if (typeof Meyda === 'undefined') { alert("Errore: Libreria Meyda non caricata."); return; }
 
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
         updateStatus(`Decodifica: ${file.name}...`);
-
         try {
             const arrayBuffer = await file.arrayBuffer();
             const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-
             const detectedBpm = detectBPM(audioBuffer);
             const trackColor = colors[loadedTracks.length % colors.length];
-
             loadedTracks.push({
-                buffer: audioBuffer,
-                name: file.name,
-                color: trackColor,
-                bpm: detectedBpm || CONFIG.defaultBpm,
-                totalDuration: audioBuffer.duration
+                buffer: audioBuffer, name: file.name, color: trackColor,
+                bpm: detectedBpm || CONFIG.defaultBpm, totalDuration: audioBuffer.duration
             });
-
             updateLegend();
-        } catch (e) {
-            console.error("Errore:", e);
-            updateStatus(`Errore lettura ${file.name}`);
-        }
+        } catch (e) { console.error("Errore:", e); updateStatus(`Errore lettura ${file.name}`); }
     }
-
-    if (loadedTracks.length > 0) {
-        resegmentAll();
-        document.getElementById('btn-play').disabled = false;
-    }
+    if (loadedTracks.length > 0) { resegmentAll(); }
 }
-
-// --- ANALYSIS UTILS ---
 
 function detectBPM(buffer) {
     try {
@@ -646,7 +710,6 @@ function detectBPM(buffer) {
             if(max > 0.3) peaks.push(i);
         }
         if(peaks.length < 5) return 120;
-
         let intervals = {};
         for(let i=1; i<peaks.length; i++) {
             let inv = peaks[i] - peaks[i-1];
@@ -655,37 +718,27 @@ function detectBPM(buffer) {
                 intervals[q] = (intervals[q]||0)+1;
             }
         }
-        let bestInv = sampleRate;
-        let maxCount = 0;
+        let bestInv = sampleRate; let maxCount = 0;
         for(let k in intervals) if(intervals[k]>maxCount) { maxCount=intervals[k]; bestInv=parseInt(k); }
-
         let bpm = 60 / (bestInv/sampleRate);
-        while(bpm<75) bpm*=2;
-        while(bpm>160) bpm/=2;
+        while(bpm<75) bpm*=2; while(bpm>160) bpm/=2;
         return Math.round(bpm);
     } catch(e) { return 120; }
 }
 
-function getSegmentDuration(bpm) {
-    return (60 / bpm) * CONFIG.beatsPerSegment;
-}
+function getSegmentDuration(bpm) { return (60 / bpm) * CONFIG.beatsPerSegment; }
 
 function resegmentAll() {
-    sampleLibrary = [];
-    currentSampleIndex = -1;
-    stopDJ();
-    playQueue = [];
-    const augStatus = CONFIG.enablePitchAug ? "ON" : "OFF";
+    sampleLibrary = []; currentSampleIndex = -1; stopDJ(); playQueue = [];
     updateStatus(`Neural Analysis (${CONFIG.beatsPerSegment} beats)...`);
-
     setTimeout(() => {
         loadedTracks.forEach((track, idx) => {
             processAudioBuffer(track.buffer, idx, track.bpm, track.totalDuration);
         });
-
         if (sampleLibrary.length > 0) {
             calculateSpace();
-            updateStatus(`Pronto! ${sampleLibrary.length} campioni.`);
+            // Re-trigger pre-training when segments change
+            startPreTraining();
             drawCanvas();
         }
     }, 100);
@@ -697,93 +750,52 @@ function processAudioBuffer(buffer, trackIndex, bpm, totalDuration) {
     const duration = getSegmentDuration(bpm);
     const samplesPerSegment = Math.floor(duration * sampleRate);
     const meydaBufferSize = CONFIG.bufferSize;
-
     const variants = [];
-    if (CONFIG.enablePitchAug) {
-        CONFIG.semitoneShifts.forEach(st => variants.push({ type: 'pitch', val: st }));
-    } else {
-        variants.push({ type: 'pitch', val: 0 });
-    }
+    if (CONFIG.enablePitchAug) CONFIG.semitoneShifts.forEach(st => variants.push({ type: 'pitch', val: st }));
+    else variants.push({ type: 'pitch', val: 0 });
 
-    // Temporary storage to identify start/end of track
     const trackSegments = [];
-
     for (let i = 0; i < rawData.length; i += samplesPerSegment) {
         if (sampleLibrary.length >= CONFIG.maxSamples) break;
         if (i + samplesPerSegment > rawData.length) break;
-
         const segmentRaw = rawData.slice(i, i + samplesPerSegment);
         const baseFeats = extractFeaturesWithMeyda(segmentRaw, meydaBufferSize);
         if (baseFeats.rms < CONFIG.silenceThreshold) continue;
-
         const relPos = (i / sampleRate) / totalDuration;
-
-        // Group variants for this specific time segment
         const timeSegmentVariants = [];
-
         variants.forEach(variant => {
             const semitone = variant.val;
             const rate = Math.pow(2, semitone / 12);
             const newBpm = bpm * rate;
             let newKey = (baseFeats.keyIndex + semitone);
             newKey = ((newKey % 12) + 12) % 12;
-
-            const sampleObj = {
-                buffer: buffer,
-                startFn: i / sampleRate,
-                duration: duration,
-                bpm: newBpm,
-                baseRate: rate,
-                semitone: semitone,
-                features: baseFeats,
-                trackIndex: trackIndex,
-                relPos: relPos,
-                key: newKey,
-                type: 'body' // Default
-            };
-            timeSegmentVariants.push(sampleObj);
+            timeSegmentVariants.push({
+                buffer: buffer, startFn: i / sampleRate, duration: duration,
+                bpm: newBpm, baseRate: rate, semitone: semitone, features: baseFeats,
+                trackIndex: trackIndex, relPos: relPos, key: newKey, type: 'body'
+            });
         });
-
         trackSegments.push(timeSegmentVariants);
     }
-
-    // Mark First and Last
     if (trackSegments.length > 0) {
-        // First batch
         trackSegments[0].forEach(s => s.type = 'start');
-        // Last batch
         trackSegments[trackSegments.length - 1].forEach(s => s.type = 'end');
     }
-
-    // Push all to main library and assign IDs
-    trackSegments.forEach(batch => {
-        batch.forEach(s => {
-            s.id = sampleLibrary.length;
-            sampleLibrary.push(s);
-        });
-    });
+    trackSegments.forEach(batch => { batch.forEach(s => { s.id = sampleLibrary.length; sampleLibrary.push(s); }); });
 }
 
 function extractFeaturesWithMeyda(signal, bufferSize) {
-    let totalRms=0, frames=0;
-    let totalMfcc = new Array(13).fill(0);
-    let totalChroma = new Array(12).fill(0);
-    let totalCentroid=0, totalFlatness=0;
-
+    let totalRms=0, frames=0, totalMfcc = new Array(13).fill(0), totalChroma = new Array(12).fill(0), totalCentroid=0, totalFlatness=0;
     const hops = 6;
     const step = Math.floor((signal.length - bufferSize) / hops);
     if(step<1) return { rms:0, mfcc:new Array(13).fill(0), keyIndex:0, centroid:0, flatness:0 };
-
     for(let j=0; j<hops; j++) {
-        const start = j*step;
-        const chunk = signal.slice(start, start+bufferSize);
+        const start = j*step; const chunk = signal.slice(start, start+bufferSize);
         if(chunk.length<bufferSize) break;
         try {
             const f = Meyda.extract(['rms', 'mfcc', 'chroma', 'spectralCentroid', 'spectralFlatness'], chunk);
             if(f) {
-                totalRms += f.rms;
-                totalCentroid += f.spectralCentroid;
-                totalFlatness += f.spectralFlatness;
+                totalRms += f.rms; totalCentroid += f.spectralCentroid; totalFlatness += f.spectralFlatness;
                 for(let k=0; k<13; k++) totalMfcc[k] += f.mfcc[k];
                 for(let k=0; k<12; k++) totalChroma[k] += f.chroma[k];
                 frames++;
@@ -791,21 +803,12 @@ function extractFeaturesWithMeyda(signal, bufferSize) {
         } catch(e){}
     }
     if(frames===0) frames=1;
-
     const avgChroma = totalChroma.map(v=>v/frames);
     let maxK=-1, maxV=-1;
     for(let k=0; k<12; k++) if(avgChroma[k]>maxV){ maxV=avgChroma[k]; maxK=k; }
-
-    return {
-        rms: totalRms/frames,
-        mfcc: totalMfcc.map(v=>v/frames),
-        centroid: totalCentroid/frames,
-        flatness: totalFlatness/frames,
-        keyIndex: maxK
-    };
+    return { rms: totalRms/frames, mfcc: totalMfcc.map(v=>v/frames), centroid: totalCentroid/frames, flatness: totalFlatness/frames, keyIndex: maxK };
 }
 
-// --- DIMENSIONALITY REDUCTION ---
 function calculateSpace() {
     if (sampleLibrary.length === 0) return;
     const xVals = sampleLibrary.map(s => s.features.mfcc[1]);
@@ -813,127 +816,82 @@ function calculateSpace() {
     const minX = Math.min(...xVals), maxX = Math.max(...xVals);
     const minY = Math.min(...yVals), maxY = Math.max(...yVals);
     const norm = (v, min, max) => (v - min) / (max - min || 1);
-
     sampleLibrary.forEach(s => {
-        s.x = norm(s.features.mfcc[1], minX, maxX);
-        s.y = norm(s.features.mfcc[2], minY, maxY);
+        s.x = norm(s.features.mfcc[1], minX, maxX); s.y = norm(s.features.mfcc[2], minY, maxY);
         if(s.semitone !== 0) { s.x += s.semitone*0.015; s.y += s.semitone*0.015; }
         s.x += (Math.random()-0.5)*0.005; s.y += (Math.random()-0.5)*0.005;
     });
 }
 
-// --- PLAYBACK ENGINE ---
-
 function startDJ() {
-    if (isPlaying) return;
-    if (sampleLibrary.length === 0) return;
-    initAudioContext();
-    isPlaying = true;
-    document.getElementById('btn-play').classList.add('active');
-    document.getElementById('btn-play').textContent = "IN ONDA...";
-    document.getElementById('btn-stop').disabled = false;
-    document.getElementById('beatSelect').disabled = true;
-    document.getElementById('btn-aug').disabled = true;
-
+    if (isPlaying) return; if (sampleLibrary.length === 0) return;
+    initAudioContext(); isPlaying = true;
+    document.getElementById('btn-play').classList.add('active'); document.getElementById('btn-play').textContent = "IN ONDA...";
+    document.getElementById('btn-stop').disabled = false; document.getElementById('beatSelect').disabled = true; document.getElementById('btn-aug').disabled = true;
     nextStartTime = audioCtx.currentTime + 0.1;
-    if (currentSampleIndex === -1) {
-        currentSampleIndex = userNextSelection !== -1 ? userNextSelection : Math.floor(Math.random() * sampleLibrary.length);
-    }
-    prevSampleIndex = -1; userNextSelection = -1; trailHistory = [];
-    contextHistory = []; // Reset History
 
-    currentBpm = sampleLibrary[currentSampleIndex].bpm;
-    lastEffectiveKeyIndex = sampleLibrary[currentSampleIndex].key;
-    scheduleNextSegment();
-    loop();
+    if (currentSampleIndex === -1) {
+        // FILTER: Pick ONLY Start samples for initial
+        const starts = sampleLibrary.filter(s => s.type === 'start');
+        if(starts.length > 0) {
+            const rnd = Math.floor(Math.random() * starts.length);
+            currentSampleIndex = starts[rnd].id;
+        } else {
+            currentSampleIndex = Math.floor(Math.random() * sampleLibrary.length);
+        }
+    }
+
+    prevSampleIndex = -1; userNextSelection = -1; trailHistory = []; contextHistory = [];
+    currentBpm = sampleLibrary[currentSampleIndex].bpm; lastEffectiveKeyIndex = sampleLibrary[currentSampleIndex].key;
+    scheduleNextSegment(); loop();
 }
 
 function stopDJ() {
-    isPlaying = false;
-    clearTimeout(playLoopId);
-    document.getElementById('btn-play').classList.remove('active');
-    document.getElementById('btn-play').textContent = "▶ PLAY / AUTO";
-    document.getElementById('btn-stop').disabled = true;
-    document.getElementById('beatSelect').disabled = false;
-    document.getElementById('btn-aug').disabled = false;
-    document.getElementById('voting-panel').classList.remove('visible');
-    updateStatus("DJ Fermo.");
+    isPlaying = false; clearTimeout(playLoopId);
+    document.getElementById('btn-play').classList.remove('active'); document.getElementById('btn-play').textContent = "▶ PLAY / AUTO";
+    document.getElementById('btn-stop').disabled = true; document.getElementById('beatSelect').disabled = false; document.getElementById('btn-aug').disabled = false;
+    document.getElementById('voting-panel').classList.remove('visible'); updateStatus("DJ Fermo.");
 }
 
 function scheduleNextSegment() {
     if (!isPlaying) return;
-
-    // Update History before choosing new
-    if (currentSampleIndex !== -1) {
-        contextHistory.push(currentSampleIndex);
-        if (contextHistory.length > 3) contextHistory.shift();
-    }
-
-    if (playQueue.length > 0) {
-        currentSampleIndex = playQueue.shift();
-        userNextSelection = -1;
-    } else if (userNextSelection !== -1) {
-        currentSampleIndex = userNextSelection;
-        userNextSelection = -1;
-    } else {
-        currentSampleIndex = neuralPathfinder(currentSampleIndex);
-    }
+    if (currentSampleIndex !== -1) { contextHistory.push(currentSampleIndex); if (contextHistory.length > 3) contextHistory.shift(); }
+    if (playQueue.length > 0) { currentSampleIndex = playQueue.shift(); userNextSelection = -1; }
+    else if (userNextSelection !== -1) { currentSampleIndex = userNextSelection; userNextSelection = -1; }
+    else { currentSampleIndex = neuralPathfinder(currentSampleIndex); }
 
     const currentSample = sampleLibrary[currentSampleIndex];
-
     if (prevSampleIndex !== -1) {
         addTrail(prevSampleIndex, currentSampleIndex);
         document.getElementById('voting-panel').classList.add('visible');
         lastInputVector = extractTransitionVector(prevSampleIndex, currentSampleIndex);
     }
 
-    let playbackRate = 1.0;
-    let finalRate = currentSample.baseRate;
-    let effectiveKey = currentSample.key;
-
+    let playbackRate = 1.0; let finalRate = currentSample.baseRate; let effectiveKey = currentSample.key;
     if (prevSampleIndex !== -1) {
-        const nativeBpm = currentSample.bpm;
-        const syncFactor = currentBpm / nativeBpm;
+        const nativeBpm = currentSample.bpm; const syncFactor = currentBpm / nativeBpm;
         let safeSync = Math.max(0.8, Math.min(1.2, syncFactor));
-
         finalRate = currentSample.baseRate * safeSync;
-
         const syncShift = 12 * Math.log2(safeSync);
         effectiveKey = (currentSample.key + Math.round(syncShift)) % 12;
         if(effectiveKey < 0) effectiveKey += 12;
-
         currentBpm = currentBpm * 0.9 + nativeBpm * 0.1;
-    } else {
-        currentBpm = currentSample.bpm;
-        finalRate = currentSample.baseRate;
-        effectiveKey = currentSample.key;
-    }
+    } else { currentBpm = currentSample.bpm; finalRate = currentSample.baseRate; effectiveKey = currentSample.key; }
 
     lastEffectiveKeyIndex = effectiveKey;
-
     playSegment(currentSample, nextStartTime, finalRate);
 
-    const track = loadedTracks[currentSample.trackIndex];
-    const keyName = NOTES[effectiveKey];
-    const bpmDisplay = Math.round(currentBpm);
-
+    const track = loadedTracks[currentSample.trackIndex]; const keyName = NOTES[effectiveKey]; const bpmDisplay = Math.round(currentBpm);
     const remainingSteps = playQueue.length > 0 ? `[Path: ${playQueue.length}]` : "[Neural Auto]";
-    document.getElementById('harmonic-info').innerHTML =
-        `Key: <strong>${keyName}</strong><br>BPM: ${bpmDisplay} <small>(${finalRate.toFixed(2)}x)</small><br>` +
-        `<span style="font-size:0.8em; color:var(--accent-color);">${remainingSteps}</span>`;
-
-    updateStatus(`Playing: ${track.name} (Pos: ${(currentSample.relPos*100).toFixed(0)}%)`);
+    document.getElementById('harmonic-info').innerHTML = `Key: <strong>${keyName}</strong><br>BPM: ${bpmDisplay} <small>(${finalRate.toFixed(2)}x)</small><br><span style="font-size:0.8em; color:var(--accent-color);">${remainingSteps}</span>`;
+    updateStatus(`Playing: ${track.name} [${currentSample.type}]`);
 
     const effectiveDuration = currentSample.duration / finalRate;
     const overlap = CONFIG.crossfade;
     nextStartTime += (effectiveDuration - overlap);
-
     const timeUntilDecision = (effectiveDuration - overlap) * 1000;
     prevSampleIndex = currentSampleIndex;
-
-    playLoopId = setTimeout(() => {
-        scheduleNextSegment();
-    }, timeUntilDecision);
+    playLoopId = setTimeout(() => { scheduleNextSegment(); }, timeUntilDecision);
 }
 
 function playSegment(sample, time, rate) {
@@ -948,360 +906,258 @@ function playSegment(sample, time, rate) {
     gainNode.connect(audioCtx.destination);
     source.start(time, sample.startFn, sample.duration);
 
-    sweepFilter.frequency.setValueAtTime(400, time);
-    sweepFilter.frequency.exponentialRampToValueAtTime(20000, time + (CONFIG.crossfade * 1.5));
-    gainNode.gain.setValueAtTime(0, time);
-    gainNode.gain.linearRampToValueAtTime(1, time + CONFIG.crossfade);
+    const fadeDuration = CONFIG.crossfade;
+    gainNode.gain.setValueCurveAtTime(FADE_IN_CURVE, time, fadeDuration);
+    sweepFilter.frequency.setValueAtTime(300, time);
+    sweepFilter.frequency.exponentialRampToValueAtTime(20000, time + fadeDuration * 1.5);
     const effectiveDuration = sample.duration / rate;
     const endTime = time + effectiveDuration;
-    gainNode.gain.setValueAtTime(1, endTime - CONFIG.crossfade);
-    gainNode.gain.linearRampToValueAtTime(0, endTime);
+    const fadeOutStart = endTime - fadeDuration;
+    if(effectiveDuration > fadeDuration*2) {
+        sweepFilter.frequency.setValueAtTime(20000, fadeOutStart);
+        sweepFilter.frequency.exponentialRampToValueAtTime(300, endTime);
+    }
+    gainNode.gain.setValueCurveAtTime(FADE_OUT_CURVE, fadeOutStart, fadeDuration);
 }
 
-// --- NEURAL PATHFINDING (TEMPORAL) ---
-
+// --- NEURAL PATHFINDING ---
 function getFeaturesDist(s1, s2) {
-    let sum = 0;
-    for(let i=0; i<13; i++) sum += (s1.features.mfcc[i] - s2.features.mfcc[i])**2;
+    let sum = 0; for(let i=0; i<13; i++) sum += (s1.features.mfcc[i] - s2.features.mfcc[i])**2;
     return Math.sqrt(sum);
 }
 
-// Generate Feature Vector for the Transition (Input to NN)
-function extractTransitionVector(uIndex, vIndex) {
-    const u = sampleLibrary[uIndex];
-    const v = sampleLibrary[vIndex];
-
-    // 1. MFCC Diff Vector
+function extractTransitionVector(uIndex, vIndex, trainingMode = false) {
+    const u = sampleLibrary[uIndex]; const v = sampleLibrary[vIndex];
     const mfccDiff = u.features.mfcc.map((val, k) => Math.abs(val - v.features.mfcc[k]));
-
-    // 2. Spectral & Struct
     const rmsDelta = Math.abs(u.features.rms - v.features.rms);
     const flatnessDelta = Math.abs(u.features.flatness - v.features.flatness);
-
     const posFlow = (v.relPos < u.relPos) ? 1.0 : 0.0;
-
     const diffCircle = Math.abs((v.key - u.key) * 7) % 12;
     const harmony = Math.min(diffCircle, 12 - diffCircle);
-    const bpmDiff = Math.abs(u.bpm - v.bpm);
-    const bpmCost = bpmDiff / 10;
-
-    // 3. TEMPORAL CONTEXT
+    const bpmCost = Math.abs(u.bpm - v.bpm) / 10;
     const distCurrent = getFeaturesDist(u, v);
-
-    let distNextNat = 0;
+    let distNextNat = distCurrent;
     const numVariants = CONFIG.enablePitchAug ? CONFIG.semitoneShifts.length : 1;
     const nextNatIdx = uIndex + numVariants;
-    if (nextNatIdx < sampleLibrary.length &&
-        sampleLibrary[nextNatIdx].trackIndex === u.trackIndex &&
-        sampleLibrary[nextNatIdx].semitone === u.semitone) {
+    if (nextNatIdx < sampleLibrary.length && sampleLibrary[nextNatIdx].trackIndex === u.trackIndex && sampleLibrary[nextNatIdx].semitone === u.semitone) {
         distNextNat = getFeaturesDist(sampleLibrary[nextNatIdx], v);
-    } else {
-        distNextNat = distCurrent;
     }
+    let distPrev1 = distCurrent;
+    if(!trainingMode && contextHistory.length >= 2) distPrev1 = getFeaturesDist(sampleLibrary[contextHistory[contextHistory.length - 2]], v);
+    let distPrev2 = distCurrent;
+    if(!trainingMode && contextHistory.length >= 3) distPrev2 = getFeaturesDist(sampleLibrary[contextHistory[contextHistory.length - 3]], v);
 
-    let distPrev1 = 0;
-    if(contextHistory.length >= 2) {
-        const idxPrev1 = contextHistory[contextHistory.length - 2];
-        distPrev1 = getFeaturesDist(sampleLibrary[idxPrev1], v);
-    } else distPrev1 = distCurrent;
-
-    let distPrev2 = 0;
-    if(contextHistory.length >= 3) {
-        const idxPrev2 = contextHistory[contextHistory.length - 3];
-        distPrev2 = getFeaturesDist(sampleLibrary[idxPrev2], v);
-    } else distPrev2 = distCurrent;
-
-    return {
-        mfccDiff, rmsDelta, flatnessDelta, posFlow, harmony, bpm: bpmCost,
-        distCurrent, distNextNat, distPrev1, distPrev2
-    };
+    return { mfccDiff, rmsDelta, flatnessDelta, posFlow, harmony, bpm: bpmCost, distCurrent, distNextNat, distPrev1, distPrev2 };
 }
 
-// Forward Pass
 function calculateNeuralCost(uIndex, vIndex) {
     const vec = extractTransitionVector(uIndex, vIndex);
-
-    // CNN Kernel (Timbre)
-    let cnnOutput = 0;
-    for(let i=0; i<13; i++) cnnOutput += vec.mfccDiff[i] * AI_MODEL.cnnKernel[i];
-
-    // Context Layer
+    let cnnOutput = 0; for(let i=0; i<13; i++) cnnOutput += vec.mfccDiff[i] * AI_MODEL.cnnKernel[i];
     const cw = AI_MODEL.contextWeights;
-    const ctxOutput =
-        (vec.distCurrent * cw.wCurrent) +
-        (vec.distNextNat * cw.wNextNat) +
-        (vec.distPrev1 * cw.wPrev1) +
-        (vec.distPrev2 * cw.wPrev2);
-
-    // Dense Layer (Struct)
+    const ctxOutput = (vec.distCurrent * cw.wCurrent) + (vec.distNextNat * cw.wNextNat) + (vec.distPrev1 * cw.wPrev1) + (vec.distPrev2 * cw.wPrev2);
     const w = AI_MODEL.denseWeights;
-    const denseOutput =
-        (vec.rmsDelta * w.rmsDelta) +
-        (vec.flatnessDelta * w.flatnessDelta) +
-        (vec.posFlow * w.posFlow) +
-        (vec.harmony * w.harmony) +
-        (vec.bpm * w.bpm);
-
+    const denseOutput = (vec.rmsDelta * w.rmsDelta) + (vec.flatnessDelta * w.flatnessDelta) + (vec.posFlow * w.posFlow) + (vec.harmony * w.harmony) + (vec.bpm * w.bpm);
     return cnnOutput + ctxOutput + denseOutput;
 }
 
 function neuralPathfinder(currentIndex) {
     const N = sampleLibrary.length;
     let candidates = [];
-    for(let i=0; i<40; i++) {
-        const rnd = Math.floor(Math.random() * N);
-        if(rnd !== currentIndex) candidates.push({ idx: rnd, cost: calculateNeuralCost(currentIndex, rnd) });
+    const current = sampleLibrary[currentIndex];
+
+    // DECISION LOGIC:
+    // 1. If 'end' sample -> Force Jump to new 'start' sample
+    if (current.type === 'end') {
+        const starts = sampleLibrary.filter(s => s.type === 'start' && s.trackIndex !== current.trackIndex);
+        if (starts.length > 0) {
+            starts.forEach(s => candidates.push({ idx: s.id, cost: calculateNeuralCost(currentIndex, s.id) }));
+            candidates.sort((a,b) => a.cost - b.cost);
+            return candidates[0].idx; // Best start
+        } else {
+            // Fallback if no other tracks: loop back to start of same track
+            const myStart = sampleLibrary.filter(s => s.type === 'start' && s.trackIndex === current.trackIndex);
+            if(myStart.length > 0) return myStart[0].id;
+        }
     }
-    const nextIdx = currentIndex + 1;
-    if(nextIdx < N) candidates.push({ idx: nextIdx, cost: calculateNeuralCost(currentIndex, nextIdx) });
+
+    // 2. Normal Flow (Body/Start) -> Find Mix Candidates
+    // Rule: Don't jump to 'start' samples of other tracks (prevent double start)
+    // Rule: Don't mix if cost is too high -> Fallback to Natural Next
+
+    // Generate Candidates (Random + Spatial) - Exclude 'start' type of other tracks
+    for(let i=0; i<60; i++) {
+        const rnd = Math.floor(Math.random() * N);
+        const cand = sampleLibrary[rnd];
+
+        // Skip self
+        if(rnd === currentIndex) continue;
+
+        // Constraint: Don't jump to start of another track from middle
+        if (cand.type === 'start' && cand.trackIndex !== current.trackIndex) continue;
+
+        candidates.push({ idx: rnd, cost: calculateNeuralCost(currentIndex, rnd) });
+    }
 
     candidates.sort((a,b) => a.cost - b.cost);
-    return candidates[0].idx;
+    const bestCandidate = candidates[0];
+
+    // 3. Evaluate Best Mix vs Natural Flow
+    // If best mix is too expensive, ignore it and continue natural flow
+    // Unless current sample has no natural next (EOF), then we must mix (already handled by 'end' check above usually)
+    const naturalNextIdx = current.id + 1;
+
+    // Does natural next exist and belong to same track?
+    let hasNaturalNext = false;
+    if (naturalNextIdx < N) {
+        const next = sampleLibrary[naturalNextIdx];
+        if (next.trackIndex === current.trackIndex && next.semitone === current.semitone) {
+            hasNaturalNext = true;
+        }
+    }
+
+    if (hasNaturalNext) {
+        if (bestCandidate.cost > CONFIG.mixThreshold) {
+            return naturalNextIdx; // Flow Natural
+        }
+    }
+
+    // If mix is good, or no natural next (should be 'end' case, but just in case), return mix
+    // Stochastic Top-K
+    const topK = candidates.slice(0, 4);
+    const r = Math.random();
+    let selected = topK[0];
+    if (topK.length > 1 && r > 0.5) selected = topK[1];
+    if (topK.length > 2 && r > 0.8) selected = topK[2];
+    if (topK.length > 3 && r > 0.95) selected = topK[3];
+    return selected.idx;
 }
 
-// Dijkstra
 function findPath(startIdx, endIdx) {
-    const N = sampleLibrary.length;
-    const distances = new Array(N).fill(Infinity);
-    const previous = new Array(N).fill(null);
-    const visited = new Array(N).fill(false);
-    distances[startIdx] = 0;
-    const queue = [startIdx];
-    let iter = 0;
-
+    const N = sampleLibrary.length; const distances = new Array(N).fill(Infinity); const previous = new Array(N).fill(null);
+    const visited = new Array(N).fill(false); distances[startIdx] = 0; const queue = [startIdx]; let iter = 0;
     while(queue.length > 0 && iter++ < 1500) {
         let u = -1, min = Infinity, uIdx = -1;
-        for(let i=0; i<queue.length; i++) {
-            if(distances[queue[i]] < min) { min=distances[queue[i]]; u=queue[i]; uIdx=i; }
-        }
+        for(let i=0; i<queue.length; i++) if(distances[queue[i]] < min) { min=distances[queue[i]]; u=queue[i]; uIdx=i; }
         if(u===-1 || u===endIdx) break;
-        queue.splice(uIdx, 1);
-        visited[u] = true;
-
+        queue.splice(uIdx, 1); visited[u] = true;
         for(let v=0; v<N; v++) {
             if(!visited[v]) {
                 if(Math.abs(sampleLibrary[u].x - sampleLibrary[v].x) > 0.4) continue;
                 const alt = distances[u] + calculateNeuralCost(u, v);
-                if(alt < distances[v]) {
-                    distances[v] = alt;
-                    previous[v] = u;
-                    if(!queue.includes(v)) queue.push(v);
-                }
+                if(alt < distances[v]) { distances[v] = alt; previous[v] = u; if(!queue.includes(v)) queue.push(v); }
             }
         }
     }
-
-    const path = [];
-    let curr = endIdx;
-    if(previous[curr] !== null || curr === startIdx) {
-        while(curr !== null) { path.unshift(curr); curr = previous[curr]; }
-    }
+    const path = []; let curr = endIdx;
+    if(previous[curr] !== null || curr === startIdx) { while(curr !== null) { path.unshift(curr); curr = previous[curr]; } }
     if(path.length>0 && path[0]===startIdx) path.shift();
     return path;
 }
 
 // --- VISUALIZATION ---
-
 function initCanvas() {
-    initBrain(); // Load brain first
-    canvas = document.getElementById('djCanvas');
-    ctx = canvas.getContext('2d');
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-    canvas.addEventListener('mousedown', handleCanvasClick);
-    animate();
-    updateNeuralUI();
+    initBrain(); canvas = document.getElementById('djCanvas'); ctx = canvas.getContext('2d');
+    resizeCanvas(); window.addEventListener('resize', resizeCanvas); canvas.addEventListener('mousedown', handleCanvasClick);
+    animate(); updateNeuralUI();
 }
-
-function resizeCanvas() {
-    canvas.width = document.getElementById('main-container').offsetWidth;
-    canvas.height = document.getElementById('main-container').offsetHeight;
-}
-
+function resizeCanvas() { canvas.width = document.getElementById('main-container').offsetWidth; canvas.height = document.getElementById('main-container').offsetHeight; }
 function handleCanvasClick(e) {
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    let closestIdx = -1;
-    let minVisualDist = 30;
-
+    const rect = canvas.getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+    let closestIdx = -1; let minVisualDist = 30;
     sampleLibrary.forEach((s, idx) => {
-        const sx = s.x * canvas.width * 0.8 + canvas.width * 0.1;
-        const sy = s.y * canvas.height * 0.8 + canvas.height * 0.1;
+        const sx = s.x * canvas.width * 0.8 + canvas.width * 0.1; const sy = s.y * canvas.height * 0.8 + canvas.height * 0.1;
         const dist = Math.sqrt((x - sx)**2 + (y - sy)**2);
-        if (dist < minVisualDist) {
-            minVisualDist = dist;
-            closestIdx = idx;
-        }
+        if (dist < minVisualDist) { minVisualDist = dist; closestIdx = idx; }
     });
-
     if (closestIdx !== -1) {
-        if (!isPlaying) {
-            userNextSelection = closestIdx;
-            startDJ();
-        } else {
+        if (!isPlaying) { userNextSelection = closestIdx; startDJ(); }
+        else {
             updateStatus("Neural Pathfinding...");
             const startNode = playQueue.length > 0 ? playQueue[playQueue.length - 1] : currentSampleIndex;
             setTimeout(() => {
                 const path = findPath(startNode, closestIdx);
-                if (path.length > 0) {
-                    playQueue.push(...path);
-                    updateStatus(`Percorso neurale aggiunto (+${path.length} steps).`);
-                } else updateStatus("Impossibile connettere.");
+                if (path.length > 0) { playQueue.push(...path); updateStatus(`Percorso neurale aggiunto (+${path.length} steps).`); }
+                else updateStatus("Impossibile connettere.");
             }, 10);
         }
     }
 }
-
 function addTrail(idxA, idxB) {
-    const sA = sampleLibrary[idxA];
-    const sB = sampleLibrary[idxB];
+    const sA = sampleLibrary[idxA]; const sB = sampleLibrary[idxB];
     trailHistory.push({ x1: sA.x, y1: sA.y, x2: sB.x, y2: sB.y, life: 180, maxLife: 180 });
 }
-
 function animate() {
-    requestAnimationFrame(animate);
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const w = canvas.width;
-    const h = canvas.height;
-    const margin = 0.1;
-    const scale = 0.8;
-
-    // Trails
+    requestAnimationFrame(animate); ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const w = canvas.width; const h = canvas.height; const margin = 0.1; const scale = 0.8;
     if (trailHistory.length > 0) {
         ctx.lineWidth = 2;
         for (let i = trailHistory.length - 1; i >= 0; i--) {
-            const t = trailHistory[i];
-            const sx1 = t.x1 * w * scale + w * margin;
-            const sy1 = t.y1 * h * scale + h * margin;
-            const sx2 = t.x2 * w * scale + w * margin;
-            const sy2 = t.y2 * h * scale + h * margin;
+            const t = trailHistory[i]; const sx1 = t.x1 * w * scale + w * margin; const sy1 = t.y1 * h * scale + h * margin;
+            const sx2 = t.x2 * w * scale + w * margin; const sy2 = t.y2 * h * scale + h * margin;
             const opacity = t.life / t.maxLife;
-            ctx.beginPath();
-            ctx.moveTo(sx1, sy1);
-            ctx.lineTo(sx2, sy2);
-            ctx.strokeStyle = `rgba(0, 255, 204, ${opacity})`;
-            ctx.stroke();
-            t.life--;
-            if (t.life <= 0) trailHistory.splice(i, 1);
+            ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2);
+            ctx.strokeStyle = `rgba(0, 255, 204, ${opacity})`; ctx.stroke();
+            t.life--; if (t.life <= 0) trailHistory.splice(i, 1);
         }
     }
-
-    // Queue
     if (playQueue.length > 0 && currentSampleIndex !== -1) {
-        let prevIdx = currentSampleIndex;
-        ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]);
-        ctx.strokeStyle = '#ffffff';
+        let prevIdx = currentSampleIndex; ctx.lineWidth = 1; ctx.setLineDash([5, 5]); ctx.strokeStyle = '#ffffff';
         for (let nextIdx of playQueue) {
-            const s = sampleLibrary[prevIdx];
-            const n = sampleLibrary[nextIdx];
-            const sx = s.x * w * scale + w * margin;
-            const sy = s.y * h * scale + h * margin;
-            const nx = n.x * w * scale + w * margin;
-            const ny = n.y * h * scale + h * margin;
-            ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(nx, ny); ctx.stroke();
-            prevIdx = nextIdx;
+            const s = sampleLibrary[prevIdx]; const n = sampleLibrary[nextIdx];
+            const sx = s.x * w * scale + w * margin; const sy = s.y * h * scale + h * margin;
+            const nx = n.x * w * scale + w * margin; const ny = n.y * h * scale + h * margin;
+            ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(nx, ny); ctx.stroke(); prevIdx = nextIdx;
         }
         ctx.setLineDash([]);
     }
-
-    // Dots
     sampleLibrary.forEach((s, idx) => {
-        const x = s.x * w * scale + w * margin;
-        const y = s.y * h * scale + h * margin;
+        const x = s.x * w * scale + w * margin; const y = s.y * h * scale + h * margin;
         const color = loadedTracks[s.trackIndex].color;
-
         ctx.beginPath();
-        // Disegno speciale basato sul tipo (start/end/body) e stato (current/queued/other)
         if (idx === currentSampleIndex) {
             const pulse = 10 + Math.sin(Date.now() / 100) * 5;
-            // Forma pulsante per il sample corrente
             if (s.type === 'start') drawTriangle(ctx, x, y, pulse);
             else if (s.type === 'end') drawSquare(ctx, x, y, pulse);
             else ctx.arc(x, y, pulse, 0, Math.PI * 2);
-
             ctx.fillStyle = 'white'; ctx.fill();
-
-            // Outer stroke
             ctx.beginPath();
             if (s.type === 'start') drawTriangle(ctx, x, y, pulse + 5);
             else if (s.type === 'end') drawSquare(ctx, x, y, pulse + 5);
             else ctx.arc(x, y, pulse + 5, 0, Math.PI * 2);
-
             ctx.strokeStyle = color; ctx.stroke();
-
             ctx.fillStyle = '#fff'; ctx.font = '12px Arial';
             const dispKey = (idx === currentSampleIndex && lastEffectiveKeyIndex !== -1) ? lastEffectiveKeyIndex : s.key;
             ctx.fillText(NOTES[dispKey], x + 15, y + 4);
         } else {
             let radius = s.semitone === 0 ? 3 : 1;
             if (playQueue.includes(idx)) radius = 4;
-
             ctx.globalAlpha = s.semitone === 0 ? 1.0 : 0.7;
-
             if (s.type === 'start') drawTriangle(ctx, x, y, radius + 2);
             else if (s.type === 'end') drawSquare(ctx, x, y, radius + 1);
             else ctx.arc(x, y, radius, 0, Math.PI * 2);
-
-            if (playQueue.includes(idx)) {
-                ctx.fillStyle = 'white'; ctx.fill();
-                ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.stroke();
-            } else {
-                ctx.fillStyle = color; ctx.fill();
-            }
+            if (playQueue.includes(idx)) { ctx.fillStyle = 'white'; ctx.fill(); ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.stroke(); }
+            else { ctx.fillStyle = color; ctx.fill(); }
             ctx.globalAlpha = 1.0;
         }
         ctx.closePath();
     });
 }
-
-function drawTriangle(ctx, x, y, size) {
-    ctx.moveTo(x, y - size);
-    ctx.lineTo(x + size, y + size);
-    ctx.lineTo(x - size, y + size);
-    ctx.lineTo(x, y - size);
-}
-
-function drawSquare(ctx, x, y, size) {
-    ctx.rect(x - size, y - size, size * 2, size * 2);
-}
-
-function updateStatus(msg) {
-    document.getElementById('status').innerText = msg;
-    document.getElementById('status').style.opacity = 1;
-}
-
+function drawTriangle(ctx, x, y, size) { ctx.moveTo(x, y - size); ctx.lineTo(x + size, y + size); ctx.lineTo(x - size, y + size); ctx.lineTo(x, y - size); }
+function drawSquare(ctx, x, y, size) { ctx.rect(x - size, y - size, size * 2, size * 2); }
+function updateStatus(msg) { document.getElementById('status').innerText = msg; document.getElementById('status').style.opacity = 1; }
 function updateLegend() {
-    const legend = document.getElementById('trackLegend');
-    legend.innerHTML = '';
+    const legend = document.getElementById('trackLegend'); legend.innerHTML = '';
     loadedTracks.forEach(t => {
-        const div = document.createElement('div');
-        div.className = 'legend-item';
+        const div = document.createElement('div'); div.className = 'legend-item';
         div.innerHTML = `<div class="color-dot" style="background-color:${t.color}"></div><span>${t.name} <small>(${t.bpm} BPM)</small></span>`;
         legend.appendChild(div);
     });
 }
-
-document.getElementById('beatSelect').addEventListener('change', (e) => {
-    CONFIG.beatsPerSegment = parseFloat(e.target.value);
-    if (loadedTracks.length > 0) resegmentAll();
-});
+document.getElementById('beatSelect').addEventListener('change', (e) => { CONFIG.beatsPerSegment = parseFloat(e.target.value); if (loadedTracks.length > 0) resegmentAll(); });
 document.getElementById('btn-dev').addEventListener('click', toggleDevPanel);
 document.getElementById('btn-aug').addEventListener('click', toggleAugmentation);
-
 function loop() {}
-
-window.onload = () => {
-    initCanvas();
-    document.getElementById('fileInput').addEventListener('change', (e) => handleFiles(e.target.files));
-    document.getElementById('btn-play').addEventListener('click', startDJ);
-    document.getElementById('btn-stop').addEventListener('click', stopDJ);
-};
-
+window.onload = () => { initCanvas(); document.getElementById('fileInput').addEventListener('change', (e) => handleFiles(e.target.files)); document.getElementById('btn-play').addEventListener('click', startDJ); document.getElementById('btn-stop').addEventListener('click', stopDJ); };
 </script>
 </body>
 </html>
