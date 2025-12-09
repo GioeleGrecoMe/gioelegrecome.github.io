@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct Inverse Room EQ - DSP Console</title>
+    <style>
+        :root {
+            --bg: #0f111a;
+            --panel: #1a1d2b;
+            --border: #2a2e42;
+            --primary: #7c4dff; /* Deep Purple */
+            --accent: #00e5ff; /* Cyan */
+            --success: #00c853; /* Green */
+            --warn: #ffab00;
+            --err: #ff1744;
+            --text: #eceff1;
+            --font-mono: 'Fira Code', 'Consolas', monospace;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: var(--font-mono);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        /* --- HEADER --- */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--primary);
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        h1 { margin: 0; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px; color: var(--primary); }
+
+        .status-bar { display: flex; gap: 20px; font-size: 0.75rem; }
+        .status-ind { display: flex; align-items: center; gap: 6px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #333; transition: all 0.3s; }
+        .dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+        .dot.proc { background: var(--success); box-shadow: 0 0 8px var(--success); }
+        .dot.warn { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+
+        /* --- LAYOUT --- */
+        .main-container {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 20px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        /* --- CONTROLS --- */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .card-header {
+            font-size: 0.8rem;
+            color: #8892b0;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .control-group { margin-bottom: 15px; }
+        .control-group label { display: block; font-size: 0.7rem; color: #8892b0; margin-bottom: 5px; }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: rgba(124, 77, 255, 0.1);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.8rem;
+        }
+        button:hover:not(:disabled) { background: var(--primary); color: #fff; }
+        button:disabled { border-color: #333; color: #555; cursor: not-allowed; background: transparent; }
+
+        button.stop-btn { border-color: var(--err); color: var(--err); background: rgba(255, 23, 68, 0.1); }
+        button.stop-btn:hover:not(:disabled) { background: var(--err); color: #fff; }
+
+        select, input[type="file"] {
+            width: 100%;
+            background: #0a0c12;
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 8px;
+            font-family: inherit;
+            font-size: 0.8rem;
+        }
+
+        input[type="range"] { width: 100%; cursor: pointer; }
+
+        /* --- VISUALIZATION --- */
+        .viz-grid {
+            display: grid;
+            grid-template-rows: 3fr 2fr;
+            gap: 15px;
+        }
+
+        .viz-box {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            position: relative;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .viz-title {
+            position: absolute;
+            top: 10px; left: 10px;
+            background: rgba(15, 17, 26, 0.8);
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            color: var(--accent);
+            border-left: 2px solid var(--accent);
+            z-index: 10;
+        }
+
+        canvas { width: 100%; height: 100%; display: block; }
+
+        /* --- METRICS --- */
+        .metric-row { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 6px; }
+        .metric-val { font-weight: bold; color: var(--accent); }
+
+        /* --- LOG --- */
+        #log-window {
+            height: 80px;
+            background: #0a0c12;
+            border-top: 1px solid var(--border);
+            margin-top: 20px;
+            padding: 10px;
+            font-size: 0.7rem;
+            color: #607d8b;
+            overflow-y: auto;
+        }
+        .log-msg { margin-bottom: 2px; }
+        .log-err { color: var(--err); }
+        .log-ok { color: var(--success); }
+
+        /* MODAL */
+        #modal-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 1000;
+            justify-content: center; align-items: center;
+        }
+        .modal {
+            background: var(--panel);
+            border: 1px solid var(--err);
+            padding: 20px;
+            text-align: center;
+            max-width: 400px;
+            color: #fff;
+        }
+
+        .status-badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: #333;
+            color: #aaa;
+        }
+        .status-badge.active { background: var(--success); color: #000; font-weight: bold; }
+        .status-badge.bypass { background: var(--warn); color: #000; font-weight: bold; }
+
+    </style>
+</head>
+<body>
+
+<div id="modal-overlay">
+    <div class="modal">
+        <h3 style="color:var(--err); margin-top:0;">SYSTEM ERROR</h3>
+        <p id="modal-text"></p>
+        <button onclick="document.getElementById('modal-overlay').style.display='none'">CLOSE</button>
+    </div>
+</div>
+
+<header>
+    <h1>Direct Inverse Room EQ</h1>
+    <div class="status-bar">
+        <div class="status-ind"><div class="dot" id="led-engine"></div> Engine</div>
+        <div class="status-ind"><div class="dot" id="led-learn"></div> Learning</div>
+        <div class="status-ind"><div class="dot" id="led-eq"></div> Processing</div>
+    </div>
+</header>
+
+<div class="main-container">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+
+        <div class="card">
+            <div class="card-header">1. Audio Hardware</div>
+            <button id="btn-init">Initialize Audio Worklet</button>
+            <div id="device-selects" style="display:none; margin-top:15px;">
+                <div class="control-group">
+                    <label>Measurement Mic</label>
+                    <select id="sel-mic"></select>
+                </div>
+                <div class="control-group">
+                    <label>Output Speakers</label>
+                    <select id="sel-spk"></select>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">2. Calibration Source</div>
+            <div class="control-group">
+                <label>Calibration File (.wav)</label>
+                <input type="file" id="file-calib" accept="audio/*">
+            </div>
+            <button id="btn-calib" disabled>Run Calibration Loop</button>
+            <div style="font-size:0.7rem; color:#666; margin-top:5px; text-align:center;">
+                Uses internal Pink Noise if no file loaded
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                3. Optimizer Constraints
+                <span style="font-size:0.6rem; color:#666;">LIVE</span>
+            </div>
+
+            <div class="control-group">
+                <label>Adaptation Speed (Mu)</label>
+                <input type="range" id="sld-mu" min="0.001" max="0.5" step="0.001" value="0.05">
+                <div style="text-align:right; font-size:0.7rem; color:var(--primary);" id="val-mu">0.05</div>
+            </div>
+
+            <div class="control-group">
+                <label>Max Correction Boost (dB)</label>
+                <input type="range" id="sld-max-boost" min="0" max="18" step="1" value="6">
+                <div style="text-align:right; font-size:0.7rem; color:var(--accent);" id="val-max-boost">+6 dB</div>
+            </div>
+
+            <div class="control-group">
+                <label>Regularization (Stability)</label>
+                <input type="range" id="sld-reg" min="0.001" max="0.5" step="0.001" value="0.05">
+                <div style="text-align:right; font-size:0.7rem;" id="val-reg">0.05</div>
+            </div>
+
+            <div class="control-group">
+                <label>Target Modeling Delay (Samples)</label>
+                <input type="range" id="sld-delay" min="0" max="4000" step="100" value="1500">
+                <div style="text-align:right; font-size:0.7rem;" id="val-delay">1500</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">4. Playback & EQ</div>
+            <div class="control-group">
+                <label>Music Reference</label>
+                <input type="file" id="file-music" accept="audio/*">
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button id="btn-play" disabled>Play</button>
+                <button id="btn-stop" class="stop-btn" disabled>Stop</button>
+            </div>
+            <div style="margin-top:15px; padding-top:10px; border-top:1px solid #333; display:flex; align-items:center; justify-content:space-between;">
+                <label style="display:flex; align-items:center; gap:10px; font-size:0.8rem; cursor:pointer;">
+                    <input type="checkbox" id="chk-bypass"> Bypass Equalizer
+                </label>
+                <span id="dsp-status-badge" class="status-badge">READY</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Real-time Stats</div>
+            <div class="metric-row"><span>Loss (MSE):</span> <span class="metric-val" id="met-mse">0.00</span></div>
+            <div class="metric-row"><span>Filter Norm:</span> <span class="metric-val" id="met-norm">0.00</span></div>
+        </div>
+
+    </div>
+
+    <!-- VISUALIZATION -->
+    <div class="viz-grid">
+        <div class="viz-box">
+            <div class="viz-title">Spectral Analysis (Cyan: Ref, Red: Mic, Purple: Output)</div>
+            <canvas id="cvs-spec"></canvas>
+        </div>
+        <div class="viz-box">
+            <div class="viz-title">Direct Inverse Filter (Corrective EQ)</div>
+            <canvas id="cvs-eq"></canvas>
+        </div>
+    </div>
+</div>
+
+<div id="log-window"></div>
+
+<script>
+// --- WORKLET CODE ---
+const dspCode = `
+class Complex {
+    constructor(r, i) { this.re = r; this.im = i; }
+}
+
+class FFT {
+    constructor(n) {
+        this.n = n;
+        this.bitRev = new Uint32Array(n);
+        this.sin = new Float32Array(n);
+        this.cos = new Float32Array(n);
+        let m = Math.log2(n);
+        for(let i=0; i<n; i++) {
+            this.bitRev[i] = 0;
+            let temp = i;
+            for(let j=0; j<m; j++) {
+                this.bitRev[i] = (this.bitRev[i] << 1) | (temp & 1);
+                temp >>= 1;
+            }
+            this.sin[i] = Math.sin(-2 * Math.PI * i / n);
+            this.cos[i] = Math.cos(-2 * Math.PI * i / n);
+        }
+    }
+    transform(real, imag, inv=false) {
+        for(let i=0; i<this.n; i++) {
+            let j = this.bitRev[i];
+            if(j > i) {
+                let tr=real[i]; real[i]=real[j]; real[j]=tr;
+                let ti=imag[i]; imag[i]=imag[j]; imag[j]=ti;
+            }
+        }
+        for(let size=2; size<=this.n; size*=2) {
+            let half = size/2;
+            let step = this.n/size;
+            for(let i=0; i<this.n; i+=size) {
+                for(let j=0; j<half; j++) {
+                    let idx = j*step;
+                    let c = this.cos[idx];
+                    let s = inv ? -this.sin[idx] : this.sin[idx];
+                    let tr = real[i+j+half]*c - imag[i+j+half]*s;
+                    let ti = real[i+j+half]*s + imag[i+j+half]*c;
+                    real[i+j+half] = real[i+j] - tr;
+                    imag[i+j+half] = imag[i+j] - ti;
+                    real[i+j] += tr;
+                    imag[i+j] += ti;
+                }
+            }
+        }
+        if(inv) {
+            for(let i=0; i<this.n; i++) { real[i]/=this.n; imag[i]/=this.n; }
+        }
+    }
+}
+
+class InverseEQProcessor extends AudioWorkletProcessor {
+    constructor() {
+        super();
+        this.N = 2048;
+        this.fft = new FFT(this.N);
+
+        // Circular Buffers
+        this.micBuf = new Float32Array(this.N); // Input to Adaptive Filter
+        this.refBuf = new Float32Array(this.N); // For Output Generation
+
+        // Target Buffer (Circular Delay Line for Reference)
+        this.targetBuf = new Float32Array(this.N + 8192);
+        this.targetWritePtr = 0;
+
+        // Adaptive Filter W (The Inverse Filter)
+        this.W_re = new Float32Array(this.N);
+        this.W_im = new Float32Array(this.N);
+
+        // Initialize W as Identity (Flat EQ)
+        for(let i=0; i<this.N; i++) this.W_re[i] = 1.0;
+
+        // Working Buffers
+        this.X_re = new Float32Array(this.N); this.X_im = new Float32Array(this.N);
+        this.Y_re = new Float32Array(this.N); this.Y_im = new Float32Array(this.N);
+
+        this.Eq_mag = new Float32Array(this.N);
+
+        // Params
+        this.mu = 0.05;
+        this.regularization = 0.05;
+        this.modelingDelay = 1500;
+        this.maxBoostLin = Math.pow(10, 6/20);
+        this.learning = false;
+        this.bypass = false; // Default: Filter ON
+
+        this.smoothing = 0.99;
+
+        this.pn = {b0:0,b1:0,b2:0,b3:0,b4:0,b5:0};
+        this.isCalibrating = false;
+        this.useInternalNoise = true;
+
+        this.port.onmessage = this.handleMsg.bind(this);
+        this.frames = 0;
+    }
+
+    genPink() {
+        let w = Math.random()*2-1;
+        this.pn.b0 = 0.99886*this.pn.b0 + w*0.0555179;
+        this.pn.b1 = 0.99332*this.pn.b1 + w*0.0750759;
+        this.pn.b2 = 0.96900*this.pn.b2 + w*0.1538520;
+        this.pn.b3 = 0.86650*this.pn.b3 + w*0.3104856;
+        this.pn.b4 = 0.55000*this.pn.b4 + w*0.5329522;
+        this.pn.b5 = -0.7616*this.pn.b5 - w*0.0168980;
+        return (this.pn.b0+this.pn.b1+this.pn.b2+this.pn.b3+this.pn.b4+this.pn.b5 + w*0.5362)*0.11;
+    }
+
+    process(inputs, outputs, params) {
+        const out = outputs[0][0];
+        if(!out) return true;
+
+        const inMic = (inputs[0] && inputs[0][0]) ? inputs[0][0] : new Float32Array(128);
+        const inRef = (inputs[1] && inputs[1][0]) ? inputs[1][0] : new Float32Array(128);
+        const BS = 128;
+
+        const currentRefBlock = new Float32Array(BS);
+        for(let i=0; i<BS; i++) {
+            let s = inRef[i];
+            if(this.isCalibrating && this.useInternalNoise) s = this.genPink();
+            currentRefBlock[i] = s;
+        }
+
+        this.refBuf.copyWithin(0, BS);
+        this.refBuf.set(currentRefBlock, this.N - BS);
+
+        this.X_re.set(this.refBuf); this.X_im.fill(0);
+        this.fft.transform(this.X_re, this.X_im);
+
+        // Apply EQ Gain G(f) or Bypass
+        for(let k=0; k<this.N; k++) {
+            const gain = this.bypass ? 1.0 : (this.Eq_mag[k] || 1.0);
+            this.Y_re[k] = this.X_re[k] * gain;
+            this.Y_im[k] = this.X_im[k] * gain;
+        }
+
+        this.fft.transform(this.Y_re, this.Y_im, true);
+
+        for(let i=0; i<BS; i++) {
+            out[i] = this.Y_re[this.N - BS + i];
+        }
+
+        if (this.learning) {
+            this.micBuf.copyWithin(0, BS);
+            this.micBuf.set(inMic, this.N - BS);
+
+            for(let i=0; i<BS; i++) {
+                this.targetBuf[this.targetWritePtr] = currentRefBlock[i];
+                this.targetWritePtr = (this.targetWritePtr + 1) % this.targetBuf.length;
+            }
+
+            const targetBlock = new Float32Array(this.N);
+            let rdPtr = (this.targetWritePtr - this.modelingDelay - this.N + this.targetBuf.length * 2) % this.targetBuf.length;
+            for(let i=0; i<this.N; i++) {
+                targetBlock[i] = this.targetBuf[rdPtr];
+                rdPtr = (rdPtr + 1) % this.targetBuf.length;
+            }
+
+            this.optimize(targetBlock);
+        }
+
+        this.frames++;
+        if(this.frames%10===0) this.sendStats(out, inMic);
+        return true;
+    }
+
+    optimize(targetTimeData) {
+        this.X_re.set(this.micBuf); this.X_im.fill(0);
+        this.fft.transform(this.X_re, this.X_im);
+
+        const D_re = new Float32Array(this.N); const D_im = new Float32Array(this.N);
+        D_re.set(targetTimeData);
+        this.fft.transform(D_re, D_im);
+
+        const Yh_re = new Float32Array(this.N); const Yh_im = new Float32Array(this.N);
+        for(let k=0; k<this.N; k++) {
+            Yh_re[k] = this.W_re[k]*this.X_re[k] - this.W_im[k]*this.X_im[k];
+            Yh_im[k] = this.W_re[k]*this.X_im[k] + this.W_im[k]*this.X_re[k];
+        }
+
+        let totalMse = 0;
+        const maxDbChangePerFrame = 0.05;
+        const alpha = 0.998;
+
+        for(let k=0; k<this.N/2+1; k++) {
+            const Er = D_re[k] - Yh_re[k];
+            const Ei = D_im[k] - Yh_im[k];
+            totalMse += (Er**2 + Ei**2);
+
+            const power = this.X_re[k]**2 + this.X_im[k]**2;
+            const norm = power + this.regularization;
+            const step = this.mu / norm;
+
+            const Gr = Er*this.X_re[k] + Ei*this.X_im[k];
+            const Gi = Ei*this.X_re[k] - Er*this.X_im[k];
+
+            let newWr = this.W_re[k] + step * Gr;
+            let newWi = this.W_im[k] + step * Gi;
+
+            const mag = Math.sqrt(newWr**2 + newWi**2);
+            if (mag > this.maxBoostLin) {
+                const scale = this.maxBoostLin / mag;
+                newWr *= scale; newWi *= scale;
+            }
+
+            this.W_re[k] = newWr;
+            this.W_im[k] = newWi;
+
+            const targetMag = Math.sqrt(this.W_re[k]**2 + this.W_im[k]**2);
+            let currentMag = this.Eq_mag[k] || 1.0;
+
+            const curDb = 20*Math.log10(currentMag + 1e-9);
+            const tarDb = 20*Math.log10(targetMag + 1e-9);
+
+            let nextDb = curDb;
+            if(tarDb > curDb + maxDbChangePerFrame) nextDb = curDb + maxDbChangePerFrame;
+            else if(tarDb < curDb - maxDbChangePerFrame) nextDb = curDb - maxDbChangePerFrame;
+            else nextDb = tarDb;
+
+            let nextMag = Math.pow(10, nextDb/20);
+
+            this.Eq_mag[k] = alpha * currentMag + (1-alpha) * nextMag;
+
+            if (k > 0 && k < this.N/2) {
+                this.W_re[this.N-k] = this.W_re[k];
+                this.W_im[this.N-k] = -this.W_im[k];
+                this.Eq_mag[this.N-k] = this.Eq_mag[k];
+            }
+        }
+
+        const temp = new Float32Array(this.N);
+        temp.set(this.Eq_mag);
+        for(let k=1; k<this.N/2; k++) {
+            this.Eq_mag[k] = 0.25*temp[k-1] + 0.5*temp[k] + 0.25*temp[k+1];
+            this.Eq_mag[this.N-k] = this.Eq_mag[k];
+        }
+
+        this.lastMse = totalMse / this.N;
+    }
+
+    sendStats(outBuf, micBuf) {
+        const bins = 64;
+        const step = Math.floor((this.N/2)/bins);
+        const wMag = new Float32Array(bins);
+        const inSpec = new Float32Array(bins);
+        const outSpec = new Float32Array(bins);
+
+        const M_re = new Float32Array(this.N); const M_im = new Float32Array(this.N);
+        M_re.set(micBuf); this.fft.transform(M_re, M_im);
+
+        const O_re = new Float32Array(this.N); const O_im = new Float32Array(this.N);
+        O_re.set(outBuf); this.fft.transform(O_re, O_im);
+
+        let wNorm = 0;
+
+        for(let i=0; i<bins; i++) {
+            const k = i*step;
+            const m = this.Eq_mag[k];
+            wMag[i] = 20*Math.log10(m + 1e-9);
+            wNorm += m;
+
+            const micP = M_re[k]**2 + M_im[k]**2;
+            inSpec[i] = 10*Math.log10(micP + 1e-9);
+
+            const outP = O_re[k]**2 + O_im[k]**2;
+            outSpec[i] = 10*Math.log10(outP + 1e-9);
+        }
+
+        this.port.postMessage({
+            type: 'metrics',
+            mse: this.lastMse || 0,
+            wNorm: wNorm/bins,
+            wMag: wMag,
+            inSpec: inSpec,
+            outSpec: outSpec
+        });
+    }
+
+    handleMsg(e) {
+        const d = e.data;
+        if(d.type === 'calib') {
+            this.isCalibrating = d.val;
+            this.learning = d.val;
+            if(d.src) this.useInternalNoise = (d.src === 'internal');
+            if(this.isCalibrating && d.reset) {
+                 for(let i=0; i<this.N; i++) { this.W_re[i]=1.0; this.W_im[i]=0; this.Eq_mag[i]=1.0; }
+            }
+        }
+        if(d.type === 'params') {
+            if(d.mu !== undefined) this.mu = d.mu;
+            if(d.boost !== undefined) this.maxBoostLin = Math.pow(10, d.boost/20);
+            if(d.reg !== undefined) this.regularization = d.reg;
+            if(d.delay !== undefined) this.modelingDelay = d.delay;
+            if(d.bypass !== undefined) this.bypass = d.bypass;
+        }
+    }
+}
+
+registerProcessor('inverse-eq', InverseEQProcessor);
+`;
+
+// --- MAIN THREAD ---
+const UI = {
+    log: (msg, type='info') => {
+        const d = document.createElement('div');
+        d.className = `log-msg log-${type}`;
+        d.innerText = `> ${msg}`;
+        document.getElementById('log-window').prepend(d);
+    },
+    err: (msg) => {
+        document.getElementById('modal-text').innerText = msg;
+        document.getElementById('modal-overlay').style.display = 'flex';
+    },
+    updateParams: () => {
+        // Read DOM Values
+        const mu = parseFloat(document.getElementById('sld-mu').value);
+        const boost = parseFloat(document.getElementById('sld-max-boost').value);
+        const reg = parseFloat(document.getElementById('sld-reg').value);
+        const delay = parseInt(document.getElementById('sld-delay').value);
+        const bypass = document.getElementById('chk-bypass').checked;
+
+        // Update Labels
+        document.getElementById('val-mu').innerText = mu.toFixed(3);
+        document.getElementById('val-max-boost').innerText = `+${boost} dB`;
+        document.getElementById('val-reg').innerText = reg.toFixed(3);
+        document.getElementById('val-delay').innerText = delay;
+
+        // Update Status Badge
+        const badge = document.getElementById('dsp-status-badge');
+        if (bypass) {
+            badge.innerText = "BYPASSED";
+            badge.className = "status-badge bypass";
+            document.getElementById('led-eq').classList.remove('active');
+            document.getElementById('led-eq').classList.add('warn');
+        } else {
+            badge.innerText = "EQUALIZING";
+            badge.className = "status-badge active";
+            document.getElementById('led-eq').classList.remove('warn');
+            document.getElementById('led-eq').classList.add('active');
+        }
+
+        if(!APP.node) return;
+        APP.node.port.postMessage({
+            type: 'params',
+            mu: mu,
+            boost: boost,
+            reg: reg,
+            delay: delay,
+            bypass: bypass
+        });
+    }
+};
+
+const APP = { ctx: null, node: null, calibBuf: null, src: null };
+
+async function init() {
+    try {
+        APP.ctx = new (window.AudioContext || window.webkitAudioContext)({sampleRate: 48000});
+        const blob = new Blob([dspCode], {type: 'application/javascript'});
+        await APP.ctx.audioWorklet.addModule(URL.createObjectURL(blob));
+
+        APP.node = new AudioWorkletNode(APP.ctx, 'inverse-eq', {
+            numberOfInputs: 2, numberOfOutputs: 1, outputChannelCount: [1]
+        });
+
+        const lim = APP.ctx.createDynamicsCompressor();
+        lim.threshold.value = -1; lim.ratio.value = 20;
+        APP.node.connect(lim).connect(APP.ctx.destination);
+
+        const stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false, latency:0}});
+        const mic = APP.ctx.createMediaStreamSource(stream);
+        mic.connect(APP.node, 0, 0);
+
+        APP.node.port.onmessage = onMsg;
+
+        document.getElementById('btn-init').disabled = true;
+        document.getElementById('device-selects').style.display = 'block';
+        document.getElementById('btn-calib').disabled = false;
+        document.getElementById('led-engine').classList.add('proc');
+
+        // Initial Param sync
+        UI.updateParams();
+        UI.log("Engine Ready. Constraints Active.", "ok");
+    } catch(e) { UI.err(e.message); }
+}
+
+function onMsg(e) {
+    const d = e.data;
+    if(d.type === 'metrics') {
+        document.getElementById('met-mse').innerText = (d.mse*1000).toFixed(2);
+        document.getElementById('met-norm').innerText = d.wNorm.toFixed(2);
+        drawEQ(d.wMag);
+        drawSpec(d.inSpec, d.outSpec);
+    }
+}
+
+const cvsEq = document.getElementById('cvs-eq').getContext('2d');
+const cvsSpec = document.getElementById('cvs-spec').getContext('2d');
+
+function drawEQ(data) {
+    const w = cvsEq.canvas.width = cvsEq.canvas.clientWidth;
+    const h = cvsEq.canvas.height = cvsEq.canvas.clientHeight;
+    cvsEq.fillStyle = '#1a1d2b'; cvsEq.fillRect(0,0,w,h);
+
+    const y0 = h/2;
+    cvsEq.strokeStyle='#333'; cvsEq.beginPath(); cvsEq.moveTo(0,y0); cvsEq.lineTo(w,y0); cvsEq.stroke();
+
+    cvsEq.beginPath(); cvsEq.strokeStyle = '#00c853'; cvsEq.lineWidth = 2;
+    const step = w/data.length;
+    for(let i=0; i<data.length; i++) {
+        let y = y0 - (data[i]/18)*(h/2);
+        if(i==0) cvsEq.moveTo(0,y); else cvsEq.lineTo(i*step, y);
+    }
+    cvsEq.stroke();
+}
+
+function drawSpec(inD, outD) {
+    const w = cvsSpec.canvas.width = cvsSpec.canvas.clientWidth;
+    const h = cvsSpec.canvas.height = cvsSpec.canvas.clientHeight;
+    cvsSpec.fillStyle = '#1a1d2b'; cvsSpec.fillRect(0,0,w,h);
+
+    const step = w/inD.length;
+
+    cvsSpec.fillStyle = 'rgba(0, 229, 255, 0.3)';
+    for(let i=0; i<inD.length; i++) {
+        let v = (inD[i]+100)/100;
+        let bh = v*h;
+        cvsSpec.fillRect(i*step, h-bh, step-1, bh);
+    }
+
+    cvsSpec.strokeStyle = '#7c4dff'; cvsSpec.lineWidth = 2; cvsSpec.beginPath();
+    for(let i=0; i<outD.length; i++) {
+        let v = (outD[i]+100)/100;
+        let y = h - v*h;
+        if(i==0) cvsSpec.moveTo(0,y); else cvsSpec.lineTo(i*step, y);
+    }
+    cvsSpec.stroke();
+}
+
+document.getElementById('btn-init').onclick = init;
+
+document.getElementById('file-calib').onchange = async (e) => {
+    if(!APP.ctx) return;
+    const ab = await e.target.files[0].arrayBuffer();
+    APP.calibBuf = await APP.ctx.decodeAudioData(ab);
+    UI.log("Calibration File Loaded", "ok");
+};
+
+document.getElementById('btn-calib').onclick = () => {
+    if(!APP.ctx) return;
+    if(APP.src) {
+        APP.src.stop(); APP.src=null;
+        APP.node.port.postMessage({type:'calib', val:false});
+        document.getElementById('btn-calib').innerText = "Run Calibration";
+        document.getElementById('led-learn').classList.remove('active');
+        return;
+    }
+    APP.node.port.postMessage({type:'calib', val:true, src: APP.calibBuf ? 'ext' : 'internal', reset: true});
+
+    APP.src = APP.ctx.createBufferSource();
+    if(APP.calibBuf) APP.src.buffer = APP.calibBuf;
+    else {
+       const b = APP.ctx.createBuffer(1, 48000, 48000);
+       APP.src.buffer = b;
+    }
+    APP.src.loop = true;
+    APP.src.connect(APP.node, 0, 1);
+    APP.src.start();
+
+    document.getElementById('btn-calib').innerText = "Stop Calibration";
+    document.getElementById('led-learn').classList.add('active');
+};
+
+document.getElementById('file-music').onchange = async (e) => {
+    if(!APP.ctx) return;
+    const ab = await e.target.files[0].arrayBuffer();
+    APP.musicBuf = await APP.ctx.decodeAudioData(ab);
+    document.getElementById('btn-play').disabled = false;
+    UI.log("Music Loaded", "ok");
+};
+
+document.getElementById('btn-play').onclick = () => {
+    if(APP.src) APP.src.stop();
+    APP.src = APP.ctx.createBufferSource();
+    APP.src.buffer = APP.musicBuf;
+    APP.src.connect(APP.node, 0, 1);
+    APP.src.onended = () => { };
+    APP.src.start();
+    document.getElementById('btn-stop').disabled = false;
+};
+
+document.getElementById('btn-stop').onclick = () => { if(APP.src) APP.src.stop(); };
+
+// Attach Event Listeners to Inputs for Real-time Update
+document.querySelectorAll('input').forEach(i => i.oninput = UI.updateParams);
+
+</script>
+</body>
+</html>

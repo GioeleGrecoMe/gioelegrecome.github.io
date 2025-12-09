@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adaptive Room Equalizer (Gradient Descent)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+
+        .toggle-checkbox:checked {
+            background-color: #10b981;
+            border-color: #10b981;
+        }
+        .toggle-checkbox:checked:after {
+            transform: translateX(100%);
+            border-color: white;
+        }
+        .band-disabled .fill-bar {
+            background: #4b5563 !important;
+            opacity: 0.3;
+        }
+        /* Vertical Sliders */
+        input[type=range][orient=vertical] {
+            writing-mode: bt-lr;
+            -webkit-appearance: slider-vertical;
+            width: 8px;
+            height: 100%;
+            padding: 0 5px;
+        }
+        .calib-slider {
+            -webkit-appearance: none;
+            width: 6px;
+            height: 100px;
+            background: #374151;
+            outline: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .calib-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #60a5fa;
+            border-radius: 50%;
+            border: 2px solid #1e3a8a;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="px-6 py-4 border-b border-gray-800 bg-gray-900 z-10 flex justify-between items-center shadow-lg flex-shrink-0">
+        <div>
+            <h1 class="text-xl font-bold text-emerald-400 tracking-tight">Adaptive EQ: Gradient Descent</h1>
+            <p class="text-xs text-gray-500 font-mono">Algorithm: J = ||P - M*H*S||^2 | Constraint: Sum(dG)=0</p>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col items-end text-right mr-4">
+                <span class="text-[10px] uppercase text-gray-500 font-bold">Latency / Sync</span>
+                <span id="syncStatus" class="text-xs text-blue-400 font-mono">CALCULATING...</span>
+            </div>
+            <div class="flex flex-col items-end text-right mr-4">
+                <span class="text-[10px] uppercase text-gray-500 font-bold">Optimization</span>
+                <span id="systemStatus" class="text-xs text-yellow-500 font-mono">IDLE</span>
+            </div>
+            <label class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-semibold transition-all cursor-pointer shadow-lg shadow-emerald-900/20 flex items-center gap-2 group">
+                <svg class="w-4 h-4 text-emerald-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
+                <span>Play Music File</span>
+                <input type="file" id="fileInput" accept="audio/*" class="hidden">
+            </label>
+        </div>
+    </header>
+
+    <!-- Main Interface -->
+    <main class="flex-grow flex flex-col relative h-full overflow-hidden">
+
+        <!-- Canvas Visualizer -->
+        <div class="relative flex-grow bg-black min-h-[200px]">
+            <canvas id="vizCanvas" class="w-full h-full"></canvas>
+
+            <!-- Overlay Info -->
+            <div class="absolute top-4 left-6 space-y-2 pointer-events-none">
+                <div class="flex items-center gap-2 text-xs font-mono bg-black/50 p-1 rounded backdrop-blur-sm">
+                    <span class="w-3 h-3 bg-emerald-500 rounded-sm inline-block"></span>
+                    <span class="text-gray-300">Target S(f) [Source]</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs font-mono bg-black/50 p-1 rounded backdrop-blur-sm">
+                    <span class="w-3 h-3 bg-red-500 rounded-sm inline-block"></span>
+                    <span class="text-gray-300">Measured P(f) [Mic]</span>
+                </div>
+            </div>
+
+            <div id="feedbackWarning" class="hidden absolute bottom-4 right-6 max-w-sm bg-red-900/80 border border-red-500/50 p-3 rounded-lg backdrop-blur text-xs text-red-100">
+                <strong>⚠️ Warning:</strong> Use speakers. Mic must capture the room.
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div class="bg-gray-800 border-t border-gray-700 h-[450px] flex-shrink-0 flex flex-col shadow-[0_-5px_20px_rgba(0,0,0,0.3)] z-20">
+            <div class="flex-grow flex flex-row h-full">
+
+                <!-- Controls (Left) -->
+                <div class="w-64 flex-shrink-0 border-r border-gray-700 p-5 flex flex-col justify-start space-y-6 bg-gray-850 overflow-y-auto">
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-300 mb-4">Gradient Descent</h3>
+                        <div class="flex justify-between text-xs text-gray-400 mb-2 font-mono">
+                            <span>Step Size (Mu)</span>
+                            <span id="speedVal" class="text-emerald-400">0.05</span>
+                        </div>
+                        <input type="range" id="adaptSpeed" min="0.01" max="0.5" step="0.01" value="0.05" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-semibold text-gray-300">Active Equalization</span>
+                        <button id="toggleEqBtn" class="w-12 h-6 rounded-full bg-emerald-600 relative transition-all shadow-inner">
+                            <div class="w-4 h-4 bg-white rounded-full absolute top-1 right-1 transition-transform"></div>
+                        </button>
+                    </div>
+
+                    <div class="p-3 bg-blue-900/20 border border-blue-800 rounded text-xs text-blue-300 leading-relaxed">
+                        <strong>Microphone M(f):</strong><br>
+                        Set the sensitivity curve of your mic using the top sliders to remove it from the cost function.
+                    </div>
+
+                    <div class="p-3 bg-gray-800 border border-gray-700 rounded text-[10px] text-gray-400 font-mono">
+                         Lag (tau): <span id="debugDelay">0ms</span><br>
+                         Energy Norm: <span id="debugNorm">1.00</span><br>
+                         Window: <span class="text-gray-300">32k samples (~0.7s)</span>
+                    </div>
+                </div>
+
+                <!-- Matrix Area (Right) -->
+                <div class="flex-grow flex flex-col bg-gray-800 overflow-hidden relative">
+
+                    <!-- Row 1: Mic Calibration M(f) -->
+                    <div class="h-1/2 border-b border-gray-700 flex flex-col p-2 relative bg-gray-800/50">
+                        <div class="absolute top-2 left-2 text-[10px] font-bold text-blue-400 uppercase tracking-wider bg-gray-900 px-2 py-1 rounded border border-blue-900/50 z-10">
+                            Microphone Sensitivity M(f)
+                        </div>
+                        <div id="calibrationContainer" class="flex-grow flex items-end justify-between gap-1 overflow-x-auto pt-6 pb-2 px-2">
+                            <!-- Sliders injected here -->
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Filter Update H(f) -->
+                    <div class="h-1/2 flex flex-col p-2 relative">
+                        <div class="absolute top-2 left-2 text-[10px] font-bold text-emerald-400 uppercase tracking-wider bg-gray-900 px-2 py-1 rounded border border-emerald-900/50 z-10">
+                            Estimated Correction (Inverse H)
+                        </div>
+                        <div id="bandsContainer" class="flex-grow flex items-end justify-between gap-1 overflow-x-auto pt-8 pb-1 px-2">
+                            <!-- Bars injected here -->
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- Math & Config ---
+        const EQ_BANDS = [30, 60, 120, 240, 480, 960, 1920, 3840, 7680, 11000, 14000, 18000];
+
+        // --- Globals ---
+        let audioCtx;
+        let sourceNode;
+        let micNode;
+        let alignmentDelayNode;
+
+        let filters = [];
+        let analyzerSource;  // Reference S(f)
+        let analyzerMic;     // Measured P(f)
+
+        let isRunning = false;
+        let masterEqEnabled = true;
+        let mu = 0.05; // Learning rate
+        let optimizationInterval = null;
+        let smoothedNorm = 1.0;
+
+        // --- State Vector ---
+        let bandStates = EQ_BANDS.map(f => ({
+            freq: f,
+            gain: 0,        // Current Filter Gain G(f)
+            calibration: 0, // M(f) in dB
+            enabled: true,
+            elementId: `band-${f}`
+        }));
+
+        // --- UI Refs ---
+        const canvas = document.getElementById('vizCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusEl = document.getElementById('systemStatus');
+        const syncStatusEl = document.getElementById('syncStatus');
+        const bandsContainer = document.getElementById('bandsContainer');
+        const calibrationContainer = document.getElementById('calibrationContainer');
+        const debugDelay = document.getElementById('debugDelay');
+        const debugNorm = document.getElementById('debugNorm');
+
+        // --- Initialization ---
+        function initBandUI() {
+            bandsContainer.innerHTML = '';
+            calibrationContainer.innerHTML = '';
+
+            EQ_BANDS.forEach((freq, index) => {
+                const freqLabel = freq >= 1000 ? (freq/1000).toFixed(1) + 'k' : freq;
+
+                // 1. Mic Calibration Sliders (M)
+                const calibDiv = document.createElement('div');
+                calibDiv.className = 'flex flex-col items-center h-full justify-end w-full max-w-[60px] relative';
+                calibDiv.innerHTML = `
+                    <div class="text-[9px] text-blue-300 font-mono mb-1" id="calib-val-${index}">0dB</div>
+                    <div class="relative h-full w-full flex justify-center">
+                        <input type="range"
+                               min="-15" max="15" step="1" value="0"
+                               class="calib-slider -rotate-180"
+                               style="writing-mode: vertical-lr; direction: rtl; width: 6px;"
+                               oninput="updateCalibration(${index}, this.value)">
+                    </div>
+                `;
+                calibrationContainer.appendChild(calibDiv);
+
+                // 2. Correction Bars (G)
+                const bandDiv = document.createElement('div');
+                bandDiv.className = 'flex flex-col items-center h-full justify-end w-full max-w-[60px] group relative';
+                bandDiv.id = `band-container-${index}`;
+
+                bandDiv.innerHTML = `
+                    <div class="absolute -top-6 text-[10px] font-mono text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 bg-gray-900 px-1 rounded">
+                        <span id="gain-text-${index}">0.0</span>dB
+                    </div>
+                    <div class="h-24 w-4 md:w-5 bg-gray-900 rounded-full relative border border-gray-700 overflow-hidden shadow-inner mb-2">
+                        <div id="fill-${index}" class="fill-bar absolute bottom-0 w-full bg-gradient-to-t from-emerald-600 to-emerald-400 transition-all duration-300 ease-out opacity-90" style="height: 50%"></div>
+                        <div class="absolute top-1/2 w-full h-px bg-white/30"></div>
+                    </div>
+                    <span class="text-[9px] md:text-[10px] text-gray-400 font-bold mb-1">${freqLabel}</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" checked class="sr-only peer" onchange="toggleBand(${index}, this.checked)">
+                        <div class="w-6 h-3 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-2 after:w-2 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                `;
+                bandsContainer.appendChild(bandDiv);
+            });
+        }
+
+        function updateCalibration(index, value) {
+            bandStates[index].calibration = parseFloat(value);
+            const label = document.getElementById(`calib-val-${index}`);
+            if(label) label.textContent = (value > 0 ? '+' : '') + value + 'dB';
+        }
+
+        function toggleBand(index, isChecked) {
+            bandStates[index].enabled = isChecked;
+            const container = document.getElementById(`band-container-${index}`);
+            if (!isChecked) {
+                container.classList.add('band-disabled');
+                bandStates[index].gain = 0;
+            } else {
+                container.classList.remove('band-disabled');
+            }
+        }
+
+        // --- Audio Context Setup ---
+        async function initAudioSystem() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            filters = [];
+            EQ_BANDS.forEach(freq => {
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'peaking';
+                filter.frequency.value = freq;
+                filter.Q.value = 1.4;
+                filter.gain.value = 0;
+                filters.push(filter);
+            });
+
+            analyzerSource = audioCtx.createAnalyser();
+            analyzerMic = audioCtx.createAnalyser();
+
+            // --- WINDOWING CONFIG (Teorema del campionamento) ---
+            // Maximize fftSize for T_window > 0.5s
+            // 32768 samples @ 48kHz ~= 0.68s
+            const MAX_FFT = 32768;
+            analyzerSource.fftSize = MAX_FFT;
+            analyzerMic.fftSize = MAX_FFT;
+
+            // Disable native smoothing, we handle integration
+            analyzerSource.smoothingTimeConstant = 0;
+            analyzerMic.smoothingTimeConstant = 0;
+
+            // Alignment Delay
+            alignmentDelayNode = audioCtx.createDelay(2.0);
+            alignmentDelayNode.delayTime.value = 0.0;
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        channelCount: 1
+                    }
+                });
+                micNode = audioCtx.createMediaStreamSource(stream);
+                micNode.connect(analyzerMic);
+
+                document.getElementById('feedbackWarning').classList.remove('hidden');
+            } catch (e) {
+                alert("Microphone required for Closed-Loop Optimization.");
+                console.error(e);
+            }
+
+            drawVizLoop();
+
+            // --- OPTIMIZATION LOOP ---
+            // Hopsize 0.5s (500ms)
+            if (optimizationInterval) clearInterval(optimizationInterval);
+            optimizationInterval = setInterval(runGradientDescentStep, 500);
+        }
+
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            if (!e.target.files.length) return;
+            initBandUI();
+            await initAudioSystem();
+
+            if (sourceNode) {
+                sourceNode.stop();
+                sourceNode.disconnect();
+            }
+
+            const file = e.target.files[0];
+            const arrayBuffer = await file.arrayBuffer();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+            sourceNode = audioCtx.createBufferSource();
+            sourceNode.buffer = audioBuffer;
+            sourceNode.loop = true;
+
+            // Route 1: Source -> Delay -> Analyzer S(f)
+            // This allows us to inspect S(t-tau) to match P(t)
+            sourceNode.connect(alignmentDelayNode);
+            alignmentDelayNode.connect(analyzerSource);
+
+            // Route 2: Source -> Filters -> Speakers
+            let currentNode = sourceNode;
+            filters.forEach(filter => {
+                currentNode.connect(filter);
+                currentNode = filter;
+            });
+            currentNode.connect(audioCtx.destination);
+
+            sourceNode.start();
+            isRunning = true;
+            statusEl.textContent = "RUNNING";
+            statusEl.className = "text-xs text-emerald-400 font-mono animate-pulse";
+        });
+
+        // --- MATH HELPERS ---
+
+        function calculateRMS(timeData) {
+            let sum = 0;
+            // timeData is Float32 (-1.0 to 1.0)
+            for(let i=0; i<timeData.length; i++) {
+                sum += timeData[i] * timeData[i];
+            }
+            return Math.sqrt(sum / timeData.length);
+        }
+
+        // Simple Envelope Correlation for Sync
+        function findDelayOffset(sourceTime, micTime) {
+            let bestOffset = 0;
+            let maxCorr = -Infinity;
+            const scanLimit = 4096; // Analyze first ~85ms for sync
+            const searchRange = 1000;
+
+            // Envelope detection (Rectify)
+            const src = new Float32Array(scanLimit);
+            const mic = new Float32Array(scanLimit);
+            for(let i=0; i<scanLimit; i++) {
+                src[i] = Math.abs(sourceTime[i]);
+                mic[i] = Math.abs(micTime[i]);
+            }
+
+            for (let lag = 0; lag < searchRange; lag+=2) {
+                let sum = 0;
+                for (let i = 0; i < scanLimit - lag; i+=4) {
+                    sum += src[i] * mic[i + lag];
+                }
+                if (sum > maxCorr) {
+                    maxCorr = sum;
+                    bestOffset = lag;
+                }
+            }
+            return bestOffset;
+        }
+
+        // --- CORE ALGORITHM: GRADIENT DESCENT ---
+        function runGradientDescentStep() {
+            if (!isRunning || !audioCtx) return;
+
+            const N = analyzerSource.fftSize;
+
+            // 1. Acquire Time Domain Data (Float32 for precision)
+            const timeSource = new Float32Array(N);
+            const timeMic = new Float32Array(N);
+            analyzerSource.getFloatTimeDomainData(timeSource);
+            analyzerMic.getFloatTimeDomainData(timeMic);
+
+            // --- STEP A: SYNC (Cross Correlation) ---
+            const lagSamples = findDelayOffset(timeSource, timeMic);
+
+            if (alignmentDelayNode) {
+                const currentDelay = alignmentDelayNode.delayTime.value;
+                const frameDuration = 1 / audioCtx.sampleRate;
+                const offsetTime = lagSamples * frameDuration;
+
+                const rmsS = calculateRMS(timeSource);
+                // Adjust delay only if valid signal
+                if (rmsS > 0.01) {
+                   // Servo loop for delay
+                   const targetDelay = currentDelay + (offsetTime * 0.05);
+                   const safeDelay = Math.max(0, Math.min(2.0, targetDelay));
+                   alignmentDelayNode.delayTime.value = safeDelay;
+
+                   debugDelay.innerText = (safeDelay * 1000).toFixed(0) + "ms";
+                   syncStatusEl.innerText = "LOCKED";
+                   syncStatusEl.classList.remove('text-blue-400');
+                   syncStatusEl.classList.add('text-emerald-400');
+                } else {
+                    syncStatusEl.innerText = "NO SIGNAL";
+                }
+            }
+
+            // --- STEP B: NORMALIZATION (Energy Matching) ---
+            // Before calculating J, we must normalize overall energy so we optimize
+            // frequency response H(f), not volume gain.
+            const rmsS_full = calculateRMS(timeSource);
+            const rmsM_full = calculateRMS(timeMic);
+
+            let alpha = 1.0;
+            if (rmsM_full > 0.0001 && rmsS_full > 0.0001) {
+                alpha = rmsS_full / rmsM_full;
+            }
+            // Smooth alpha
+            smoothedNorm = smoothedNorm * 0.8 + alpha * 0.2;
+            debugNorm.innerText = smoothedNorm.toFixed(2);
+
+            // --- STEP C: FREQUENCY DOMAIN ANALYSIS ---
+            // Get Spectrum in dB (Float)
+            const freqBinCount = analyzerSource.frequencyBinCount;
+            const freqSourcedB = new Float32Array(freqBinCount);
+            const freqMicdB = new Float32Array(freqBinCount);
+
+            analyzerSource.getFloatFrequencyData(freqSourcedB);
+            analyzerMic.getFloatFrequencyData(freqMicdB);
+
+            const nyquist = audioCtx.sampleRate / 2;
+
+            // Calculate Gradient per Band
+            let gradients = new Array(EQ_BANDS.length).fill(0);
+            let activeBands = 0;
+            let sumGradients = 0;
+
+            EQ_BANDS.forEach((centerFreq, index) => {
+                // Determine bins for this band
+                const bw = centerFreq * 0.5; // Approx bandwidth
+                const startFreq = centerFreq - bw/2;
+                const endFreq = centerFreq + bw/2;
+
+                const startBin = Math.floor((startFreq / nyquist) * freqBinCount);
+                const endBin = Math.floor((endFreq / nyquist) * freqBinCount);
+
+                let bandErrorSum = 0;
+                let binCount = 0;
+
+                // Loop over bins in band
+                for (let k = startBin; k <= endBin; k++) {
+                    if (k < freqBinCount) {
+                        // 1. Convert dB to Linear Magnitude
+                        // S_lin = 10^(dB/20)
+                        const S_lin = Math.pow(10, freqSourcedB[k] / 20.0);
+                        const P_lin = Math.pow(10, freqMicdB[k] / 20.0);
+
+                        // 2. Apply Normalization to P (Mic)
+                        const P_norm = P_lin * smoothedNorm;
+
+                        // 3. Apply Mic Calibration M(f)
+                        // M(f) is provided in dB by slider. M_lin = 10^(calib/20)
+                        // Ideally P_true = P_measured / M.
+                        // In linear space: P_corrected = P_norm / 10^(calib/20)
+                        const calibdB = bandStates[index].calibration;
+                        const M_inv = Math.pow(10, -calibdB / 20.0);
+                        const P_corrected = P_norm * M_inv;
+
+                        // 4. Calculate Cost J Gradient
+                        // J = (P_corrected - S_lin)^2
+                        // grad J = 2 * (P_corrected - S_lin) * ... chain rule
+                        // We use the direct error as the gradient direction.
+                        // Error > 0 means P > S (Too loud) -> We need to reduce Gain.
+                        const error = P_corrected - S_lin;
+
+                        bandErrorSum += error;
+                        binCount++;
+                    }
+                }
+
+                if (binCount > 0) {
+                    // Average Gradient for this band
+                    const avgGrad = bandErrorSum / binCount;
+
+                    // Only update if enabled and source has energy (-60dB threshold)
+                    // Check approx dB level of source in this band
+                    const bandSourceLevel = freqSourcedB[Math.floor((startBin+endBin)/2)];
+
+                    if (masterEqEnabled && bandStates[index].enabled && bandSourceLevel > -60) {
+                        gradients[index] = avgGrad;
+                        sumGradients += avgGrad;
+                        activeBands++;
+                    }
+                }
+            });
+
+            // --- STEP D: LASSO CONSTRAINT (Zero-Mean Update) ---
+            // We require Sum(Delta Gain) = 0 to prevent volume drift.
+            // We achieve this by subtracting the mean gradient from all gradients.
+            const meanGradient = activeBands > 0 ? sumGradients / activeBands : 0;
+
+            // --- STEP E: UPDATE ---
+            EQ_BANDS.forEach((f, i) => {
+                if (masterEqEnabled && bandStates[i].enabled && gradients[i] !== 0) {
+                    // Constrained Gradient
+                    const constrainedGrad = gradients[i] - meanGradient;
+
+                    // Scaling factor for mapping linear magnitude error to dB gain
+                    // Heuristic scaling based on mu
+                    const scale = 50.0;
+
+                    // Update Gain
+                    // H(t) = H(t-1) - mu * grad
+                    bandStates[i].gain -= mu * constrainedGrad * scale;
+
+                } else if (!masterEqEnabled || !bandStates[i].enabled) {
+                    // Decay to 0
+                    bandStates[i].gain *= 0.95;
+                    if(Math.abs(bandStates[i].gain)<0.01) bandStates[i].gain = 0;
+                }
+
+                // Hard Limits
+                bandStates[i].gain = Math.max(-12, Math.min(12, bandStates[i].gain));
+
+                // Apply to Filter
+                if (filters[i]) {
+                    filters[i].gain.setTargetAtTime(bandStates[i].gain, audioCtx.currentTime, 0.4);
+                }
+
+                // Update UI
+                const fill = document.getElementById(`fill-${i}`);
+                const txt = document.getElementById(`gain-text-${i}`);
+                if (fill && txt) {
+                    const percent = 50 + (bandStates[i].gain / 24) * 100;
+                    fill.style.height = `${Math.min(100, Math.max(0, percent))}%`;
+
+                    // Color based on cut/boost
+                    const isCut = bandStates[i].gain < 0;
+                    const fromCol = isCut ? 'from-amber-600' : 'from-emerald-600';
+                    const toCol = isCut ? 'to-amber-400' : 'to-emerald-400';
+                    fill.className = `fill-bar absolute bottom-0 w-full bg-gradient-to-t ${fromCol} ${toCol} transition-all duration-300 ease-out opacity-90`;
+
+                    txt.innerText = bandStates[i].gain.toFixed(1);
+                }
+            });
+        }
+
+        // --- Visualization (Purely Cosmetic, runs @60fps) ---
+        function drawVizLoop() {
+            requestAnimationFrame(drawVizLoop);
+            if (!analyzerSource) return;
+
+            const N = analyzerSource.frequencyBinCount;
+            const dataS = new Float32Array(N);
+            const dataM = new Float32Array(N);
+            analyzerSource.getFloatFrequencyData(dataS);
+            analyzerMic.getFloatFrequencyData(dataM);
+
+            if (canvas.width !== canvas.clientWidth) {
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+            }
+            const w = canvas.width;
+            const h = canvas.height;
+
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, w, h);
+
+            const bars = 64;
+            const step = Math.floor(N / bars);
+            const barW = w / bars;
+
+            for (let i = 0; i < bars; i++) {
+                let sumS = 0, sumM = 0;
+                for (let j = 0; j < step; j++) {
+                    // Convert dB to [0,1] for drawing. Range -100dB to 0dB.
+                    const s_val = (dataS[i*step+j] + 100) / 100;
+                    const m_val = (dataM[i*step+j] + 100) / 100;
+                    sumS += Math.max(0, s_val);
+                    sumM += Math.max(0, m_val);
+                }
+                const valS = sumS / step;
+                const valM = (sumM / step); // No norm here, raw comparison
+
+                const x = i * barW;
+
+                // Draw S (Green)
+                const hS = valS * h * 0.8;
+                ctx.fillStyle = '#10b981';
+                ctx.globalAlpha = 0.4;
+                ctx.fillRect(x, h - hS, barW - 1, hS);
+
+                // Draw M (Red)
+                const hM = valM * h * 0.8;
+                ctx.fillStyle = '#ef4444';
+                ctx.globalAlpha = 0.6;
+                ctx.fillRect(x + 2, h - hM, barW - 3, hM);
+            }
+
+            // Baseline
+            ctx.globalAlpha = 1.0;
+            ctx.strokeStyle = '#333';
+            ctx.beginPath();
+            ctx.moveTo(0, h * 0.2); // -0dB line roughly
+            ctx.lineTo(w, h * 0.2);
+            ctx.stroke();
+        }
+
+        document.getElementById('adaptSpeed').addEventListener('input', (e) => {
+            mu = parseFloat(e.target.value);
+            document.getElementById('speedVal').textContent = mu.toFixed(2);
+        });
+
+        document.getElementById('toggleEqBtn').addEventListener('click', () => {
+            masterEqEnabled = !masterEqEnabled;
+            const btn = document.getElementById('toggleEqBtn');
+            const dot = btn.querySelector('div');
+
+            if (masterEqEnabled) {
+                btn.classList.add('bg-emerald-600');
+                btn.classList.remove('bg-gray-600');
+                dot.style.transform = 'translateX(0)';
+                statusEl.innerText = "ACTIVE";
+                statusEl.classList.remove('text-gray-500');
+                statusEl.classList.add('text-emerald-400');
+            } else {
+                btn.classList.remove('bg-emerald-600');
+                btn.classList.add('bg-gray-600');
+                dot.style.transform = 'translateX(-24px)';
+                statusEl.innerText = "BYPASSED";
+                statusEl.classList.add('text-gray-500');
+                statusEl.classList.remove('text-emerald-400');
+            }
+        });
+
+        initBandUI();
+
+    </script>
+</body>
+</html>

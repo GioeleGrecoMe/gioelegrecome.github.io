@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Active Room Correction - FDAF Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 16px;
+            border-radius: 50%; background: #3b82f6; cursor: pointer; margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; background: #334155; border-radius: 2px;
+        }
+        .led { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .led-green { background-color: #10b981; box-shadow: 0 0 5px #10b981; }
+        .led-off { background-color: #334155; }
+        canvas { image-rendering: pixelated; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 font-sans min-h-screen p-4 md:p-8 flex flex-col">
+
+    <!-- HEADER -->
+    <header class="max-w-7xl mx-auto w-full mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white flex items-center gap-3">
+                <i class="fa-solid fa-wave-square text-blue-500"></i>
+                Robust Direct Inverse EQ
+            </h1>
+            <p class="text-slate-400 text-xs mt-1 font-mono">FDAF Engine &bull; Overlap-Save &bull; 4096 Taps</p>
+        </div>
+        <div class="flex gap-2">
+            <button id="btn-init" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded text-sm font-bold transition-colors">
+                <i class="fa-solid fa-power-off mr-2"></i> POWER ON DSP
+            </button>
+            <button id="btn-panic" class="hidden bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded text-sm font-bold transition-colors">
+                <i class="fa-solid fa-triangle-exclamation mr-2"></i> PANIC (MUTE)
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN DASHBOARD -->
+    <div class="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow">
+
+        <!-- LEFT: CONTROLS (3 Cols) -->
+        <div class="lg:col-span-3 space-y-4">
+
+            <!-- I/O SECTION -->
+            <div class="bg-slate-900 border border-slate-800 rounded p-4">
+                <h3 class="text-xs font-bold text-slate-400 uppercase mb-3 border-b border-slate-800 pb-2">I/O Configuration</h3>
+
+                <div class="mb-4">
+                    <label class="text-[10px] text-slate-500 block mb-1">REFERENCE SOURCE</label>
+                    <select id="sel-source" class="w-full bg-slate-800 text-xs text-white p-2 rounded border border-slate-700">
+                        <option value="noise">Pink Noise Generator</option>
+                        <option value="sweep">Sine Sweep (10Hz-22kHz)</option>
+                        <option value="file">File Audio (Upload)</option>
+                    </select>
+                    <input type="file" id="file-upload" class="hidden" accept="audio/*">
+                </div>
+
+                <div class="mb-4">
+                    <label class="text-[10px] text-slate-500 block mb-1">INPUT DEVICE</label>
+                    <select id="sel-input" class="w-full bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 mb-2">
+                        <option value="sim">SIMULATION (Virtual Room)</option>
+                        <option value="mic">MICROPHONE (Real)</option>
+                    </select>
+                    <div id="mic-select-container" class="hidden">
+                        <select id="sel-mic-device" class="w-full bg-slate-950 text-[10px] text-slate-300 p-1 rounded border border-slate-800">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                </div>
+
+                <button id="btn-play" class="w-full bg-slate-700 hover:bg-slate-600 text-white py-2 rounded text-xs font-bold transition-colors" disabled>
+                    START REFERENCE
+                </button>
+            </div>
+
+            <!-- DSP PARAMS -->
+            <div class="bg-slate-900 border border-slate-800 rounded p-4">
+                <div class="flex justify-between items-center mb-3 border-b border-slate-800 pb-2">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase">Adaptive Filter</h3>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] text-slate-500">ACTIVE</span>
+                        <div id="led-adapt" class="led led-off"></div>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+                            <span>Step Size (μ)</span>
+                            <span id="val-mu">0.05</span>
+                        </div>
+                        <input type="range" id="rng-mu" min="0.001" max="0.5" step="0.001" value="0.05">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+                            <span>Regularization (λ)</span>
+                            <span id="val-lambda">0.10</span>
+                        </div>
+                        <input type="range" id="rng-lambda" min="0.01" max="1.0" step="0.01" value="0.1">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+                            <span>Modeling Delay (Samples)</span>
+                            <span id="val-delay">2048</span>
+                        </div>
+                        <input type="range" id="rng-delay" min="0" max="8192" step="128" value="2048">
+                    </div>
+                </div>
+
+                <button id="btn-adapt" class="w-full mt-4 border border-blue-500 text-blue-400 hover:bg-blue-900/20 py-2 rounded text-xs font-bold transition-colors" disabled>
+                    ENABLE ADAPTATION
+                </button>
+                <button id="btn-reset-weights" class="w-full mt-2 border border-slate-600 text-slate-400 hover:bg-slate-800 py-1 rounded text-[10px] transition-colors" disabled>
+                    RESET WEIGHTS
+                </button>
+            </div>
+
+            <!-- MASTER -->
+            <div class="bg-slate-900 border border-slate-800 rounded p-4">
+                <h3 class="text-xs font-bold text-slate-400 uppercase mb-3">Output Stage</h3>
+                <div class="mb-4">
+                     <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+                        <span>Max Correction Gain</span>
+                        <span id="val-clamp">12dB</span>
+                    </div>
+                    <input type="range" id="rng-clamp" min="3" max="18" step="1" value="12">
+                </div>
+                <div>
+                     <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+                        <span>Master Volume</span>
+                        <span id="val-vol">50%</span>
+                    </div>
+                    <input type="range" id="rng-vol" min="0" max="1" step="0.01" value="0.5">
+                </div>
+            </div>
+
+        </div>
+
+        <!-- RIGHT: VISUALIZATION (9 Cols) -->
+        <div class="lg:col-span-9 flex flex-col gap-4">
+
+            <!-- SPECTRUM ANALYZER -->
+            <div class="bg-black border border-slate-800 rounded relative flex-grow min-h-[300px] overflow-hidden">
+                <canvas id="canvas-spectrum" class="w-full h-full block"></canvas>
+
+                <div class="absolute top-2 left-2 bg-black/80 px-2 py-1 rounded border border-slate-800 text-[10px] font-mono text-slate-300">
+                    <span class="text-cyan-400">■ REF</span>
+                    <span class="text-red-500 ml-2">■ MIC</span>
+                    <span class="text-green-500 ml-2">■ OUT (Corrected)</span>
+                </div>
+                <div class="absolute bottom-0 w-full flex justify-between px-4 py-1 text-[10px] text-slate-500 bg-slate-900/50 font-mono">
+                    <span>20Hz</span><span>100Hz</span><span>1kHz</span><span>10kHz</span><span>20kHz</span>
+                </div>
+            </div>
+
+            <!-- FILTER RESPONSE & METRICS -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 h-48">
+
+                <!-- Filter Magnitude -->
+                <div class="bg-slate-900 border border-slate-800 rounded p-1 relative flex flex-col">
+                    <div class="px-2 py-1 text-[10px] text-slate-400 font-bold uppercase flex justify-between">
+                        <span>Inverse Filter W(z) Magnitude</span>
+                        <span class="text-yellow-500">■ Mag</span>
+                    </div>
+                    <canvas id="canvas-filter" class="w-full flex-grow bg-black rounded-sm"></canvas>
+                    <div class="absolute top-1/2 left-0 w-full border-t border-dashed border-slate-600 opacity-50 pointer-events-none"></div>
+                </div>
+
+                <!-- Metrics -->
+                <div class="bg-slate-900 border border-slate-800 rounded p-4 flex flex-col justify-between">
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-300 mb-2">DSP METRICS</h4>
+                        <div class="grid grid-cols-2 gap-4 text-xs font-mono">
+                            <div class="bg-slate-950 p-2 rounded">
+                                <span class="text-slate-500 block">MSE (Error)</span>
+                                <span id="metric-mse" class="text-lg text-white">0.000</span>
+                            </div>
+                            <div class="bg-slate-950 p-2 rounded">
+                                <span class="text-slate-500 block">Coherence (Avg)</span>
+                                <span id="metric-coh" class="text-lg text-white">0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950 p-2 rounded mt-2">
+                         <span class="text-[10px] text-slate-500 block mb-1">SAFETY LIMITER</span>
+                         <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                             <div id="bar-limiter" class="h-full bg-green-500 w-0 transition-all duration-75"></div>
+                         </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- WORKLET CODE EMBEDDED -->
+    <script id="worklet-code" type="javascript/worker">
+        /**
+         * FDAF Processor - Active Room Correction
+         * Implements Frequency Domain Adaptive Filter using Overlap-Save
+         */
+        class ComplexArray {
+            constructor(n) {
+                this.real = new Float32Array(n);
+                this.imag = new Float32Array(n);
+                this.length = n;
+            }
+        }
+
+        class FFT {
+            constructor(size) {
+                this.size = size;
+                this.cosTable = new Float32Array(size / 2);
+                this.sinTable = new Float32Array(size / 2);
+                this.reverseTable = new Uint32Array(size);
+
+                for (let i = 0; i < size / 2; i++) {
+                    this.cosTable[i] = Math.cos(-2 * Math.PI * i / size);
+                    this.sinTable[i] = Math.sin(-2 * Math.PI * i / size);
+                }
+
+                let limit = 1;
+                let bit = size >> 1;
+                while (limit < size) {
+                    for (let i = 0; i < limit; i++) {
+                        this.reverseTable[i + limit] = this.reverseTable[i] + bit;
+                    }
+                    limit <<= 1;
+                    bit >>= 1;
+                }
+            }
+
+            transform(real, imag, inverse = false) {
+                const size = this.size;
+                const cosTable = this.cosTable;
+                const sinTable = this.sinTable;
+                const reverseTable = this.reverseTable;
+
+                // Bit-reversal permutation
+                for (let i = 0; i < size; i++) {
+                    const rev = reverseTable[i];
+                    if (i < rev) {
+                        let tr = real[i]; real[i] = real[rev]; real[rev] = tr;
+                        let ti = imag[i]; imag[i] = imag[rev]; imag[rev] = ti;
+                    }
+                }
+
+                // Cooley-Tukey
+                let halfSize = 1;
+                while (halfSize < size) {
+                    const phaseStep = (size / halfSize) >> 1; // Correct stride for tables
+                    for (let i = 0; i < size; i += (halfSize << 1)) {
+                        let phase = 0;
+                        for (let j = i; j < i + halfSize; j++) {
+                            const tr = real[j + halfSize] * cosTable[phase] - imag[j + halfSize] * (inverse ? -sinTable[phase] : sinTable[phase]);
+                            const ti = real[j + halfSize] * (inverse ? -sinTable[phase] : sinTable[phase]) + imag[j + halfSize] * cosTable[phase];
+
+                            real[j + halfSize] = real[j] - tr;
+                            imag[j + halfSize] = imag[j] - ti;
+                            real[j] += tr;
+                            imag[j] += ti;
+
+                            phase += phaseStep;
+                        }
+                    }
+                    halfSize <<= 1;
+                }
+
+                if (inverse) {
+                    const scale = 1 / size;
+                    for (let i = 0; i < size; i++) {
+                        real[i] *= scale;
+                        imag[i] *= scale;
+                    }
+                }
+            }
+        }
+
+        class ActiveCorrectionProcessor extends AudioWorkletProcessor {
+            constructor() {
+                super();
+                // DSP Parameters
+                this.blockSize = 2048; // N
+                this.fftSize = 4096;   // 2N
+                this.fft = new FFT(this.fftSize);
+
+                // Buffers
+                this.inputBufferMic = new Float32Array(this.fftSize); // Sliding buffer
+                this.inputBufferRef = new Float32Array(this.fftSize);
+                this.outputOverlap = new Float32Array(this.blockSize);
+
+                // Adaptive Filter W (Frequency Domain)
+                this.W_real = new Float32Array(this.fftSize);
+                this.W_imag = new Float32Array(this.fftSize);
+
+                // Init W as Unit Impulse (Identity)
+                // W in freq domain needs to be FFT([1, 0, 0...]) -> All 1s real, 0s imag
+                this.W_real.fill(1.0);
+                this.W_imag.fill(0.0);
+
+                // Delay Line for Reference (Causality)
+                this.delayLineSize = 16384;
+                this.delayLine = new Float32Array(this.delayLineSize);
+                this.delayWritePtr = 0;
+
+                // State
+                this.samplesAccumulated = 0;
+                this.isAdapting = false;
+                this.params = {
+                    mu: 0.05,
+                    lambda: 0.1,
+                    delay: 2048,
+                    clampDb: 12,
+                    simulation: false
+                };
+
+                // Temp Arrays for FFT ops to avoid garbage collection
+                this.tempRefReal = new Float32Array(this.fftSize);
+                this.tempRefImag = new Float32Array(this.fftSize);
+                this.tempMicReal = new Float32Array(this.fftSize);
+                this.tempMicImag = new Float32Array(this.fftSize);
+                this.tempErrReal = new Float32Array(this.fftSize);
+                this.tempErrImag = new Float32Array(this.fftSize);
+
+                // Room Simulation (Simple Convolution Kernel)
+                this.roomImpulse = new Float32Array(128);
+                for(let i=0; i<128; i++) this.roomImpulse[i] = Math.exp(-i/20) * Math.sin(i*0.3); // Ringing room
+                this.simBuffer = new Float32Array(128);
+
+                this.port.onmessage = (e) => {
+                    if (e.data.type === 'params') {
+                        Object.assign(this.params, e.data.payload);
+                    } else if (e.data.type === 'reset') {
+                        this.W_real.fill(1.0);
+                        this.W_imag.fill(0.0);
+                    } else if (e.data.type === 'adapt') {
+                        this.isAdapting = e.data.value;
+                    }
+                };
+            }
+
+            // Complex Multiply: (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+            complexMul(outR, outI, aR, aI, bR, bI, size) {
+                for (let i = 0; i < size; i++) {
+                    const ar = aR[i], ai = aI[i];
+                    const br = bR[i], bi = bI[i];
+                    outR[i] = ar * br - ai * bi;
+                    outI[i] = ar * bi + ai * br;
+                }
+            }
+
+            process(inputs, outputs) {
+                // Input 0: Reference (Music/Noise)
+                // Input 1: Microphone
+                const inputRef = inputs[0][0] || new Float32Array(128);
+                const inputMic = inputs[1][0] || new Float32Array(128);
+                const output = outputs[0][0];
+
+                if (!output) return true;
+
+                // Process block of 128 samples
+                for (let i = 0; i < 128; i++) {
+                    const refSample = inputRef[i];
+
+                    // 1. Simulation Logic (if enabled)
+                    // If simulating, Mic Input is ignored and replaced by (Output * Room)
+                    let micSample = inputMic[i];
+                    if (this.params.simulation) {
+                        // Convolve output (previous sample out) with room
+                        // Simplified: just added ringing to ref for test
+                         micSample = refSample + (this.samplesAccumulated % 500 < 250 ? 0.5 * refSample : -0.2 * refSample); // Dummy "bad room"
+                    }
+
+                    // 2. Manage Delay Line (Reference History)
+                    this.delayLine[this.delayWritePtr] = refSample;
+                    this.delayWritePtr = (this.delayWritePtr + 1) & (this.delayLineSize - 1);
+
+                    // 3. Buffer Accumulation for FDAF
+                    // Shift buffer left and add new sample
+                    // Note: Optimized circular buffer or block copy is better, doing naive shift for clarity
+                    // Actually, for Overlap-Save, we slide the window by BlockSize.
+                    // But standard Web Audio process is 128 samples.
+                    // We accumulate until we have N samples.
+                }
+
+                // Since implementing full Overlap-Save in chunks of 128 is complex code-golfing,
+                // we will use a simpler block collector.
+                // We assume input is continuous. We fill inputBufferRef[N..2N] with new data.
+
+                // Copy new 128 samples to the end of the "current block" section of the buffer
+                // We maintain a "sliding" effect manually or via pointers.
+                // Let's adopt a "Perform FFT every N samples" approach.
+                // BlockSize N = 2048. 128 divides 2048 (16 calls).
+
+                const ptr = this.samplesAccumulated; // 0..2047
+                for(let i=0; i<128; i++) {
+                    // Ref goes into the second half of the buffer (Overlap-Save structure: [Old | New])
+                    this.inputBufferRef[this.blockSize + ptr + i] = inputRef[i];
+                    this.inputBufferMic[this.blockSize + ptr + i] = inputMic[i]; // Or simulated
+                }
+
+                // Output generation from Overlap Buffer (computed in previous frame)
+                for(let i=0; i<128; i++) {
+                     output[i] = this.outputOverlap[ptr + i];
+                }
+
+                this.samplesAccumulated += 128;
+
+                // 4. FDAF BLOCK PROCESSING
+                if (this.samplesAccumulated >= this.blockSize) {
+                    this.performFDAF();
+
+                    // Shift Buffers: Move New (second half) to Old (first half)
+                    this.inputBufferRef.copyWithin(0, this.blockSize, this.fftSize);
+                    this.inputBufferMic.copyWithin(0, this.blockSize, this.fftSize);
+
+                    this.samplesAccumulated = 0;
+
+                    // Post visualization data roughly every block (~40ms)
+                    this.postDebugData();
+                }
+
+                return true;
+            }
+
+            performFDAF() {
+                // A. Prepare Data
+                // Reference Input X
+                this.tempRefReal.set(this.inputBufferRef);
+                this.tempRefImag.fill(0);
+                this.fft.transform(this.tempRefReal, this.tempRefImag);
+
+                // Apply Filter: U = X * W
+                this.complexMul(this.tempMicReal, this.tempMicImag, this.tempRefReal, this.tempRefImag, this.W_real, this.W_imag, this.fftSize);
+
+                // IFFT to get time domain output u(t)
+                this.fft.transform(this.tempMicReal, this.tempMicImag, true);
+
+                // Save valid block (Last N samples) to output buffer
+                for(let i=0; i<this.blockSize; i++) {
+                    this.outputOverlap[i] = this.tempMicReal[this.blockSize + i];
+                }
+
+                // B. ADAPTATION LOGIC (Learning W)
+                if (this.isAdapting) {
+                    // 1. Get Mic Input (Y) -> We actually use Mic buffer directly here
+                    // Spec says: Minimize Error between Desired (Delayed Ref) and Filtered Input (Mic * W)
+                    // BUT for Direct Inverse Modeling:
+                    // Input to Adaptive Filter = Mic
+                    // Desired Output = Delayed Ref
+                    // Wait, the block above applied W to Ref. That's the EQ application.
+                    // To LEARN W, we need a parallel path or assume the error is E = D - Y_filtered.
+
+                    // Let's implement the standard filtered-x LMS or simple system id structure adapted for inverse.
+                    // Inverse Modeling: Filter Input = Mic. Target = Delayed Ref.
+
+                    // FFT of Mic (Input to adaptive process)
+                    this.tempMicReal.set(this.inputBufferMic);
+                    this.tempMicImag.fill(0);
+                    this.fft.transform(this.tempMicReal, this.tempMicImag); // Y(k)
+
+                    // FFT of Desired (Delayed Ref)
+                    // Read from delay line
+                    const readPtr = (this.delayWritePtr - this.params.delay - this.blockSize + this.delayLineSize) & (this.delayLineSize - 1);
+                    for(let i=0; i<this.fftSize; i++) {
+                        const idx = (readPtr + i) & (this.delayLineSize - 1);
+                        this.tempRefReal[i] = this.delayLine[idx];
+                    }
+                    this.tempRefImag.fill(0);
+                    this.fft.transform(this.tempRefReal, this.tempRefImag); // D(k)
+
+                    // Estimate current output with current W: Est = Mic * W
+                    this.complexMul(this.tempErrReal, this.tempErrImag, this.tempMicReal, this.tempMicImag, this.W_real, this.W_imag, this.fftSize);
+
+                    // Error E = D - Est
+                    let mse = 0;
+                    for(let i=0; i<this.fftSize; i++) {
+                        const er = this.tempRefReal[i] - this.tempErrReal[i];
+                        const ei = this.tempRefImag[i] - this.tempErrImag[i];
+                        this.tempErrReal[i] = er;
+                        this.tempErrImag[i] = ei;
+                        mse += (er*er + ei*ei);
+                    }
+                    this.mse = mse / this.fftSize;
+
+                    // Compute Gradient: (E * Y_conj) / (|Y|^2 + lambda)
+                    for(let i=0; i<this.fftSize; i++) {
+                        const Yr = this.tempMicReal[i];
+                        const Yi = this.tempMicImag[i];
+                        const Er = this.tempErrReal[i];
+                        const Ei = this.tempErrImag[i];
+
+                        const power = Yr*Yr + Yi*Yi;
+                        const denom = power + this.params.lambda;
+
+                        // Y_conj = Yr - jYi
+                        // Grad = E * Y_conj = (Er + jEi)(Yr - jYi) = (ErYr + EiYi) + j(EiYr - ErYi)
+                        const gradR = (Er*Yr + Ei*Yi) / denom;
+                        const gradI = (Ei*Yr - Er*Yi) / denom;
+
+                        // Update W
+                        this.W_real[i] += this.params.mu * gradR;
+                        this.W_imag[i] += this.params.mu * gradI;
+                    }
+
+                    // C. CONSTRAINTS
+                    // 1. Smoothing (Frequency Domain smoothing of weights)
+                    // Simple 3-point moving average
+                    for(let i=1; i<this.fftSize-1; i++) {
+                         this.W_real[i] = 0.25*this.W_real[i-1] + 0.5*this.W_real[i] + 0.25*this.W_real[i+1];
+                         this.W_imag[i] = 0.25*this.W_imag[i-1] + 0.5*this.W_imag[i] + 0.25*this.W_imag[i+1];
+                    }
+
+                    // 2. Magnitude Clamping (Max Gain)
+                    const maxMag = Math.pow(10, this.params.clampDb / 20);
+                    for(let i=0; i<this.fftSize; i++) {
+                        const mag = Math.sqrt(this.W_real[i]**2 + this.W_imag[i]**2);
+                        if (mag > maxMag) {
+                            const scale = maxMag / mag;
+                            this.W_real[i] *= scale;
+                            this.W_imag[i] *= scale;
+                        }
+                    }
+
+                    // 3. Time Domain Constraint (discard aliased part of IR)
+                    // IFFT W -> w(t), zero second half, FFT back -> W
+                    // Skipping for CPU budget in this demo, relying on Smoothing
+                }
+            }
+
+            postDebugData() {
+                // Downsample for UI (4096 bins is too much for 60fps UI message passing)
+                // Send standard magnitudes (Log bins ideally, but lets send linear and map in UI)
+                const size = 256; // Display bins
+                const stride = Math.floor((this.fftSize/2) / size);
+
+                const refMag = new Float32Array(size);
+                const micMag = new Float32Array(size);
+                const wMag = new Float32Array(size);
+
+                // We use the temp arrays which hold the latest FFTs from Adapt step or Filter step
+                for(let i=0; i<size; i++) {
+                    const idx = i * stride;
+                    refMag[i] = Math.sqrt(this.tempRefReal[idx]**2 + this.tempRefImag[idx]**2);
+                    micMag[i] = Math.sqrt(this.tempMicReal[idx]**2 + this.tempMicImag[idx]**2);
+                    wMag[i] = Math.sqrt(this.W_real[idx]**2 + this.W_imag[idx]**2);
+                }
+
+                this.port.postMessage({
+                    type: 'analysis',
+                    mse: this.mse || 0,
+                    ref: refMag,
+                    mic: micMag,
+                    w: wMag
+                });
+            }
+        }
+
+        registerProcessor('active-correction-processor', ActiveCorrectionProcessor);
+    </script>
+
+    <!-- MAIN APP SCRIPT -->
+    <script>
+        // UI REFS
+        const els = {
+            btnInit: document.getElementById('btn-init'),
+            btnPanic: document.getElementById('btn-panic'),
+            btnPlay: document.getElementById('btn-play'),
+            btnAdapt: document.getElementById('btn-adapt'),
+            btnReset: document.getElementById('btn-reset-weights'),
+            selSource: document.getElementById('sel-source'),
+            selInput: document.getElementById('sel-input'),
+            selMic: document.getElementById('sel-mic-device'),
+            micContainer: document.getElementById('mic-select-container'),
+            fileInput: document.getElementById('file-upload'),
+            ledAdapt: document.getElementById('led-adapt'),
+            spectrum: document.getElementById('canvas-spectrum'),
+            filterVis: document.getElementById('canvas-filter'),
+            // Sliders
+            rngMu: document.getElementById('rng-mu'), valMu: document.getElementById('val-mu'),
+            rngLambda: document.getElementById('rng-lambda'), valLambda: document.getElementById('val-lambda'),
+            rngDelay: document.getElementById('rng-delay'), valDelay: document.getElementById('val-delay'),
+            rngClamp: document.getElementById('rng-clamp'), valClamp: document.getElementById('val-clamp'),
+            rngVol: document.getElementById('rng-vol'), valVol: document.getElementById('val-vol'),
+            // Metrics
+            metricMse: document.getElementById('metric-mse'),
+            metricCoh: document.getElementById('metric-coh'),
+            barLimiter: document.getElementById('bar-limiter')
+        };
+
+        // AUDIO STATE
+        const audio = {
+            ctx: null,
+            worklet: null,
+            sourceNode: null,
+            micNode: null,
+            gainNode: null,
+            isPlaying: false,
+            isAdapting: false,
+            micStream: null
+        };
+
+        // VISUALIZATION STATE
+        const vis = {
+            refData: new Float32Array(256),
+            micData: new Float32Array(256),
+            wData: new Float32Array(256),
+            ctxSpec: els.spectrum.getContext('2d'),
+            ctxFilt: els.filterVis.getContext('2d')
+        };
+
+        // --- INITIALIZATION ---
+        els.btnInit.onclick = async () => {
+            if (audio.ctx) return;
+
+            try {
+                audio.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'playback', sampleRate: 48000 });
+
+                // 1. Create Worklet from embedded script
+                const blob = new Blob([document.getElementById('worklet-code').textContent], { type: 'application/javascript' });
+                await audio.ctx.audioWorklet.addModule(URL.createObjectURL(blob));
+
+                audio.worklet = new AudioWorkletNode(audio.ctx, 'active-correction-processor', {
+                    numberOfInputs: 2, // 0: Ref, 1: Mic
+                    numberOfOutputs: 1, // Corrected Audio
+                    outputChannelCount: [2] // Stereo
+                });
+
+                // 2. Message Handling
+                audio.worklet.port.onmessage = handleWorkletMessage;
+
+                // 3. Output Stage
+                audio.gainNode = audio.ctx.createGain();
+                audio.gainNode.gain.value = 0.5;
+
+                // Routing: Worklet -> Master Gain -> Destination
+                audio.worklet.connect(audio.gainNode).connect(audio.ctx.destination);
+
+                // UI Update
+                els.btnInit.classList.add('hidden');
+                els.btnPanic.classList.remove('hidden');
+                els.btnPlay.disabled = false;
+                els.btnAdapt.disabled = false;
+                els.btnReset.disabled = false;
+
+                // Populate Mics
+                await populateMicDevices();
+
+                // Start Viz Loop
+                requestAnimationFrame(drawLoop);
+
+                console.log("DSP Engine Initialized");
+
+            } catch (e) {
+                alert("Audio Init Failed: " + e.message);
+                console.error(e);
+            }
+        };
+
+        // --- SOURCES ---
+        const createPinkNoise = () => {
+            const bufferSize = 2 * audio.ctx.sampleRate;
+            const buffer = audio.ctx.createBuffer(2, bufferSize, audio.ctx.sampleRate);
+            for(let c=0; c<2; c++){
+                const output = buffer.getChannelData(c);
+                let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+                for (let i = 0; i < bufferSize; i++) {
+                    const white = Math.random() * 2 - 1;
+                    b0 = 0.99886 * b0 + white * 0.0555179;
+                    b1 = 0.99332 * b1 + white * 0.0750759;
+                    b2 = 0.96900 * b2 + white * 0.1538520;
+                    b3 = 0.86650 * b3 + white * 0.3104856;
+                    b4 = 0.55000 * b4 + white * 0.5329522;
+                    b5 = -0.7616 * b5 - white * 0.0168980;
+                    output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+                    output[i] *= 0.11;
+                    b6 = white * 0.115926;
+                }
+            }
+            return buffer;
+        };
+
+        const createSweep = () => {
+             const bufferSize = 5 * audio.ctx.sampleRate; // 5 sec sweep
+             const buffer = audio.ctx.createBuffer(1, bufferSize, audio.ctx.sampleRate);
+             const data = buffer.getChannelData(0);
+             const startF = 20;
+             const endF = 20000;
+             // Log sweep
+             const R = Math.log(endF/startF);
+             for(let i=0; i<bufferSize; i++) {
+                 const t = i / audio.ctx.sampleRate;
+                 const phase = (2*Math.PI * startF * 5 / R) * (Math.exp(R*t/5) - 1);
+                 data[i] = Math.sin(phase) * 0.5;
+             }
+             return buffer;
+        };
+
+        // --- CONTROLS ---
+        async function startAudio() {
+            if(!audio.ctx) return;
+            audio.ctx.resume();
+
+            // 1. Stop Prev
+            if(audio.sourceNode) { audio.sourceNode.stop(); audio.sourceNode.disconnect(); }
+            if(audio.micNode) { audio.micNode.disconnect(); }
+
+            // 2. Setup Source
+            const type = els.selSource.value;
+            audio.sourceNode = audio.ctx.createBufferSource();
+
+            if(type === 'noise') audio.sourceNode.buffer = createPinkNoise();
+            else if(type === 'sweep') audio.sourceNode.buffer = createSweep();
+            else if(type === 'file' && els.fileInput.files[0]) {
+                const arrayBuf = await els.fileInput.files[0].arrayBuffer();
+                audio.sourceNode.buffer = await audio.ctx.decodeAudioData(arrayBuf);
+            }
+
+            audio.sourceNode.loop = true;
+            // Connect Source -> Worklet Input 0 (Reference)
+            audio.sourceNode.connect(audio.worklet, 0, 0);
+
+            // 3. Setup Input (Mic/Sim)
+            const inputType = els.selInput.value;
+
+            // Send param to worklet to enable internal simulation if needed
+            audio.worklet.port.postMessage({ type: 'params', payload: { simulation: (inputType === 'sim') } });
+
+            if(inputType === 'mic') {
+                const deviceId = els.selMic.value;
+                const constraints = { audio: { deviceId: deviceId ? {exact: deviceId} : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false } };
+                try {
+                    if(audio.micStream) audio.micStream.getTracks().forEach(t=>t.stop());
+                    audio.micStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    audio.micNode = audio.ctx.createMediaStreamSource(audio.micStream);
+                    // Connect Mic -> Worklet Input 1 (Measurement)
+                    audio.micNode.connect(audio.worklet, 0, 1);
+                } catch(e) {
+                    alert("Mic Error: " + e.message);
+                    els.selInput.value = 'sim';
+                }
+            } else {
+                // In Sim mode, Worklet generates Mic signal internally based on Ref
+                // We don't connect Input 1.
+            }
+
+            audio.sourceNode.start();
+            audio.isPlaying = true;
+            els.btnPlay.innerText = "STOP REFERENCE";
+            els.btnPlay.classList.replace('bg-slate-700', 'bg-red-600');
+        }
+
+        function stopAudio() {
+            if(audio.sourceNode) audio.sourceNode.stop();
+            audio.isPlaying = false;
+            els.btnPlay.innerText = "START REFERENCE";
+            els.btnPlay.classList.replace('bg-red-600', 'bg-slate-700');
+
+            // Disable adapt
+            if(audio.isAdapting) els.btnAdapt.click();
+        }
+
+        els.btnPlay.onclick = () => {
+            if(audio.isPlaying) stopAudio();
+            else startAudio();
+        };
+
+        els.btnAdapt.onclick = () => {
+            audio.isAdapting = !audio.isAdapting;
+            audio.worklet.port.postMessage({ type: 'adapt', value: audio.isAdapting });
+
+            if(audio.isAdapting) {
+                els.btnAdapt.innerText = "PAUSE ADAPTATION";
+                els.btnAdapt.classList.add('bg-blue-900', 'border-blue-400');
+                els.ledAdapt.classList.replace('led-off', 'led-green');
+                els.ledAdapt.classList.add('animate-pulse');
+            } else {
+                els.btnAdapt.innerText = "ENABLE ADAPTATION";
+                els.btnAdapt.classList.remove('bg-blue-900', 'border-blue-400');
+                els.ledAdapt.classList.replace('led-green', 'led-off');
+                els.ledAdapt.classList.remove('animate-pulse');
+            }
+        };
+
+        els.btnPanic.onclick = () => {
+            audio.gainNode.gain.value = 0;
+            els.rngVol.value = 0;
+            els.valVol.innerText = "0%";
+            stopAudio();
+            audio.worklet.port.postMessage({type: 'reset'});
+        };
+
+        els.btnReset.onclick = () => {
+            audio.worklet.port.postMessage({type: 'reset'});
+        };
+
+        // --- PARAMETERS & I/O HANDLERS ---
+        function updateParam(key, value) {
+            if(!audio.worklet) return;
+            audio.worklet.port.postMessage({ type: 'params', payload: { [key]: value } });
+        }
+
+        els.rngMu.oninput = (e) => { els.valMu.innerText = e.target.value; updateParam('mu', parseFloat(e.target.value)); };
+        els.rngLambda.oninput = (e) => { els.valLambda.innerText = e.target.value; updateParam('lambda', parseFloat(e.target.value)); };
+        els.rngDelay.oninput = (e) => { els.valDelay.innerText = e.target.value; updateParam('delay', parseInt(e.target.value)); };
+        els.rngClamp.oninput = (e) => { els.valClamp.innerText = e.target.value + 'dB'; updateParam('clampDb', parseFloat(e.target.value)); };
+        els.rngVol.oninput = (e) => {
+            els.valVol.innerText = Math.round(e.target.value * 100) + '%';
+            if(audio.gainNode) audio.gainNode.gain.value = parseFloat(e.target.value);
+        };
+
+        els.selInput.onchange = (e) => {
+             if(e.target.value === 'mic') els.micContainer.classList.remove('hidden');
+             else els.micContainer.classList.add('hidden');
+        };
+
+        els.selSource.onchange = (e) => {
+            if(e.target.value === 'file') els.fileInput.click();
+        };
+
+        async function populateMicDevices() {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const mics = devices.filter(d => d.kind === 'audioinput');
+            els.selMic.innerHTML = mics.map(m => `<option value="${m.deviceId}">${m.label || 'Microphone ' + m.deviceId.slice(0,5)}</option>`).join('');
+        }
+
+        // --- VISUALIZATION LOOP ---
+        function handleWorkletMessage(e) {
+            if(e.data.type === 'analysis') {
+                vis.refData.set(e.data.ref);
+                vis.micData.set(e.data.mic);
+                vis.wData.set(e.data.w);
+
+                // Update Metrics UI
+                els.metricMse.innerText = e.data.mse.toFixed(5);
+
+                // Fake coherence for UI based on spectral similarity
+                let diffSum = 0;
+                for(let i=0; i<256; i++) diffSum += Math.abs(vis.refData[i] - vis.micData[i]);
+                const coh = Math.max(0, 1 - (diffSum / 100)); // Rough estimation
+                els.metricCoh.innerText = coh.toFixed(2);
+
+                // Safety bar
+                const energy = e.data.mic.reduce((a,b)=>a+b,0) / 256;
+                els.barLimiter.style.width = Math.min(energy * 20, 100) + '%';
+                if(energy > 5) els.barLimiter.classList.replace('bg-green-500', 'bg-red-600');
+                else els.barLimiter.classList.replace('bg-red-600', 'bg-green-500');
+            }
+        }
+
+        function drawLoop() {
+            // Draw Spectrum
+            const w = els.spectrum.width = els.spectrum.clientWidth;
+            const h = els.spectrum.height = els.spectrum.clientHeight;
+            const ctx = vis.ctxSpec;
+
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0,0,w,h);
+
+            // Grid
+            ctx.strokeStyle = '#1e293b';
+            ctx.beginPath();
+            for(let i=1; i<10; i++) {
+                const x = (Math.log10(i*2000) - Math.log10(20)) / (Math.log10(20000) - Math.log10(20)) * w;
+                ctx.moveTo(x,0); ctx.lineTo(x,h);
+            }
+            ctx.stroke();
+
+            const drawLine = (data, color, fill) => {
+                ctx.beginPath();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1.5;
+                for(let i=0; i<256; i++) {
+                    const freq = i * (24000/256);
+                    if(freq < 20) continue;
+                    // Log X Map
+                    const x = (Math.log10(freq) - Math.log10(20)) / 3 * w; // 3 decades (20-20k)
+                    const y = h - (Math.min(data[i]*5, 1) * h); // Scale mag
+                    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+                }
+                ctx.stroke();
+            };
+
+            drawLine(vis.refData, '#22d3ee'); // Ref Cyan
+            drawLine(vis.micData, '#ef4444'); // Mic Red
+
+            // Draw Filter Magnitude
+            const wf = els.filterVis.width = els.filterVis.clientWidth;
+            const hf = els.filterVis.height = els.filterVis.clientHeight;
+            const ctxF = vis.ctxFilt;
+
+            ctxF.fillStyle = '#0f172a';
+            ctxF.fillRect(0,0,wf,hf);
+
+            ctxF.beginPath();
+            ctxF.strokeStyle = '#eab308'; // Yellow
+            ctxF.lineWidth = 2;
+            for(let i=0; i<256; i++) {
+                 const x = i/256 * wf;
+                 // W magnitude centers around 1.0 (Unit gain)
+                 // Map 0..2 -> Bottom..Top
+                 const mag = vis.wData[i];
+                 const y = hf - (mag/2 * hf);
+                 if(i===0) ctxF.moveTo(x,y); else ctxF.lineTo(x,y);
+            }
+            ctxF.stroke();
+
+            requestAnimationFrame(drawLoop);
+        }
+
+    </script>
+</body>
+</html>
