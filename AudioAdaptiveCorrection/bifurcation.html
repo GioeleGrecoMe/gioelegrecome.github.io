@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics of Musical Instruments - Advanced Slides</title>
+
+    <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent-blue: #3498db;
+            --accent-red: #e74c3c;
+            --bg-color: #ecf0f1;
+            --text-color: #34495e;
+            --slide-bg: #ffffff;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* CONTAINER PRINCIPALE */
+        .slide-deck {
+            width: 1280px;
+            height: 720px;
+            background-color: var(--slide-bg);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* HEADER & FOOTER */
+        header {
+            background: linear-gradient(to right, #2c3e50, #34495e);
+            color: white;
+            padding: 20px 40px;
+            height: 15%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+        h1 { margin: 0; font-size: 36px; font-weight: 300; letter-spacing: 1px; }
+        h2 { margin: 5px 0 0 0; font-size: 18px; color: #bdc3c7; font-weight: 400; text-transform: uppercase; }
+
+        footer {
+            height: 8%;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 40px;
+            font-size: 12px;
+            color: #95a5a6;
+            background-color: #fcfcfc;
+        }
+
+        /* SLIDE CONTENT AREA */
+        .slide-content {
+            height: 77%;
+            display: none; /* Hidden by default */
+            padding: 40px;
+            box-sizing: border-box;
+            grid-template-columns: 55% 45%;
+            gap: 40px;
+            opacity: 0;
+            transition: opacity 0.4s ease-in-out;
+        }
+
+        .active {
+            display: grid;
+            opacity: 1;
+        }
+
+        /* LEFT COLUMN (PLOTS) */
+        .visual-container {
+            background-color: #fdfdfd;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.02);
+        }
+
+        svg {
+            width: 95%;
+            height: 95%;
+            overflow: visible;
+        }
+
+        /* RIGHT COLUMN (TEXT) */
+        .text-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            font-size: 18px;
+            line-height: 1.6;
+            color: var(--text-color);
+        }
+
+        .latex-box {
+            background-color: #e8f6f3;
+            border-left: 5px solid #1abc9c;
+            padding: 15px;
+            margin-bottom: 25px;
+            font-size: 20px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        ul { padding-left: 20px; }
+        li { margin-bottom: 15px; }
+        strong { color: var(--primary); font-weight: 600; }
+
+        /* SVG STYLING CLASSIC */
+        .axis { stroke: #7f8c8d; stroke-width: 2; }
+        .grid { stroke: #ecf0f1; stroke-width: 1; }
+        .label { fill: #7f8c8d; font-size: 12px; font-family: sans-serif; }
+
+        .curve-up { fill: none; stroke: var(--accent-blue); stroke-width: 4; stroke-linecap: round; }
+        .curve-down { fill: none; stroke: var(--accent-red); stroke-width: 3; stroke-dasharray: 6,4; }
+        .hysteresis-area { fill: rgba(52, 152, 219, 0.1); }
+
+        /* BUTTONS */
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #34495e; }
+        button:disabled { background-color: #bdc3c7; cursor: default; }
+
+        /* Slide 2 Specifics */
+        .mech-box {
+            stroke: #34495e; stroke-width: 2; fill: #ecf0f1;
+        }
+        .spring {
+            fill: none; stroke: #34495e; stroke-width: 2;
+        }
+    </style>
+</head>
+<body>
+
+<div class="slide-deck">
+
+    <header>
+        <h1 id="slide-title">The Bifurcation Diagram</h1>
+        <h2 id="slide-subtitle">Nonlinear Dynamics in Musical Acoustics</h2>
+    </header>
+
+    <div class="slide-content active" id="slide1">
+        <div class="visual-container">
+            <svg viewBox="0 0 500 350">
+                <line x1="50" y1="50" x2="450" y2="50" class="grid"/>
+                <line x1="50" y1="150" x2="450" y2="150" class="grid"/>
+                <line x1="50" y1="250" x2="450" y2="250" class="grid"/>
+
+                <path d="M 220 150 Q 250 50 450 40 L 450 260 Q 250 250 220 150 Z" class="hysteresis-area" />
+
+                <line x1="50" y1="300" x2="50" y2="20" class="axis" marker-end="url(#arrow)"/>
+                <line x1="50" y1="150" x2="480" y2="150" class="axis" marker-end="url(#arrow)"/>
+
+                <text x="400" y="320" class="label" style="font-size:14px; font-weight:bold;">$P_{mouth}$ (Blowing Pressure)</text>
+                <text x="-200" y="30" transform="rotate(-90)" class="label" style="font-size:14px; font-weight:bold;">$P_{acoustic}$ (Amplitude)</text>
+
+                <line x1="50" y1="150" x2="300" y2="150" stroke="#34495e" stroke-width="2" opacity="0.5"/>
+
+                <path d="M 300 150 Q 350 40 450 40" class="curve-up" />
+                <path d="M 300 150 Q 350 260 450 260" class="curve-up" />
+                <circle cx="300" cy="150" r="6" fill="#3498db" />
+
+                <path d="M 450 35 Q 350 35 220 150" class="curve-down" />
+                <path d="M 450 265 Q 350 265 220 150" class="curve-down" />
+                <circle cx="220" cy="150" r="6" fill="#e74c3c" />
+
+                <text x="310" y="140" fill="#3498db" font-weight="bold" font-size="14">Hopf Bifurcation</text>
+                <text x="140" y="170" fill="#e74c3c" font-weight="bold" font-size="14">Extinction Point</text>
+                <text x="280" y="80" fill="#7f8c8d" font-size="12">Hysteresis Loop</text>
+            </svg>
+        </div>
+        <div class="text-container">
+            <h3>Reading the Map</h3>
+            <ul>
+                <li><strong>Control Parameter ($P_{mouth}$):</strong> Energy input. As we move right, we blow harder.</li>
+                <li><strong>State Variable ($P_{rms}$):</strong> The "Loudness". A value of 0 means silence (equilibrium).</li>
+                <li><strong>The Fork (Bifurcation):</strong> At a critical pressure, the silent solution becomes unstable. The system jumps to a "Limit Cycle" (the blue branches).</li>
+                <li><strong>Hysteresis:</strong> Note the difference between the <span style="color:#3498db">Blue Dot (Start)</span> and the <span style="color:#e74c3c">Red Dot (Stop)</span>. Once the reed is vibrating, it's easier to keep it going than to start it.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="slide-content" id="slide2">
+        <div class="visual-container">
+            <svg viewBox="0 0 500 400">
+                <text x="20" y="30" class="label" font-weight="bold">1. Mechanical Equivalent (1-DOF)</text>
+
+                <rect x="50" y="50" width="10" height="100" fill="#bdc3c7"/>
+
+                <path d="M 60 70 L 90 60 L 110 80 L 130 60 L 150 80 L 170 60 L 200 70" fill="none" stroke="#2c3e50" stroke-width="2"/>
+                <text x="110" y="50" class="label" fill="#2c3e50">$K$ (Stiffness)</text>
+
+                <line x1="60" y1="130" x2="120" y2="130" stroke="#2c3e50" stroke-width="2"/>
+                <rect x="120" y="120" width="40" height="20" stroke="#2c3e50" fill="none"/>
+                <line x1="160" y1="130" x2="200" y2="130" stroke="#2c3e50" stroke-width="2"/>
+                <text x="110" y="160" class="label" fill="#2c3e50">$R$ (Damping)</text>
+
+                <rect x="200" y="60" width="80" height="80" class="mech-box"/>
+                <text x="240" y="105" text-anchor="middle" font-size="18" fill="#2c3e50">$M$</text>
+
+                <line x1="300" y1="100" x2="350" y2="100" stroke="#e74c3c" stroke-width="3" marker-end="url(#arrow-red)"/>
+                <text x="360" y="105" fill="#e74c3c" font-size="14">$\Delta P \cdot S$</text>
+
+                <text x="20" y="220" class="label" font-weight="bold">2. Frequency Response & Regimes</text>
+
+                <line x1="50" y1="380" x2="450" y2="380" class="axis"/>
+                <line x1="50" y1="380" x2="50" y2="230" class="axis"/>
+
+                <path d="M 50 370 Q 200 370 250 250 Q 300 370 450 375" fill="none" stroke="#34495e" stroke-width="3"/>
+                <line x1="250" y1="380" x2="250" y2="250" stroke="#95a5a6" stroke-dasharray="4,4"/>
+                <text x="240" y="395" class="label">$\omega_r$ (Resonance)</text>
+
+                <rect x="60" y="280" width="160" height="90" fill="green" opacity="0.1"/>
+                <text x="70" y="300" fill="green" font-size="12" font-weight="bold">Woodwinds (Clarinet)</text>
+                <text x="70" y="320" fill="green" font-size="10">$\omega < \omega_r$ (Stiffness controlled)</text>
+
+                <rect x="280" y="280" width="160" height="90" fill="orange" opacity="0.1"/>
+                <text x="290" y="300" fill="#d35400" font-size="12" font-weight="bold">Brass (Trumpet)</text>
+                <text x="290" y="320" fill="#d35400" font-size="10">$\omega > \omega_r$ (Mass controlled)</text>
+
+            </svg>
+        </div>
+        <div class="text-container">
+            <div class="latex-box">
+                $$ M\ddot{x} + R\dot{x} + Kx = \Delta P(t) \cdot S_{reed} $$
+            </div>
+            <ul>
+                <li><strong>Mass ($M$):</strong> Represents the inertia of the reed or lips.</li>
+                <li><strong>Stiffness ($K$):</strong> Represents the elasticity (how hard it is to bend).</li>
+                <li><strong>The Rule of Thumb:</strong>
+                    <ul>
+                        <li><strong style="color:green">Inward Striking (Reeds):</strong> The playing frequency is <em>below</em> the reed's natural frequency ($\omega < \omega_r$). The motion is controlled by stiffness ($K$).</li>
+                        <li><strong style="color:#d35400">Outward Striking (Lips):</strong> The playing frequency is <em>above</em> the lip's natural resonance ($\omega > \omega_r$). The motion is controlled by inertia ($M$).</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <footer>
+        <span>MATLAB Simulation Module v2.0</span>
+        <div class="controls">
+            <button id="btnPrev" onclick="changeSlide(-1)" disabled>Previous</button>
+            <button id="btnNext" onclick="changeSlide(1)">Next</button>
+        </div>
+    </footer>
+
+</div>
+
+<script>
+    let currentSlide = 1;
+    const totalSlides = 2;
+    const titles = ["The Bifurcation Diagram", "Mechanical Parameters (1-DOF)"];
+    const subs = ["Nonlinear Dynamics in Musical Acoustics", "Modelling the Valve: Mass, Stiffness, Damping"];
+
+    function changeSlide(dir) {
+        // Remove active class
+        document.getElementById(`slide${currentSlide}`).classList.remove('active');
+
+        currentSlide += dir;
+
+        // Add active class
+        document.getElementById(`slide${currentSlide}`).classList.add('active');
+
+        // Update Header
+        document.getElementById('slide-title').innerText = titles[currentSlide-1];
+        document.getElementById('slide-subtitle').innerText = subs[currentSlide-1];
+
+        // Update Buttons
+        document.getElementById('btnPrev').disabled = (currentSlide === 1);
+        document.getElementById('btnNext').disabled = (currentSlide === totalSlides);
+
+        // Retrigger MathJax if needed (rarely needed with V3 dynamic, but good practice)
+        if(window.MathJax) {
+            MathJax.typesetPromise();
+        }
+    }
+</script>
+
+</body>
+</html>
