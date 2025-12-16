@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Twin Dungeons Online - Coop Firebase (Mobile Ready)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <style>
+    :root {
+      --accent: #ffb347;
+      --accent-2: #63f6ff;
+      --bg-dark: #050616;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: radial-gradient(circle at top, #1b1b46 0, #050616 60%, #000 100%);
+      color: #f5f7ff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .game-shell {
+      width: min(1100px, 96vw);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-bottom: 8px;
+    }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 10px 14px;
+      background: rgba(5, 8, 30, 0.85);
+      border-radius: 16px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(12px);
+      gap: 8px;
+    }
+    .logo {
+      font-weight: 800;
+      font-size: 20px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .logo span {
+      color: var(--accent);
+    }
+    .subtitle {
+      font-size: 12px;
+      opacity: 0.85;
+    }
+    .room-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .room-controls input {
+      background: rgba(8, 12, 40, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: #fff;
+      font-size: 12px;
+      min-width: 120px;
+    }
+    .room-controls input::placeholder {
+      color: rgba(255, 255, 255, 0.45);
+    }
+    .room-controls button {
+      border-radius: 999px;
+      border: none;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent), #ff6b9d);
+      color: #191320;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+      transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.1s ease;
+      white-space: nowrap;
+    }
+    .room-controls button.secondary {
+      background: linear-gradient(135deg, #63f6ff, #7c9dff);
+      color: #071021;
+    }
+    .room-controls button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+    }
+    .main-row {
+      display: flex;
+      gap: 12px;
+      align-items: stretch;
+    }
+    #gameCanvas {
+      flex: 0 0 auto;
+      border-radius: 18px;
+      box-shadow: 0 22px 40px rgba(0, 0, 0, 0.6);
+      background: radial-gradient(
+        circle at 20% 0%,
+        #24295b 0,
+        #050616 40%,
+        #000 90%
+      );
+      max-width: 100%;
+      height: auto;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    .side-panel {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .status {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #555;
+      flex-shrink: 0;
+    }
+    .status-ok {
+      background: rgba(0, 255, 170, 0.08);
+      color: #9af0d0;
+    }
+    .status-ok .status-dot {
+      background: #4af2b3;
+    }
+    .status-error {
+      background: rgba(255, 63, 111, 0.12);
+      color: #ffb3c2;
+    }
+    .status-error .status-dot {
+      background: #ff4b81;
+    }
+    .status-connecting {
+      background: rgba(99, 246, 255, 0.07);
+      color: #b5f5ff;
+    }
+    .status-connecting .status-dot {
+      background: #63f6ff;
+    }
+    .status-idle {
+      background: rgba(255, 255, 255, 0.04);
+      color: #c8cae6;
+    }
+    .info-block {
+      background: rgba(8, 10, 40, 0.9);
+      border-radius: 14px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .info-block h3 {
+      margin: 0 0 6px;
+      font-size: 13px;
+    }
+    .info-block p,
+    .info-block ul {
+      margin: 0;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .info-block ul {
+      padding-left: 18px;
+    }
+    .bottom-bar {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      padding: 6px 10px 2px;
+      opacity: 0.9;
+      flex-wrap: wrap;
+    }
+
+    /* CONTROLLI MOBILE */
+    .mobile-controls {
+      display: none;
+      margin-top: 8px;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .mobile-hint {
+      font-size: 11px;
+      opacity: 0.75;
+      text-align: center;
+      max-width: 260px;
+    }
+    .dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 56px);
+      grid-template-rows: repeat(3, 56px);
+      gap: 6px;
+      justify-items: center;
+      align-items: center;
+    }
+    .dpad button {
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
+      border: none;
+      background: radial-gradient(circle at 30% 20%, #ffffff33, #191a3a);
+      color: #fefefe;
+      font-size: 20px;
+      font-weight: 700;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      outline: none;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.08s;
+    }
+    .dpad button:active {
+      transform: translateY(2px) scale(0.97);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+      filter: brightness(0.95);
+    }
+    .dpad button.empty {
+      background: transparent;
+      box-shadow: none;
+      pointer-events: none;
+    }
+
+    @media (max-width: 900px) {
+      .main-row {
+        flex-direction: column;
+        align-items: center;
+      }
+      #gameCanvas {
+        width: 100%;
+        height: auto;
+      }
+      .side-panel {
+        width: 100%;
+      }
+      .top-bar {
+        flex-direction: column;
+      }
+      .room-controls {
+        justify-content: flex-start;
+      }
+      .mobile-controls {
+        display: flex;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .logo {
+        font-size: 18px;
+      }
+      .subtitle {
+        font-size: 11px;
+      }
+      .room-controls input {
+        min-width: 0;
+        flex: 1;
+      }
+      .room-controls {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-shell">
+    <div class="top-bar">
+      <div>
+        <div class="logo"><span>Twin</span> Dungeons Online</div>
+        <div class="subtitle">
+          Coop a due giocatori in stile retrò, sincronizzato con Firebase
+        </div>
+      </div>
+      <div class="room-controls">
+        <input id="nickname" type="text" maxlength="16" placeholder="Nickname" />
+        <input
+          id="roomCode"
+          type="text"
+          maxlength="18"
+          placeholder="Codice stanza (es. drago)"
+        />
+        <button id="createRoomBtn">Crea stanza</button>
+        <button id="joinRoomBtn" class="secondary">Entra</button>
+      </div>
+    </div>
+
+    <div class="main-row">
+      <canvas id="gameCanvas" width="640" height="480"></canvas>
+      <div class="side-panel">
+        <div id="connectionStatus" class="status status-idle">
+          <span class="status-dot"></span>
+          <span id="connectionText">Offline · nessuna stanza collegata</span>
+        </div>
+
+        <div class="info-block">
+          <h3>Giocatori</h3>
+          <div id="playerInfo">In attesa di connessione...</div>
+        </div>
+
+        <div class="info-block">
+          <h3>Comandi</h3>
+          <ul>
+            <li>WASD o frecce per muoverti (desktop).</li>
+            <li>Su smartphone usa il pad direzionale sotto il gioco.</li>
+            <li>Evita le punte rosse: ti tolgono vita.</li>
+            <li>Raggiungi il portale luminoso insieme al compagno.</li>
+          </ul>
+        </div>
+
+        <div class="info-block">
+          <h3>Obiettivo</h3>
+          <p>
+            Sopravvivi a una serie infinita di sotterranei generati
+            proceduralmente. Ogni stanza è definita solo da un seme numerico
+            e ricombina pochi tipi di tile per creare decine di ore di gioco
+            cooperativo.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAD TOUCH PER SMARTPHONE -->
+    <div class="mobile-controls" id="mobileControls">
+      <div class="dpad">
+        <button class="empty"></button>
+        <button data-dir="up">▲</button>
+        <button class="empty"></button>
+
+        <button data-dir="left">◄</button>
+        <button class="empty"></button>
+        <button data-dir="right">►</button>
+
+        <button class="empty"></button>
+        <button data-dir="down">▼</button>
+        <button class="empty"></button>
+      </div>
+      <div class="mobile-hint">
+        Tocca le frecce per muoverti. Per sessioni lunghe, ti conviene ruotare
+        lo schermo in orizzontale.
+      </div>
+    </div>
+
+    <div class="bottom-bar">
+      <span id="levelInfo">Nessun livello attivo</span>
+      <span id="hpInfo">HP: -</span>
+      <span id="metaInfo">Offline</span>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+    import {
+      getDatabase,
+      ref,
+      onValue,
+      set,
+      update,
+      get
+    } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
+
+    // TODO: sostituisci con la config del tuo progetto Firebase
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "firebase/app";
+    import { getAnalytics } from "firebase/analytics";
+    // TODO: Add SDKs for Firebase products that you want to use
+    // https://firebase.google.com/docs/web/setup#available-libraries
+
+    // Your web app's Firebase configuration
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    const firebaseConfig = {
+      apiKey: "AIzaSyDUYL3b05b0RoyNMYCy9GZRtDs-4SBb-AI",
+      authDomain: "twin-dungeon.firebaseapp.com",
+      projectId: "twin-dungeon",
+      storageBucket: "twin-dungeon.firebasestorage.app",
+      messagingSenderId: "141719069384",
+      appId: "1:141719069384:web:8cf21db6eddcadea0d3bfd",
+      measurementId: "G-8L8Y6CL8M2"
+    };
+
+
+    let firebaseApp = null;
+    let db = null;
+    let roomRef = null;
+    let roomUnsubscribe = null;
+    let roomCode = "";
+    let playerKey = null; // "p1" o "p2"
+    let isHost = false;
+    let transitionLock = false;
+
+    const GRID_W = 20;
+    const GRID_H = 15;
+    const TILE_SIZE = 32;
+
+    const TILE_FLOOR = 0;
+    const TILE_WALL = 1;
+    const TILE_SPIKES = 2;
+    const TILE_EXIT = 3;
+
+    const tiles = Array.from({ length: GRID_H }, () =>
+      new Array(GRID_W).fill(TILE_FLOOR)
+    );
+    let exitPos = { x: GRID_W - 2, y: GRID_H - 2 };
+    let hasLevel = false;
+    let currentLevel = 0;
+    let currentDifficulty = 1;
+    let currentSeed = 0;
+
+    const localPlayer = {
+      x: 1,
+      y: 1,
+      hp: 3,
+      nickname: "Viandante",
+      onExit: false
+    };
+
+    let remotePlayer = null;
+
+    let lastMoveTime = 0;
+    const MOVE_DELAY_MS = 150;
+
+    let canvas, ctx;
+    let nicknameInput,
+      roomCodeInput,
+      createRoomBtn,
+      joinRoomBtn,
+      connectionStatusEl,
+      connectionTextEl,
+      levelInfoEl,
+      hpInfoEl,
+      metaInfoEl,
+      playerInfoEl;
+
+    let lastTimestamp = 0;
+    let animTime = 0;
+
+    window.addEventListener("load", initGame);
+
+    function initGame() {
+      canvas = document.getElementById("gameCanvas");
+      ctx = canvas.getContext("2d");
+
+      nicknameInput = document.getElementById("nickname");
+      roomCodeInput = document.getElementById("roomCode");
+      createRoomBtn = document.getElementById("createRoomBtn");
+      joinRoomBtn = document.getElementById("joinRoomBtn");
+      connectionStatusEl = document.getElementById("connectionStatus");
+      connectionTextEl = document.getElementById("connectionText");
+      levelInfoEl = document.getElementById("levelInfo");
+      hpInfoEl = document.getElementById("hpInfo");
+      metaInfoEl = document.getElementById("metaInfo");
+      playerInfoEl = document.getElementById("playerInfo");
+
+      const savedNick = localStorage.getItem("twinDungeonsNick");
+      if (savedNick) {
+        nicknameInput.value = savedNick;
+        localPlayer.nickname = savedNick;
+      }
+
+      createRoomBtn.addEventListener("click", () => connectToRoom("create"));
+      joinRoomBtn.addEventListener("click", () => connectToRoom("join"));
+      window.addEventListener("keydown", handleKeyDown);
+
+      setupTouchControls();
+
+      updateHUD();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function ensureFirebase() {
+      if (!firebaseApp) {
+        firebaseApp = initializeApp(firebaseConfig);
+        db = getDatabase(firebaseApp);
+      }
+    }
+
+    function getNickname() {
+      if (!nicknameInput) return localPlayer.nickname;
+      const raw = nicknameInput.value.trim();
+      const nick = raw || "Viandante";
+      localPlayer.nickname = nick;
+      try {
+        localStorage.setItem("twinDungeonsNick", nick);
+      } catch (e) {
+        // ignore storage errors
+      }
+      return nick;
+    }
+
+    async function connectToRoom(mode) {
+      if (!roomCodeInput) return;
+      const code = roomCodeInput.value.trim().toLowerCase();
+      if (!code) {
+        alert("Inserisci un codice stanza, ad esempio 'drago' o 'mondo1'.");
+        return;
+      }
+
+      ensureFirebase();
+
+      roomCode = code;
+      roomRef = ref(db, "rooms/" + code);
+
+      if (roomUnsubscribe) {
+        roomUnsubscribe();
+        roomUnsubscribe = null;
+      }
+
+      connectionStatusEl.className = "status status-connecting";
+      connectionTextEl.textContent = 'Connessione a "' + code + '"...';
+
+      const nick = getNickname();
+
+      try {
+        if (mode === "create") {
+          isHost = true;
+          playerKey = "p1";
+
+          const seed = Math.floor(Math.random() * 100000000);
+          const initialLevel = 1;
+          const difficulty = 1;
+
+          const initialData = {
+            meta: {
+              level: initialLevel,
+              seed: seed,
+              difficulty: difficulty
+            },
+            players: {
+              p1: {
+                x: 1,
+                y: 1,
+                hp: 3,
+                nickname: nick
+              }
+            }
+          };
+
+          await set(roomRef, initialData);
+        } else {
+          // join
+          isHost = false;
+          const snapshot = await get(roomRef);
+          if (!snapshot.exists()) {
+            alert("La stanza non esiste ancora. Chiedi al tuo amico di crearla.");
+            connectionStatusEl.className = "status status-error";
+            connectionTextEl.textContent = "Stanza non trovata";
+            return;
+          }
+
+          const data = snapshot.val() || {};
+          const players = data.players || {};
+
+          if (!players.p1) {
+            playerKey = "p1";
+          } else if (!players.p2) {
+            playerKey = "p2";
+          } else {
+            alert("Questa stanza è già piena (2 giocatori).");
+            connectionStatusEl.className = "status status-error";
+            connectionTextEl.textContent = "Stanza piena";
+            return;
+          }
+
+          const startY = playerKey === "p1" ? 1 : 2;
+          const updatePayload = {};
+          updatePayload["players/" + playerKey] = {
+            x: 1,
+            y: startY,
+            hp: 3,
+            nickname: nick
+          };
+          await update(roomRef, updatePayload);
+        }
+
+        roomUnsubscribe = onValue(roomRef, (snapshot) => {
+          const data = snapshot.val();
+          handleRoomUpdate(data);
+        });
+
+        connectionStatusEl.className = "status status-ok";
+        connectionTextEl.textContent = 'Connesso alla stanza "' + code + '"';
+      } catch (err) {
+        console.error(err);
+        alert("Errore durante la connessione: " + err.message);
+        connectionStatusEl.className = "status status-error";
+        connectionTextEl.textContent = "Errore di connessione";
+      }
+
+      updateHUD();
+    }
+
+    function handleRoomUpdate(data) {
+      if (!data) return;
+
+      const meta = data.meta || {};
+      const players = data.players || {};
+
+      const newSeed = meta.seed || 1;
+      const newLevel = meta.level || 1;
+      const newDifficulty = meta.difficulty || 1;
+
+      if (
+        newSeed !== currentSeed ||
+        newLevel !== currentLevel ||
+        newDifficulty !== currentDifficulty ||
+        !hasLevel
+      ) {
+        currentSeed = newSeed;
+        currentLevel = newLevel;
+        currentDifficulty = newDifficulty;
+        generateLevelFromSeed(currentSeed, currentDifficulty);
+      }
+
+      if (playerKey && players[playerKey]) {
+        const me = players[playerKey];
+        if (me.x != null) localPlayer.x = me.x;
+        if (me.y != null) localPlayer.y = me.y;
+        if (me.hp != null) localPlayer.hp = me.hp;
+        if (me.nickname) localPlayer.nickname = me.nickname;
+      }
+
+      const otherKey = playerKey === "p1" ? "p2" : "p1";
+      const other = otherKey && players[otherKey] ? players[otherKey] : null;
+
+      if (other) {
+        remotePlayer = {
+          id: otherKey,
+          x: other.x,
+          y: other.y,
+          hp: other.hp != null ? other.hp : 3,
+          nickname: other.nickname || (otherKey === "p2" ? "Compagno" : "Amico"),
+          onExit: false
+        };
+      } else {
+        remotePlayer = null;
+      }
+
+      localPlayer.onExit = isExit(localPlayer.x, localPlayer.y);
+      if (remotePlayer) {
+        remotePlayer.onExit = isExit(remotePlayer.x, remotePlayer.y);
+      }
+
+      updateHUD();
+
+      if (isHost && playerKey === "p1") {
+        checkHostTransitions();
+      }
+    }
+
+    function updateHUD() {
+      if (!levelInfoEl || !hpInfoEl || !metaInfoEl || !playerInfoEl) return;
+
+      if (hasLevel) {
+        const lvl = currentLevel || 1;
+        const world = Math.floor((lvl - 1) / 10) + 1;
+        const stage = ((lvl - 1) % 10) + 1;
+        levelInfoEl.textContent =
+          "Mondo " +
+          world +
+          "-" +
+          stage +
+          " · Livello " +
+          lvl +
+          " · Difficoltà " +
+          currentDifficulty;
+      } else {
+        levelInfoEl.textContent = "Nessun livello attivo";
+      }
+
+      let hpText = "Tu: " + localPlayer.hp + "♥";
+      if (remotePlayer) {
+        hpText +=
+          "  |  " +
+          (remotePlayer.nickname || "Compagno") +
+          ": " +
+          remotePlayer.hp +
+          "♥";
+      }
+      hpInfoEl.textContent = hpText;
+
+      if (roomCode) {
+        metaInfoEl.textContent =
+          "Stanza: " +
+          roomCode +
+          (playerKey ? " · Ruolo: " + playerKey.toUpperCase() : "");
+      } else {
+        metaInfoEl.textContent =
+          "Offline · crea o entra in una stanza per iniziare";
+      }
+
+      const lines = [];
+      if (playerKey) {
+        lines.push(
+          "Tu sei <strong>" +
+            playerKey.toUpperCase() +
+            "</strong> (" +
+            localPlayer.nickname +
+            ")"
+        );
+      }
+      if (remotePlayer) {
+        lines.push(
+          "In coppia con <strong>" +
+            (remotePlayer.nickname || "Compagno") +
+            "</strong> (" +
+            remotePlayer.id.toUpperCase() +
+            ")"
+        );
+      } else {
+        lines.push("In attesa di un secondo giocatore...");
+      }
+      playerInfoEl.innerHTML = lines.join("<br>");
+    }
+
+    function gameLoop(timestamp) {
+      if (!lastTimestamp) {
+        lastTimestamp = timestamp;
+      }
+      const dt = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+      animTime += dt;
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function render() {
+      if (!ctx || !canvas) return;
+
+      const w = canvas.width;
+      const h = canvas.height;
+
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, "#11183b");
+      grad.addColorStop(1, "#050616");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      if (!hasLevel) {
+        drawSplash();
+        return;
+      }
+
+      for (let y = 0; y < GRID_H; y++) {
+        for (let x = 0; x < GRID_W; x++) {
+          drawTile(x, y, tiles[y][x]);
+        }
+      }
+
+      drawPlayer(remotePlayer, false);
+      drawPlayer(localPlayer, true);
+    }
+
+    function drawSplash() {
+      const w = canvas.width;
+      const h = canvas.height;
+
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.fillRect(20, h / 2 - 60, w - 40, 120);
+
+      ctx.fillStyle = "#ffb347";
+      ctx.font = "24px system-ui, sans-serif";
+      ctx.fillText("Twin Dungeons Online", w / 2, h / 2 - 10);
+
+      ctx.fillStyle = "#e2e4ff";
+      ctx.font = "13px system-ui, sans-serif";
+      ctx.fillText(
+        'Inserisci un nickname e un codice stanza,',
+        w / 2,
+        h / 2 + 14
+      );
+      ctx.fillText(
+        'poi premi "Crea stanza" o "Entra".',
+        w / 2,
+        h / 2 + 34
+      );
+      ctx.restore();
+    }
+
+    function drawTile(x, y, type) {
+      const px = x * TILE_SIZE;
+      const py = y * TILE_SIZE;
+
+      const checker = (x + y) % 2 === 0;
+      ctx.fillStyle = checker ? "#181c3f" : "#151833";
+      ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+
+      if (type === TILE_WALL) {
+        ctx.fillStyle = "#272b55";
+        ctx.fillRect(px + 1, py + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+        ctx.strokeStyle = "#373c73";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(px + 1.5, py + 1.5, TILE_SIZE - 3, TILE_SIZE - 3);
+      } else if (type === TILE_SPIKES) {
+        ctx.fillStyle = "rgba(255,255,255,0.03)";
+        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+        const pulse =
+          0.3 + 0.3 * Math.sin(animTime * 6 + x * 0.7 + y * 0.9);
+        ctx.fillStyle =
+          "rgba(255,112,112," + (0.4 + pulse * 0.6).toFixed(3) + ")";
+        ctx.beginPath();
+        ctx.moveTo(px + TILE_SIZE / 2, py + 4);
+        ctx.lineTo(px + 6, py + TILE_SIZE - 4);
+        ctx.lineTo(px + TILE_SIZE - 6, py + TILE_SIZE - 4);
+        ctx.closePath();
+        ctx.fill();
+      } else if (type === TILE_EXIT) {
+        const t =
+          0.5 + 0.5 * Math.sin(animTime * 3 + x * 0.3 + y * 0.4);
+        const innerR = (TILE_SIZE / 2) * (0.5 + 0.15 * t);
+        const cx = px + TILE_SIZE / 2;
+        const cy = py + TILE_SIZE / 2;
+        const radial = ctx.createRadialGradient(
+          cx,
+          cy,
+          4,
+          cx,
+          cy,
+          innerR + 6
+        );
+        radial.addColorStop(0, "rgba(111,255,214,0.95)");
+        radial.addColorStop(1, "rgba(44,188,255,0.05)");
+        ctx.fillStyle = radial;
+        ctx.beginPath();
+        ctx.arc(cx, cy, innerR + 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#040814";
+        ctx.beginPath();
+        ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.strokeStyle = "rgba(5,7,25,0.8)";
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+    }
+
+    function drawPlayer(player, isLocal) {
+      if (!player || player.hp <= 0) return;
+
+      const px = player.x * TILE_SIZE + TILE_SIZE / 2;
+      const py = player.y * TILE_SIZE + TILE_SIZE / 2;
+
+      ctx.save();
+      ctx.translate(px, py);
+
+      const bob = 1.5 * Math.sin(animTime * 4 + (isLocal ? 0 : Math.PI));
+      ctx.translate(0, bob);
+
+      const baseColor = isLocal ? "#ffdd65" : "#63f6ff";
+      const borderColor = isLocal ? "#ff9b4b" : "#4da3ff";
+
+      const bodyW = TILE_SIZE * 0.5;
+      const bodyH = TILE_SIZE * 0.9;
+
+      ctx.fillStyle = "rgba(0,0,0,0.45)";
+      ctx.beginPath();
+      ctx.ellipse(0, TILE_SIZE * 0.35, bodyW * 0.7, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = baseColor;
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 2;
+      const x0 = -bodyW / 2;
+      const y0 = -bodyH / 2;
+      const radius = 8;
+      ctx.beginPath();
+      ctx.moveTo(x0 + radius, y0);
+      ctx.lineTo(x0 + bodyW - radius, y0);
+      ctx.quadraticCurveTo(x0 + bodyW, y0, x0 + bodyW, y0 + radius);
+      ctx.lineTo(x0 + bodyW, y0 + bodyH - radius);
+      ctx.quadraticCurveTo(
+        x0 + bodyW,
+        y0 + bodyH,
+        x0 + bodyW - radius,
+        y0 + bodyH
+      );
+      ctx.lineTo(x0 + radius, y0 + bodyH);
+      ctx.quadraticCurveTo(
+        x0,
+        y0 + bodyH,
+        x0,
+        y0 + bodyH - radius
+      );
+      ctx.lineTo(x0, y0 + radius);
+      ctx.quadraticCurveTo(x0, y0, x0 + radius, y0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#22253b";
+      const eyeOffset = 5;
+      ctx.beginPath();
+      ctx.arc(
+        -eyeOffset,
+        y0 + bodyH * 0.3,
+        2.5,
+        0,
+        Math.PI * 2
+      );
+      ctx.arc(eyeOffset, y0 + bodyH * 0.3, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (player.onExit) {
+        ctx.strokeStyle = isLocal ? "#ffffff" : "#e2f5ff";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.arc(0, 0, bodyH * 0.65, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    function handleKeyDown(event) {
+      if (!roomRef || !playerKey) return;
+
+      const tag =
+        document.activeElement && document.activeElement.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") {
+        return;
+      }
+
+      let dir = null;
+      switch (event.key) {
+        case "ArrowUp":
+        case "w":
+        case "W":
+          dir = "up";
+          break;
+        case "ArrowDown":
+        case "s":
+        case "S":
+          dir = "down";
+          break;
+        case "ArrowLeft":
+        case "a":
+        case "A":
+          dir = "left";
+          break;
+        case "ArrowRight":
+        case "d":
+        case "D":
+          dir = "right";
+          break;
+        default:
+          return;
+      }
+
+      event.preventDefault();
+      requestMove(dir);
+    }
+
+    function requestMove(direction) {
+      if (!roomRef || !playerKey) return;
+
+      let dx = 0;
+      let dy = 0;
+
+      if (direction === "up") dy = -1;
+      else if (direction === "down") dy = 1;
+      else if (direction === "left") dx = -1;
+      else if (direction === "right") dx = 1;
+      else return;
+
+      const now = performance.now();
+      if (now - lastMoveTime < MOVE_DELAY_MS) {
+        return;
+      }
+      lastMoveTime = now;
+      moveLocalPlayer(dx, dy);
+    }
+
+    function moveLocalPlayer(dx, dy) {
+      if (!hasLevel) return;
+
+      const nx = localPlayer.x + dx;
+      const ny = localPlayer.y + dy;
+
+      if (nx < 1 || ny < 1 || nx >= GRID_W - 1 || ny >= GRID_H - 1) {
+        return;
+      }
+
+      const tile = tiles[ny][nx];
+      if (tile === TILE_WALL) {
+        return;
+      }
+
+      localPlayer.x = nx;
+      localPlayer.y = ny;
+
+      if (tile === TILE_SPIKES && localPlayer.hp > 0) {
+        localPlayer.hp -= 1;
+      }
+
+      localPlayer.onExit = isExit(nx, ny);
+
+      sendMyStateToFirebase();
+      updateHUD();
+
+      if (isHost && playerKey === "p1") {
+        checkHostTransitions();
+      }
+    }
+
+    function sendMyStateToFirebase() {
+      if (!db || !roomRef || !playerKey) return;
+
+      const payload = {};
+      payload["players/" + playerKey] = {
+        x: localPlayer.x,
+        y: localPlayer.y,
+        hp: localPlayer.hp,
+        nickname: localPlayer.nickname
+      };
+      update(roomRef, payload).catch((err) => {
+        console.error(
+          "Errore nell'aggiornare lo stato del giocatore:",
+          err
+        );
+      });
+    }
+
+    function isExit(x, y) {
+      if (!hasLevel) return false;
+      if (y < 0 || y >= GRID_H || x < 0 || x >= GRID_W) return false;
+      return tiles[y][x] === TILE_EXIT;
+    }
+
+    function createRNG(seed) {
+      let s = seed >>> 0;
+      return function () {
+        s = (s * 1664525 + 1013904223) >>> 0;
+        return s / 4294967295;
+      };
+    }
+
+    function isLevelSolvable() {
+      const start = { x: 1, y: 1 };
+      const target = exitPos;
+      const visited = Array.from({ length: GRID_H }, () =>
+        new Array(GRID_W).fill(false)
+      );
+      const queue = [];
+      queue.push(start);
+      visited[start.y][start.x] = true;
+
+      const dirs = [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1]
+      ];
+
+      while (queue.length > 0) {
+        const current = queue.shift();
+        if (current.x === target.x && current.y === target.y) {
+          return true;
+        }
+        for (let i = 0; i < dirs.length; i++) {
+          const dx = dirs[i][0];
+          const dy = dirs[i][1];
+          const nx = current.x + dx;
+          const ny = current.y + dy;
+          if (nx < 1 || ny < 1 || nx >= GRID_W - 1 || ny >= GRID_H - 1)
+            continue;
+          if (visited[ny][nx]) continue;
+          const tile = tiles[ny][nx];
+          if (tile === TILE_WALL) continue;
+          visited[ny][nx] = true;
+          queue.push({ x: nx, y: ny });
+        }
+      }
+      return false;
+    }
+
+    function generateLevelFromSeed(seed, difficulty) {
+      let attemptSeed = seed || 1;
+
+      for (let tries = 0; tries < 20; tries++) {
+        const rng = createRNG(attemptSeed);
+
+        for (let y = 0; y < GRID_H; y++) {
+          for (let x = 0; x < GRID_W; x++) {
+            if (
+              x === 0 ||
+              y === 0 ||
+              x === GRID_W - 1 ||
+              y === GRID_H - 1
+            ) {
+              tiles[y][x] = TILE_WALL;
+            } else {
+              tiles[y][x] = TILE_FLOOR;
+            }
+          }
+        }
+
+        exitPos = { x: GRID_W - 2, y: GRID_H - 2 };
+
+        let cx = 1;
+        let cy = 1;
+        tiles[cy][cx] = TILE_FLOOR;
+        const dirs = [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1]
+        ];
+        let steps = GRID_W * GRID_H * 3;
+        while ((cx !== exitPos.x || cy !== exitPos.y) && steps-- > 0) {
+          const dir = dirs[Math.floor(rng() * dirs.length)];
+          const nx = Math.max(1, Math.min(GRID_W - 2, cx + dir[0]));
+          const ny = Math.max(1, Math.min(GRID_H - 2, cy + dir[1]));
+          tiles[ny][nx] = TILE_FLOOR;
+          cx = nx;
+          cy = ny;
+        }
+
+        const wallBudget = 20 + difficulty * 6;
+        let placedWalls = 0;
+        while (placedWalls < wallBudget) {
+          const x = 1 + Math.floor(rng() * (GRID_W - 2));
+          const y = 1 + Math.floor(rng() * (GRID_H - 2));
+          if ((x === 1 && y === 1) || (x === exitPos.x && y === exitPos.y))
+            continue;
+          if (tiles[y][x] !== TILE_FLOOR) continue;
+          const distStart = Math.abs(x - 1) + Math.abs(y - 1);
+          const distExit =
+            Math.abs(x - exitPos.x) + Math.abs(y - exitPos.y);
+          if (distStart <= 2 || distExit <= 2) continue;
+          tiles[y][x] = TILE_WALL;
+          placedWalls++;
+        }
+
+        const spikeBudget = 8 + difficulty * 3;
+        let placedSpikes = 0;
+        while (placedSpikes < spikeBudget) {
+          const x = 1 + Math.floor(rng() * (GRID_W - 2));
+          const y = 1 + Math.floor(rng() * (GRID_H - 2));
+          if ((x === 1 && y === 1) || (x === exitPos.x && y === exitPos.y))
+            continue;
+          if (tiles[y][x] !== TILE_FLOOR) continue;
+          tiles[y][x] = TILE_SPIKES;
+          placedSpikes++;
+        }
+
+        tiles[exitPos.y][exitPos.x] = TILE_EXIT;
+
+        if (isLevelSolvable()) {
+          hasLevel = true;
+          return;
+        }
+
+        attemptSeed += 1337;
+      }
+
+      for (let y = 0; y < GRID_H; y++) {
+        for (let x = 0; x < GRID_W; x++) {
+          if (
+            x === 0 ||
+            y === 0 ||
+            x === GRID_W - 1 ||
+            y === GRID_H - 1
+          ) {
+            tiles[y][x] = TILE_WALL;
+          } else {
+            tiles[y][x] = TILE_FLOOR;
+          }
+        }
+      }
+      exitPos = { x: GRID_W - 2, y: GRID_H - 2 };
+      tiles[exitPos.y][exitPos.x] = TILE_EXIT;
+      hasLevel = true;
+    }
+
+    function checkHostTransitions() {
+      if (!hasLevel || !roomRef) return;
+
+      const localDead = localPlayer.hp <= 0;
+      const remoteDead = remotePlayer && remotePlayer.hp <= 0;
+
+      if (localDead || remoteDead) {
+        hostResetLevel();
+        return;
+      }
+
+      if (
+        remotePlayer &&
+        isExit(localPlayer.x, localPlayer.y) &&
+        isExit(remotePlayer.x, remotePlayer.y)
+      ) {
+        hostNextLevel();
+      }
+    }
+
+    async function hostNextLevel() {
+      if (!roomRef || transitionLock) return;
+
+      transitionLock = true;
+      const nextLevel = (currentLevel || 1) + 1;
+      const diff = 1 + Math.floor((nextLevel - 1) / 3);
+      const newSeed = Math.floor(Math.random() * 100000000);
+
+      const p1Data = {
+        x: 1,
+        y: 1,
+        hp: 3,
+        nickname: localPlayer.nickname
+      };
+
+      const payload = {
+        meta: {
+          level: nextLevel,
+          seed: newSeed,
+          difficulty: diff
+        },
+        "players/p1": p1Data
+      };
+
+      if (remotePlayer) {
+        payload["players/p2"] = {
+          x: 1,
+          y: 2,
+          hp: 3,
+          nickname: remotePlayer.nickname || "Compagno"
+        };
+      }
+
+      try {
+        await update(roomRef, payload);
+      } catch (err) {
+        console.error("Errore avanzando al livello successivo:", err);
+      } finally {
+        transitionLock = false;
+      }
+    }
+
+    async function hostResetLevel() {
+      if (!roomRef || transitionLock) return;
+
+      transitionLock = true;
+      const lvl = currentLevel || 1;
+      const diff = 1 + Math.floor((lvl - 1) / 3);
+      const newSeed = Math.floor(Math.random() * 100000000);
+
+      const p1Data = {
+        x: 1,
+        y: 1,
+        hp: 3,
+        nickname: localPlayer.nickname
+      };
+
+      const payload = {
+        meta: {
+          level: lvl,
+          seed: newSeed,
+          difficulty: diff
+        },
+        "players/p1": p1Data
+      };
+
+      if (remotePlayer) {
+        payload["players/p2"] = {
+          x: 1,
+          y: 2,
+          hp: 3,
+          nickname: remotePlayer.nickname || "Compagno"
+        };
+      }
+
+      try {
+        await update(roomRef, payload);
+      } catch (err) {
+        console.error("Errore nel reset del livello:", err);
+      } finally {
+        transitionLock = false;
+      }
+    }
+
+    function setupTouchControls() {
+      const buttons = document.querySelectorAll("[data-dir]");
+      if (!buttons || !buttons.length) return;
+
+      buttons.forEach((btn) => {
+        const dir = btn.dataset.dir;
+        if (!dir) return;
+
+        const handler = (ev) => {
+          ev.preventDefault();
+          requestMove(dir);
+        };
+
+        btn.addEventListener("click", handler);
+        btn.addEventListener("touchstart", handler, { passive: false });
+      });
+    }
+  </script>
+</body>
+</html>
