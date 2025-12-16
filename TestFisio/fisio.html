@@ -1,0 +1,1909 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Analisi Evolutiva Scoliosi – Spline & Cobb</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Chart.js per i grafici -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- TensorFlow.js + Depth Estimation (AR Portrait Depth) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/depth-estimation"></script>
+
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-alt: #020617;
+      --panel: #020617;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.12);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --danger: #f97373;
+      --radius-xl: 1.5rem;
+      --radius-md: 0.75rem;
+      --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.7);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #020617 0, #020617 40%, #020617 100%);
+      color: var(--text);
+    }
+
+    .app-shell {
+      max-width: 1400px;
+      margin: 1.5rem auto;
+      padding: 1.5rem;
+      border-radius: 1.75rem;
+      background: radial-gradient(circle at top left, #0f172a 0, #020617 40%);
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+    }
+
+    header.app-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    header.app-header h1 {
+      font-size: 1.4rem;
+      margin: 0;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .badge {
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    header.app-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      max-width: 600px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 260px) minmax(0, 1.1fr) minmax(0, 0.9fr);
+      gap: 1.25rem;
+    }
+
+    @media (max-width: 1100px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.9), #020617);
+      border-radius: var(--radius-xl);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      padding: 1rem 1.1rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top, rgba(56, 189, 248, 0.11), transparent 55%);
+      opacity: 0.65;
+      pointer-events: none;
+    }
+
+    .panel > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .panel h2 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .panel h2 span.step {
+      width: 1.35rem;
+      height: 1.35rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    label {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    input[type="file"] {
+      width: 100%;
+      margin-top: 0.4rem;
+      padding: 0.35rem;
+      border-radius: var(--radius-md);
+      border: 1px dashed rgba(148, 163, 184, 0.4);
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--text);
+      font-size: 0.8rem;
+    }
+
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 0.45rem 0.95rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      background: radial-gradient(circle at top, #38bdf8, #0ea5e9);
+      color: #0b1120;
+      box-shadow: 0 8px 25px rgba(56, 189, 248, 0.4);
+      margin-top: 0.5rem;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 30px rgba(56, 189, 248, 0.5);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+      box-shadow: none;
+    }
+
+    .secondary-btn {
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--muted);
+      box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.4);
+      margin-left: 0.3rem;
+    }
+
+    .status-text {
+      margin-top: 0.55rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      min-height: 1rem;
+    }
+
+    .status-text.error { color: var(--danger); }
+
+    .file-list {
+      margin-top: 0.7rem;
+      max-height: 260px;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+
+    .file-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.5rem;
+      border-radius: var(--radius-md);
+      font-size: 0.8rem;
+      border: 1px solid transparent;
+      transition: background 0.1s ease, border 0.1s ease, transform 0.05s ease;
+      cursor: pointer;
+    }
+
+    .file-item:hover {
+      background: rgba(15, 23, 42, 0.95);
+      border-color: rgba(148, 163, 184, 0.5);
+    }
+
+    .file-item.active {
+      background: rgba(56, 189, 248, 0.09);
+      border-color: var(--accent);
+      transform: translateY(-0.5px);
+    }
+
+    .file-item span.name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-item span.index {
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .reorder-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .reorder-btn {
+      padding: 0.1rem 0.3rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--muted);
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+
+    .reorder-btn:hover {
+      background: rgba(30, 64, 175, 0.9);
+      color: #e5e7eb;
+    }
+
+    .toggle-row {
+      margin-top: 0.7rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.75rem;
+      align-items: center;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .toggle-row label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      cursor: pointer;
+    }
+
+    .toggle-row input[type="checkbox"] {
+      accent-color: var(--accent);
+    }
+
+    #mainCanvas {
+      width: 100%;
+      max-height: 80vh;
+      border-radius: 1.1rem;
+      background: radial-gradient(circle at top left, #020617, #020617 55%, #020617 100%);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow: 0 12px 35px rgba(15, 23, 42, 0.7);
+    }
+
+    .metric-row {
+      margin-top: 0.5rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.2rem 1rem;
+    }
+
+    .metric-row strong {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .chart-container {
+      margin-top: 0.6rem;
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      padding: 0.55rem;
+    }
+
+    .chart-container h3 {
+      margin: 0 0 0.3rem 0;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.3rem;
+    }
+
+    .lambda-row {
+      margin-top: 0.7rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .lambda-row label span.value {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .lambda-row input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .report-panel {
+      margin-top: 0.8rem;
+      padding: 0.6rem 0.7rem;
+      border-radius: 0.9rem;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      font-size: 0.78rem;
+      color: var(--muted);
+      max-height: 260px;
+      overflow-y: auto;
+    }
+
+    .report-panel h3 {
+      margin: 0 0 0.3rem 0;
+      font-size: 0.85rem;
+      color: var(--text);
+    }
+
+    .report-panel ul {
+      padding-left: 1.2rem;
+      margin: 0.25rem 0 0.25rem 0;
+    }
+
+    .report-panel li { margin-bottom: 0.15rem; }
+
+    /* Overlay / waitbar */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.88);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      z-index: 9999;
+    }
+
+    .loading-overlay.hidden {
+      display: none;
+    }
+
+    .spinner {
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      border: 3px solid rgba(148, 163, 184, 0.45);
+      border-top-color: var(--accent);
+      animation: spin 0.8s linear infinite;
+    }
+
+    .busy-text {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .progress-outer {
+      width: 220px;
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      overflow: hidden;
+    }
+
+    .progress-inner {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(to right, #38bdf8, #0ea5e9);
+      transition: width 0.2s ease;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <h1>
+        Analisi evolutiva scoliosi
+        <span class="badge">Medico + Dev</span>
+      </h1>
+      <p>
+        Carica le foto del paziente nel tempo, estrai automaticamente lo
+        scheletro, la curva della schiena (spline enfatizzata con λ), la depth
+        map e l’angolo di Cobb approssimato. Alla fine ottieni grafici +
+        report tecnico.
+      </p>
+    </header>
+
+    <main class="layout">
+      <!-- Pannello sinistro -->
+      <section class="panel">
+        <h2><span class="step">1</span> Carica & ordina le foto</h2>
+        <label for="fileInput">Seleziona più immagini (stesso paziente, vista frontale o laterale):</label>
+        <input id="fileInput" type="file" accept="image/*" multiple />
+        <div>
+          <button id="analyzeBtn" disabled>Analizza tutte le foto</button>
+          <button id="clearBtn" class="secondary-btn">Svuota</button>
+        </div>
+        <div id="status" class="status-text"></div>
+
+        <div class="file-list" id="fileList"></div>
+
+        <p class="hint">
+          Usa le frecce ↑ / ↓ accanto ad ogni foto per riordinarla (per data,
+          pre/post trattamento, ecc.).
+        </p>
+      </section>
+
+      <!-- Pannello centrale -->
+      <section class="panel">
+        <h2><span class="step">2</span> Visualizzazione sul corpo</h2>
+        <canvas id="mainCanvas" width="600" height="800"></canvas>
+
+        <div class="toggle-row">
+          <label>
+            <input type="checkbox" id="toggleSkeleton" checked />
+            Scheletro + costato/clavicole/SCM
+          </label>
+          <label>
+            <input type="checkbox" id="toggleSpine" checked />
+            Curva schiena (spline λ)
+          </label>
+          <label>
+            <input type="checkbox" id="toggleVectors" checked />
+            Vettori di cambiamento
+          </label>
+          <label>
+            <input type="checkbox" id="toggleHeatmap" />
+            Heatmap depth / massa
+          </label>
+        </div>
+
+        <div class="lambda-row">
+          <label for="lambdaSlider">
+            Enfatizzazione curva (λ):
+            <span class="value" id="lambdaValue">2.5</span>x
+          </label>
+          <input
+            type="range"
+            id="lambdaSlider"
+            min="1"
+            max="6"
+            step="0.1"
+            value="2.5"
+          />
+        </div>
+
+        <div class="metric-row" id="metricRow"></div>
+
+        <p class="hint">
+          <strong>Angoli</strong> (spalle, bacino, tangenti della curva) sono
+          portati in intervallo ±90° per rispettare la periodicità: una linea e
+          la stessa linea ruotata di 180° sono equivalenti. L’angolo di Cobb
+          è approssimato come differenza tra le tangenti superiori/inferiori
+          della spline della colonna.
+        </p>
+      </section>
+
+      <!-- Pannello destro -->
+      <section class="panel">
+        <h2><span class="step">3</span> Grafici & report</h2>
+
+        <div class="chart-container">
+          <h3>Angoli spalle, bacino, Cobb (±90°)</h3>
+          <canvas id="chartAngles" height="140"></canvas>
+        </div>
+
+        <div class="chart-container">
+          <h3>Centratura testa / bacino / “sterno”</h3>
+          <canvas id="chartOffsets" height="140"></canvas>
+        </div>
+
+        <div class="report-panel" id="reportPanel">
+          <h3>Report tecnico automatico</h3>
+          <p>Analizza le immagini per generare il report.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Overlay / waitbar globale -->
+  <div id="busyOverlay" class="loading-overlay hidden">
+    <div class="spinner"></div>
+    <div id="busyText" class="busy-text">Elaborazione in corso...</div>
+    <div class="progress-outer">
+      <div id="busyProgress" class="progress-inner"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      FilesetResolver,
+      PoseLandmarker
+    } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.js";
+
+    const PoseIdx = {
+      NOSE: 0,
+      LEFT_EYE_INNER: 1,
+      LEFT_EYE: 2,
+      LEFT_EYE_OUTER: 3,
+      RIGHT_EYE_INNER: 4,
+      RIGHT_EYE: 5,
+      RIGHT_EYE_OUTER: 6,
+      LEFT_EAR: 7,
+      RIGHT_EAR: 8,
+      MOUTH_LEFT: 9,
+      MOUTH_RIGHT: 10,
+      LEFT_SHOULDER: 11,
+      RIGHT_SHOULDER: 12,
+      LEFT_ELBOW: 13,
+      RIGHT_ELBOW: 14,
+      LEFT_WRIST: 15,
+      RIGHT_WRIST: 16,
+      LEFT_HIP: 23,
+      RIGHT_HIP: 24
+    };
+
+    let poseLandmarker = null;
+    let modelReady = false;
+    let depthEstimator = null;
+    let depthReady = false;
+    let imagesReady = false;
+
+    let sessions = [];
+    let currentIndex = 0;
+    let anglesChart = null;
+    let offsetsChart = null;
+    let curveLambda = 2.5;
+
+    const fileInput = document.getElementById("fileInput");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const statusEl = document.getElementById("status");
+    const fileListEl = document.getElementById("fileList");
+    const mainCanvas = document.getElementById("mainCanvas");
+    const mainCtx = mainCanvas.getContext("2d");
+    const metricRow = document.getElementById("metricRow");
+    const reportPanel = document.getElementById("reportPanel");
+
+    const toggleSkeleton = document.getElementById("toggleSkeleton");
+    const toggleSpine = document.getElementById("toggleSpine");
+    const toggleVectors = document.getElementById("toggleVectors");
+    const toggleHeatmap = document.getElementById("toggleHeatmap");
+
+    const lambdaSlider = document.getElementById("lambdaSlider");
+    const lambdaValue = document.getElementById("lambdaValue");
+
+    const busyOverlay = document.getElementById("busyOverlay");
+    const busyText = document.getElementById("busyText");
+    const busyProgress = document.getElementById("busyProgress");
+
+    /* ---------- UTILITIES BASE ---------- */
+
+    function showBusy(text = "Elaborazione in corso...", fraction = 0) {
+      busyOverlay.classList.remove("hidden");
+      busyText.textContent = text;
+      busyProgress.style.width = `${Math.round(fraction * 100)}%`;
+    }
+
+    function updateBusy(text, fraction) {
+      if (text) busyText.textContent = text;
+      if (typeof fraction === "number") {
+        busyProgress.style.width = `${Math.round(fraction * 100)}%`;
+      }
+    }
+
+    function hideBusy() {
+      busyOverlay.classList.add("hidden");
+      busyProgress.style.width = "0%";
+    }
+
+    function midpoint(a, b) {
+      if (!a || !b) return null;
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 };
+    }
+
+    function averagePoints(points) {
+      const valid = points.filter((p) => p);
+      if (!valid.length) return null;
+      const sum = valid.reduce(
+        (acc, p) => {
+          acc.x += p.x;
+          acc.y += p.y;
+          acc.z += p.z || 0;
+          return acc;
+        },
+        { x: 0, y: 0, z: 0 }
+      );
+      return {
+        x: sum.x / valid.length,
+        y: sum.y / valid.length,
+        z: sum.z / valid.length
+      };
+    }
+
+    function distance(a, b) {
+      if (!a || !b) return 0;
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      return Math.hypot(dx, dy);
+    }
+
+    function rad2deg(r) {
+      return (r * 180) / Math.PI;
+    }
+
+    // porta l’angolo in intervallo [-90, +90] con periodicità 180°
+    function normalizeAngle90(deg) {
+      let a = deg;
+      while (a <= -90) a += 180;
+      while (a > 90) a -= 180;
+      return a;
+    }
+
+    function angleBetweenVectorsDeg(v1, v2) {
+      const dot = v1.x * v2.x + v1.y * v2.y;
+      const n1 = Math.hypot(v1.x, v1.y);
+      const n2 = Math.hypot(v2.x, v2.y);
+      if (n1 === 0 || n2 === 0) return 0;
+      let cos = dot / (n1 * n2);
+      cos = Math.min(1, Math.max(-1, cos));
+      return rad2deg(Math.acos(cos));
+    }
+
+    // angolo della linea p1-p2 rispetto all’orizzontale, già normalizzato ±90°
+    function angleOfLineDeg(p1, p2) {
+      if (!p1 || !p2) return null;
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const raw = rad2deg(Math.atan2(dy, dx));
+      return normalizeAngle90(raw);
+    }
+
+    /* ---------- ALIGNMENT & KEYPOINTS ---------- */
+
+    function computeAlignmentTransform(kp, img) {
+      const pelvis = kp.pelvisCenter;
+      const neck = kp.neckBase || kp.shoulderMid;
+      if (!pelvis || !neck) {
+        return {
+          pelvis: { x: img.naturalWidth / 2, y: img.naturalHeight * 0.8 },
+          rotation: 0,
+          scale: 1,
+          tx: mainCanvas.width / 2,
+          ty: mainCanvas.height * 0.8
+        };
+      }
+
+      const dx = neck.x - pelvis.x;
+      const dy = neck.y - pelvis.y;
+      const currentAngle = Math.atan2(dy, dx);
+      const desiredAngle = -Math.PI / 2;
+      const rotation = desiredAngle - currentAngle;
+
+      const torsoLen = Math.max(distance(neck, pelvis), 1);
+      const desiredTorsoLen = mainCanvas.height * 0.5;
+      const scale = desiredTorsoLen / torsoLen;
+
+      const tx = mainCanvas.width / 2;
+      const ty = mainCanvas.height * 0.8;
+
+      return { pelvis, rotation, scale, tx, ty };
+    }
+
+    function transformPoint(p, transform) {
+      const { pelvis, rotation, scale, tx, ty } = transform;
+      const x0 = p.x - pelvis.x;
+      const y0 = p.y - pelvis.y;
+      const x1 = x0 * scale;
+      const y1 = y0 * scale;
+      const cosA = Math.cos(rotation);
+      const sinA = Math.sin(rotation);
+      const x2 = x1 * cosA - y1 * sinA;
+      const y2 = x1 * sinA + y1 * cosA;
+      return { x: x2 + tx, y: y2 + ty };
+    }
+
+    function drawImageWithTransform(ctx, image, transform) {
+      const { pelvis, rotation, scale, tx, ty } = transform;
+      ctx.save();
+      ctx.translate(tx, ty);
+      ctx.rotate(rotation);
+      ctx.scale(scale, scale);
+      ctx.translate(-pelvis.x, -pelvis.y);
+      ctx.drawImage(image, 0, 0);
+      ctx.restore();
+    }
+
+    function extractKeypoints(landmarks, width, height) {
+      const p = (idx) => {
+        const lm = landmarks[idx];
+        if (!lm) return null;
+        return {
+          x: lm.x * width,
+          y: lm.y * height,
+          z: lm.z || 0,
+          visibility: lm.visibility ?? 1
+        };
+      };
+
+      const leftShoulder = p(PoseIdx.LEFT_SHOULDER);
+      const rightShoulder = p(PoseIdx.RIGHT_SHOULDER);
+      const leftHip = p(PoseIdx.LEFT_HIP);
+      const rightHip = p(PoseIdx.RIGHT_HIP);
+      const pelvisCenter = midpoint(leftHip, rightHip);
+      const shoulderMid = midpoint(leftShoulder, rightShoulder);
+
+      const leftEar = p(PoseIdx.LEFT_EAR);
+      const rightEar = p(PoseIdx.RIGHT_EAR);
+      const nose = p(PoseIdx.NOSE);
+      const headCenter = averagePoints([leftEar, rightEar, nose]);
+      const neckBase = midpoint(shoulderMid, headCenter || shoulderMid);
+      const midTorso = midpoint(shoulderMid, pelvisCenter);
+
+      return {
+        nose,
+        leftShoulder,
+        rightShoulder,
+        leftHip,
+        rightHip,
+        pelvisCenter,
+        shoulderMid,
+        headCenter,
+        neckBase,
+        midTorso,
+        leftEar,
+        rightEar
+      };
+    }
+
+    function detectViewType(kp) {
+      const ls = kp.leftShoulder;
+      const rs = kp.rightShoulder;
+      const pelvis = kp.pelvisCenter;
+      const neck = kp.neckBase || kp.shoulderMid;
+      if (!ls || !rs || !pelvis || !neck) return "non determinata";
+
+      const torsoLen = distance(neck, pelvis) || 1;
+      const shoulderWidth = Math.abs(ls.x - rs.x);
+      const shoulderWidthNorm = shoulderWidth / torsoLen;
+
+      if (shoulderWidthNorm < 0.25) return "laterale";
+      return "frontale";
+    }
+
+    function computeDetailedCanonicalRepere(kpC) {
+      const ribsLeft = [];
+      const ribsRight = [];
+      const ribsMid = [];
+      const ribFracs = [0.15, 0.3, 0.45, 0.6, 0.75];
+
+      if (kpC.leftShoulder && kpC.leftHip && kpC.rightShoulder && kpC.rightHip) {
+        for (const f of ribFracs) {
+          const L = {
+            x: kpC.leftShoulder.x + f * (kpC.leftHip.x - kpC.leftShoulder.x),
+            y: kpC.leftShoulder.y + f * (kpC.leftHip.y - kpC.leftShoulder.y),
+            z: 0
+          };
+          const R = {
+            x: kpC.rightShoulder.x + f * (kpC.rightHip.x - kpC.rightShoulder.x),
+            y: kpC.rightShoulder.y + f * (kpC.rightHip.y - kpC.rightShoulder.y),
+            z: 0
+          };
+          ribsLeft.push(L);
+          ribsRight.push(R);
+          ribsMid.push(midpoint(L, R));
+        }
+      }
+
+      let sternum = null;
+      if (ribsMid.length) {
+        sternum = ribsMid[0];
+      } else if (kpC.shoulderMid && kpC.midTorso) {
+        sternum = midpoint(kpC.shoulderMid, kpC.midTorso);
+      } else {
+        sternum = kpC.shoulderMid || kpC.neckBase || null;
+      }
+
+      const clavSegments = [];
+      if (kpC.neckBase) {
+        if (kpC.leftShoulder)
+          clavSegments.push({ start: kpC.neckBase, end: kpC.leftShoulder });
+        if (kpC.rightShoulder)
+          clavSegments.push({ start: kpC.neckBase, end: kpC.rightShoulder });
+      }
+
+      const scmSegments = [];
+      const leftMastoid = kpC.leftEar || kpC.headCenter;
+      const rightMastoid = kpC.rightEar || kpC.headCenter;
+      if (leftMastoid && sternum)
+        scmSegments.push({ start: leftMastoid, end: sternum });
+      if (rightMastoid && sternum)
+        scmSegments.push({ start: rightMastoid, end: sternum });
+
+      return { ribsLeft, ribsRight, ribsMid, sternum, clavSegments, scmSegments };
+    }
+
+    /* ---------- CURVA SCHIENA, SPLINE & COBB ---------- */
+
+    function estimateSpineCanonical(kpC) {
+      const points = [];
+
+      if (kpC.pelvisCenter) points.push(kpC.pelvisCenter);
+      if (kpC.ribsMid && kpC.ribsMid.length) {
+        kpC.ribsMid.forEach((p) => points.push(p));
+      } else if (kpC.midTorso) {
+        points.push(kpC.midTorso);
+      }
+      if (kpC.neckBase || kpC.shoulderMid) {
+        points.push(kpC.neckBase || kpC.shoulderMid);
+      }
+      if (kpC.headCenter) points.push(kpC.headCenter);
+
+      if (points.length < 3) return null;
+
+      // "maxAngle" locale per info aggiuntiva (non Cobb)
+      const anglesLocal = [];
+      for (let i = 1; i < points.length - 1; i++) {
+        const v1 = {
+          x: points[i].x - points[i - 1].x,
+          y: points[i].y - points[i - 1].y
+        };
+        const v2 = {
+          x: points[i + 1].x - points[i].x,
+          y: points[i + 1].y - points[i].y
+        };
+        anglesLocal.push(angleBetweenVectorsDeg(v1, v2));
+      }
+      const maxAngle = anglesLocal.reduce(
+        (acc, v) => Math.max(acc, Math.abs(v)),
+        0
+      );
+
+      return { basePoints: points, maxAngleLocal: maxAngle };
+    }
+
+    // Catmull-Rom spline su basePoints, + Cobb da tangenti superiore/inferiore
+    function computeSpineSpline(basePoints, samples = 80) {
+      if (!basePoints || basePoints.length < 2) {
+        return { points: null, cobbAngleDeg: null };
+      }
+
+      const pts = [];
+      const n = basePoints.length;
+      const segmentCount = n - 1;
+
+      function catmullRom(p0, p1, p2, p3, t) {
+        return 0.5 * (
+          (2 * p1) +
+          (-p0 + p2) * t +
+          (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t +
+          (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t
+        );
+      }
+
+      for (let s = 0; s < samples; s++) {
+        const g = segmentCount * (s / (samples - 1));
+        let seg = Math.floor(g);
+        let t = g - seg;
+        if (seg >= segmentCount) {
+          seg = segmentCount - 1;
+          t = 1;
+        }
+        const i0 = Math.max(0, seg - 1);
+        const i1 = seg;
+        const i2 = Math.min(n - 1, seg + 1);
+        const i3 = Math.min(n - 1, seg + 2);
+        const p0 = basePoints[i0];
+        const p1 = basePoints[i1];
+        const p2 = basePoints[i2];
+        const p3 = basePoints[i3];
+
+        const x = catmullRom(p0.x, p1.x, p2.x, p3.x, t);
+        const y = catmullRom(p0.y, p1.y, p2.y, p3.y, t);
+        pts.push({ x, y });
+      }
+
+      let cobb = null;
+      if (pts.length >= 6) {
+        const k = 3;
+        const topA = angleOfLineDeg(pts[0], pts[k]);
+        const bottomA = angleOfLineDeg(
+          pts[pts.length - 1 - k],
+          pts[pts.length - 1]
+        );
+        if (topA !== null && bottomA !== null) {
+          const aTop = normalizeAngle90(topA);
+          const aBottom = normalizeAngle90(bottomA);
+          let diff = Math.abs(aTop - aBottom);
+          if (diff > 90) diff = 180 - diff;
+          cobb = diff;
+        }
+      }
+
+      return { points: pts, cobbAngleDeg: cobb };
+    }
+
+    function depthToColor(v) {
+      const t = Math.min(1, Math.max(0, v));
+      const r = Math.floor(255 * t);
+      const g = Math.floor(255 * (1 - Math.abs(t - 0.5) * 2));
+      const b = Math.floor(255 * (1 - t));
+      return `rgba(${r},${g},${b},0.9)`;
+    }
+
+    function drawDepthHeatmap(ctx, session) {
+      if (!toggleHeatmap.checked || !session.depthMap) return;
+      const depthMap = session.depthMap;
+      const h = depthMap.length;
+      const w = depthMap[0].length;
+      const imgW = session.img.naturalWidth;
+      const imgH = session.img.naturalHeight;
+
+      const step = Math.max(1, Math.floor(Math.min(w, h) / 80));
+
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+
+      for (let y = 0; y < h; y += step) {
+        for (let x = 0; x < w; x += step) {
+          const v = depthMap[y][x];
+          const color = depthToColor(v);
+          const xImg = ((x + 0.5) / w) * imgW;
+          const yImg = ((y + 0.5) / h) * imgH;
+          const pt = transformPoint({ x: xImg, y: yImg }, session.transform);
+          const size = 4;
+          ctx.fillStyle = color;
+          ctx.fillRect(pt.x - size / 2, pt.y - size / 2, size, size);
+        }
+      }
+
+      ctx.restore();
+
+      const barWidth = 10;
+      const barHeight = 100;
+      const x0 = mainCanvas.width - barWidth - 12;
+      const y0 = 16;
+
+      const grad = ctx.createLinearGradient(x0, y0, x0, y0 + barHeight);
+      grad.addColorStop(0, depthToColor(1));
+      grad.addColorStop(0.5, depthToColor(0.5));
+      grad.addColorStop(1, depthToColor(0));
+
+      ctx.save();
+      ctx.fillStyle = grad;
+      ctx.fillRect(x0, y0, barWidth, barHeight);
+      ctx.strokeStyle = "rgba(148,163,184,0.8)";
+      ctx.strokeRect(x0, y0, barWidth, barHeight);
+      ctx.fillStyle = "rgba(148,163,184,0.9)";
+      ctx.font = "10px system-ui";
+      ctx.fillText("massa ↑", x0 - 42, y0 + 10);
+      ctx.fillText("↓", x0 - 8, y0 + barHeight - 2);
+      ctx.restore();
+    }
+
+    function drawSkeleton(ctx, kpC) {
+      if (!toggleSkeleton.checked || !kpC) return;
+      ctx.save();
+
+      function drawSegment(a, b, color, width = 3) {
+        if (!a || !b) return;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+
+      drawSegment(kpC.leftShoulder, kpC.rightShoulder, "rgba(148,163,184,0.95)");
+      drawSegment(kpC.leftHip, kpC.rightHip, "rgba(248,113,113,0.9)");
+      drawSegment(kpC.leftShoulder, kpC.leftHip, "rgba(148,163,184,0.7)", 2);
+      drawSegment(kpC.rightShoulder, kpC.rightHip, "rgba(148,163,184,0.7)", 2);
+      drawSegment(
+        kpC.shoulderMid,
+        kpC.pelvisCenter,
+        "rgba(148,163,184,0.6)",
+        2
+      );
+      drawSegment(kpC.headCenter, kpC.neckBase, "rgba(148,163,184,0.9)", 2);
+
+      if (kpC.ribsLeft && kpC.ribsRight) {
+        ctx.strokeStyle = "rgba(59,130,246,0.9)";
+        ctx.lineWidth = 2;
+        ctx.fillStyle = "rgba(59,130,246,0.9)";
+        for (let i = 0; i < kpC.ribsLeft.length; i++) {
+          const L = kpC.ribsLeft[i];
+          const R = kpC.ribsRight[i];
+          if (!L || !R) continue;
+          ctx.beginPath();
+          ctx.moveTo(L.x, L.y);
+          ctx.lineTo(R.x, R.y);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(L.x, L.y, 3, 0, Math.PI * 2);
+          ctx.arc(R.x, R.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      if (kpC.sternum) {
+        ctx.fillStyle = "rgba(56,189,248,0.95)";
+        ctx.beginPath();
+        ctx.arc(kpC.sternum.x, kpC.sternum.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (kpC.clavSegments) {
+        ctx.strokeStyle = "rgba(56,189,248,0.9)";
+        ctx.lineWidth = 3;
+        for (const seg of kpC.clavSegments) {
+          drawSegment(seg.start, seg.end, "rgba(56,189,248,0.9)", 3);
+        }
+      }
+
+      if (kpC.scmSegments) {
+        ctx.strokeStyle = "rgba(251,191,36,0.9)";
+        ctx.lineWidth = 2;
+        for (const seg of kpC.scmSegments) {
+          drawSegment(seg.start, seg.end, "rgba(251,191,36,0.9)", 2);
+        }
+      }
+
+      ctx.fillStyle = "rgba(56,189,248,0.95)";
+      const pts = [
+        kpC.headCenter,
+        kpC.neckBase,
+        kpC.shoulderMid,
+        kpC.leftShoulder,
+        kpC.rightShoulder,
+        kpC.leftHip,
+        kpC.rightHip,
+        kpC.pelvisCenter
+      ];
+      for (const p of pts) {
+        if (!p) continue;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    function emphasizedSpinePoints(session) {
+      const pts = session.spineSpline;
+      if (!pts || !pts.length) return null;
+      const lambda = curveLambda;
+      let sumX = 0;
+      pts.forEach((p) => (sumX += p.x));
+      const cx = sumX / pts.length;
+      return pts.map((p) => ({
+        x: cx + lambda * (p.x - cx),
+        y: p.y
+      }));
+    }
+
+    function drawSpineAndHeadCentering(ctx, session) {
+      if (!toggleSpine.checked) return;
+      const spine = session.spineCanonical;
+      const kp = session.keypointsCanonical;
+      if (!spine || !kp) return;
+
+      ctx.save();
+
+      const emphasised = emphasizedSpinePoints(session);
+      if (emphasised && emphasised.length >= 2) {
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(56,189,248,0.95)";
+        ctx.beginPath();
+        emphasised.forEach((p, idx) => {
+          if (idx === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(56,189,248,0.85)";
+        for (const p of emphasised) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      const pelvis = kp.pelvisCenter;
+      const head = kp.headCenter;
+
+      if (pelvis) {
+        ctx.setLineDash([6, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "rgba(148,163,184,0.7)";
+        ctx.beginPath();
+        ctx.moveTo(pelvis.x, pelvis.y - 350);
+        ctx.lineTo(pelvis.x, pelvis.y + 30);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      if (head && kp.sternum) {
+        ctx.strokeStyle = "rgba(248,250,252,0.9)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(head.x, head.y);
+        ctx.lineTo(kp.sternum.x, kp.sternum.y);
+        ctx.stroke();
+      }
+
+      if (pelvis && head) {
+        const dx = head.x - pelvis.x;
+        ctx.fillStyle = "rgba(248,250,252,0.95)";
+        ctx.font = "11px system-ui";
+        ctx.fillText(
+          `offset testa/bacino ≈ ${dx.toFixed(1)} px`,
+          pelvis.x + 12,
+          pelvis.y - 12
+        );
+      }
+
+      ctx.restore();
+    }
+
+    function drawVectorField(ctx, baseline, current) {
+      if (!toggleVectors.checked) return;
+      if (!baseline || !current) return;
+
+      ctx.save();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(52,211,153,0.95)";
+      ctx.fillStyle = "rgba(52,211,153,0.95)";
+
+      const keys = [
+        "headCenter",
+        "neckBase",
+        "shoulderMid",
+        "leftShoulder",
+        "rightShoulder",
+        "leftHip",
+        "rightHip",
+        "pelvisCenter"
+      ];
+
+      const scale = 1.0;
+
+      for (const k of keys) {
+        const b = baseline[k];
+        const c = current[k];
+        if (!b || !c) continue;
+        const dx = (c.x - b.x) * scale;
+        const dy = (c.y - b.y) * scale;
+        const len = Math.hypot(dx, dy);
+        if (len < 1) continue;
+
+        const x0 = b.x;
+        const y0 = b.y;
+        const x1 = x0 + dx;
+        const y1 = y0 + dy;
+
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.stroke();
+
+        const angle = Math.atan2(dy, dx);
+        const ah = 7;
+        const leftX = x1 - ah * Math.cos(angle - Math.PI / 6);
+        const leftY = y1 - ah * Math.sin(angle - Math.PI / 6);
+        const rightX = x1 - ah * Math.cos(angle + Math.PI / 6);
+        const rightY = y1 - ah * Math.sin(angle + Math.PI / 6);
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(leftX, leftY);
+        ctx.lineTo(rightX, rightY);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    function updateMetricRow(session) {
+      if (!session || !session.metrics) {
+        metricRow.innerHTML = "";
+        return;
+      }
+      const m = session.metrics;
+      const fmt = (v) =>
+        v === null || v === undefined || Number.isNaN(v) ? "—" : v.toFixed(2);
+
+      const viewLabel =
+        session.viewType === "frontale"
+          ? "frontale"
+          : session.viewType === "laterale"
+          ? "laterale"
+          : "non determinata";
+
+      metricRow.innerHTML = `
+        <div><strong>Vista:</strong> ${viewLabel}</div>
+        <div><strong>Tilt spalle:</strong> ${fmt(m.shoulderTiltDeg)}°</div>
+        <div><strong>Tilt bacino:</strong> ${fmt(m.pelvisTiltDeg)}°</div>
+        <div><strong>Angolo di Cobb:</strong> ${fmt(m.cobbAngleDeg)}°</div>
+        <div><strong>Offset testa/bacino:</strong> ${fmt(m.headPelvisOffsetNorm)} u.n.</div>
+        <div><strong>Offset testa/sterno:</strong> ${fmt(m.headSternumOffsetNorm)} u.n.</div>
+        <div><strong>Rot. bacino (depth):</strong> ${fmt(m.pelvisDepthRotDiff)} Δu</div>
+        <div><strong>Lunghezza tronco:</strong> ${fmt(m.torsoLengthPx)} px</div>
+      `;
+    }
+
+    function renderSession(index) {
+      const session = sessions[index];
+      if (!session || !session.keypointsCanonical || !session.transform) return;
+
+      mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+
+      drawImageWithTransform(mainCtx, session.img, session.transform);
+
+      if (toggleHeatmap.checked) {
+        mainCtx.save();
+        mainCtx.fillStyle = "rgba(0,0,0,0.35)";
+        mainCtx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
+        mainCtx.restore();
+      }
+
+      drawDepthHeatmap(mainCtx, session);
+      drawSkeleton(mainCtx, session.keypointsCanonical);
+      drawSpineAndHeadCentering(mainCtx, session);
+
+      const baseline = sessions[0];
+      if (baseline && baseline.keypointsCanonical && index > 0) {
+        drawVectorField(
+          mainCtx,
+          baseline.keypointsCanonical,
+          session.keypointsCanonical
+        );
+      }
+
+      updateMetricRow(session);
+      highlightFileItem(index);
+    }
+
+    function highlightFileItem(index) {
+      const items = fileListEl.querySelectorAll(".file-item");
+      items.forEach((el) => el.classList.remove("active"));
+      const active = fileListEl.querySelector(`.file-item[data-idx="${index}"]`);
+      if (active) active.classList.add("active");
+    }
+
+    function updateCharts() {
+      if (!sessions.length) return;
+      const labels = sessions.map((s, i) => `${i + 1}`);
+
+      const shoulders = sessions.map((s) => s.metrics?.shoulderTiltDeg ?? null);
+      const pelvis = sessions.map((s) => s.metrics?.pelvisTiltDeg ?? null);
+      const cobb = sessions.map((s) => s.metrics?.cobbAngleDeg ?? null);
+
+      const headPelvis = sessions.map(
+        (s) => s.metrics?.headPelvisOffsetNorm ?? null
+      );
+      const headSternum = sessions.map(
+        (s) => s.metrics?.headSternumOffsetNorm ?? null
+      );
+
+      const anglesCtx = document
+        .getElementById("chartAngles")
+        .getContext("2d");
+      if (!anglesChart) {
+        anglesChart = new Chart(anglesCtx, {
+          type: "line",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Tilt spalle (°)",
+                data: shoulders,
+                tension: 0.3
+              },
+              {
+                label: "Tilt bacino (°)",
+                data: pelvis,
+                tension: 0.3
+              },
+              {
+                label: "Angolo di Cobb (°)",
+                data: cobb,
+                tension: 0.3
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                labels: { color: "#e5e7eb", font: { size: 10 } }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: "#9ca3af", font: { size: 9 } },
+                grid: { color: "rgba(148,163,184,0.25)" }
+              },
+              y: {
+                ticks: { color: "#9ca3af", font: { size: 9 } },
+                grid: { color: "rgba(148,163,184,0.18)" }
+              }
+            }
+          }
+        });
+      } else {
+        anglesChart.data.labels = labels;
+        anglesChart.data.datasets[0].data = shoulders;
+        anglesChart.data.datasets[1].data = pelvis;
+        anglesChart.data.datasets[2].data = cobb;
+        anglesChart.update();
+      }
+
+      const offsetsCtx = document
+        .getElementById("chartOffsets")
+        .getContext("2d");
+      if (!offsetsChart) {
+        offsetsChart = new Chart(offsetsCtx, {
+          type: "line",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Offset testa/bacino (norm.)",
+                data: headPelvis,
+                tension: 0.3
+              },
+              {
+                label: "Offset testa/sterno (norm.)",
+                data: headSternum,
+                tension: 0.3
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                labels: { color: "#e5e7eb", font: { size: 10 } }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: "#9ca3af", font: { size: 9 } },
+                grid: { color: "rgba(148,163,184,0.25)" }
+              },
+              y: {
+                ticks: { color: "#9ca3af", font: { size: 9 } },
+                grid: { color: "rgba(148,163,184,0.18)" }
+              }
+            }
+          }
+        });
+      } else {
+        offsetsChart.data.labels = labels;
+        offsetsChart.data.datasets[0].data = headPelvis;
+        offsetsChart.data.datasets[1].data = headSternum;
+        offsetsChart.update();
+      }
+    }
+
+    function describeTowardZero(name, baseline, last, unit, threshold) {
+      if (
+        baseline === null ||
+        baseline === undefined ||
+        last === null ||
+        last === undefined ||
+        !Number.isFinite(baseline) ||
+        !Number.isFinite(last)
+      )
+        return null;
+      const abs0 = Math.abs(baseline);
+      const abs1 = Math.abs(last);
+      const deltaAbs = abs1 - abs0;
+
+      if (Math.abs(deltaAbs) < threshold) {
+        return `• ${name}: variazione minima (quasi invariato, da ${baseline.toFixed(
+          2
+        )}${unit} a ${last.toFixed(2)}${unit}).`;
+      } else if (deltaAbs < 0) {
+        return `• ${name}: <strong>miglioramento</strong> (più vicino alla neutralità, da ${baseline.toFixed(
+          2
+        )}${unit} a ${last.toFixed(2)}${unit}).`;
+      } else {
+        return `• ${name}: <strong>peggioramento</strong> (più lontano dalla neutralità, da ${baseline.toFixed(
+          2
+        )}${unit} a ${last.toFixed(2)}${unit}).`;
+      }
+    }
+
+    function buildTechnicalReport() {
+      if (!sessions.length || !sessions[0].metrics) {
+        reportPanel.innerHTML =
+          "<h3>Report tecnico automatico</h3><p>Analizza le immagini per generare il report.</p>";
+        return;
+      }
+      if (sessions.length < 2) {
+        reportPanel.innerHTML =
+          "<h3>Report tecnico automatico</h3><p>Servono almeno due sessioni per confrontare l’evoluzione.</p>";
+        return;
+      }
+
+      const first = sessions[0];
+      const last = sessions[sessions.length - 1];
+      const m0 = first.metrics;
+      const m1 = last.metrics;
+
+      const items = [];
+
+      const sShoulders = describeTowardZero(
+        "Inclinazione delle spalle",
+        m0.shoulderTiltDeg,
+        m1.shoulderTiltDeg,
+        "°",
+        1
+      );
+      if (sShoulders) items.push(sShoulders);
+
+      const sPelvis = describeTowardZero(
+        "Inclinazione del bacino",
+        m0.pelvisTiltDeg,
+        m1.pelvisTiltDeg,
+        "°",
+        1
+      );
+      if (sPelvis) items.push(sPelvis);
+
+      const sCobb = describeTowardZero(
+        "Angolo di Cobb (approssimato sulla spline)",
+        m0.cobbAngleDeg,
+        m1.cobbAngleDeg,
+        "°",
+        1
+      );
+      if (sCobb) items.push(sCobb);
+
+      const sHeadPelvis = describeTowardZero(
+        "Centratura testa rispetto al bacino",
+        m0.headPelvisOffsetNorm,
+        m1.headPelvisOffsetNorm,
+        "",
+        0.02
+      );
+      if (sHeadPelvis) items.push(sHeadPelvis);
+
+      const sHeadSternum = describeTowardZero(
+        "Centratura testa rispetto alla colonna sterneale",
+        m0.headSternumOffsetNorm,
+        m1.headSternumOffsetNorm,
+        "",
+        0.02
+      );
+      if (sHeadSternum) items.push(sHeadSternum);
+
+      const sPelvisRot = describeTowardZero(
+        "Rotazione del bacino in profondità (anca dx - anca sx)",
+        m0.pelvisDepthRotDiff,
+        m1.pelvisDepthRotDiff,
+        "",
+        0.02
+      );
+      if (sPelvisRot) items.push(sPelvisRot);
+
+      const hasLateral = sessions.some((s) => s.viewType === "laterale");
+
+      const html = `
+        <h3>Report tecnico automatico</h3>
+        <p><strong>Baseline:</strong> ${first.fileName} &nbsp;&nbsp; <strong>Ultima:</strong> ${last.fileName}</p>
+        <ul>
+          ${items.map((t) => `<li>${t}</li>`).join("")}
+        </ul>
+        ${
+          hasLateral
+            ? "<p>In alcune immagini è presente una vista laterale: l’algoritmo la riconosce ma, in questa versione, non fornisce ancora una metrica completa sul piano sagittale (utile comunque per valutazione qualitativa della cifosi/lordosi).</p>"
+            : ""
+        }
+        <p><em>Nota clinica:</em> angoli in intervallo ±90° rispettano la periodicità della linea (180° ≡ 0°). 0° e offset prossimi allo zero indicano un assetto più simmetrico e centrato. L’angolo di Cobb qui è una stima fotogrammetrica sulla spline della colonna e va sempre integrato con la valutazione clinica e radiografica.</p>
+      `;
+
+      reportPanel.innerHTML = html;
+    }
+
+    function sleep(ms) {
+      return new Promise((res) => setTimeout(res, ms));
+    }
+
+    async function estimateDepthMap(session) {
+      if (!depthEstimator || !depthReady) return null;
+      try {
+        const estimationConfig = {
+          minDepth: 0.2,
+          maxDepth: 0.9,
+          flipHorizontal: false
+        };
+        const depthMap = await depthEstimator.estimateDepth(
+          session.img,
+          estimationConfig
+        );
+        const depthArray = await depthMap.toArray();
+        return depthArray;
+      } catch (err) {
+        console.warn("Errore depth estimation", err);
+        return null;
+      }
+    }
+
+    function sampleDepthAtImagePoint(depthMap, img, pt, radius = 2) {
+      if (!depthMap || !pt) return null;
+      const h = depthMap.length;
+      const w = depthMap[0].length;
+      const xNorm = pt.x / img.naturalWidth;
+      const yNorm = pt.y / img.naturalHeight;
+      const cx = Math.round(xNorm * (w - 1));
+      const cy = Math.round(yNorm * (h - 1));
+      let sum = 0;
+      let count = 0;
+      for (let j = -radius; j <= radius; j++) {
+        for (let i = -radius; i <= radius; i++) {
+          const xx = cx + i;
+          const yy = cy + j;
+          if (xx < 0 || xx >= w || yy < 0 || yy >= h) continue;
+          sum += depthMap[yy][xx];
+          count++;
+        }
+      }
+      if (!count) return null;
+      return sum / count;
+    }
+
+    function computePelvisDepthRotationDiff(session) {
+      if (!session.depthMap || !session.keypoints2D) return null;
+      const depthMap = session.depthMap;
+      const img = session.img;
+      const kp = session.keypoints2D;
+
+      const dL = sampleDepthAtImagePoint(depthMap, img, kp.leftHip, 3);
+      const dR = sampleDepthAtImagePoint(depthMap, img, kp.rightHip, 3);
+      if (dL === null || dR === null) return null;
+      return dR - dL;
+    }
+
+    async function analyzeAllSessions() {
+      if (!poseLandmarker || !sessions.length) return;
+      analyzeBtn.disabled = true;
+      statusEl.classList.remove("error");
+      statusEl.textContent = "Analisi in corso...";
+      showBusy("Analisi immagini in corso...", 0);
+
+      for (let i = 0; i < sessions.length; i++) {
+        const s = sessions[i];
+        try {
+          const result = poseLandmarker.detect(s.img);
+          if (!result || !result.landmarks || !result.landmarks.length) {
+            console.warn("Nessun pose trovato per", s.fileName);
+            continue;
+          }
+          const landmarks = result.landmarks[0];
+          s.landmarks = landmarks;
+
+          const kp = extractKeypoints(
+            landmarks,
+            s.img.naturalWidth,
+            s.img.naturalHeight
+          );
+          s.keypoints2D = kp;
+
+          const transform = computeAlignmentTransform(kp, s.img);
+          s.transform = transform;
+
+          const kpC = {};
+          Object.keys(kp).forEach((k) => {
+            if (!kp[k]) return;
+            kpC[k] = transformPoint(kp[k], transform);
+          });
+
+          const repere = computeDetailedCanonicalRepere(kpC);
+          kpC.ribsLeft = repere.ribsLeft;
+          kpC.ribsRight = repere.ribsRight;
+          kpC.ribsMid = repere.ribsMid;
+          kpC.sternum = repere.sternum;
+          kpC.clavSegments = repere.clavSegments;
+          kpC.scmSegments = repere.scmSegments;
+
+          s.keypointsCanonical = kpC;
+          s.viewType = detectViewType(kp);
+
+          const spineC = estimateSpineCanonical(kpC);
+          s.spineCanonical = spineC;
+
+          const spline = spineC
+            ? computeSpineSpline(spineC.basePoints, 80)
+            : { points: null, cobbAngleDeg: null };
+          s.spineSpline = spline.points;
+
+          s.depthMap = await estimateDepthMap(s);
+
+          const shoulderTilt = angleOfLineDeg(
+            kp.leftShoulder,
+            kp.rightShoulder
+          );
+          const pelvisTilt = angleOfLineDeg(kp.leftHip, kp.rightHip);
+          const torsoLength = distance(
+            kp.neckBase || kp.shoulderMid,
+            kp.pelvisCenter
+          );
+          const headPelvisOffset =
+            kp.headCenter && kp.pelvisCenter
+              ? kp.headCenter.x - kp.pelvisCenter.x
+              : null;
+          const headSternumOffset =
+            kp.headCenter && kp.shoulderMid
+              ? kp.headCenter.x - kp.shoulderMid.x
+              : null;
+
+          const pelvisDepthRotDiff = computePelvisDepthRotationDiff(s);
+
+          s.metrics = {
+            shoulderTiltDeg: shoulderTilt,
+            pelvisTiltDeg: pelvisTilt,
+            cobbAngleDeg: spline.cobbAngleDeg ?? null,
+            maxSpineAngleDeg: spineC?.maxAngleLocal ?? null,
+            torsoLengthPx: torsoLength || 0,
+            headPelvisOffsetNorm:
+              torsoLength && headPelvisOffset !== null
+                ? headPelvisOffset / torsoLength
+                : null,
+            headSternumOffsetNorm:
+              torsoLength && headSternumOffset !== null
+                ? headSternumOffset / torsoLength
+                : null,
+            pelvisDepthRotDiff: pelvisDepthRotDiff
+          };
+
+          statusEl.textContent = `Analisi foto ${i + 1}/${sessions.length} completata...`;
+          updateBusy(
+            `Analisi foto ${i + 1}/${sessions.length}...`,
+            (i + 1) / sessions.length
+          );
+        } catch (err) {
+          console.error("Errore durante l'analisi", s.fileName, err);
+          statusEl.classList.add("error");
+          statusEl.textContent =
+            "Errore durante l'analisi di una o più immagini.";
+        }
+      }
+
+      if (sessions[0] && !sessions[0].metrics) {
+        statusEl.classList.add("error");
+        statusEl.textContent =
+          "Nessun scheletro rilevato. Controlla le foto e riprova.";
+      } else {
+        statusEl.classList.remove("error");
+        statusEl.textContent = "Analisi completata.";
+      }
+
+      updateCharts();
+      currentIndex = 0;
+      renderSession(currentIndex);
+      analyzeBtn.disabled = false;
+
+      // report tecnico alla fine dell’analisi
+      buildTechnicalReport();
+
+      setTimeout(hideBusy, 300);
+    }
+
+    function loadImageFile(file) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ file, img });
+        img.onerror = (e) => reject(e);
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    function rebuildFileList() {
+      fileListEl.innerHTML = "";
+      sessions.forEach((s, idx) => {
+        const div = document.createElement("div");
+        div.className = "file-item";
+        div.dataset.idx = String(idx);
+        div.innerHTML = `
+          <span class="index">${idx + 1}</span>
+          <span class="name">${s.fileName}</span>
+          <div class="reorder-controls">
+            <button class="reorder-btn up" data-dir="-1" title="Sposta su">↑</button>
+            <button class="reorder-btn down" data-dir="1" title="Sposta giù">↓</button>
+          </div>
+        `;
+        div.addEventListener("click", (ev) => {
+          if (ev.target.classList.contains("reorder-btn")) return;
+          currentIndex = idx;
+          renderSession(currentIndex);
+        });
+        fileListEl.appendChild(div);
+
+        const upBtn = div.querySelector(".reorder-btn.up");
+        const downBtn = div.querySelector(".reorder-btn.down");
+        upBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          moveSession(idx, -1);
+        });
+        downBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          moveSession(idx, 1);
+        });
+      });
+      highlightFileItem(currentIndex);
+    }
+
+    function moveSession(oldIndex, delta) {
+      const newIndex = oldIndex + delta;
+      if (newIndex < 0 || newIndex >= sessions.length) return;
+      const [item] = sessions.splice(oldIndex, 1);
+      sessions.splice(newIndex, 0, item);
+      sessions.forEach((s, i) => (s.index = i));
+      currentIndex = newIndex;
+      rebuildFileList();
+      updateCharts();
+      renderSession(currentIndex);
+    }
+
+    function updateAnalyzeButton() {
+      analyzeBtn.disabled = !(modelReady && imagesReady && sessions.length > 0);
+    }
+
+    async function initPoseLandmarker() {
+      try {
+        statusEl.textContent =
+          "Carico modello MediaPipe Pose (può richiedere qualche secondo)...";
+
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+        );
+
+        poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath:
+              "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task"
+          },
+          runningMode: "IMAGE",
+          numPoses: 1
+        });
+
+        modelReady = true;
+        statusEl.classList.remove("error");
+        statusEl.textContent =
+          "Modello pose caricato. Carica le foto e premi Analizza.";
+        updateAnalyzeButton();
+      } catch (err) {
+        console.error("Errore caricando MediaPipe Pose", err);
+        statusEl.classList.add("error");
+        statusEl.textContent =
+          "Errore nel caricare il modello MediaPipe Pose.";
+      }
+    }
+
+    async function initDepthEstimator() {
+      try {
+        const depthNS = globalThis.depthEstimation || window.depthEstimation;
+        if (!depthNS) {
+          console.warn("Libreria depthEstimation non trovata.");
+          return;
+        }
+        const modelType = depthNS.SupportedModels.ARPortraitDepth;
+        depthEstimator = await depthNS.createEstimator(modelType);
+        depthReady = true;
+        console.log("Depth estimator (ARPortraitDepth) pronto.");
+      } catch (err) {
+        console.error("Errore caricando depth estimator", err);
+      }
+    }
+
+    fileInput.addEventListener("change", async (e) => {
+      const files = Array.from(e.target.files || []);
+      sessions = [];
+      reportPanel.innerHTML =
+        "<h3>Report tecnico automatico</h3><p>Analizza le immagini per generare il report.</p>";
+
+      if (!files.length) {
+        imagesReady = false;
+        updateAnalyzeButton();
+        fileListEl.innerHTML = "";
+        mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+        statusEl.textContent = "Nessun file selezionato.";
+        return;
+      }
+
+      files.sort((a, b) =>
+        a.name.localeCompare(b.name, "it", { numeric: true })
+      );
+
+      statusEl.textContent = "Carico immagini...";
+      try {
+        const loaded = await Promise.all(files.map(loadImageFile));
+
+        sessions = loaded.map((obj, idx) => ({
+          index: idx,
+          fileName: obj.file.name,
+          img: obj.img,
+          landmarks: null,
+          keypoints2D: null,
+          keypointsCanonical: null,
+          spineCanonical: null,
+          spineSpline: null,
+          transform: null,
+          depthMap: null,
+          metrics: null,
+          viewType: "non determinata"
+        }));
+
+        imagesReady = true;
+        rebuildFileList();
+        updateAnalyzeButton();
+        statusEl.textContent =
+          "Immagini caricate. Premi Analizza per procedere.";
+      } catch (err) {
+        console.error("Errore caricando le immagini", err);
+        statusEl.classList.add("error");
+        statusEl.textContent = "Errore nel caricamento immagini.";
+        imagesReady = false;
+        updateAnalyzeButton();
+      }
+    });
+
+    clearBtn.addEventListener("click", () => {
+      fileInput.value = "";
+      sessions = [];
+      imagesReady = false;
+      updateAnalyzeButton();
+      fileListEl.innerHTML = "";
+      mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+      statusEl.classList.remove("error");
+      statusEl.textContent = "Pulito. Carica nuove foto per iniziare.";
+      reportPanel.innerHTML =
+        "<h3>Report tecnico automatico</h3><p>Analizza le immagini per generare il report.</p>";
+    });
+
+    analyzeBtn.addEventListener("click", () => {
+      analyzeAllSessions();
+    });
+
+    [toggleSkeleton, toggleSpine, toggleVectors, toggleHeatmap].forEach((el) =>
+      el.addEventListener("change", () => renderSession(currentIndex))
+    );
+
+    lambdaSlider.addEventListener("input", () => {
+      curveLambda = parseFloat(lambdaSlider.value);
+      lambdaValue.textContent = curveLambda.toFixed(1);
+      renderSession(currentIndex);
+    });
+
+    initPoseLandmarker();
+    initDepthEstimator();
+  </script>
+</body>
+</html>

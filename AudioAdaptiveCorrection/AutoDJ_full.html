@@ -1,50 +1,13 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Phantom DJ - Hive Mind Edition</title>
+
     <script src="https://unpkg.com/meyda/dist/web/meyda.min.js"></script>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
-        // --- 1. REPLACE THIS WITH YOUR FIREBASE CONFIG ---
-        const firebaseConfig = {
-          apiKey: "AIzaSyDJIzSP6ci_3djwGgwqnBlBGbcqTQLOcRQ",
-          authDomain: "autodj-b79f7.firebaseapp.com",
-          projectId: "autodj-b79f7",
-          storageBucket: "autodj-b79f7.firebasestorage.app",
-          messagingSenderId: "125149780002",
-          appId: "1:125149780002:web:951a3acb1c6e648dd2127b",
-          measurementId: "G-Y5648S9L7Q"
-        };
-
-        // --- 2. INITIALIZE FIREBASE ---
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
-        // Global references for the window object to access
-        window.db = db;
-        window.auth = auth;
-        window.doc = doc;
-        window.getDoc = getDoc;
-        window.setDoc = setDoc;
-        window.signInAnonymously = signInAnonymously;
-
-        // Enable Offline Persistence (Firestore caches data automatically)
-        enableIndexedDbPersistence(db).catch((err) => {
-            console.log("Persistence disabled:", err.code);
-        });
-
-        console.log("Firebase initialized.");
-    </script>
-
     <style>
-        /* [KEEPING YOUR ORIGINAL STYLES - NO CHANGES HERE] */
         :root {
             --bg-color: #121212;
             --panel-color: #1e1e1e;
@@ -53,8 +16,6 @@
             --like-color: #33ff99;
             --text-color: #e0e0e0;
             --warn-color: #ffaa00;
-            --active-btn-bg: #00ffcc;
-            --active-btn-text: #000;
         }
 
         body {
@@ -69,267 +30,91 @@
             overflow: hidden;
         }
 
+        /* UI COMPONENTS */
         header {
-            width: 100%;
-            padding: 1rem;
-            background-color: var(--panel-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-            z-index: 10;
+            width: 100%; padding: 1rem; background-color: var(--panel-color);
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5); z-index: 10;
         }
-
         h1 { margin: 0; font-size: 1.5rem; color: var(--accent-color); text-transform: uppercase; letter-spacing: 2px; }
-
         .controls { display: flex; gap: 10px; align-items: center; }
 
         button, select {
-            background-color: #333;
-            color: white;
-            border: 1px solid #555;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-weight: bold;
-            font-family: inherit;
+            background-color: #333; color: white; border: 1px solid #555;
+            padding: 8px 16px; border-radius: 4px; cursor: pointer;
+            transition: all 0.2s; font-weight: bold; font-family: inherit;
         }
-
         button:hover, select:hover { background-color: #444; border-color: var(--accent-color); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        button.active { background-color: var(--active-btn-bg); color: var(--active-btn-text); border-color: var(--active-btn-bg); }
-        button.toggle-on { background-color: var(--accent-color); color: #000; }
-        button.toggle-off { background-color: #333; color: #888; }
-
-        select { padding-right: 25px; }
+        button.active { background-color: var(--accent-color); color: #000; border-color: var(--accent-color); }
 
         #fileInput { display: none; }
         .file-label {
-            background-color: var(--accent-color);
-            color: #000;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
+            background-color: var(--accent-color); color: #000; padding: 8px 16px;
+            border-radius: 4px; cursor: pointer; font-weight: bold;
         }
 
+        /* MAIN CANVAS AREA */
         #main-container {
-            position: relative;
-            width: 100%;
-            flex-grow: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            position: relative; width: 100%; flex-grow: 1;
+            display: flex; justify-content: center; align-items: center;
         }
-
         canvas {
             background: radial-gradient(circle at center, #2a2a2a 0%, #000000 100%);
-            box-shadow: inset 0 0 50px #000;
-            cursor: crosshair;
+            box-shadow: inset 0 0 50px #000; cursor: crosshair;
         }
 
+        /* OVERLAYS & PANELS */
         #voting-panel {
-            position: absolute;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 20px;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s;
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 20px; pointer-events: none; opacity: 0; transition: opacity 0.3s;
         }
-
-        #voting-panel.visible {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
+        #voting-panel.visible { opacity: 1; pointer-events: auto; }
         .vote-btn {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            border: 2px solid #fff;
-            font-size: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            background: rgba(0,0,0,0.6);
-            transition: transform 0.2s, background 0.2s;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            width: 60px; height: 60px; border-radius: 50%; border: 2px solid #fff;
+            font-size: 24px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; background: rgba(0,0,0,0.6); transition: transform 0.2s;
         }
-
         .vote-btn:hover { transform: scale(1.1); }
         .vote-like:hover { background-color: var(--like-color); border-color: var(--like-color); color: #000; }
         .vote-dislike:hover { background-color: var(--dislike-color); border-color: var(--dislike-color); color: white; }
 
+        #dev-panel {
+            position: absolute; top: 80px; right: 20px; width: 300px;
+            background-color: rgba(0, 0, 0, 0.95); border: 1px solid var(--accent-color);
+            border-radius: 8px; padding: 15px; z-index: 100; display: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.8); font-size: 0.85rem;
+        }
+        #dev-panel.visible { display: block; }
+        .kernel-viz { display: flex; gap: 2px; margin-bottom: 15px; height: 30px; }
+        .kernel-cell { flex: 1; height: 100%; border: 1px solid #000; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; color: #fff; }
+        .param-row { display: flex; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px solid #333; }
+
         #status {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0,0,0,0.7);
-            padding: 10px 20px;
-            border-radius: 20px;
-            pointer-events: none;
-            font-size: 0.9rem;
-            border: 1px solid #444;
-            transition: opacity 0.3s;
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background-color: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px;
+            pointer-events: none; border: 1px solid #444; transition: opacity 0.3s;
         }
 
         #harmonic-info {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background-color: rgba(0,0,0,0.6);
-            padding: 10px;
-            border-radius: 8px;
-            pointer-events: none;
-            font-family: monospace;
-            color: var(--accent-color);
-            max-width: 300px;
+            position: absolute; top: 20px; left: 20px; background-color: rgba(0,0,0,0.6);
+            padding: 10px; border-radius: 8px; pointer-events: none; font-family: monospace; color: var(--accent-color);
         }
 
-        #dev-panel {
-            position: absolute;
-            top: 80px;
-            right: 20px;
-            width: 340px;
-            background-color: rgba(0, 0, 0, 0.95);
-            border: 1px solid var(--accent-color);
-            border-radius: 8px;
-            padding: 15px;
-            z-index: 100;
-            display: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.8);
-            font-size: 0.85rem;
-        }
-
-        #dev-panel.visible { display: block; }
-
-        .dev-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #444;
-            padding-bottom: 5px;
-        }
-
-        .dev-header h3 { margin: 0; color: var(--accent-color); font-size: 1rem; }
-        .close-dev { cursor: pointer; color: #888; }
-
-        .kernel-viz {
-            display: flex;
-            gap: 2px;
-            margin-bottom: 15px;
-            height: 40px;
-            align-items: center;
-            justify-content: center;
-        }
-        .kernel-cell {
-            flex: 1;
-            height: 100%;
-            background: #333;
-            border: 1px solid #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.6rem;
-            color: #fff;
-            transition: background 0.3s;
-        }
-
-        .param-row { display: flex; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px solid #333; padding-bottom: 2px; }
-        .param-name { color: #aaa; }
-        .param-val { color: #fff; font-weight: bold; }
-
-        .sub-header { color: #888; font-size: 0.75rem; margin: 10px 0 5px; text-transform: uppercase; border-bottom: 1px dashed #444; }
-
-        .legend {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background-color: rgba(0, 0, 0, 0.6);
-            padding: 10px;
-            border-radius: 8px;
-            pointer-events: none;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.8rem; }
-        .color-dot { width: 10px; height: 10px; border-radius: 50%; }
-
-        #training-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.9);
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 200;
-        }
-
-        #training-overlay.active { display: flex; }
-
-        .progress-container {
-            width: 60%;
-            height: 10px;
-            background-color: #333;
-            border-radius: 5px;
-            margin-top: 20px;
-            overflow: hidden;
-        }
-
-        .progress-bar {
-            width: 0%;
-            height: 100%;
-            background-color: var(--accent-color);
-            transition: width 0.1s linear;
-        }
-
-        .training-text {
-            color: white;
-            font-size: 1.2rem;
-            margin-bottom: 10px;
-        }
-
-        #overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.85);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 20;
-            text-align: center;
-        }
-        #overlay h2 { color: var(--accent-color); margin-bottom: 20px; }
-        #overlay p { max-width: 600px; margin-bottom: 30px; line-height: 1.6; }
-
-        /* Status Indicator for Sync */
         #sync-status {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background-color: #555;
-            z-index: 999;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            position: fixed; top: 10px; right: 10px; width: 12px; height: 12px; border-radius: 50%;
+            background-color: #555; z-index: 999; box-shadow: 0 0 8px rgba(0,0,0,0.5);
         }
-        #sync-status.online { background-color: var(--like-color); box-shadow: 0 0 10px var(--like-color); }
-        #sync-status.offline { background-color: var(--dislike-color); }
+        #sync-status.online { background-color: var(--like-color); box-shadow: 0 0 8px var(--like-color); }
         #sync-status.syncing { background-color: var(--warn-color); animation: blink 1s infinite; }
-
+        #sync-status.offline { background-color: var(--dislike-color); }
         @keyframes blink { 50% { opacity: 0.5; } }
 
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 20; text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -339,769 +124,1258 @@
     <header>
         <h1>Phantom DJ <span style="font-size:0.8rem; color:#888;">// Hive Mind</span></h1>
         <div class="controls">
-            <button id="btn-aug" class="toggle-on">Aug: ON</button>
             <select id="beatSelect">
                 <option value="4.0" selected>4 Beats</option>
                 <option value="8.0">8 Beats</option>
                 <option value="16.0">16 Beats</option>
             </select>
             <button id="btn-dev">🧠 Neural View</button>
-            <button id="btn-play" disabled>▶ PLAY / AUTO</button>
+            <button id="btn-play" disabled>▶ PLAY</button>
             <button id="btn-stop" disabled>■ STOP</button>
-            <label for="fileInput" class="file-label">+ Tracks</label>
+            <label for="fileInput" class="file-label">+ Load Tracks</label>
             <input type="file" id="fileInput" accept="audio/*" multiple>
         </div>
     </header>
 
     <div id="main-container">
         <canvas id="djCanvas"></canvas>
-        <div id="harmonic-info">Mix Info: In attesa...</div>
-
-        <div id="training-overlay">
-            <div class="training-text">Addestramento Rete Neurale...</div>
-            <div id="training-detail" style="color:#888; margin-bottom:10px;">Analisi sequenze</div>
-            <div class="progress-container">
-                <div id="train-progress" class="progress-bar"></div>
-            </div>
-        </div>
+        <div id="harmonic-info">Waiting for audio...</div>
 
         <div id="voting-panel">
-            <button class="vote-btn vote-dislike" onclick="voteTransition(false)" title="Transizione pessima">👎</button>
-            <button class="vote-btn vote-like" onclick="voteTransition(true)" title="Ottima transizione!">👍</button>
+            <button class="vote-btn vote-dislike" onclick="voteTransition(false)">👎</button>
+            <button class="vote-btn vote-like" onclick="voteTransition(true)">👍</button>
         </div>
 
         <div id="dev-panel">
-            <div class="dev-header">
-                <h3>Global Neural Layer</h3>
-                <span class="close-dev" onclick="toggleDevPanel()">✕</span>
-            </div>
-
-            <p style="margin:0 0 5px 0; color:#888; font-size:0.7rem;">Shared CNN Kernel</p>
+            <h3>Shared Neural Layer</h3>
+            <p style="color:#888; font-size:0.7rem;">CNN Kernel (Timbre)</p>
             <div class="kernel-viz" id="cnn-viz"></div>
-
-            <div class="sub-header">Weights</div>
-            <div class="param-row"><span class="param-name">Vs. Current</span><span class="param-val" id="val-current">--</span></div>
-            <div class="param-row"><span class="param-name">Vs. Next Natural</span><span class="param-val" id="val-nextnat">--</span></div>
-            <div class="param-row"><span class="param-name">Harmonic</span><span class="param-val" id="val-harmony">--</span></div>
-            <div class="param-row"><span class="param-name">BPM</span><span class="param-val" id="val-bpm">--</span></div>
-
-            <div style="text-align: center; margin-top: 15px;">
-                <button onclick="forceSync()" style="width: 100%; font-size: 0.8rem;">Force Cloud Sync</button>
-                <div style="font-size:0.7rem; color:#666; margin-top:5px;" id="db-status-text">Using Local Brain</div>
+            <p style="color:#888; font-size:0.7rem; margin-top:10px;">Decision Weights</p>
+            <div class="param-row"><span>Vs. Current</span><span id="val-current">--</span></div>
+            <div class="param-row"><span>Vs. Next Natural</span><span id="val-nextnat">--</span></div>
+            <div class="param-row"><span>Harmonic</span><span id="val-harmony">--</span></div>
+            <div class="param-row"><span>BPM</span><span id="val-bpm">--</span></div>
+            <div style="margin-top:10px; font-size:0.7rem; color:#aaa; text-align:center;">
+                Status: <span id="db-status-text">Connecting...</span>
             </div>
         </div>
 
-        <div class="legend" id="trackLegend"></div>
         <div id="status">Connecting to Hive Mind...</div>
 
         <div id="overlay">
-            <h2>Phantom DJ: Hive Mind</h2>
-            <p>
-                1. Carica file audio.<br>
-                2. <strong>AI Condivisa</strong>: Il modello impara dai voti di TUTTI gli utenti.<br>
-                3. Funziona offline e sincronizza quando torni online.
+            <h2 style="color:var(--accent-color)">Phantom DJ: Hive Mind</h2>
+            <p style="max-width:600px; line-height:1.6; color:#ccc;">
+                1. Load audio files.<br>
+                2. The AI is <strong>Shared</strong>: Your votes update the global brain.<br>
+                3. Votes are logged to the cloud dataset.<br>
+                4. Click nodes on the map to preview how the AI would mix its way there.
             </p>
-            <label for="fileInput" class="file-label" style="font-size: 1.2rem; padding: 15px 30px;">CARICA AUDIO</label>
+            <label for="fileInput" class="file-label" style="font-size: 1.2rem; padding: 15px 30px;">LOAD AUDIO</label>
         </div>
     </div>
 
-<script>
-// --- FIREBASE LOGIC HELPERS ---
-const COLLECTION_NAME = "phantom_brains";
-const DOC_ID = "global_v1"; // Single document for the shared mind
-let isOnline = navigator.onLine;
-let pendingChanges = false;
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc, addDoc, collection, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-function updateSyncStatus(status) {
-    const el = document.getElementById('sync-status');
-    if(status === 'online') { el.className = 'online'; el.title="Online & Synced"; }
-    else if(status === 'offline') { el.className = 'offline'; el.title="Offline (Local Mode)"; }
-    else if(status === 'syncing') { el.className = 'syncing'; el.title="Syncing to Cloud..."; }
-}
+        // ==========================================
+        // ⚠️ INSERT YOUR FIREBASE CONFIG HERE ⚠️
+        // ==========================================
+        const firebaseConfig = {
+          apiKey: "AIzaSyDJIzSP6ci_3djwGgwqnBlBGbcqTQLOcRQ",
+          authDomain: "autodj-b79f7.firebaseapp.com",
+          projectId: "autodj-b79f7",
+          storageBucket: "autodj-b79f7.firebasestorage.app",
+          messagingSenderId: "125149780002",
+          appId: "1:125149780002:web:951a3acb1c6e648dd2127b",
+          measurementId: "G-Y5648S9L7Q"
+        };
 
-window.addEventListener('online', () => { isOnline = true; updateSyncStatus('online'); syncBrainToCloud(); });
-window.addEventListener('offline', () => { isOnline = false; updateSyncStatus('offline'); });
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
 
-// --- CONFIGURATION ---
-const CONFIG = {
-    defaultBpm: 120, beatsPerSegment: 4, crossfade: 0.05, maxSamples: 1500,
-    silenceThreshold: 0.01, enablePitchAug: true, semitoneShifts: [-1, 0, 1],
-    bufferSize: 4096, mixThreshold: 8.0,
-    learningRate: 0.05, momentum: 0.9, batchSize: 16, memorySize: 200
-};
+        // Expose Firebase to Global Scope for the App Logic
+        window.db = db;
+        window.auth = auth;
+        window.doc = doc;
+        window.getDoc = getDoc;
+        window.setDoc = setDoc;
+        window.addDoc = addDoc;
+        window.collection = collection;
+        window.runTransaction = runTransaction;
+        window.signInAnonymously = signInAnonymously;
 
-const FADE_RES = 100;
-const FADE_IN_CURVE = new Float32Array(FADE_RES);
-const FADE_OUT_CURVE = new Float32Array(FADE_RES);
-for (let i = 0; i < FADE_RES; i++) {
-    const x = i / (FADE_RES - 1);
-    FADE_IN_CURVE[i] = Math.sin(x * Math.PI / 2);
-    FADE_OUT_CURVE[i] = Math.cos(x * Math.PI / 2);
-}
+        console.log("Firebase Modules Loaded.");
+    </script>
 
-// --- NEURAL MODEL DEFINITION ---
-let AI_MODEL = {
-    cnnKernel: new Array(13).fill(0.5),
-    contextWeights: { wCurrent: 2.0, wNextNat: 4.0, wPrev1: 1.0, wPrev2: 0.5 },
-    denseWeights: { posFlow: 3.0, harmony: 2.0, bpm: 3.5, rmsDelta: 1.5, flatnessDelta: 2.5 }
-};
+    <script>
+        /**
+         * PHANTOM DJ - HIVE MIND EDITION
+         * Logic: Real-time Federated Averaging via Firestore Transactions
+         * This version:
+         *  - Removes pitch data augmentation
+         *  - Adds click-to-select segment + path prediction to that segment
+         */
 
-let MODEL_MOMENTUM = {
-    cnnKernel: new Array(13).fill(0),
-    contextWeights: { wCurrent:0, wNextNat:0, wPrev1:0, wPrev2:0 },
-    denseWeights: { posFlow:0, harmony:0, bpm:0, rmsDelta:0, flatnessDelta:0 }
-};
+        // --- CONSTANTS & CONFIG ---
+        const BRAIN_COLLECTION = "phantom_brains";
+        const BRAIN_DOC_ID = "global_v1";
+        const DATASET_COLLECTION = "training_dataset";
 
-let replayMemory = [];
-const DEFAULT_MODEL = JSON.parse(JSON.stringify(AI_MODEL));
-const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const CONFIG = {
+            defaultBpm: 120,
+            beatsPerSegment: 4,
+            crossfade: 0.05,
+            maxSamples: 1500,
+            silenceThreshold: 0.01,
+            bufferSize: 4096,
+            mixThreshold: 8.0,
+            learningRate: 0.05,
+            momentum: 0.9,
+            batchSize: 16,
+            memorySize: 200,
 
-// --- GLOBAL STATE ---
-let audioCtx;
-let loadedTracks = [];
-let sampleLibrary = [];
-let trailHistory = [];
-let playQueue = [];
-let isPlaying = false;
-let nextStartTime = 0;
-let currentSampleIndex = -1;
-let prevSampleIndex = -1;
-let userNextSelection = -1;
-let playLoopId;
-let canvas, ctx;
-let currentBpm = 120;
-let lastEffectiveKeyIndex = -1;
-let contextHistory = [];
-let lastInputVector = null;
+            // Precomputed neighbours & exploration
+            maxNeighbors: 64,
+            selectionTemperature: 0.8
+        };
 
-// --- SHARED BRAIN LOGIC ---
-
-// 1. Initialize: Try Cloud -> Fail -> LocalStorage -> Fail -> Create New
-async function initBrain() {
-    updateSyncStatus('syncing');
-    updateStatus("Logging in anonymously...");
-
-    try {
-        // Wait for Firebase to load modules
-        if(!window.auth) throw new Error("Firebase not loaded yet");
-
-        await window.signInAnonymously(window.auth);
-        updateStatus("Checking Hive Mind...");
-
-        const docRef = window.doc(window.db, COLLECTION_NAME, DOC_ID);
-        const docSnap = await window.getDoc(docRef);
-
-        if (docSnap.exists()) {
-            console.log("Found Global Brain!");
-            const data = docSnap.data();
-            applyModelData(data);
-            document.getElementById('db-status-text').innerText = "Using Global Brain";
-            localStorage.setItem('phantom_dj_brain', JSON.stringify(AI_MODEL)); // Cache it
-        } else {
-            console.log("No Global Brain found. Creating Genesis Block...");
-            await window.setDoc(docRef, AI_MODEL);
-            document.getElementById('db-status-text').innerText = "Genesis Brain Created";
+        // Fade Curves
+        const FADE_RES = 100;
+        const FADE_IN_CURVE = new Float32Array(FADE_RES);
+        const FADE_OUT_CURVE = new Float32Array(FADE_RES);
+        for (let i = 0; i < FADE_RES; i++) {
+            const x = i / (FADE_RES - 1);
+            FADE_IN_CURVE[i] = Math.sin(x * Math.PI / 2);
+            FADE_OUT_CURVE[i] = Math.cos(x * Math.PI / 2);
         }
-        updateSyncStatus('online');
-    } catch (e) {
-        console.warn("Offline or Error:", e);
-        updateSyncStatus('offline');
-        // Fallback to local
-        const saved = localStorage.getItem('phantom_dj_brain');
-        if (saved) {
-            applyModelData(JSON.parse(saved));
-            document.getElementById('db-status-text').innerText = "Using Local Backup";
+
+        // --- NEURAL MODEL STATE ---
+        let AI_MODEL = {
+            cnnKernel: new Array(13).fill(0.5),
+
+            // pairwise distances
+            contextWeights: {
+                wCurrent: 2.0,
+                wNextNat: 4.0,
+                wPrev1: 1.0,
+                wPrev2: 0.5
+            },
+
+            // global dense features
+            denseWeights: {
+                posFlow: 3.0,       // backwards vs forwards in track
+                harmony: 2.0,       // circle-of-fifths distance
+                bpm: 3.5,           // tempo mismatch
+                rmsDelta: 1.0,      // loudness jump
+                flatnessDelta: 1.0, // brightness jump
+                relPosJump: 1.2,    // timeline jump
+                trackRepeat: 1.5    // repeating same track too soon
+            }
+        };
+
+        let MODEL_MOMENTUM = {
+            cnnKernel: new Array(13).fill(0),
+            contextWeights: { wCurrent: 0, wNextNat: 0, wPrev1: 0, wPrev2: 0 },
+            denseWeights: {
+                posFlow: 0,
+                harmony: 0,
+                bpm: 0,
+                rmsDelta: 0,
+                flatnessDelta: 0,
+                relPosJump: 0,
+                trackRepeat: 0
+            }
+        };
+
+        const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+        // --- APP STATE ---
+        let audioCtx, loadedTracks = [], sampleLibrary = [], trailHistory = [], playQueue = [];
+        let isPlaying = false, nextStartTime = 0, currentSampleIndex = -1, prevSampleIndex = -1, userNextSelection = -1;
+        let playLoopId, canvas, ctx, currentBpm = 120, lastEffectiveKeyIndex = -1;
+        let contextHistory = [], lastInputVector = null, transitionGraph = [];
+        let previewPath = [], targetSampleIndex = -1;
+
+        // --- CLOUD SYNC LOGIC ---
+
+        async function initBrain() {
+            updateStatus("Connecting to Hive Mind...");
+            document.getElementById('sync-status').className = 'syncing';
+
+            // Wait briefly for Firebase module to be attached to window
+            if (!window.auth) { setTimeout(initBrain, 500); return; }
+
+            try {
+                await window.signInAnonymously(window.auth);
+                const docRef = window.doc(window.db, BRAIN_COLLECTION, BRAIN_DOC_ID);
+                const docSnap = await window.getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.cnnKernel) AI_MODEL.cnnKernel = data.cnnKernel;
+                    if (data.contextWeights) Object.assign(AI_MODEL.contextWeights, data.contextWeights);
+                    if (data.denseWeights) Object.assign(AI_MODEL.denseWeights, data.denseWeights);
+
+                    document.getElementById('db-status-text').innerText = "Connected: Global Brain";
+                    document.getElementById('db-status-text').style.color = "#00ffcc";
+                    console.log("Global Brain Loaded.");
+                } else {
+                    console.log("Brain not found, creating genesis...");
+                    await window.setDoc(docRef, AI_MODEL);
+                    document.getElementById('db-status-text').innerText = "Genesis Created";
+                }
+                document.getElementById('sync-status').className = 'online';
+            } catch (e) {
+                console.error("Firebase Init Error:", e);
+                document.getElementById('db-status-text').innerText = "Offline Mode";
+                document.getElementById('db-status-text').style.color = "#ff3366";
+                document.getElementById('sync-status').className = 'offline';
+            }
+            updateNeuralUI();
+            updateStatus("Ready. Click nodes to preview paths.");
         }
-    }
-    updateNeuralUI();
-    updateStatus("Ready.");
-}
 
-function applyModelData(parsed) {
-    if(parsed.cnnKernel) AI_MODEL.cnnKernel = parsed.cnnKernel;
-    if(parsed.contextWeights) Object.assign(AI_MODEL.contextWeights, parsed.contextWeights);
-    if(parsed.denseWeights) Object.assign(AI_MODEL.denseWeights, parsed.denseWeights);
-}
-
-// 2. Save: Local (Fast) -> Cloud (Async)
-async function saveBrain() {
-    // 1. Local Persistence (Instant)
-    localStorage.setItem('phantom_dj_brain', JSON.stringify(AI_MODEL));
-
-    // 2. Cloud Persistence
-    if (isOnline && window.db) {
-        updateSyncStatus('syncing');
-        try {
-            const docRef = window.doc(window.db, COLLECTION_NAME, DOC_ID);
-            // We use setDoc with merge:true, though strictly we are overwriting the weights
-            await window.setDoc(docRef, AI_MODEL);
-            updateSyncStatus('online');
-            pendingChanges = false;
-            console.log("Brain synced to cloud.");
-        } catch (e) {
-            console.error("Sync failed:", e);
-            updateSyncStatus('offline');
-            pendingChanges = true;
+        async function logTrainingData(vector, label) {
+            if (!window.db) return;
+            try {
+                await window.addDoc(window.collection(window.db, DATASET_COLLECTION), {
+                    timestamp: new Date(),
+                    features: vector,
+                    vote: label,
+                    uid: window.auth.currentUser ? window.auth.currentUser.uid : 'anon'
+                });
+                console.log("Dataset: Logged vote to cloud.");
+            } catch (e) { console.error("Dataset Log Error:", e); }
         }
-    } else {
-        pendingChanges = true;
-        updateSyncStatus('offline');
-    }
-}
 
-async function forceSync() {
-    await saveBrain();
-}
+        async function updateGlobalBrainTransaction() {
+            if (!window.db) return;
+            updateStatus("Syncing Mind...");
+            document.getElementById('sync-status').className = 'syncing';
+            const docRef = window.doc(window.db, BRAIN_COLLECTION, BRAIN_DOC_ID);
 
-async function syncBrainToCloud() {
-    if(pendingChanges) {
-        console.log("Back online. Syncing pending changes...");
-        await saveBrain();
-    }
-}
+            try {
+                await window.runTransaction(window.db, async (transaction) => {
+                    const sfDoc = await transaction.get(docRef);
+                    if (!sfDoc.exists()) { transaction.set(docRef, AI_MODEL); return; }
 
-// --- STANDARD APP LOGIC (Unchanged mostly) ---
+                    const globalBrain = sfDoc.data();
 
-function startPreTraining() {
-    const sequences = sampleLibrary.filter(s => s.semitone === 0);
-    const trainingPairs = [];
-    for(let i=0; i<sequences.length-1; i++) {
-        const u = sequences[i]; const v = sequences[i+1];
-        if(u.trackIndex === v.trackIndex && v.id === u.id + 1) trainingPairs.push({ u: u.id, v: v.id });
-    }
-    if(trainingPairs.length === 0) { finishPreTraining(); return; }
-    document.getElementById('training-overlay').classList.add('active');
-    const progressBar = document.getElementById('train-progress');
-    const detailText = document.getElementById('training-detail');
-    let processed = 0; const total = trainingPairs.length; const batchSize = 10;
-    trainingPairs.sort(() => Math.random() - 0.5);
+                    // MERGE STRATEGY: 90% Global Stability, 10% Local Innovation
+                    const learningRate = 0.1;
+                    const newBrain = JSON.parse(JSON.stringify(globalBrain));
 
-    function processBatch() {
-        const end = Math.min(processed + batchSize, total);
-        for(let i=processed; i<end; i++) {
-            const pair = trainingPairs[i];
-            const vec = extractTransitionVector(pair.u, pair.v, true);
-            replayMemory.push({ input: vec, label: -1 });
-            if(replayMemory.length > CONFIG.memorySize) replayMemory.shift();
+                    const mergeArr = (g, l) => g.map((val, i) =>
+                        (val * (1 - learningRate)) + ((l[i] ?? 0) * learningRate)
+                    );
+
+                    const mergeObj = (g, l) => {
+                        const res = {};
+                        const keys = new Set([
+                            ...Object.keys(g || {}),
+                            ...Object.keys(l || {})
+                        ]);
+                        keys.forEach(k => {
+                            const gv = (g && typeof g[k] === "number") ? g[k] : 0;
+                            const lv = (l && typeof l[k] === "number") ? l[k] : 0;
+                            res[k] = gv * (1 - learningRate) + lv * learningRate;
+                        });
+                        return res;
+                    };
+
+                    newBrain.cnnKernel = mergeArr(globalBrain.cnnKernel || [], AI_MODEL.cnnKernel);
+                    newBrain.contextWeights = mergeObj(globalBrain.contextWeights || {}, AI_MODEL.contextWeights);
+                    newBrain.denseWeights = mergeObj(globalBrain.denseWeights || {}, AI_MODEL.denseWeights);
+
+                    transaction.update(docRef, newBrain);
+                });
+
+                document.getElementById('sync-status').className = 'online';
+                updateStatus("Hive Mind Updated.");
+            } catch (e) {
+                console.error("Sync Transaction Failed:", e);
+                document.getElementById('sync-status').className = 'offline';
+            }
         }
-        trainFromBuffer(false); // Don't sync during pre-training loop
-        processed = end;
-        progressBar.style.width = (processed / total) * 100 + '%';
-        detailText.innerText = `Appreso ${processed} di ${total}...`;
-        if(processed < total) requestAnimationFrame(processBatch);
-        else setTimeout(finishPreTraining, 500);
-    }
-    requestAnimationFrame(processBatch);
-}
 
-function finishPreTraining() {
-    document.getElementById('training-overlay').classList.remove('active');
-    updateStatus(`Training Locale Completato.`);
-    saveBrain(); // Sync once at end
-    updateNeuralUI();
-    document.getElementById('btn-play').disabled = false;
-}
+        // --- INTERACTION LOGIC ---
 
-function voteTransition(isPositive) {
-    if (!lastInputVector) return;
-    const label = isPositive ? -1 : 1;
-    replayMemory.push({ input: lastInputVector, label: label });
-    if (replayMemory.length > CONFIG.memorySize) replayMemory.shift();
-    trainFromBuffer(true); // Sync after vote
-    updateStatus(isPositive ? "Appreso (👍) & Syncing..." : "Appreso (👎) & Syncing...");
-    document.getElementById('voting-panel').classList.remove('visible');
-    lastInputVector = null;
-}
+        async function voteTransition(isPositive) {
+            if (!lastInputVector) return;
 
-function trainFromBuffer(shouldSync = false) {
-    if (replayMemory.length === 0) return;
-    const batch = [];
-    const size = Math.min(replayMemory.length, CONFIG.batchSize);
-    const indices = [];
-    while(indices.length < size) {
-        const r = Math.floor(Math.random() * replayMemory.length);
-        if(!indices.includes(r)) indices.push(r);
-    }
-    indices.forEach(i => batch.push(replayMemory[i]));
+            // -1 is "good" (we want to reduce this cost), 1 is "bad"
+            const label = isPositive ? -1 : 1;
 
-    let gradCNN = new Array(13).fill(0);
-    let gradCtx = { wCurrent:0, wNextNat:0, wPrev1:0, wPrev2:0 };
-    let gradDense = { posFlow:0, harmony:0, bpm:0, rmsDelta:0, flatnessDelta:0 };
+            // 1. Add to Local Memory & Instant Train
+            replayMemory.push({ input: lastInputVector, label: label });
+            if (replayMemory.length > CONFIG.memorySize) replayMemory.shift();
 
-    batch.forEach(exp => {
-        const dir = exp.label; const vec = exp.input;
-        for(let i=0; i<13; i++) gradCNN[i] += dir * vec.mfccDiff[i];
-        if(vec.distCurrent !== undefined) gradCtx.wCurrent += dir * vec.distCurrent;
-        if(vec.distNextNat !== undefined) gradCtx.wNextNat += dir * vec.distNextNat;
-        if(vec.distPrev1 !== undefined) gradCtx.wPrev1 += dir * vec.distPrev1;
-        if(vec.distPrev2 !== undefined) gradCtx.wPrev2 += dir * vec.distPrev2;
-        gradDense.posFlow += dir * vec.posFlow;
-        gradDense.harmony += dir * (vec.harmony / 6.0);
-        gradDense.bpm += dir * vec.bpm;
-        gradDense.rmsDelta += dir * vec.rmsDelta;
-        gradDense.flatnessDelta += dir * vec.flatnessDelta;
-    });
+            trainFromBuffer(); // Immediate local feedback
 
-    for(let i=0; i<13; i++) gradCNN[i] /= size;
-    for(let k in gradCtx) gradCtx[k] /= size;
-    for(let k in gradDense) gradDense[k] /= size;
-    applyGradients(gradCNN, gradCtx, gradDense, shouldSync);
-}
+            // 2. Cloud Actions
+            updateStatus("Uploading Knowledge...");
+            await logTrainingData(lastInputVector, label);
+            await updateGlobalBrainTransaction();
 
-function applyGradients(gradCNN, gradCtx, gradDense, shouldSync) {
-    const lr = CONFIG.learningRate;
-    const alpha = CONFIG.momentum;
-    for(let i=0; i<13; i++) {
-        MODEL_MOMENTUM.cnnKernel[i] = alpha * MODEL_MOMENTUM.cnnKernel[i] + (1-alpha) * gradCNN[i];
-        AI_MODEL.cnnKernel[i] += lr * MODEL_MOMENTUM.cnnKernel[i];
-        AI_MODEL.cnnKernel[i] = Math.max(0, Math.min(10, AI_MODEL.cnnKernel[i]));
-    }
-    for(let k in AI_MODEL.contextWeights) {
-        MODEL_MOMENTUM.contextWeights[k] = alpha * MODEL_MOMENTUM.contextWeights[k] + (1-alpha) * gradCtx[k];
-        AI_MODEL.contextWeights[k] += lr * MODEL_MOMENTUM.contextWeights[k];
-        AI_MODEL.contextWeights[k] = Math.max(0, Math.min(10, AI_MODEL.contextWeights[k]));
-    }
-    for(let k in AI_MODEL.denseWeights) {
-        MODEL_MOMENTUM.denseWeights[k] = alpha * MODEL_MOMENTUM.denseWeights[k] + (1-alpha) * gradDense[k];
-        AI_MODEL.denseWeights[k] += lr * MODEL_MOMENTUM.denseWeights[k];
-        AI_MODEL.denseWeights[k] = Math.max(0, Math.min(10, AI_MODEL.denseWeights[k]));
-    }
-    updateNeuralUI();
-    if(shouldSync) saveBrain();
-}
+            document.getElementById('voting-panel').classList.remove('visible');
+            lastInputVector = null;
+        }
 
-function updateNeuralUI() {
-    const container = document.getElementById('cnn-viz');
-    if(container) {
-        container.innerHTML = '';
-        AI_MODEL.cnnKernel.forEach(w => {
-            const cell = document.createElement('div');
-            cell.className = 'kernel-cell';
-            const intensity = Math.min(1, w / 5);
-            const r = Math.floor(intensity * 255);
-            const b = Math.floor((1-intensity) * 255);
-            cell.style.backgroundColor = `rgb(${r}, 0, ${b})`;
-            cell.innerText = w.toFixed(1);
-            container.appendChild(cell);
-        });
-    }
-    const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val.toFixed(2); };
-    setVal('val-current', AI_MODEL.contextWeights.wCurrent);
-    setVal('val-nextnat', AI_MODEL.contextWeights.wNextNat);
-    setVal('val-harmony', AI_MODEL.denseWeights.harmony);
-    setVal('val-bpm', AI_MODEL.denseWeights.bpm);
-}
+        let replayMemory = [];
 
-function toggleDevPanel() {
-    const panel = document.getElementById('dev-panel');
-    panel.classList.toggle('visible');
-    const btn = document.getElementById('btn-dev');
-    if (panel.classList.contains('visible')) {
-        btn.classList.add('active');
-        updateNeuralUI();
-    } else {
-        btn.classList.remove('active');
-    }
-}
+        function trainFromBuffer() {
+            if (replayMemory.length === 0) return;
+            const batchSize = Math.min(replayMemory.length, CONFIG.batchSize);
+            const batch = [];
 
-// --- AUDIO ENGINE ---
-function initAudioContext() {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-}
+            // Simple Random Sampling
+            for (let i = 0; i < batchSize; i++) {
+                batch.push(replayMemory[Math.floor(Math.random() * replayMemory.length)]);
+            }
 
-async function handleFiles(files) {
-    initAudioContext();
-    document.getElementById('overlay').style.display = 'none';
-    const colors = ['#00ffcc', '#ff0055', '#ffff00', '#0099ff', '#ff9900', '#cc00ff'];
-    if (typeof Meyda === 'undefined') { alert("Errore: Libreria Meyda non caricata."); return; }
+            // Gradient Accumulation
+            let gradCNN = new Array(13).fill(0);
+            let gradCtx = { wCurrent: 0, wNextNat: 0, wPrev1: 0, wPrev2: 0 };
+            let gradDense = {
+                posFlow: 0,
+                harmony: 0,
+                bpm: 0,
+                rmsDelta: 0,
+                flatnessDelta: 0,
+                relPosJump: 0,
+                trackRepeat: 0
+            };
 
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        updateStatus(`Decodifica: ${file.name}...`);
-        try {
-            const arrayBuffer = await file.arrayBuffer();
-            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-            const detectedBpm = detectBPM(audioBuffer);
-            loadedTracks.push({
-                buffer: audioBuffer, name: file.name, color: colors[loadedTracks.length % colors.length],
-                bpm: detectedBpm || CONFIG.defaultBpm, totalDuration: audioBuffer.duration
+            batch.forEach(exp => {
+                const dir = exp.label; // -1 good, +1 bad
+                const vec = exp.input;
+
+                for (let i = 0; i < 13; i++) {
+                    gradCNN[i] += dir * vec.mfccDiff[i];
+                }
+
+                if (vec.distCurrent !== undefined) gradCtx.wCurrent += dir * vec.distCurrent;
+                if (vec.distNextNat !== undefined) gradCtx.wNextNat += dir * vec.distNextNat;
+                if (vec.distPrev1 !== undefined) gradCtx.wPrev1 += dir * vec.distPrev1;
+                if (vec.distPrev2 !== undefined) gradCtx.wPrev2 += dir * vec.distPrev2;
+
+                gradDense.posFlow       += dir * vec.posFlow;
+                gradDense.harmony       += dir * (vec.harmony / 6.0);
+                gradDense.bpm           += dir * vec.bpm;
+                gradDense.rmsDelta      += dir * vec.rmsDelta;
+                gradDense.flatnessDelta += dir * vec.flatnessDelta;
+                gradDense.relPosJump    += dir * vec.relPosJump;
+                gradDense.trackRepeat   += dir * vec.trackRepeat;
             });
-            updateLegend();
-        } catch (e) { console.error("Errore:", e); updateStatus(`Errore lettura ${file.name}`); }
-    }
-    if (loadedTracks.length > 0) resegmentAll();
-}
 
-function detectBPM(buffer) {
-    try {
-        const data = buffer.getChannelData(0);
-        const sr = buffer.sampleRate;
-        const max = Math.min(data.length, sr * 30);
-        let peaks = [];
-        for (let i = 0; i < max; i += 4000) {
-            let m = 0; for(let j=0; j<4000; j++) if(Math.abs(data[i+j]) > m) m = Math.abs(data[i+j]);
-            if(m > 0.3) peaks.push(i);
+            // Normalize
+            for (let i = 0; i < 13; i++) gradCNN[i] /= batchSize;
+            for (let k in gradCtx) gradCtx[k] /= batchSize;
+            for (let k in gradDense) gradDense[k] /= batchSize;
+
+            applyGradients(gradCNN, gradCtx, gradDense);
         }
-        if(peaks.length < 5) return 120;
-        let intervals = {};
-        for(let i=1; i<peaks.length; i++) {
-            let inv = peaks[i] - peaks[i-1];
-            if(inv > sr*0.3 && inv < sr*1.5) {
-                let q = Math.round(inv/1000)*1000; intervals[q] = (intervals[q]||0)+1;
+
+        function applyGradients(gradCNN, gradCtx, gradDense) {
+            const lr = CONFIG.learningRate;
+            const alpha = CONFIG.momentum;
+
+            // Apply to CNN Kernel
+            for (let i = 0; i < 13; i++) {
+                MODEL_MOMENTUM.cnnKernel[i] = alpha * MODEL_MOMENTUM.cnnKernel[i] + (1 - alpha) * gradCNN[i];
+                AI_MODEL.cnnKernel[i] += lr * MODEL_MOMENTUM.cnnKernel[i];
+                AI_MODEL.cnnKernel[i] = Math.max(0, Math.min(10, AI_MODEL.cnnKernel[i]));
             }
-        }
-        let best = sr; let maxC = 0;
-        for(let k in intervals) if(intervals[k]>maxC) { maxC=intervals[k]; best=parseInt(k); }
-        let bpm = 60 / (best/sr);
-        while(bpm<75) bpm*=2; while(bpm>160) bpm/=2;
-        return Math.round(bpm);
-    } catch(e) { return 120; }
-}
-
-function getSegmentDuration(bpm) { return (60 / bpm) * CONFIG.beatsPerSegment; }
-
-function resegmentAll() {
-    sampleLibrary = []; currentSampleIndex = -1; stopDJ(); playQueue = [];
-    updateStatus(`Neural Analysis (${CONFIG.beatsPerSegment} beats)...`);
-    setTimeout(() => {
-        loadedTracks.forEach((track, idx) => {
-            processAudioBuffer(track.buffer, idx, track.bpm, track.totalDuration);
-        });
-        if (sampleLibrary.length > 0) {
-            calculateSpace();
-            startPreTraining();
-            drawCanvas();
-        }
-    }, 100);
-}
-
-function processAudioBuffer(buffer, trackIndex, bpm, totalDuration) {
-    const rawData = buffer.getChannelData(0);
-    const sampleRate = buffer.sampleRate;
-    const duration = getSegmentDuration(bpm);
-    const samplesPerSegment = Math.floor(duration * sampleRate);
-    const variants = [];
-    if (CONFIG.enablePitchAug) CONFIG.semitoneShifts.forEach(st => variants.push({ type: 'pitch', val: st }));
-    else variants.push({ type: 'pitch', val: 0 });
-
-    const trackSegments = [];
-    for (let i = 0; i < rawData.length; i += samplesPerSegment) {
-        if (sampleLibrary.length >= CONFIG.maxSamples) break;
-        if (i + samplesPerSegment > rawData.length) break;
-        const segmentRaw = rawData.slice(i, i + samplesPerSegment);
-        const baseFeats = extractFeaturesWithMeyda(segmentRaw, CONFIG.bufferSize);
-        if (baseFeats.rms < CONFIG.silenceThreshold) continue;
-        const relPos = (i / sampleRate) / totalDuration;
-        const timeSegmentVariants = [];
-        variants.forEach(variant => {
-            const semitone = variant.val;
-            const rate = Math.pow(2, semitone / 12);
-            let newKey = (baseFeats.keyIndex + semitone);
-            newKey = ((newKey % 12) + 12) % 12;
-            timeSegmentVariants.push({
-                buffer: buffer, startFn: i / sampleRate, duration: duration,
-                bpm: bpm * rate, baseRate: rate, semitone: semitone, features: baseFeats,
-                trackIndex: trackIndex, relPos: relPos, key: newKey, type: 'body'
-            });
-        });
-        trackSegments.push(timeSegmentVariants);
-    }
-    if (trackSegments.length > 0) {
-        trackSegments[0].forEach(s => s.type = 'start');
-        trackSegments[trackSegments.length - 1].forEach(s => s.type = 'end');
-    }
-    trackSegments.forEach(batch => batch.forEach(s => { s.id = sampleLibrary.length; sampleLibrary.push(s); }));
-}
-
-function extractFeaturesWithMeyda(signal, bufferSize) {
-    let totalRms=0, frames=0, totalMfcc=new Array(13).fill(0), totalChroma=new Array(12).fill(0), totalFlatness=0;
-    const hops = 6; const step = Math.floor((signal.length - bufferSize) / hops);
-    if(step<1) return { rms:0, mfcc:new Array(13).fill(0), keyIndex:0, flatness:0 };
-    for(let j=0; j<hops; j++) {
-        const start = j*step; const chunk = signal.slice(start, start+bufferSize);
-        if(chunk.length<bufferSize) break;
-        try {
-            const f = Meyda.extract(['rms', 'mfcc', 'chroma', 'spectralFlatness'], chunk);
-            if(f) {
-                totalRms+=f.rms; totalFlatness+=f.spectralFlatness;
-                for(let k=0; k<13; k++) totalMfcc[k]+=f.mfcc[k];
-                for(let k=0; k<12; k++) totalChroma[k]+=f.chroma[k];
-                frames++;
+            // Apply to Context Weights
+            for (let k in AI_MODEL.contextWeights) {
+                MODEL_MOMENTUM.contextWeights[k] = alpha * MODEL_MOMENTUM.contextWeights[k] + (1 - alpha) * gradCtx[k];
+                AI_MODEL.contextWeights[k] += lr * MODEL_MOMENTUM.contextWeights[k];
+                AI_MODEL.contextWeights[k] = Math.max(0, Math.min(10, AI_MODEL.contextWeights[k]));
             }
-        } catch(e){}
-    }
-    if(frames===0) frames=1;
-    const avgChroma = totalChroma.map(v=>v/frames);
-    let maxK=-1, maxV=-1; for(let k=0; k<12; k++) if(avgChroma[k]>maxV){ maxV=avgChroma[k]; maxK=k; }
-    return { rms: totalRms/frames, mfcc: totalMfcc.map(v=>v/frames), flatness: totalFlatness/frames, keyIndex: maxK };
-}
-
-function calculateSpace() {
-    if (sampleLibrary.length === 0) return;
-    const xVals = sampleLibrary.map(s => s.features.mfcc[1]);
-    const yVals = sampleLibrary.map(s => s.features.mfcc[2]);
-    const minX = Math.min(...xVals), maxX = Math.max(...xVals);
-    const minY = Math.min(...yVals), maxY = Math.max(...yVals);
-    const norm = (v, min, max) => (v - min) / (max - min || 1);
-    sampleLibrary.forEach(s => {
-        s.x = norm(s.features.mfcc[1], minX, maxX); s.y = norm(s.features.mfcc[2], minY, maxY);
-        if(s.semitone !== 0) { s.x += s.semitone*0.015; s.y += s.semitone*0.015; }
-        s.x += (Math.random()-0.5)*0.005; s.y += (Math.random()-0.5)*0.005;
-    });
-}
-
-function startDJ() {
-    if (isPlaying || sampleLibrary.length === 0) return;
-    initAudioContext(); isPlaying = true;
-    document.getElementById('btn-play').classList.add('active'); document.getElementById('btn-play').textContent = "ON AIR";
-    document.getElementById('btn-stop').disabled = false; document.getElementById('beatSelect').disabled = true;
-    nextStartTime = audioCtx.currentTime + 0.1;
-    if (currentSampleIndex === -1) {
-        const starts = sampleLibrary.filter(s => s.type === 'start');
-        currentSampleIndex = starts.length > 0 ? starts[Math.floor(Math.random() * starts.length)].id : Math.floor(Math.random() * sampleLibrary.length);
-    }
-    prevSampleIndex = -1; userNextSelection = -1; trailHistory = []; contextHistory = [];
-    currentBpm = sampleLibrary[currentSampleIndex].bpm; lastEffectiveKeyIndex = sampleLibrary[currentSampleIndex].key;
-    scheduleNextSegment(); loop();
-}
-
-function stopDJ() {
-    isPlaying = false; clearTimeout(playLoopId);
-    document.getElementById('btn-play').classList.remove('active'); document.getElementById('btn-play').textContent = "▶ PLAY / AUTO";
-    document.getElementById('btn-stop').disabled = true; document.getElementById('beatSelect').disabled = false;
-    document.getElementById('voting-panel').classList.remove('visible'); updateStatus("Stopped.");
-}
-
-function scheduleNextSegment() {
-    if (!isPlaying) return;
-    if (currentSampleIndex !== -1) { contextHistory.push(currentSampleIndex); if (contextHistory.length > 3) contextHistory.shift(); }
-    if (playQueue.length > 0) { currentSampleIndex = playQueue.shift(); userNextSelection = -1; }
-    else if (userNextSelection !== -1) { currentSampleIndex = userNextSelection; userNextSelection = -1; }
-    else { currentSampleIndex = neuralPathfinder(currentSampleIndex); }
-
-    const currentSample = sampleLibrary[currentSampleIndex];
-    if (prevSampleIndex !== -1) {
-        addTrail(prevSampleIndex, currentSampleIndex);
-        document.getElementById('voting-panel').classList.add('visible');
-        lastInputVector = extractTransitionVector(prevSampleIndex, currentSampleIndex);
-    }
-
-    let finalRate = currentSample.baseRate; let effectiveKey = currentSample.key;
-    if (prevSampleIndex !== -1) {
-        const syncFactor = currentBpm / currentSample.bpm;
-        let safeSync = Math.max(0.8, Math.min(1.2, syncFactor));
-        finalRate = currentSample.baseRate * safeSync;
-        const syncShift = 12 * Math.log2(safeSync);
-        effectiveKey = (currentSample.key + Math.round(syncShift)) % 12; if(effectiveKey < 0) effectiveKey += 12;
-        currentBpm = currentBpm * 0.9 + currentSample.bpm * 0.1;
-    } else { currentBpm = currentSample.bpm; }
-
-    lastEffectiveKeyIndex = effectiveKey;
-    playSegment(currentSample, nextStartTime, finalRate);
-
-    const keyName = NOTES[effectiveKey];
-    document.getElementById('harmonic-info').innerHTML = `Key: <strong>${keyName}</strong><br>BPM: ${Math.round(currentBpm)}<br>${playQueue.length > 0 ? '[Path]' : '[Auto]'}`;
-    updateStatus(`Now: ${loadedTracks[currentSample.trackIndex].name} [${currentSample.type}]`);
-
-    const effectiveDuration = currentSample.duration / finalRate;
-    const overlap = CONFIG.crossfade;
-    nextStartTime += (effectiveDuration - overlap);
-    prevSampleIndex = currentSampleIndex;
-    playLoopId = setTimeout(() => { scheduleNextSegment(); }, (effectiveDuration - overlap) * 1000);
-}
-
-function playSegment(sample, time, rate) {
-    const source = audioCtx.createBufferSource(); source.buffer = sample.buffer; source.playbackRate.value = rate;
-    const gainNode = audioCtx.createGain(); const filter = audioCtx.createBiquadFilter(); filter.type = "lowpass";
-    source.connect(filter); filter.connect(gainNode); gainNode.connect(audioCtx.destination);
-    source.start(time, sample.startFn, sample.duration);
-
-    const fade = CONFIG.crossfade;
-    gainNode.gain.setValueCurveAtTime(FADE_IN_CURVE, time, fade);
-    filter.frequency.setValueAtTime(300, time); filter.frequency.exponentialRampToValueAtTime(20000, time + fade * 1.5);
-    const effDur = sample.duration / rate; const end = time + effDur; const fadeOut = end - fade;
-    if(effDur > fade*2) { filter.frequency.setValueAtTime(20000, fadeOut); filter.frequency.exponentialRampToValueAtTime(300, end); }
-    gainNode.gain.setValueCurveAtTime(FADE_OUT_CURVE, fadeOut, fade);
-}
-
-// --- NEURAL MATH ---
-function getFeaturesDist(s1, s2) {
-    let sum = 0; for(let i=0; i<13; i++) sum += (s1.features.mfcc[i] - s2.features.mfcc[i])**2;
-    return Math.sqrt(sum);
-}
-
-function extractTransitionVector(uIndex, vIndex, trainingMode = false) {
-    const u = sampleLibrary[uIndex]; const v = sampleLibrary[vIndex];
-    const mfccDiff = u.features.mfcc.map((val, k) => Math.abs(val - v.features.mfcc[k]));
-    const rmsDelta = Math.abs(u.features.rms - v.features.rms);
-    const flatnessDelta = Math.abs(u.features.flatness - v.features.flatness);
-    const posFlow = (v.relPos < u.relPos) ? 1.0 : 0.0;
-    const diffCircle = Math.abs((v.key - u.key) * 7) % 12;
-    const harmony = Math.min(diffCircle, 12 - diffCircle);
-    const bpmCost = Math.abs(u.bpm - v.bpm) / 10;
-    const distCurrent = getFeaturesDist(u, v);
-    let distNextNat = distCurrent;
-    const nextNatIdx = uIndex + CONFIG.semitoneShifts.length;
-    if (nextNatIdx < sampleLibrary.length && sampleLibrary[nextNatIdx].trackIndex === u.trackIndex) distNextNat = getFeaturesDist(sampleLibrary[nextNatIdx], v);
-    let distPrev1 = distCurrent, distPrev2 = distCurrent;
-    if(!trainingMode && contextHistory.length >= 2) distPrev1 = getFeaturesDist(sampleLibrary[contextHistory[contextHistory.length - 2]], v);
-    if(!trainingMode && contextHistory.length >= 3) distPrev2 = getFeaturesDist(sampleLibrary[contextHistory[contextHistory.length - 3]], v);
-    return { mfccDiff, rmsDelta, flatnessDelta, posFlow, harmony, bpm: bpmCost, distCurrent, distNextNat, distPrev1, distPrev2 };
-}
-
-function calculateNeuralCost(uIndex, vIndex) {
-    const vec = extractTransitionVector(uIndex, vIndex);
-    let cnn = 0; for(let i=0; i<13; i++) cnn += vec.mfccDiff[i] * AI_MODEL.cnnKernel[i];
-    const cw = AI_MODEL.contextWeights;
-    const ctx = (vec.distCurrent * cw.wCurrent) + (vec.distNextNat * cw.wNextNat) + (vec.distPrev1 * cw.wPrev1) + (vec.distPrev2 * cw.wPrev2);
-    const w = AI_MODEL.denseWeights;
-    const dense = (vec.rmsDelta * w.rmsDelta) + (vec.flatnessDelta * w.flatnessDelta) + (vec.posFlow * w.posFlow) + (vec.harmony * w.harmony) + (vec.bpm * w.bpm);
-    return cnn + ctx + dense;
-}
-
-function neuralPathfinder(currentIndex) {
-    const N = sampleLibrary.length; let candidates = []; const current = sampleLibrary[currentIndex];
-    if (current.type === 'end') {
-        const starts = sampleLibrary.filter(s => s.type === 'start' && s.trackIndex !== current.trackIndex);
-        if (starts.length > 0) {
-            starts.forEach(s => candidates.push({ idx: s.id, cost: calculateNeuralCost(currentIndex, s.id) }));
-            candidates.sort((a,b) => a.cost - b.cost); return candidates[0].idx;
-        } else return sampleLibrary.filter(s => s.type === 'start' && s.trackIndex === current.trackIndex)[0].id;
-    }
-    for(let i=0; i<60; i++) {
-        const rnd = Math.floor(Math.random() * N); const cand = sampleLibrary[rnd];
-        if(rnd === currentIndex || (cand.type === 'start' && cand.trackIndex !== current.trackIndex)) continue;
-        candidates.push({ idx: rnd, cost: calculateNeuralCost(currentIndex, rnd) });
-    }
-    candidates.sort((a,b) => a.cost - b.cost);
-    const best = candidates[0];
-    const nextNatIdx = current.id + 1;
-    let hasNat = (nextNatIdx < N && sampleLibrary[nextNatIdx].trackIndex === current.trackIndex && sampleLibrary[nextNatIdx].semitone === current.semitone);
-    if (hasNat && best.cost > CONFIG.mixThreshold) return nextNatIdx;
-
-    const topK = candidates.slice(0, 4); const r = Math.random();
-    let selected = topK[0];
-    if (topK.length > 1 && r > 0.5) selected = topK[1];
-    if (topK.length > 2 && r > 0.8) selected = topK[2];
-    if (topK.length > 3 && r > 0.95) selected = topK[3];
-    return selected.idx;
-}
-
-function findPath(startIdx, endIdx) {
-    const N = sampleLibrary.length; const dist = new Array(N).fill(Infinity); const prev = new Array(N).fill(null);
-    const vis = new Array(N).fill(false); dist[startIdx] = 0; const q = [startIdx]; let iter = 0;
-    while(q.length > 0 && iter++ < 1500) {
-        let u = -1, min = Infinity, uIdx = -1;
-        for(let i=0; i<q.length; i++) if(dist[q[i]] < min) { min=dist[q[i]]; u=q[i]; uIdx=i; }
-        if(u===-1 || u===endIdx) break;
-        q.splice(uIdx, 1); vis[u] = true;
-        for(let v=0; v<N; v++) {
-            if(!vis[v]) {
-                if(Math.abs(sampleLibrary[u].x - sampleLibrary[v].x) > 0.4) continue;
-                const alt = dist[u] + calculateNeuralCost(u, v);
-                if(alt < dist[v]) { dist[v] = alt; prev[v] = u; if(!q.includes(v)) q.push(v); }
+            // Apply to Dense Weights
+            for (let k in AI_MODEL.denseWeights) {
+                MODEL_MOMENTUM.denseWeights[k] = alpha * MODEL_MOMENTUM.denseWeights[k] + (1 - alpha) * gradDense[k];
+                AI_MODEL.denseWeights[k] += lr * MODEL_MOMENTUM.denseWeights[k];
+                AI_MODEL.denseWeights[k] = Math.max(0, Math.min(10, AI_MODEL.denseWeights[k]));
             }
+            updateNeuralUI();
         }
-    }
-    const path = []; let curr = endIdx;
-    if(prev[curr] !== null || curr === startIdx) { while(curr !== null) { path.unshift(curr); curr = prev[curr]; } }
-    if(path.length>0 && path[0]===startIdx) path.shift();
-    return path;
-}
 
-// --- VISUALIZATION ---
-function initCanvas() {
-    canvas = document.getElementById('djCanvas'); ctx = canvas.getContext('2d');
-    resizeCanvas(); window.addEventListener('resize', resizeCanvas); canvas.addEventListener('mousedown', handleCanvasClick);
-    initBrain(); // Start the sync process
-    animate();
-}
-function resizeCanvas() { canvas.width = document.getElementById('main-container').offsetWidth; canvas.height = document.getElementById('main-container').offsetHeight; }
-function handleCanvasClick(e) {
-    const rect = canvas.getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top;
-    let closestIdx = -1; let minVisualDist = 30;
-    sampleLibrary.forEach((s, idx) => {
-        const sx = s.x * canvas.width * 0.8 + canvas.width * 0.1; const sy = s.y * canvas.height * 0.8 + canvas.height * 0.1;
-        const dist = Math.sqrt((x - sx)**2 + (y - sy)**2);
-        if (dist < minVisualDist) { minVisualDist = dist; closestIdx = idx; }
-    });
-    if (closestIdx !== -1) {
-        if (!isPlaying) { userNextSelection = closestIdx; startDJ(); }
-        else {
-            updateStatus("Calculating Neural Path...");
-            const startNode = playQueue.length > 0 ? playQueue[playQueue.length - 1] : currentSampleIndex;
+        // --- AUDIO ENGINE ---
+
+        function initAudioContext() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        async function handleFiles(files) {
+            initAudioContext();
+            document.getElementById('overlay').style.display = 'none';
+            const colors = ['#00ffcc', '#ff0055', '#ffff00', '#0099ff', '#ff9900', '#cc00ff'];
+            if (typeof Meyda === 'undefined') {
+                alert("Error: Meyda library failed to load.");
+                return;
+            }
+
+            loadedTracks = [];
+            sampleLibrary = [];
+            transitionGraph = [];
+            trailHistory = [];
+            previewPath = [];
+            targetSampleIndex = -1;
+            contextHistory = [];
+            currentSampleIndex = -1;
+            prevSampleIndex = -1;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                updateStatus(`Decoding: ${file.name}...`);
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                    const detectedBpm = detectBPM(audioBuffer);
+                    loadedTracks.push({
+                        buffer: audioBuffer,
+                        name: file.name,
+                        color: colors[loadedTracks.length % colors.length],
+                        bpm: detectedBpm || CONFIG.defaultBpm,
+                        totalDuration: audioBuffer.duration
+                    });
+                } catch (e) { console.error(e); }
+            }
+            if (loadedTracks.length > 0) resegmentAll();
+        }
+
+        function detectBPM(buffer) {
+            // Very Basic Peak Detection for demo purposes
+            try {
+                const data = buffer.getChannelData(0);
+                const sr = buffer.sampleRate;
+                const max = Math.min(data.length, sr * 30);
+                let peaks = [];
+                for (let i = 0; i < max; i += 4000) {
+                    let m = 0;
+                    for (let j = 0; j < 4000; j++) if (Math.abs(data[i + j]) > m) m = Math.abs(data[i + j]);
+                    if (m > 0.3) peaks.push(i);
+                }
+                if (peaks.length < 5) return 120;
+                let intervals = {};
+                for (let i = 1; i < peaks.length; i++) {
+                    let inv = peaks[i] - peaks[i - 1];
+                    if (inv > sr * 0.3 && inv < sr * 1.5) {
+                        let q = Math.round(inv / 1000) * 1000;
+                        intervals[q] = (intervals[q] || 0) + 1;
+                    }
+                }
+                let best = sr; let maxC = 0;
+                for (let k in intervals) if (intervals[k] > maxC) { maxC = intervals[k]; best = parseInt(k); }
+                let bpm = 60 / (best / sr);
+                while (bpm < 75) bpm *= 2;
+                while (bpm > 160) bpm /= 2;
+                return Math.round(bpm);
+            } catch (e) { return 120; }
+        }
+
+        function resegmentAll() {
+            sampleLibrary = [];
+            currentSampleIndex = -1;
+            stopDJ();
+            playQueue = [];
+            transitionGraph = [];
+            contextHistory = [];
+            previewPath = [];
+            targetSampleIndex = -1;
+            prevSampleIndex = -1;
+
+            updateStatus(`Neural Analysis (${CONFIG.beatsPerSegment} beats)...`);
             setTimeout(() => {
-                const path = findPath(startNode, closestIdx);
-                if (path.length > 0) { playQueue.push(...path); updateStatus(`Path added (+${path.length} steps).`); }
-                else updateStatus("Cannot connect.");
-            }, 10);
+                loadedTracks.forEach((track, idx) => {
+                    processAudioBuffer(track.buffer, idx, track.bpm, track.totalDuration);
+                });
+                if (sampleLibrary.length > 0) {
+                    calculateSpace();
+                    buildTransitionGraph();
+                    drawCanvas();
+                    document.getElementById('btn-play').disabled = false;
+                    document.getElementById('btn-stop').disabled = true;
+                    updateStatus("Ready. Click nodes to preview paths.");
+                } else {
+                    updateStatus("No usable segments found.");
+                }
+            }, 100);
         }
-    }
-}
-function addTrail(idxA, idxB) {
-    const sA = sampleLibrary[idxA]; const sB = sampleLibrary[idxB];
-    trailHistory.push({ x1: sA.x, y1: sA.y, x2: sB.x, y2: sB.y, life: 180, maxLife: 180 });
-}
-function animate() {
-    requestAnimationFrame(animate); ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const w = canvas.width; const h = canvas.height; const margin = 0.1; const scale = 0.8;
-    if (trailHistory.length > 0) {
-        ctx.lineWidth = 2;
-        for (let i = trailHistory.length - 1; i >= 0; i--) {
-            const t = trailHistory[i]; const opacity = t.life / t.maxLife;
-            const sx1 = t.x1 * w * scale + w * margin; const sy1 = t.y1 * h * scale + h * margin;
-            const sx2 = t.x2 * w * scale + w * margin; const sy2 = t.y2 * h * scale + h * margin;
-            ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2);
-            ctx.strokeStyle = `rgba(0, 255, 204, ${opacity})`; ctx.stroke();
-            t.life--; if (t.life <= 0) trailHistory.splice(i, 1);
+
+        function processAudioBuffer(buffer, trackIndex, bpm, totalDuration) {
+            const rawData = buffer.getChannelData(0);
+            const duration = (60 / bpm) * CONFIG.beatsPerSegment;
+            const sps = Math.floor(duration * buffer.sampleRate);
+
+            for (let i = 0; i < rawData.length; i += sps) {
+                if (sampleLibrary.length >= CONFIG.maxSamples) break;
+                if (i + sps > rawData.length) break;
+
+                const segmentRaw = rawData.slice(i, i + sps);
+                const f = extractFeatures(segmentRaw, CONFIG.bufferSize);
+                if (f.rms < CONFIG.silenceThreshold) continue;
+
+                sampleLibrary.push({
+                    id: 0, // Set later
+                    buffer: buffer,
+                    startFn: i / buffer.sampleRate,
+                    duration: duration,
+                    bpm: bpm,
+                    baseRate: 1.0,
+                    features: f,
+                    trackIndex: trackIndex,
+                    relPos: (i / buffer.sampleRate) / totalDuration,
+                    key: f.keyIndex,
+                    type: 'body'
+                });
+            }
+
+            const trackSamps = sampleLibrary.filter(s => s.trackIndex === trackIndex);
+            if (trackSamps.length > 0) {
+                // First 4 segments are "start", last 4 are "end"
+                trackSamps.slice(0, 4).forEach(s => s.type = 'start');
+                trackSamps.slice(-4).forEach(s => s.type = 'end');
+            }
+
+            // Re-index
+            sampleLibrary.forEach((s, i) => s.id = i);
         }
-    }
-    if (playQueue.length > 0 && currentSampleIndex !== -1) {
-        let prevIdx = currentSampleIndex; ctx.lineWidth = 1; ctx.setLineDash([5, 5]); ctx.strokeStyle = '#ffffff';
-        for (let nextIdx of playQueue) {
-            const s = sampleLibrary[prevIdx]; const n = sampleLibrary[nextIdx];
-            const sx = s.x * w * scale + w * margin; const sy = s.y * h * scale + h * margin;
-            const nx = n.x * w * scale + w * margin; const ny = n.y * h * scale + h * margin;
-            ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(nx, ny); ctx.stroke(); prevIdx = nextIdx;
+
+        function extractFeatures(signal, bs) {
+            // Simplified Feature Extraction
+            let tRms = 0, tMfcc = new Array(13).fill(0), tChroma = new Array(12).fill(0), tFlat = 0, frames = 0;
+            const hops = 4; const step = Math.floor((signal.length - bs) / hops);
+
+            for (let j = 0; j < hops; j++) {
+                const chunk = signal.slice(j * step, j * step + bs);
+                try {
+                    const f = Meyda.extract(['rms', 'mfcc', 'chroma', 'spectralFlatness'], chunk);
+                    if (f) {
+                        tRms += f.rms; tFlat += f.spectralFlatness;
+                        for (let k = 0; k < 13; k++) tMfcc[k] += f.mfcc[k];
+                        for (let k = 0; k < 12; k++) tChroma[k] += f.chroma[k];
+                        frames++;
+                    }
+                } catch (e) { }
+            }
+            if (frames === 0) frames = 1;
+            const avgChroma = tChroma.map(v => v / frames);
+            let maxK = 0, maxV = 0; for (let k = 0; k < 12; k++) if (avgChroma[k] > maxV) { maxV = avgChroma[k]; maxK = k; }
+
+            return {
+                rms: tRms / frames,
+                mfcc: tMfcc.map(v => v / frames),
+                flatness: tFlat / frames,
+                keyIndex: maxK
+            };
         }
-        ctx.setLineDash([]);
-    }
-    sampleLibrary.forEach((s, idx) => {
-        const x = s.x * w * scale + w * margin; const y = s.y * h * scale + h * margin;
-        const color = loadedTracks[s.trackIndex].color;
-        ctx.beginPath();
-        if (idx === currentSampleIndex) {
-            const pulse = 10 + Math.sin(Date.now() / 100) * 5;
-            if (s.type === 'start') drawTriangle(ctx, x, y, pulse); else if (s.type === 'end') drawSquare(ctx, x, y, pulse); else ctx.arc(x, y, pulse, 0, Math.PI * 2);
-            ctx.fillStyle = 'white'; ctx.fill(); ctx.strokeStyle = color; ctx.stroke();
-            ctx.fillStyle = '#fff'; ctx.font = '12px Arial';
-            ctx.fillText(NOTES[(idx===currentSampleIndex&&lastEffectiveKeyIndex!==-1)?lastEffectiveKeyIndex:s.key], x + 15, y + 4);
-        } else {
-            let radius = s.semitone === 0 ? 3 : 1; if (playQueue.includes(idx)) radius = 4;
-            ctx.globalAlpha = s.semitone === 0 ? 1.0 : 0.7;
-            if (s.type === 'start') drawTriangle(ctx, x, y, radius + 2); else if (s.type === 'end') drawSquare(ctx, x, y, radius + 1); else ctx.arc(x, y, radius, 0, Math.PI * 2);
-            if (playQueue.includes(idx)) { ctx.fillStyle = 'white'; ctx.fill(); ctx.strokeStyle = color; ctx.stroke(); } else { ctx.fillStyle = color; ctx.fill(); }
-            ctx.globalAlpha = 1.0;
+
+        function calculateSpace() {
+            if (sampleLibrary.length === 0) return;
+            const xVals = sampleLibrary.map(s => s.features.mfcc[1]);
+            const yVals = sampleLibrary.map(s => s.features.mfcc[2]);
+            const minX = Math.min(...xVals), maxX = Math.max(...xVals);
+            const minY = Math.min(...yVals), maxY = Math.max(...yVals);
+
+            sampleLibrary.forEach(s => {
+                s.x = (s.features.mfcc[1] - minX) / (maxX - minX || 1);
+                s.y = (s.features.mfcc[2] - minY) / (maxY - minY || 1);
+                s.x += (Math.random() - 0.5) * 0.01;
+                s.y += (Math.random() - 0.5) * 0.01;
+            });
         }
-        ctx.closePath();
-    });
-}
-function drawTriangle(ctx, x, y, size) { ctx.moveTo(x, y - size); ctx.lineTo(x + size, y + size); ctx.lineTo(x - size, y + size); ctx.lineTo(x, y - size); }
-function drawSquare(ctx, x, y, size) { ctx.rect(x - size, y - size, size * 2, size * 2); }
-function updateStatus(msg) { document.getElementById('status').innerText = msg; document.getElementById('status').style.opacity = 1; }
-function updateLegend() {
-    const legend = document.getElementById('trackLegend'); legend.innerHTML = '';
-    loadedTracks.forEach(t => {
-        const div = document.createElement('div'); div.className = 'legend-item';
-        div.innerHTML = `<div class="color-dot" style="background-color:${t.color}"></div><span>${t.name} <small>(${t.bpm} BPM)</small></span>`;
-        legend.appendChild(div);
-    });
-}
-document.getElementById('beatSelect').addEventListener('change', (e) => { CONFIG.beatsPerSegment = parseFloat(e.target.value); if (loadedTracks.length > 0) resegmentAll(); });
-document.getElementById('btn-dev').addEventListener('click', toggleDevPanel);
-document.getElementById('btn-aug').addEventListener('click', () => { CONFIG.enablePitchAug = !CONFIG.enablePitchAug; document.getElementById('btn-aug').innerText = CONFIG.enablePitchAug ? "Aug: ON" : "Aug: OFF"; if (loadedTracks.length > 0) resegmentAll(); });
-window.onload = () => { initCanvas(); document.getElementById('fileInput').addEventListener('change', (e) => handleFiles(e.target.files)); document.getElementById('btn-play').addEventListener('click', startDJ); document.getElementById('btn-stop').addEventListener('click', stopDJ); };
-</script>
+
+        function buildTransitionGraph() {
+            const N = sampleLibrary.length;
+            transitionGraph = new Array(N);
+            if (N === 0) return;
+
+            const maxNeighbors = CONFIG.maxNeighbors || 64;
+
+            for (let i = 0; i < N; i++) {
+                const a = sampleLibrary[i];
+                const local = [];
+
+                for (let j = 0; j < N; j++) {
+                    if (i === j) continue;
+                    const b = sampleLibrary[j];
+
+                    if (a.type === 'end' && b.type === 'end') continue;
+
+                    // cheap low-dim pre-distance
+                    const dM1 = a.features.mfcc[1] - b.features.mfcc[1];
+                    const dM2 = a.features.mfcc[2] - b.features.mfcc[2];
+                    const timbreApprox = dM1 * dM1 + dM2 * dM2;
+
+                    const bpmApprox = Math.abs(a.bpm - b.bpm) / 40;
+                    const keyDiff = Math.abs((b.key - a.key) * 7) % 12;
+                    const keyApprox = Math.min(keyDiff, 12 - keyDiff) / 6;
+
+                    const score = timbreApprox + bpmApprox + keyApprox;
+                    local.push({ id: j, score });
+                }
+
+                local.sort((p, q) => p.score - q.score);
+                transitionGraph[i] = local.slice(0, maxNeighbors).map(e => e.id);
+            }
+        }
+
+        // --- DJ LOGIC ---
+
+        function startDJ() {
+            if (isPlaying || sampleLibrary.length === 0) return;
+            initAudioContext();
+            isPlaying = true;
+            document.getElementById('btn-play').disabled = true;
+            document.getElementById('btn-stop').disabled = false;
+            document.getElementById('fileInput').disabled = true;
+            nextStartTime = audioCtx.currentTime + 0.1;
+
+            if (currentSampleIndex === -1) {
+                const starts = sampleLibrary.filter(s => s.type === 'start');
+                currentSampleIndex = starts.length > 0 ? starts[Math.floor(Math.random() * starts.length)].id : 0;
+            }
+
+            playQueue = [];
+            trailHistory = [];
+            previewPath = [];
+            targetSampleIndex = -1;
+
+            currentBpm = sampleLibrary[currentSampleIndex].bpm;
+            scheduleNextSegment();
+        }
+
+        function stopDJ() {
+            isPlaying = false;
+            clearTimeout(playLoopId);
+            document.getElementById('btn-play').disabled = sampleLibrary.length === 0;
+            document.getElementById('btn-stop').disabled = true;
+            document.getElementById('fileInput').disabled = false;
+            document.getElementById('voting-panel').classList.remove('visible');
+            updateStatus("Stopped.");
+        }
+
+        function scheduleNextSegment() {
+            if (!isPlaying) return;
+
+            // Shift Context
+            if (currentSampleIndex !== -1) {
+                contextHistory.push(currentSampleIndex);
+                if (contextHistory.length > 3) contextHistory.shift();
+            }
+
+            // Pick Next
+            if (playQueue.length > 0) currentSampleIndex = playQueue.shift();
+            else currentSampleIndex = neuralPathfinder(currentSampleIndex);
+
+            const currentSample = sampleLibrary[currentSampleIndex];
+
+            // Voting Trigger?
+            if (prevSampleIndex !== -1) {
+                addTrail(prevSampleIndex, currentSampleIndex);
+                document.getElementById('voting-panel').classList.add('visible');
+                lastInputVector = extractTransitionVector(prevSampleIndex, currentSampleIndex);
+            }
+
+            // Sync BPM & Key
+            let rate = currentSample.baseRate;
+            let displayKey = currentSample.key;
+
+            if (prevSampleIndex !== -1) {
+                const ratio = currentBpm / currentSample.bpm;
+                const safeRatio = Math.max(0.8, Math.min(1.2, ratio));
+                rate = currentSample.baseRate * safeRatio;
+                currentBpm = (currentBpm * 0.8) + (currentSample.bpm * 0.2);
+            } else {
+                currentBpm = currentSample.bpm;
+            }
+
+            playSegment(currentSample, nextStartTime, rate);
+
+            // Update UI
+            document.getElementById('harmonic-info').innerHTML =
+                `<strong>${NOTES[displayKey]}</strong> | ${Math.round(currentBpm)} BPM<br>` +
+                `<small>${loadedTracks[currentSample.trackIndex].name}</small>`;
+            updateStatus(`Playing [${currentSample.type}]`);
+
+            // Schedule Loop
+            const dur = currentSample.duration / rate;
+            const overlap = CONFIG.crossfade;
+            nextStartTime += (dur - overlap);
+            prevSampleIndex = currentSampleIndex;
+
+            playLoopId = setTimeout(scheduleNextSegment, (dur - overlap) * 1000);
+        }
+
+        function playSegment(s, time, rate) {
+            const src = audioCtx.createBufferSource();
+            src.buffer = s.buffer;
+            src.playbackRate.value = rate;
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = "lowpass";
+
+            src.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            src.start(time, s.startFn, s.duration);
+
+            const fade = CONFIG.crossfade;
+            gain.gain.setValueCurveAtTime(FADE_IN_CURVE, time, fade);
+
+            // Filter Sweep Effect on transition
+            filter.frequency.setValueAtTime(400, time);
+            filter.frequency.exponentialRampToValueAtTime(20000, time + fade);
+
+            const end = time + (s.duration / rate);
+            if ((s.duration / rate) > fade * 2) {
+                filter.frequency.setValueAtTime(20000, end - fade);
+                filter.frequency.exponentialRampToValueAtTime(400, end);
+            }
+            gain.gain.setValueCurveAtTime(FADE_OUT_CURVE, end - fade, fade);
+        }
+
+        // --- NEURAL PATHFINDING / FEATURES ---
+
+        function extractTransitionVector(uIdx, vIdx, ctxOverride) {
+            const u = sampleLibrary[uIdx], v = sampleLibrary[vIdx];
+            if (!u || !v) return null;
+
+            const ctxHistory = ctxOverride || contextHistory;
+
+            // --- Timbre distance (MFCC space) ---
+            const mfccDiff = u.features.mfcc.map((x, i) => Math.abs(x - v.features.mfcc[i]));
+            const distCurrent = Math.sqrt(
+                mfccDiff.reduce((a, b) => a + b * b, 0)
+            );
+
+            // --- Distance from "natural" next in same track ---
+            let distNextNat = distCurrent;
+            const natIdx = uIdx + 1;
+            if (
+                natIdx < sampleLibrary.length &&
+                sampleLibrary[natIdx].trackIndex === u.trackIndex
+            ) {
+                const n = sampleLibrary[natIdx];
+                const dNat = n.features.mfcc.map(
+                    (x, i) => Math.abs(x - v.features.mfcc[i])
+                );
+                distNextNat = Math.sqrt(
+                    dNat.reduce((acc, val) => acc + val * val, 0)
+                );
+            }
+
+            // --- Distances wrt. previous context (two steps back) ---
+            let distPrev1 = 0;
+            let distPrev2 = 0;
+
+            if (ctxHistory && ctxHistory.length > 0) {
+                const p1Idx = ctxHistory[ctxHistory.length - 1];
+                if (p1Idx !== uIdx && sampleLibrary[p1Idx]) {
+                    const p1 = sampleLibrary[p1Idx];
+                    const d1 = p1.features.mfcc.map(
+                        (x, i) => Math.abs(x - v.features.mfcc[i])
+                    );
+                    distPrev1 = Math.sqrt(
+                        d1.reduce((a, b) => a + b * b, 0)
+                    );
+                }
+            }
+            if (ctxHistory && ctxHistory.length > 1) {
+                const p2Idx = ctxHistory[ctxHistory.length - 2];
+                if (p2Idx !== uIdx && sampleLibrary[p2Idx]) {
+                    const p2 = sampleLibrary[p2Idx];
+                    const d2 = p2.features.mfcc.map(
+                        (x, i) => Math.abs(x - v.features.mfcc[i])
+                    );
+                    distPrev2 = Math.sqrt(
+                        d2.reduce((a, b) => a + b * b, 0)
+                    );
+                }
+            }
+
+            // --- Structural / musical features ---
+            const posFlow = (v.relPos < u.relPos) ? 1.0 : 0.0; // going backwards in the track
+
+            // circle-of-fifths distance between keys
+            const circleDiff = Math.abs((v.key - u.key) * 7) % 12;
+            const harmony = Math.min(circleDiff, 12 - circleDiff);
+
+            const bpmCost = Math.abs(u.bpm - v.bpm) / 20;
+            const rmsDelta = Math.abs(u.features.rms - v.features.rms);
+            const flatnessDelta = Math.abs(u.features.flatness - v.features.flatness);
+
+            // how far we jump in the track (0..1 roughly)
+            const relPosJump = Math.abs(v.relPos - u.relPos);
+
+            // penalise repeating the same track too soon
+            let trackRepeat = 0;
+            if (ctxHistory && ctxHistory.length > 0) {
+                for (let i = ctxHistory.length - 1, step = 0; i >= 0; i--, step++) {
+                    const idx = ctxHistory[i];
+                    const s = sampleLibrary[idx];
+                    if (!s) continue;
+                    if (s.trackIndex === v.trackIndex) {
+                        const norm = Math.max(1, ctxHistory.length - 1);
+                        trackRepeat = 1 - (step / norm); // more recent -> higher
+                        break;
+                    }
+                }
+            }
+
+            return {
+                mfccDiff,
+                distCurrent,
+                distNextNat,
+                distPrev1,
+                distPrev2,
+                posFlow,
+                harmony,
+                bpm: bpmCost,
+                rmsDelta,
+                flatnessDelta,
+                relPosJump,
+                trackRepeat
+            };
+        }
+
+        function calculateCost(uIdx, vIdx, ctxOverride) {
+            const vec = extractTransitionVector(uIdx, vIdx, ctxOverride);
+            if (!vec) return Infinity;
+
+            let cost = 0;
+
+            // CNN over MFCC differences
+            for (let i = 0; i < 13; i++) {
+                cost += vec.mfccDiff[i] * AI_MODEL.cnnKernel[i];
+            }
+
+            // pairwise distances
+            cost += vec.distCurrent * AI_MODEL.contextWeights.wCurrent;
+            cost += vec.distNextNat * AI_MODEL.contextWeights.wNextNat;
+            cost += vec.distPrev1 * AI_MODEL.contextWeights.wPrev1;
+            cost += vec.distPrev2 * AI_MODEL.contextWeights.wPrev2;
+
+            // dense features
+            cost += vec.posFlow * AI_MODEL.denseWeights.posFlow;
+            cost += (vec.harmony / 6) * AI_MODEL.denseWeights.harmony;
+            cost += vec.bpm * AI_MODEL.denseWeights.bpm;
+            cost += vec.rmsDelta * AI_MODEL.denseWeights.rmsDelta;
+            cost += vec.flatnessDelta * AI_MODEL.denseWeights.flatnessDelta;
+            cost += vec.relPosJump * AI_MODEL.denseWeights.relPosJump;
+            cost += vec.trackRepeat * AI_MODEL.denseWeights.trackRepeat;
+
+            return cost;
+        }
+
+        function neuralPathfinder(currIdx) {
+            const N = sampleLibrary.length;
+            if (N === 0 || currIdx < 0 || currIdx >= N) return 0;
+
+            const curr = sampleLibrary[currIdx];
+
+            // --- 0. End segments: deliberately jump to a "start" ---
+            if (curr.type === 'end') {
+                const starts = sampleLibrary.filter(
+                    s => s.type === 'start' && s.trackIndex !== curr.trackIndex
+                );
+                if (starts.length === 0) {
+                    const neigh = transitionGraph[currIdx] || [];
+                    if (neigh.length === 0) return (currIdx + 1) % N;
+                    let best = neigh[0];
+                    let bestCost = calculateCost(currIdx, best);
+                    for (let i = 1; i < neigh.length; i++) {
+                        const c = neigh[i];
+                        const cost = calculateCost(currIdx, c);
+                        if (cost < bestCost) {
+                            bestCost = cost;
+                            best = c;
+                        }
+                    }
+                    return best;
+                }
+                const scoredStarts = starts.map(s => ({
+                    id: s.id,
+                    cost: calculateCost(currIdx, s.id)
+                }));
+                scoredStarts.sort((a, b) => a.cost - b.cost);
+                return scoredStarts[0].id;
+            }
+
+            // --- 1. Candidate pool from precomputed neighbours ---
+            let candidateIds = (transitionGraph[currIdx] || []).slice();
+
+            // Always consider the "natural" next segment in the same track
+            const natIdx = curr.id + 1;
+            const hasNat = (
+                natIdx < N &&
+                sampleLibrary[natIdx].trackIndex === curr.trackIndex
+            );
+            if (hasNat) candidateIds.push(natIdx);
+
+            if (candidateIds.length === 0) {
+                // Fallback: random pool if no neighbours (shouldn't happen often)
+                for (let i = 0; i < 32; i++) {
+                    const r = Math.floor(Math.random() * N);
+                    if (r !== currIdx) candidateIds.push(r);
+                }
+                candidateIds = [...new Set(candidateIds)];
+            }
+
+            // --- 2. Score candidates ---
+            const seen = new Set();
+            const scored = [];
+            for (let i = 0; i < candidateIds.length; i++) {
+                const id = candidateIds[i];
+                if (id === currIdx || seen.has(id)) continue;
+                const target = sampleLibrary[id];
+                if (!target) continue;
+
+                // Don't jump from middle of a track to the *start* of another track
+                if (
+                    curr.type === 'body' &&
+                    target.type === 'start' &&
+                    target.trackIndex !== curr.trackIndex
+                ) {
+                    continue;
+                }
+
+                seen.add(id);
+                const cost = calculateCost(currIdx, id);
+                scored.push({ id, cost });
+            }
+
+            if (scored.length === 0) {
+                return (currIdx + 1) % N;
+            }
+
+            scored.sort((a, b) => a.cost - b.cost);
+
+            // --- 3. Natural flow override if creative jump is too expensive ---
+            let natCost = Infinity;
+            if (hasNat) {
+                natCost = calculateCost(currIdx, natIdx);
+                const bestCost = scored[0].cost;
+                if (bestCost > CONFIG.mixThreshold && natCost <= bestCost * 1.2) {
+                    return natIdx;
+                }
+            }
+
+            // --- 4. Softmax over top-K for infinite variety ---
+            const K = Math.min(5, scored.length);
+            const beta = CONFIG.selectionTemperature || 0.8;
+            const top = scored.slice(0, K);
+
+            let total = 0;
+            const weights = new Array(K);
+            for (let i = 0; i < K; i++) {
+                const w = Math.exp(-beta * top[i].cost);
+                weights[i] = w;
+                total += w;
+            }
+
+            let r = Math.random() * total;
+            for (let i = 0; i < K; i++) {
+                r -= weights[i];
+                if (r <= 0) return top[i].id;
+            }
+            return top[0].id;
+        }
+
+        // --- PATH PREVIEW (SIMULATED, NO AUDIO) ---
+
+        function neuralPathfinderSim(currIdx, simContext, targetIdx, visited) {
+            const N = sampleLibrary.length;
+            if (N === 0 || currIdx < 0 || currIdx >= N) return null;
+
+            const curr = sampleLibrary[currIdx];
+
+            let candidateIds = (transitionGraph[currIdx] || []).slice();
+            const natIdx = curr.id + 1;
+            const hasNat = (natIdx < N && sampleLibrary[natIdx].trackIndex === curr.trackIndex);
+            if (hasNat) candidateIds.push(natIdx);
+
+            if (candidateIds.length === 0) {
+                for (let i = 0; i < 32; i++) {
+                    const r = Math.floor(Math.random() * N);
+                    if (r !== currIdx) candidateIds.push(r);
+                }
+                candidateIds = [...new Set(candidateIds)];
+            }
+
+            const seen = new Set();
+            const scored = [];
+
+            for (let i = 0; i < candidateIds.length; i++) {
+                const id = candidateIds[i];
+                if (id === currIdx || seen.has(id)) continue;
+                if (visited && visited.has(id)) continue;
+                const target = sampleLibrary[id];
+                if (!target) continue;
+
+                if (
+                    curr.type === 'body' &&
+                    target.type === 'start' &&
+                    target.trackIndex !== curr.trackIndex
+                ) {
+                    continue;
+                }
+
+                seen.add(id);
+                const baseCost = calculateCost(currIdx, id, simContext);
+
+                let heuristic = 0;
+                if (targetIdx != null && targetIdx >= 0 && targetIdx < N) {
+                    const t = sampleLibrary[targetIdx];
+                    const dx = target.features.mfcc[1] - t.features.mfcc[1];
+                    const dy = target.features.mfcc[2] - t.features.mfcc[2];
+                    const timbreApprox = dx * dx + dy * dy;
+
+                    const keyDiff = Math.abs((target.key - t.key) * 7) % 12;
+                    const keyApprox = Math.min(keyDiff, 12 - keyDiff) / 6;
+
+                    heuristic = timbreApprox + keyApprox;
+                }
+
+                const totalCost = baseCost + heuristic * 0.15;
+                scored.push({ id, cost: totalCost });
+            }
+
+            if (scored.length === 0) return null;
+            scored.sort((a, b) => a.cost - b.cost);
+            return scored[0].id;
+        }
+
+        function computePathPreview(startIdx, targetIdx, maxSteps) {
+            const path = [];
+            const N = sampleLibrary.length;
+            if (N === 0) return path;
+
+            if (startIdx < 0 || startIdx >= N) startIdx = 0;
+            if (targetIdx < 0 || targetIdx >= N) {
+                path.push(startIdx);
+                return path;
+            }
+
+            let simContext = contextHistory.slice();
+            let currIdx = startIdx;
+            const visited = new Set();
+
+            path.push(currIdx);
+            visited.add(currIdx);
+
+            if (currIdx === targetIdx) return path;
+
+            for (let step = 0; step < maxSteps; step++) {
+                simContext.push(currIdx);
+                if (simContext.length > 3) simContext.shift();
+
+                const nextIdx = neuralPathfinderSim(currIdx, simContext, targetIdx, visited);
+                if (nextIdx == null) break;
+
+                path.push(nextIdx);
+                if (nextIdx === targetIdx) break;
+
+                if (visited.has(nextIdx)) break;
+                visited.add(nextIdx);
+                currIdx = nextIdx;
+            }
+
+            return path;
+        }
+
+        // --- UI & CANVAS ---
+
+        function initCanvas() {
+            canvas = document.getElementById('djCanvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            canvas.addEventListener('click', handleCanvasClick);
+            initBrain();
+            animate();
+        }
+
+        function resizeCanvas() {
+            canvas.width = document.getElementById('main-container').offsetWidth;
+            canvas.height = document.getElementById('main-container').offsetHeight;
+        }
+
+        function drawCanvas() {
+            // Intentionally empty: drawing is handled in animate() loop
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const w = canvas.width, h = canvas.height;
+
+            // Draw Trails (played transitions)
+            trailHistory.forEach(t => {
+                ctx.beginPath();
+                ctx.moveTo(t.x1 * w, t.y1 * h);
+                ctx.lineTo(t.x2 * w, t.y2 * h);
+                ctx.strokeStyle = `rgba(0, 255, 204, ${t.life / 180})`;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([]);
+                ctx.stroke();
+                t.life--;
+            });
+            trailHistory = trailHistory.filter(t => t.life > 0);
+
+            // Draw Preview Path (simulated)
+            if (previewPath && previewPath.length > 1) {
+                ctx.save();
+                ctx.lineWidth = 3;
+                ctx.setLineDash([6, 4]);
+                ctx.strokeStyle = 'rgba(255, 255, 0, 0.9)';
+                for (let i = 0; i < previewPath.length - 1; i++) {
+                    const s1 = sampleLibrary[previewPath[i]];
+                    const s2 = sampleLibrary[previewPath[i + 1]];
+                    if (!s1 || !s2) continue;
+                    ctx.beginPath();
+                    ctx.moveTo(s1.x * w, s1.y * h);
+                    ctx.lineTo(s2.x * w, s2.y * h);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            ctx.setLineDash([]);
+
+            // Draw Nodes
+            sampleLibrary.forEach(s => {
+                const x = s.x * w, y = s.y * h;
+                const isCurr = (s.id === currentSampleIndex);
+
+                ctx.beginPath();
+                if (s.type === 'start') {
+                    ctx.moveTo(x, y - 5);
+                    ctx.lineTo(x + 5, y + 5);
+                    ctx.lineTo(x - 5, y + 5);
+                } else if (s.type === 'end') {
+                    ctx.rect(x - 4, y - 4, 8, 8);
+                } else {
+                    ctx.arc(x, y, isCurr ? 6 : 2, 0, Math.PI * 2);
+                }
+
+                ctx.fillStyle = loadedTracks[s.trackIndex]?.color || '#888';
+                if (isCurr) {
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#fff';
+                    ctx.fillStyle = '#fff';
+                } else {
+                    ctx.shadowBlur = 0;
+                }
+                ctx.fill();
+            });
+
+            // Highlight target sample if any
+            if (targetSampleIndex !== -1) {
+                const t = sampleLibrary[targetSampleIndex];
+                if (t) {
+                    ctx.beginPath();
+                    ctx.arc(t.x * w, t.y * h, 10, 0, Math.PI * 2);
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function handleCanvasClick(evt) {
+            if (!sampleLibrary.length) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const xNorm = (evt.clientX - rect.left) / canvas.width;
+            const yNorm = (evt.clientY - rect.top) / canvas.height;
+
+            let bestId = -1;
+            let bestDist = Infinity;
+            sampleLibrary.forEach(s => {
+                const dx = s.x - xNorm;
+                const dy = s.y - yNorm;
+                const d = dx * dx + dy * dy;
+                if (d < bestDist) {
+                    bestDist = d;
+                    bestId = s.id;
+                }
+            });
+
+            const threshold = 0.02 * 0.02; // about 2% of canvas
+            if (bestId !== -1 && bestDist < threshold) {
+                targetSampleIndex = bestId;
+
+                let startIdx = currentSampleIndex;
+                if (startIdx === -1) {
+                    const firstStart = sampleLibrary.find(s => s.type === 'start');
+                    startIdx = firstStart ? firstStart.id : 0;
+                }
+
+                previewPath = computePathPreview(startIdx, targetSampleIndex, 32);
+
+                const target = sampleLibrary[targetSampleIndex];
+                const trackName = loadedTracks[target.trackIndex]?.name || "Unknown";
+                updateStatus(`Preview path: ${previewPath.length - 1} steps → ${NOTES[target.key]} / ${Math.round(target.bpm)} BPM (${trackName})`);
+            } else {
+                targetSampleIndex = -1;
+                previewPath = [];
+                updateStatus("Path preview cleared.");
+            }
+        }
+
+        function updateNeuralUI() {
+            const viz = document.getElementById('cnn-viz');
+            if (!viz) return;
+            viz.innerHTML = '';
+            AI_MODEL.cnnKernel.forEach(val => {
+                const d = document.createElement('div');
+                d.className = 'kernel-cell';
+                const c = Math.floor(Math.min(1, val / 5) * 255);
+                d.style.backgroundColor = `rgb(${c}, 0, ${255 - c})`;
+                viz.appendChild(d);
+            });
+            document.getElementById('val-current').innerText = AI_MODEL.contextWeights.wCurrent.toFixed(2);
+            document.getElementById('val-nextnat').innerText = AI_MODEL.contextWeights.wNextNat.toFixed(2);
+            document.getElementById('val-harmony').innerText = AI_MODEL.denseWeights.harmony.toFixed(2);
+            document.getElementById('val-bpm').innerText = AI_MODEL.denseWeights.bpm.toFixed(2);
+        }
+
+        function updateStatus(msg) {
+            const el = document.getElementById('status');
+            if (el) el.innerText = msg;
+        }
+
+        function addTrail(a, b) {
+            const s1 = sampleLibrary[a], s2 = sampleLibrary[b];
+            if (!s1 || !s2) return;
+            trailHistory.push({ x1: s1.x, y1: s1.y, x2: s2.x, y2: s2.y, life: 180 });
+        }
+
+        function toggleDevPanel() {
+            document.getElementById('dev-panel').classList.toggle('visible');
+        }
+
+        // --- BINDINGS ---
+        window.onload = initCanvas;
+        document.getElementById('fileInput').addEventListener('change', (e) => handleFiles(e.target.files));
+        document.getElementById('btn-play').onclick = startDJ;
+        document.getElementById('btn-stop').onclick = stopDJ;
+        document.getElementById('btn-dev').onclick = toggleDevPanel;
+        document.getElementById('beatSelect').addEventListener('change', (e) => {
+            CONFIG.beatsPerSegment = parseFloat(e.target.value);
+            if (loadedTracks.length > 0) resegmentAll();
+        });
+
+    </script>
 </body>
 </html>

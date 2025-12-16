@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Phantom DJ – Hybrid Dataset + Local Magenta AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Meyda: feature extraction -->
+  <script src="https://unpkg.com/meyda/dist/web/meyda.min.js"></script>
+
+  <!-- IMPORTANT: Magenta-compatible TensorFlow.js (1.x, not 3.x) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.5.2/dist/tf.min.js"></script>
+
+  <!-- Magenta Music (MusicRNN etc.) -->
+  <script src="https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/dist/magentamusic.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #050510;
+      --panel: #101322;
+      --accent: #22d3ee;
+      --accent-soft: rgba(34, 211, 238, 0.16);
+      --danger: #f97373;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: radial-gradient(circle at top, #1d2540 0, #02030b 60%);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .app {
+      width: min(980px, 100%);
+      border-radius: 18px;
+      background: rgba(3, 7, 18, 0.94);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      padding: 18px 18px 16px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 800px) {
+      .app {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.2rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #f9fafb;
+    }
+
+    .subtitle {
+      margin: 2px 0 10px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .header {
+      grid-column: 1 / -1;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.9);
+      padding-bottom: 10px;
+      margin-bottom: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+
+    .header-left {
+      min-width: 200px;
+    }
+
+    .header-right {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    label.file-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #22c55e, #06b6d4);
+      color: #020617;
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(22, 163, 74, 0.55);
+      white-space: nowrap;
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 7px 14px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform 0.08s ease, box-shadow 0.12s ease,
+        background 0.12s ease, border-color 0.12s ease;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, #3b82f6, #06b6d4);
+      color: white;
+      box-shadow: 0 8px 18px rgba(37, 99, 235, 0.7);
+      border: 1px solid rgba(59, 130, 246, 0.6);
+    }
+
+    button.secondary {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      color: var(--text);
+    }
+
+    button.danger {
+      background: rgba(127, 29, 29, 0.95);
+      border: 1px solid rgba(248, 113, 113, 0.8);
+      color: #fee2e2;
+      box-shadow: 0 8px 18px rgba(127, 29, 29, 0.8);
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.85);
+    }
+
+    button.primary:hover:not(:disabled) {
+      box-shadow: 0 12px 28px rgba(37, 99, 235, 0.85);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: default;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 4px 8px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(75, 85, 99, 0.8);
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .pill-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #fecaca;
+      box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.3);
+    }
+
+    .pill-dot.on {
+      background: #22c55e;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.4);
+    }
+
+    .left-panel,
+    .right-panel {
+      border-radius: 14px;
+      background: radial-gradient(circle at top, #111827 0, #020617 70%);
+      border: 1px solid rgba(30, 64, 175, 0.4);
+      padding: 12px;
+      min-height: 260px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .panel-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      font-size: 0.8rem;
+    }
+
+    .status-card {
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 10px;
+      padding: 7px 8px 6px;
+      border: 1px solid rgba(31, 41, 55, 0.9);
+      overflow: hidden;
+    }
+
+    .status-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 1px;
+    }
+
+    .status-value {
+      font-size: 0.87rem;
+      color: #e5e7eb;
+    }
+
+    .status-muted {
+      color: #6b7280;
+      font-style: italic;
+    }
+
+    .range-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .range-row input[type="range"] {
+      flex: 1;
+    }
+
+    .range-row span.value {
+      min-width: 30px;
+      text-align: right;
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+    }
+
+    .log {
+      flex: 1;
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(31, 41, 55, 0.9);
+      padding: 6px 8px 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 120px;
+      max-height: 240px;
+    }
+
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .log-body {
+      flex: 1;
+      overflow-y: auto;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
+        Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.72rem;
+      padding-right: 2px;
+      white-space: pre-wrap;
+    }
+
+    .log-body::-webkit-scrollbar {
+      width: 4px;
+    }
+    .log-body::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.55);
+      border-radius: 999px;
+    }
+
+    .simple-card {
+      margin-top: 6px;
+      border-radius: 12px;
+      background: radial-gradient(circle at top, #0f172a 0, #020617 75%);
+      border: 1px solid rgba(30, 64, 175, 0.55);
+      padding: 10px 10px 8px;
+      font-size: 0.8rem;
+    }
+
+    .simple-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .simple-meta {
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .pill-small {
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.7rem;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      color: #e5e7eb;
+    }
+
+    .ai-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .ai-row input {
+      flex: 1;
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      background: rgba(15, 23, 42, 0.95);
+      padding: 6px 10px;
+      color: var(--text);
+      font-size: 0.8rem;
+      outline: none;
+    }
+
+    .ai-row input:focus {
+      border-color: rgba(56, 189, 248, 0.9);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.5);
+    }
+
+    .ai-status {
+      margin-top: 3px;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    canvas {
+      width: 100%;
+      height: 220px;
+      border-radius: 10px;
+      background: radial-gradient(circle at center, #111827 0, #020617 70%);
+      border: 1px solid rgba(30, 64, 175, 0.5);
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
+      cursor: pointer;
+    }
+
+    .loading-bar {
+      width: 100%;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .loading-inner {
+      width: 45%;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        rgba(56, 189, 248, 0.1),
+        rgba(56, 189, 248, 0.9),
+        rgba(56, 189, 248, 0.1)
+      );
+      animation: bar-move 0.9s linear infinite;
+    }
+
+    @keyframes bar-move {
+      from { transform: translateX(-100%); }
+      to   { transform: translateX(200%); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <div class="header-left">
+        <h1>Phantom DJ</h1>
+        <div class="subtitle">
+          Hybrid dataset + local Magenta AI · Infinite, feature-driven transitions
+        </div>
+      </div>
+      <div class="header-right">
+        <label class="file-label">
+          <input id="fileInput" type="file" accept="audio/*" multiple />
+          <span>+ Load Tracks</span>
+        </label>
+
+        <button id="startBtn" class="primary" disabled>
+          ▶ Start Infinite Mix
+        </button>
+        <button id="stopBtn" class="secondary" disabled>⏹ Stop</button>
+
+        <div class="pill">
+          <span id="audioDot" class="pill-dot"></span>
+          <span id="audioText">AudioContext: locked</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEFT: MIX STATE + CONTROLS + AI -->
+    <div class="left-panel">
+      <div class="panel-title">Mix state</div>
+
+      <div class="status-grid">
+        <div class="status-card">
+          <div class="status-label">Tracks loaded</div>
+          <div class="status-value">
+            <span id="tracksCount" class="status-muted">0</span>
+          </div>
+        </div>
+        <div class="status-card">
+          <div class="status-label">Segments</div>
+          <div class="status-value">
+            <span id="segmentsCount" class="status-muted">0</span>
+          </div>
+        </div>
+        <div class="status-card">
+          <div class="status-label">Current BPM</div>
+          <div class="status-value">
+            <span id="bpmLabel" class="status-muted">–</span>
+          </div>
+        </div>
+        <div class="status-card">
+          <div class="status-label">Current key</div>
+          <div class="status-value">
+            <span id="keyLabel" class="status-muted">–</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="range-row" style="margin-top: 8px">
+        <span>Beats per segment</span>
+        <select id="beatsSelect">
+          <option value="4">4</option>
+          <option value="8" selected>8</option>
+          <option value="16">16</option>
+        </select>
+      </div>
+
+      <div class="range-row">
+        <span>Crossfade (s)</span>
+        <input
+          id="crossfadeRange"
+          type="range"
+          min="0.05"
+          max="0.6"
+          step="0.01"
+          value="0.16"
+        />
+        <span class="value" id="crossfadeValue">0.16</span>
+      </div>
+
+      <div class="range-row">
+        <span>Schedule ahead (s)</span>
+        <input
+          id="aheadRange"
+          type="range"
+          min="0.3"
+          max="1.8"
+          step="0.05"
+          value="0.8"
+        />
+        <span class="value" id="aheadValue">0.8</span>
+      </div>
+
+      <div class="range-row">
+        <span>Exploration</span>
+        <input
+          id="exploreRange"
+          type="range"
+          min="0.1"
+          max="2"
+          step="0.1"
+          value="0.8"
+        />
+        <span class="value" id="exploreValue">0.8</span>
+      </div>
+
+      <div class="range-row">
+        <span>Volume</span>
+        <input
+          id="volumeRange"
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value="0.8"
+        />
+        <span class="value" id="volumeValue">0.8</span>
+      </div>
+
+      <div class="simple-card">
+        <div class="simple-title" id="nowPlayingTitle">
+          Load some tracks to begin
+        </div>
+        <div class="simple-meta" id="nowPlayingMeta">
+          No audio loaded yet
+        </div>
+        <div class="pill-row">
+          <span class="pill-small" id="nowPlayingTrack">–</span>
+          <span class="pill-small" id="nowPlayingSegment">–</span>
+        </div>
+        <div id="loadingArea" style="margin-top: 8px; display: none">
+          <div class="loading-bar">
+            <div class="loading-inner"></div>
+          </div>
+          <div style="font-size: 0.7rem; color: var(--muted); margin-top: 3px">
+            <span id="loadingText">Analyzing…</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-title" style="margin-top: 2px">AI generator</div>
+      <div class="ai-row">
+        <input
+          id="aiPromptInput"
+          type="text"
+          placeholder='e.g. "intense party track", "chill lofi loop"'
+        />
+        <button id="aiGenerateBtn" class="secondary">🎹 Generate</button>
+      </div>
+      <div class="ai-status" id="aiStatusLabel">
+        AI layer: idle · generation will be injected into the mix as a future track
+      </div>
+    </div>
+
+    <!-- RIGHT: VIS / LOG -->
+    <div class="right-panel">
+      <div class="panel-title">
+        Phantom DJ space
+        <span style="font-size:0.7rem;color:var(--muted);">
+          · click a node to steer the mix
+        </span>
+      </div>
+      <canvas id="spaceCanvas"></canvas>
+
+      <div class="log">
+        <div class="log-header">
+          <span>Engine log</span>
+          <button id="clearLogBtn" class="secondary" style="padding: 3px 8px">
+            Clear
+          </button>
+        </div>
+        <div id="logBody" class="log-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /******************************************************************
+     * CONFIG & CONSTANTS
+     ******************************************************************/
+    const NOTES = [
+      "C","C#","D","D#","E","F","F#","G","G#","A","A#","B"
+    ];
+
+    const CONFIG = {
+      beatsPerSegment: 8,
+      crossfade: 0.16,
+      scheduleAhead: 0.8,
+      exploration: 0.8,
+      silenceThreshold: 0.01,
+      maxSegments: 1600,
+      maxNeighbors: 32,
+      loopHistorySize: 64,
+      defaultBpm: 120
+    };
+
+    const FADE_RES = 128;
+    const FADE_IN_CURVE = new Float32Array(FADE_RES);
+    const FADE_OUT_CURVE = new Float32Array(FADE_RES);
+    for (let i = 0; i < FADE_RES; i++) {
+      const x = i / (FADE_RES - 1);
+      FADE_IN_CURVE[i] = Math.sin((x * Math.PI) / 2);
+      FADE_OUT_CURVE[i] = Math.cos((x * Math.PI) / 2);
+    }
+
+    const clamp01 = x => Math.max(0, Math.min(1, x));
+
+    /******************************************************************
+     * AUDIO GRAPH
+     ******************************************************************/
+    let audioCtx = null;
+    let masterGain = null;
+    let masterFilter = null;
+
+    function ensureAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+      if (!masterGain) {
+        masterGain = audioCtx.createGain();
+        masterFilter = audioCtx.createBiquadFilter();
+        masterFilter.type = "lowpass";
+        masterFilter.frequency.value = 19000;
+        masterFilter.connect(masterGain);
+        masterGain.connect(audioCtx.destination);
+      }
+      updateAudioStatus(true);
+    }
+
+    function setMasterVolume(v) {
+      if (!masterGain) return;
+      masterGain.gain.value = v;
+    }
+
+    function updateAudioStatus(on) {
+      const dot = document.getElementById("audioDot");
+      const text = document.getElementById("audioText");
+      if (!dot || !text) return;
+      if (on) {
+        dot.classList.add("on");
+        text.textContent = "AudioContext: running";
+      } else {
+        dot.classList.remove("on");
+        text.textContent = "AudioContext: locked";
+      }
+    }
+
+    /******************************************************************
+     * STATE: TRACKS, SEGMENTS, GRAPH, AI
+     ******************************************************************/
+    let loadedTracks = [];
+    let segments = [];
+    let transitionGraph = [];
+
+    let isPlaying = false;
+    let nextScheduleTime = 0;
+    let currentSegmentIndex = -1;
+    let prevSegmentIndex = -1;
+    let schedulerId = null;
+    let activeSources = [];
+    let visitHistory = [];
+    let currentBpm = CONFIG.defaultBpm;
+
+    let requestedNextSegment = null;   // by canvas / AI
+    let selectedSegmentIndex = null;   // for visual highlight
+    let aiBusy = false;
+
+    /******************************************************************
+     * UI HELPERS
+     ******************************************************************/
+    function log(msg) {
+      const el = document.getElementById("logBody");
+      if (!el) return;
+      const ts = new Date().toISOString().split("T")[1].replace("Z", "");
+      el.textContent += `[${ts}] ${msg}\n`;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function clearLog() {
+      const el = document.getElementById("logBody");
+      if (el) el.textContent = "";
+    }
+
+    function setCounts() {
+      const tc = document.getElementById("tracksCount");
+      const sc = document.getElementById("segmentsCount");
+      if (tc) {
+        tc.textContent = loadedTracks.length.toString();
+        tc.classList.toggle("status-muted", !loadedTracks.length);
+      }
+      if (sc) {
+        sc.textContent = segments.length.toString();
+        sc.classList.toggle("status-muted", !segments.length);
+      }
+    }
+
+    function setLoading(on, text) {
+      const wrap = document.getElementById("loadingArea");
+      const label = document.getElementById("loadingText");
+      if (!wrap || !label) return;
+      wrap.style.display = on ? "block" : "none";
+      if (text) label.textContent = text;
+    }
+
+    function setNowPlaying(seg) {
+      const title = document.getElementById("nowPlayingTitle");
+      const meta = document.getElementById("nowPlayingMeta");
+      const trackChip = document.getElementById("nowPlayingTrack");
+      const segChip = document.getElementById("nowPlayingSegment");
+      const bpmLabel = document.getElementById("bpmLabel");
+      const keyLabel = document.getElementById("keyLabel");
+
+      if (!seg) {
+        title.textContent = "Load some tracks to begin";
+        meta.textContent = "No audio loaded yet";
+        trackChip.textContent = "–";
+        segChip.textContent = "–";
+        bpmLabel.textContent = "–";
+        keyLabel.textContent = "–";
+        [bpmLabel, keyLabel].forEach(el =>
+          el.classList.add("status-muted")
+        );
+        return;
+      }
+
+      const track = loadedTracks[seg.trackIndex];
+      const name = track ? track.name : "Unknown track";
+      const keyName = NOTES[seg.keyIndex ?? seg.features.keyIndex ?? 0] || "–";
+      const bpmText = Math.round(currentBpm || seg.bpm || CONFIG.defaultBpm);
+
+      title.textContent = name;
+      meta.textContent = `${keyName} · ${bpmText} BPM`;
+
+      trackChip.textContent = `Track #${seg.trackIndex + 1}`;
+      segChip.textContent = `Segment ${seg.id + 1} (${seg.type})`;
+
+      bpmLabel.textContent = bpmText + " BPM";
+      keyLabel.textContent = keyName;
+
+      [bpmLabel, keyLabel].forEach(el =>
+        el.classList.remove("status-muted")
+      );
+    }
+
+    function setAiStatus(text, busy) {
+      const el = document.getElementById("aiStatusLabel");
+      if (!el) return;
+      el.textContent = text;
+      el.style.color = busy ? "#eab308" : "var(--muted)";
+    }
+
+    /******************************************************************
+     * FILE LOADING + OFFLINE ANALYSIS
+     ******************************************************************/
+    async function handleFiles(fileList) {
+      if (!fileList || !fileList.length) return;
+      if (typeof Meyda === "undefined") {
+        alert("Meyda failed to load. Check the CDN script tag.");
+        return;
+      }
+
+      ensureAudioContext();
+      setLoading(true, "Decoding audio…");
+      log(`Loading ${fileList.length} file(s)…`);
+
+      loadedTracks = [];
+      segments = [];
+      transitionGraph = [];
+      stopMixInternal(true);
+      setCounts();
+      drawSpace();
+
+      const files = Array.from(fileList);
+      for (const file of files) {
+        try {
+          const buf = await file.arrayBuffer();
+          const audioBuf = await audioCtx.decodeAudioData(buf);
+          const bpm = detectBPM(audioBuf) || CONFIG.defaultBpm;
+          loadedTracks.push({
+            buffer: audioBuf,
+            name: file.name,
+            bpm,
+            duration: audioBuf.duration
+          });
+          log(`Decoded "${file.name}" · ~${Math.round(bpm)} BPM`);
+        } catch (e) {
+          console.error(e);
+          log(`⚠ Failed to decode "${file.name}"`);
+        }
+      }
+
+      if (!loadedTracks.length) {
+        setLoading(false);
+        log("No valid audio loaded.");
+        return;
+      }
+
+      setCounts();
+      await analyzeAllTracks();
+      setLoading(false);
+      setCounts();
+
+      if (segments.length) {
+        document.getElementById("startBtn").disabled = false;
+        log("Analysis complete. Ready to start the infinite mix.");
+      } else {
+        log("No usable segments (maybe the audio is too quiet?).");
+      }
+    }
+
+    function detectBPM(buffer) {
+      try {
+        const data = buffer.getChannelData(0);
+        const sr = buffer.sampleRate;
+        const max = Math.min(data.length, sr * 30);
+        const peaks = [];
+        for (let i = 0; i < max; i += 4000) {
+          let m = 0;
+          for (let j = 0; j < 4000 && i + j < max; j++) {
+            const v = Math.abs(data[i + j]);
+            if (v > m) m = v;
+          }
+          if (m > 0.3) peaks.push(i);
+        }
+        if (peaks.length < 4) return CONFIG.defaultBpm;
+        const intervals = {};
+        for (let i = 1; i < peaks.length; i++) {
+          const diff = peaks[i] - peaks[i - 1];
+          if (diff < sr * 0.25 || diff > sr * 1.5) continue;
+          const bucket = Math.round(diff / 400) * 400;
+          intervals[bucket] = (intervals[bucket] || 0) + 1;
+        }
+        let bestInterval = sr;
+        let bestCount = 0;
+        for (const k in intervals) {
+          if (intervals[k] > bestCount) {
+            bestCount = intervals[k];
+            bestInterval = parseInt(k, 10);
+          }
+        }
+        let bpm = 60 / (bestInterval / sr);
+        while (bpm < 75) bpm *= 2;
+        while (bpm > 170) bpm /= 2;
+        return Math.round(bpm);
+      } catch {
+        return CONFIG.defaultBpm;
+      }
+    }
+
+    async function analyzeAllTracks() {
+      segments = [];
+      transitionGraph = [];
+      setNowPlaying(null);
+      setLoading(true, "Analyzing features & segmenting…");
+
+      const totalTracks = loadedTracks.length;
+      let trackIndex = 0;
+
+      for (const track of loadedTracks) {
+        trackIndex++;
+        setLoading(
+          true,
+          `Analyzing track ${trackIndex}/${totalTracks}: ${track.name}`
+        );
+        await analyzeOneTrack(track, trackIndex - 1);
+      }
+
+      markStartEndSegments();
+      buildSpaceEmbedding();
+      buildTransitionGraph();
+      drawSpace();
+    }
+
+    async function analyzeOneTrack(track, trackIndex) {
+      const buffer = track.buffer;
+      const bpm = track.bpm || CONFIG.defaultBpm;
+      const sr = buffer.sampleRate;
+      const beatsPerSegment = CONFIG.beatsPerSegment;
+      const segmentDuration = (60 / bpm) * beatsPerSegment;
+      const segmentSamples = Math.floor(segmentDuration * sr);
+
+      const data = buffer.getChannelData(0);
+      const totalSamples = data.length;
+      const maxSegmentsByConfig = CONFIG.maxSegments - segments.length;
+      let segmentCount = 0;
+
+      for (let start = 0; start + segmentSamples <= totalSamples; start += segmentSamples) {
+        if (segmentCount >= maxSegmentsByConfig) break;
+
+        const segData = data.slice(start, start + segmentSamples);
+        const features = extractFeaturesForSegment(segData);
+        if (!features || features.rms < CONFIG.silenceThreshold) {
+          continue;
+        }
+
+        const relPos = start / totalSamples;
+        const seg = {
+          id: segments.length,
+          trackIndex,
+          buffer,
+          startTime: start / sr,
+          duration: segmentDuration,
+          bpm,
+          features,
+          keyIndex: features.keyIndex,
+          relPos,
+          x: 0,
+          y: 0,
+          type: "body"
+        };
+        segments.push(seg);
+        segmentCount++;
+      }
+
+      log(
+        `Track "${track.name}": ${segmentCount} segments (${CONFIG.beatsPerSegment} beats each)`
+      );
+    }
+
+    function extractFeaturesForSegment(signal) {
+      const bufferSize = 2048;
+      if (signal.length < bufferSize) return null;
+
+      let frames = 0;
+      let sumRms = 0;
+      let sumEnergy = 0;
+      let sumCentroid = 0;
+      let sumFlat = 0;
+      let chromaAccum = new Array(12).fill(0);
+      let mfcc1Accum = 0;
+      let mfcc2Accum = 0;
+
+      const hops = 8;
+      const step = Math.floor((signal.length - bufferSize) / hops) || bufferSize;
+
+      for (let i = 0; i < hops; i++) {
+        const start = i * step;
+        const end = start + bufferSize;
+        if (end > signal.length) break;
+        const frame = signal.slice(start, end);
+
+        try {
+          const f = Meyda.extract(
+            [
+              "rms",
+              "energy",
+              "chroma",
+              "mfcc",
+              "spectralCentroid",
+              "spectralFlatness"
+            ],
+            frame
+          );
+          if (!f) continue;
+          frames++;
+          sumRms += f.rms || 0;
+          sumEnergy += f.energy || 0;
+          sumCentroid += f.spectralCentroid || 0;
+          sumFlat += f.spectralFlatness || 0;
+          if (Array.isArray(f.mfcc) && f.mfcc.length >= 3) {
+            mfcc1Accum += f.mfcc[1];
+            mfcc2Accum += f.mfcc[2];
+          }
+          if (Array.isArray(f.chroma) && f.chroma.length === 12) {
+            for (let k = 0; k < 12; k++) {
+              chromaAccum[k] += f.chroma[k];
+            }
+          }
+        } catch {
+          // ignore single frame failures
+        }
+      }
+
+      if (!frames) return null;
+      const rms = sumRms / frames;
+      const energy = sumEnergy / frames;
+      const centroid = sumCentroid / frames;
+      const flatness = sumFlat / frames;
+      const mfcc1 = mfcc1Accum / frames;
+      const mfcc2 = mfcc2Accum / frames;
+      const chromaAvg = chromaAccum.map(v => v / frames);
+
+      let keyIndex = 0;
+      let maxVal = -Infinity;
+      for (let i = 0; i < chromaAvg.length; i++) {
+        if (chromaAvg[i] > maxVal) {
+          maxVal = chromaAvg[i];
+          keyIndex = i;
+        }
+      }
+
+      return {
+        rms,
+        energy,
+        centroid,
+        flatness,
+        keyIndex,
+        mfcc1,
+        mfcc2
+      };
+    }
+
+    function markStartEndSegments() {
+      const byTrack = new Map();
+      segments.forEach(s => {
+        if (!byTrack.has(s.trackIndex)) byTrack.set(s.trackIndex, []);
+        byTrack.get(s.trackIndex).push(s);
+      });
+
+      byTrack.forEach(arr => {
+        arr.sort((a, b) => a.relPos - b.relPos);
+        const n = arr.length;
+        const k = Math.min(3, Math.floor(n / 4) || 1);
+        arr.slice(0, k).forEach(s => (s.type = "start"));
+        arr.slice(-k).forEach(s => (s.type = "end"));
+      });
+    }
+
+    /******************************************************************
+     * SPACE EMBEDDING + TRANSITIONS
+     ******************************************************************/
+    function buildSpaceEmbedding() {
+      if (!segments.length) return;
+      const xs = segments.map(s => s.features.mfcc1);
+      const ys = segments.map(s => s.features.mfcc2);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+
+      segments.forEach(s => {
+        const nx = (s.features.mfcc1 - minX) / (maxX - minX || 1);
+        const ny = (s.features.mfcc2 - minY) / (maxY - minY || 1);
+        s.x = nx + (Math.random() - 0.5) * 0.02;
+        s.y = ny + (Math.random() - 0.5) * 0.02;
+      });
+    }
+
+    function buildTransitionGraph() {
+      const N = segments.length;
+      transitionGraph = new Array(N);
+      if (!N) return;
+
+      for (let i = 0; i < N; i++) {
+        const a = segments[i];
+        const local = [];
+        for (let j = 0; j < N; j++) {
+          if (i === j) continue;
+          const b = segments[j];
+
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const timbreDist = dx * dx + dy * dy;
+
+          const bpmNorm = Math.abs(a.bpm - b.bpm) / 40;
+          const keyRaw = Math.abs(b.keyIndex - a.keyIndex);
+          const keyDist = Math.min(keyRaw, 12 - keyRaw) / 6;
+
+          const score = timbreDist + bpmNorm + keyDist;
+          local.push({ id: j, score });
+        }
+        local.sort((u, v) => u.score - v.score);
+        transitionGraph[i] = local
+          .slice(0, CONFIG.maxNeighbors)
+          .map(e => e.id);
+      }
+
+      log("Transition graph built.");
+    }
+
+    /******************************************************************
+     * PHANTOM DJ SCHEDULER
+     ******************************************************************/
+    function stopMixInternal(resetState) {
+      if (schedulerId) {
+        clearInterval(schedulerId);
+        schedulerId = null;
+      }
+      activeSources.forEach(({ src }) => {
+        try { src.stop(); } catch {}
+      });
+      activeSources = [];
+      isPlaying = false;
+
+      if (resetState) {
+        currentSegmentIndex = -1;
+        prevSegmentIndex = -1;
+        visitHistory = [];
+        nextScheduleTime = 0;
+        currentBpm = CONFIG.defaultBpm;
+        requestedNextSegment = null;
+        selectedSegmentIndex = null;
+      }
+
+      setNowPlaying(null);
+      drawSpace();
+    }
+
+    function startMix(startSegmentIndex) {
+      if (!segments.length) {
+        log("No segments – load audio first.");
+        return;
+      }
+      ensureAudioContext();
+      stopMixInternal(false);
+
+      let startIdx = startSegmentIndex;
+      if (typeof startIdx !== "number" || startIdx < 0 || startIdx >= segments.length) {
+        const starts = segments.filter(s => s.type === "start");
+        startIdx = starts.length ? starts[Math.floor(Math.random() * starts.length)].id : 0;
+      }
+
+      isPlaying = true;
+      prevSegmentIndex = -1;
+      currentSegmentIndex = startIdx;
+      visitHistory = [];
+      currentBpm = segments[startIdx].bpm || CONFIG.defaultBpm;
+      nextScheduleTime = audioCtx.currentTime + 0.1;
+
+      document.getElementById("startBtn").disabled = true;
+      document.getElementById("stopBtn").disabled = false;
+
+      schedulerTick();
+      if (!schedulerId) {
+        schedulerId = setInterval(
+          schedulerTick,
+          Math.max(40, CONFIG.scheduleAhead * 100)
+        );
+      }
+
+      log(`Infinite mix started (from segment #${startIdx + 1}).`);
+    }
+
+    function stopMix() {
+      stopMixInternal(true);
+      document.getElementById("startBtn").disabled = !segments.length;
+      document.getElementById("stopBtn").disabled = true;
+      log("Mix stopped.");
+    }
+
+    function schedulerTick() {
+      if (!isPlaying || !audioCtx) return;
+      const ahead = CONFIG.scheduleAhead;
+
+      while (nextScheduleTime < audioCtx.currentTime + ahead) {
+        scheduleOneSegment();
+        if (!isPlaying) break;
+      }
+    }
+
+    function scheduleOneSegment() {
+      if (!segments.length) {
+        isPlaying = false;
+        return;
+      }
+
+      let segIdx;
+
+      if (currentSegmentIndex < 0) {
+        const starts = segments.filter(s => s.type === "start");
+        segIdx = starts.length ? starts[Math.floor(Math.random() * starts.length)].id : 0;
+        prevSegmentIndex = -1;
+      } else {
+        prevSegmentIndex = currentSegmentIndex;
+
+        if (requestedNextSegment != null && segments[requestedNextSegment]) {
+          segIdx = requestedNextSegment;
+          requestedNextSegment = null;
+        } else {
+          segIdx = chooseNextSegment(prevSegmentIndex);
+        }
+      }
+
+      const seg = segments[segIdx];
+      if (!seg) {
+        isPlaying = false;
+        return;
+      }
+
+      const minLead = 0.05;
+      if (nextScheduleTime < audioCtx.currentTime + minLead) {
+        nextScheduleTime = audioCtx.currentTime + minLead;
+      }
+
+      let rate = 1.0;
+      if (prevSegmentIndex >= 0) {
+        const prev = segments[prevSegmentIndex];
+        const targetBpm = currentBpm;
+        const ratio = targetBpm / seg.bpm;
+        const safeRatio = Math.max(0.8, Math.min(1.2, ratio));
+        rate = safeRatio;
+        currentBpm = currentBpm * 0.8 + seg.bpm * 0.2;
+      } else {
+        currentBpm = seg.bpm;
+      }
+
+      const crossfade = computeLocalCrossfade(prevSegmentIndex, segIdx);
+      const startTime = nextScheduleTime;
+      const actualDuration = seg.duration / rate;
+
+      playSegment(seg, startTime, rate, crossfade);
+
+      currentSegmentIndex = segIdx;
+      visitHistory.push(segIdx);
+      if (visitHistory.length > CONFIG.loopHistorySize) {
+        visitHistory.shift();
+      }
+
+      setNowPlaying(seg);
+      drawSpace();
+
+      nextScheduleTime = startTime + (actualDuration - crossfade);
+    }
+
+    function computeLocalCrossfade(uIdx, vIdx) {
+      const minCF = Math.max(0.05, CONFIG.crossfade * 0.25);
+      const maxCF = CONFIG.crossfade * 2;
+      if (uIdx < 0 || vIdx < 0) return CONFIG.crossfade;
+
+      const a = segments[uIdx];
+      const b = segments[vIdx];
+      if (!a || !b) return CONFIG.crossfade;
+
+      const timbre =
+        Math.abs(a.features.centroid - b.features.centroid) / 4000;
+      const bpmDiff = Math.abs(a.bpm - b.bpm) / 40;
+      const keyRaw = Math.abs(a.keyIndex - b.keyIndex);
+      const keyDist = Math.min(keyRaw, 12 - keyRaw) / 6;
+
+      const s = clamp01((timbre + bpmDiff + keyDist) / 3);
+      return minCF + (maxCF - minCF) * s;
+    }
+
+    function playSegment(seg, time, rate, crossfade) {
+      const src = audioCtx.createBufferSource();
+      src.buffer = seg.buffer;
+      src.playbackRate.value = rate;
+
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0;
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 400;
+
+      src.connect(filter);
+      filter.connect(gain);
+      if (masterGain) gain.connect(masterGain);
+      else gain.connect(audioCtx.destination);
+
+      const dur = seg.duration / rate;
+      const fade = Math.min(crossfade, dur * 0.45);
+
+      src.start(time, seg.startTime, seg.duration);
+
+      gain.gain.setValueCurveAtTime(FADE_IN_CURVE, time, fade);
+      filter.frequency.setValueAtTime(400, time);
+      filter.frequency.exponentialRampToValueAtTime(
+        18000,
+        time + fade * 1.5
+      );
+
+      const end = time + dur;
+      gain.gain.setValueCurveAtTime(FADE_OUT_CURVE, end - fade, fade);
+      filter.frequency.setValueAtTime(18000, end - fade);
+      filter.frequency.exponentialRampToValueAtTime(400, end);
+
+      activeSources.push({ src, gain, filter, end });
+
+      src.onended = () => {
+        activeSources = activeSources.filter(x => x.src !== src);
+      };
+
+      log(
+        `Queued segment #${seg.id + 1} (track ${
+          seg.trackIndex + 1
+        }) at t+${(time - audioCtx.currentTime).toFixed(2)}s`
+      );
+    }
+
+    function chooseNextSegment(currIdx) {
+      const N = segments.length;
+      if (!N) return 0;
+      const neighbors = transitionGraph[currIdx] || [];
+      if (!neighbors.length) return (currIdx + 1) % N;
+      const curr = segments[currIdx];
+
+      const scored = [];
+      const used = new Set();
+
+      for (const id of neighbors) {
+        if (used.has(id)) continue;
+        used.add(id);
+        const s = segments[id];
+
+        let score = 0;
+
+        const lastPos = visitHistory.lastIndexOf(id);
+        if (lastPos !== -1) {
+          const stepsAgo = visitHistory.length - 1 - lastPos;
+          const freshness = 1 - stepsAgo / (visitHistory.length || 1);
+          score += freshness * 1.2;
+        }
+
+        if (s.trackIndex === curr.trackIndex && s.relPos < curr.relPos) {
+          score += 0.8;
+        }
+
+        score += Math.random() * CONFIG.exploration;
+        scored.push({ id, score });
+      }
+
+      if (!scored.length) return (currIdx + 1) % N;
+      scored.sort((a, b) => a.score - b.score);
+      return scored[0].id;
+    }
+
+    /******************************************************************
+     * AI GENERATOR (Magenta MusicRNN)
+     ******************************************************************/
+    let rnnModel = null;
+    let rnnLoadingPromise = null;
+
+    function ensureRnnModel() {
+      if (rnnModel) return rnnLoadingPromise;
+
+      if (!window.mm) {
+        log("⚠ Magenta library (mm) not available – check script tags.");
+        return Promise.reject(new Error("Magenta not available"));
+      }
+
+      rnnModel = new mm.MusicRNN(
+        "https://storage.googleapis.com/magentadata/js/checkpoints/music_rnn/basic_rnn"
+      );
+
+      rnnLoadingPromise = rnnModel
+        .initialize()
+        .then(() => {
+          log("AI: MusicRNN model initialized (basic_rnn).");
+          return rnnModel;
+        })
+        .catch((err) => {
+          log("⚠ Failed to initialize MusicRNN: " + err);
+          rnnModel = null;
+          throw err;
+        });
+
+      return rnnLoadingPromise;
+    }
+
+    async function noteSequenceToBuffer(ns, sampleRate = 44100) {
+      const totalTime =
+        (ns.totalTime || ns.notes.reduce((m, n) => Math.max(m, n.endTime || 0), 0)) + 0.5;
+      const length = Math.ceil(totalTime * sampleRate);
+      const offlineCtx = new OfflineAudioContext(1, length, sampleRate);
+
+      const notes = ns.notes || [];
+      const baseGain = 0.35;
+
+      notes.forEach((note) => {
+        const start = note.startTime || 0;
+        const end = note.endTime || start + 0.2;
+        if (end <= start) return;
+
+        const osc = offlineCtx.createOscillator();
+        const gain = offlineCtx.createGain();
+
+        const freq = 440 * Math.pow(2, (note.pitch - 69) / 12);
+        osc.frequency.value = freq;
+        osc.type = "triangle";
+
+        const atk = 0.01;
+        const rel = 0.04;
+
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(baseGain, start + atk);
+        gain.gain.setValueAtTime(baseGain, end - rel);
+        gain.gain.linearRampToValueAtTime(0, end);
+
+        osc.connect(gain);
+        gain.connect(offlineCtx.destination);
+
+        osc.start(start);
+        osc.stop(end + 0.01);
+      });
+
+      const rendered = await offlineCtx.startRendering();
+      return rendered;
+    }
+
+    function findStartSegmentForTrack(trackIndex) {
+      const starts = segments.filter(
+        (s) => s.trackIndex === trackIndex && s.type === "start"
+      );
+      if (starts.length) return starts[0].id;
+      const segs = segments.filter((s) => s.trackIndex === trackIndex);
+      if (segs.length) return segs[0].id;
+      return null;
+    }
+
+    async function handleAiGenerate() {
+      if (aiBusy) return;
+      ensureAudioContext();
+
+      const input = document.getElementById("aiPromptInput");
+      const prompt = (input.value || "").trim() || "intense party track";
+
+      aiBusy = true;
+      setAiStatus("Loading local AI model…", true);
+      log(`AI: request "${prompt}"`);
+
+      try {
+        await ensureRnnModel();
+
+        setAiStatus("Sampling latent space…", true);
+
+        const seed = {
+          ticksPerQuarter: 220,
+          totalTime: 1.0,
+          timeSignatures: [{ time: 0, numerator: 4, denominator: 4 }],
+          tempos: [{ time: 0, qpm: 120 }],
+          notes: [
+            { pitch: 48, startTime: 0.0, endTime: 0.4, velocity: 90 },
+            { pitch: 55, startTime: 0.5, endTime: 0.9, velocity: 90 },
+          ],
+        };
+
+        const quantizedSeed = mm.sequences.quantizeNoteSequence(seed, 4);
+
+        const q = prompt.toLowerCase();
+        let temperature = 1.0;
+        let steps = 64;
+
+        if (q.includes("calm") || q.includes("ambient") || q.includes("lofi")) {
+          temperature = 0.8;
+          steps = 80;
+        } else if (q.includes("chaos") || q.includes("wild")) {
+          temperature = 1.4;
+          steps = 96;
+        } else if (q.includes("short") || q.includes("loop")) {
+          steps = 48;
+        } else if (q.includes("long") || q.includes("journey")) {
+          steps = 128;
+        }
+
+        const continuation = await rnnModel.continueSequence(
+          quantizedSeed,
+          steps,
+          temperature
+        );
+
+        const qpm = 120;
+        const ns = mm.sequences.unquantizeSequence(continuation, qpm);
+
+        setAiStatus("Rendering audio from AI notes…", true);
+
+        const buffer = await noteSequenceToBuffer(ns, audioCtx.sampleRate);
+
+        const jobName = "AI: " + prompt;
+        const detectedBpm = detectBPM(buffer) || qpm || CONFIG.defaultBpm;
+        const trackIndex = loadedTracks.length;
+
+        loadedTracks.push({
+          buffer,
+          name: jobName,
+          bpm: detectedBpm,
+          duration: buffer.duration,
+        });
+
+        await analyzeOneTrack(loadedTracks[trackIndex], trackIndex);
+        markStartEndSegments();
+        buildSpaceEmbedding();
+        buildTransitionGraph();
+        drawSpace();
+        setCounts();
+
+        const startSeg = findStartSegmentForTrack(trackIndex);
+        if (startSeg != null) {
+          if (isPlaying) {
+            requestedNextSegment = startSeg;
+            log(
+              `AI track ready · steering next transition to AI segment #${
+                startSeg + 1
+              } (${jobName}, ~${Math.round(detectedBpm)} BPM).`
+            );
+          } else {
+            log(
+              `AI track ready · starting mix from AI content "${jobName}" (~${Math.round(
+                detectedBpm
+              )} BPM).`
+            );
+            startMix(startSeg);
+          }
+        } else {
+          log("AI track analyzed but no usable segments were found.");
+        }
+
+        setAiStatus(
+          `AI layer: last job "${prompt}" ready · integrated into the graph`,
+          false
+        );
+      } catch (err) {
+        console.error(err);
+        log("⚠ AI generation failed: " + err.message);
+        setAiStatus("AI layer: error – see log", false);
+      } finally {
+        aiBusy = false;
+      }
+    }
+
+    /******************************************************************
+     * SPACE CANVAS (CLICKABLE NETWORK)
+     ******************************************************************/
+    let spaceCanvas = null;
+    let spaceCtx = null;
+
+    function initSpaceCanvas() {
+      spaceCanvas = document.getElementById("spaceCanvas");
+      if (!spaceCanvas) return;
+      spaceCtx = spaceCanvas.getContext("2d");
+      resizeCanvas();
+      window.addEventListener("resize", resizeCanvas);
+      spaceCanvas.addEventListener("click", onSpaceClick);
+    }
+
+    function resizeCanvas() {
+      if (!spaceCanvas) return;
+      const rect = spaceCanvas.getBoundingClientRect();
+      spaceCanvas.width = rect.width;
+      spaceCanvas.height = rect.height;
+      drawSpace();
+    }
+
+    function drawSpace() {
+      if (!spaceCtx || !spaceCanvas) return;
+      const ctx = spaceCtx;
+      const w = spaceCanvas.width;
+      const h = spaceCanvas.height;
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = "rgba(30, 64, 175, 0.35)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 7]);
+      ctx.beginPath();
+      ctx.moveTo(w * 0.5, 0);
+      ctx.lineTo(w * 0.5, h);
+      ctx.moveTo(0, h * 0.5);
+      ctx.lineTo(w, h * 0.5);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      if (!segments.length) {
+        ctx.fillStyle = "rgba(148, 163, 184, 0.65)";
+        ctx.font = "11px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("Load audio to see the segment space", w / 2, h / 2);
+        return;
+      }
+
+      if (visitHistory.length > 1) {
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.45)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        let started = false;
+        for (let i = 0; i < visitHistory.length; i++) {
+          const s = segments[visitHistory[i]];
+          if (!s) continue;
+          const x = s.x * w;
+          const y = s.y * h;
+          if (!started) {
+            ctx.moveTo(x, y);
+            started = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.stroke();
+      }
+
+      segments.forEach(s => {
+        const x = s.x * w;
+        const y = s.y * h;
+        const isCurrent = s.id === currentSegmentIndex;
+        const isSelected = selectedSegmentIndex === s.id;
+
+        let r = 3;
+        if (s.type === "start" || s.type === "end") r = 4;
+        if (isCurrent) r = 7;
+
+        ctx.beginPath();
+        if (s.type === "start") {
+          ctx.moveTo(x, y - r);
+          ctx.lineTo(x + r, y + r);
+          ctx.lineTo(x - r, y + r);
+          ctx.closePath();
+        } else if (s.type === "end") {
+          ctx.rect(x - r, y - r, r * 2, r * 2);
+        } else {
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+        }
+
+        const trackColorHue = (s.trackIndex * 60) % 360;
+        if (isCurrent) {
+          ctx.fillStyle = "#ffffff";
+          ctx.shadowBlur = 18;
+          ctx.shadowColor = "rgba(255,255,255,0.9)";
+        } else {
+          ctx.fillStyle = `hsl(${trackColorHue}, 80%, 60%)`;
+          ctx.shadowBlur = 0;
+        }
+        ctx.fill();
+
+        if (isSelected) {
+          ctx.shadowBlur = 0;
+          ctx.beginPath();
+          ctx.arc(x, y, r + 5, 0, Math.PI * 2);
+          ctx.strokeStyle = "rgba(250, 204, 21, 0.9)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      });
+
+      ctx.shadowBlur = 0;
+    }
+
+    function onSpaceClick(evt) {
+      if (!segments.length || !spaceCanvas) return;
+
+      const rect = spaceCanvas.getBoundingClientRect();
+      const xNorm = (evt.clientX - rect.left) / spaceCanvas.width;
+      const yNorm = (evt.clientY - rect.top) / spaceCanvas.height;
+
+      let bestId = -1;
+      let bestDist = Infinity;
+      segments.forEach(s => {
+        const dx = s.x - xNorm;
+        const dy = s.y - yNorm;
+        const d = dx * dx + dy * dy;
+        if (d < bestDist) {
+          bestDist = d;
+          bestId = s.id;
+        }
+      });
+
+      const threshold = 0.04 * 0.04;
+      if (bestId !== -1 && bestDist < threshold) {
+        selectedSegmentIndex = bestId;
+        const seg = segments[bestId];
+        const track = loadedTracks[seg.trackIndex];
+        const trackName = track ? track.name : "Unknown track";
+
+        if (isPlaying) {
+          requestedNextSegment = bestId;
+          log(
+            `User selected segment #${bestId + 1} (${trackName}) · steering mix there next.`
+          );
+        } else {
+          log(
+            `User selected segment #${bestId + 1} (${trackName}) · starting mix from here.`
+          );
+          startMix(bestId);
+        }
+
+        setNowPlaying(seg);
+        drawSpace();
+      } else {
+        selectedSegmentIndex = null;
+        drawSpace();
+      }
+    }
+
+    /******************************************************************
+     * DOM BINDINGS
+     ******************************************************************/
+    window.addEventListener("DOMContentLoaded", () => {
+      initSpaceCanvas();
+      updateAudioStatus(false);
+      setCounts();
+      setNowPlaying(null);
+
+      const fileInput = document.getElementById("fileInput");
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const beatsSelect = document.getElementById("beatsSelect");
+      const crossfadeRange = document.getElementById("crossfadeRange");
+      const crossfadeValue = document.getElementById("crossfadeValue");
+      const aheadRange = document.getElementById("aheadRange");
+      const aheadValue = document.getElementById("aheadValue");
+      const exploreRange = document.getElementById("exploreRange");
+      const exploreValue = document.getElementById("exploreValue");
+      const volumeRange = document.getElementById("volumeRange");
+      const volumeValue = document.getElementById("volumeValue");
+      const clearLogBtn = document.getElementById("clearLogBtn");
+      const aiGenerateBtn = document.getElementById("aiGenerateBtn");
+
+      fileInput.addEventListener("change", e =>
+        handleFiles(e.target.files)
+      );
+
+      startBtn.addEventListener("click", () => {
+        ensureAudioContext();
+        startMix();
+      });
+
+      stopBtn.addEventListener("click", () => {
+        stopMix();
+      });
+
+      beatsSelect.addEventListener("change", e => {
+        CONFIG.beatsPerSegment = parseFloat(e.target.value) || 8;
+        if (!loadedTracks.length) return;
+        log(`Re-analyzing with ${CONFIG.beatsPerSegment} beats/segment…`);
+        analyzeAllTracks();
+      });
+
+      crossfadeRange.addEventListener("input", e => {
+        CONFIG.crossfade = parseFloat(e.target.value) || 0.16;
+        crossfadeValue.textContent = CONFIG.crossfade.toFixed(2);
+      });
+
+      aheadRange.addEventListener("input", e => {
+        CONFIG.scheduleAhead = parseFloat(e.target.value) || 0.8;
+        aheadValue.textContent = CONFIG.scheduleAhead.toFixed(2);
+      });
+
+      exploreRange.addEventListener("input", e => {
+        CONFIG.exploration = parseFloat(e.target.value) || 0.8;
+        exploreValue.textContent = CONFIG.exploration.toFixed(1);
+      });
+
+      volumeRange.addEventListener("input", e => {
+        const v = parseFloat(e.target.value) || 0.8;
+        volumeValue.textContent = v.toFixed(2);
+        ensureAudioContext();
+        setMasterVolume(v);
+      });
+
+      clearLogBtn.addEventListener("click", clearLog);
+
+      aiGenerateBtn.addEventListener("click", handleAiGenerate);
+    });
+  </script>
+</body>
+</html>
