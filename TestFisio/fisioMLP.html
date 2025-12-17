@@ -240,7 +240,7 @@
 
     .file-item {
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: auto 1fr auto auto;
       align-items: center;
       gap: 0.4rem;
       padding: 0.4rem 0.55rem;
@@ -296,6 +296,22 @@
     .reorder-btn:hover {
       background: rgba(30, 64, 175, 0.9);
       color: #e5e7eb;
+    }
+
+    .delete-btn {
+      padding: 0.1rem 0.35rem;
+      border-radius: 999px;
+      border: 1px solid rgba(248, 113, 113, 0.9);
+      background: rgba(127, 29, 29, 0.95);
+      color: #fee2e2;
+      font-size: 0.7rem;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .delete-btn:hover {
+      background: rgba(185, 28, 28, 0.95);
+      color: #fef2f2;
     }
 
     .toggle-row {
@@ -747,7 +763,7 @@
 
         <p class="hint">
           Usa le frecce ↑ / ↓ accanto ad ogni foto per riordinarla (per data,
-          pre/post trattamento, ecc.).
+          pre/post trattamento, ecc.). Usa ✕ per rimuovere una foto dalla lista.
         </p>
       </section>
 
@@ -1044,18 +1060,33 @@
       if (!p1 || !p2) return null;
       const dx = p2.x - p1.x;
       const dy = p2.y - p1.y;
-      const raw = rad2deg(Math.atan2(dy, dx)); // rispetto all'asse x
+      const raw = rad2deg(Math.atan2(dy, dx));
       return normalizeAngle90(raw);
     }
 
-    // angolo rispetto alla verticale (±90°): 0° = perfettamente verticale
-    function angleRelativeVerticalDeg(p1, p2) {
-      if (!p1 || !p2) return null;
-      const dx = p2.x - p1.x;
-      const dy = p2.y - p1.y;
-      const rawH = rad2deg(Math.atan2(dy, dx)); // 0°=orizzontale, 90°=verticale
-      const rel = normalizeAngle90(rawH - 90);   // 0° quando verticale
-      return rel;
+    // angolo TESTA rispetto alla VERTICALE (±90° con 0° = testa dritta)
+    function headTiltRelativeVerticalDeg(head, neck) {
+      if (!head || !neck) return null;
+      // vettore collo -> testa
+      const vx = head.x - neck.x;
+      const vy = head.y - neck.y;
+      const norm = Math.hypot(vx, vy) || 1;
+
+      // verticale verso l'alto (in coordinate immagine y cresce verso il basso)
+      const ux = 0;
+      const uy = -1;
+
+      let cos = (vx * ux + vy * uy) / norm;
+      cos = Math.min(1, Math.max(-1, cos));
+
+      // angolo 0..180 tra v e verticale
+      let angle = rad2deg(Math.acos(cos));
+      if (angle > 90) angle = 180 - angle; // compressione a 0..90
+
+      // segno dato da spostamento dx: testa a destra = +, a sinistra = -
+      const sign = vx >= 0 ? 1 : -1;
+
+      return normalizeAngle90(angle * sign);
     }
 
     function angleBetweenVectorsDeg(v1, v2) {
@@ -1069,7 +1100,7 @@
     }
 
     function computeAlignmentTransform(kp, img) {
-      // Allineamento e scala basati su bacino–testa (come richiesto)
+      // Allineamento e scala basati su bacino–testa
       const pelvis = kp.pelvisCenter;
       const top = kp.headCenter || kp.neckBase || kp.shoulderMid;
       if (!pelvis || !top) {
@@ -2355,7 +2386,8 @@
       saveTrainingExamples();
       recomputeModelErrorHistory();
       statusEl.classList.remove("error");
-      statusEl.textContent = `Esempio manuale salvato. Totale esempi: ${trainingExamples.length}.`;
+      statusEl.textContent =
+        `Esempio manuale salvato. Totale esempi: ${trainingExamples.length}.`;
 
       // Dopo ogni nuovo esempio, riapplica il modello a tutte le immagini
       reapplyLearnedModelToAllSessions();
@@ -2459,8 +2491,8 @@
 
           let headAxisDeg = null;
           if (kp.headCenter && (kp.neckBase || kp.shoulderMid)) {
-            // adesso rispetto alla verticale, come richiesto
-            headAxisDeg = angleRelativeVerticalDeg(
+            // ora angolo esplicito rispetto alla verticale (0° = testa dritta)
+            headAxisDeg = headTiltRelativeVerticalDeg(
               kp.headCenter,
               kp.neckBase || kp.shoulderMid
             );
@@ -2566,9 +2598,13 @@
             <button class="reorder-btn up" data-dir="-1" title="Sposta su">↑</button>
             <button class="reorder-btn down" data-dir="1" title="Sposta giù">↓</button>
           </div>
+          <button class="delete-btn" title="Rimuovi questa foto">✕</button>
         `;
         div.addEventListener("click", (ev) => {
-          if (ev.target.classList.contains("reorder-btn")) return;
+          if (
+            ev.target.classList.contains("reorder-btn") ||
+            ev.target.classList.contains("delete-btn")
+          ) return;
           currentIndex = idx;
           renderSession(currentIndex);
         });
@@ -2576,6 +2612,8 @@
 
         const upBtn = div.querySelector(".reorder-btn.up");
         const downBtn = div.querySelector(".reorder-btn.down");
+        const delBtn = div.querySelector(".delete-btn");
+
         upBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           moveSession(idx, -1);
@@ -2583,6 +2621,10 @@
         downBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           moveSession(idx, 1);
+        });
+        delBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          removeSession(idx);
         });
       });
       highlightFileItem(currentIndex);
@@ -2598,6 +2640,32 @@
       rebuildFileList();
       updateCharts();
       renderSession(currentIndex);
+    }
+
+    function removeSession(idx) {
+      if (idx < 0 || idx >= sessions.length) return;
+      sessions.splice(idx, 1);
+      if (!sessions.length) {
+        currentIndex = 0;
+        mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+        metricRow.innerHTML = "";
+        reportPanel.innerHTML =
+          "<h3>Report tecnico automatico</h3><p>Analizza le immagini per generare il report.</p>";
+      } else {
+        if (currentIndex >= sessions.length) currentIndex = sessions.length - 1;
+      }
+      sessions.forEach((s, i) => (s.index = i));
+      rebuildFileList();
+      updateCharts();
+      buildTechnicalReport();
+      if (sessions.length) {
+        renderSession(currentIndex);
+      }
+      updateAnalyzeButton();
+      statusEl.classList.remove("error");
+      statusEl.textContent = sessions.length
+        ? "Foto rimossa. Puoi ri-eseguire l’analisi se necessario."
+        : "Tutte le foto rimosse. Carica altre immagini per ricominciare.";
     }
 
     function updateAnalyzeButton() {
@@ -2811,7 +2879,6 @@
       if (enableLearning.checked) {
         reapplyLearnedModelToAllSessions();
       } else {
-        // se disattivato, riportiamo le curve "learned" a mode auto (se possibile)
         for (const s of sessions) {
           if (s.spineSource === "learned") {
             s.spineSource = "auto";
