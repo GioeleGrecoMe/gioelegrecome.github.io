@@ -63,7 +63,7 @@
       padding: 0.15rem 0.4rem;
       border-radius: 999px;
       background: var(--accent-soft);
-      color: var(--accent);
+      color: #4f9cff;
     }
     .ghost-btn {
       background: transparent;
@@ -190,9 +190,9 @@
     @media (max-width: 900px) {
       main {
         grid-template-columns: 1fr;
-        grid-template-rows: auto auto auto auto;
+        grid-template-rows: auto auto auto auto auto;
       }
-      #status-section, #global-section, #mesh-section, #tester-section {
+      #status-section, #global-section, #mesh-section, #tester-section, #dev-section {
         grid-column: 1 / 2;
         grid-row: auto;
       }
@@ -205,7 +205,7 @@
 <body>
   <header>
     <h1>Distributed MNIST PNG Demo</h1>
-    <span>Training CNN federata su MNIST PNG, neuroni dinamici, Sinkhorn, solo browser + Firebase</span>
+    <span>Training CNN federata su MNIST PNG, rete locale fissa + rete globale su Firebase</span>
   </header>
 
   <main>
@@ -245,9 +245,9 @@
           <div class="sub" id="val-loss">validation: –</div>
         </div>
         <div class="stat">
-          <div class="label">Layer nascosto</div>
+          <div class="label">Layer nascosto locale</div>
           <div class="value" id="hidden-size">–</div>
-          <div class="sub" id="hidden-policy">neuroni attivi / max</div>
+          <div class="sub" id="hidden-policy">neuroni fissi / max</div>
         </div>
       </div>
       <canvas id="localLossChart" class="loss-chart"></canvas>
@@ -273,7 +273,7 @@
         <div class="stat">
           <div class="label">Qualità Sinkhorn</div>
           <div class="value" id="sinkhorn-quality">–</div>
-          <div class="sub">allineamento neuroni condivisi</div>
+          <div class="sub">allineamento neuroni nella rete globale</div>
         </div>
       </div>
       <canvas id="globalLossChart" class="loss-chart"></canvas>
@@ -320,9 +320,9 @@
       </p>
       <ul style="font-size:0.75rem; margin-top:0.2rem; padding-left:1.2rem; color:#9ca4c7;">
         <li>Scarica MNIST-PNG (CSV + PNG) dal repo MIT di <code>rasbt/mnist-pngs</code></li>
-        <li>Allena una CNN locale con TF.js, salvando il modello in <code>localStorage</code></li>
+        <li>Allena una CNN locale con TF.js, salvata manualmente in <code>localStorage</code></li>
         <li>Condivide snapshot quantizzati su Firestore (nessun server custom)</li>
-        <li>Allinea neuroni comuni con Sinkhorn e aggiunge/pruna neuroni nascosti in modo controllato</li>
+        <li>Costruisce una rete globale “astratta” (solo pesi), che cresce/decresce via Sinkhorn</li>
         <li>Rimuove automaticamente dalla mesh i nodi “offline” (non aggiornano più <code>lastSeen</code>)</li>
       </ul>
     </section>
@@ -339,6 +339,11 @@
         per la stanza <code>rooms/&lt;ROOM_ID&gt;</code>. Tutti i nodi che vedono un token diverso
         da quello locale resettano il modello e ripartono da zero, ma gli snapshot vecchi non vengono cancellati.
       </p>
+      <div id="dev-log" style="margin-top:0.5rem;max-height:200px;overflow:auto;
+           font-size:0.7rem;background:#101628;border-radius:0.5rem;
+           padding:0.4rem;border:1px solid #232b45;">
+        <div id="dev-log-body">Developer log vuoto…</div>
+      </div>
     </section>
   </main>
 
@@ -394,21 +399,17 @@
     const auth = getAuth(app);
 
     /******************************************************************
-     * PARAMETRI MODELLO / TRAINING / DYNAMIC NEURONS
+     * PARAMETRI MODELLO / TRAINING
      ******************************************************************/
     const ROOM_ID = "image-room";
     const IMG_SIZE = 32;
     const NUM_CHANNELS = 1;
     const NUM_CLASSES = 10; // cifre 0–9
 
-    // Layer nascosto dinamico
+    // Layer nascosto (locale fisso, globale adattivo)
     const HIDDEN_MAX = 32;
     const HIDDEN_INIT = 16;
     const HIDDEN_MIN = 8;
-    const HIDDEN_TARGET_LOW = 16;
-    const HIDDEN_TARGET_HIGH = 24;
-    const NEW_NEURONS_PER_FUSION = 2;
-    const FUSION_PRUNE_STEPS = 1;
 
     // Training
     const TRAIN_BATCH_SIZE = 4;
@@ -416,7 +417,6 @@
     const TRAINING_PAUSE_MS = 1500;
     const VALIDATION_EVERY_STEPS = 4;
     const SNAPSHOT_EVERY_STEPS = 8;
-    const MASK_EVERY_STEPS = 4;
     const FUSION_INTERVAL_MS = 7000;
     const FUSION_NEIGHBORS_LIMIT = 3;
 
@@ -431,8 +431,7 @@
     const IDX_DO_BIAS      = 7;
 
     // Storage locale
-    const MODEL_STORAGE_KEY = "distributed-image-model-v1";
-    const META_STORAGE_KEY  = "distributed-image-model-meta-v1";
+    const META_STORAGE_KEY  = "distributed-image-model-meta-weights-v1";
 
     // MNIST PNG (rasbt/mnist-pngs, MIT)
     const MNIST_ROOT = "https://raw.githubusercontent.com/rasbt/mnist-pngs/main/";
@@ -444,14 +443,22 @@
     // Nodo offline se lastSeen è troppo vecchio
     const OFFLINE_THRESHOLD_MS = 60_000; // 1 minuto
 
+    // Developer log
+    const DEV_LOG_MAX = 200;
+    const devLogBuffer = [];
+
     /******************************************************************
      * STATO GLOBALE
      ******************************************************************/
     let currentUser = null;
     let clientId = null;
 
+    // Rete locale TF.js (fissa)
     let model = null;
-    let activeHiddenSize = HIDDEN_INIT;
+    let activeHiddenSize = HIDDEN_MAX; // fisso per la rete locale
+
+    // Rete globale (solo arrays)
+    let globalModelState = null; // { shapes, arrays, activeHiddenSize }
 
     let trainManifest = null;
     let valManifest = null;
@@ -478,6 +485,21 @@
     let meshNodesLayout = new Map();
 
     /******************************************************************
+     * DEV LOG
+     ******************************************************************/
+    function devLog(message) {
+      const ts = new Date().toLocaleTimeString();
+      const line = `[${ts}] ${message}`;
+      devLogBuffer.unshift(line);
+      if (devLogBuffer.length > DEV_LOG_MAX) devLogBuffer.pop();
+      const el = document.getElementById("dev-log-body");
+      if (el) {
+        el.innerHTML = devLogBuffer.join("<br>");
+      }
+      console.log("[DEV]", message);
+    }
+
+    /******************************************************************
      * UTILITY
      ******************************************************************/
     function sleep(ms) {
@@ -489,11 +511,15 @@
       return ms.toFixed(1) + " ms/batch";
     }
 
+    function clamp(v, min, max) {
+      return Math.min(Math.max(v, min), max);
+    }
+
     /******************************************************************
      * MNIST PNG: CSV → MANIFEST BILANCIATO PER CLASSE
      ******************************************************************/
     async function fetchCsvLines(url, maxLines = null) {
-      console.log("Scarico CSV MNIST:", url);
+      devLog("Scarico CSV MNIST: " + url);
       const resp = await fetch(url);
       if (!resp.ok) {
         throw new Error("Impossibile caricare CSV: " + url + " (" + resp.status + ")");
@@ -560,7 +586,7 @@
       const valItems   = balancedSampleByLabel(valAll,   MAX_VAL_ITEMS);
 
       const classes = Array.from({ length: NUM_CLASSES }, (_, i) => String(i));
-      console.log("MNIST items (bilanciati):", trainItems.length, "train;", valItems.length, "val");
+      devLog(`MNIST bilanciato: ${trainItems.length} train, ${valItems.length} val`);
 
       return {
         trainManifest: { classes, items: trainItems },
@@ -613,22 +639,29 @@
       return m;
     }
 
+    async function reinitializeModelWeights() {
+      devLog("Creo un nuovo modello locale (rete fissa).");
+      model = buildModel();
+    }
+
     /******************************************************************
      * PESI FLOAT / QUANTIZZAZIONE + SANITIZZAZIONE
      ******************************************************************/
     function extractFloatWeights() {
-      const tensors = model.getWeights();
-      const shapes = tensors.map(t => t.shape);
-      const arrays = tensors.map(t => Float32Array.from(t.dataSync()));
-      tensors.forEach(t => t.dispose());
-      return { shapes, arrays };
-    }
+  // ATTENZIONE: model.getWeights() può restituire direttamente le Variables
+  // (conv1/kernel, conv1/bias, ...). Non vanno dispose-ate manualmente,
+  // altrimenti il modello rimane "mutilato" e model.fit() esplode.
+  const tensors = model.getWeights();        // Tensor[] / Variables ancora di proprietà del modello
+  const shapes = tensors.map(t => t.shape);  // Solo leggiamo shape e dati
+  const arrays = tensors.map(t => Float32Array.from(t.dataSync()));
 
-    function applyFloatWeights(shapes, arrays) {
-      const tensors = arrays.map((arr, i) => tf.tensor(arr, shapes[i]));
-      model.setWeights(tensors);
-      tensors.forEach(t => t.dispose());
-    }
+  // NON FARE:
+  // tensors.forEach(t => t.dispose());
+  // Lasciamo che sia il modello a gestire il ciclo di vita di questi tensori.
+
+  return { shapes, arrays };
+}
+
 
     function quantizeWeights(shapes, arrays) {
       const scales = [];
@@ -651,18 +684,31 @@
     }
 
     function dequantizeSnapshot(snapDoc) {
-      const shapes = snapDoc.shapes;
-      const scales = snapDoc.scales;
-      const quantArrays = snapDoc.quantArrays;
+      const shapesContainer = snapDoc.shapes || {};
+      const scales = snapDoc.scales || [];
+      const quantContainer = snapDoc.quantArrays || {};
+
       const arrays = [];
-      for (let t = 0; t < quantArrays.length; t++) {
-        const qArr = quantArrays[t];
-        const scale = scales[t];
+      const shapes = [];
+
+      const indices = Object.keys(quantContainer)
+        .map(k => Number(k))
+        .sort((a, b) => a - b);
+
+      for (const idx of indices) {
+        const qArr = quantContainer[idx];
+        const shape = Array.isArray(shapesContainer)
+          ? shapesContainer[idx]
+          : shapesContainer[idx];
+        const scale = scales[idx];
+        if (!qArr || !shape || scale == null) continue;
+
         const fArr = new Float32Array(qArr.length);
         for (let i = 0; i < qArr.length; i++) {
           fArr[i] = qArr[i] * scale;
         }
         arrays.push(fArr);
+        shapes.push(shape);
       }
       return { shapes, arrays };
     }
@@ -679,7 +725,90 @@
           }
         }
       }
+      if (changed) {
+        devLog("Sanitizzazione pesi globali: trovati NaN/Inf → settati a 0.");
+      }
       return changed;
+    }
+
+    /******************************************************************
+     * SALVATAGGIO MANUALE DEL MODELLO IN LOCALSTORAGE
+     ******************************************************************/
+    async function saveLocalModelAndMeta() {
+      let weightsPayload = null;
+      try {
+        const { shapes, arrays } = extractFloatWeights();
+        weightsPayload = {
+          shapes,
+          arrays: arrays.map(a => Array.from(a))
+        };
+      } catch (e) {
+        console.warn("Errore estrazione pesi per salvataggio:", e);
+        devLog("Errore estrazione pesi per salvataggio: " + e.message);
+      }
+
+      const meta = {
+        weights: weightsPayload,
+        activeHiddenSize,
+        samplesTrained,
+        batchesTrained,
+        lastTrainLoss,
+        lastValLoss,
+        resetToken: currentResetToken || null
+      };
+      try {
+        localStorage.setItem(META_STORAGE_KEY, JSON.stringify(meta));
+      } catch (e) {
+        console.warn("Salvataggio meta localStorage fallito:", e);
+        devLog("Salvataggio meta localStorage fallito: " + e.message);
+      }
+    }
+
+    async function loadLocalModelIfExists() {
+      let meta = null;
+      try {
+        const metaStr = localStorage.getItem(META_STORAGE_KEY);
+        if (metaStr) meta = JSON.parse(metaStr);
+      } catch (e) {
+        console.warn("Errore lettura meta localStorage:", e);
+      }
+
+      model = buildModel();
+
+      if (meta && meta.weights && meta.weights.shapes && meta.weights.arrays) {
+        activeHiddenSize = clamp(meta.activeHiddenSize || HIDDEN_MAX, HIDDEN_MIN, HIDDEN_MAX);
+        samplesTrained   = meta.samplesTrained || 0;
+        batchesTrained   = meta.batchesTrained || 0;
+        lastTrainLoss    = meta.lastTrainLoss ?? null;
+        lastValLoss      = meta.lastValLoss ?? null;
+        currentResetToken= meta.resetToken || null;
+
+        try {
+          const shapes = meta.weights.shapes;
+          const arrays = meta.weights.arrays;
+          if (shapes.length === arrays.length) {
+            const tensors = shapes.map((shape, idx) =>
+              tf.tensor(arrays[idx], shape, "float32")
+            );
+            model.setWeights(tensors);
+            tensors.forEach(t => t.dispose());
+            devLog("Pesi modello ripristinati da localStorage.");
+          } else {
+            devLog("Meta pesi inconsistente (shapes/arrays length mismatch), uso modello random.");
+          }
+        } catch (e) {
+          console.warn("Errore ripristino pesi da meta:", e);
+          devLog("Errore ripristino pesi da meta: " + e.message);
+        }
+        devLog(
+          `Meta locale caricata: samples=${samplesTrained}, batches=${batchesTrained}, activeH=${activeHiddenSize}`
+        );
+      } else {
+        activeHiddenSize = HIDDEN_MAX;
+        currentResetToken = meta?.resetToken || null;
+        devLog("Nessun modello salvato in localStorage, modello nuovo.");
+        await saveLocalModelAndMeta();
+      }
     }
 
     /******************************************************************
@@ -729,7 +858,7 @@
     }
 
     /******************************************************************
-     * SINKHORN & NEURONI NASCOSTI
+     * SINKHORN & UTILITIES PER RETE GLOBALE
      ******************************************************************/
     function denseHiddenKernelToNeuronMatrix(flatArray, shape, activeSize) {
       const inDim = shape[0];
@@ -832,8 +961,6 @@
       const H = Math.min(localActive, neighActive);
       if (H === 0) return { arraysAligned: arraysNeigh, quality: 0 };
       const kernelShape = shapes[IDX_DH_KERNEL];
-      const inDim = kernelShape[0];
-      const hiddenMax = kernelShape[1];
       const localKernel = arraysLocal[IDX_DH_KERNEL];
       const neighKernel = arraysNeigh[IDX_DH_KERNEL];
       const localMat = denseHiddenKernelToNeuronMatrix(localKernel, kernelShape, localActive);
@@ -846,6 +973,8 @@
       const neighKernelFlat = alignedNeighArrays[IDX_DH_KERNEL];
       const neighBiasFlat   = alignedNeighArrays[IDX_DH_BIAS];
       const neighOutKernel  = alignedNeighArrays[IDX_DO_KERNEL];
+      const inDim = kernelShape[0];
+      const hiddenMax = kernelShape[1];
 
       for (let h = 0; h < H; h++) {
         const srcH = perm[h];
@@ -871,166 +1000,6 @@
         }
       }
       return { arraysAligned: alignedNeighArrays, quality };
-    }
-
-    function computeHiddenImportance(shapes, arrays) {
-      const outKernel = arrays[IDX_DO_KERNEL];
-      const hiddenMax = shapes[IDX_DO_KERNEL][0];
-      const numClasses = shapes[IDX_DO_KERNEL][1];
-      const importance = new Float32Array(hiddenMax);
-      for (let h = 0; h < hiddenMax; h++) {
-        let sum = 0;
-        for (let c = 0; c < numClasses; c++) {
-          const v = outKernel[h * numClasses + c];
-          sum += v * v;
-        }
-        importance[h] = Math.sqrt(sum);
-      }
-      return importance;
-    }
-
-    function enforceActiveHiddenMask(shapes, arrays, activeSize) {
-      const dhShape = shapes[IDX_DH_KERNEL];
-      const inDim = dhShape[0];
-      const hiddenMax = dhShape[1];
-      const numClasses = shapes[IDX_DO_KERNEL][1];
-      const hiddenKernel = arrays[IDX_DH_KERNEL];
-      const hiddenBias   = arrays[IDX_DH_BIAS];
-      const outKernel    = arrays[IDX_DO_KERNEL];
-
-      for (let h = activeSize; h < hiddenMax; h++) {
-        for (let i = 0; i < inDim; i++) {
-          const idx = i * hiddenMax + h;
-          hiddenKernel[idx] = 0;
-        }
-        hiddenBias[h] = 0;
-        for (let c = 0; c < numClasses; c++) {
-          const idx = h * numClasses + c;
-          outKernel[idx] = 0;
-        }
-      }
-    }
-
-    function importNewNeuronsFromNeighbor(shapes, arraysLocal, arraysNeighAligned, activeSize, neighActiveSize, maxNew) {
-      const hiddenMax = shapes[IDX_DH_KERNEL][1];
-      if (activeSize >= hiddenMax) return activeSize;
-      if (neighActiveSize <= activeSize) return activeSize;
-
-      const startExtra = Math.min(activeSize, neighActiveSize);
-      const numExtra = Math.min(neighActiveSize, hiddenMax) - startExtra;
-      if (numExtra <= 0) return activeSize;
-
-      const neighImportance = computeHiddenImportance(shapes, arraysNeighAligned);
-      const candidates = [];
-      for (let h = startExtra; h < startExtra + numExtra; h++) {
-        candidates.push({ idx: h, score: neighImportance[h] });
-      }
-      candidates.sort((a, b) => b.score - a.score);
-
-      const hiddenKernelLocal = arraysLocal[IDX_DH_KERNEL];
-      const hiddenBiasLocal   = arraysLocal[IDX_DH_BIAS];
-      const outKernelLocal    = arraysLocal[IDX_DO_KERNEL];
-
-      const hiddenKernelNeigh = arraysNeighAligned[IDX_DH_KERNEL];
-      const hiddenBiasNeigh   = arraysNeighAligned[IDX_DH_BIAS];
-      const outKernelNeigh    = arraysNeighAligned[IDX_DO_KERNEL];
-
-      const inDim = shapes[IDX_DH_KERNEL][0];
-      const numClasses = shapes[IDX_DO_KERNEL][1];
-
-      let imported = 0;
-      for (let i = 0; i < candidates.length; i++) {
-        if (imported >= maxNew) break;
-        if (activeSize >= hiddenMax) break;
-        const srcH = candidates[i].idx;
-        const dstH = activeSize;
-
-        for (let r = 0; r < inDim; r++) {
-          const idxSrc = r * hiddenMax + srcH;
-          const idxDst = r * hiddenMax + dstH;
-          hiddenKernelLocal[idxDst] = hiddenKernelNeigh[idxSrc];
-        }
-        hiddenBiasLocal[dstH] = hiddenBiasNeigh[srcH];
-        for (let c = 0; c < numClasses; c++) {
-          const idxSrc = srcH * numClasses + c;
-          const idxDst = dstH * numClasses + c;
-          outKernelLocal[idxDst] = outKernelNeigh[idxSrc];
-        }
-
-        activeSize++;
-        imported++;
-      }
-      return activeSize;
-    }
-
-    function swapHiddenNeurons(shapes, arrays, i, j) {
-      if (i === j) return;
-      const hiddenMax = shapes[IDX_DH_KERNEL][1];
-      const inDim = shapes[IDX_DH_KERNEL][0];
-      const numClasses = shapes[IDX_DO_KERNEL][1];
-      const hiddenKernel = arrays[IDX_DH_KERNEL];
-      const hiddenBias   = arrays[IDX_DH_BIAS];
-      const outKernel    = arrays[IDX_DO_KERNEL];
-
-      for (let r = 0; r < inDim; r++) {
-        const idx1 = r * hiddenMax + i;
-        const idx2 = r * hiddenMax + j;
-        const tmp = hiddenKernel[idx1];
-        hiddenKernel[idx1] = hiddenKernel[idx2];
-        hiddenKernel[idx2] = tmp;
-      }
-      const tmpb = hiddenBias[i];
-      hiddenBias[i] = hiddenBias[j];
-      hiddenBias[j] = tmpb;
-      for (let c = 0; c < numClasses; c++) {
-        const idx1 = i * numClasses + c;
-        const idx2 = j * numClasses + c;
-        const tmp2 = outKernel[idx1];
-        outKernel[idx1] = outKernel[idx2];
-        outKernel[idx2] = tmp2;
-      }
-    }
-
-    function pruneHiddenIfNeeded(shapes, arrays) {
-      let target = activeHiddenSize;
-      if (activeHiddenSize > HIDDEN_TARGET_HIGH) {
-        target = HIDDEN_TARGET_HIGH;
-      }
-      if (target >= activeHiddenSize) return;
-
-      const importance = computeHiddenImportance(shapes, arrays);
-      let iterations = FUSION_PRUNE_STEPS;
-      while (activeHiddenSize > target && activeHiddenSize > HIDDEN_MIN && iterations > 0) {
-        iterations--;
-        let minIdx = 0;
-        let minVal = Infinity;
-        for (let h = 0; h < activeHiddenSize; h++) {
-          if (importance[h] < minVal) {
-            minVal = importance[h];
-            minIdx = h;
-          }
-        }
-        const lastIdx = activeHiddenSize - 1;
-        swapHiddenNeurons(shapes, arrays, minIdx, lastIdx);
-
-        const hiddenKernel = arrays[IDX_DH_KERNEL];
-        const hiddenBias   = arrays[IDX_DH_BIAS];
-        const outKernel    = arrays[IDX_DO_KERNEL];
-        const inDim = shapes[IDX_DH_KERNEL][0];
-        const hiddenMax = shapes[IDX_DH_KERNEL][1];
-        const numClasses = shapes[IDX_DO_KERNEL][1];
-
-        for (let r = 0; r < inDim; r++) {
-          const idx = r * hiddenMax + lastIdx;
-          hiddenKernel[idx] = 0;
-        }
-        hiddenBias[lastIdx] = 0;
-        for (let c = 0; c < numClasses; c++) {
-          const idx = lastIdx * numClasses + c;
-          outKernel[idx] = 0;
-        }
-        activeHiddenSize--;
-      }
     }
 
     function robustAggregateTwo(shapes, arraysA, arraysB) {
@@ -1115,11 +1084,7 @@
           : "validation: –";
 
       document.getElementById("hidden-size").textContent = activeHiddenSize + " / " + HIDDEN_MAX;
-      let policyText = "target [" + HIDDEN_TARGET_LOW + "," + HIDDEN_TARGET_HIGH + "]";
-      if (activeHiddenSize < HIDDEN_TARGET_LOW) policyText += " (tendente ad espandere)";
-      else if (activeHiddenSize > HIDDEN_TARGET_HIGH) policyText += " (tendente a potare)";
-      document.getElementById("hidden-policy").textContent = policyText;
-
+      document.getElementById("hidden-policy").textContent = "rete locale: dimensione fissa";
       document.getElementById("sinkhorn-quality").textContent =
         lastSinkhornQuality != null && Number.isFinite(lastSinkhornQuality)
           ? lastSinkhornQuality.toFixed(3)
@@ -1261,7 +1226,6 @@
     });
 
     function showNodeDetails(cid) {
-      console.log("Mostro dettagli nodo:", cid);
       const data = clientsState.get(cid);
       const body = document.getElementById("node-details-body");
       if (!data) {
@@ -1274,7 +1238,7 @@
       lines.push(`<div style="word-break:break-all;font-size:0.7rem;">ID: ${cid}</div>`);
       lines.push(`<div>Loss locale: ${data.localLoss != null && Number.isFinite(data.localLoss) ? data.localLoss.toFixed(4) : "–"}</div>`);
       lines.push(`<div>Val loss: ${data.valLoss != null && Number.isFinite(data.valLoss) ? data.valLoss.toFixed(4) : "–"}</div>`);
-      lines.push(`<div>Neuroni nascosti attivi: ${data.activeHiddenSize ?? "?"} / ${HIDDEN_MAX}</div>`);
+      lines.push(`<div>Neuroni nascosti attivi (meta): ${data.activeHiddenSize ?? "?"} / ${HIDDEN_MAX}</div>`);
       lines.push(`<div>Samples macinati: ${data.numSamplesTrained ?? 0}</div>`);
       lines.push(`<div>Ultimo visto: ${data.lastSeen ? new Date(data.lastSeen).toLocaleTimeString() : "–"}</div>`);
       body.innerHTML = lines.join("");
@@ -1333,6 +1297,7 @@
             if (probsContainNonFinite(probs)) {
               resultEl.textContent =
                 "Il modello ha prodotto valori non validi (NaN/Inf). Probabile instabilità del training; attendi qualche secondo o ricarica la pagina.";
+              devLog("Predizione file: NaN/Inf nelle probabilità.");
               return;
             }
 
@@ -1348,6 +1313,7 @@
             resultEl.textContent =
               "Softmax: [" + labelsStr + "], classe predetta = " +
               (classes[bestIdx] ?? String(bestIdx));
+            devLog("Predizione file: classe " + (classes[bestIdx] ?? String(bestIdx)));
           };
           img.onerror = () => {
             document.getElementById("tester-result").textContent =
@@ -1389,6 +1355,7 @@
             await runPredictionOnSample(item.url, item.label);
           } catch (err) {
             console.error("Errore predizione sample:", err);
+            devLog("Errore predizione sample: " + err);
           }
         });
         container.appendChild(imgEl);
@@ -1411,6 +1378,7 @@
       if (probsContainNonFinite(probs)) {
         resultEl.textContent =
           "Sample dal dataset → il modello ha prodotto valori non validi (NaN/Inf). Probabile instabilità del training; attendi o ricarica.";
+        devLog("Predizione sample: NaN/Inf nelle probabilità.");
         return;
       }
 
@@ -1428,63 +1396,7 @@
 
       resultEl.textContent =
         `Sample dal dataset → softmax [${probsStr}] | pred: ${predName} | label reale: ${trueName}`;
-    }
-
-    /******************************************************************
-     * LOCAL MODEL & META
-     ******************************************************************/
-    async function saveLocalModelAndMeta() {
-      try {
-        await model.save("localstorage://" + MODEL_STORAGE_KEY);
-      } catch (e) {
-        console.warn("Salvataggio modello localStorage fallito:", e);
-      }
-      const meta = {
-        activeHiddenSize,
-        samplesTrained,
-        batchesTrained,
-        lastTrainLoss,
-        lastValLoss,
-        resetToken: currentResetToken || null
-      };
-      try {
-        localStorage.setItem(META_STORAGE_KEY, JSON.stringify(meta));
-      } catch (e) {
-        console.warn("Salvataggio meta localStorage fallito:", e);
-      }
-    }
-
-    async function loadLocalModelIfExists() {
-      let meta = null;
-      try {
-        const metaStr = localStorage.getItem(META_STORAGE_KEY);
-        if (metaStr) meta = JSON.parse(metaStr);
-      } catch {}
-      if (meta) {
-        activeHiddenSize = Math.min(Math.max(meta.activeHiddenSize || HIDDEN_INIT, HIDDEN_MIN), HIDDEN_MAX);
-        samplesTrained = meta.samplesTrained || 0;
-        batchesTrained = meta.batchesTrained || 0;
-        lastTrainLoss = meta.lastTrainLoss ?? null;
-        lastValLoss = meta.lastValLoss ?? null;
-        currentResetToken = meta.resetToken || null;
-      } else {
-        activeHiddenSize = HIDDEN_INIT;
-        currentResetToken = null;
-      }
-
-      const models = await tf.io.listModels();
-      const storageKey = "localstorage://" + MODEL_STORAGE_KEY;
-      if (models[storageKey]) {
-        try {
-          model = await tf.loadLayersModel(storageKey);
-          compileModel(model);
-          return;
-        } catch (e) {
-          console.warn("Caricamento modello localStorage fallito, ricreo da zero:", e);
-        }
-      }
-      model = buildModel();
-      await saveLocalModelAndMeta();
+      devLog(`Predizione sample: pred=${predName}, true=${trueName}`);
     }
 
     /******************************************************************
@@ -1494,28 +1406,23 @@
       if (!confirm("Reset locale: il modello e le statistiche su questo dispositivo verranno azzerati. Procedere?")) {
         return;
       }
-      console.warn("Panic reset locale richiesto dall'utente.");
+      devLog("Panic reset locale richiesto.");
 
       try {
-        localStorage.removeItem(MODEL_STORAGE_KEY);
         localStorage.removeItem(META_STORAGE_KEY);
       } catch (e) {
         console.warn("Errore nel cancellare localStorage:", e);
       }
 
-      if (model) {
-        try { model.dispose(); } catch {}
-      }
-
-      model = buildModel();
       stepsTrained = 0;
       batchesTrained = 0;
       samplesTrained = 0;
       lastTrainLoss = null;
       lastValLoss = null;
-      activeHiddenSize = HIDDEN_INIT;
+      activeHiddenSize = HIDDEN_MAX;
       currentResetToken = null;
 
+      await reinitializeModelWeights();
       await saveLocalModelAndMeta();
       updateLocalStatusUI();
 
@@ -1592,28 +1499,23 @@
     }
 
     async function handleGlobalResetFromToken(newToken) {
-      console.warn("Reset globale rilevato. Nuovo token:", newToken, " (vecchio:", currentResetToken, ")");
+      devLog("Reset globale rilevato. Nuovo token=" + newToken + ", vecchio=" + currentResetToken);
       currentResetToken = newToken;
 
       try {
-        localStorage.removeItem(MODEL_STORAGE_KEY);
         localStorage.removeItem(META_STORAGE_KEY);
       } catch (e) {
         console.warn("Errore nel cancellare localStorage durante reset globale:", e);
       }
 
-      if (model) {
-        try { model.dispose(); } catch {}
-      }
-
-      model = buildModel();
       stepsTrained = 0;
       batchesTrained = 0;
       samplesTrained = 0;
       lastTrainLoss = null;
       lastValLoss = null;
-      activeHiddenSize = HIDDEN_INIT;
+      activeHiddenSize = HIDDEN_MAX;
 
+      await reinitializeModelWeights();
       await saveLocalModelAndMeta();
       updateLocalStatusUI();
 
@@ -1629,6 +1531,7 @@
         if (!token) return;
         if (currentResetToken === null) {
           currentResetToken = token;
+          devLog("ResetToken stanza iniziale: " + token);
           return;
         }
         if (token !== currentResetToken) {
@@ -1648,7 +1551,7 @@
 
       const roomRef = doc(db, "rooms", ROOM_ID);
       const newToken = "reset-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
-      console.warn("Developer reset stanza, nuovo resetToken:", newToken);
+      devLog("Developer reset stanza, nuovo resetToken=" + newToken);
 
       await setDoc(roomRef, {
         resetToken: newToken,
@@ -1674,6 +1577,7 @@
           devTapCount++;
           if (devTapCount >= 3) {
             devSection.style.display = "block";
+            devLog("Developer section sbloccata (Shift+D x3).");
           }
           clearTimeout(devTimer);
           devTimer = setTimeout(() => { devTapCount = 0; }, 2000);
@@ -1682,189 +1586,298 @@
     }
 
     /******************************************************************
-     * TRAINING LOOP LOCALE (con controllo NaN)
+     * TRAINING LOOP LOCALE (rete fissa, reset completo su errori)
      ******************************************************************/
     async function trainingLoop(clientRef, snapshotsColRef) {
+      devLog("Training loop avviato.");
       while (true) {
-        const t0 = performance.now();
         let xs = null, ys = null;
+        const t0 = performance.now();
         try {
+          // 1) Caricamento batch
           const batch = await loadBatchFromManifest(trainManifest, TRAIN_BATCH_SIZE);
           xs = batch.xs;
           ys = batch.ys;
-        } catch (e) {
-          console.warn("Errore caricamento batch training:", e);
-          await sleep(TRAINING_PAUSE_MS);
-          continue;
-        }
 
-        const history = await model.fit(xs, ys, {
-          epochs: 1,
-          batchSize: TRAIN_BATCH_SIZE,
-          shuffle: true,
-          verbose: 0
-        });
-        const t1 = performance.now();
-        let loss = history.history.loss[0];
+          // 2) Fit
+          const history = await model.fit(xs, ys, {
+            epochs: 1,
+            batchSize: TRAIN_BATCH_SIZE,
+            shuffle: true,
+            verbose: 0
+          });
+          const t1 = performance.now();
 
-        if (!Number.isFinite(loss)) {
-          console.warn("Loss NaN/Inf, sanifico i pesi e salto lo step.");
-          const { shapes, arrays } = extractFloatWeights();
-          const changed = sanitizeWeightArrays(arrays);
-          if (changed) {
-            console.warn("Pesi con NaN/Inf trovati e resettati a 0.");
-          }
-          applyFloatWeights(shapes, arrays);
-          lastTrainLoss = null;
           xs.dispose();
           ys.dispose();
-          await sleep(TRAINING_PAUSE_MS);
-          continue;
-        }
+          xs = null; ys = null;
 
-        lastTrainLoss = loss;
-        stepsTrained += 1;
-        batchesTrained += 1;
-        samplesTrained += TRAIN_BATCH_SIZE;
+          let loss = history.history.loss[0];
 
-        const batchMs = t1 - t0;
-        if (avgBatchMs === 0) avgBatchMs = batchMs;
-        else avgBatchMs = avgBatchMs * 0.9 + batchMs * 0.1;
+          if (!Number.isFinite(loss)) {
+            console.warn("Loss NaN/Inf, resetto completamente il modello locale.");
+            devLog("Loss NaN/Inf durante training; recreo il modello locale da zero.");
 
-        xs.dispose();
-        ys.dispose();
+            await reinitializeModelWeights();
+            lastTrainLoss = null;
+            lastValLoss = null;
+            stepsTrained = 0;
+            batchesTrained = 0;
+            samplesTrained = 0;
 
-        pushChartPoint(localLossChart, loss);
-
-        if (stepsTrained % VALIDATION_EVERY_STEPS === 0) {
-          try {
-            const valBatch = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
-            const evalRes = await model.evaluate(valBatch.xs, valBatch.ys, {
-              batchSize: VAL_BATCH_SIZE,
-              verbose: 0
-            });
-            const valLossTensor = Array.isArray(evalRes) ? evalRes[0] : evalRes;
-            const valLossVal = (await valLossTensor.data())[0];
-            if (Number.isFinite(valLossVal)) {
-              lastValLoss = valLossVal;
-            } else {
-              console.warn("Val loss NaN/Inf ignorata.");
-            }
-            valLossTensor.dispose();
-            valBatch.xs.dispose();
-            valBatch.ys.dispose();
-          } catch (e) {
-            console.warn("Errore validation batch:", e);
+            await saveLocalModelAndMeta();
+            updateLocalStatusUI();
+            await sleep(TRAINING_PAUSE_MS);
+            continue;
           }
+
+          lastTrainLoss = loss;
+          stepsTrained += 1;
+          batchesTrained += 1;
+          samplesTrained += TRAIN_BATCH_SIZE;
+
+          const batchMs = t1 - t0;
+          if (avgBatchMs === 0) avgBatchMs = batchMs;
+          else avgBatchMs = avgBatchMs * 0.9 + batchMs * 0.1;
+
+          pushChartPoint(localLossChart, loss);
+          devLog(`Train step ${stepsTrained}: loss=${loss.toFixed(4)}, samples=${samplesTrained}`);
+
+          // 3) Validation periodica
+          if (stepsTrained % VALIDATION_EVERY_STEPS === 0) {
+            try {
+              const valBatch = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
+              const evalRes = await model.evaluate(valBatch.xs, valBatch.ys, {
+                batchSize: VAL_BATCH_SIZE,
+                verbose: 0
+              });
+              const valLossTensor = Array.isArray(evalRes) ? evalRes[0] : evalRes;
+              const valLossVal = (await valLossTensor.data())[0];
+              if (Number.isFinite(valLossVal)) {
+                lastValLoss = valLossVal;
+                devLog(`Validation: valLoss=${valLossVal.toFixed(4)}`);
+              } else {
+                console.warn("Val loss NaN/Inf ignorata.");
+                devLog("Val loss NaN/Inf ignorata.");
+              }
+              valLossTensor.dispose();
+              valBatch.xs.dispose();
+              valBatch.ys.dispose();
+            } catch (e) {
+              console.warn("Errore validation batch:", e);
+              devLog("Errore validation batch: " + e.message);
+            }
+          }
+
+          // 4) Snapshot periodico su Firestore
+          if (stepsTrained % SNAPSHOT_EVERY_STEPS === 0) {
+            const { shapes, arrays } = extractFloatWeights();
+            const quant = quantizeWeights(shapes, arrays);
+
+            const shapesMap = {};
+            quant.shapes.forEach((shapeArr, idx) => {
+              shapesMap[idx] = shapeArr;
+            });
+            const quantArraysMap = {};
+            quant.quantArrays.forEach((qArr, idx) => {
+              quantArraysMap[idx] = qArr;
+            });
+
+            const snapshotDoc = {
+              clientId,
+              createdAt: serverTimestamp(),
+              localValLoss: lastValLoss,
+              modelVersion: stepsTrained,
+              shapes: shapesMap,
+              scales: quant.scales,
+              quantArrays: quantArraysMap,
+              activeHiddenSize
+            };
+            await addDoc(snapshotsColRef, snapshotDoc);
+            await saveLocalModelAndMeta();
+            devLog(`Snapshot pubblicato (step=${stepsTrained}, activeH=${activeHiddenSize})`);
+          }
+
+          // 5) Aggiorna documento client
+          await setDoc(clientRef, {
+            lastSeen: serverTimestamp(),
+            localLoss: lastTrainLoss,
+            valLoss: lastValLoss,
+            activeHiddenSize,
+            numSamplesTrained: samplesTrained
+          }, { merge: true });
+
+          updateLocalStatusUI();
+          await sleep(TRAINING_PAUSE_MS);
+        } catch (e) {
+          if (xs) xs.dispose();
+          if (ys) ys.dispose();
+          console.error("Errore in trainingLoop step:", e);
+          devLog("Errore trainingLoop step: " + (e && e.message ? e.message : e));
+          if (e && e.stack) {
+            devLog("Stack (primi 300 caratteri): " + e.stack.slice(0, 300) + "...");
+          }
+
+          try {
+            await reinitializeModelWeights();
+          } catch (re) {
+            console.error("Errore reinitializeModelWeights dopo failure:", re);
+            devLog("Errore reinitializeModelWeights: " + re.message);
+          }
+          lastTrainLoss = null;
+          lastValLoss = null;
+          stepsTrained = 0;
+          batchesTrained = 0;
+          samplesTrained = 0;
+
+          try {
+            await saveLocalModelAndMeta();
+          } catch (se) {
+            console.error("Errore saveLocalModelAndMeta dopo failure:", se);
+            devLog("Errore saveLocalModelAndMeta post-failure: " + se.message);
+          }
+
+          updateLocalStatusUI();
+          await sleep(TRAINING_PAUSE_MS);
         }
-
-        if (stepsTrained % MASK_EVERY_STEPS === 0) {
-          const { shapes, arrays } = extractFloatWeights();
-          enforceActiveHiddenMask(shapes, arrays, activeHiddenSize);
-          applyFloatWeights(shapes, arrays);
-        }
-
-        if (stepsTrained % SNAPSHOT_EVERY_STEPS === 0) {
-          const { shapes, arrays } = extractFloatWeights();
-          const quant = quantizeWeights(shapes, arrays);
-          const snapshotDoc = {
-            clientId,
-            createdAt: serverTimestamp(),
-            localValLoss: lastValLoss,
-            modelVersion: stepsTrained,
-            shapes: quant.shapes,
-            scales: quant.scales,
-            quantArrays: quant.quantArrays,
-            activeHiddenSize
-          };
-          await addDoc(snapshotsColRef, snapshotDoc);
-          await saveLocalModelAndMeta();
-        }
-
-        await setDoc(clientRef, {
-          lastSeen: serverTimestamp(),
-          localLoss: lastTrainLoss,
-          valLoss: lastValLoss,
-          activeHiddenSize,
-          numSamplesTrained: samplesTrained
-        }, { merge: true });
-
-        updateLocalStatusUI();
-        await sleep(TRAINING_PAUSE_MS);
       }
     }
 
     /******************************************************************
-     * FUSIONE DISTRIBUITA
+     * FUSIONE DISTRIBUITA: SOLO SU RETE GLOBALE (arrays)
      ******************************************************************/
     async function fusionLoop() {
+      devLog("Fusion loop (rete globale) avviato.");
+
       while (true) {
         await sleep(FUSION_INTERVAL_MS);
-        if (!lastSnapshots.length || !model) continue;
+        if (!lastSnapshots.length) continue;
 
-        const others = lastSnapshots.filter(s => s.data && s.data.clientId !== clientId);
-        if (!others.length) continue;
+        const candidates = lastSnapshots.filter(
+          s => s.data && s.data.clientId !== clientId
+        );
+        if (!candidates.length) continue;
 
-        const { shapes, arrays: localArrays0 } = extractFloatWeights();
-        let arraysCurrent = localArrays0;
-        let fused = false;
+        // 1) Inizializzazione rete globale se assente
+        if (!globalModelState) {
+          let best = candidates[0];
+          let bestScore =
+            candidates[0].data.localValLoss != null
+              ? candidates[0].data.localValLoss
+              : Infinity;
+
+          for (const s of candidates) {
+            const v =
+              s.data.localValLoss != null ? s.data.localValLoss : Infinity;
+            if (v < bestScore) {
+              bestScore = v;
+              best = s;
+            }
+          }
+
+          const base = dequantizeSnapshot(best.data);
+          const baseActive = clamp(
+            best.data.activeHiddenSize ?? HIDDEN_MAX,
+            HIDDEN_MIN,
+            HIDDEN_MAX
+          );
+
+          globalModelState = {
+            shapes: base.shapes,
+            arrays: base.arrays,
+            activeHiddenSize: baseActive
+          };
+
+          devLog(
+            `Global model inizializzato da snapshot ${best.id} (activeH=${baseActive})`
+          );
+          continue;
+        }
+
+        // 2) Aggiorniamo globalModelState con i nuovi snapshot
+        const { shapes } = globalModelState;
+        let globalArrays = globalModelState.arrays;
+        let globalActive = globalModelState.activeHiddenSize;
+
         let qualityAccum = 0;
         let qualityCount = 0;
 
-        const neighbors = others.slice(0, FUSION_NEIGHBORS_LIMIT);
+        const neighbors = candidates.slice(0, FUSION_NEIGHBORS_LIMIT);
         for (const snap of neighbors) {
           const d = snap.data;
           try {
-            const { shapes: neighShapes, arrays: neighArrays0 } = dequantizeSnapshot(d);
-            if (JSON.stringify(neighShapes) !== JSON.stringify(shapes)) continue;
+            const neigh = dequantizeSnapshot(d);
 
-            const neighActive = Math.min(Math.max(d.activeHiddenSize ?? HIDDEN_INIT, HIDDEN_MIN), HIDDEN_MAX);
-            const localActiveBefore = activeHiddenSize;
+            // Controllo di sicurezza (shape compatibili)
+            if (JSON.stringify(neigh.shapes) !== JSON.stringify(shapes)) {
+              devLog(`Fusion: snapshot ${snap.id} ignorato (shape diversa).`);
+              continue;
+            }
 
-            const { arraysAligned, quality } =
-              alignNeighborHidden(shapes, arraysCurrent, neighArrays0, activeHiddenSize, neighActive);
-            if (!Number.isFinite(quality) || quality < 0.5) continue;
+            const neighActive = clamp(
+              d.activeHiddenSize ?? globalActive,
+              HIDDEN_MIN,
+              HIDDEN_MAX
+            );
+
+            const { arraysAligned, quality } = alignNeighborHidden(
+              shapes,
+              globalArrays,
+              neigh.arrays,
+              globalActive,
+              neighActive
+            );
+
+            if (!Number.isFinite(quality) || quality < 0.4) {
+              devLog(
+                `Fusion: snapshot ${snap.id} scartato (quality Sinkhorn bassa: ${quality})`
+              );
+              continue;
+            }
 
             qualityAccum += quality;
             qualityCount++;
 
-            const aggregated = robustAggregateTwo(shapes, arraysCurrent, arraysAligned);
-            arraysCurrent = aggregated;
-            fused = true;
+            globalArrays = robustAggregateTwo(shapes, globalArrays, arraysAligned);
 
-            if (neighActive > localActiveBefore) {
-              activeHiddenSize = importNewNeuronsFromNeighbor(
-                shapes,
-                arraysCurrent,
-                arraysAligned,
-                localActiveBefore,
-                neighActive,
-                NEW_NEURONS_PER_FUSION
-              );
-            }
+            const alpha = 0.1;
+            globalActive = Math.round(
+              (1 - alpha) * globalActive + alpha * neighActive
+            );
+            globalActive = clamp(globalActive, HIDDEN_MIN, HIDDEN_MAX);
           } catch (e) {
-            console.warn("Errore nella fusione con snapshot", snap.id, e);
+            console.warn("Errore nella fusione globale con snapshot", snap.id, e);
+            devLog(
+              "Errore fusione globale con snapshot " + snap.id + ": " + e.message
+            );
           }
         }
 
-        if (fused) {
-          pruneHiddenIfNeeded(shapes, arraysCurrent);
-          sanitizeWeightArrays(arraysCurrent);
-          enforceActiveHiddenMask(shapes, arraysCurrent, activeHiddenSize);
-          applyFloatWeights(shapes, arraysCurrent);
-          if (qualityCount > 0) {
-            lastSinkhornQuality = qualityAccum / qualityCount;
-          }
-          await saveLocalModelAndMeta();
-          updateLocalStatusUI();
+        if (qualityCount > 0) {
+          lastSinkhornQuality = qualityAccum / qualityCount;
+          sanitizeWeightArrays(globalArrays);
+          globalModelState.arrays = globalArrays;
+          globalModelState.activeHiddenSize = globalActive;
+
+          devLog(
+            `Fusion globale aggiornata: neighbors=${neighbors.length}, avgQ=${lastSinkhornQuality.toFixed(
+              3
+            )}, globalH=${globalActive}`
+          );
         }
       }
     }
+
+    /******************************************************************
+     * BATTERIA / UI / DEV TOOLS
+     ******************************************************************/
+
 
     /******************************************************************
      * ENTRYPOINT
      ******************************************************************/
     async function start() {
+      devLog("Applicazione avviata.");
       initCharts();
       initTesterUI();
       initPanicButton();
@@ -1874,7 +1887,6 @@
       updateLocalStatusUI();
       updateGlobalStatusUI();
 
-      // Carica MNIST PNG (train/val) bilanciato
       const { trainManifest: tm, valManifest: vm } = await loadMnistPngManifests();
       trainManifest = tm;
       valManifest   = vm;
@@ -1882,8 +1894,10 @@
 
       try {
         await signInAnonymously(auth);
+        devLog("Login anonimo Firebase OK.");
       } catch (err) {
         console.error("signInAnonymously error:", err);
+        devLog("Errore login anonimo Firebase: " + err.message);
         return;
       }
 
@@ -1893,6 +1907,7 @@
         clientId = user.uid;
         document.getElementById("client-id-pill").textContent =
           "Client: " + clientId.slice(0, 6) + "…";
+        devLog("Auth state: clientId=" + clientId);
 
         await loadLocalModelIfExists();
         document.getElementById("model-ready-pill").textContent = "Modello: pronto";
@@ -1927,7 +1942,10 @@
       });
     }
 
-    start().catch(err => console.error("Errore start()", err));
+    start().catch(err => {
+      console.error("Errore start()", err);
+      devLog("Errore start(): " + err.message);
+    });
   </script>
 </body>
 </html>
