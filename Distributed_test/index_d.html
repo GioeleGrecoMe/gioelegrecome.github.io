@@ -172,6 +172,7 @@
     #tester-result {
       margin-top: 0.5rem;
       font-size: 0.85rem;
+      white-space: pre-line;
     }
     .sample-thumb {
       width: 40px;
@@ -261,9 +262,9 @@
       </h2>
       <div class="stat-grid">
         <div class="stat">
-          <div class="label">Loss globale stimata</div>
+          <div class="label">Loss globale (modello fuso)</div>
           <div class="value" id="global-loss">–</div>
-          <div class="sub">mediana delle loss pubblicate dai nodi</div>
+          <div class="sub">val loss del modello aggregato su questo nodo</div>
         </div>
         <div class="stat">
           <div class="label">Snapshot recenti</div>
@@ -322,8 +323,8 @@
         <li>Scarica MNIST-PNG (CSV + PNG) dal repo MIT di <code>rasbt/mnist-pngs</code></li>
         <li>Allena una CNN locale con TF.js, salvata manualmente in <code>localStorage</code></li>
         <li>Condivide snapshot quantizzati su Firestore (nessun server custom)</li>
-        <li>Costruisce una rete globale “astratta” (solo pesi), che cresce/decresce via Sinkhorn</li>
-        <li>Rimuove automaticamente dalla mesh i nodi “offline” (non aggiornano più <code>lastSeen</code>)</li>
+        <li>Costruisce una rete globale “astratta” (solo pesi) e un <strong>globalModel</strong> per le predizioni</li>
+        <li>Mostra le predizioni <strong>locali vs globali</strong> quando clicchi un sample</li>
       </ul>
     </section>
 
@@ -406,7 +407,7 @@
     const NUM_CHANNELS = 1;
     const NUM_CLASSES = 10; // cifre 0–9
 
-    // Layer nascosto (locale fisso, globale adattivo)
+    // Layer nascosto (locale fisso, globale adattivo come meta)
     const HIDDEN_MAX = 32;
     const HIDDEN_INIT = 16;
     const HIDDEN_MIN = 8;
@@ -453,11 +454,13 @@
     let currentUser = null;
     let clientId = null;
 
-    // Rete locale TF.js (fissa)
-    let model = null;
-    let activeHiddenSize = HIDDEN_MAX; // fisso per la rete locale
+    // Modelli TF.js
+    let model = null;         // modello locale (training)
+    let globalModel = null;   // modello globale aggregato (solo inference/val)
 
-    // Rete globale (solo arrays)
+    let activeHiddenSize = HIDDEN_MAX; // meta per il nodo
+
+    // Rete globale astratta (solo arrays)
     let globalModelState = null; // { shapes, arrays, activeHiddenSize }
 
     let trainManifest = null;
@@ -469,6 +472,7 @@
     let avgBatchMs = 0;
     let lastTrainLoss = null;
     let lastValLoss = null;
+    let lastGlobalValLoss = null;
 
     let lastSinkhornQuality = null;
     let batteryInfo = null;
@@ -648,20 +652,12 @@
      * PESI FLOAT / QUANTIZZAZIONE + SANITIZZAZIONE
      ******************************************************************/
     function extractFloatWeights() {
-  // ATTENZIONE: model.getWeights() può restituire direttamente le Variables
-  // (conv1/kernel, conv1/bias, ...). Non vanno dispose-ate manualmente,
-  // altrimenti il modello rimane "mutilato" e model.fit() esplode.
-  const tensors = model.getWeights();        // Tensor[] / Variables ancora di proprietà del modello
-  const shapes = tensors.map(t => t.shape);  // Solo leggiamo shape e dati
-  const arrays = tensors.map(t => Float32Array.from(t.dataSync()));
-
-  // NON FARE:
-  // tensors.forEach(t => t.dispose());
-  // Lasciamo che sia il modello a gestire il ciclo di vita di questi tensori.
-
-  return { shapes, arrays };
-}
-
+      // NON dispose: questi Tensor sono le Variables del modello
+      const tensors = model.getWeights();
+      const shapes = tensors.map(t => t.shape);
+      const arrays = tensors.map(t => Float32Array.from(t.dataSync()));
+      return { shapes, arrays };
+    }
 
     function quantizeWeights(shapes, arrays) {
       const scales = [];
@@ -900,7 +896,7 @@
       return C;
     }
 
-    function runSinkhorn(costMatrix, epsilon = 0.1, iterations = 20) {
+    function runSinkhorn(costMatrix, epsilon = 0.5, iterations = 15) {
       const H = costMatrix.length;
       const P = [];
       for (let i = 0; i < H; i++) {
@@ -911,6 +907,7 @@
         P.push(row);
       }
       for (let it = 0; it < iterations; it++) {
+        // normalizzazione per righe
         for (let i = 0; i < H; i++) {
           let s = 0;
           for (let j = 0; j < H; j++) s += P[i][j];
@@ -918,6 +915,7 @@
             for (let j = 0; j < H; j++) P[i][j] /= s;
           }
         }
+        // normalizzazione per colonne
         for (let j = 0; j < H; j++) {
           let s = 0;
           for (let i = 0; i < H; i++) s += P[i][j];
@@ -926,16 +924,7 @@
           }
         }
       }
-      let quality = 0;
-      for (let i = 0; i < H; i++) {
-        let maxVal = 0;
-        for (let j = 0; j < H; j++) {
-          if (P[i][j] > maxVal) maxVal = P[i][j];
-        }
-        quality += maxVal;
-      }
-      quality /= H;
-      return { P, quality };
+      return { P };
     }
 
     function argmaxPermutation(P) {
@@ -966,8 +955,16 @@
       const localMat = denseHiddenKernelToNeuronMatrix(localKernel, kernelShape, localActive);
       const neighMat = denseHiddenKernelToNeuronMatrix(neighKernel, kernelShape, neighActive);
       const C = computeCostMatrix(localMat.slice(0, H), neighMat.slice(0, H));
-      const { P, quality } = runSinkhorn(C, 0.1, 20);
+      const { P } = runSinkhorn(C, 0.5, 15);
       const perm = argmaxPermutation(P);
+
+      // qualità = media dei P[i][perm[i]] (dovrebbe stare tra 1/H e 1)
+      let diagSum = 0;
+      for (let i = 0; i < H; i++) {
+        diagSum += P[i][perm[i]];
+      }
+      const quality = diagSum / H;
+      devLog(`Sinkhorn align: H=${H}, quality=${quality.toFixed(3)}`);
 
       const alignedNeighArrays = arraysNeigh.map(arr => arr.slice());
       const neighKernelFlat = alignedNeighArrays[IDX_DH_KERNEL];
@@ -1035,7 +1032,7 @@
       const globalCtx = document.getElementById("globalLossChart").getContext("2d");
       globalLossChart = new Chart(globalCtx, {
         type: "line",
-        data: { labels: [], datasets: [{ label: "Loss globale stimata", data: [], tension: 0.2 }] },
+        data: { labels: [], datasets: [{ label: "Loss globale (modello fuso)", data: [], tension: 0.2 }] },
         options: {
           responsive: true,
           scales: { x: { display: false }, y: { display: true } },
@@ -1093,22 +1090,10 @@
 
     function updateGlobalStatusUI() {
       document.getElementById("clients-count").textContent = "Nodi: " + clientsState.size;
-
-      const losses = [];
-      for (const [, data] of clientsState.entries()) {
-        if (data.localLoss != null && Number.isFinite(data.localLoss)) losses.push(data.localLoss);
-      }
-      let globalLoss = null;
-      if (losses.length > 0) {
-        losses.sort((a, b) => a - b);
-        const mid = Math.floor(losses.length / 2);
-        globalLoss = losses.length % 2 === 1
-          ? losses[mid]
-          : 0.5 * (losses[mid - 1] + losses[mid]);
-      }
       document.getElementById("global-loss").textContent =
-        globalLoss != null ? globalLoss.toFixed(4) : "–";
-      pushChartPoint(globalLossChart, globalLoss);
+        lastGlobalValLoss != null && Number.isFinite(lastGlobalValLoss)
+          ? lastGlobalValLoss.toFixed(4)
+          : "–";
 
       document.getElementById("snapshots-count").textContent = lastSnapshots.length.toString();
       const lastSnapshotAgeEl = document.getElementById("last-snapshot-age");
@@ -1259,13 +1244,65 @@
     }
 
     /******************************************************************
-     * TESTER: FILE + SAMPLE GALLERY
+     * TESTER: FILE + SAMPLE GALLERY (locale vs globale)
      ******************************************************************/
     function probsContainNonFinite(probs) {
       for (let i = 0; i < probs.length; i++) {
         if (!Number.isFinite(probs[i])) return true;
       }
       return false;
+    }
+
+    async function predictBothModels(xBatch) {
+      const classes = trainManifest?.classes || [];
+      const result = { local: null, global: null };
+
+      // locale
+      const yLocal = model.predict(xBatch);
+      const localProbs = await yLocal.data();
+      yLocal.dispose();
+      if (!probsContainNonFinite(localProbs)) {
+        let bestIdxL = 0;
+        for (let i = 1; i < localProbs.length; i++) {
+          if (localProbs[i] > localProbs[bestIdxL]) bestIdxL = i;
+        }
+        result.local = {
+          probs: Array.from(localProbs),
+          predIdx: bestIdxL,
+          predLabel: classes[bestIdxL] ?? String(bestIdxL)
+        };
+      }
+
+      // globale
+      if (globalModel) {
+        const yGlob = globalModel.predict(xBatch);
+        const globProbs = await yGlob.data();
+        yGlob.dispose();
+        if (!probsContainNonFinite(globProbs)) {
+          let bestIdxG = 0;
+          for (let i = 1; i < globProbs.length; i++) {
+            if (globProbs[i] > globProbs[bestIdxG]) bestIdxG = i;
+          }
+          result.global = {
+            probs: Array.from(globProbs),
+            predIdx: bestIdxG,
+            predLabel: classes[bestIdxG] ?? String(bestIdxG)
+          };
+        }
+      }
+
+      return result;
+    }
+
+    function formatSoftmaxLine(pred, classes) {
+      if (!pred) return "n/d (NaN o modello non pronto)";
+      const probsStr = pred.probs
+        .map((p, i) => {
+          const name = classes[i] ?? String(i);
+          return `${name}:${p.toFixed(3)}`;
+        })
+        .join(", ");
+      return `[${probsStr}]  → pred: ${pred.predLabel}`;
     }
 
     function initTesterUI() {
@@ -1288,32 +1325,23 @@
             const x = imgTensor.expandDims(0);
             imgTensor.dispose();
 
-            const y = model.predict(x);
-            const probs = await y.data();
+            const res = await predictBothModels(x);
             x.dispose();
-            y.dispose();
-
-            const resultEl = document.getElementById("tester-result");
-            if (probsContainNonFinite(probs)) {
-              resultEl.textContent =
-                "Il modello ha prodotto valori non validi (NaN/Inf). Probabile instabilità del training; attendi qualche secondo o ricarica la pagina.";
-              devLog("Predizione file: NaN/Inf nelle probabilità.");
-              return;
-            }
 
             const classes = trainManifest.classes || [];
-            let bestIdx = 0;
-            for (let i = 1; i < probs.length; i++) {
-              if (probs[i] > probs[bestIdx]) bestIdx = i;
-            }
-            const labelsStr = Array.from(probs).map((p, i) => {
-              const name = classes[i] ?? String(i);
-              return name + ":" + p.toFixed(3);
-            }).join(", ");
+            const resultEl = document.getElementById("tester-result");
+
+            const localStr  = formatSoftmaxLine(res.local, classes);
+            const globalStr = formatSoftmaxLine(res.global, classes);
+
             resultEl.textContent =
-              "Softmax: [" + labelsStr + "], classe predetta = " +
-              (classes[bestIdx] ?? String(bestIdx));
-            devLog("Predizione file: classe " + (classes[bestIdx] ?? String(bestIdx)));
+              `File caricato\n` +
+              `Locale  → ${localStr}\n` +
+              `Globale → ${globalStr}`;
+
+            devLog(
+              `Predizione file: local=${res.local?.predLabel ?? "n/d"}, global=${res.global?.predLabel ?? "n/d"}`
+            );
           };
           img.onerror = () => {
             document.getElementById("tester-result").textContent =
@@ -1369,34 +1397,24 @@
         return;
       }
       const x = await loadImageAsTensor(url);
-      const y = model.predict(x);
-      const probs = await y.data();
+      const res = await predictBothModels(x);
       x.dispose();
-      y.dispose();
-
-      const resultEl = document.getElementById("tester-result");
-      if (probsContainNonFinite(probs)) {
-        resultEl.textContent =
-          "Sample dal dataset → il modello ha prodotto valori non validi (NaN/Inf). Probabile instabilità del training; attendi o ricarica.";
-        devLog("Predizione sample: NaN/Inf nelle probabilità.");
-        return;
-      }
 
       const classes = trainManifest.classes || [];
-      let bestIdx = 0;
-      for (let i = 1; i < probs.length; i++) {
-        if (probs[i] > probs[bestIdx]) bestIdx = i;
-      }
-      const predName = classes[bestIdx] ?? String(bestIdx);
       const trueName = classes[label] ?? String(label);
-      const probsStr = Array.from(probs).map((p, i) => {
-        const name = classes[i] ?? String(i);
-        return name + ":" + p.toFixed(3);
-      }).join(", ");
 
+      const localStr  = formatSoftmaxLine(res.local, classes);
+      const globalStr = formatSoftmaxLine(res.global, classes);
+
+      const resultEl = document.getElementById("tester-result");
       resultEl.textContent =
-        `Sample dal dataset → softmax [${probsStr}] | pred: ${predName} | label reale: ${trueName}`;
-      devLog(`Predizione sample: pred=${predName}, true=${trueName}`);
+        `Sample dal dataset (label reale: ${trueName})\n` +
+        `Locale  → ${localStr}\n` +
+        `Globale → ${globalStr}`;
+
+      devLog(
+        `Pred sample: true=${trueName}, local=${res.local?.predLabel ?? "n/d"}, global=${res.global?.predLabel ?? "n/d"}`
+      );
     }
 
     /******************************************************************
@@ -1419,6 +1437,7 @@
       samplesTrained = 0;
       lastTrainLoss = null;
       lastValLoss = null;
+      lastGlobalValLoss = null;
       activeHiddenSize = HIDDEN_MAX;
       currentResetToken = null;
 
@@ -1464,7 +1483,6 @@
           let activeH   = d.activeHiddenSize ?? null;
           let numS      = d.numSamplesTrained ?? 0;
 
-          // Per il nostro nodo, usiamo lo stato locale (più aggiornato)
           if (docSnap.id === clientId) {
             localLoss = lastTrainLoss;
             valLoss   = lastValLoss;
@@ -1513,6 +1531,7 @@
       samplesTrained = 0;
       lastTrainLoss = null;
       lastValLoss = null;
+      lastGlobalValLoss = null;
       activeHiddenSize = HIDDEN_MAX;
 
       await reinitializeModelWeights();
@@ -1569,7 +1588,6 @@
         developerResetRoom().catch(err => console.error("Errore developerResetRoom:", err));
       });
 
-      // Sblocca la sezione dev dopo Shift+D premuto 3 volte in 2s
       let devTapCount = 0;
       let devTimer = null;
       window.addEventListener("keydown", (e) => {
@@ -1594,12 +1612,10 @@
         let xs = null, ys = null;
         const t0 = performance.now();
         try {
-          // 1) Caricamento batch
           const batch = await loadBatchFromManifest(trainManifest, TRAIN_BATCH_SIZE);
           xs = batch.xs;
           ys = batch.ys;
 
-          // 2) Fit
           const history = await model.fit(xs, ys, {
             epochs: 1,
             batchSize: TRAIN_BATCH_SIZE,
@@ -1621,6 +1637,7 @@
             await reinitializeModelWeights();
             lastTrainLoss = null;
             lastValLoss = null;
+            lastGlobalValLoss = null;
             stepsTrained = 0;
             batchesTrained = 0;
             samplesTrained = 0;
@@ -1643,7 +1660,6 @@
           pushChartPoint(localLossChart, loss);
           devLog(`Train step ${stepsTrained}: loss=${loss.toFixed(4)}, samples=${samplesTrained}`);
 
-          // 3) Validation periodica
           if (stepsTrained % VALIDATION_EVERY_STEPS === 0) {
             try {
               const valBatch = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
@@ -1669,7 +1685,6 @@
             }
           }
 
-          // 4) Snapshot periodico su Firestore
           if (stepsTrained % SNAPSHOT_EVERY_STEPS === 0) {
             const { shapes, arrays } = extractFloatWeights();
             const quant = quantizeWeights(shapes, arrays);
@@ -1698,7 +1713,6 @@
             devLog(`Snapshot pubblicato (step=${stepsTrained}, activeH=${activeHiddenSize})`);
           }
 
-          // 5) Aggiorna documento client
           await setDoc(clientRef, {
             lastSeen: serverTimestamp(),
             localLoss: lastTrainLoss,
@@ -1726,6 +1740,7 @@
           }
           lastTrainLoss = null;
           lastValLoss = null;
+          lastGlobalValLoss = null;
           stepsTrained = 0;
           batchesTrained = 0;
           samplesTrained = 0;
@@ -1744,7 +1759,7 @@
     }
 
     /******************************************************************
-     * FUSIONE DISTRIBUITA: SOLO SU RETE GLOBALE (arrays)
+     * FUSIONE DISTRIBUITA: aggiorna globalModel e global loss
      ******************************************************************/
     async function fusionLoop() {
       devLog("Fusion loop (rete globale) avviato.");
@@ -1758,7 +1773,6 @@
         );
         if (!candidates.length) continue;
 
-        // 1) Inizializzazione rete globale se assente
         if (!globalModelState) {
           let best = candidates[0];
           let bestScore =
@@ -1791,87 +1805,122 @@
           devLog(
             `Global model inizializzato da snapshot ${best.id} (activeH=${baseActive})`
           );
-          continue;
-        }
+        } else {
+          const { shapes } = globalModelState;
+          let globalArrays = globalModelState.arrays;
+          let globalActive = globalModelState.activeHiddenSize;
 
-        // 2) Aggiorniamo globalModelState con i nuovi snapshot
-        const { shapes } = globalModelState;
-        let globalArrays = globalModelState.arrays;
-        let globalActive = globalModelState.activeHiddenSize;
+          let qualityAccum = 0;
+          let qualityCount = 0;
 
-        let qualityAccum = 0;
-        let qualityCount = 0;
+          const neighbors = candidates.slice(0, FUSION_NEIGHBORS_LIMIT);
+          for (const snap of neighbors) {
+            const d = snap.data;
+            try {
+              const neigh = dequantizeSnapshot(d);
 
-        const neighbors = candidates.slice(0, FUSION_NEIGHBORS_LIMIT);
-        for (const snap of neighbors) {
-          const d = snap.data;
-          try {
-            const neigh = dequantizeSnapshot(d);
+              if (JSON.stringify(neigh.shapes) !== JSON.stringify(shapes)) {
+                devLog(`Fusion: snapshot ${snap.id} ignorato (shape diversa).`);
+                continue;
+              }
 
-            // Controllo di sicurezza (shape compatibili)
-            if (JSON.stringify(neigh.shapes) !== JSON.stringify(shapes)) {
-              devLog(`Fusion: snapshot ${snap.id} ignorato (shape diversa).`);
-              continue;
-            }
-
-            const neighActive = clamp(
-              d.activeHiddenSize ?? globalActive,
-              HIDDEN_MIN,
-              HIDDEN_MAX
-            );
-
-            const { arraysAligned, quality } = alignNeighborHidden(
-              shapes,
-              globalArrays,
-              neigh.arrays,
-              globalActive,
-              neighActive
-            );
-
-            if (!Number.isFinite(quality) || quality < 0.4) {
-              devLog(
-                `Fusion: snapshot ${snap.id} scartato (quality Sinkhorn bassa: ${quality})`
+              const neighActive = clamp(
+                d.activeHiddenSize ?? globalActive,
+                HIDDEN_MIN,
+                HIDDEN_MAX
               );
-              continue;
+
+              const { arraysAligned, quality } = alignNeighborHidden(
+                shapes,
+                globalArrays,
+                neigh.arrays,
+                globalActive,
+                neighActive
+              );
+
+              if (!Number.isFinite(quality)) {
+                devLog(
+                  `Fusion: snapshot ${snap.id} scartato (quality NaN).`
+                );
+                continue;
+              }
+
+              qualityAccum += quality;
+              qualityCount++;
+
+              globalArrays = robustAggregateTwo(shapes, globalArrays, arraysAligned);
+
+              const alpha = 0.1;
+              globalActive = Math.round(
+                (1 - alpha) * globalActive + alpha * neighActive
+              );
+              globalActive = clamp(globalActive, HIDDEN_MIN, HIDDEN_MAX);
+            } catch (e) {
+              console.warn("Errore nella fusione globale con snapshot", snap.id, e);
+              devLog(
+                "Errore fusione globale con snapshot " + snap.id + ": " + e.message
+              );
             }
+          }
 
-            qualityAccum += quality;
-            qualityCount++;
+          if (qualityCount > 0) {
+            lastSinkhornQuality = qualityAccum / qualityCount;
+            sanitizeWeightArrays(globalArrays);
+            globalModelState.arrays = globalArrays;
+            globalModelState.activeHiddenSize = globalActive;
 
-            globalArrays = robustAggregateTwo(shapes, globalArrays, arraysAligned);
-
-            const alpha = 0.1;
-            globalActive = Math.round(
-              (1 - alpha) * globalActive + alpha * neighActive
-            );
-            globalActive = clamp(globalActive, HIDDEN_MIN, HIDDEN_MAX);
-          } catch (e) {
-            console.warn("Errore nella fusione globale con snapshot", snap.id, e);
             devLog(
-              "Errore fusione globale con snapshot " + snap.id + ": " + e.message
+              `Fusion globale aggiornata: neighbors=${neighbors.length}, avgQ=${lastSinkhornQuality.toFixed(
+                3
+              )}, globalH=${globalActive}`
             );
           }
         }
 
-        if (qualityCount > 0) {
-          lastSinkhornQuality = qualityAccum / qualityCount;
-          sanitizeWeightArrays(globalArrays);
-          globalModelState.arrays = globalArrays;
-          globalModelState.activeHiddenSize = globalActive;
+        // aggiorna / crea globalModel per inference
+        if (globalModelState) {
+          if (!globalModel) {
+            globalModel = buildModel();
+            devLog("Creato globalModel per inference.");
+          }
+          try {
+            const tensors = globalModelState.arrays.map((arr, idx) =>
+              tf.tensor(arr, globalModelState.shapes[idx], "float32")
+            );
+            globalModel.setWeights(tensors);
+            tensors.forEach(t => t.dispose());
+          } catch (e) {
+            console.warn("Errore setWeights globalModel:", e);
+            devLog("Errore setWeights globalModel: " + e.message);
+          }
 
-          devLog(
-            `Fusion globale aggiornata: neighbors=${neighbors.length}, avgQ=${lastSinkhornQuality.toFixed(
-              3
-            )}, globalH=${globalActive}`
-          );
+          // Valutazione rapida del modello globale
+          try {
+            if (valManifest && valManifest.items && valManifest.items.length > 0) {
+              const valBatch = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
+              const evalRes = await globalModel.evaluate(valBatch.xs, valBatch.ys, {
+                batchSize: VAL_BATCH_SIZE,
+                verbose: 0
+              });
+              const valLossTensor = Array.isArray(evalRes) ? evalRes[0] : evalRes;
+              const valLossVal = (await valLossTensor.data())[0];
+              if (Number.isFinite(valLossVal)) {
+                lastGlobalValLoss = valLossVal;
+                pushChartPoint(globalLossChart, lastGlobalValLoss);
+                devLog(`Global model valLoss=${valLossVal.toFixed(4)}`);
+                updateGlobalStatusUI();
+              }
+              valLossTensor.dispose();
+              valBatch.xs.dispose();
+              valBatch.ys.dispose();
+            }
+          } catch (e) {
+            console.warn("Errore valutazione modello globale:", e);
+            devLog("Errore valutazione modello globale: " + e.message);
+          }
         }
       }
     }
-
-    /******************************************************************
-     * BATTERIA / UI / DEV TOOLS
-     ******************************************************************/
-
 
     /******************************************************************
      * ENTRYPOINT
