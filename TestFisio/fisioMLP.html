@@ -8,7 +8,7 @@
   <!-- Chart.js per i grafici -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- TensorFlow.js + Depth Estimation (AR Portrait Depth) -->
+  <!-- TensorFlow.js + Depth Estimation (AR Portrait Depth, usata solo per metrica bacino) -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/depth-estimation"></script>
 
@@ -655,7 +655,8 @@
           </div>
           <p class="intro-subtitle">
             Pensata per smartphone: lavora con le foto del paziente nel tempo e
-            visualizza graficamente curve scoliotiche, angoli e variazione di massa.
+            visualizza graficamente curve scoliotiche, angoli e variazione di massa
+            (stimata), con allineamento testa–bacino.
           </p>
         </div>
       </div>
@@ -673,8 +674,9 @@
           <span class="intro-step-badge">2</span>
           <div>
             <strong>Premi “Analizza tutte le foto”</strong><br />
-            L’app stima scheletro, curva della schiena (spline λ), angoli (±90°)
-            e un Cobb approssimato, sfruttando anche la profondità.
+            L’app allinea tutte le immagini usando bacino–testa, stima scheletro,
+            curva della schiena (spline λ), angoli (spalle, bacino, testa) e un
+            Cobb approssimato.
           </div>
         </li>
         <li>
@@ -689,9 +691,9 @@
           <span class="intro-step-badge">4</span>
           <div>
             <strong>Allena il modello</strong><br />
-            Quando la curva è corretta, premi <em>Salva esempio</em>. Il grafico
-            “Apprendimento modello” mostra come l’errore medio della curva si riduce
-            man mano che aggiungi esempi.
+            Quando la curva è corretta, premi <em>Salva esempio</em>. Ad ogni nuovo
+            esempio il modello si riallinea utilizzando tutti i dati inseriti
+            finora e aggiorna automaticamente la curva delle altre immagini.
           </div>
         </li>
         <li>
@@ -724,9 +726,8 @@
       </h1>
       <p>
         Carica le foto del paziente nel tempo, estrai automaticamente lo
-        scheletro, la curva della schiena (spline λ), la depth map e un angolo
-        di Cobb approssimato. Su smartphone: carica le foto, analizza, poi
-        trascina i marcatori per rifinire la colonna.
+        scheletro, la curva della schiena (spline λ) su un asse testa–bacino
+        normalizzato, la profondità del bacino e un angolo di Cobb approssimato.
       </p>
     </header>
 
@@ -768,10 +769,6 @@
             <input type="checkbox" id="toggleVectors" checked />
             Vettori di cambiamento
           </label>
-          <label>
-            <input type="checkbox" id="toggleHeatmap" />
-            Heatmap depth / massa
-          </label>
         </div>
 
         <div class="lambda-row">
@@ -800,7 +797,7 @@
             <button id="saveExampleBtn">Salva esempio per training</button>
             <label>
               <input type="checkbox" id="enableLearning" checked />
-              Usa modello appreso per nuove immagini
+              Usa modello appreso per tutte le immagini
             </label>
           </div>
           <p class="hint">
@@ -808,19 +805,20 @@
             tra bacino (in basso) e testa (in alto). In questa modalità il
             parametro λ viene fissato a <strong>1</strong> per evitare distorsioni:
             trascina i punti <strong>solo a destra o sinistra</strong> per seguire
-            la curva scoliotica. Ogni esempio salvato aggiorna il modello e il
-            grafico dell’errore.
+            la curva scoliotica. Ogni esempio salvato aggiorna il modello,
+            che viene riapplicato a tutte le immagini analizzate.
           </p>
         </div>
 
         <div class="metric-row" id="metricRow"></div>
 
         <p class="hint">
-          <strong>Angoli</strong> (spalle, bacino, testa, Cobb) sono normalizzati
-          in ±90° con periodicità 180°: linea e linea ruotata di 180° sono
-          equivalenti. Il Cobb è calcolato combinando spline, inclinazione
-          del bacino (vertebre basse ≈ 90° rispetto ad esso) e asse testa–collo
-          (vertebre alte allineate alla testa).
+          <strong>Angoli</strong>: spalle e bacino sono in ±90° rispetto all’orizzontale,
+          la testa è in ±90° ma rispetto alla <strong>verticale</strong>, così una testa
+          ben allineata risulta vicina a 0°. Tutti gli angoli sono periodici a 180°
+          (180° ≡ 0°). Il Cobb è stimato a partire dalla spline della schiena su asse
+          testa–bacino normalizzato, vincolando in basso le vertebre al bacino e
+          in alto all’asse testa–collo.
         </p>
       </section>
 
@@ -933,7 +931,6 @@
     const toggleSkeleton = document.getElementById("toggleSkeleton");
     const toggleSpine = document.getElementById("toggleSpine");
     const toggleVectors = document.getElementById("toggleVectors");
-    const toggleHeatmap = document.getElementById("toggleHeatmap");
 
     const lambdaSlider = document.getElementById("lambdaSlider");
     const lambdaValue = document.getElementById("lambdaValue");
@@ -1042,6 +1039,25 @@
       return a;
     }
 
+    // angolo rispetto all'orizzontale (±90°)
+    function angleOfLineDeg(p1, p2) {
+      if (!p1 || !p2) return null;
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const raw = rad2deg(Math.atan2(dy, dx)); // rispetto all'asse x
+      return normalizeAngle90(raw);
+    }
+
+    // angolo rispetto alla verticale (±90°): 0° = perfettamente verticale
+    function angleRelativeVerticalDeg(p1, p2) {
+      if (!p1 || !p2) return null;
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const rawH = rad2deg(Math.atan2(dy, dx)); // 0°=orizzontale, 90°=verticale
+      const rel = normalizeAngle90(rawH - 90);   // 0° quando verticale
+      return rel;
+    }
+
     function angleBetweenVectorsDeg(v1, v2) {
       const dot = v1.x * v2.x + v1.y * v2.y;
       const n1 = Math.hypot(v1.x, v1.y);
@@ -1052,18 +1068,11 @@
       return rad2deg(Math.acos(cos));
     }
 
-    function angleOfLineDeg(p1, p2) {
-      if (!p1 || !p2) return null;
-      const dx = p2.x - p1.x;
-      const dy = p2.y - p1.y;
-      const raw = rad2deg(Math.atan2(dy, dx));
-      return normalizeAngle90(raw);
-    }
-
     function computeAlignmentTransform(kp, img) {
+      // Allineamento e scala basati su bacino–testa (come richiesto)
       const pelvis = kp.pelvisCenter;
-      const neck = kp.neckBase || kp.shoulderMid;
-      if (!pelvis || !neck) {
+      const top = kp.headCenter || kp.neckBase || kp.shoulderMid;
+      if (!pelvis || !top) {
         return {
           pelvis: { x: img.naturalWidth / 2, y: img.naturalHeight * 0.8 },
           rotation: 0,
@@ -1073,13 +1082,13 @@
         };
       }
 
-      const dx = neck.x - pelvis.x;
-      const dy = neck.y - pelvis.y;
+      const dx = top.x - pelvis.x;
+      const dy = top.y - pelvis.y;
       const currentAngle = Math.atan2(dy, dx);
-      const desiredAngle = -Math.PI / 2;
+      const desiredAngle = -Math.PI / 2; // asse bacino–testa verticale verso l'alto
       const rotation = desiredAngle - currentAngle;
 
-      const torsoLen = Math.max(distance(neck, pelvis), 1);
+      const torsoLen = Math.max(distance(top, pelvis), 1);
       const desiredTorsoLen = mainCanvas.height * 0.5;
       const scale = desiredTorsoLen / torsoLen;
 
@@ -1336,64 +1345,6 @@
       return diff;
     }
 
-    function depthToColor(v) {
-      const t = Math.min(1, Math.max(0, v));
-      const r = Math.floor(255 * t);
-      const g = Math.floor(255 * (1 - Math.abs(t - 0.5) * 2));
-      const b = Math.floor(255 * (1 - t));
-      return `rgba(${r},${g},${b},0.9)`;
-    }
-
-    function drawDepthHeatmap(ctx, session) {
-      if (!toggleHeatmap.checked || !session.depthMap) return;
-      const depthMap = session.depthMap;
-      const h = depthMap.length;
-      const w = depthMap[0].length;
-      const imgW = session.img.naturalWidth;
-      const imgH = session.img.naturalHeight;
-
-      const step = Math.max(1, Math.floor(Math.min(w, h) / 80));
-
-      ctx.save();
-      ctx.globalAlpha = 0.55;
-
-      for (let y = 0; y < h; y += step) {
-        for (let x = 0; x < w; x += step) {
-          const v = depthMap[y][x];
-          const color = depthToColor(v);
-          const xImg = ((x + 0.5) / w) * imgW;
-          const yImg = ((y + 0.5) / h) * imgH;
-          const pt = transformPoint({ x: xImg, y: yImg }, session.transform);
-          const size = 4;
-          ctx.fillStyle = color;
-          ctx.fillRect(pt.x - size / 2, pt.y - size / 2, size, size);
-        }
-      }
-
-      ctx.restore();
-
-      const barWidth = 10;
-      const barHeight = 100;
-      const x0 = mainCanvas.width - barWidth - 12;
-      const y0 = 16;
-
-      const grad = ctx.createLinearGradient(x0, y0, x0, y0 + barHeight);
-      grad.addColorStop(0, depthToColor(1));
-      grad.addColorStop(0.5, depthToColor(0.5));
-      grad.addColorStop(1, depthToColor(0));
-
-      ctx.save();
-      ctx.fillStyle = grad;
-      ctx.fillRect(x0, y0, barWidth, barHeight);
-      ctx.strokeStyle = "rgba(148,163,184,0.8)";
-      ctx.strokeRect(x0, y0, barWidth, barHeight);
-      ctx.fillStyle = "rgba(148,163,184,0.9)";
-      ctx.font = "10px system-ui";
-      ctx.fillText("massa ↑", x0 - 42, y0 + 10);
-      ctx.fillText("↓", x0 - 8, y0 + barHeight - 2);
-      ctx.restore();
-    }
-
     function drawSkeleton(ctx, kpC) {
       if (!toggleSkeleton.checked || !kpC) return;
       ctx.save();
@@ -1506,8 +1457,8 @@
       const pts = session.manualPoints;
       if (pts.length >= 2) {
         ctx.beginPath();
-        pts.forEach((p, i) => {
-          if (i === 0) ctx.moveTo(p.x, p.y);
+        pts.forEach((p, idx) => {
+          if (idx === 0) ctx.moveTo(p.x, p.y);
           else ctx.lineTo(p.x, p.y);
         });
         ctx.stroke();
@@ -1681,7 +1632,7 @@
         <div><strong>Sorgente colonna:</strong> ${sourceLabel}</div>
         <div><strong>Tilt spalle:</strong> ${fmt(m.shoulderTiltDeg)}°</div>
         <div><strong>Tilt bacino:</strong> ${fmt(m.pelvisTiltDeg)}°</div>
-        <div><strong>Tilt testa (asse):</strong> ${fmt(m.headAxisDeg)}°</div>
+        <div><strong>Tilt testa (vs verticale):</strong> ${fmt(m.headAxisDeg)}°</div>
         <div><strong>Angolo di Cobb:</strong> ${fmt(m.cobbAngleDeg)}°</div>
         <div><strong>Offset testa/bacino:</strong> ${fmt(m.headPelvisOffsetNorm)} u.n.</div>
         <div><strong>Offset testa/sterno:</strong> ${fmt(m.headSternumOffsetNorm)} u.n.</div>
@@ -1701,14 +1652,6 @@
       mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
       drawImageWithTransform(mainCtx, session.img, session.transform);
 
-      if (toggleHeatmap.checked) {
-        mainCtx.save();
-        mainCtx.fillStyle = "rgba(0,0,0,0.35)";
-        mainCtx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
-        mainCtx.restore();
-      }
-
-      drawDepthHeatmap(mainCtx, session);
       drawSkeleton(mainCtx, session.keypointsCanonical);
       drawSpineAndHeadCentering(mainCtx, session);
 
@@ -1768,7 +1711,7 @@
                 tension: 0.3
               },
               {
-                label: "Tilt testa (°)",
+                label: "Tilt testa vs verticale (°)",
                 data: headAxis,
                 tension: 0.3
               },
@@ -2034,7 +1977,7 @@
       if (sPelvis) items.push(sPelvis);
 
       const sHead = describeTowardZero(
-        "Inclinazione della testa (asse testa–collo)",
+        "Inclinazione della testa rispetto alla verticale",
         m0.headAxisDeg,
         m1.headAxisDeg,
         "°",
@@ -2091,7 +2034,7 @@
             ? "<p>In alcune immagini è presente una vista laterale: l’algoritmo la riconosce ma, in questa versione, non fornisce ancora una metrica completa sul piano sagittale (utile comunque per valutazione qualitativa della cifosi/lordosi).</p>"
             : ""
         }
-        <p><em>Nota clinica:</em> tutti gli angoli sono in ±90° con periodicità 180° (180° ≡ 0°). Il Cobb è stimato a partire dalla spline della schiena, vincolando in basso l’orientamento agli assi del bacino (trasmissione del carico sulle prime vertebre) e in alto all’asse testa–collo (allineamento cervico–cranico). I controlli manuali tra bacino e testa permettono di correggere le imprecisioni fotogrammetriche e, con il training, guidano il modello nel riconoscimento di curve simili. Il grafico “Apprendimento modello” mostra la riduzione dell’errore medio (RMSE sugli offset della curva) all’aumentare degli esempi.</p>
+        <p><em>Nota clinica:</em> tutti gli angoli sono in ±90° con periodicità 180° (180° ≡ 0°). Il Cobb è stimato a partire dalla spline della schiena su asse testa–bacino, vincolando in basso l’orientamento alle linee del bacino (prime vertebre lombari) e in alto all’asse testa–collo (allineamento cervico–cranico). I controlli manuali tra bacino e testa permettono di correggere le imprecisioni fotogrammetriche e, con il training, guidano il modello nel riconoscimento di curve simili. Il grafico “Apprendimento modello” mostra la riduzione dell’errore medio (RMSE sugli offset della curva) all’aumentare degli esempi.</p>
       `;
 
       reportPanel.innerHTML = html;
@@ -2301,6 +2244,7 @@
       for (let i = 0; i < nCtrl; i++) {
         const hi = i / (nCtrl - 1);
         const baseX = pelvisC.x + torsoVec.x * hi;
+        const baseY = pelvisC.y + torsoVec.y * hi;
         const p = session.manualPoints[i];
         const off = (p.x - baseX) / torsoLenC;
         ctrlSamples.push({ hi, off });
@@ -2412,6 +2356,38 @@
       recomputeModelErrorHistory();
       statusEl.classList.remove("error");
       statusEl.textContent = `Esempio manuale salvato. Totale esempi: ${trainingExamples.length}.`;
+
+      // Dopo ogni nuovo esempio, riapplica il modello a tutte le immagini
+      reapplyLearnedModelToAllSessions();
+    }
+
+    function reapplyLearnedModelToAllSessions() {
+      if (!sessions.length) return;
+      if (!enableLearning.checked || trainingExamples.length < 3) return;
+
+      for (const s of sessions) {
+        if (!s.metrics || !s.keypointsCanonical) continue;
+        if (s.spineSource === "manual") continue; // non sovrascrivere le curve manuali
+
+        const offsets = predictOffsetsFromModel(s);
+        if (!offsets) continue;
+        applyOffsetsToSessionSpine(s, offsets);
+
+        // ricalcola Cobb con nuova spline
+        const pelvisTilt = s.metrics.pelvisTiltDeg;
+        const headAxisDeg = s.metrics.headAxisDeg;
+        const cobbAngle = estimateCobbAngle(
+          pelvisTilt,
+          headAxisDeg,
+          s.spineSpline
+        );
+        s.metrics.cobbAngleDeg = cobbAngle ?? null;
+      }
+
+      updateCharts();
+      buildTechnicalReport();
+      renderSession(currentIndex);
+      statusEl.textContent += " Modello riapplicato a tutte le immagini.";
     }
 
     async function analyzeAllSessions() {
@@ -2483,7 +2459,8 @@
 
           let headAxisDeg = null;
           if (kp.headCenter && (kp.neckBase || kp.shoulderMid)) {
-            headAxisDeg = angleOfLineDeg(
+            // adesso rispetto alla verticale, come richiesto
+            headAxisDeg = angleRelativeVerticalDeg(
               kp.headCenter,
               kp.neckBase || kp.shoulderMid
             );
@@ -2746,7 +2723,7 @@
       analyzeAllSessions();
     });
 
-    [toggleSkeleton, toggleSpine, toggleVectors, toggleHeatmap].forEach((el) =>
+    [toggleSkeleton, toggleSpine, toggleVectors].forEach((el) =>
       el.addEventListener("change", () => renderSession(currentIndex))
     );
 
@@ -2828,6 +2805,31 @@
 
     saveExampleBtn.addEventListener("click", () => {
       saveManualExampleCurrentSession();
+    });
+
+    enableLearning.addEventListener("change", () => {
+      if (enableLearning.checked) {
+        reapplyLearnedModelToAllSessions();
+      } else {
+        // se disattivato, riportiamo le curve "learned" a mode auto (se possibile)
+        for (const s of sessions) {
+          if (s.spineSource === "learned") {
+            s.spineSource = "auto";
+            if (s.spineCanonical) {
+              const autoSpline = computeSpineSpline(
+                s.spineCanonical.basePoints,
+                SPINE_SAMPLES
+              );
+              s.spineSpline = autoSpline.points;
+            }
+          }
+        }
+        updateCharts();
+        buildTechnicalReport();
+        renderSession(currentIndex);
+        statusEl.textContent =
+          "Uso del modello appreso disattivato (solo stima automatica + curve manuali).";
+      }
     });
 
     function endDrag() {
@@ -2952,6 +2954,7 @@
             recomputeModelErrorHistory();
             statusEl.classList.remove("error");
             statusEl.textContent = `Modello caricato da file. Esempi: ${trainingExamples.length}.`;
+            reapplyLearnedModelToAllSessions();
           } catch (err) {
             console.error("Errore nel leggere il modello", err);
             statusEl.classList.add("error");
