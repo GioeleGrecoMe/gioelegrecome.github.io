@@ -896,36 +896,119 @@
       return C;
     }
 
-    function runSinkhorn(costMatrix, epsilon = 0.5, iterations = 15) {
-      const H = costMatrix.length;
-      const P = [];
-      for (let i = 0; i < H; i++) {
-        const row = [];
-        for (let j = 0; j < H; j++) {
-          row.push(Math.exp(-costMatrix[i][j] / epsilon));
-        }
-        P.push(row);
-      }
-      for (let it = 0; it < iterations; it++) {
-        // normalizzazione per righe
-        for (let i = 0; i < H; i++) {
-          let s = 0;
-          for (let j = 0; j < H; j++) s += P[i][j];
-          if (s > 0) {
-            for (let j = 0; j < H; j++) P[i][j] /= s;
-          }
-        }
-        // normalizzazione per colonne
-        for (let j = 0; j < H; j++) {
-          let s = 0;
-          for (let i = 0; i < H; i++) s += P[i][j];
-          if (s > 0) {
-            for (let i = 0; i < H; i++) P[i][j] /= s;
-          }
-        }
-      }
-      return { P };
+    function runSinkhorn(costMatrix, baseEpsFactor = 0.25, iterations = 20) {
+  const H = costMatrix.length;
+  if (!H) return { P: [] };
+
+  // Stima della scala tipica dei costi
+  let sum = 0;
+  let count = 0;
+  for (let i = 0; i < H; i++) {
+    for (let j = 0; j < H; j++) {
+      sum += costMatrix[i][j];
+      count++;
     }
+  }
+  const meanC = count > 0 ? sum / count : 1.0;
+  const epsilon = Math.max(meanC * baseEpsFactor, 1e-6);
+
+  // Inizializzazione kernel entropico
+  const P = [];
+  for (let i = 0; i < H; i++) {
+    const row = [];
+    for (let j = 0; j < H; j++) {
+      row.push(Math.exp(-costMatrix[i][j] / epsilon));
+    }
+    P.push(row);
+  }
+
+  // Normalizzazione alternata (righe/colonne)
+  for (let it = 0; it < iterations; it++) {
+    // righe
+    for (let i = 0; i < H; i++) {
+      let s = 0;
+      for (let j = 0; j < H; j++) s += P[i][j];
+      if (s > 0) {
+        for (let j = 0; j < H; j++) P[i][j] /= s;
+      }
+    }
+    // colonne
+    for (let j = 0; j < H; j++) {
+      let s = 0;
+      for (let i = 0; i < H; i++) s += P[i][j];
+      if (s > 0) {
+        for (let i = 0; i < H; i++) P[i][j] /= s;
+      }
+    }
+  }
+
+  return { P };
+}
+
+function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neighActive) {
+  const H = Math.min(localActive, neighActive);
+  if (H === 0) return { arraysAligned: arraysNeigh, quality: 0 };
+
+  const kernelShape = shapes[IDX_DH_KERNEL];
+  const localKernel = arraysLocal[IDX_DH_KERNEL];
+  const neighKernel = arraysNeigh[IDX_DH_KERNEL];
+  const localMat = denseHiddenKernelToNeuronMatrix(localKernel, kernelShape, localActive);
+  const neighMat = denseHiddenKernelToNeuronMatrix(neighKernel, kernelShape, neighActive);
+
+  const C = computeCostMatrix(localMat.slice(0, H), neighMat.slice(0, H));
+  const { P } = runSinkhorn(C, 0.25, 20);
+  const perm = argmaxPermutation(P);
+
+  // qualità "normalizzata": 0 = random, 1 = perfettamente allineato
+  let diagSum = 0;
+  for (let i = 0; i < H; i++) {
+    diagSum += P[i][perm[i]];
+  }
+  const meanDiag = diagSum / H;          // media dei termini corrispondenti
+  const uniformDiag = 1.0 / H;          // baseline di una matrice "casuale" quasi uniforme
+  let qNorm = (meanDiag - uniformDiag) / (1 - uniformDiag + 1e-6);
+  qNorm = clamp(qNorm, 0, 1);
+
+  devLog(
+    `Sinkhorn align: H=${H}, meanDiag=${meanDiag.toFixed(3)}, qNorm=${qNorm.toFixed(3)}`
+  );
+
+  // Permutazione dei neuroni nella rete del vicino
+  const alignedNeighArrays = arraysNeigh.map(arr => arr.slice());
+  const neighKernelFlat = alignedNeighArrays[IDX_DH_KERNEL];
+  const neighBiasFlat   = alignedNeighArrays[IDX_DH_BIAS];
+  const neighOutKernel  = alignedNeighArrays[IDX_DO_KERNEL];
+  const inDim = kernelShape[0];
+  const hiddenMax = kernelShape[1];
+
+  for (let h = 0; h < H; h++) {
+    const srcH = perm[h];
+    if (srcH === h) continue;
+    // dense_hidden kernel
+    for (let i = 0; i < inDim; i++) {
+      const idx1 = i * hiddenMax + h;
+      const idx2 = i * hiddenMax + srcH;
+      const tmp = neighKernelFlat[idx1];
+      neighKernelFlat[idx1] = neighKernelFlat[idx2];
+      neighKernelFlat[idx2] = tmp;
+    }
+    // dense_hidden bias
+    const tmpb = neighBiasFlat[h];
+    neighBiasFlat[h] = neighBiasFlat[srcH];
+    neighBiasFlat[srcH] = tmpb;
+    // dense_out kernel
+    const numClasses = shapes[IDX_DO_KERNEL][1];
+    for (let c = 0; c < numClasses; c++) {
+      const idx1 = h * numClasses + c;
+      const idx2 = srcH * numClasses + c;
+      const tmp2 = neighOutKernel[idx1];
+      neighOutKernel[idx1] = neighOutKernel[idx2];
+      neighOutKernel[idx2] = tmp2;
+    }
+  }
+  return { arraysAligned: alignedNeighArrays, quality: qNorm };
+}
+
 
     function argmaxPermutation(P) {
       const H = P.length;
@@ -946,73 +1029,24 @@
       return perm;
     }
 
-    function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neighActive) {
-      const H = Math.min(localActive, neighActive);
-      if (H === 0) return { arraysAligned: arraysNeigh, quality: 0 };
-      const kernelShape = shapes[IDX_DH_KERNEL];
-      const localKernel = arraysLocal[IDX_DH_KERNEL];
-      const neighKernel = arraysNeigh[IDX_DH_KERNEL];
-      const localMat = denseHiddenKernelToNeuronMatrix(localKernel, kernelShape, localActive);
-      const neighMat = denseHiddenKernelToNeuronMatrix(neighKernel, kernelShape, neighActive);
-      const C = computeCostMatrix(localMat.slice(0, H), neighMat.slice(0, H));
-      const { P } = runSinkhorn(C, 0.5, 15);
-      const perm = argmaxPermutation(P);
 
-      // qualità = media dei P[i][perm[i]] (dovrebbe stare tra 1/H e 1)
-      let diagSum = 0;
-      for (let i = 0; i < H; i++) {
-        diagSum += P[i][perm[i]];
-      }
-      const quality = diagSum / H;
-      devLog(`Sinkhorn align: H=${H}, quality=${quality.toFixed(3)}`);
 
-      const alignedNeighArrays = arraysNeigh.map(arr => arr.slice());
-      const neighKernelFlat = alignedNeighArrays[IDX_DH_KERNEL];
-      const neighBiasFlat   = alignedNeighArrays[IDX_DH_BIAS];
-      const neighOutKernel  = alignedNeighArrays[IDX_DO_KERNEL];
-      const inDim = kernelShape[0];
-      const hiddenMax = kernelShape[1];
-
-      for (let h = 0; h < H; h++) {
-        const srcH = perm[h];
-        if (srcH === h) continue;
-        for (let i = 0; i < inDim; i++) {
-          const idx1 = i * hiddenMax + h;
-          const idx2 = i * hiddenMax + srcH;
-          const tmp = neighKernelFlat[idx1];
-          neighKernelFlat[idx1] = neighKernelFlat[idx2];
-          neighKernelFlat[idx2] = tmp;
-        }
-        const tmpb = neighBiasFlat[h];
-        neighBiasFlat[h] = neighBiasFlat[srcH];
-        neighBiasFlat[srcH] = tmpb;
-
-        const numClasses = shapes[IDX_DO_KERNEL][1];
-        for (let c = 0; c < numClasses; c++) {
-          const idx1 = h * numClasses + c;
-          const idx2 = srcH * numClasses + c;
-          const tmp2 = neighOutKernel[idx1];
-          neighOutKernel[idx1] = neighOutKernel[idx2];
-          neighOutKernel[idx2] = tmp2;
-        }
-      }
-      return { arraysAligned: alignedNeighArrays, quality };
+    function robustAggregateTwo(shapes, arraysA, arraysB, stepAlpha) {
+  // stepAlpha è la "forza" con cui il vicino influenza il modello globale
+  const alpha = clamp(stepAlpha, 0.01, 0.15); // 1–15% massimo per step
+  const out = [];
+  for (let t = 0; t < arraysA.length; t++) {
+    const a = arraysA[t];
+    const b = arraysB[t];
+    const n = a.length;
+    const r = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      r[i] = (1 - alpha) * a[i] + alpha * b[i];
     }
-
-    function robustAggregateTwo(shapes, arraysA, arraysB) {
-      const out = [];
-      for (let t = 0; t < arraysA.length; t++) {
-        const a = arraysA[t];
-        const b = arraysB[t];
-        const n = a.length;
-        const r = new Float32Array(n);
-        for (let i = 0; i < n; i++) {
-          r[i] = 0.5 * (a[i] + b[i]);
-        }
-        out.push(r);
-      }
-      return out;
-    }
+    out.push(r);
+  }
+  return out;
+}
 
     /******************************************************************
      * UI: CHARTS, STATO, MESH
@@ -1806,75 +1840,109 @@
             `Global model inizializzato da snapshot ${best.id} (activeH=${baseActive})`
           );
         } else {
-          const { shapes } = globalModelState;
-          let globalArrays = globalModelState.arrays;
-          let globalActive = globalModelState.activeHiddenSize;
+                  const { shapes } = globalModelState;
+        let globalArrays = globalModelState.arrays;
+        let globalActive = globalModelState.activeHiddenSize;
 
-          let qualityAccum = 0;
-          let qualityCount = 0;
+        let qualityAccum = 0;
+        let qualityCount = 0;
 
-          const neighbors = candidates.slice(0, FUSION_NEIGHBORS_LIMIT);
-          for (const snap of neighbors) {
-            const d = snap.data;
-            try {
-              const neigh = dequantizeSnapshot(d);
+        const neighbors = candidates.slice(0, FUSION_NEIGHBORS_LIMIT);
+        for (const snap of neighbors) {
+          const d = snap.data;
+          try {
+            const neigh = dequantizeSnapshot(d);
 
-              if (JSON.stringify(neigh.shapes) !== JSON.stringify(shapes)) {
-                devLog(`Fusion: snapshot ${snap.id} ignorato (shape diversa).`);
-                continue;
-              }
-
-              const neighActive = clamp(
-                d.activeHiddenSize ?? globalActive,
-                HIDDEN_MIN,
-                HIDDEN_MAX
-              );
-
-              const { arraysAligned, quality } = alignNeighborHidden(
-                shapes,
-                globalArrays,
-                neigh.arrays,
-                globalActive,
-                neighActive
-              );
-
-              if (!Number.isFinite(quality)) {
-                devLog(
-                  `Fusion: snapshot ${snap.id} scartato (quality NaN).`
-                );
-                continue;
-              }
-
-              qualityAccum += quality;
-              qualityCount++;
-
-              globalArrays = robustAggregateTwo(shapes, globalArrays, arraysAligned);
-
-              const alpha = 0.1;
-              globalActive = Math.round(
-                (1 - alpha) * globalActive + alpha * neighActive
-              );
-              globalActive = clamp(globalActive, HIDDEN_MIN, HIDDEN_MAX);
-            } catch (e) {
-              console.warn("Errore nella fusione globale con snapshot", snap.id, e);
-              devLog(
-                "Errore fusione globale con snapshot " + snap.id + ": " + e.message
-              );
+            if (JSON.stringify(neigh.shapes) !== JSON.stringify(shapes)) {
+              devLog(`Fusion: snapshot ${snap.id} ignorato (shape diversa).`);
+              continue;
             }
-          }
 
-          if (qualityCount > 0) {
-            lastSinkhornQuality = qualityAccum / qualityCount;
-            sanitizeWeightArrays(globalArrays);
-            globalModelState.arrays = globalArrays;
-            globalModelState.activeHiddenSize = globalActive;
+            const neighActive = clamp(
+              d.activeHiddenSize ?? globalActive,
+              HIDDEN_MIN,
+              HIDDEN_MAX
+            );
+
+            const { arraysAligned, quality } = alignNeighborHidden(
+              shapes,
+              globalArrays,
+              neigh.arrays,
+              globalActive,
+              neighActive
+            );
+
+            if (!Number.isFinite(quality)) {
+              devLog(`Fusion: snapshot ${snap.id} scartato (quality NaN).`);
+              continue;
+            }
+
+            // Gestione asincronia: penalizziamo snapshot vecchi
+            let ageSec = 0;
+            if (d.createdAt && d.createdAt.toMillis) {
+              ageSec = (Date.now() - d.createdAt.toMillis()) / 1000;
+            } else if (snap.localTimestamp) {
+              ageSec = (Date.now() - snap.localTimestamp) / 1000;
+            }
+            const timeFactor = Math.exp(-ageSec / 120); // 2 minuti → ~1/e
+
+            // Se la qualità è troppo bassa o lo snapshot è molto vecchio, lo saltiamo
+            const qEff = quality * timeFactor;
+            if (qEff < 0.15) {
+              devLog(
+                `Fusion: snapshot ${snap.id} scartato (qEff=${qEff.toFixed(3)}, age=${ageSec.toFixed(
+                  1
+                )}s)`
+              );
+              continue;
+            }
+
+            // α di aggiornamento: proporzionale a qEff, ma limitato
+            const stepAlpha = clamp(0.08 * qEff, 0.01, 0.10);
+
+            qualityAccum += quality;
+            qualityCount++;
+
+            globalArrays = robustAggregateTwo(
+              shapes,
+              globalArrays,
+              arraysAligned,
+              stepAlpha
+            );
+
+            // meta: aggiustiamo lentamente la dimensione attiva globale
+            const metaAlpha = 0.05;
+            globalActive = Math.round(
+              (1 - metaAlpha) * globalActive + metaAlpha * neighActive
+            );
+            globalActive = clamp(globalActive, HIDDEN_MIN, HIDDEN_MAX);
 
             devLog(
-              `Fusion globale aggiornata: neighbors=${neighbors.length}, avgQ=${lastSinkhornQuality.toFixed(
+              `Fusion step con ${snap.id}: quality=${quality.toFixed(
                 3
-              )}, globalH=${globalActive}`
+              )}, qEff=${qEff.toFixed(3)}, alpha=${stepAlpha.toFixed(3)}, globalH=${globalActive}`
+            );
+          } catch (e) {
+            console.warn("Errore nella fusione globale con snapshot", snap.id, e);
+            devLog(
+              "Errore fusione globale con snapshot " + snap.id + ": " + e.message
             );
           }
+        }
+
+        if (qualityCount > 0) {
+          lastSinkhornQuality = qualityAccum / qualityCount;
+          sanitizeWeightArrays(globalArrays);
+          globalModelState.arrays = globalArrays;
+          globalModelState.activeHiddenSize = globalActive;
+
+          devLog(
+            `Fusion globale aggiornata: neighbors=${neighbors.length}, avgQ=${lastSinkhornQuality.toFixed(
+              3
+            )}, globalH=${globalActive}`
+          );
+        }
+
         }
 
         // aggiorna / crea globalModel per inference
