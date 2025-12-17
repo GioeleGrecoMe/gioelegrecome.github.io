@@ -335,17 +335,18 @@
      ******************************************************************/
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
     import {
-      getFirestore,
-      doc,
-      setDoc,
-      collection,
-      addDoc,
-      onSnapshot,
-      query,
-      orderBy,
-      limit,
-      serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+  getFirestore,
+  doc,
+  setDoc,
+  collection,
+  addDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  limit,
+  serverTimestamp,
+  getDocs
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
     import {
       getAuth,
       signInAnonymously,
@@ -379,6 +380,13 @@
     const NUM_CHANNELS = 1;
     const NUM_CLASSES = 10;
     const HIDDEN_UNITS = 32;
+// Indici dei tensori di pesi nella CNN:
+// 0: conv1/kernel, 1: conv1/bias, 2: conv2/kernel, 3: conv2/bias,
+// 4: dense_hidden/kernel, 5: dense_hidden/bias,
+// 6: dense_out/kernel, 7: dense_out/bias
+const IDX_DH_KERNEL = 4;
+const IDX_DH_BIAS   = 5;
+const IDX_DO_KERNEL = 6;
 
     const TRAIN_BATCH_SIZE = 16;
     const VAL_BATCH_SIZE   = 32;
@@ -434,6 +442,7 @@
 
     let meshNodesLayout = new Map();
     let lastEdgeWeights = new Map(); // neighborId -> a_ij nell’ultimo combine
+let hasLocalMeta = false; // true se abbiamo caricato pesi da localStorage o bootstrap
 
     const devLogBuffer = [];
     const DEV_LOG_MAX  = 200;
@@ -464,6 +473,158 @@
       if (ms == null) return "–";
       return ms.toFixed(1) + " ms/batch";
     }
+/******************************************************************
+ * GOSSIP: Sinkhorn per allineare i neuroni nascosti
+ ******************************************************************/
+
+function denseHiddenKernelToNeuronMatrix(flatArray, shape) {
+  // shape = [inDim, H], array flatten in ordine (i, h)
+  const inDim = shape[0];
+  const H = shape[1];
+  const mat = [];
+  for (let h = 0; h < H; h++) {
+    const neuron = [];
+    for (let i = 0; i < inDim; i++) {
+      const idx = i * H + h;
+      neuron.push(flatArray[idx]);
+    }
+    mat.push(neuron);
+  }
+  return mat;
+}
+
+function euclideanDistanceVec(a, b) {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) {
+    const d = a[i] - b[i];
+    sum += d * d;
+  }
+  return Math.sqrt(sum);
+}
+
+function computeCostMatrix(localMat, neighMat) {
+  const H = Math.min(localMat.length, neighMat.length);
+  const C = [];
+  for (let i = 0; i < H; i++) {
+    const row = [];
+    for (let j = 0; j < H; j++) {
+      row.push(euclideanDistanceVec(localMat[i], neighMat[j]));
+    }
+    C.push(row);
+  }
+  return C;
+}
+
+// Sinkhorn "forte": poche iterazioni, epsilon piccolo → quasi permutazione
+function runSinkhornGossip(costMatrix, epsFactor = 0.1, iterations = 5) {
+  const H = costMatrix.length;
+  if (!H) return { P: [] };
+
+  let sum = 0, cnt = 0;
+  for (let i = 0; i < H; i++) {
+    for (let j = 0; j < H; j++) {
+      sum += costMatrix[i][j];
+      cnt++;
+    }
+  }
+  const meanC = cnt > 0 ? sum / cnt : 1.0;
+  const epsilon = Math.max(meanC * epsFactor, 1e-6);
+
+  const P = [];
+  for (let i = 0; i < H; i++) {
+    const row = [];
+    for (let j = 0; j < H; j++) {
+      row.push(Math.exp(-costMatrix[i][j] / epsilon));
+    }
+    P.push(row);
+  }
+
+  for (let it = 0; it < iterations; it++) {
+    // normalizza righe
+    for (let i = 0; i < H; i++) {
+      let s = 0;
+      for (let j = 0; j < H; j++) s += P[i][j];
+      if (s > 0) {
+        for (let j = 0; j < H; j++) P[i][j] /= s;
+      }
+    }
+    // normalizza colonne
+    for (let j = 0; j < H; j++) {
+      let s = 0;
+      for (let i = 0; i < H; i++) s += P[i][j];
+      if (s > 0) {
+        for (let i = 0; i < H; i++) P[i][j] /= s;
+      }
+    }
+  }
+
+  return { P };
+}
+
+function argmaxPermutation(P) {
+  const H = P.length;
+  const perm = new Array(H).fill(0);
+  const used = new Array(H).fill(false);
+  for (let i = 0; i < H; i++) {
+    let bestJ = 0;
+    let best = -Infinity;
+    for (let j = 0; j < H; j++) {
+      if (!used[j] && P[i][j] > best) {
+        best = P[i][j];
+        bestJ = j;
+      }
+    }
+    perm[i] = bestJ;
+    used[bestJ] = true;
+  }
+  return perm;
+}
+
+// Permuta i neuroni nascosti del modello locale secondo perm (dimensione H)
+function permuteHiddenInPlace(arrays, shapes, perm) {
+  const kernelShape = shapes[IDX_DH_KERNEL]; // [inDim, H]
+  const inDim = kernelShape[0];
+  const H = kernelShape[1];
+
+  const kernel = arrays[IDX_DH_KERNEL];
+  const bias   = arrays[IDX_DH_BIAS];
+  const outK   = arrays[IDX_DO_KERNEL];
+  const outShape = shapes[IDX_DO_KERNEL]; // [H, numClasses]
+  const numClasses = outShape[1];
+
+  const newKernel = new Float32Array(kernel.length);
+  const newBias   = new Float32Array(bias.length);
+  const newOutK   = new Float32Array(outK.length);
+
+  // dense_hidden kernel: colonne = neuroni
+  for (let h = 0; h < H; h++) {
+    const srcH = perm[h];
+    for (let i = 0; i < inDim; i++) {
+      const srcIdx = i * H + srcH;
+      const dstIdx = i * H + h;
+      newKernel[dstIdx] = kernel[srcIdx];
+    }
+  }
+
+  // bias hidden
+  for (let h = 0; h < H; h++) {
+    newBias[h] = bias[perm[h]];
+  }
+
+  // dense_out kernel: righe = neuroni
+  for (let h = 0; h < H; h++) {
+    const srcH = perm[h];
+    for (let c = 0; c < numClasses; c++) {
+      const srcIdx = srcH * numClasses + c;
+      const dstIdx = h * numClasses + c;
+      newOutK[dstIdx] = outK[srcIdx];
+    }
+  }
+
+  arrays[IDX_DH_KERNEL] = newKernel;
+  arrays[IDX_DH_BIAS]   = newBias;
+  arrays[IDX_DO_KERNEL] = newOutK;
+}
 
     /******************************************************************
      * MNIST PNG: CSV → MANIFESTO
@@ -692,43 +853,47 @@
       }
     }
 
-    async function loadLocalModelOrInit() {
-      model = buildModel();
-      try {
-        const metaStr = localStorage.getItem(META_STORAGE_KEY);
-        if (!metaStr) {
-          devLog("Nessun meta locale, modello nuovo.");
-          return;
-        }
-        const meta = JSON.parse(metaStr);
-        if (!meta.weights || !meta.weights.shapes || !meta.weights.arrays) {
-          devLog("Meta incompleto, uso modello nuovo.");
-          return;
-        }
-        const shapes = meta.weights.shapes;
-        const arrays = meta.weights.arrays;
-        if (shapes.length !== arrays.length) {
-          devLog("Meta pesi incoerente, modello nuovo.");
-          return;
-        }
-        const tensors = shapes.map((shape, idx) =>
-          tf.tensor(arrays[idx], shape, "float32")
-        );
-        model.setWeights(tensors);
-        tensors.forEach(t => t.dispose());
-
-        localSteps          = meta.localSteps || 0;
-        localSamples        = meta.localSamples || 0;
-        lastTrainLoss       = meta.lastTrainLoss ?? null;
-        lastValLoss         = meta.lastValLoss ?? null;
-        localGradVar        = meta.localGradVar ?? null;
-        localGradVarCount   = meta.localGradVarCount || 0;
-        devLog(`Meta locale ripristinato: steps=${localSteps}, samples=${localSamples}, gradVarCount=${localGradVarCount}`);
-      } catch (e) {
-        console.warn("Errore loadLocalModelOrInit:", e);
-        devLog("Errore loadLocalModelOrInit: " + e.message);
-      }
+   async function loadLocalModelOrInit() {
+  model = buildModel();
+  hasLocalMeta = false;
+  try {
+    const metaStr = localStorage.getItem(META_STORAGE_KEY);
+    if (!metaStr) {
+      devLog("Nessun meta locale, modello nuovo.");
+      return;
     }
+    const meta = JSON.parse(metaStr);
+    if (!meta.weights || !meta.weights.shapes || !meta.weights.arrays) {
+      devLog("Meta incompleto, uso modello nuovo.");
+      return;
+    }
+    const shapes = meta.weights.shapes;
+    const arrays = meta.weights.arrays;
+    if (shapes.length !== arrays.length) {
+      devLog("Meta pesi incoerente, modello nuovo.");
+      return;
+    }
+    const tensors = shapes.map((shape, idx) =>
+      tf.tensor(arrays[idx], shape, "float32")
+    );
+    model.setWeights(tensors);
+    tensors.forEach(t => t.dispose());
+
+    localSteps          = meta.localSteps || 0;
+    localSamples        = meta.localSamples || 0;
+    lastTrainLoss       = meta.lastTrainLoss ?? null;
+    lastValLoss         = meta.lastValLoss ?? null;
+    localGradVar        = meta.localGradVar ?? null;
+    localGradVarCount   = meta.localGradVarCount || 0;
+
+    hasLocalMeta = true;
+    devLog(`Meta locale ripristinato: steps=${localSteps}, samples=${localSamples}, gradVarCount=${localGradVarCount}`);
+  } catch (e) {
+    console.warn("Errore loadLocalModelOrInit:", e);
+    devLog("Errore loadLocalModelOrInit: " + e.message);
+  }
+}
+
 
     /******************************************************************
      * IMAGE → TENSOR
@@ -1234,6 +1399,64 @@
 
       return { clientsRef, snapsRef };
     }
+async function bootstrapFromBestPeerIfAny(snapsRef) {
+  try {
+    const qBoot = query(snapsRef, orderBy("createdAt", "desc"), limit(50));
+    const snap = await getDocs(qBoot);
+    if (snap.empty) {
+      devLog("Bootstrap: nessun snapshot remoto disponibile.");
+      return;
+    }
+
+    let bestData = null;
+    let bestScore = -Infinity;
+
+    snap.forEach(docSnap => {
+      const d = docSnap.data();
+      if (!d || !d.clientId || d.clientId === clientId) return;
+
+      const valLoss = d.localValLoss;
+      const steps   = d.iter || d.localSteps || 0;
+
+      if (valLoss == null || !Number.isFinite(valLoss)) return;
+
+      // score alto = bassa loss, molti step
+      const score = -valLoss + 1e-4 * steps;
+      if (score > bestScore) {
+        bestScore = score;
+        bestData = d;
+      }
+    });
+
+    if (!bestData) {
+      devLog("Bootstrap: nessun candidato valido trovato.");
+      return;
+    }
+
+    const { shapes, arrays } = dequantizeSnapshot(bestData);
+    applyWeightsToModel(shapes, arrays);
+
+    // Copiamo anche la stima di varianza se presente
+    if (bestData.gradVar != null && Number.isFinite(bestData.gradVar)) {
+      localGradVar = bestData.gradVar;
+    }
+    if (bestData.gradVarCount != null) {
+      localGradVarCount = bestData.gradVarCount;
+    }
+
+    await saveLocalMeta();
+    hasLocalMeta = true;
+
+    let lossStr = "n/d";
+    if (typeof bestData.localValLoss === "number" && Number.isFinite(bestData.localValLoss)) {
+      lossStr = bestData.localValLoss.toFixed(4);
+    }
+    devLog(`Bootstrap: modello copiato da client ${bestData.clientId}, valLoss=${lossStr}`);
+  } catch (e) {
+    console.error("Errore bootstrapFromBestPeerIfAny:", e);
+    devLog("Errore bootstrapFromBestPeerIfAny: " + e.message);
+  }
+}
 
     /******************************************************************
      * ATC TRAINING LOOP (Adapt + Combine nello stesso ciclo)
@@ -1361,53 +1584,55 @@
           }
 
           const neighborsInfo = [];
-          for (const [cid, {snap}] of byClient.entries()) {
-            const d = snap.data;
-            const { shapes: neighShapes, arrays: neighArrays } = dequantizeSnapshot(d);
-            if (JSON.stringify(neighShapes) !== JSON.stringify(shapes)) {
-              continue; // architettura diversa
-            }
-            const gVar   = d.gradVar;
-            const gCount = d.gradVarCount || 0;
-            neighborsInfo.push({
-              clientId: cid,
-              arrays: neighArrays,
-              gradVar: gVar,
-              gradVarCount: gCount
-            });
-          }
+for (const [cid, {snap}] of byClient.entries()) {
+  const d = snap.data;
+  const { shapes: neighShapes, arrays: neighArrays } = dequantizeSnapshot(d);
+  if (JSON.stringify(neighShapes) !== JSON.stringify(shapes)) {
+    continue; // architettura diversa
+  }
+  const gVar   = d.gradVar;
+  const gCount = d.gradVarCount || 0;
+  const valLoss = d.localValLoss;
+  neighborsInfo.push({
+    clientId: cid,
+    arrays: neighArrays,
+    gradVar: gVar,
+    gradVarCount: gCount,
+    valLoss
+  });
+}
+
 
           // ARV: costruiamo l’insieme S di nodi maturi (self sempre incluso)
-          const S = [];
+                    const S = [];
           const EPS_GVAR = 1e-12;
 
-          // Self
-          const selfGamma = (localGradVar != null && Number.isFinite(localGradVar))
+          // Self: se non abbiamo ancora una varianza sensata, usiamo un valore default
+          const selfGamma = (localGradVar != null && Number.isFinite(localGradVar) && localGradVar > 0)
             ? localGradVar
             : 1e-4;
           S.push({
             clientId: clientId,
             arrays: arraysAfter,
             gamma: selfGamma,
-            mature: localGradVarCount >= VAR_WARMUP_ITERS,
             isSelf: true
           });
 
-          // Vicini maturi
+          // Vicini: NESSUN warmup a 10 step, li includiamo subito.
           for (const n of neighborsInfo) {
-            if (n.gradVarCount >= VAR_WARMUP_ITERS &&
-                n.gradVar != null &&
-                Number.isFinite(n.gradVar) &&
-                n.gradVar > 0) {
-              S.push({
-                clientId: n.clientId,
-                arrays: n.arrays,
-                gamma: n.gradVar,
-                mature: true,
-                isSelf: false
-              });
+            let gVar = n.gradVar;
+            if (gVar == null || !Number.isFinite(gVar) || gVar <= 0) {
+              // se il vicino non ha ancora una varianza stimata, usiamo un fallback
+              gVar = selfGamma;
             }
+            S.push({
+              clientId: n.clientId,
+              arrays: n.arrays,
+              gamma: gVar,
+              isSelf: false
+            });
           }
+
 
           // Se solo self o nessun gamma decente → w_i = ψ_i (no combine effettivo)
           let combinedArrays = arraysAfter.map(a => a.slice());
@@ -1470,11 +1695,20 @@
           sanitizeWeightArrays(combinedArrays);
           applyWeightsToModel(shapes, combinedArrays);
           await saveLocalMeta(combinedArrays, shapes);
+// GOSSIP: ogni 5 iterazioni, se ci sono vicini, controlla divergenza
+if (neighborsInfo.length > 0 && (localSteps % 5 === 0)) {
+  try {
+    await gossipAlignIfDivergent(shapes, combinedArrays, neighborsInfo);
+  } catch (e) {
+    console.error("Errore gossipAlignIfDivergent:", e);
+    devLog("Errore gossipAlignIfDivergent: " + e.message);
+  }
+}
 
-          lastCombineTime        = Date.now();
-          lastCombineNeighbors   = S.length - 1;
-          lastCombineNeighborAvg = neighborWeightSum;
-
+lastCombineTime        = Date.now();
+lastCombineNeighbors   = S.length - 1;
+lastCombineNeighborAvg = neighborWeightSum;
+          
           // ogni COMBINE_VAL_EVERY iter facciamo una val loss post-combine
           combineValCounter++;
           if (valManifest && valManifest.items && valManifest.items.length &&
@@ -1512,6 +1746,125 @@
         }
       }
     }
+/******************************************************************
+ * GOSSIP STEP:
+ * se il nodo diverge molto da un vicino "buono", usa Sinkhorn
+ * per riallineare i neuroni nascosti (permutazione).
+ ******************************************************************/
+async function gossipAlignIfDivergent(shapes, localArrays, neighborsInfo) {
+  if (!neighborsInfo.length) return;
+
+  // selezioniamo un vicino "buono":
+  // - valLoss simile alla nostra
+  // - distanza nei pesi relativamente grande → sospetta permutazione
+  const selfVal = lastValLoss;
+  let best = null;
+  let bestScore = -Infinity;
+
+  // Precalcolo norma dei pesi locali
+  let normSelfSq = 0;
+  for (let t = 0; t < localArrays.length; t++) {
+    const arr = localArrays[t];
+    for (let i = 0; i < arr.length; i++) {
+      normSelfSq += arr[i] * arr[i];
+    }
+  }
+  const normSelf = Math.sqrt(normSelfSq + 1e-12);
+
+  for (const n of neighborsInfo) {
+    const neighArr = n.arrays;
+    // norma del vicino
+    let normNeighSq = 0;
+    for (let t = 0; t < neighArr.length; t++) {
+      const arr = neighArr[t];
+      for (let i = 0; i < arr.length; i++) {
+        normNeighSq += arr[i] * arr[i];
+      }
+    }
+    const normNeigh = Math.sqrt(normNeighSq + 1e-12);
+
+    // distanza L2 normalizzata tra i vettori di pesi
+    let distSq = 0;
+    for (let t = 0; t < localArrays.length; t++) {
+      const a = localArrays[t];
+      const b = neighArr[t];
+      if (a.length !== b.length) continue;
+      for (let i = 0; i < a.length; i++) {
+        const d = a[i] - b[i];
+        distSq += d * d;
+      }
+    }
+    const dist = Math.sqrt(distSq + 1e-12);
+    const normDist = dist / (normSelf + normNeigh);
+
+    // differenza di valLoss (se entrambe finite)
+    let valDiff = null;
+    if (selfVal != null && n.valLoss != null &&
+        Number.isFinite(selfVal) && Number.isFinite(n.valLoss)) {
+      valDiff = Math.abs(selfVal - n.valLoss);
+    }
+
+    // Heuristica:
+    // - vogliamo divergenza abbastanza grande
+    // - e prestazioni simili (valDiff piccola) → probabile permutazione
+    const DIVERGENCE_THRESHOLD = 0.4; // tuning
+    const VAL_DIFF_MAX = 0.15;
+
+    const diverging = normDist > DIVERGENCE_THRESHOLD;
+    const similarPerf = (valDiff == null) ? true : (valDiff < VAL_DIFF_MAX);
+
+    if (diverging && similarPerf) {
+      // score = divergenza / (1 + valDiff) / gamma ~ preferiamo vicini stabili
+      const gamma = (n.gradVar != null && Number.isFinite(n.gradVar) && n.gradVar > 0)
+        ? n.gradVar
+        : 1e-4;
+      const score = normDist / (1 + (valDiff || 0.0)) / (1e-8 + gamma);
+      if (score > bestScore) {
+        bestScore = score;
+        best = { neighbor: n, normDist, valDiff };
+      }
+    }
+  }
+
+  if (!best) {
+    // nessun vicino che suggerisca permutazione
+    return;
+  }
+
+  const n = best.neighbor;
+  devLog(
+    `[GOSSIP] Divergenza rilevata con ${n.clientId}: dist=${best.normDist.toFixed(3)}, ` +
+    `valDiff=${best.valDiff != null ? best.valDiff.toFixed(3) : "n/d"} → eseguo Sinkhorn (gossip)`
+  );
+
+  // Costruiamo la matrice di costi sui neuroni nascosti e ricaviamo una permutazione
+  const kernelShape = shapes[IDX_DH_KERNEL];
+  const localKernel  = localArrays[IDX_DH_KERNEL];
+  const neighKernel  = n.arrays[IDX_DH_KERNEL];
+
+  const localMat = denseHiddenKernelToNeuronMatrix(localKernel, kernelShape);
+  const neighMat = denseHiddenKernelToNeuronMatrix(neighKernel, kernelShape);
+
+  const H = Math.min(localMat.length, neighMat.length);
+  if (!H) return;
+
+  const C = computeCostMatrix(localMat.slice(0, H), neighMat.slice(0, H));
+  const { P } = runSinkhornGossip(C, 0.1, 5); // pochi step, epsilon piccolo
+  const perm = argmaxPermutation(P);
+
+  // Applichiamo la permutazione ai pesi del modello locale
+  permuteHiddenInPlace(localArrays, shapes, perm);
+
+  // Aggiorniamo il modello con i nuovi pesi riallineati
+  sanitizeWeightArrays(localArrays);
+  applyWeightsToModel(shapes, localArrays);
+  await saveLocalMeta(localArrays, shapes);
+
+  devLog(
+    `[GOSSIP] Allineamento completato con ${n.clientId}: ` +
+    `perm[0..4]=${perm.slice(0, Math.min(5, perm.length)).join(",")}`
+  );
+}
 
     /******************************************************************
      * ENTRYPOINT
@@ -1575,7 +1928,14 @@
 
         const { snapsRef } = subscribeClientsAndSnapshots(db, ROOM_ID);
 
-        trainingLoop(clientRef, snapsRef);
+// Se è un nodo nuovo (nessun meta locale), prova a clonare il migliore
+if (!hasLocalMeta) {
+  await bootstrapFromBestPeerIfAny(snapsRef);
+  updateLocalUI();
+}
+
+trainingLoop(clientRef, snapsRef);
+
       });
 
       document.getElementById("panic-btn").addEventListener("click", () => {
