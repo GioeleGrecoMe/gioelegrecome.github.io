@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <title>Distributed MNIST PNG Demo</title>
+  <title>ATC Distributed MNIST Demo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root {
@@ -21,46 +21,44 @@
       min-height: 100vh;
     }
     header {
-      padding: 1rem 1.5rem;
+      padding: 0.8rem 1rem;
       border-bottom: 1px solid #20263a;
-      display: flex;
-      align-items: baseline;
-      gap: 1rem;
     }
     header h1 {
       margin: 0;
-      font-size: 1.25rem;
+      font-size: 1.1rem;
     }
-    header span {
-      font-size: 0.85rem;
+    header p {
+      margin: 0.2rem 0 0;
+      font-size: 0.75rem;
       color: #9ca4c7;
     }
     main {
-      display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-      grid-template-rows: auto auto 1fr;
-      gap: 1rem;
-      padding: 1rem;
-      box-sizing: border-box;
       flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      grid-template-rows: auto auto 1fr;
+      gap: 0.8rem;
+      padding: 0.8rem;
+      box-sizing: border-box;
     }
     section {
       background: var(--card-bg);
       border-radius: 0.75rem;
-      padding: 0.75rem 1rem;
+      padding: 0.7rem 0.9rem;
       box-shadow: 0 0 0 1px #1f2840;
       min-width: 0;
     }
     section h2 {
-      margin: 0 0 0.5rem;
-      font-size: 1rem;
+      margin: 0 0 0.4rem;
+      font-size: 0.95rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
     .pill {
       font-size: 0.7rem;
-      padding: 0.15rem 0.4rem;
+      padding: 0.2rem 0.5rem;
       border-radius: 999px;
       background: var(--accent-soft);
       color: #4f9cff;
@@ -70,7 +68,7 @@
       border: 1px solid #ff6b6b;
       color: #ff6b6b;
       border-radius: 999px;
-      padding: 0.1rem 0.5rem;
+      padding: 0.15rem 0.6rem;
       font-size: 0.7rem;
       cursor: pointer;
       margin-right: 0.4rem;
@@ -78,50 +76,32 @@
     .ghost-btn:hover {
       background: rgba(255,107,107,0.15);
     }
-    .ghost-btn:active {
-      transform: translateY(1px);
-    }
-    #status-section {
-      grid-column: 1 / 2;
-      grid-row: 1 / 2;
-    }
-    #global-section {
-      grid-column: 2 / 3;
-      grid-row: 1 / 2;
-    }
-    #mesh-section {
-      grid-column: 1 / 2;
-      grid-row: 2 / 4;
-    }
-    #tester-section {
-      grid-column: 2 / 3;
-      grid-row: 2 / 4;
-    }
+    #local-section { grid-column: 1 / 2; grid-row: 1 / 2; }
+    #combine-section { grid-column: 2 / 3; grid-row: 1 / 2; }
+    #mesh-section { grid-column: 1 / 2; grid-row: 2 / 4; }
+    #tester-section { grid-column: 2 / 3; grid-row: 2 / 4; }
+
     .stat-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0.5rem;
-      margin-bottom: 0.75rem;
+      gap: 0.4rem;
+      margin-bottom: 0.6rem;
     }
     .stat {
       background: #1a2136;
       border-radius: 0.6rem;
-      padding: 0.4rem 0.5rem;
+      padding: 0.35rem 0.45rem;
       font-size: 0.8rem;
     }
-    .stat .label {
-      color: #9ca4c7;
-      font-size: 0.7rem;
+    .stat .label { color: #9ca4c7; font-size: 0.7rem; }
+    .stat .value { font-weight: 600; margin-top: 0.1rem; }
+    .stat .sub { font-size: 0.7rem; color: #8891b3; margin-top: 0.1rem; }
+
+    canvas.loss-chart {
+      width: 100%;
+      height: 120px;
     }
-    .stat .value {
-      font-weight: 600;
-      margin-top: 0.15rem;
-    }
-    .stat .sub {
-      font-size: 0.7rem;
-      color: #8891b3;
-      margin-top: 0.1rem;
-    }
+
     #meshCanvas {
       width: 100%;
       height: 100%;
@@ -135,23 +115,10 @@
       font-size: 0.8rem;
       background: #101628;
       border-radius: 0.5rem;
-      padding: 0.5rem;
-      margin-top: 0.5rem;
+      padding: 0.45rem;
+      margin-top: 0.4rem;
     }
-    canvas.loss-chart {
-      width: 100%;
-      height: 140px;
-    }
-    footer {
-      padding: 0.5rem 1rem;
-      font-size: 0.7rem;
-      color: #7b84a7;
-      border-top: 1px solid #20263a;
-    }
-    code {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 0.8rem;
-    }
+
     #tester-section input[type="file"] {
       font-size: 0.8rem;
       margin-bottom: 0.4rem;
@@ -165,10 +132,7 @@
       font-size: 0.8rem;
       cursor: pointer;
     }
-    #tester-section button:disabled {
-      opacity: 0.6;
-      cursor: default;
-    }
+    #tester-section button:disabled { opacity: 0.6; cursor: default; }
     #tester-result {
       margin-top: 0.5rem;
       font-size: 0.85rem;
@@ -188,35 +152,55 @@
       border-color: #4f9cff;
       box-shadow: 0 0 0 2px rgba(79,156,255,0.5);
     }
+
+    #dev-log {
+      margin-top: 0.4rem;
+      max-height: 160px;
+      overflow: auto;
+      font-size: 0.7rem;
+      background: #101628;
+      border-radius: 0.5rem;
+      padding: 0.4rem;
+      border: 1px solid #232b45;
+    }
+
+    footer {
+      padding: 0.5rem 0.8rem;
+      font-size: 0.7rem;
+      color: #7b84a7;
+      border-top: 1px solid #20263a;
+    }
+
     @media (max-width: 900px) {
       main {
         grid-template-columns: 1fr;
-        grid-template-rows: auto auto auto auto auto;
+        grid-template-rows: auto auto auto auto;
       }
-      #status-section, #global-section, #mesh-section, #tester-section, #dev-section {
+      #local-section, #combine-section, #mesh-section, #tester-section {
         grid-column: 1 / 2;
         grid-row: auto;
       }
-      #meshCanvas {
-        height: 260px;
-      }
+      #meshCanvas { height: 260px; }
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>Distributed MNIST PNG Demo</h1>
-    <span>Training CNN federata su MNIST PNG, rete locale fissa + rete globale su Firebase</span>
+    <h1>ATC Distributed MNIST Demo</h1>
+    <p>
+      Ogni nodo esegue <strong>Adapt–Then–Combine</strong> su MNIST PNG:
+      SGD locale + fusione pesata dei pesi con i vicini (trust + Sinkhorn).
+    </p>
   </header>
 
   <main>
     <!-- STATO LOCALE -->
-    <section id="status-section">
+    <section id="local-section">
       <h2>
         Nodo locale
         <span>
           <button id="panic-btn" class="ghost-btn">Reset locale</button>
-          <span class="pill" id="client-id-pill">Client: …</span>
+          <span class="pill" id="client-pill">Client: …</span>
         </span>
       </h2>
       <div class="stat-grid">
@@ -226,55 +210,55 @@
           <div class="sub" id="tf-version">–</div>
         </div>
         <div class="stat">
-          <div class="label">Dati macinati</div>
-          <div class="value" id="samples-trained">0</div>
-          <div class="sub" id="batches-trained">0 batch totali</div>
-        </div>
-        <div class="stat">
-          <div class="label">Carico training</div>
-          <div class="value" id="batch-ms">–</div>
-          <div class="sub" id="throughput">–</div>
-        </div>
-        <div class="stat">
-          <div class="label">Batteria (se disponibile)</div>
-          <div class="value" id="battery-level">–</div>
-          <div class="sub" id="battery-status">API non disponibile</div>
+          <div class="label">Passi di training</div>
+          <div class="value" id="local-steps">0</div>
+          <div class="sub" id="local-samples">0 samples</div>
         </div>
         <div class="stat">
           <div class="label">Loss locale</div>
           <div class="value" id="local-loss">–</div>
-          <div class="sub" id="val-loss">validation: –</div>
+          <div class="sub" id="local-valloss">validation: –</div>
         </div>
         <div class="stat">
-          <div class="label">Layer nascosto locale</div>
-          <div class="value" id="hidden-size">–</div>
-          <div class="sub" id="hidden-policy">neuroni fissi / max</div>
+          <div class="label">Batch time</div>
+          <div class="value" id="batch-ms">–</div>
+          <div class="sub" id="throughput">–</div>
+        </div>
+        <div class="stat">
+          <div class="label">Batteria</div>
+          <div class="value" id="battery-level">–</div>
+          <div class="sub" id="battery-status">API non disponibile</div>
+        </div>
+        <div class="stat">
+          <div class="label">Hidden units</div>
+          <div class="value" id="hidden-size">32</div>
+          <div class="sub">rete condivisa, stessi pesi per tutti</div>
         </div>
       </div>
       <canvas id="localLossChart" class="loss-chart"></canvas>
     </section>
 
-    <!-- STATO GLOBALE -->
-    <section id="global-section">
+    <!-- STATO COMBINE / FUSIONE -->
+    <section id="combine-section">
       <h2>
-        Vista globale
+        Fusione ATC
         <span class="pill" id="clients-count">Nodi: 0</span>
       </h2>
       <div class="stat-grid">
         <div class="stat">
-          <div class="label">Loss globale (modello fuso)</div>
-          <div class="value" id="global-loss">–</div>
-          <div class="sub">val loss del modello aggregato su questo nodo</div>
+          <div class="label">Ultima fusione</div>
+          <div class="value" id="combine-age">–</div>
+          <div class="sub" id="combine-neighbors">–</div>
         </div>
         <div class="stat">
-          <div class="label">Snapshot recenti</div>
-          <div class="value" id="snapshots-count">0</div>
-          <div class="sub" id="last-snapshot-age">–</div>
+          <div class="label">Trust medio vicini</div>
+          <div class="value" id="combine-trust">–</div>
+          <div class="sub" id="combine-trust-extra">message test accuracy</div>
         </div>
         <div class="stat">
           <div class="label">Qualità Sinkhorn</div>
-          <div class="value" id="sinkhorn-quality">–</div>
-          <div class="sub">allineamento neuroni nella rete globale</div>
+          <div class="value" id="combine-sinkhorn">–</div>
+          <div class="sub">allineamento neuroni nascosti</div>
         </div>
       </div>
       <canvas id="globalLossChart" class="loss-chart"></canvas>
@@ -283,73 +267,58 @@
     <!-- MESH -->
     <section id="mesh-section">
       <h2>
-        Rete mesh dei dispositivi
-        <span class="pill">clicca sui nodi per dettagli</span>
+        Rete dei nodi
+        <span class="pill">clicca per info</span>
       </h2>
       <canvas id="meshCanvas"></canvas>
       <div id="node-details">
         <strong>Dettagli nodo selezionato</strong>
         <div id="node-details-body">Nessun nodo selezionato.</div>
       </div>
+
+      <div id="dev-log">
+        <div id="dev-log-body">Developer log…</div>
+      </div>
     </section>
 
     <!-- TESTER -->
     <section id="tester-section">
       <h2>
-        Tester modello
-        <span class="pill" id="model-ready-pill">Modello: inizializzazione…</span>
+        Tester modello locale
+        <span class="pill" id="model-pill">Modello: inizializzazione…</span>
       </h2>
-      <p style="font-size:0.8rem; color:#9ca4c7;">
-        Carica una piccola immagine (sarà ridimensionata a 32×32, in scala di grigi) oppure clicca su alcune cifre
-        di esempio dal test set MNIST. Il training continua in background mentre osservi i risultati.
+      <p style="font-size:0.78rem;color:#9ca4c7;">
+        Carica una piccola immagine (sarà ridimensionata a 28×28, scala di grigi)
+        oppure clicca su cifre dal test set MNIST. La rete che risponde è
+        <strong>quella locale</strong>, che incorpora sia training sui tuoi dati
+        sia fusioni ATC con i vicini affidabili.
       </p>
       <input type="file" id="test-image-input" accept="image/*" />
       <button id="test-btn" disabled>Testa immagine</button>
-      <div id="tester-result">In attesa che il modello si stabilizzi…</div>
+      <div id="tester-result">In attesa che il training locale parta…</div>
 
-      <div style="margin-top:0.8rem;">
+      <div style="margin-top:0.7rem;">
         <div style="font-size:0.75rem;color:#9ca4c7;margin-bottom:0.2rem;">
           Oppure prova con alcune cifre di esempio (dal test set MNIST):
         </div>
-        <div id="sample-images-container"
-             style="display:flex;flex-wrap:wrap;gap:0.3rem;"></div>
+        <div id="sample-images-container" style="display:flex;flex-wrap:wrap;gap:0.3rem;"></div>
       </div>
 
-      <hr style="border-color:#20263a; margin:0.8rem 0;" />
-      <p style="font-size:0.75rem; color:#7b84a7;">
-        Questo prototipo:
+      <hr style="border-color:#20263a;margin:0.8rem 0;"/>
+      <p style="font-size:0.72rem;color:#7b84a7;">
+        Architettura:
+        <code>conv8 → conv16 → flatten → dense32 → softmax10</code><br/>
+        Algoritmo: <strong>Adapt–Then–Combine</strong> con:
+        trust (mini-validation su questo nodo), allineamento Sinkhorn
+        dei neuroni nascosti e decadimento temporale degli snapshot.
       </p>
-      <ul style="font-size:0.75rem; margin-top:0.2rem; padding-left:1.2rem; color:#9ca4c7;">
-        <li>Scarica MNIST-PNG (CSV + PNG) dal repo MIT di <code>rasbt/mnist-pngs</code></li>
-        <li>Allena una CNN locale con TF.js, salvata manualmente in <code>localStorage</code></li>
-        <li>Condivide snapshot quantizzati su Firestore (nessun server custom)</li>
-        <li>Costruisce una rete globale “astratta” (solo pesi) e un <strong>globalModel</strong> per le predizioni</li>
-        <li>Mostra le predizioni <strong>locali vs globali</strong> quando clicchi un sample</li>
-      </ul>
-    </section>
-
-    <!-- DEVELOPER SECTION (nascosta, si sblocca con Shift+D 3 volte) -->
-    <section id="dev-section" style="display:none; margin-top:0.5rem;">
-      <h2>
-        Developer tools
-        <span class="pill">Dev</span>
-      </h2>
-      <button id="firebase-reset-btn" class="ghost-btn">Reset stanza Firebase</button>
-      <p style="font-size:0.75rem;color:#9ca4c7;margin-top:0.4rem;">
-        Questo reset è <strong>logico</strong>: imposta un nuovo <code>resetToken</code> su Firestore
-        per la stanza <code>rooms/&lt;ROOM_ID&gt;</code>. Tutti i nodi che vedono un token diverso
-        da quello locale resettano il modello e ripartono da zero, ma gli snapshot vecchi non vengono cancellati.
-      </p>
-      <div id="dev-log" style="margin-top:0.5rem;max-height:200px;overflow:auto;
-           font-size:0.7rem;background:#101628;border-radius:0.5rem;
-           padding:0.4rem;border:1px solid #232b45;">
-        <div id="dev-log-body">Developer log vuoto…</div>
-      </div>
     </section>
   </main>
 
   <footer>
-    Prototipo puramente client-side. Configura <code>firebaseConfig</code>, MNIST PNG e regole Firestore nel tuo progetto Firebase.
+    Prototipo puramente client-side. Sostituisci il <code>firebaseConfig</code> con il tuo
+    progetto Firebase e abilita Firestore + auth anonima. Dataset: MNIST PNG, repo
+    <code>rasbt/mnist-pngs</code> (MIT).
   </footer>
 
   <!-- Canvas nascosto per caricare / ridimensionare immagini -->
@@ -361,7 +330,7 @@
 
   <script type="module">
     /******************************************************************
-     * IMPORT FIREBASE (MODULAR API)
+     * IMPORT FIREBASE MODULAR API
      ******************************************************************/
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
     import {
@@ -384,6 +353,7 @@
 
     /******************************************************************
      * CONFIGURAZIONE FIREBASE
+     * (sostituisci con le tue chiavi, NON committare quelle reali)
      ******************************************************************/
     const firebaseConfig = {
       apiKey: "AIzaSyDUYL3b05b0RoyNMYCy9GZRtDs-4SBb-AI",
@@ -400,53 +370,37 @@
     const auth = getAuth(app);
 
     /******************************************************************
-     * PARAMETRI MODELLO / TRAINING
+     * COSTANTI MODELLO / TRAINING
      ******************************************************************/
-    const ROOM_ID = "image-room";
-    const IMG_SIZE = 32;
+    const ROOM_ID = "atc-mnist-room";
+
+    const IMG_SIZE = 28;
     const NUM_CHANNELS = 1;
-    const NUM_CLASSES = 10; // cifre 0–9
+    const NUM_CLASSES = 10;
+    const HIDDEN_UNITS = 32;
 
-    // Layer nascosto (locale fisso, globale adattivo come meta)
-    const HIDDEN_MAX = 32;
-    const HIDDEN_INIT = 16;
-    const HIDDEN_MIN = 8;
-
-    // Training
     const TRAIN_BATCH_SIZE = 16;
-    const VAL_BATCH_SIZE = 4;
-    const TRAINING_PAUSE_MS = 1500;
-    const VALIDATION_EVERY_STEPS = 4;
-    const SNAPSHOT_EVERY_STEPS = 8;
-    const FUSION_INTERVAL_MS = 7000;
-    const FUSION_NEIGHBORS_LIMIT = 3;
+    const VAL_BATCH_SIZE = 32;
+    const TRAINING_PAUSE_MS = 800;
 
-    // Indici pesi
-    const IDX_CONV1_KERNEL = 0;
-    const IDX_CONV1_BIAS   = 1;
-    const IDX_CONV2_KERNEL = 2;
-    const IDX_CONV2_BIAS   = 3;
-    const IDX_DH_KERNEL    = 4;
-    const IDX_DH_BIAS      = 5;
-    const IDX_DO_KERNEL    = 6;
-    const IDX_DO_BIAS      = 7;
+    const VALIDATION_EVERY_STEPS = 8;
+    const SNAPSHOT_EVERY_STEPS   = 16;
+    const COMBINE_INTERVAL_MS    = 7000;
+    const COMBINE_WARMUP_STEPS   = 64;
 
-    // Storage locale
-    const META_STORAGE_KEY  = "distributed-image-model-meta-weights-v1";
-
-    // MNIST PNG (rasbt/mnist-pngs, MIT)
-    const MNIST_ROOT = "https://raw.githubusercontent.com/rasbt/mnist-pngs/main/";
-    const MNIST_TRAIN_CSV_URL = MNIST_ROOT + "train.csv";
-    const MNIST_TEST_CSV_URL  = MNIST_ROOT + "test.csv";
     const MAX_TRAIN_ITEMS = 12000;
     const MAX_VAL_ITEMS   = 2000;
 
-    // Nodo offline se lastSeen è troppo vecchio
-    const OFFLINE_THRESHOLD_MS = 60_000; // 1 minuto
+    const MNIST_ROOT = "https://raw.githubusercontent.com/rasbt/mnist-pngs/main/";
+    const MNIST_TRAIN_CSV = MNIST_ROOT + "train.csv";
+    const MNIST_TEST_CSV  = MNIST_ROOT + "test.csv";
 
-    // Developer log
-    const DEV_LOG_MAX = 200;
-    const devLogBuffer = [];
+    const META_STORAGE_KEY = "atc-mnist-meta-v1";
+
+    const TRUST_VAL_BATCH = 32;
+    const TRUST_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minuti
+
+    const OFFLINE_THRESHOLD_MS = 60 * 1000;
 
     /******************************************************************
      * STATO GLOBALE
@@ -454,62 +408,60 @@
     let currentUser = null;
     let clientId = null;
 
-    // Modelli TF.js
-    let model = null;         // modello locale (training)
-    let globalModel = null;   // modello globale aggregato (solo inference/val)
-
-    let activeHiddenSize = HIDDEN_MAX; // meta per il nodo
-
-    // Rete globale astratta (solo arrays)
-    let globalModelState = null; // { shapes, arrays, activeHiddenSize }
+    let model = null;
 
     let trainManifest = null;
     let valManifest = null;
 
-    let stepsTrained = 0;
-    let samplesTrained = 0;
-    let batchesTrained = 0;
-    let avgBatchMs = 0;
+    let localSteps = 0;
+    let localSamples = 0;
     let lastTrainLoss = null;
     let lastValLoss = null;
-    let lastGlobalValLoss = null;
+    let avgBatchMs = 0;
 
-    let lastSinkhornQuality = null;
-    let batteryInfo = null;
+    let lastCombineTime = null;
+    let lastCombineNeighbors = 0;
+    let lastCombineTrustMean = null;
+    let lastCombineSinkhornMean = null;
+    let lastCombineValLoss = null;
 
     const clientsState = new Map();
-    let trustScores = new Map(); // clientId -> { score, ts }
+    let recentSnapshots = [];
 
-    let lastSnapshots = [];
-    let currentResetToken = null;
+    let batteryInfo = null;
 
     let localLossChart = null;
     let globalLossChart = null;
 
-    const meshCanvas = document.getElementById("meshCanvas");
-    const meshCtx = meshCanvas.getContext("2d");
     let meshNodesLayout = new Map();
+
+    const trustScores = new Map(); // clientId -> { score, ts }
+
+    const devLogBuffer = [];
+    const DEV_LOG_MAX = 200;
 
     /******************************************************************
      * DEV LOG
      ******************************************************************/
-    function devLog(message) {
+    function devLog(msg) {
       const ts = new Date().toLocaleTimeString();
-      const line = `[${ts}] ${message}`;
+      const line = `[${ts}] ${msg}`;
       devLogBuffer.unshift(line);
       if (devLogBuffer.length > DEV_LOG_MAX) devLogBuffer.pop();
       const el = document.getElementById("dev-log-body");
-      if (el) {
-        el.innerHTML = devLogBuffer.join("<br>");
-      }
-      console.log("[DEV]", message);
+      if (el) el.innerHTML = devLogBuffer.join("<br>");
+      console.log("[DEV]", msg);
     }
 
     /******************************************************************
-     * UTILITY
+     * UTILITY VARIE
      ******************************************************************/
     function sleep(ms) {
       return new Promise(res => setTimeout(res, ms));
+    }
+
+    function clamp(v, min, max) {
+      return Math.min(Math.max(v, min), max);
     }
 
     function formatMs(ms) {
@@ -517,43 +469,33 @@
       return ms.toFixed(1) + " ms/batch";
     }
 
-    function clamp(v, min, max) {
-      return Math.min(Math.max(v, min), max);
-    }
-
     /******************************************************************
-     * MNIST PNG: CSV → MANIFEST BILANCIATO PER CLASSE
+     * MNIST PNG: CARICAMENTO CSV → MANIFEST BILANCIATO
      ******************************************************************/
     async function fetchCsvLines(url, maxLines = null) {
-      devLog("Scarico CSV MNIST: " + url);
+      devLog("Scarico CSV: " + url);
       const resp = await fetch(url);
-      if (!resp.ok) {
-        throw new Error("Impossibile caricare CSV: " + url + " (" + resp.status + ")");
-      }
+      if (!resp.ok) throw new Error("Impossibile caricare CSV: " + url);
       const text = await resp.text();
-      const allLines = text.trim().split(/\r?\n/);
-      const header = allLines.shift();
+      const all = text.trim().split(/\r?\n/);
+      const header = all.shift();
       if (!header.toLowerCase().startsWith("filepath")) {
-        console.warn("Header CSV inatteso per", url, ":", header);
+        console.warn("Header CSV inatteso:", header);
       }
-      if (maxLines && allLines.length > maxLines) {
-        return allLines.slice(0, maxLines);
-      }
-      return allLines;
+      const lines = maxLines ? all.slice(0, maxLines) : all;
+      return lines;
     }
 
-    function parseMnistCsvLinesToItems(lines) {
+    function parseMnistCsvLines(lines) {
       const items = [];
       for (const line of lines) {
         if (!line) continue;
         const parts = line.split(",");
         if (parts.length < 2) continue;
-        const filepath = parts[0].trim();
-        const labelStr = parts[1].trim();
-        const label = parseInt(labelStr, 10);
-        if (Number.isNaN(label)) continue;
-        const url = MNIST_ROOT + filepath;
-        items.push({ url, label });
+        const fp = parts[0].trim();
+        const lbl = parseInt(parts[1].trim(), 10);
+        if (Number.isNaN(lbl)) continue;
+        items.push({ url: MNIST_ROOT + fp, label: lbl });
       }
       return items;
     }
@@ -562,55 +504,43 @@
       const shuffled = items.slice();
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = (Math.random() * (i + 1)) | 0;
-        const tmp = shuffled[i];
-        shuffled[i] = shuffled[j];
-        shuffled[j] = tmp;
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
       const perClass = Math.max(1, Math.floor(maxTotal / NUM_CLASSES));
       const counts = new Array(NUM_CLASSES).fill(0);
-      const result = [];
-      for (const item of shuffled) {
-        if (result.length >= maxTotal) break;
-        const label = item.label;
-        if (label < 0 || label >= NUM_CLASSES) continue;
-        if (counts[label] >= perClass) continue;
-        counts[label]++;
-        result.push(item);
+      const out = [];
+      for (const it of shuffled) {
+        if (out.length >= maxTotal) break;
+        if (it.label < 0 || it.label >= NUM_CLASSES) continue;
+        if (counts[it.label] >= perClass) continue;
+        counts[it.label]++;
+        out.push(it);
       }
-      return result;
+      return out;
     }
 
-    async function loadMnistPngManifests() {
+    async function loadMnistManifests() {
       const [trainLines, testLines] = await Promise.all([
-        fetchCsvLines(MNIST_TRAIN_CSV_URL, null),
-        fetchCsvLines(MNIST_TEST_CSV_URL,  null)
+        fetchCsvLines(MNIST_TRAIN_CSV, null),
+        fetchCsvLines(MNIST_TEST_CSV,  null)
       ]);
-      const trainAll = parseMnistCsvLinesToItems(trainLines);
-      const valAll   = parseMnistCsvLinesToItems(testLines);
+      const trainAll = parseMnistCsvLines(trainLines);
+      const valAll   = parseMnistCsvLines(testLines);
 
       const trainItems = balancedSampleByLabel(trainAll, MAX_TRAIN_ITEMS);
       const valItems   = balancedSampleByLabel(valAll,   MAX_VAL_ITEMS);
 
-      const classes = Array.from({ length: NUM_CLASSES }, (_, i) => String(i));
-      devLog(`MNIST bilanciato: ${trainItems.length} train, ${valItems.length} val`);
+      devLog(`MNIST manifest: train=${trainItems.length}, val=${valItems.length}`);
 
       return {
-        trainManifest: { classes, items: trainItems },
-        valManifest:   { classes, items: valItems }
+        trainManifest: { classes: Array.from({length: NUM_CLASSES}, (_,i)=>String(i)), items: trainItems },
+        valManifest:   { classes: Array.from({length: NUM_CLASSES}, (_,i)=>String(i)), items: valItems }
       };
     }
 
     /******************************************************************
-     * MODELLO CNN + COMPILE
+     * MODELLO CNN (UNICO MODEL PER NODO)
      ******************************************************************/
-    function compileModel(m) {
-      m.compile({
-        optimizer: tf.train.adam(0.0005),
-        loss: "categoricalCrossentropy",
-        metrics: ["accuracy"]
-      });
-    }
-
     function buildModel() {
       const m = tf.sequential();
       m.add(tf.layers.conv2d({
@@ -632,7 +562,7 @@
       m.add(tf.layers.maxPooling2d({ poolSize: 2 }));
       m.add(tf.layers.flatten());
       m.add(tf.layers.dense({
-        units: HIDDEN_MAX,
+        units: HIDDEN_UNITS,
         activation: "relu",
         name: "dense_hidden"
       }));
@@ -641,30 +571,37 @@
         activation: "softmax",
         name: "dense_out"
       }));
-      compileModel(m);
+      m.compile({
+        optimizer: tf.train.adam(0.001),
+        loss: "categoricalCrossentropy",
+        metrics: ["accuracy"]
+      });
       return m;
     }
 
-    async function reinitializeModelWeights() {
-      devLog("Creo un nuovo modello locale (rete fissa).");
-      model = buildModel();
-    }
-
     /******************************************************************
-     * PESI FLOAT / QUANTIZZAZIONE + SANITIZZAZIONE
+     * PESI: ESTRAZIONE, APPLICAZIONE, QUANTIZZAZIONE
      ******************************************************************/
-    function extractFloatWeights() {
-      // NON dispose: questi Tensor sono le Variables del modello
-      const tensors = model.getWeights();
+    function extractLocalWeights() {
+      const tensors = model.getWeights(); // NON si fa dispose qui
       const shapes = tensors.map(t => t.shape);
       const arrays = tensors.map(t => Float32Array.from(t.dataSync()));
       return { shapes, arrays };
     }
 
+    function applyWeightsToModel(shapes, arrays) {
+      const tensors = shapes.map((shape, idx) =>
+        tf.tensor(arrays[idx], shape, "float32")
+      );
+      model.setWeights(tensors);
+      tensors.forEach(t => t.dispose());
+    }
+
     function quantizeWeights(shapes, arrays) {
       const scales = [];
-      const quantArrays = [];
-      for (const arr of arrays) {
+      const quantMaps = {};
+      for (let idx = 0; idx < arrays.length; idx++) {
+        const arr = arrays[idx];
         let maxAbs = 0;
         for (let i = 0; i < arr.length; i++) {
           const a = Math.abs(arr[i]);
@@ -676,45 +613,47 @@
           q[i] = Math.max(-127, Math.min(127, Math.round(arr[i] / scale)));
         }
         scales.push(scale);
-        quantArrays.push(Array.from(q));
+        quantMaps[idx] = Array.from(q); // niente array annidate
       }
-      return { shapes, scales, quantArrays };
+
+      const shapesMap = {};
+      shapes.forEach((sh, idx) => {
+        shapesMap[idx] = sh;
+      });
+
+      return { shapes: shapesMap, scales, quantArrays: quantMaps };
     }
 
-    function dequantizeSnapshot(snapDoc) {
-      const shapesContainer = snapDoc.shapes || {};
-      const scales = snapDoc.scales || [];
-      const quantContainer = snapDoc.quantArrays || {};
+    function dequantizeSnapshot(snapData) {
+      const shapesMap = snapData.shapes || {};
+      const quantMap  = snapData.quantArrays || {};
+      const scales    = snapData.scales || [];
 
-      const arrays = [];
-      const shapes = [];
-
-      const indices = Object.keys(quantContainer)
+      const indices = Object.keys(quantMap)
         .map(k => Number(k))
-        .sort((a, b) => a - b);
+        .sort((a,b) => a-b);
+
+      const shapes = [];
+      const arrays = [];
 
       for (const idx of indices) {
-        const qArr = quantContainer[idx];
-        const shape = Array.isArray(shapesContainer)
-          ? shapesContainer[idx]
-          : shapesContainer[idx];
+        const shape = Array.isArray(shapesMap) ? shapesMap[idx] : shapesMap[idx];
+        const qArr  = quantMap[idx];
         const scale = scales[idx];
-        if (!qArr || !shape || scale == null) continue;
-
+        if (!shape || !qArr || scale == null) continue;
         const fArr = new Float32Array(qArr.length);
         for (let i = 0; i < qArr.length; i++) {
           fArr[i] = qArr[i] * scale;
         }
-        arrays.push(fArr);
         shapes.push(shape);
+        arrays.push(fArr);
       }
       return { shapes, arrays };
     }
 
     function sanitizeWeightArrays(arrays) {
       let changed = false;
-      for (let t = 0; t < arrays.length; t++) {
-        const arr = arrays[t];
+      for (const arr of arrays) {
         for (let i = 0; i < arr.length; i++) {
           const v = arr[i];
           if (!Number.isFinite(v)) {
@@ -723,102 +662,16 @@
           }
         }
       }
-      if (changed) {
-        devLog("Sanitizzazione pesi globali: trovati NaN/Inf → settati a 0.");
-      }
-      return changed;
+      if (changed) devLog("Sanitizzazione pesi combinati: NaN/Inf → 0");
     }
-    async function computeTrustScoreForSnapshot(snap) {
-  // Se non abbiamo ancora il validation set, diamo un trust "neutrale"
-  if (!valManifest || !valManifest.items || !valManifest.items.length) {
-    devLog("Trust: valManifest non pronto, uso trust neutrale 0.5");
-    return 0.5;
-  }
-
-  const d = snap.data || {};
-  const peerId = d.clientId || "unknown";
-  devLog(`Trust: valutazione snapshot ${snap.id} da client ${peerId}`);
-
-  const { shapes, arrays } = dequantizeSnapshot(d);
-
-  try {
-    // Costruiamo un modello temporaneo con QUEI pesi
-    const tempModel = buildModel();
-    const tensors = arrays.map((arr, idx) =>
-      tf.tensor(arr, shapes[idx], "float32")
-    );
-    tempModel.setWeights(tensors);
-    tensors.forEach(t => t.dispose());
-
-    // Mini-task di validazione locale (message test): 24–32 esempi
-    const B = Math.min(VAL_BATCH_SIZE * 2, 32);
-    const batch = await loadBatchFromManifest(valManifest, B);
-    const evalRes = await tempModel.evaluate(batch.xs, batch.ys, {
-      batchSize: VAL_BATCH_SIZE,
-      verbose: 0
-    });
-
-    const lossTensor = Array.isArray(evalRes) ? evalRes[0] : evalRes;
-    const accTensor  = Array.isArray(evalRes) ? evalRes[1] : null;
-
-    const lossArr = await lossTensor.data();
-    const loss = lossArr[0];
-    let acc = null;
-    if (accTensor) {
-      const accArr = await accTensor.data();
-      acc = accArr[0];
-    }
-
-    lossTensor.dispose();
-    accTensor && accTensor.dispose();
-    batch.xs.dispose();
-    batch.ys.dispose();
-    tempModel.dispose();
-
-    if (!Number.isFinite(loss) || acc == null || !Number.isFinite(acc)) {
-      devLog(`Trust: snapshot ${snap.id} produce NaN/acc=null → trust=0.`);
-      return 0;
-    }
-
-    // Accuracy random per 10 classi ≈ 0.1 → normalizziamo tra 0 e 1
-    const trust = clamp((acc - 0.10) / 0.90, 0, 1);
-    devLog(
-      `Trust: snapshot ${snap.id} acc=${(acc * 100).toFixed(1)}%, loss=${loss.toFixed(
-        3
-      )} → trust=${trust.toFixed(3)}`
-    );
-    return trust;
-  } catch (e) {
-    console.warn("Errore computeTrustScoreForSnapshot:", e);
-    devLog("Trust: errore valutando snapshot " + snap.id + ": " + e.message);
-    return 0;
-  }
-}
-
-async function getTrustScoreForSnapshot(snap) {
-  const d = snap.data || {};
-  const peerId = d.clientId || "unknown";
-  const now = Date.now();
-  const existing = trustScores.get(peerId);
-
-  // Ricicla il trust se è recente (es. < 10 minuti)
-  if (existing && now - existing.ts < 10 * 60 * 1000) {
-    return existing.score;
-  }
-
-  const score = await computeTrustScoreForSnapshot(snap);
-  trustScores.set(peerId, { score, ts: now });
-  return score;
-}
-
 
     /******************************************************************
-     * SALVATAGGIO MANUALE DEL MODELLO IN LOCALSTORAGE
+     * SALVATAGGIO LOCALE (LOCALSTORAGE)
      ******************************************************************/
-    async function saveLocalModelAndMeta() {
+    async function saveLocalMeta() {
       let weightsPayload = null;
       try {
-        const { shapes, arrays } = extractFloatWeights();
+        const { shapes, arrays } = extractLocalWeights();
         weightsPayload = {
           shapes,
           arrays: arrays.map(a => Array.from(a))
@@ -827,73 +680,59 @@ async function getTrustScoreForSnapshot(snap) {
         console.warn("Errore estrazione pesi per salvataggio:", e);
         devLog("Errore estrazione pesi per salvataggio: " + e.message);
       }
-
       const meta = {
         weights: weightsPayload,
-        activeHiddenSize,
-        samplesTrained,
-        batchesTrained,
+        localSteps,
+        localSamples,
         lastTrainLoss,
-        lastValLoss,
-        resetToken: currentResetToken || null
+        lastValLoss
       };
       try {
         localStorage.setItem(META_STORAGE_KEY, JSON.stringify(meta));
       } catch (e) {
-        console.warn("Salvataggio meta localStorage fallito:", e);
-        devLog("Salvataggio meta localStorage fallito: " + e.message);
+        console.warn("Errore salvataggio meta localStorage:", e);
+        devLog("Errore salvataggio meta localStorage: " + e.message);
       }
     }
 
-    async function loadLocalModelIfExists() {
-      let meta = null;
+    async function loadLocalModelOrInit() {
+      model = buildModel();
       try {
         const metaStr = localStorage.getItem(META_STORAGE_KEY);
-        if (metaStr) meta = JSON.parse(metaStr);
-      } catch (e) {
-        console.warn("Errore lettura meta localStorage:", e);
-      }
-
-      model = buildModel();
-
-      if (meta && meta.weights && meta.weights.shapes && meta.weights.arrays) {
-        activeHiddenSize = clamp(meta.activeHiddenSize || HIDDEN_MAX, HIDDEN_MIN, HIDDEN_MAX);
-        samplesTrained   = meta.samplesTrained || 0;
-        batchesTrained   = meta.batchesTrained || 0;
-        lastTrainLoss    = meta.lastTrainLoss ?? null;
-        lastValLoss      = meta.lastValLoss ?? null;
-        currentResetToken= meta.resetToken || null;
-
-        try {
-          const shapes = meta.weights.shapes;
-          const arrays = meta.weights.arrays;
-          if (shapes.length === arrays.length) {
-            const tensors = shapes.map((shape, idx) =>
-              tf.tensor(arrays[idx], shape, "float32")
-            );
-            model.setWeights(tensors);
-            tensors.forEach(t => t.dispose());
-            devLog("Pesi modello ripristinati da localStorage.");
-          } else {
-            devLog("Meta pesi inconsistente (shapes/arrays length mismatch), uso modello random.");
-          }
-        } catch (e) {
-          console.warn("Errore ripristino pesi da meta:", e);
-          devLog("Errore ripristino pesi da meta: " + e.message);
+        if (!metaStr) {
+          devLog("Nessun meta locale, modello nuovo.");
+          return;
         }
-        devLog(
-          `Meta locale caricata: samples=${samplesTrained}, batches=${batchesTrained}, activeH=${activeHiddenSize}`
+        const meta = JSON.parse(metaStr);
+        if (!meta.weights || !meta.weights.shapes || !meta.weights.arrays) {
+          devLog("Meta incompleto, uso modello nuovo.");
+          return;
+        }
+        const shapes = meta.weights.shapes;
+        const arrays = meta.weights.arrays;
+        if (shapes.length !== arrays.length) {
+          devLog("Meta pesi incoerente, modello nuovo.");
+          return;
+        }
+        const tensors = shapes.map((shape, idx) =>
+          tf.tensor(arrays[idx], shape, "float32")
         );
-      } else {
-        activeHiddenSize = HIDDEN_MAX;
-        currentResetToken = meta?.resetToken || null;
-        devLog("Nessun modello salvato in localStorage, modello nuovo.");
-        await saveLocalModelAndMeta();
+        model.setWeights(tensors);
+        tensors.forEach(t => t.dispose());
+
+        localSteps    = meta.localSteps || 0;
+        localSamples  = meta.localSamples || 0;
+        lastTrainLoss = meta.lastTrainLoss ?? null;
+        lastValLoss   = meta.lastValLoss ?? null;
+        devLog(`Meta locale ripristinato: steps=${localSteps}, samples=${localSamples}`);
+      } catch (e) {
+        console.warn("Errore loadLocalModelOrInit:", e);
+        devLog("Errore loadLocalModelOrInit: " + e.message);
       }
     }
 
     /******************************************************************
-     * IMAGE LOADING → TENSOR
+     * IMAGE → TENSOR
      ******************************************************************/
     async function loadImageAsTensor(url) {
       return new Promise((resolve, reject) => {
@@ -918,9 +757,7 @@ async function getTrustScoreForSnapshot(snap) {
 
     async function loadBatchFromManifest(manifest, batchSize) {
       const items = manifest.items;
-      if (!items || items.length === 0) {
-        throw new Error("Manifest dataset vuoto.");
-      }
+      if (!items || !items.length) throw new Error("Manifest vuoto");
       const xsList = [];
       const ysList = [];
       for (let i = 0; i < batchSize; i++) {
@@ -939,22 +776,27 @@ async function getTrustScoreForSnapshot(snap) {
     }
 
     /******************************************************************
-     * SINKHORN & UTILITIES PER RETE GLOBALE
+     * SINKHORN PER ALLINEAMENTO NEURONI NASCOSTI
      ******************************************************************/
-    function denseHiddenKernelToNeuronMatrix(flatArray, shape, activeSize) {
+    // Indici tensori: 0 conv1/kernel, 1 conv1/bias, 2 conv2/kernel, 3 conv2/bias,
+    // 4 dense_hidden/kernel, 5 dense_hidden/bias, 6 dense_out/kernel, 7 dense_out/bias
+    const IDX_DH_KERNEL = 4;
+    const IDX_DH_BIAS   = 5;
+    const IDX_DO_KERNEL = 6;
+
+    function denseHiddenKernelToNeuronMatrix(flatArray, shape) {
       const inDim = shape[0];
-      const hiddenMax = shape[1];
-      const H = Math.min(activeSize, hiddenMax);
-      const matrix = [];
+      const H = shape[1];
+      const mat = [];
       for (let h = 0; h < H; h++) {
         const neuron = [];
         for (let i = 0; i < inDim; i++) {
-          const idx = i * hiddenMax + h;
+          const idx = i * H + h;
           neuron.push(flatArray[idx]);
         }
-        matrix.push(neuron);
+        mat.push(neuron);
       }
-      return matrix;
+      return mat;
     }
 
     function euclideanDistance(a, b) {
@@ -967,9 +809,7 @@ async function getTrustScoreForSnapshot(snap) {
     }
 
     function computeCostMatrix(localMat, neighMat) {
-      const Hloc = localMat.length;
-      const Hnei = neighMat.length;
-      const H = Math.min(Hloc, Hnei);
+      const H = Math.min(localMat.length, neighMat.length);
       const C = [];
       for (let i = 0; i < H; i++) {
         const row = [];
@@ -982,119 +822,49 @@ async function getTrustScoreForSnapshot(snap) {
     }
 
     function runSinkhorn(costMatrix, baseEpsFactor = 0.25, iterations = 20) {
-  const H = costMatrix.length;
-  if (!H) return { P: [] };
+      const H = costMatrix.length;
+      if (!H) return { P: [] };
 
-  // Stima della scala tipica dei costi
-  let sum = 0;
-  let count = 0;
-  for (let i = 0; i < H; i++) {
-    for (let j = 0; j < H; j++) {
-      sum += costMatrix[i][j];
-      count++;
-    }
-  }
-  const meanC = count > 0 ? sum / count : 1.0;
-  const epsilon = Math.max(meanC * baseEpsFactor, 1e-6);
-
-  // Kernel entropico iniziale
-  const P = [];
-  for (let i = 0; i < H; i++) {
-    const row = [];
-    for (let j = 0; j < H; j++) {
-      row.push(Math.exp(-costMatrix[i][j] / epsilon));
-    }
-    P.push(row);
-  }
-
-  // Normalizzazione alternata (righe/colonne)
-  for (let it = 0; it < iterations; it++) {
-    // righe
-    for (let i = 0; i < H; i++) {
-      let s = 0;
-      for (let j = 0; j < H; j++) s += P[i][j];
-      if (s > 0) {
-        for (let j = 0; j < H; j++) P[i][j] /= s;
+      let sum = 0, cnt = 0;
+      for (let i = 0; i < H; i++) {
+        for (let j = 0; j < H; j++) {
+          sum += costMatrix[i][j];
+          cnt++;
+        }
       }
-    }
-    // colonne
-    for (let j = 0; j < H; j++) {
-      let s = 0;
-      for (let i = 0; i < H; i++) s += P[i][j];
-      if (s > 0) {
-        for (let i = 0; i < H; i++) P[i][j] /= s;
+      const meanC = cnt > 0 ? sum / cnt : 1.0;
+      const epsilon = Math.max(meanC * baseEpsFactor, 1e-6);
+
+      const P = [];
+      for (let i = 0; i < H; i++) {
+        const row = [];
+        for (let j = 0; j < H; j++) {
+          row.push(Math.exp(-costMatrix[i][j] / epsilon));
+        }
+        P.push(row);
       }
+
+      for (let it = 0; it < iterations; it++) {
+        // normalizza righe
+        for (let i = 0; i < H; i++) {
+          let s = 0;
+          for (let j = 0; j < H; j++) s += P[i][j];
+          if (s > 0) {
+            for (let j = 0; j < H; j++) P[i][j] /= s;
+          }
+        }
+        // normalizza colonne
+        for (let j = 0; j < H; j++) {
+          let s = 0;
+          for (let i = 0; i < H; i++) s += P[i][j];
+          if (s > 0) {
+            for (let i = 0; i < H; i++) P[i][j] /= s;
+          }
+        }
+      }
+
+      return { P };
     }
-  }
-
-  return { P };
-}
-
-function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neighActive) {
-  const H = Math.min(localActive, neighActive);
-  if (H === 0) return { arraysAligned: arraysNeigh, quality: 0 };
-
-  const kernelShape = shapes[IDX_DH_KERNEL];
-  const localKernel = arraysLocal[IDX_DH_KERNEL];
-  const neighKernel = arraysNeigh[IDX_DH_KERNEL];
-  const localMat = denseHiddenKernelToNeuronMatrix(localKernel, kernelShape, localActive);
-  const neighMat = denseHiddenKernelToNeuronMatrix(neighKernel, kernelShape, neighActive);
-
-  const C = computeCostMatrix(localMat.slice(0, H), neighMat.slice(0, H));
-  const { P } = runSinkhorn(C, 0.25, 20);
-  const perm = argmaxPermutation(P);
-
-  // qualità normalizzata: 0 ≈ matching casuale, 1 ≈ matching perfetto
-  let diagSum = 0;
-  for (let i = 0; i < H; i++) {
-    diagSum += P[i][perm[i]];
-  }
-  const meanDiag = diagSum / H;
-  const uniformDiag = 1.0 / H;
-  let qNorm = (meanDiag - uniformDiag) / (1 - uniformDiag + 1e-6);
-  qNorm = clamp(qNorm, 0, 1);
-
-  devLog(
-    `Sinkhorn align: H=${H}, meanDiag=${meanDiag.toFixed(3)}, qNorm=${qNorm.toFixed(3)}`
-  );
-
-  // Permutazione dei neuroni nella rete del vicino
-  const alignedNeighArrays = arraysNeigh.map(arr => arr.slice());
-  const neighKernelFlat = alignedNeighArrays[IDX_DH_KERNEL];
-  const neighBiasFlat   = alignedNeighArrays[IDX_DH_BIAS];
-  const neighOutKernel  = alignedNeighArrays[IDX_DO_KERNEL];
-  const inDim = kernelShape[0];
-  const hiddenMax = kernelShape[1];
-
-  for (let h = 0; h < H; h++) {
-    const srcH = perm[h];
-    if (srcH === h) continue;
-    // dense_hidden kernel
-    for (let i = 0; i < inDim; i++) {
-      const idx1 = i * hiddenMax + h;
-      const idx2 = i * hiddenMax + srcH;
-      const tmp = neighKernelFlat[idx1];
-      neighKernelFlat[idx1] = neighKernelFlat[idx2];
-      neighKernelFlat[idx2] = tmp;
-    }
-    // dense_hidden bias
-    const tmpb = neighBiasFlat[h];
-    neighBiasFlat[h] = neighBiasFlat[srcH];
-    neighBiasFlat[srcH] = tmpb;
-    // dense_out kernel
-    const numClasses = shapes[IDX_DO_KERNEL][1];
-    for (let c = 0; c < numClasses; c++) {
-      const idx1 = h * numClasses + c;
-      const idx2 = srcH * numClasses + c;
-      const tmp2 = neighOutKernel[idx1];
-      neighOutKernel[idx1] = neighOutKernel[idx2];
-      neighOutKernel[idx2] = tmp2;
-    }
-  }
-  return { arraysAligned: alignedNeighArrays, quality: qNorm };
-}
-
-
 
     function argmaxPermutation(P) {
       const H = P.length;
@@ -1102,10 +872,10 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
       const used = new Array(H).fill(false);
       for (let i = 0; i < H; i++) {
         let bestJ = 0;
-        let bestVal = -Infinity;
+        let best = -Infinity;
         for (let j = 0; j < H; j++) {
-          if (!used[j] && P[i][j] > bestVal) {
-            bestVal = P[i][j];
+          if (!used[j] && P[i][j] > best) {
+            best = P[i][j];
             bestJ = j;
           }
         }
@@ -1115,53 +885,146 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
       return perm;
     }
 
+    function alignNeighborHidden(shapes, arraysLocal, arraysNeigh) {
+      const kernelShape = shapes[IDX_DH_KERNEL];
+      const localKernel = arraysLocal[IDX_DH_KERNEL];
+      const neighKernel = arraysNeigh[IDX_DH_KERNEL];
+      const localMat = denseHiddenKernelToNeuronMatrix(localKernel, kernelShape);
+      const neighMat = denseHiddenKernelToNeuronMatrix(neighKernel, kernelShape);
 
+      const H = Math.min(localMat.length, neighMat.length);
+      if (!H) return { arraysAligned: arraysNeigh, quality: 0 };
 
-   function robustAggregateTwo(shapes, arraysA, arraysB, stepAlpha) {
-  // stepAlpha è la "forza" con cui il vicino influenza il modello globale
-  const alpha = clamp(stepAlpha, 0.01, 0.15); // max 15% per fusione
-  const out = [];
-  for (let t = 0; t < arraysA.length; t++) {
-    const a = arraysA[t];
-    const b = arraysB[t];
-    const n = a.length;
-    const r = new Float32Array(n);
-    for (let i = 0; i < n; i++) {
-      r[i] = (1 - alpha) * a[i] + alpha * b[i];
+      const C = computeCostMatrix(localMat.slice(0, H), neighMat.slice(0, H));
+      const { P } = runSinkhorn(C, 0.25, 20);
+      const perm = argmaxPermutation(P);
+
+      let diagSum = 0;
+      for (let i = 0; i < H; i++) diagSum += P[i][perm[i]];
+      const meanDiag = diagSum / H;
+      const uniformDiag = 1.0 / H;
+      let q = (meanDiag - uniformDiag) / (1 - uniformDiag + 1e-6);
+      q = clamp(q, 0, 1);
+
+      devLog(`Sinkhorn: H=${H}, meanDiag=${meanDiag.toFixed(3)}, q=${q.toFixed(3)}`);
+
+      const aligned = arraysNeigh.map(a => a.slice());
+      const neighKernelFlat = aligned[IDX_DH_KERNEL];
+      const neighBiasFlat   = aligned[IDX_DH_BIAS];
+      const neighOutKernel  = aligned[IDX_DO_KERNEL];
+      const inDim = kernelShape[0];
+      const Hmax = kernelShape[1];
+
+      for (let h = 0; h < H; h++) {
+        const srcH = perm[h];
+        if (srcH === h) continue;
+        for (let i = 0; i < inDim; i++) {
+          const idx1 = i * Hmax + h;
+          const idx2 = i * Hmax + srcH;
+          const tmp = neighKernelFlat[idx1];
+          neighKernelFlat[idx1] = neighKernelFlat[idx2];
+          neighKernelFlat[idx2] = tmp;
+        }
+        const tmpb = neighBiasFlat[h];
+        neighBiasFlat[h] = neighBiasFlat[srcH];
+        neighBiasFlat[srcH] = tmpb;
+
+        const outShape = shapes[IDX_DO_KERNEL]; // [Hmax, NUM_CLASSES]
+        const numClasses = outShape[1];
+        for (let c = 0; c < numClasses; c++) {
+          const idx1 = h * numClasses + c;
+          const idx2 = srcH * numClasses + c;
+          const tmp2 = neighOutKernel[idx1];
+          neighOutKernel[idx1] = neighOutKernel[idx2];
+          neighOutKernel[idx2] = tmp2;
+        }
+      }
+
+      return { arraysAligned: aligned, quality: q };
     }
-    out.push(r);
-  }
-  return out;
-}
-
 
     /******************************************************************
-     * UI: CHARTS, STATO, MESH
+     * TRUST: MINI-VALIDATION (MESSAGE TEST TASK)
      ******************************************************************/
-    function initCharts() {
-      const localCtx = document.getElementById("localLossChart").getContext("2d");
-      localLossChart = new Chart(localCtx, {
-        type: "line",
-        data: { labels: [], datasets: [{ label: "Loss locale", data: [], tension: 0.2 }] },
-        options: {
-          responsive: true,
-          scales: { x: { display: false }, y: { display: true } },
-          plugins: { legend: { display: false } }
-        }
-      });
+    async function computeTrustScoreForSnapshot(snap) {
+      if (!valManifest || !valManifest.items || !valManifest.items.length) {
+        devLog("Trust: valManifest non pronto → trust neutrale=0.5");
+        return 0.5;
+      }
+      const d = snap.data || {};
+      const peerId = d.clientId || "unknown";
 
-      const globalCtx = document.getElementById("globalLossChart").getContext("2d");
-      globalLossChart = new Chart(globalCtx, {
-        type: "line",
-        data: { labels: [], datasets: [{ label: "Loss globale (modello fuso)", data: [], tension: 0.2 }] },
-        options: {
-          responsive: true,
-          scales: { x: { display: false }, y: { display: true } },
-          plugins: { legend: { display: false } }
+      devLog(`Trust: valuto snapshot ${snap.id} da client ${peerId}`);
+
+      const { shapes, arrays } = dequantizeSnapshot(d);
+      try {
+        const m = buildModel();
+        const tensors = arrays.map((arr, idx) =>
+          tf.tensor(arr, shapes[idx], "float32")
+        );
+        m.setWeights(tensors);
+        tensors.forEach(t => t.dispose());
+
+        const B = Math.min(TRUST_VAL_BATCH, valManifest.items.length);
+        const batch = await loadBatchFromManifest(valManifest, B);
+        const evalRes = await m.evaluate(batch.xs, batch.ys, {
+          batchSize: VAL_BATCH_SIZE,
+          verbose: 0
+        });
+        let lossT, accT;
+        if (Array.isArray(evalRes)) {
+          lossT = evalRes[0];
+          accT  = evalRes[1];
+        } else {
+          lossT = evalRes;
+          accT  = null;
         }
-      });
+
+        let acc = null;
+        if (accT) {
+          const accArr = await accT.data();
+          acc = accArr[0];
+          accT.dispose();
+        }
+        const lossArr = await lossT.data();
+        const loss = lossArr[0];
+        lossT.dispose();
+
+        batch.xs.dispose();
+        batch.ys.dispose();
+        m.dispose();
+
+        if (acc == null || !Number.isFinite(acc)) {
+          devLog(`Trust: acc=null/NaN per snapshot ${snap.id} → trust=0`);
+          return 0;
+        }
+
+        const trust = clamp((acc - 0.10) / 0.90, 0, 1);
+        devLog(`Trust: acc=${(acc*100).toFixed(1)}%, loss=${loss.toFixed(3)} → trust=${trust.toFixed(3)}`);
+        return trust;
+      } catch (e) {
+        console.warn("Errore computeTrustScoreForSnapshot:", e);
+        devLog("Trust: errore su snapshot " + snap.id + ": " + e.message);
+        return 0;
+      }
     }
 
+    async function getTrustScoreForSnapshot(snap) {
+      const d = snap.data || {};
+      const peerId = d.clientId || "unknown";
+      const now = Date.now();
+      const existing = trustScores.get(peerId);
+      if (existing && now - existing.ts < TRUST_CACHE_TTL_MS) {
+        return existing.score;
+      }
+      const score = await computeTrustScoreForSnapshot(snap);
+      trustScores.set(peerId, { score, ts: now });
+      return score;
+    }
+
+    /******************************************************************
+     * TRAINING LOOP (ADAPT) - UNICO MODELLO
+     ******************************************************************/
     function pushChartPoint(chart, value) {
       if (!chart || value == null || !Number.isFinite(value)) return;
       chart.data.labels.push("");
@@ -1173,82 +1036,395 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
       chart.update("quiet");
     }
 
-    function updateLocalStatusUI() {
-      document.getElementById("tf-backend").textContent = tf.getBackend() || "–";
-      document.getElementById("tf-version").textContent = "TF.js " + (tf.version ? tf.version.tfjs : "");
+    async function trainingLoop(clientRef, snapshotsColRef) {
+      devLog("Training loop avviato.");
+      while (true) {
+        let xs=null, ys=null;
+        const t0 = performance.now();
+        try {
+          const batch = await loadBatchFromManifest(trainManifest, TRAIN_BATCH_SIZE);
+          xs = batch.xs;
+          ys = batch.ys;
 
-      document.getElementById("samples-trained").textContent = samplesTrained.toString();
-      document.getElementById("batches-trained").textContent = batchesTrained + " batch";
+          const history = await model.fit(xs, ys, {
+            epochs: 1,
+            batchSize: TRAIN_BATCH_SIZE,
+            shuffle: true,
+            verbose: 0
+          });
+          const t1 = performance.now();
+
+          xs.dispose();
+          ys.dispose();
+          xs = null; ys = null;
+
+          const loss = history.history.loss[0];
+          if (!Number.isFinite(loss)) {
+            devLog("Loss NaN/Inf. Resetto modello locale.");
+            model.dispose();
+            model = buildModel();
+            localSteps = 0;
+            localSamples = 0;
+            lastTrainLoss = null;
+            lastValLoss = null;
+            await saveLocalMeta();
+            updateLocalUI();
+            await sleep(TRAINING_PAUSE_MS);
+            continue;
+          }
+
+          localSteps += 1;
+          localSamples += TRAIN_BATCH_SIZE;
+          lastTrainLoss = loss;
+
+          const batchMs = t1 - t0;
+          if (avgBatchMs === 0) avgBatchMs = batchMs;
+          else avgBatchMs = avgBatchMs*0.9 + batchMs*0.1;
+
+          pushChartPoint(localLossChart, loss);
+          devLog(`Train step=${localSteps}, loss=${loss.toFixed(4)}, samples=${localSamples}`);
+
+          if (localSteps % VALIDATION_EVERY_STEPS === 0) {
+            try {
+              const vb = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
+              const evalRes = await model.evaluate(vb.xs, vb.ys, {
+                batchSize: VAL_BATCH_SIZE,
+                verbose: 0
+              });
+              let lossT;
+              if (Array.isArray(evalRes)) lossT = evalRes[0];
+              else lossT = evalRes;
+              const arr = await lossT.data();
+              const vLoss = arr[0];
+              lossT.dispose();
+              vb.xs.dispose();
+              vb.ys.dispose();
+              if (Number.isFinite(vLoss)) {
+                lastValLoss = vLoss;
+                devLog(`Val loss=${vLoss.toFixed(4)}`);
+              }
+            } catch (e) {
+              console.warn("Errore validation:", e);
+              devLog("Errore validation: " + e.message);
+            }
+          }
+
+          if (localSteps % SNAPSHOT_EVERY_STEPS === 0) {
+            const { shapes, arrays } = extractLocalWeights();
+            const q = quantizeWeights(shapes, arrays);
+            const snapshotDoc = {
+              clientId,
+              createdAt: serverTimestamp(),
+              localSteps,
+              localSamples,
+              localValLoss: lastValLoss,
+              shapes: q.shapes,
+              scales: q.scales,
+              quantArrays: q.quantArrays
+            };
+            await addDoc(snapshotsColRef, snapshotDoc);
+            await saveLocalMeta();
+            devLog("Snapshot pubblicato.");
+          }
+
+          await setDoc(clientRef, {
+            lastSeen: serverTimestamp(),
+            localSteps,
+            localSamples,
+            localValLoss: lastValLoss
+          }, { merge: true });
+
+          updateLocalUI();
+          await sleep(TRAINING_PAUSE_MS);
+        } catch (e) {
+          if (xs) xs.dispose();
+          if (ys) ys.dispose();
+          console.error("Errore trainingLoop:", e);
+          devLog("Errore trainingLoop: " + e.message);
+          await sleep(TRAINING_PAUSE_MS);
+        }
+      }
+    }
+
+    /******************************************************************
+     * COMBINE LOOP (THEN-COMBINE): AGGIORNA *MODEL* CON SNAPSHOT VICINI
+     ******************************************************************/
+    async function combineLoop() {
+      devLog("Combine loop ATC avviato.");
+      while (true) {
+        await sleep(COMBINE_INTERVAL_MS);
+        try {
+          if (!model || !recentSnapshots.length || localSteps < COMBINE_WARMUP_STEPS) {
+            continue;
+          }
+          const { shapes, arrays: arraysLocal } = extractLocalWeights();
+          const combinedArrays = arraysLocal.map(a => a.slice());
+
+          let used = 0;
+          let trustAccum = 0;
+          let sinkAccum = 0;
+
+          const now = Date.now();
+          const candidates = recentSnapshots.filter(
+            s => s.data && s.data.clientId !== clientId
+          );
+
+          for (const snap of candidates) {
+            const d = snap.data;
+            const createdAt = d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : snap.localTimestamp || now;
+            const ageSec = (now - createdAt) / 1000;
+            const timeFactor = Math.exp(-ageSec / 120); // 2 minuti
+
+            if (timeFactor < 0.1) {
+              devLog(`Combine: snapshot ${snap.id} troppo vecchio (${ageSec.toFixed(1)}s) → skip.`);
+              continue;
+            }
+
+            const trust = await getTrustScoreForSnapshot(snap);
+            if (trust < 0.2) {
+              devLog(`Combine: snapshot ${snap.id} trust basso (${trust.toFixed(3)}) → skip.`);
+              continue;
+            }
+
+            const neigh = dequantizeSnapshot(d);
+            if (JSON.stringify(neigh.shapes) !== JSON.stringify(shapes)) {
+              devLog(`Combine: snapshot ${snap.id} shape diversa → skip.`);
+              continue;
+            }
+
+            const { arraysAligned, quality } = alignNeighborHidden(
+              shapes,
+              arraysLocal,
+              neigh.arrays
+            );
+            if (!Number.isFinite(quality)) {
+              devLog(`Combine: snapshot ${snap.id} quality NaN → skip.`);
+              continue;
+            }
+
+            const score = trust * quality * timeFactor;
+            if (score < 0.15) {
+              devLog(`Combine: snapshot ${snap.id} score basso (${score.toFixed(3)}) → skip.`);
+              continue;
+            }
+
+            const stepAlpha = clamp(0.08 * score, 0.01, 0.10);
+
+            for (let t = 0; t < combinedArrays.length; t++) {
+              const base = arraysLocal[t];
+              const neighArr = arraysAligned[t];
+              const out = combinedArrays[t];
+              for (let i = 0; i < out.length; i++) {
+                out[i] += stepAlpha * (neighArr[i] - base[i]);
+              }
+            }
+
+            used += 1;
+            trustAccum += trust;
+            sinkAccum += quality;
+            devLog(
+              `Combine step con ${snap.id}: trust=${trust.toFixed(3)}, quality=${quality.toFixed(
+                3
+              )}, age=${ageSec.toFixed(1)}s, alpha=${stepAlpha.toFixed(3)}`
+            );
+          }
+
+          if (used === 0) {
+            continue;
+          }
+
+          sanitizeWeightArrays(combinedArrays);
+          applyWeightsToModel(shapes, combinedArrays);
+          await saveLocalMeta();
+
+          lastCombineTime = Date.now();
+          lastCombineNeighbors = used;
+          lastCombineTrustMean = trustAccum / used;
+          lastCombineSinkhornMean = sinkAccum / used;
+
+          // Valutazione rapida dopo fusione
+          if (valManifest && valManifest.items && valManifest.items.length) {
+            const vb = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
+            const evalRes = await model.evaluate(vb.xs, vb.ys, {
+              batchSize: VAL_BATCH_SIZE,
+              verbose: 0
+            });
+            let lossT;
+            if (Array.isArray(evalRes)) lossT = evalRes[0];
+            else lossT = evalRes;
+            const arr = await lossT.data();
+            const vLoss = arr[0];
+            lossT.dispose();
+            vb.xs.dispose();
+            vb.ys.dispose();
+            if (Number.isFinite(vLoss)) {
+              lastCombineValLoss = vLoss;
+              pushChartPoint(globalLossChart, vLoss);
+              devLog(`Combine: valLoss dopo fusione=${vLoss.toFixed(4)}`);
+            }
+          }
+
+          updateCombineUI();
+        } catch (e) {
+          console.error("Errore combineLoop:", e);
+          devLog("Errore combineLoop: " + e.message);
+        }
+      }
+    }
+
+    /******************************************************************
+     * FIREBASE: CLIENTS + SNAPSHOTS
+     ******************************************************************/
+    function subscribeClientsAndSnapshots(db, roomId) {
+      const clientsRef = collection(db, "rooms", roomId, "clients");
+      const snapsRef   = collection(db, "rooms", roomId, "snapshots");
+
+      onSnapshot(clientsRef, (snap) => {
+        clientsState.clear();
+        const now = Date.now();
+        snap.forEach(docSnap => {
+          const d = docSnap.data();
+          let lastSeen = d.lastSeen && d.lastSeen.toMillis ? d.lastSeen.toMillis() : null;
+          const offline = lastSeen && (now - lastSeen > OFFLINE_THRESHOLD_MS);
+          if (offline) return;
+          clientsState.set(docSnap.id, {
+            localSteps: d.localSteps ?? 0,
+            localSamples: d.localSamples ?? 0,
+            localValLoss: d.localValLoss ?? null,
+            lastSeen
+          });
+        });
+        updateCombineUI();
+        drawMesh();
+      });
+
+      const qSnaps = query(snapsRef, orderBy("createdAt", "desc"), limit(10));
+      onSnapshot(qSnaps, (snap) => {
+        const docs = [];
+        snap.forEach(docSnap => {
+          docs.push({
+            id: docSnap.id,
+            data: docSnap.data(),
+            localTimestamp: Date.now()
+          });
+        });
+        recentSnapshots = docs;
+      });
+
+      return { clientsRef, snapsRef };
+    }
+
+    /******************************************************************
+     * UI: CHARTS, STATO, MESH
+     ******************************************************************/
+    function initCharts() {
+      const ctxL = document.getElementById("localLossChart").getContext("2d");
+      localLossChart = new Chart(ctxL, {
+        type: "line",
+        data: { labels: [], datasets: [{ label: "Loss locale", data: [], tension: 0.2 }] },
+        options: {
+          responsive: true,
+          scales: { x: { display: false }, y: { display: true } },
+          plugins: { legend: { display: false } }
+        }
+      });
+
+      const ctxG = document.getElementById("globalLossChart").getContext("2d");
+      globalLossChart = new Chart(ctxG, {
+        type: "line",
+        data: { labels: [], datasets: [{ label: "Val loss dopo combine", data: [], tension: 0.2 }] },
+        options: {
+          responsive: true,
+          scales: { x: { display: false }, y: { display: true } },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    function updateLocalUI() {
+      document.getElementById("tf-backend").textContent = tf.getBackend() || "–";
+      document.getElementById("tf-version").textContent =
+        "TF.js " + (tf.version ? tf.version.tfjs : "");
+
+      document.getElementById("local-steps").textContent = localSteps.toString();
+      document.getElementById("local-samples").textContent = `${localSamples} samples`;
+      document.getElementById("local-loss").textContent =
+        lastTrainLoss != null && Number.isFinite(lastTrainLoss)
+          ? lastTrainLoss.toFixed(4)
+          : "–";
+      document.getElementById("local-valloss").textContent =
+        lastValLoss != null && Number.isFinite(lastValLoss)
+          ? "validation: " + lastValLoss.toFixed(4)
+          : "validation: –";
+
       document.getElementById("batch-ms").textContent = formatMs(avgBatchMs);
-      const throughput = avgBatchMs > 0 ? (TRAIN_BATCH_SIZE / (avgBatchMs / 1000)).toFixed(1) + " img/s" : "–";
-      document.getElementById("throughput").textContent = throughput;
+      const thr = avgBatchMs > 0 ? (TRAIN_BATCH_SIZE / (avgBatchMs / 1000)).toFixed(1) + " img/s" : "–";
+      document.getElementById("throughput").textContent = thr;
 
       const battLevelEl = document.getElementById("battery-level");
       const battStatusEl = document.getElementById("battery-status");
       if (batteryInfo) {
-        const level = Math.round(batteryInfo.level * 100);
-        battLevelEl.textContent = level + " %";
+        const lvl = Math.round(batteryInfo.level * 100);
+        battLevelEl.textContent = lvl + " %";
         battStatusEl.textContent = batteryInfo.charging ? "in carica" : "su batteria";
       } else {
         battLevelEl.textContent = "–";
         battStatusEl.textContent = "API non disponibile";
       }
 
-      document.getElementById("local-loss").textContent =
-        lastTrainLoss != null && Number.isFinite(lastTrainLoss) ? lastTrainLoss.toFixed(4) : "–";
-      document.getElementById("val-loss").textContent =
-        lastValLoss != null && Number.isFinite(lastValLoss)
-          ? "validation: " + lastValLoss.toFixed(4)
-          : "validation: –";
-
-      document.getElementById("hidden-size").textContent = activeHiddenSize + " / " + HIDDEN_MAX;
-      document.getElementById("hidden-policy").textContent = "rete locale: dimensione fissa";
-      document.getElementById("sinkhorn-quality").textContent =
-        lastSinkhornQuality != null && Number.isFinite(lastSinkhornQuality)
-          ? lastSinkhornQuality.toFixed(3)
-          : "–";
+      document.getElementById("hidden-size").textContent = HIDDEN_UNITS.toString();
     }
 
-    function updateGlobalStatusUI() {
-      document.getElementById("clients-count").textContent = "Nodi: " + clientsState.size;
-      document.getElementById("global-loss").textContent =
-        lastGlobalValLoss != null && Number.isFinite(lastGlobalValLoss)
-          ? lastGlobalValLoss.toFixed(4)
+    function updateCombineUI() {
+      document.getElementById("clients-count").textContent =
+        "Nodi: " + clientsState.size.toString();
+
+      if (lastCombineTime) {
+        const ageSec = Math.round((Date.now() - lastCombineTime) / 1000);
+        document.getElementById("combine-age").textContent =
+          ageSec + " s fa";
+      } else {
+        document.getElementById("combine-age").textContent = "–";
+      }
+
+      document.getElementById("combine-neighbors").textContent =
+        lastCombineNeighbors > 0
+          ? `${lastCombineNeighbors} vicini usati`
+          : "nessuna fusione recente";
+
+      document.getElementById("combine-trust").textContent =
+        lastCombineTrustMean != null
+          ? (lastCombineTrustMean * 100).toFixed(1) + " %"
           : "–";
 
-      document.getElementById("snapshots-count").textContent = lastSnapshots.length.toString();
-      const lastSnapshotAgeEl = document.getElementById("last-snapshot-age");
-      if (lastSnapshots.length > 0) {
-        const last = lastSnapshots[0];
-        if (last.localTimestamp) {
-          const ageS = Math.round((Date.now() - last.localTimestamp) / 1000);
-          lastSnapshotAgeEl.textContent = "ultimo snapshot ≈ " + ageS + " s fa";
-        } else {
-          lastSnapshotAgeEl.textContent = "ultimo snapshot: –";
-        }
-      } else {
-        lastSnapshotAgeEl.textContent = "nessuno snapshot ancora";
-      }
+      document.getElementById("combine-sinkhorn").textContent =
+        lastCombineSinkhornMean != null
+          ? lastCombineSinkhornMean.toFixed(3)
+          : "–";
     }
 
     function resizeMeshCanvas() {
-      const rect = meshCanvas.getBoundingClientRect();
-      meshCanvas.width = rect.width * window.devicePixelRatio;
-      meshCanvas.height = rect.height * window.devicePixelRatio;
-      meshCtx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+      const canvas = document.getElementById("meshCanvas");
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       drawMesh();
     }
     window.addEventListener("resize", resizeMeshCanvas);
 
     function drawMesh() {
-      const ctx = meshCtx;
-      const width = meshCanvas.clientWidth;
-      const height = meshCanvas.clientHeight;
+      const canvas = document.getElementById("meshCanvas");
+      const ctx = canvas.getContext("2d");
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
       ctx.clearRect(0, 0, width, height);
 
       const entries = Array.from(clientsState.entries());
       const n = entries.length;
-      if (n === 0) return;
+      if (!n) return;
 
       const cx = width / 2;
       const cy = height / 2;
@@ -1260,15 +1436,15 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
         const angle = 2 * Math.PI * i / n;
         const x = cx + radius * Math.cos(angle);
         const y = cy + radius * Math.sin(angle);
-        const cred = data.activeHiddenSize ? (data.activeHiddenSize / HIDDEN_MAX) : 0.5;
-        const r = 10 + 8 * cred;
+        const stepsNorm = Math.min(1, (data.localSteps || 0) / 500);
+        const r = 9 + 7 * stepsNorm;
         meshNodesLayout.set(cid, { x, y, r });
       }
 
       ctx.strokeStyle = "rgba(120,150,255,0.15)";
       ctx.lineWidth = 1;
       for (let i = 0; i < n; i++) {
-        for (let j = i + 1; j < n; j++) {
+        for (let j = i+1; j < n; j++) {
           const [cid1] = entries[i];
           const [cid2] = entries[j];
           const n1 = meshNodesLayout.get(cid1);
@@ -1285,14 +1461,14 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
         const node = meshNodesLayout.get(cid);
         const isSelf = cid === clientId;
         let color = "#4f9cff";
-        const loss = data.localLoss;
-        if (loss != null) {
-          if (loss < 0.4) color = "#57e39f";
-          else if (loss < 0.8) color = "#ffd166";
+        const vLoss = data.localValLoss;
+        if (vLoss != null && Number.isFinite(vLoss)) {
+          if (vLoss < 0.4) color = "#57e39f";
+          else if (vLoss < 0.9) color = "#ffd166";
           else color = "#ff6b6b";
         }
         ctx.beginPath();
-        ctx.arc(node.x, node.y, node.r, 0, 2 * Math.PI);
+        ctx.arc(node.x, node.y, node.r, 0, 2*Math.PI);
         ctx.fillStyle = isSelf ? "#ffffff" : color;
         ctx.fill();
         ctx.lineWidth = isSelf ? 3 : 1.5;
@@ -1301,40 +1477,36 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
       }
     }
 
-    meshCanvas.addEventListener("click", (evt) => {
-      const rect = meshCanvas.getBoundingClientRect();
+    document.getElementById("meshCanvas").addEventListener("click", (evt) => {
+      const canvas = document.getElementById("meshCanvas");
+      const rect = canvas.getBoundingClientRect();
       const x = evt.clientX - rect.left;
       const y = evt.clientY - rect.top;
 
-      if (!meshNodesLayout.size) {
-        console.warn("Nessun nodo nel layout mesh al click.");
-        return;
-      }
+      if (!meshNodesLayout.size) return;
 
       let bestId = null;
-      let bestDist2 = Infinity;
+      let bestD2 = Infinity;
       for (const [cid, node] of meshNodesLayout.entries()) {
         const dx = x - node.x;
         const dy = y - node.y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < bestDist2) {
-          bestDist2 = d2;
+        const d2 = dx*dx + dy*dy;
+        if (d2 < bestD2) {
+          bestD2 = d2;
           bestId = cid;
         }
       }
       if (!bestId) return;
-
       const node = meshNodesLayout.get(bestId);
-      const maxDist2 = (meshNodesLayout.size === 1) ? Infinity : (4 * node.r * node.r);
-      if (bestDist2 <= maxDist2) {
-        showNodeDetails(bestId);
-      }
+      const maxD2 = node.r * node.r * 4;
+      if (bestD2 > maxD2 && meshNodesLayout.size > 1) return;
+      showNodeDetails(bestId);
     });
 
     function showNodeDetails(cid) {
-      const data = clientsState.get(cid);
+      const d = clientsState.get(cid);
       const body = document.getElementById("node-details-body");
-      if (!data) {
+      if (!d) {
         body.textContent = "Nessun dato per questo nodo.";
         return;
       }
@@ -1342,18 +1514,22 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
       const lines = [];
       lines.push(`<div><strong>${isSelf ? "Questo nodo" : "Nodo remoto"}</strong></div>`);
       lines.push(`<div style="word-break:break-all;font-size:0.7rem;">ID: ${cid}</div>`);
-      lines.push(`<div>Loss locale: ${data.localLoss != null && Number.isFinite(data.localLoss) ? data.localLoss.toFixed(4) : "–"}</div>`);
-      lines.push(`<div>Val loss: ${data.valLoss != null && Number.isFinite(data.valLoss) ? data.valLoss.toFixed(4) : "–"}</div>`);
-      lines.push(`<div>Neuroni nascosti attivi (meta): ${data.activeHiddenSize ?? "?"} / ${HIDDEN_MAX}</div>`);
-      lines.push(`<div>Samples macinati: ${data.numSamplesTrained ?? 0}</div>`);
-            const trustEntry = trustScores.get(cid);
+      lines.push(`<div>Steps: ${d.localSteps ?? 0}</div>`);
+      lines.push(`<div>Samples: ${d.localSamples ?? 0}</div>`);
+      lines.push(`<div>Val loss: ${
+        d.localValLoss != null && Number.isFinite(d.localValLoss)
+          ? d.localValLoss.toFixed(4)
+          : "–"
+      }</div>`);
+      const trustEntry = trustScores.get(cid);
       if (trustEntry && typeof trustEntry.score === "number") {
         lines.push(
-          `<div>Trust locale: ${(trustEntry.score * 100).toFixed(1)} %</div>`
+          `<div>Trust (locale): ${(trustEntry.score*100).toFixed(1)} %</div>`
         );
       }
-
-      lines.push(`<div>Ultimo visto: ${data.lastSeen ? new Date(data.lastSeen).toLocaleTimeString() : "–"}</div>`);
+      lines.push(`<div>Ultimo visto: ${
+        d.lastSeen ? new Date(d.lastSeen).toLocaleTimeString() : "–"
+      }</div>`);
       body.innerHTML = lines.join("");
     }
 
@@ -1364,73 +1540,44 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
       if ("getBattery" in navigator) {
         navigator.getBattery().then(b => {
           batteryInfo = b;
-          b.addEventListener("levelchange", updateLocalStatusUI);
-          b.addEventListener("chargingchange", updateLocalStatusUI);
-          updateLocalStatusUI();
-        }).catch(() => {});
+          b.addEventListener("levelchange", updateLocalUI);
+          b.addEventListener("chargingchange", updateLocalUI);
+          updateLocalUI();
+        }).catch(()=>{});
       }
     }
 
     /******************************************************************
-     * TESTER: FILE + SAMPLE GALLERY (locale vs globale)
+     * TESTER: FILE + SAMPLE GALLERY (usa *model* locale)
      ******************************************************************/
-    function probsContainNonFinite(probs) {
-      for (let i = 0; i < probs.length; i++) {
-        if (!Number.isFinite(probs[i])) return true;
+    function probsContainNonFinite(arr) {
+      for (let i = 0; i < arr.length; i++) {
+        if (!Number.isFinite(arr[i])) return true;
       }
       return false;
     }
 
-    async function predictBothModels(xBatch) {
-      const classes = trainManifest?.classes || [];
-      const result = { local: null, global: null };
-
-      // locale
-      const yLocal = model.predict(xBatch);
-      const localProbs = await yLocal.data();
-      yLocal.dispose();
-      if (!probsContainNonFinite(localProbs)) {
-        let bestIdxL = 0;
-        for (let i = 1; i < localProbs.length; i++) {
-          if (localProbs[i] > localProbs[bestIdxL]) bestIdxL = i;
-        }
-        result.local = {
-          probs: Array.from(localProbs),
-          predIdx: bestIdxL,
-          predLabel: classes[bestIdxL] ?? String(bestIdxL)
-        };
+    async function predictOne(x) {
+      const y = model.predict(x);
+      const probs = await y.data();
+      y.dispose();
+      if (probsContainNonFinite(probs)) return null;
+      let best = 0;
+      for (let i = 1; i < probs.length; i++) {
+        if (probs[i] > probs[best]) best = i;
       }
-
-      // globale
-      if (globalModel) {
-        const yGlob = globalModel.predict(xBatch);
-        const globProbs = await yGlob.data();
-        yGlob.dispose();
-        if (!probsContainNonFinite(globProbs)) {
-          let bestIdxG = 0;
-          for (let i = 1; i < globProbs.length; i++) {
-            if (globProbs[i] > globProbs[bestIdxG]) bestIdxG = i;
-          }
-          result.global = {
-            probs: Array.from(globProbs),
-            predIdx: bestIdxG,
-            predLabel: classes[bestIdxG] ?? String(bestIdxG)
-          };
-        }
-      }
-
-      return result;
+      return {
+        probs: Array.from(probs),
+        predIdx: best
+      };
     }
 
     function formatSoftmaxLine(pred, classes) {
-      if (!pred) return "n/d (NaN o modello non pronto)";
+      if (!pred) return "NaN / modello instabile";
       const probsStr = pred.probs
-        .map((p, i) => {
-          const name = classes[i] ?? String(i);
-          return `${name}:${p.toFixed(3)}`;
-        })
+        .map((p, i) => `${classes[i] ?? i}:${p.toFixed(3)}`)
         .join(", ");
-      return `[${probsStr}]  → pred: ${pred.predLabel}`;
+      return `[${probsStr}] → pred: ${classes[pred.predIdx] ?? pred.predIdx}`;
     }
 
     function initTesterUI() {
@@ -1438,9 +1585,9 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
       const btn = document.getElementById("test-btn");
       btn.addEventListener("click", async () => {
         const file = input.files && input.files[0];
-        if (!file || !model || !trainManifest) return;
+        if (!file || !model) return;
         const reader = new FileReader();
-        reader.onload = async () => {
+        reader.onload = () => {
           const img = new Image();
           img.onload = async () => {
             const canvas = document.getElementById("imageLoaderCanvas");
@@ -1453,27 +1600,18 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
             const x = imgTensor.expandDims(0);
             imgTensor.dispose();
 
-            const res = await predictBothModels(x);
+            const pred = await predictOne(x);
             x.dispose();
 
-            const classes = trainManifest.classes || [];
+            const classes = trainManifest?.classes || [];
             const resultEl = document.getElementById("tester-result");
-
-            const localStr  = formatSoftmaxLine(res.local, classes);
-            const globalStr = formatSoftmaxLine(res.global, classes);
-
             resultEl.textContent =
-              `File caricato\n` +
-              `Locale  → ${localStr}\n` +
-              `Globale → ${globalStr}`;
-
-            devLog(
-              `Predizione file: local=${res.local?.predLabel ?? "n/d"}, global=${res.global?.predLabel ?? "n/d"}`
-            );
+              `File caricato\n` + formatSoftmaxLine(pred, classes);
+            devLog("Test file: predIdx=" + (pred?.predIdx ?? "n/d"));
           };
           img.onerror = () => {
             document.getElementById("tester-result").textContent =
-              "Errore caricamento immagine di test.";
+              "Errore caricamento immagine.";
           };
           img.src = reader.result;
         };
@@ -1481,12 +1619,9 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
       });
     }
 
-    function populateSampleImagesGallery() {
+    function populateSampleGallery() {
       const container = document.getElementById("sample-images-container");
-      if (!container || !valManifest || !valManifest.items || !valManifest.items.length) {
-        console.warn("Val manifest non pronto, nessuna immagine di esempio.");
-        return;
-      }
+      if (!container || !valManifest || !valManifest.items || !valManifest.items.length) return;
       container.innerHTML = "";
       const items = valManifest.items;
       const numSamples = Math.min(12, items.length);
@@ -1508,617 +1643,74 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
             .forEach(el => el.classList.remove("selected"));
           imgEl.classList.add("selected");
           try {
-            await runPredictionOnSample(item.url, item.label);
-          } catch (err) {
-            console.error("Errore predizione sample:", err);
-            devLog("Errore predizione sample: " + err);
+            const x = await loadImageAsTensor(item.url);
+            const pred = await predictOne(x);
+            x.dispose();
+            const classes = trainManifest?.classes || [];
+            const trueLabel = classes[item.label] ?? String(item.label);
+            const resultEl = document.getElementById("tester-result");
+            resultEl.textContent =
+              `Sample dal dataset (label reale: ${trueLabel})\n` +
+              formatSoftmaxLine(pred, classes);
+            devLog(
+              `Pred sample (true=${trueLabel}): predIdx=${pred?.predIdx ?? "n/d"}`
+            );
+          } catch (e) {
+            console.error("Errore pred sample:", e);
+            devLog("Errore pred sample: " + e.message);
           }
         });
         container.appendChild(imgEl);
       }
     }
 
-    async function runPredictionOnSample(url, label) {
-      if (!model || !trainManifest) {
-        document.getElementById("tester-result").textContent =
-          "Modello non ancora pronto.";
-        return;
-      }
-      const x = await loadImageAsTensor(url);
-      const res = await predictBothModels(x);
-      x.dispose();
-
-      const classes = trainManifest.classes || [];
-      const trueName = classes[label] ?? String(label);
-
-      const localStr  = formatSoftmaxLine(res.local, classes);
-      const globalStr = formatSoftmaxLine(res.global, classes);
-
-      const resultEl = document.getElementById("tester-result");
-      resultEl.textContent =
-        `Sample dal dataset (label reale: ${trueName})\n` +
-        `Locale  → ${localStr}\n` +
-        `Globale → ${globalStr}`;
-
-      devLog(
-        `Pred sample: true=${trueName}, local=${res.local?.predLabel ?? "n/d"}, global=${res.global?.predLabel ?? "n/d"}`
-      );
-    }
-
     /******************************************************************
-     * PANIC BUTTON (reset locale)
+     * PANIC BUTTON (reset solo locale)
      ******************************************************************/
-    async function doLocalPanicReset() {
-      if (!confirm("Reset locale: il modello e le statistiche su questo dispositivo verranno azzerati. Procedere?")) {
+    async function localPanicReset() {
+      if (!confirm("Reset locale: azzera il modello e le statistiche su questo dispositivo. Procedere?")) {
         return;
       }
-      devLog("Panic reset locale richiesto.");
-
+      devLog("Panic reset richiesto.");
       try {
         localStorage.removeItem(META_STORAGE_KEY);
-      } catch (e) {
-        console.warn("Errore nel cancellare localStorage:", e);
-      }
-
-      stepsTrained = 0;
-      batchesTrained = 0;
-      samplesTrained = 0;
+      } catch {}
+      if (model) model.dispose();
+      model = buildModel();
+      localSteps = 0;
+      localSamples = 0;
       lastTrainLoss = null;
       lastValLoss = null;
-      lastGlobalValLoss = null;
-      activeHiddenSize = HIDDEN_MAX;
-      currentResetToken = null;
-
-      await reinitializeModelWeights();
-      await saveLocalModelAndMeta();
-      updateLocalStatusUI();
-
+      avgBatchMs = 0;
+      await saveLocalMeta();
+      updateLocalUI();
       document.getElementById("tester-result").textContent =
-        "Modello locale resettato. Il training riparte da zero su questo nodo.";
-    }
-
-    function initPanicButton() {
-      const btn = document.getElementById("panic-btn");
-      if (!btn) return;
-      btn.addEventListener("click", () => {
-        doLocalPanicReset().catch(err => console.error("Errore panic reset:", err));
-      });
-    }
-
-    /******************************************************************
-     * FIREBASE SUBSCRIPTIONS (CLIENTS + SNAPSHOTS + ROOM CONTROL)
-     ******************************************************************/
-    function subscribeToClientsAndSnapshots(db, roomId) {
-      const clientsColRef = collection(db, "rooms", roomId, "clients");
-      const snapshotsColRef = collection(db, "rooms", roomId, "snapshots");
-
-      onSnapshot(clientsColRef, (snap) => {
-        clientsState.clear();
-        const now = Date.now();
-        snap.forEach(docSnap => {
-          const d = docSnap.data();
-          let lastSeenMs = null;
-          if (d.lastSeen && d.lastSeen.toMillis) {
-            lastSeenMs = d.lastSeen.toMillis();
-          }
-          const isOffline = lastSeenMs && (now - lastSeenMs > OFFLINE_THRESHOLD_MS);
-          if (isOffline) {
-            return;
-          }
-
-          let localLoss = d.localLoss ?? null;
-          let valLoss   = d.valLoss ?? null;
-          let activeH   = d.activeHiddenSize ?? null;
-          let numS      = d.numSamplesTrained ?? 0;
-
-          if (docSnap.id === clientId) {
-            localLoss = lastTrainLoss;
-            valLoss   = lastValLoss;
-            activeH   = activeHiddenSize;
-            numS      = samplesTrained;
-          }
-
-          clientsState.set(docSnap.id, {
-            localLoss: localLoss,
-            valLoss: valLoss,
-            activeHiddenSize: activeH,
-            numSamplesTrained: numS,
-            lastSeen: lastSeenMs
-          });
-        });
-        updateGlobalStatusUI();
-        drawMesh();
-      });
-
-      const q = query(snapshotsColRef, orderBy("createdAt", "desc"), limit(10));
-      onSnapshot(q, snap => {
-        const docs = [];
-        snap.forEach(docSnap => {
-          const d = docSnap.data();
-          docs.push({ id: docSnap.id, data: d, localTimestamp: Date.now() });
-        });
-        lastSnapshots = docs;
-        updateGlobalStatusUI();
-      });
-
-      return snapshotsColRef;
-    }
-
-    async function handleGlobalResetFromToken(newToken) {
-      devLog("Reset globale rilevato. Nuovo token=" + newToken + ", vecchio=" + currentResetToken);
-      currentResetToken = newToken;
-
-      try {
-        localStorage.removeItem(META_STORAGE_KEY);
-      } catch (e) {
-        console.warn("Errore nel cancellare localStorage durante reset globale:", e);
-      }
-
-      stepsTrained = 0;
-      batchesTrained = 0;
-      samplesTrained = 0;
-      lastTrainLoss = null;
-      lastValLoss = null;
-      lastGlobalValLoss = null;
-      activeHiddenSize = HIDDEN_MAX;
-
-      await reinitializeModelWeights();
-      await saveLocalModelAndMeta();
-      updateLocalStatusUI();
-
-      document.getElementById("tester-result").textContent =
-        "Reset globale stanza rilevato. Modello locale re-inizializzato.";
-    }
-
-    function subscribeToRoomControl(db, roomId) {
-      const roomRef = doc(db, "rooms", roomId);
-      onSnapshot(roomRef, snapshot => {
-        const d = snapshot.data() || {};
-        const token = d.resetToken || null;
-        if (!token) return;
-        if (currentResetToken === null) {
-          currentResetToken = token;
-          devLog("ResetToken stanza iniziale: " + token);
-          return;
-        }
-        if (token !== currentResetToken) {
-          handleGlobalResetFromToken(token).catch(err => console.error("Errore handleGlobalReset:", err));
-        }
-      });
-    }
-
-    async function developerResetRoom() {
-      if (!clientId) {
-        alert("Non sei ancora autenticato su Firebase. Attendi qualche secondo.");
-        return;
-      }
-      if (!confirm("Reset stanza Firebase: tutti i nodi connessi resetteranno il proprio modello locale. Procedere?")) {
-        return;
-      }
-
-      const roomRef = doc(db, "rooms", ROOM_ID);
-      const newToken = "reset-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
-      devLog("Developer reset stanza, nuovo resetToken=" + newToken);
-
-      await setDoc(roomRef, {
-        resetToken: newToken,
-        lastResetBy: clientId,
-        lastResetAt: serverTimestamp()
-      }, { merge: true });
-    }
-
-    function initDeveloperTools() {
-      const devSection = document.getElementById("dev-section");
-      const devBtn = document.getElementById("firebase-reset-btn");
-      if (!devSection || !devBtn) return;
-
-      devBtn.addEventListener("click", () => {
-        developerResetRoom().catch(err => console.error("Errore developerResetRoom:", err));
-      });
-
-      let devTapCount = 0;
-      let devTimer = null;
-      window.addEventListener("keydown", (e) => {
-        if (e.key === "D" && e.shiftKey) {
-          devTapCount++;
-          if (devTapCount >= 3) {
-            devSection.style.display = "block";
-            devLog("Developer section sbloccata (Shift+D x3).");
-          }
-          clearTimeout(devTimer);
-          devTimer = setTimeout(() => { devTapCount = 0; }, 2000);
-        }
-      });
-    }
-
-    /******************************************************************
-     * TRAINING LOOP LOCALE (rete fissa, reset completo su errori)
-     ******************************************************************/
-    async function trainingLoop(clientRef, snapshotsColRef) {
-      devLog("Training loop avviato.");
-      while (true) {
-        let xs = null, ys = null;
-        const t0 = performance.now();
-        try {
-          const batch = await loadBatchFromManifest(trainManifest, TRAIN_BATCH_SIZE);
-          xs = batch.xs;
-          ys = batch.ys;
-
-          const history = await model.fit(xs, ys, {
-            epochs: 1,
-            batchSize: TRAIN_BATCH_SIZE,
-            shuffle: true,
-            verbose: 0
-          });
-          const t1 = performance.now();
-
-          xs.dispose();
-          ys.dispose();
-          xs = null; ys = null;
-
-          let loss = history.history.loss[0];
-
-          if (!Number.isFinite(loss)) {
-            console.warn("Loss NaN/Inf, resetto completamente il modello locale.");
-            devLog("Loss NaN/Inf durante training; recreo il modello locale da zero.");
-
-            await reinitializeModelWeights();
-            lastTrainLoss = null;
-            lastValLoss = null;
-            lastGlobalValLoss = null;
-            stepsTrained = 0;
-            batchesTrained = 0;
-            samplesTrained = 0;
-
-            await saveLocalModelAndMeta();
-            updateLocalStatusUI();
-            await sleep(TRAINING_PAUSE_MS);
-            continue;
-          }
-
-          lastTrainLoss = loss;
-          stepsTrained += 1;
-          batchesTrained += 1;
-          samplesTrained += TRAIN_BATCH_SIZE;
-
-          const batchMs = t1 - t0;
-          if (avgBatchMs === 0) avgBatchMs = batchMs;
-          else avgBatchMs = avgBatchMs * 0.9 + batchMs * 0.1;
-
-          pushChartPoint(localLossChart, loss);
-          devLog(`Train step ${stepsTrained}: loss=${loss.toFixed(4)}, samples=${samplesTrained}`);
-
-          if (stepsTrained % VALIDATION_EVERY_STEPS === 0) {
-            try {
-              const valBatch = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
-              const evalRes = await model.evaluate(valBatch.xs, valBatch.ys, {
-                batchSize: VAL_BATCH_SIZE,
-                verbose: 0
-              });
-              const valLossTensor = Array.isArray(evalRes) ? evalRes[0] : evalRes;
-              const valLossVal = (await valLossTensor.data())[0];
-              if (Number.isFinite(valLossVal)) {
-                lastValLoss = valLossVal;
-                devLog(`Validation: valLoss=${valLossVal.toFixed(4)}`);
-              } else {
-                console.warn("Val loss NaN/Inf ignorata.");
-                devLog("Val loss NaN/Inf ignorata.");
-              }
-              valLossTensor.dispose();
-              valBatch.xs.dispose();
-              valBatch.ys.dispose();
-            } catch (e) {
-              console.warn("Errore validation batch:", e);
-              devLog("Errore validation batch: " + e.message);
-            }
-          }
-
-          if (stepsTrained % SNAPSHOT_EVERY_STEPS === 0) {
-            const { shapes, arrays } = extractFloatWeights();
-            const quant = quantizeWeights(shapes, arrays);
-
-            const shapesMap = {};
-            quant.shapes.forEach((shapeArr, idx) => {
-              shapesMap[idx] = shapeArr;
-            });
-            const quantArraysMap = {};
-            quant.quantArrays.forEach((qArr, idx) => {
-              quantArraysMap[idx] = qArr;
-            });
-
-            const snapshotDoc = {
-              clientId,
-              createdAt: serverTimestamp(),
-              localValLoss: lastValLoss,
-              modelVersion: stepsTrained,
-              shapes: shapesMap,
-              scales: quant.scales,
-              quantArrays: quantArraysMap,
-              activeHiddenSize
-            };
-            await addDoc(snapshotsColRef, snapshotDoc);
-            await saveLocalModelAndMeta();
-            devLog(`Snapshot pubblicato (step=${stepsTrained}, activeH=${activeHiddenSize})`);
-          }
-
-          await setDoc(clientRef, {
-            lastSeen: serverTimestamp(),
-            localLoss: lastTrainLoss,
-            valLoss: lastValLoss,
-            activeHiddenSize,
-            numSamplesTrained: samplesTrained
-          }, { merge: true });
-
-          updateLocalStatusUI();
-          await sleep(TRAINING_PAUSE_MS);
-        } catch (e) {
-          if (xs) xs.dispose();
-          if (ys) ys.dispose();
-          console.error("Errore in trainingLoop step:", e);
-          devLog("Errore trainingLoop step: " + (e && e.message ? e.message : e));
-          if (e && e.stack) {
-            devLog("Stack (primi 300 caratteri): " + e.stack.slice(0, 300) + "...");
-          }
-
-          try {
-            await reinitializeModelWeights();
-          } catch (re) {
-            console.error("Errore reinitializeModelWeights dopo failure:", re);
-            devLog("Errore reinitializeModelWeights: " + re.message);
-          }
-          lastTrainLoss = null;
-          lastValLoss = null;
-          lastGlobalValLoss = null;
-          stepsTrained = 0;
-          batchesTrained = 0;
-          samplesTrained = 0;
-
-          try {
-            await saveLocalModelAndMeta();
-          } catch (se) {
-            console.error("Errore saveLocalModelAndMeta dopo failure:", se);
-            devLog("Errore saveLocalModelAndMeta post-failure: " + se.message);
-          }
-
-          updateLocalStatusUI();
-          await sleep(TRAINING_PAUSE_MS);
-        }
-      }
-    }
-
-    /******************************************************************
-     * FUSIONE DISTRIBUITA: aggiorna globalModel e global loss
-     ******************************************************************/
-    async function fusionLoop() {
-      devLog("Fusion loop (rete globale) avviato.");
-
-      while (true) {
-        await sleep(FUSION_INTERVAL_MS);
-        if (!lastSnapshots.length) continue;
-
-        const candidates = lastSnapshots.filter(
-          s => s.data && s.data.clientId !== clientId
-        );
-        if (!candidates.length) continue;
-
-        if (!globalModelState) {
-          let best = candidates[0];
-          let bestScore =
-            candidates[0].data.localValLoss != null
-              ? candidates[0].data.localValLoss
-              : Infinity;
-
-          for (const s of candidates) {
-            const v =
-              s.data.localValLoss != null ? s.data.localValLoss : Infinity;
-            if (v < bestScore) {
-              bestScore = v;
-              best = s;
-            }
-          }
-
-          const base = dequantizeSnapshot(best.data);
-          const baseActive = clamp(
-            best.data.activeHiddenSize ?? HIDDEN_MAX,
-            HIDDEN_MIN,
-            HIDDEN_MAX
-          );
-
-          globalModelState = {
-            shapes: base.shapes,
-            arrays: base.arrays,
-            activeHiddenSize: baseActive
-          };
-
-          devLog(
-            `Global model inizializzato da snapshot ${best.id} (activeH=${baseActive})`
-          );
-        } else {
-                const { shapes } = globalModelState;
-        let globalArrays = globalModelState.arrays;
-        let globalActive = globalModelState.activeHiddenSize;
-
-        let qualityAccum = 0;
-        let qualityCount = 0;
-
-        const neighbors = candidates.slice(0, FUSION_NEIGHBORS_LIMIT);
-        for (const snap of neighbors) {
-          const d = snap.data;
-          try {
-            const neigh = dequantizeSnapshot(d);
-
-            if (JSON.stringify(neigh.shapes) !== JSON.stringify(shapes)) {
-              devLog(`Fusion: snapshot ${snap.id} ignorato (shape diversa).`);
-              continue;
-            }
-
-            const neighActive = clamp(
-              d.activeHiddenSize ?? globalActive,
-              HIDDEN_MIN,
-              HIDDEN_MAX
-            );
-
-            const { arraysAligned, quality } = alignNeighborHidden(
-              shapes,
-              globalArrays,
-              neigh.arrays,
-              globalActive,
-              neighActive
-            );
-
-            if (!Number.isFinite(quality)) {
-              devLog(`Fusion: snapshot ${snap.id} scartato (quality NaN).`);
-              continue;
-            }
-
-            // Gestione asincronia: penalizziamo snapshot vecchi
-            let ageSec = 0;
-            if (d.createdAt && d.createdAt.toMillis) {
-              ageSec = (Date.now() - d.createdAt.toMillis()) / 1000;
-            } else if (snap.localTimestamp) {
-              ageSec = (Date.now() - snap.localTimestamp) / 1000;
-            }
-            const timeFactor = Math.exp(-ageSec / 120); // 2 minuti → ~1/e
-            const qEff = quality * timeFactor;
-
-            if (qEff < 0.15) {
-              devLog(
-                `Fusion: snapshot ${snap.id} scartato (qEff=${qEff.toFixed(
-                  3
-                )}, age=${ageSec.toFixed(1)}s)`
-              );
-              continue;
-            }
-
-            // 🔐 TRUST: mini-task di validazione sul modello del vicino
-            const trust = await getTrustScoreForSnapshot(snap);
-            if (trust < 0.2) {
-              devLog(
-                `Fusion: snapshot ${snap.id} scartato (trust=${trust.toFixed(3)})`
-              );
-              continue;
-            }
-
-            // α di aggiornamento: dipende da qualità, tempo e trust
-            const stepAlpha = clamp(0.08 * qEff * trust, 0.01, 0.10);
-
-            qualityAccum += quality;
-            qualityCount++;
-
-            globalArrays = robustAggregateTwo(
-              shapes,
-              globalArrays,
-              arraysAligned,
-              stepAlpha
-            );
-
-            const metaAlpha = 0.05;
-            globalActive = Math.round(
-              (1 - metaAlpha) * globalActive + metaAlpha * neighActive
-            );
-            globalActive = clamp(globalActive, HIDDEN_MIN, HIDDEN_MAX);
-
-            devLog(
-              `Fusion step con ${snap.id}: quality=${quality.toFixed(
-                3
-              )}, qEff=${qEff.toFixed(3)}, trust=${trust.toFixed(
-                3
-              )}, alpha=${stepAlpha.toFixed(3)}, globalH=${globalActive}`
-            );
-          } catch (e) {
-            console.warn("Errore nella fusione globale con snapshot", snap.id, e);
-            devLog(
-              "Errore fusione globale con snapshot " + snap.id + ": " + e.message
-            );
-          }
-        }
-
-
-        if (qualityCount > 0) {
-          lastSinkhornQuality = qualityAccum / qualityCount;
-          sanitizeWeightArrays(globalArrays);
-          globalModelState.arrays = globalArrays;
-          globalModelState.activeHiddenSize = globalActive;
-
-          devLog(
-            `Fusion globale aggiornata: neighbors=${neighbors.length}, avgQ=${lastSinkhornQuality.toFixed(
-              3
-            )}, globalH=${globalActive}`
-          );
-        }
-
-        }
-
-        // aggiorna / crea globalModel per inference
-        if (globalModelState) {
-          if (!globalModel) {
-            globalModel = buildModel();
-            devLog("Creato globalModel per inference.");
-          }
-          try {
-            const tensors = globalModelState.arrays.map((arr, idx) =>
-              tf.tensor(arr, globalModelState.shapes[idx], "float32")
-            );
-            globalModel.setWeights(tensors);
-            tensors.forEach(t => t.dispose());
-          } catch (e) {
-            console.warn("Errore setWeights globalModel:", e);
-            devLog("Errore setWeights globalModel: " + e.message);
-          }
-
-          // Valutazione rapida del modello globale
-          try {
-            if (valManifest && valManifest.items && valManifest.items.length > 0) {
-              const valBatch = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
-              const evalRes = await globalModel.evaluate(valBatch.xs, valBatch.ys, {
-                batchSize: VAL_BATCH_SIZE,
-                verbose: 0
-              });
-              const valLossTensor = Array.isArray(evalRes) ? evalRes[0] : evalRes;
-              const valLossVal = (await valLossTensor.data())[0];
-              if (Number.isFinite(valLossVal)) {
-                lastGlobalValLoss = valLossVal;
-                pushChartPoint(globalLossChart, lastGlobalValLoss);
-                devLog(`Global model valLoss=${valLossVal.toFixed(4)}`);
-                updateGlobalStatusUI();
-              }
-              valLossTensor.dispose();
-              valBatch.xs.dispose();
-              valBatch.ys.dispose();
-            }
-          } catch (e) {
-            console.warn("Errore valutazione modello globale:", e);
-            devLog("Errore valutazione modello globale: " + e.message);
-          }
-        }
-      }
+        "Modello locale resettato. Il training riparte da zero.";
     }
 
     /******************************************************************
      * ENTRYPOINT
      ******************************************************************/
     async function start() {
-      devLog("Applicazione avviata.");
+      devLog("Start app.");
       initCharts();
       initTesterUI();
-      initPanicButton();
-      initDeveloperTools();
       initBattery();
       resizeMeshCanvas();
-      updateLocalStatusUI();
-      updateGlobalStatusUI();
+      updateLocalUI();
+      updateCombineUI();
 
-      const { trainManifest: tm, valManifest: vm } = await loadMnistPngManifests();
+      const { trainManifest: tm, valManifest: vm } = await loadMnistManifests();
       trainManifest = tm;
       valManifest   = vm;
-      populateSampleImagesGallery();
+      populateSampleGallery();
 
       try {
         await signInAnonymously(auth);
         devLog("Login anonimo Firebase OK.");
-      } catch (err) {
-        console.error("signInAnonymously error:", err);
-        devLog("Errore login anonimo Firebase: " + err.message);
+      } catch (e) {
+        console.error("Errore signInAnonymously:", e);
+        devLog("Errore signInAnonymously: " + e.message);
         return;
       }
 
@@ -2126,46 +1718,48 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
         if (!user) return;
         currentUser = user;
         clientId = user.uid;
-        document.getElementById("client-id-pill").textContent =
+        document.getElementById("client-pill").textContent =
           "Client: " + clientId.slice(0, 6) + "…";
-        devLog("Auth state: clientId=" + clientId);
+        devLog("Auth: clientId=" + clientId);
 
-        await loadLocalModelIfExists();
-        document.getElementById("model-ready-pill").textContent = "Modello: pronto";
+        await loadLocalModelOrInit();
+        document.getElementById("model-pill").textContent = "Modello: pronto";
         document.getElementById("test-btn").disabled = false;
-        updateLocalStatusUI();
+        updateLocalUI();
 
         const roomRef = doc(db, "rooms", ROOM_ID);
         await setDoc(roomRef, {
-          name: "Distributed image demo",
-          task: "MNIST PNG federated",
+          name: "ATC MNIST Demo",
           createdAt: serverTimestamp()
         }, { merge: true });
 
         const clientRef = doc(db, "rooms", ROOM_ID, "clients", clientId);
         await setDoc(clientRef, {
           lastSeen: serverTimestamp(),
-          localLoss: lastTrainLoss,
-          valLoss: lastValLoss,
-          activeHiddenSize,
-          numSamplesTrained: samplesTrained
+          localSteps,
+          localSamples,
+          localValLoss: lastValLoss
         }, { merge: true });
 
         setInterval(() => {
+          if (!clientId) return;
           setDoc(clientRef, { lastSeen: serverTimestamp() }, { merge: true });
         }, 30000);
 
-        const snapshotsColRef = subscribeToClientsAndSnapshots(db, ROOM_ID);
-        subscribeToRoomControl(db, ROOM_ID);
+        const { snapsRef } = subscribeClientsAndSnapshots(db, ROOM_ID);
 
-        trainingLoop(clientRef, snapshotsColRef);
-        fusionLoop();
+        trainingLoop(clientRef, snapsRef);
+        combineLoop();
+      });
+
+      document.getElementById("panic-btn").addEventListener("click", () => {
+        localPanicReset().catch(e => console.error("Errore panic:", e));
       });
     }
 
-    start().catch(err => {
-      console.error("Errore start()", err);
-      devLog("Errore start(): " + err.message);
+    start().catch(e => {
+      console.error("Errore start():", e);
+      devLog("Errore start(): " + e.message);
     });
   </script>
 </body>
