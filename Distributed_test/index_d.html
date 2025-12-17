@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <title>ATC Distributed MNIST Demo</title>
+  <title>ATC Diffusion MNIST Demo (Sayed-style)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root {
@@ -186,10 +186,11 @@
 </head>
 <body>
   <header>
-    <h1>ATC Distributed MNIST Demo</h1>
+    <h1>ATC Diffusion MNIST Demo</h1>
     <p>
-      Ogni nodo esegue <strong>Adapt–Then–Combine</strong> su MNIST PNG:
-      SGD locale + fusione pesata dei pesi con i vicini (trust + Sinkhorn).
+      Implementazione semplificata di <strong>Adapt–Then–Combine (Sayed)</strong> su MNIST PNG.
+      Ogni nodo fa <em>ψ-update</em> locale e poi combina con i vicini usando
+      <strong>Adaptive Relative Variance</strong>.
     </p>
   </header>
 
@@ -210,7 +211,7 @@
           <div class="sub" id="tf-version">–</div>
         </div>
         <div class="stat">
-          <div class="label">Passi di training</div>
+          <div class="label">Iterazioni (k)</div>
           <div class="value" id="local-steps">0</div>
           <div class="sub" id="local-samples">0 samples</div>
         </div>
@@ -220,28 +221,28 @@
           <div class="sub" id="local-valloss">validation: –</div>
         </div>
         <div class="stat">
-          <div class="label">Batch time</div>
+          <div class="label">Tempo batch</div>
           <div class="value" id="batch-ms">–</div>
           <div class="sub" id="throughput">–</div>
         </div>
         <div class="stat">
-          <div class="label">Batteria</div>
-          <div class="value" id="battery-level">–</div>
-          <div class="sub" id="battery-status">API non disponibile</div>
+          <div class="label">Varianza grad locale</div>
+          <div class="value" id="grad-var">–</div>
+          <div class="sub" id="grad-var-count">stima ARV (k≥10)</div>
         </div>
         <div class="stat">
           <div class="label">Hidden units</div>
           <div class="value" id="hidden-size">32</div>
-          <div class="sub">rete condivisa, stessi pesi per tutti</div>
+          <div class="sub">stessa architettura per tutti</div>
         </div>
       </div>
       <canvas id="localLossChart" class="loss-chart"></canvas>
     </section>
 
-    <!-- STATO COMBINE / FUSIONE -->
+    <!-- STATO COMBINE -->
     <section id="combine-section">
       <h2>
-        Fusione ATC
+        Fusione ATC + ARV
         <span class="pill" id="clients-count">Nodi: 0</span>
       </h2>
       <div class="stat-grid">
@@ -251,14 +252,14 @@
           <div class="sub" id="combine-neighbors">–</div>
         </div>
         <div class="stat">
-          <div class="label">Trust medio vicini</div>
-          <div class="value" id="combine-trust">–</div>
-          <div class="sub" id="combine-trust-extra">message test accuracy</div>
+          <div class="label">Peso medio vicini</div>
+          <div class="value" id="combine-weight">–</div>
+          <div class="sub">somma a<sub>ij</sub> per j≠i</div>
         </div>
         <div class="stat">
-          <div class="label">Qualità Sinkhorn</div>
-          <div class="value" id="combine-sinkhorn">–</div>
-          <div class="sub">allineamento neuroni nascosti</div>
+          <div class="label">Val loss dopo combine</div>
+          <div class="value" id="combine-valloss">–</div>
+          <div class="sub">su batch di validation locale</div>
         </div>
       </div>
       <canvas id="globalLossChart" class="loss-chart"></canvas>
@@ -268,7 +269,7 @@
     <section id="mesh-section">
       <h2>
         Rete dei nodi
-        <span class="pill">clicca per info</span>
+        <span class="pill">Spessore = peso ATC locale</span>
       </h2>
       <canvas id="meshCanvas"></canvas>
       <div id="node-details">
@@ -288,10 +289,9 @@
         <span class="pill" id="model-pill">Modello: inizializzazione…</span>
       </h2>
       <p style="font-size:0.78rem;color:#9ca4c7;">
-        Carica una piccola immagine (sarà ridimensionata a 28×28, scala di grigi)
+        Carica una piccola immagine (ridimensionata a 28×28, scala di grigi)
         oppure clicca su cifre dal test set MNIST. La rete che risponde è
-        <strong>quella locale</strong>, che incorpora sia training sui tuoi dati
-        sia fusioni ATC con i vicini affidabili.
+        <strong>quella locale</strong>, dopo i passi di Adapt–Then–Combine.
       </p>
       <input type="file" id="test-image-input" accept="image/*" />
       <button id="test-btn" disabled>Testa immagine</button>
@@ -299,7 +299,7 @@
 
       <div style="margin-top:0.7rem;">
         <div style="font-size:0.75rem;color:#9ca4c7;margin-bottom:0.2rem;">
-          Oppure prova con alcune cifre di esempio (dal test set MNIST):
+          Oppure prova alcune cifre dal test set MNIST:
         </div>
         <div id="sample-images-container" style="display:flex;flex-wrap:wrap;gap:0.3rem;"></div>
       </div>
@@ -308,16 +308,17 @@
       <p style="font-size:0.72rem;color:#7b84a7;">
         Architettura:
         <code>conv8 → conv16 → flatten → dense32 → softmax10</code><br/>
-        Algoritmo: <strong>Adapt–Then–Combine</strong> con:
-        trust (mini-validation su questo nodo), allineamento Sinkhorn
-        dei neuroni nascosti e decadimento temporale degli snapshot.
+        Algoritmo: <strong>ATC</strong> con scambio del vettore
+        <em>ψ</em> (pesi dopo l'adattamento) e combinazione
+        <strong>Adaptive Relative Variance</strong>: i nodi con update più stabili
+        pesano di più.
       </p>
     </section>
   </main>
 
   <footer>
     Prototipo puramente client-side. Sostituisci il <code>firebaseConfig</code> con il tuo
-    progetto Firebase e abilita Firestore + auth anonima. Dataset: MNIST PNG, repo
+    progetto Firebase (Firestore + auth anonima). Dataset: MNIST PNG, repo
     <code>rasbt/mnist-pngs</code> (MIT).
   </footer>
 
@@ -330,7 +331,7 @@
 
   <script type="module">
     /******************************************************************
-     * IMPORT FIREBASE MODULAR API
+     * FIREBASE MODULAR API
      ******************************************************************/
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
     import {
@@ -353,7 +354,7 @@
 
     /******************************************************************
      * CONFIGURAZIONE FIREBASE
-     * (sostituisci con le tue chiavi, NON committare quelle reali)
+     * (Sostituisci questi valori con i tuoi e NON committare le chiavi reali)
      ******************************************************************/
     const firebaseConfig = {
       apiKey: "AIzaSyDUYL3b05b0RoyNMYCy9GZRtDs-4SBb-AI",
@@ -370,7 +371,7 @@
     const auth = getAuth(app);
 
     /******************************************************************
-     * COSTANTI MODELLO / TRAINING
+     * COSTANTI MODELLO / ATC
      ******************************************************************/
     const ROOM_ID = "atc-mnist-room";
 
@@ -380,27 +381,23 @@
     const HIDDEN_UNITS = 32;
 
     const TRAIN_BATCH_SIZE = 16;
-    const VAL_BATCH_SIZE = 32;
+    const VAL_BATCH_SIZE   = 32;
     const TRAINING_PAUSE_MS = 800;
-
-    const VALIDATION_EVERY_STEPS = 8;
-    const SNAPSHOT_EVERY_STEPS   = 16;
-    const COMBINE_INTERVAL_MS    = 7000;
-    const COMBINE_WARMUP_STEPS   = 64;
 
     const MAX_TRAIN_ITEMS = 12000;
     const MAX_VAL_ITEMS   = 2000;
 
-    const MNIST_ROOT = "https://raw.githubusercontent.com/rasbt/mnist-pngs/main/";
+    const MNIST_ROOT      = "https://raw.githubusercontent.com/rasbt/mnist-pngs/main/";
     const MNIST_TRAIN_CSV = MNIST_ROOT + "train.csv";
     const MNIST_TEST_CSV  = MNIST_ROOT + "test.csv";
 
-    const META_STORAGE_KEY = "atc-mnist-meta-v1";
+    const META_STORAGE_KEY = "atc-mnist-meta-v2";
 
-    const TRUST_VAL_BATCH = 32;
-    const TRUST_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minuti
-
-    const OFFLINE_THRESHOLD_MS = 60 * 1000;
+    // ATC: parametri per la parte Combine
+    const VAR_BETA = 0.1;              // smoothing per stima varianza
+    const VAR_WARMUP_ITERS = 10;       // prima di usare un nodo nella ARV
+    const COMBINE_VAL_EVERY = 10;      // ogni tot passi facciamo una val loss dopo combine
+    const OFFLINE_THRESHOLD_MS = 60000;
 
     /******************************************************************
      * STATO GLOBALE
@@ -411,36 +408,35 @@
     let model = null;
 
     let trainManifest = null;
-    let valManifest = null;
+    let valManifest   = null;
 
-    let localSteps = 0;
+    let localSteps   = 0;    // iterazioni ATC
     let localSamples = 0;
     let lastTrainLoss = null;
-    let lastValLoss = null;
+    let lastValLoss   = null;
     let avgBatchMs = 0;
 
-    let lastCombineTime = null;
-    let lastCombineNeighbors = 0;
-    let lastCombineTrustMean = null;
-    let lastCombineSinkhornMean = null;
-    let lastCombineValLoss = null;
+    let localGradVar = null;      // stima varianza grad / update
+    let localGradVarCount = 0;    // quante iterazioni sono state accumulate
+
+    let lastCombineTime        = null;
+    let lastCombineNeighbors   = 0;
+    let lastCombineNeighborAvg = null;
+    let lastCombineValLoss     = null;
 
     const clientsState = new Map();
-    let recentSnapshots = [];
+    let recentSnapshots = []; // snapshot ψ dei vicini (Firebase)
 
     let batteryInfo = null;
 
-    let localLossChart = null;
+    let localLossChart  = null;
     let globalLossChart = null;
 
     let meshNodesLayout = new Map();
-
-    const trustScores = new Map(); // clientId -> { score, ts }
-// Peso dell’ultima combinazione ATC con ciascun vicino (quota 0..1)
-let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
+    let lastEdgeWeights = new Map(); // neighborId -> a_ij nell’ultimo combine
 
     const devLogBuffer = [];
-    const DEV_LOG_MAX = 200;
+    const DEV_LOG_MAX  = 200;
 
     /******************************************************************
      * DEV LOG
@@ -456,23 +452,21 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
     }
 
     /******************************************************************
-     * UTILITY VARIE
+     * UTILITIES
      ******************************************************************/
     function sleep(ms) {
       return new Promise(res => setTimeout(res, ms));
     }
-
     function clamp(v, min, max) {
       return Math.min(Math.max(v, min), max);
     }
-
     function formatMs(ms) {
       if (ms == null) return "–";
       return ms.toFixed(1) + " ms/batch";
     }
 
     /******************************************************************
-     * MNIST PNG: CARICAMENTO CSV → MANIFEST BILANCIATO
+     * MNIST PNG: CSV → MANIFESTO
      ******************************************************************/
     async function fetchCsvLines(url, maxLines = null) {
       devLog("Scarico CSV: " + url);
@@ -494,7 +488,7 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
         if (!line) continue;
         const parts = line.split(",");
         if (parts.length < 2) continue;
-        const fp = parts[0].trim();
+        const fp  = parts[0].trim();
         const lbl = parseInt(parts[1].trim(), 10);
         if (Number.isNaN(lbl)) continue;
         items.push({ url: MNIST_ROOT + fp, label: lbl });
@@ -535,13 +529,19 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
       devLog(`MNIST manifest: train=${trainItems.length}, val=${valItems.length}`);
 
       return {
-        trainManifest: { classes: Array.from({length: NUM_CLASSES}, (_,i)=>String(i)), items: trainItems },
-        valManifest:   { classes: Array.from({length: NUM_CLASSES}, (_,i)=>String(i)), items: valItems }
+        trainManifest: {
+          classes: Array.from({length: NUM_CLASSES}, (_,i)=>String(i)),
+          items: trainItems
+        },
+        valManifest: {
+          classes: Array.from({length: NUM_CLASSES}, (_,i)=>String(i)),
+          items: valItems
+        }
       };
     }
 
     /******************************************************************
-     * MODELLO CNN (UNICO MODEL PER NODO)
+     * MODELLO CNN (UNICO PER NODO)
      ******************************************************************/
     function buildModel() {
       const m = tf.sequential();
@@ -584,10 +584,10 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
     /******************************************************************
      * PESI: ESTRAZIONE, APPLICAZIONE, QUANTIZZAZIONE
      ******************************************************************/
-    function extractLocalWeights() {
-      const tensors = model.getWeights(); // NON si fa dispose qui
-      const shapes = tensors.map(t => t.shape);
-      const arrays = tensors.map(t => Float32Array.from(t.dataSync()));
+    function extractWeights() {
+      const tensors = model.getWeights();
+      const shapes  = tensors.map(t => t.shape);
+      const arrays  = tensors.map(t => Float32Array.from(t.dataSync()));
       return { shapes, arrays };
     }
 
@@ -602,8 +602,10 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
     function quantizeWeights(shapes, arrays) {
       const scales = [];
       const quantMaps = {};
+      const shapesMap = {};
       for (let idx = 0; idx < arrays.length; idx++) {
         const arr = arrays[idx];
+        shapesMap[idx] = shapes[idx];
         let maxAbs = 0;
         for (let i = 0; i < arr.length; i++) {
           const a = Math.abs(arr[i]);
@@ -615,14 +617,8 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
           q[i] = Math.max(-127, Math.min(127, Math.round(arr[i] / scale)));
         }
         scales.push(scale);
-        quantMaps[idx] = Array.from(q); // niente array annidate
+        quantMaps[idx] = Array.from(q);
       }
-
-      const shapesMap = {};
-      shapes.forEach((sh, idx) => {
-        shapesMap[idx] = sh;
-      });
-
       return { shapes: shapesMap, scales, quantArrays: quantMaps };
     }
 
@@ -630,16 +626,11 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
       const shapesMap = snapData.shapes || {};
       const quantMap  = snapData.quantArrays || {};
       const scales    = snapData.scales || [];
-
-      const indices = Object.keys(quantMap)
-        .map(k => Number(k))
-        .sort((a,b) => a-b);
-
+      const indices = Object.keys(quantMap).map(k => Number(k)).sort((a,b)=>a-b);
       const shapes = [];
       const arrays = [];
-
       for (const idx of indices) {
-        const shape = Array.isArray(shapesMap) ? shapesMap[idx] : shapesMap[idx];
+        const shape = shapesMap[idx];
         const qArr  = quantMap[idx];
         const scale = scales[idx];
         if (!shape || !qArr || scale == null) continue;
@@ -668,12 +659,14 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
     }
 
     /******************************************************************
-     * SALVATAGGIO LOCALE (LOCALSTORAGE)
+     * LOCAL STORAGE
      ******************************************************************/
-    async function saveLocalMeta() {
+    async function saveLocalMeta(arraysForSave = null, shapesForSave = null) {
       let weightsPayload = null;
       try {
-        const { shapes, arrays } = extractLocalWeights();
+        const { shapes, arrays } = arraysForSave && shapesForSave
+          ? { shapes: shapesForSave, arrays: arraysForSave }
+          : extractWeights();
         weightsPayload = {
           shapes,
           arrays: arrays.map(a => Array.from(a))
@@ -687,7 +680,9 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
         localSteps,
         localSamples,
         lastTrainLoss,
-        lastValLoss
+        lastValLoss,
+        localGradVar,
+        localGradVarCount
       };
       try {
         localStorage.setItem(META_STORAGE_KEY, JSON.stringify(meta));
@@ -722,11 +717,13 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
         model.setWeights(tensors);
         tensors.forEach(t => t.dispose());
 
-        localSteps    = meta.localSteps || 0;
-        localSamples  = meta.localSamples || 0;
-        lastTrainLoss = meta.lastTrainLoss ?? null;
-        lastValLoss   = meta.lastValLoss ?? null;
-        devLog(`Meta locale ripristinato: steps=${localSteps}, samples=${localSamples}`);
+        localSteps          = meta.localSteps || 0;
+        localSamples        = meta.localSamples || 0;
+        lastTrainLoss       = meta.lastTrainLoss ?? null;
+        lastValLoss         = meta.lastValLoss ?? null;
+        localGradVar        = meta.localGradVar ?? null;
+        localGradVarCount   = meta.localGradVarCount || 0;
+        devLog(`Meta locale ripristinato: steps=${localSteps}, samples=${localSamples}, gradVarCount=${localGradVarCount}`);
       } catch (e) {
         console.warn("Errore loadLocalModelOrInit:", e);
         devLog("Errore loadLocalModelOrInit: " + e.message);
@@ -778,254 +775,7 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
     }
 
     /******************************************************************
-     * SINKHORN PER ALLINEAMENTO NEURONI NASCOSTI
-     ******************************************************************/
-    // Indici tensori: 0 conv1/kernel, 1 conv1/bias, 2 conv2/kernel, 3 conv2/bias,
-    // 4 dense_hidden/kernel, 5 dense_hidden/bias, 6 dense_out/kernel, 7 dense_out/bias
-    const IDX_DH_KERNEL = 4;
-    const IDX_DH_BIAS   = 5;
-    const IDX_DO_KERNEL = 6;
-
-    function denseHiddenKernelToNeuronMatrix(flatArray, shape) {
-      const inDim = shape[0];
-      const H = shape[1];
-      const mat = [];
-      for (let h = 0; h < H; h++) {
-        const neuron = [];
-        for (let i = 0; i < inDim; i++) {
-          const idx = i * H + h;
-          neuron.push(flatArray[idx]);
-        }
-        mat.push(neuron);
-      }
-      return mat;
-    }
-
-    function euclideanDistance(a, b) {
-      let sum = 0;
-      for (let i = 0; i < a.length; i++) {
-        const d = a[i] - b[i];
-        sum += d * d;
-      }
-      return Math.sqrt(sum);
-    }
-
-    function computeCostMatrix(localMat, neighMat) {
-      const H = Math.min(localMat.length, neighMat.length);
-      const C = [];
-      for (let i = 0; i < H; i++) {
-        const row = [];
-        for (let j = 0; j < H; j++) {
-          row.push(euclideanDistance(localMat[i], neighMat[j]));
-        }
-        C.push(row);
-      }
-      return C;
-    }
-
-    function runSinkhorn(costMatrix, baseEpsFactor = 0.25, iterations = 20) {
-      const H = costMatrix.length;
-      if (!H) return { P: [] };
-
-      let sum = 0, cnt = 0;
-      for (let i = 0; i < H; i++) {
-        for (let j = 0; j < H; j++) {
-          sum += costMatrix[i][j];
-          cnt++;
-        }
-      }
-      const meanC = cnt > 0 ? sum / cnt : 1.0;
-      const epsilon = Math.max(meanC * baseEpsFactor, 1e-6);
-
-      const P = [];
-      for (let i = 0; i < H; i++) {
-        const row = [];
-        for (let j = 0; j < H; j++) {
-          row.push(Math.exp(-costMatrix[i][j] / epsilon));
-        }
-        P.push(row);
-      }
-
-      for (let it = 0; it < iterations; it++) {
-        // normalizza righe
-        for (let i = 0; i < H; i++) {
-          let s = 0;
-          for (let j = 0; j < H; j++) s += P[i][j];
-          if (s > 0) {
-            for (let j = 0; j < H; j++) P[i][j] /= s;
-          }
-        }
-        // normalizza colonne
-        for (let j = 0; j < H; j++) {
-          let s = 0;
-          for (let i = 0; i < H; i++) s += P[i][j];
-          if (s > 0) {
-            for (let i = 0; i < H; i++) P[i][j] /= s;
-          }
-        }
-      }
-
-      return { P };
-    }
-
-    function argmaxPermutation(P) {
-      const H = P.length;
-      const perm = new Array(H).fill(0);
-      const used = new Array(H).fill(false);
-      for (let i = 0; i < H; i++) {
-        let bestJ = 0;
-        let best = -Infinity;
-        for (let j = 0; j < H; j++) {
-          if (!used[j] && P[i][j] > best) {
-            best = P[i][j];
-            bestJ = j;
-          }
-        }
-        perm[i] = bestJ;
-        used[bestJ] = true;
-      }
-      return perm;
-    }
-
-    function alignNeighborHidden(shapes, arraysLocal, arraysNeigh) {
-      const kernelShape = shapes[IDX_DH_KERNEL];
-      const localKernel = arraysLocal[IDX_DH_KERNEL];
-      const neighKernel = arraysNeigh[IDX_DH_KERNEL];
-      const localMat = denseHiddenKernelToNeuronMatrix(localKernel, kernelShape);
-      const neighMat = denseHiddenKernelToNeuronMatrix(neighKernel, kernelShape);
-
-      const H = Math.min(localMat.length, neighMat.length);
-      if (!H) return { arraysAligned: arraysNeigh, quality: 0 };
-
-      const C = computeCostMatrix(localMat.slice(0, H), neighMat.slice(0, H));
-      const { P } = runSinkhorn(C, 0.25, 20);
-      const perm = argmaxPermutation(P);
-
-      let diagSum = 0;
-      for (let i = 0; i < H; i++) diagSum += P[i][perm[i]];
-      const meanDiag = diagSum / H;
-      const uniformDiag = 1.0 / H;
-      let q = (meanDiag - uniformDiag) / (1 - uniformDiag + 1e-6);
-      q = clamp(q, 0, 1);
-
-      devLog(`Sinkhorn: H=${H}, meanDiag=${meanDiag.toFixed(3)}, q=${q.toFixed(3)}`);
-
-      const aligned = arraysNeigh.map(a => a.slice());
-      const neighKernelFlat = aligned[IDX_DH_KERNEL];
-      const neighBiasFlat   = aligned[IDX_DH_BIAS];
-      const neighOutKernel  = aligned[IDX_DO_KERNEL];
-      const inDim = kernelShape[0];
-      const Hmax = kernelShape[1];
-
-      for (let h = 0; h < H; h++) {
-        const srcH = perm[h];
-        if (srcH === h) continue;
-        for (let i = 0; i < inDim; i++) {
-          const idx1 = i * Hmax + h;
-          const idx2 = i * Hmax + srcH;
-          const tmp = neighKernelFlat[idx1];
-          neighKernelFlat[idx1] = neighKernelFlat[idx2];
-          neighKernelFlat[idx2] = tmp;
-        }
-        const tmpb = neighBiasFlat[h];
-        neighBiasFlat[h] = neighBiasFlat[srcH];
-        neighBiasFlat[srcH] = tmpb;
-
-        const outShape = shapes[IDX_DO_KERNEL]; // [Hmax, NUM_CLASSES]
-        const numClasses = outShape[1];
-        for (let c = 0; c < numClasses; c++) {
-          const idx1 = h * numClasses + c;
-          const idx2 = srcH * numClasses + c;
-          const tmp2 = neighOutKernel[idx1];
-          neighOutKernel[idx1] = neighOutKernel[idx2];
-          neighOutKernel[idx2] = tmp2;
-        }
-      }
-
-      return { arraysAligned: aligned, quality: q };
-    }
-
-    /******************************************************************
-     * TRUST: MINI-VALIDATION (MESSAGE TEST TASK)
-     ******************************************************************/
-    async function computeTrustScoreForSnapshot(snap) {
-      if (!valManifest || !valManifest.items || !valManifest.items.length) {
-        devLog("Trust: valManifest non pronto → trust neutrale=0.5");
-        return 0.5;
-      }
-      const d = snap.data || {};
-      const peerId = d.clientId || "unknown";
-
-      devLog(`Trust: valuto snapshot ${snap.id} da client ${peerId}`);
-
-      const { shapes, arrays } = dequantizeSnapshot(d);
-      try {
-        const m = buildModel();
-        const tensors = arrays.map((arr, idx) =>
-          tf.tensor(arr, shapes[idx], "float32")
-        );
-        m.setWeights(tensors);
-        tensors.forEach(t => t.dispose());
-
-        const B = Math.min(TRUST_VAL_BATCH, valManifest.items.length);
-        const batch = await loadBatchFromManifest(valManifest, B);
-        const evalRes = await m.evaluate(batch.xs, batch.ys, {
-          batchSize: VAL_BATCH_SIZE,
-          verbose: 0
-        });
-        let lossT, accT;
-        if (Array.isArray(evalRes)) {
-          lossT = evalRes[0];
-          accT  = evalRes[1];
-        } else {
-          lossT = evalRes;
-          accT  = null;
-        }
-
-        let acc = null;
-        if (accT) {
-          const accArr = await accT.data();
-          acc = accArr[0];
-          accT.dispose();
-        }
-        const lossArr = await lossT.data();
-        const loss = lossArr[0];
-        lossT.dispose();
-
-        batch.xs.dispose();
-        batch.ys.dispose();
-        m.dispose();
-
-        if (acc == null || !Number.isFinite(acc)) {
-          devLog(`Trust: acc=null/NaN per snapshot ${snap.id} → trust=0`);
-          return 0;
-        }
-
-        const trust = clamp((acc - 0.10) / 0.90, 0, 1);
-        devLog(`Trust: acc=${(acc*100).toFixed(1)}%, loss=${loss.toFixed(3)} → trust=${trust.toFixed(3)}`);
-        return trust;
-      } catch (e) {
-        console.warn("Errore computeTrustScoreForSnapshot:", e);
-        devLog("Trust: errore su snapshot " + snap.id + ": " + e.message);
-        return 0;
-      }
-    }
-
-    async function getTrustScoreForSnapshot(snap) {
-      const d = snap.data || {};
-      const peerId = d.clientId || "unknown";
-      const now = Date.now();
-      const existing = trustScores.get(peerId);
-      if (existing && now - existing.ts < TRUST_CACHE_TTL_MS) {
-        return existing.score;
-      }
-      const score = await computeTrustScoreForSnapshot(snap);
-      trustScores.set(peerId, { score, ts: now });
-      return score;
-    }
-
-    /******************************************************************
-     * TRAINING LOOP (ADAPT) - UNICO MODELLO
+     * CHARTS
      ******************************************************************/
     function pushChartPoint(chart, value) {
       if (!chart || value == null || !Number.isFinite(value)) return;
@@ -1038,351 +788,6 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
       chart.update("quiet");
     }
 
-    async function trainingLoop(clientRef, snapshotsColRef) {
-      devLog("Training loop avviato.");
-      while (true) {
-        let xs=null, ys=null;
-        const t0 = performance.now();
-        try {
-          const batch = await loadBatchFromManifest(trainManifest, TRAIN_BATCH_SIZE);
-          xs = batch.xs;
-          ys = batch.ys;
-
-          const history = await model.fit(xs, ys, {
-            epochs: 1,
-            batchSize: TRAIN_BATCH_SIZE,
-            shuffle: true,
-            verbose: 0
-          });
-          const t1 = performance.now();
-
-          xs.dispose();
-          ys.dispose();
-          xs = null; ys = null;
-
-          const loss = history.history.loss[0];
-          if (!Number.isFinite(loss)) {
-            devLog("Loss NaN/Inf. Resetto modello locale.");
-            model.dispose();
-            model = buildModel();
-            localSteps = 0;
-            localSamples = 0;
-            lastTrainLoss = null;
-            lastValLoss = null;
-            await saveLocalMeta();
-            updateLocalUI();
-            await sleep(TRAINING_PAUSE_MS);
-            continue;
-          }
-
-          localSteps += 1;
-          localSamples += TRAIN_BATCH_SIZE;
-          lastTrainLoss = loss;
-
-          const batchMs = t1 - t0;
-          if (avgBatchMs === 0) avgBatchMs = batchMs;
-          else avgBatchMs = avgBatchMs*0.9 + batchMs*0.1;
-
-          pushChartPoint(localLossChart, loss);
-          devLog(`Train step=${localSteps}, loss=${loss.toFixed(4)}, samples=${localSamples}`);
-
-          if (localSteps % VALIDATION_EVERY_STEPS === 0) {
-            try {
-              const vb = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
-              const evalRes = await model.evaluate(vb.xs, vb.ys, {
-                batchSize: VAL_BATCH_SIZE,
-                verbose: 0
-              });
-              let lossT;
-              if (Array.isArray(evalRes)) lossT = evalRes[0];
-              else lossT = evalRes;
-              const arr = await lossT.data();
-              const vLoss = arr[0];
-              lossT.dispose();
-              vb.xs.dispose();
-              vb.ys.dispose();
-              if (Number.isFinite(vLoss)) {
-                lastValLoss = vLoss;
-                devLog(`Val loss=${vLoss.toFixed(4)}`);
-              }
-            } catch (e) {
-              console.warn("Errore validation:", e);
-              devLog("Errore validation: " + e.message);
-            }
-          }
-
-          if (localSteps % SNAPSHOT_EVERY_STEPS === 0) {
-            const { shapes, arrays } = extractLocalWeights();
-            const q = quantizeWeights(shapes, arrays);
-            const snapshotDoc = {
-              clientId,
-              createdAt: serverTimestamp(),
-              localSteps,
-              localSamples,
-              localValLoss: lastValLoss,
-              shapes: q.shapes,
-              scales: q.scales,
-              quantArrays: q.quantArrays
-            };
-            await addDoc(snapshotsColRef, snapshotDoc);
-            await saveLocalMeta();
-            devLog("Snapshot pubblicato.");
-          }
-
-          await setDoc(clientRef, {
-            lastSeen: serverTimestamp(),
-            localSteps,
-            localSamples,
-            localValLoss: lastValLoss
-          }, { merge: true });
-
-          updateLocalUI();
-          await sleep(TRAINING_PAUSE_MS);
-        } catch (e) {
-          if (xs) xs.dispose();
-          if (ys) ys.dispose();
-          console.error("Errore trainingLoop:", e);
-          devLog("Errore trainingLoop: " + e.message);
-          await sleep(TRAINING_PAUSE_MS);
-        }
-      }
-    }
-
-    /******************************************************************
-     * COMBINE LOOP (THEN-COMBINE): AGGIORNA *MODEL* CON SNAPSHOT VICINI
-     ******************************************************************/
-    async function combineLoop() {
-  devLog("Combine loop ATC avviato.");
-  while (true) {
-    await sleep(COMBINE_INTERVAL_MS);
-    try {
-      if (!model || localSteps < COMBINE_WARMUP_STEPS) {
-        continue;
-      }
-
-      const { shapes, arrays: arraysLocal } = extractLocalWeights();
-      const now = Date.now();
-
-      // prendiamo gli snapshot più recenti (già in recentSnapshots) tranne il nostro
-      const candidates = recentSnapshots.filter(
-        (s) => s.data && s.data.clientId && s.data.clientId !== clientId
-      );
-
-      const neighborsInfo = [];
-      let trustAccum = 0;
-      let sinkAccum = 0;
-
-      for (const snap of candidates) {
-        const d = snap.data;
-        const peerId = d.clientId || snap.id;
-
-        // tempo di vita dello snapshot
-        const createdAtMs =
-          d.createdAt && d.createdAt.toMillis
-            ? d.createdAt.toMillis()
-            : snap.localTimestamp || now;
-        const ageSec = (now - createdAtMs) / 1000;
-        const timeFactor = Math.exp(-ageSec / 120); // 2 min → ~1/e
-
-        // se è *estremamente* vecchio, lo scartiamo duro
-        if (timeFactor < 0.02) {
-          devLog(
-            `Combine: snapshot ${snap.id} molto vecchio (${ageSec.toFixed(
-              1
-            )}s) → skip duro.`
-          );
-          continue;
-        }
-
-        // dequantizza
-        const { shapes: neighShapes, arrays: neighArrays } = dequantizeSnapshot(d);
-        if (JSON.stringify(neighShapes) !== JSON.stringify(shapes)) {
-          devLog(`Combine: snapshot ${snap.id} shape diversa → skip.`);
-          continue;
-        }
-
-        // trust locale (message test task)
-        const trust = await getTrustScoreForSnapshot(snap);
-
-        // allineamento neuroni nascosti via Sinkhorn
-        const { arraysAligned, quality } = alignNeighborHidden(
-          shapes,
-          arraysLocal,
-          neighArrays
-        );
-        if (!Number.isFinite(quality)) {
-          devLog(`Combine: snapshot ${snap.id} quality NaN → skip.`);
-          continue;
-        }
-
-        // score grezzo: trust * qualità * “giovinezza”
-        const score = Math.max(0, trust * quality * timeFactor);
-        // rawWeight con floor > 0: anche i vicini poco credibili entrano, ma pochissimo
-        const rawWeight = 0.05 + score; // 0.05 è ~peso minimo
-
-        neighborsInfo.push({
-          clientId: peerId,
-          arraysAligned,
-          trust,
-          quality,
-          timeFactor,
-          score,
-          rawWeight
-        });
-
-        trustAccum += trust;
-        sinkAccum += quality;
-      }
-
-      // nessun vicino utilizzabile → comunque facciamo una valutazione locale per il grafico
-      if (neighborsInfo.length === 0) {
-        if (valManifest && valManifest.items && valManifest.items.length) {
-          const vb = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
-          const evalRes = await model.evaluate(vb.xs, vb.ys, {
-            batchSize: VAL_BATCH_SIZE,
-            verbose: 0
-          });
-          let lossT;
-          if (Array.isArray(evalRes)) lossT = evalRes[0];
-          else lossT = evalRes;
-          const arr = await lossT.data();
-          const vLoss = arr[0];
-          lossT.dispose();
-          vb.xs.dispose();
-          vb.ys.dispose();
-          if (Number.isFinite(vLoss)) {
-            lastCombineValLoss = vLoss;
-            pushChartPoint(globalLossChart, vLoss);
-            devLog(`Combine (solo self): valLoss=${vLoss.toFixed(4)}`);
-          }
-        }
-        lastCombineTime = Date.now();
-        lastCombineNeighbors = 0;
-        lastCombineTrustMean = null;
-        lastCombineSinkhornMean = null;
-        lastEdgeWeights.clear();
-        updateCombineUI();
-        continue;
-      }
-
-      // Normalizziamo i pesi dei vicini → wNorm, somma=1
-      const sumRaw = neighborsInfo.reduce((s, n) => s + n.rawWeight, 0);
-      const alphaTotal = 0.15; // massimo “passo” complessivo
-
-      const combinedArrays = arraysLocal.map((a) => a.slice());
-      lastEdgeWeights.clear();
-
-      for (const info of neighborsInfo) {
-        const wNorm = info.rawWeight / sumRaw; // quota 0..1 di questo vicino
-        const alpha = alphaTotal * wNorm;      // quanto spinge il vicino
-
-        // Salviamo il peso normalizzato per la UI/mesh
-        lastEdgeWeights.set(info.clientId, wNorm);
-
-        for (let t = 0; t < combinedArrays.length; t++) {
-          const base = arraysLocal[t];
-          const neighArr = info.arraysAligned[t];
-          const out = combinedArrays[t];
-          for (let i = 0; i < out.length; i++) {
-            out[i] += alpha * (neighArr[i] - base[i]);
-          }
-        }
-
-        devLog(
-          `Combine con ${info.clientId}: trust=${info.trust.toFixed(
-            3
-          )}, q=${info.quality.toFixed(3)}, ageF=${info.timeFactor.toFixed(
-            3
-          )}, wNorm=${wNorm.toFixed(3)}, alpha=${alpha.toFixed(3)}`
-        );
-      }
-
-      // sanitizza e applica i nuovi pesi al *modello locale*
-      sanitizeWeightArrays(combinedArrays);
-      applyWeightsToModel(shapes, combinedArrays);
-      await saveLocalMeta();
-
-      lastCombineTime = Date.now();
-      lastCombineNeighbors = neighborsInfo.length;
-      lastCombineTrustMean = trustAccum / neighborsInfo.length;
-      lastCombineSinkhornMean = sinkAccum / neighborsInfo.length;
-
-      // valutazione post-fusione per popolare il grafico Fusion ATC
-      if (valManifest && valManifest.items && valManifest.items.length) {
-        const vb = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
-        const evalRes = await model.evaluate(vb.xs, vb.ys, {
-          batchSize: VAL_BATCH_SIZE,
-          verbose: 0
-        });
-        let lossT;
-        if (Array.isArray(evalRes)) lossT = evalRes[0];
-        else lossT = evalRes;
-        const arr = await lossT.data();
-        const vLoss = arr[0];
-        lossT.dispose();
-        vb.xs.dispose();
-        vb.ys.dispose();
-        if (Number.isFinite(vLoss)) {
-          lastCombineValLoss = vLoss;
-          pushChartPoint(globalLossChart, vLoss);
-          devLog(`Combine: valLoss dopo fusione=${vLoss.toFixed(4)}`);
-        }
-      }
-
-      updateCombineUI();
-    } catch (e) {
-      console.error("Errore combineLoop:", e);
-      devLog("Errore combineLoop: " + e.message);
-    }
-  }
-}
-
-
-    /******************************************************************
-     * FIREBASE: CLIENTS + SNAPSHOTS
-     ******************************************************************/
-    function subscribeClientsAndSnapshots(db, roomId) {
-      const clientsRef = collection(db, "rooms", roomId, "clients");
-      const snapsRef   = collection(db, "rooms", roomId, "snapshots");
-
-      onSnapshot(clientsRef, (snap) => {
-        clientsState.clear();
-        const now = Date.now();
-        snap.forEach(docSnap => {
-          const d = docSnap.data();
-          let lastSeen = d.lastSeen && d.lastSeen.toMillis ? d.lastSeen.toMillis() : null;
-          const offline = lastSeen && (now - lastSeen > OFFLINE_THRESHOLD_MS);
-          if (offline) return;
-          clientsState.set(docSnap.id, {
-            localSteps: d.localSteps ?? 0,
-            localSamples: d.localSamples ?? 0,
-            localValLoss: d.localValLoss ?? null,
-            lastSeen
-          });
-        });
-        updateCombineUI();
-        drawMesh();
-      });
-
-      const qSnaps = query(snapsRef, orderBy("createdAt", "desc"), limit(10));
-      onSnapshot(qSnaps, (snap) => {
-        const docs = [];
-        snap.forEach(docSnap => {
-          docs.push({
-            id: docSnap.id,
-            data: docSnap.data(),
-            localTimestamp: Date.now()
-          });
-        });
-        recentSnapshots = docs;
-      });
-
-      return { clientsRef, snapsRef };
-    }
-
-    /******************************************************************
-     * UI: CHARTS, STATO, MESH
-     ******************************************************************/
     function initCharts() {
       const ctxL = document.getElementById("localLossChart").getContext("2d");
       localLossChart = new Chart(ctxL, {
@@ -1407,39 +812,52 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
       });
     }
 
+    /******************************************************************
+     * UI UPDATE
+     ******************************************************************/
     function updateLocalUI() {
-      document.getElementById("tf-backend").textContent = tf.getBackend() || "–";
-      document.getElementById("tf-version").textContent =
-        "TF.js " + (tf.version ? tf.version.tfjs : "");
+  document.getElementById("tf-backend").textContent = tf.getBackend() || "–";
+  document.getElementById("tf-version").textContent =
+    "TF.js " + (tf.version ? tf.version.tfjs : "");
 
-      document.getElementById("local-steps").textContent = localSteps.toString();
-      document.getElementById("local-samples").textContent = `${localSamples} samples`;
-      document.getElementById("local-loss").textContent =
-        lastTrainLoss != null && Number.isFinite(lastTrainLoss)
-          ? lastTrainLoss.toFixed(4)
-          : "–";
-      document.getElementById("local-valloss").textContent =
-        lastValLoss != null && Number.isFinite(lastValLoss)
-          ? "validation: " + lastValLoss.toFixed(4)
-          : "validation: –";
+  document.getElementById("local-steps").textContent   = localSteps.toString();
+  document.getElementById("local-samples").textContent = `${localSamples} samples`;
+  document.getElementById("local-loss").textContent =
+    lastTrainLoss != null && Number.isFinite(lastTrainLoss)
+      ? lastTrainLoss.toFixed(4)
+      : "–";
+  document.getElementById("local-valloss").textContent =
+    lastValLoss != null && Number.isFinite(lastValLoss)
+      ? "validation: " + lastValLoss.toFixed(4)
+      : "validation: –";
 
-      document.getElementById("batch-ms").textContent = formatMs(avgBatchMs);
-      const thr = avgBatchMs > 0 ? (TRAIN_BATCH_SIZE / (avgBatchMs / 1000)).toFixed(1) + " img/s" : "–";
-      document.getElementById("throughput").textContent = thr;
+  document.getElementById("batch-ms").textContent = formatMs(avgBatchMs);
+  const thr = avgBatchMs > 0 ? (TRAIN_BATCH_SIZE / (avgBatchMs / 1000)).toFixed(1) + " img/s" : "–";
+  document.getElementById("throughput").textContent = thr;
 
-      const battLevelEl = document.getElementById("battery-level");
-      const battStatusEl = document.getElementById("battery-status");
-      if (batteryInfo) {
-        const lvl = Math.round(batteryInfo.level * 100);
-        battLevelEl.textContent = lvl + " %";
-        battStatusEl.textContent = batteryInfo.charging ? "in carica" : "su batteria";
-      } else {
-        battLevelEl.textContent = "–";
-        battStatusEl.textContent = "API non disponibile";
-      }
+  const gv = localGradVar;
+  document.getElementById("grad-var").textContent =
+    (gv != null && Number.isFinite(gv)) ? gv.toExponential(2) : "–";
+  document.getElementById("grad-var-count").textContent =
+    `stima ARV (k=${localGradVarCount})`;
 
-      document.getElementById("hidden-size").textContent = HIDDEN_UNITS.toString();
-    }
+  document.getElementById("hidden-size").textContent = HIDDEN_UNITS.toString();
+
+  // 🔧 BLOCCO BATTERIA FIXATO
+  if (batteryInfo) {
+    const lvl = Math.round(batteryInfo.level * 100);
+    const bl = document.getElementById("battery-level");
+    const bs = document.getElementById("battery-status");
+    if (bl) bl.textContent = lvl + " %";
+    if (bs) bs.textContent = batteryInfo.charging ? "in carica" : "su batteria";
+  } else {
+    const bl = document.getElementById("battery-level");
+    const bs = document.getElementById("battery-status");
+    if (bl) bl.textContent = "–";
+    if (bs) bs.textContent = "API batteria non disponibile";
+  }
+}
+
 
     function updateCombineUI() {
       document.getElementById("clients-count").textContent =
@@ -1447,28 +865,30 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
 
       if (lastCombineTime) {
         const ageSec = Math.round((Date.now() - lastCombineTime) / 1000);
-        document.getElementById("combine-age").textContent =
-          ageSec + " s fa";
+        document.getElementById("combine-age").textContent = ageSec + " s fa";
       } else {
         document.getElementById("combine-age").textContent = "–";
       }
 
       document.getElementById("combine-neighbors").textContent =
         lastCombineNeighbors > 0
-          ? `${lastCombineNeighbors} vicini usati`
-          : "nessuna fusione recente";
+          ? `${lastCombineNeighbors} vicini maturi`
+          : "solo self";
 
-      document.getElementById("combine-trust").textContent =
-        lastCombineTrustMean != null
-          ? (lastCombineTrustMean * 100).toFixed(1) + " %"
+      document.getElementById("combine-weight").textContent =
+        lastCombineNeighborAvg != null
+          ? (lastCombineNeighborAvg * 100).toFixed(1) + " %"
           : "–";
 
-      document.getElementById("combine-sinkhorn").textContent =
-        lastCombineSinkhornMean != null
-          ? lastCombineSinkhornMean.toFixed(3)
+      document.getElementById("combine-valloss").textContent =
+        lastCombineValLoss != null && Number.isFinite(lastCombineValLoss)
+          ? lastCombineValLoss.toFixed(4)
           : "–";
     }
 
+    /******************************************************************
+     * MESH UI
+     ******************************************************************/
     function resizeMeshCanvas() {
       const canvas = document.getElementById("meshCanvas");
       const rect = canvas.getBoundingClientRect();
@@ -1507,9 +927,9 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
         meshNodesLayout.set(cid, { x, y, r });
       }
 
-            // Edges: spessore in funzione dei pesi di combinazione ATC
+      // Edges: spessore in base ai pesi di combinazione dell’ultimo step di questo nodo
       for (let i = 0; i < n; i++) {
-        for (let j = i + 1; j < n; j++) {
+        for (let j = i+1; j < n; j++) {
           const [cid1] = entries[i];
           const [cid2] = entries[j];
           const n1 = meshNodesLayout.get(cid1);
@@ -1518,12 +938,11 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
           let lineWidth = 1;
           let alpha = 0.15;
 
-          // se uno dei due è il nodo locale, usiamo il peso da lastEdgeWeights
           if (cid1 === clientId || cid2 === clientId) {
             const neighborId = cid1 === clientId ? cid2 : cid1;
             const w = lastEdgeWeights.get(neighborId) || 0;
-            lineWidth = 1 + 4 * w;           // da 1px a ~5px
-            alpha = 0.15 + 0.35 * w;         // più opaco se w è alto
+            lineWidth = 1 + 4 * w;
+            alpha = 0.15 + 0.35 * w;
           }
 
           ctx.strokeStyle = `rgba(120,150,255,${alpha})`;
@@ -1535,7 +954,7 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
         }
       }
 
-
+      // nodi
       for (let i = 0; i < n; i++) {
         const [cid, data] = entries[i];
         const node = meshNodesLayout.get(cid);
@@ -1562,9 +981,7 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
       const rect = canvas.getBoundingClientRect();
       const x = evt.clientX - rect.left;
       const y = evt.clientY - rect.top;
-
       if (!meshNodesLayout.size) return;
-
       let bestId = null;
       let bestD2 = Infinity;
       for (const [cid, node] of meshNodesLayout.entries()) {
@@ -1601,19 +1018,16 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
           ? d.localValLoss.toFixed(4)
           : "–"
       }</div>`);
-      const trustEntry = trustScores.get(cid);
-      if (trustEntry && typeof trustEntry.score === "number") {
-        lines.push(
-          `<div>Trust (locale): ${(trustEntry.score*100).toFixed(1)} %</div>`
-        );
+      if (d.gradVar != null && Number.isFinite(d.gradVar)) {
+        lines.push(`<div>Var grad stimata: ${d.gradVar.toExponential(2)}</div>`);
+        lines.push(`<div>k var: ${d.gradVarCount ?? 0}</div>`);
       }
-            const edgeW = lastEdgeWeights.get(cid);
+      const edgeW = lastEdgeWeights.get(cid);
       if (edgeW != null) {
         lines.push(
-          `<div>Peso combinazione ATC: ${(edgeW * 100).toFixed(1)} %</div>`
+          `<div>Peso ATC locale: ${(edgeW * 100).toFixed(1)} %</div>`
         );
       }
-
       lines.push(`<div>Ultimo visto: ${
         d.lastSeen ? new Date(d.lastSeen).toLocaleTimeString() : "–"
       }</div>`);
@@ -1626,7 +1040,7 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
     function initBattery() {
       if ("getBattery" in navigator) {
         navigator.getBattery().then(b => {
-          batteryInfo = b;
+            batteryInfo = b;
           b.addEventListener("levelchange", updateLocalUI);
           b.addEventListener("chargingchange", updateLocalUI);
           updateLocalUI();
@@ -1635,7 +1049,7 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
     }
 
     /******************************************************************
-     * TESTER: FILE + SAMPLE GALLERY (usa *model* locale)
+     * TESTER: FILE + SAMPLE GALLERY (USA model LOCALE)
      ******************************************************************/
     function probsContainNonFinite(arr) {
       for (let i = 0; i < arr.length; i++) {
@@ -1752,7 +1166,7 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
     }
 
     /******************************************************************
-     * PANIC BUTTON (reset solo locale)
+     * PANIC BUTTON
      ******************************************************************/
     async function localPanicReset() {
       if (!confirm("Reset locale: azzera il modello e le statistiche su questo dispositivo. Procedere?")) {
@@ -1767,12 +1181,336 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
       localSteps = 0;
       localSamples = 0;
       lastTrainLoss = null;
-      lastValLoss = null;
+      lastValLoss   = null;
+      localGradVar  = null;
+      localGradVarCount = 0;
       avgBatchMs = 0;
       await saveLocalMeta();
       updateLocalUI();
       document.getElementById("tester-result").textContent =
         "Modello locale resettato. Il training riparte da zero.";
+    }
+
+    /******************************************************************
+     * FIREBASE SUBSCRIPTIONS
+     ******************************************************************/
+    function subscribeClientsAndSnapshots(db, roomId) {
+      const clientsRef = collection(db, "rooms", roomId, "clients");
+      const snapsRef   = collection(db, "rooms", roomId, "snapshots");
+
+      onSnapshot(clientsRef, (snap) => {
+        clientsState.clear();
+        const now = Date.now();
+        snap.forEach(docSnap => {
+          const d = docSnap.data();
+          let lastSeen = d.lastSeen && d.lastSeen.toMillis ? d.lastSeen.toMillis() : null;
+          const offline = lastSeen && (now - lastSeen > OFFLINE_THRESHOLD_MS);
+          if (offline) return;
+          clientsState.set(docSnap.id, {
+            localSteps: d.localSteps ?? 0,
+            localSamples: d.localSamples ?? 0,
+            localValLoss: d.localValLoss ?? null,
+            gradVar: d.gradVar ?? null,
+            gradVarCount: d.gradVarCount ?? 0,
+            lastSeen
+          });
+        });
+        updateCombineUI();
+        drawMesh();
+      });
+
+      const qSnaps = query(snapsRef, orderBy("createdAt", "desc"), limit(20));
+      onSnapshot(qSnaps, (snap) => {
+        const docs = [];
+        snap.forEach(docSnap => {
+          docs.push({
+            id: docSnap.id,
+            data: docSnap.data(),
+            localTimestamp: Date.now()
+          });
+        });
+        recentSnapshots = docs;
+      });
+
+      return { clientsRef, snapsRef };
+    }
+
+    /******************************************************************
+     * ATC TRAINING LOOP (Adapt + Combine nello stesso ciclo)
+     ******************************************************************/
+    async function trainingLoop(clientRef, snapshotsColRef) {
+      devLog("Training loop ATC avviato.");
+      let combineValCounter = 0;
+
+      while (true) {
+        let xs=null, ys=null;
+        const t0 = performance.now();
+        try {
+          // --- ADAPT STEP: ψ_i = w_i - μ ∇J_i(w_i) ---
+          const { shapes, arrays: arraysBefore } = extractWeights();
+          const batch = await loadBatchFromManifest(trainManifest, TRAIN_BATCH_SIZE);
+          xs = batch.xs;
+          ys = batch.ys;
+
+          const history = await model.fit(xs, ys, {
+            epochs: 1,
+            batchSize: TRAIN_BATCH_SIZE,
+            shuffle: true,
+            verbose: 0
+          });
+          const t1 = performance.now();
+
+          xs.dispose();
+          ys.dispose();
+          xs = null; ys = null;
+
+          const loss = history.history.loss[0];
+          if (!Number.isFinite(loss)) {
+            devLog("Loss NaN/Inf. Resetto modello locale.");
+            model.dispose();
+            model = buildModel();
+            localSteps = 0;
+            localSamples = 0;
+            lastTrainLoss = null;
+            lastValLoss   = null;
+            localGradVar  = null;
+            localGradVarCount = 0;
+            await saveLocalMeta();
+            updateLocalUI();
+            await sleep(TRAINING_PAUSE_MS);
+            continue;
+          }
+
+          localSteps   += 1;
+          localSamples += TRAIN_BATCH_SIZE;
+          lastTrainLoss = loss;
+
+          const { arrays: arraysAfter } = extractWeights(); // ψ_i
+
+          // Stima varianza update (surrogato grad noise)
+          let sumSq = 0;
+          let count = 0;
+          for (let t = 0; t < arraysBefore.length; t++) {
+            const a0 = arraysBefore[t];
+            const a1 = arraysAfter[t];
+            for (let i = 0; i < a0.length; i++) {
+              const d = a1[i] - a0[i];
+              sumSq += d*d;
+              count++;
+            }
+          }
+          const stepVar = sumSq / Math.max(1, count);
+          if (!Number.isFinite(stepVar) || stepVar <= 0) {
+            // fallback
+            if (localGradVar == null) localGradVar = 1e-4;
+          } else {
+            if (localGradVar == null) localGradVar = stepVar;
+            else localGradVar = (1 - VAR_BETA) * localGradVar + VAR_BETA * stepVar;
+          }
+          localGradVarCount++;
+
+          const batchMs = t1 - t0;
+          if (avgBatchMs === 0) avgBatchMs = batchMs;
+          else avgBatchMs = avgBatchMs*0.9 + batchMs*0.1;
+
+          pushChartPoint(localLossChart, loss);
+          devLog(`Adapt k=${localSteps}, loss=${loss.toFixed(4)}, stepVar=${stepVar.toExponential(2)}, gradVar=${localGradVar != null ? localGradVar.toExponential(2) : "n/d"}`);
+
+          // Pubblica ψ_i come snapshot per i vicini
+          const q = quantizeWeights(shapes, arraysAfter);
+          const snapshotDoc = {
+            clientId,
+            createdAt: serverTimestamp(),
+            iter: localSteps,
+            localSamples,
+            localTrainLoss: lastTrainLoss,
+            localValLoss: lastValLoss,
+            gradVar: localGradVar,
+            gradVarCount: localGradVarCount,
+            shapes: q.shapes,
+            scales: q.scales,
+            quantArrays: q.quantArrays
+          };
+          await addDoc(snapshotsColRef, snapshotDoc);
+
+          // Aggiorna stato client (per la mesh)
+          await setDoc(clientRef, {
+            lastSeen: serverTimestamp(),
+            localSteps,
+            localSamples,
+            localValLoss: lastValLoss,
+            gradVar: localGradVar,
+            gradVarCount: localGradVarCount
+          }, { merge: true });
+
+          // --- COMBINE STEP: w_i = Σ a_ij ψ_j ---
+          const now = Date.now();
+          const byClient = new Map();
+          for (const snap of recentSnapshots) {
+            const d = snap.data;
+            if (!d.clientId) continue;
+            const cid = d.clientId;
+            if (cid === clientId) continue; // self gestito separatamente
+            const ts = d.createdAt && d.createdAt.toMillis
+              ? d.createdAt.toMillis()
+              : snap.localTimestamp || now;
+            const prev = byClient.get(cid);
+            if (!prev || ts > prev.ts) {
+              byClient.set(cid, { snap, ts });
+            }
+          }
+
+          const neighborsInfo = [];
+          for (const [cid, {snap}] of byClient.entries()) {
+            const d = snap.data;
+            const { shapes: neighShapes, arrays: neighArrays } = dequantizeSnapshot(d);
+            if (JSON.stringify(neighShapes) !== JSON.stringify(shapes)) {
+              continue; // architettura diversa
+            }
+            const gVar   = d.gradVar;
+            const gCount = d.gradVarCount || 0;
+            neighborsInfo.push({
+              clientId: cid,
+              arrays: neighArrays,
+              gradVar: gVar,
+              gradVarCount: gCount
+            });
+          }
+
+          // ARV: costruiamo l’insieme S di nodi maturi (self sempre incluso)
+          const S = [];
+          const EPS_GVAR = 1e-12;
+
+          // Self
+          const selfGamma = (localGradVar != null && Number.isFinite(localGradVar))
+            ? localGradVar
+            : 1e-4;
+          S.push({
+            clientId: clientId,
+            arrays: arraysAfter,
+            gamma: selfGamma,
+            mature: localGradVarCount >= VAR_WARMUP_ITERS,
+            isSelf: true
+          });
+
+          // Vicini maturi
+          for (const n of neighborsInfo) {
+            if (n.gradVarCount >= VAR_WARMUP_ITERS &&
+                n.gradVar != null &&
+                Number.isFinite(n.gradVar) &&
+                n.gradVar > 0) {
+              S.push({
+                clientId: n.clientId,
+                arrays: n.arrays,
+                gamma: n.gradVar,
+                mature: true,
+                isSelf: false
+              });
+            }
+          }
+
+          // Se solo self o nessun gamma decente → w_i = ψ_i (no combine effettivo)
+          let combinedArrays = arraysAfter.map(a => a.slice());
+          lastEdgeWeights.clear();
+          let neighborWeightSum = 0;
+
+          if (S.length > 1) {
+            // ARV: r_j = 1 / (eps + gamma_j), a_j = r_j / Σ r
+            let anyValidGamma = false;
+            for (const s of S) {
+              if (s.gamma > 0) { anyValidGamma = true; break; }
+            }
+            let weights = new Map();
+            if (!anyValidGamma) {
+              // averaging rule uniforme
+              const w = 1 / S.length;
+              S.forEach(s => weights.set(s.clientId, w));
+            } else {
+              let sumR = 0;
+              for (const s of S) {
+                const rj = 1 / (EPS_GVAR + s.gamma);
+                sumR += rj;
+                weights.set(s.clientId, rj);
+              }
+              for (const [cid, rj] of weights.entries()) {
+                weights.set(cid, rj / sumR);
+              }
+            }
+
+            // combine w_i = Σ_j a_j ψ_j (ψ_j = arrays di S[j])
+            combinedArrays = arraysAfter.map(() => null);
+            for (let t = 0; t < arraysAfter.length; t++) {
+              const len = arraysAfter[t].length;
+              combinedArrays[t] = new Float32Array(len);
+            }
+
+            for (const s of S) {
+              const wj = weights.get(s.clientId);
+              if (wj == null) continue;
+              for (let t = 0; t < combinedArrays.length; t++) {
+                const out = combinedArrays[t];
+                const src = s.arrays[t];
+                for (let i = 0; i < out.length; i++) {
+                  out[i] += wj * src[i];
+                }
+              }
+              if (!s.isSelf) {
+                lastEdgeWeights.set(s.clientId, wj);
+                neighborWeightSum += wj;
+              }
+            }
+
+            devLog(
+              `Combine k=${localSteps}: nodi S=${S.length}, peso vicini=${neighborWeightSum.toFixed(3)}`
+            );
+          } else {
+            devLog(`Combine k=${localSteps}: solo self (nessun vicino maturo).`);
+          }
+
+          sanitizeWeightArrays(combinedArrays);
+          applyWeightsToModel(shapes, combinedArrays);
+          await saveLocalMeta(combinedArrays, shapes);
+
+          lastCombineTime        = Date.now();
+          lastCombineNeighbors   = S.length - 1;
+          lastCombineNeighborAvg = neighborWeightSum;
+
+          // ogni COMBINE_VAL_EVERY iter facciamo una val loss post-combine
+          combineValCounter++;
+          if (valManifest && valManifest.items && valManifest.items.length &&
+              combineValCounter % COMBINE_VAL_EVERY === 0) {
+            const vb = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
+            const evalRes = await model.evaluate(vb.xs, vb.ys, {
+              batchSize: VAL_BATCH_SIZE,
+              verbose: 0
+            });
+            let lossT;
+            if (Array.isArray(evalRes)) lossT = evalRes[0];
+            else lossT = evalRes;
+            const arr = await lossT.data();
+            const vLoss = arr[0];
+            lossT.dispose();
+            vb.xs.dispose();
+            vb.ys.dispose();
+            if (Number.isFinite(vLoss)) {
+              lastCombineValLoss = vLoss;
+              pushChartPoint(globalLossChart, vLoss);
+              devLog(`Val loss post-combine=${vLoss.toFixed(4)}`);
+            }
+          }
+
+          updateLocalUI();
+          updateCombineUI();
+          drawMesh();
+          await sleep(TRAINING_PAUSE_MS);
+        } catch (e) {
+          if (xs) xs.dispose();
+          if (ys) ys.dispose();
+          console.error("Errore trainingLoop ATC:", e);
+          devLog("Errore trainingLoop ATC: " + e.message);
+          await sleep(TRAINING_PAUSE_MS);
+        }
+      }
     }
 
     /******************************************************************
@@ -1825,7 +1563,9 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
           lastSeen: serverTimestamp(),
           localSteps,
           localSamples,
-          localValLoss: lastValLoss
+          localValLoss: lastValLoss,
+          gradVar: localGradVar,
+          gradVarCount: localGradVarCount
         }, { merge: true });
 
         setInterval(() => {
@@ -1836,7 +1576,6 @@ let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
         const { snapsRef } = subscribeClientsAndSnapshots(db, ROOM_ID);
 
         trainingLoop(clientRef, snapsRef);
-        combineLoop();
       });
 
       document.getElementById("panic-btn").addEventListener("click", () => {
