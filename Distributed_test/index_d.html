@@ -1708,7 +1708,7 @@ if (neighborsInfo.length > 0 && (localSteps % 5 === 0)) {
 lastCombineTime        = Date.now();
 lastCombineNeighbors   = S.length - 1;
 lastCombineNeighborAvg = neighborWeightSum;
-          
+
           // ogni COMBINE_VAL_EVERY iter facciamo una val loss post-combine
           combineValCounter++;
           if (valManifest && valManifest.items && valManifest.items.length &&
