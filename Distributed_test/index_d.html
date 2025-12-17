@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Distributed MNIST PNG Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: #050814;
+      color: #f0f4ff;
+      --card-bg: #151a2c;
+      --accent: #4f9cff;
+      --accent-soft: rgba(79, 156, 255, 0.15);
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #20263a;
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.25rem;
+    }
+    header span {
+      font-size: 0.85rem;
+      color: #9ca4c7;
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      grid-template-rows: auto auto 1fr;
+      gap: 1rem;
+      padding: 1rem;
+      box-sizing: border-box;
+      flex: 1;
+    }
+    section {
+      background: var(--card-bg);
+      border-radius: 0.75rem;
+      padding: 0.75rem 1rem;
+      box-shadow: 0 0 0 1px #1f2840;
+      min-width: 0;
+    }
+    section h2 {
+      margin: 0 0 0.5rem;
+      font-size: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .pill {
+      font-size: 0.7rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    #status-section {
+      grid-column: 1 / 2;
+      grid-row: 1 / 2;
+    }
+    #global-section {
+      grid-column: 2 / 3;
+      grid-row: 1 / 2;
+    }
+    #mesh-section {
+      grid-column: 1 / 2;
+      grid-row: 2 / 4;
+    }
+    #tester-section {
+      grid-column: 2 / 3;
+      grid-row: 2 / 4;
+    }
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .stat {
+      background: #1a2136;
+      border-radius: 0.6rem;
+      padding: 0.4rem 0.5rem;
+      font-size: 0.8rem;
+    }
+    .stat .label {
+      color: #9ca4c7;
+      font-size: 0.7rem;
+    }
+    .stat .value {
+      font-weight: 600;
+      margin-top: 0.15rem;
+    }
+    .stat .sub {
+      font-size: 0.7rem;
+      color: #8891b3;
+      margin-top: 0.1rem;
+    }
+    #meshCanvas {
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at top, #1b2340, #050814);
+      border-radius: 0.6rem;
+      border: 1px solid #222a42;
+      box-sizing: border-box;
+      cursor: pointer;
+    }
+    #node-details {
+      font-size: 0.8rem;
+      background: #101628;
+      border-radius: 0.5rem;
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    canvas.loss-chart {
+      width: 100%;
+      height: 140px;
+    }
+    footer {
+      padding: 0.5rem 1rem;
+      font-size: 0.7rem;
+      color: #7b84a7;
+      border-top: 1px solid #20263a;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.8rem;
+    }
+    #tester-section input[type="file"] {
+      font-size: 0.8rem;
+      margin-bottom: 0.4rem;
+    }
+    #tester-section button {
+      background: var(--accent);
+      border: none;
+      border-radius: 0.5rem;
+      padding: 0.35rem 0.7rem;
+      color: #0b1020;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    #tester-section button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+    #tester-result {
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+    }
+    .sample-thumb {
+      width: 40px;
+      height: 40px;
+      border-radius: 0.3rem;
+      border: 1px solid #303857;
+      cursor: pointer;
+      image-rendering: pixelated;
+      background: #000;
+      object-fit: cover;
+    }
+    .sample-thumb.selected {
+      border-color: #4f9cff;
+      box-shadow: 0 0 0 2px rgba(79,156,255,0.5);
+    }
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto auto;
+      }
+      #status-section, #global-section, #mesh-section, #tester-section {
+        grid-column: 1 / 2;
+        grid-row: auto;
+      }
+      #meshCanvas {
+        height: 260px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Distributed MNIST PNG Demo</h1>
+    <span>Training CNN federata su MNIST PNG, neuroni dinamici, Sinkhorn, solo browser + Firebase</span>
+  </header>
+
+  <main>
+    <!-- STATO LOCALE -->
+    <section id="status-section">
+      <h2>
+        Nodo locale
+        <span class="pill" id="client-id-pill">Client: …</span>
+      </h2>
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="label">Backend TF.js</div>
+          <div class="value" id="tf-backend">–</div>
+          <div class="sub" id="tf-version">–</div>
+        </div>
+        <div class="stat">
+          <div class="label">Dati macinati</div>
+          <div class="value" id="samples-trained">0</div>
+          <div class="sub" id="batches-trained">0 batch totali</div>
+        </div>
+        <div class="stat">
+          <div class="label">Carico training</div>
+          <div class="value" id="batch-ms">–</div>
+          <div class="sub" id="throughput">–</div>
+        </div>
+        <div class="stat">
+          <div class="label">Batteria (se disponibile)</div>
+          <div class="value" id="battery-level">–</div>
+          <div class="sub" id="battery-status">API non disponibile</div>
+        </div>
+        <div class="stat">
+          <div class="label">Loss locale</div>
+          <div class="value" id="local-loss">–</div>
+          <div class="sub" id="val-loss">validation: –</div>
+        </div>
+        <div class="stat">
+          <div class="label">Layer nascosto</div>
+          <div class="value" id="hidden-size">–</div>
+          <div class="sub" id="hidden-policy">neuroni attivi / max</div>
+        </div>
+      </div>
+      <canvas id="localLossChart" class="loss-chart"></canvas>
+    </section>
+
+    <!-- STATO GLOBALE -->
+    <section id="global-section">
+      <h2>
+        Vista globale
+        <span class="pill" id="clients-count">Nodi: 0</span>
+      </h2>
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="label">Loss globale stimata</div>
+          <div class="value" id="global-loss">–</div>
+          <div class="sub">mediana delle loss pubblicate dai nodi</div>
+        </div>
+        <div class="stat">
+          <div class="label">Snapshot recenti</div>
+          <div class="value" id="snapshots-count">0</div>
+          <div class="sub" id="last-snapshot-age">–</div>
+        </div>
+        <div class="stat">
+          <div class="label">Qualità Sinkhorn</div>
+          <div class="value" id="sinkhorn-quality">–</div>
+          <div class="sub">allineamento neuroni condivisi</div>
+        </div>
+      </div>
+      <canvas id="globalLossChart" class="loss-chart"></canvas>
+    </section>
+
+    <!-- MESH -->
+    <section id="mesh-section">
+      <h2>
+        Rete mesh dei dispositivi
+        <span class="pill">clicca sui nodi per dettagli</span>
+      </h2>
+      <canvas id="meshCanvas"></canvas>
+      <div id="node-details">
+        <strong>Dettagli nodo selezionato</strong>
+        <div id="node-details-body">Nessun nodo selezionato.</div>
+      </div>
+    </section>
+
+    <!-- TESTER -->
+    <section id="tester-section">
+      <h2>
+        Tester modello
+        <span class="pill" id="model-ready-pill">Modello: inizializzazione…</span>
+      </h2>
+      <p style="font-size:0.8rem; color:#9ca4c7;">
+        Carica una piccola immagine (sarà ridimensionata a 32×32, in scala di grigi) oppure clicca su alcune cifre
+        di esempio dal test set MNIST. Il training continua in background mentre osservi i risultati.
+      </p>
+      <input type="file" id="test-image-input" accept="image/*" />
+      <button id="test-btn" disabled>Testa immagine</button>
+      <div id="tester-result">In attesa che il modello si stabilizzi…</div>
+
+      <div style="margin-top:0.8rem;">
+        <div style="font-size:0.75rem;color:#9ca4c7;margin-bottom:0.2rem;">
+          Oppure prova con alcune cifre di esempio (dal test set MNIST):
+        </div>
+        <div id="sample-images-container"
+             style="display:flex;flex-wrap:wrap;gap:0.3rem;"></div>
+      </div>
+
+      <hr style="border-color:#20263a; margin:0.8rem 0;" />
+      <p style="font-size:0.75rem; color:#7b84a7;">
+        Questo prototipo:
+      </p>
+      <ul style="font-size:0.75rem; margin-top:0.2rem; padding-left:1.2rem; color:#9ca4c7;">
+        <li>Scarica MNIST-PNG (CSV + PNG) dal repo MIT di <code>rasbt/mnist-pngs</code></li>
+        <li>Allena una CNN locale con TF.js, salvando il modello in <code>localStorage</code></li>
+        <li>Condivide snapshot quantizzati su Firestore (nessun server custom)</li>
+        <li>Allinea neuroni comuni con Sinkhorn e aggiunge/pruna neuroni nascosti in modo controllato</li>
+        <li>Rimuove automaticamente dalla mesh i nodi “offline” (non aggiornano più <code>lastSeen</code>)</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    Prototipo puramente client-side. Configura <code>firebaseConfig</code>, MNIST PNG e regole Firestore nel tuo progetto Firebase.
+  </footer>
+
+  <!-- Canvas nascosto per caricare / ridimensionare immagini -->
+  <canvas id="imageLoaderCanvas" style="display:none;"></canvas>
+
+  <!-- LIBRERIE -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <script type="module">
+    /******************************************************************
+     * IMPORT FIREBASE (MODULAR API)
+     ******************************************************************/
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      collection,
+      addDoc,
+      onSnapshot,
+      query,
+      orderBy,
+      limit,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+    import {
+      getAuth,
+      signInAnonymously,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+    /******************************************************************
+     * CONFIGURAZIONE FIREBASE
+     ******************************************************************/
+    const firebaseConfig = {
+      apiKey: "AIzaSyDUYL3b05b0RoyNMYCy9GZRtDs-4SBb-AI",
+      authDomain: "twin-dungeon.firebaseapp.com",
+      projectId: "twin-dungeon",
+      storageBucket: "twin-dungeon.firebasestorage.app",
+      messagingSenderId: "141719069384",
+      appId: "1:141719069384:web:8cf21db6eddcadea0d3bfd",
+      measurementId: "G-8L8Y6CL8M2"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    /******************************************************************
+     * PARAMETRI MODELLO / TRAINING / DYNAMIC NEURONS
+     ******************************************************************/
+    const ROOM_ID = "image-room";
+    const IMG_SIZE = 32;
+    const NUM_CHANNELS = 1;
+    const NUM_CLASSES = 10; // cifre da 0 a 9
+
+    // Layer nascosto dinamico
+    const HIDDEN_MAX = 32;
+    const HIDDEN_INIT = 16;
+    const HIDDEN_MIN = 8;
+    const HIDDEN_TARGET_LOW = 16;
+    const HIDDEN_TARGET_HIGH = 24;
+    const NEW_NEURONS_PER_FUSION = 2;
+    const FUSION_PRUNE_STEPS = 1;
+
+    // Training
+    const TRAIN_BATCH_SIZE = 4;
+    const VAL_BATCH_SIZE = 4;
+    const TRAINING_PAUSE_MS = 1500;
+    const VALIDATION_EVERY_STEPS = 4;
+    const SNAPSHOT_EVERY_STEPS = 8;
+    const MASK_EVERY_STEPS = 4;
+    const FUSION_INTERVAL_MS = 7000;
+    const FUSION_NEIGHBORS_LIMIT = 3;
+
+    // Indici pesi nel modello
+    const IDX_CONV1_KERNEL = 0;
+    const IDX_CONV1_BIAS   = 1;
+    const IDX_CONV2_KERNEL = 2;
+    const IDX_CONV2_BIAS   = 3;
+    const IDX_DH_KERNEL    = 4;
+    const IDX_DH_BIAS      = 5;
+    const IDX_DO_KERNEL    = 6;
+    const IDX_DO_BIAS      = 7;
+
+    // Storage locale
+    const MODEL_STORAGE_KEY = "distributed-image-model-v1";
+    const META_STORAGE_KEY  = "distributed-image-model-meta-v1";
+
+    // MNIST PNG (rasbt/mnist-pngs, MIT)
+    const MNIST_ROOT = "https://raw.githubusercontent.com/rasbt/mnist-pngs/main/";
+    const MNIST_TRAIN_CSV_URL = MNIST_ROOT + "train.csv";
+    const MNIST_TEST_CSV_URL  = MNIST_ROOT + "test.csv";
+    const MAX_TRAIN_ITEMS = 12000;
+    const MAX_VAL_ITEMS   = 2000;
+
+    // Nodo offline se lastSeen è troppo vecchio
+    const OFFLINE_THRESHOLD_MS = 60_000; // 1 minuto
+
+    /******************************************************************
+     * STATO GLOBALE
+     ******************************************************************/
+    let currentUser = null;
+    let clientId = null;
+
+    let model = null;
+    let activeHiddenSize = HIDDEN_INIT;
+
+    let trainManifest = null;
+    let valManifest = null;
+
+    let stepsTrained = 0;
+    let samplesTrained = 0;
+    let batchesTrained = 0;
+    let avgBatchMs = 0;
+    let lastTrainLoss = null;
+    let lastValLoss = null;
+
+    let lastSinkhornQuality = null;
+    let batteryInfo = null;
+
+    const clientsState = new Map();   // solo nodi "attivi"
+    let lastSnapshots = [];           // snapshot recenti
+    let localLossChart = null;
+    let globalLossChart = null;
+
+    const meshCanvas = document.getElementById("meshCanvas");
+    const meshCtx = meshCanvas.getContext("2d");
+    let meshNodesLayout = new Map();  // clientId -> {x,y,r}
+
+    /******************************************************************
+     * UTILITY
+     ******************************************************************/
+    function sleep(ms) {
+      return new Promise(res => setTimeout(res, ms));
+    }
+
+    function formatMs(ms) {
+      if (ms == null) return "–";
+      return ms.toFixed(1) + " ms/batch";
+    }
+
+    /******************************************************************
+     * MNIST PNG: CARICA CSV E COSTRUISCI MANIFEST
+     ******************************************************************/
+    async function fetchCsvLines(url, maxLines = null) {
+      console.log("Scarico CSV MNIST:", url);
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        throw new Error("Impossibile caricare CSV: " + url + " (" + resp.status + ")");
+      }
+      const text = await resp.text();
+      const allLines = text.trim().split(/\r?\n/);
+      const header = allLines.shift();
+      if (!header.toLowerCase().startsWith("filepath")) {
+        console.warn("Header CSV inatteso per", url, ":", header);
+      }
+      if (maxLines && allLines.length > maxLines) {
+        return allLines.slice(0, maxLines);
+      }
+      return allLines;
+    }
+
+    function parseMnistCsvLinesToItems(lines) {
+      const items = [];
+      for (const line of lines) {
+        if (!line) continue;
+        const parts = line.split(",");
+        if (parts.length < 2) continue;
+        const filepath = parts[0].trim();
+        const labelStr = parts[1].trim();
+        const label = parseInt(labelStr, 10);
+        if (Number.isNaN(label)) continue;
+        const url = MNIST_ROOT + filepath;
+        items.push({ url, label });
+      }
+      return items;
+    }
+
+    async function loadMnistPngManifests() {
+      const [trainLines, testLines] = await Promise.all([
+        fetchCsvLines(MNIST_TRAIN_CSV_URL, MAX_TRAIN_ITEMS),
+        fetchCsvLines(MNIST_TEST_CSV_URL,  MAX_VAL_ITEMS)
+      ]);
+      const trainItems = parseMnistCsvLinesToItems(trainLines);
+      const valItems   = parseMnistCsvLinesToItems(testLines);
+      const classes = Array.from({ length: NUM_CLASSES }, (_, i) => String(i));
+
+      console.log("MNIST items:", trainItems.length, "train;", valItems.length, "val");
+      return {
+        trainManifest: { classes, items: trainItems },
+        valManifest:   { classes, items: valItems }
+      };
+    }
+
+    /******************************************************************
+     * MODELLO CNN + COMPILE
+     ******************************************************************/
+    function compileModel(m) {
+      m.compile({
+        optimizer: tf.train.adam(0.001),
+        loss: "categoricalCrossentropy",
+        metrics: ["accuracy"]
+      });
+    }
+
+    function buildModel() {
+      const m = tf.sequential();
+      m.add(tf.layers.conv2d({
+        inputShape: [IMG_SIZE, IMG_SIZE, NUM_CHANNELS],
+        filters: 8,
+        kernelSize: 3,
+        activation: "relu",
+        padding: "same",
+        name: "conv1"
+      }));
+      m.add(tf.layers.maxPooling2d({ poolSize: 2 }));
+      m.add(tf.layers.conv2d({
+        filters: 16,
+        kernelSize: 3,
+        activation: "relu",
+        padding: "same",
+        name: "conv2"
+      }));
+      m.add(tf.layers.maxPooling2d({ poolSize: 2 }));
+      m.add(tf.layers.flatten());
+      m.add(tf.layers.dense({
+        units: HIDDEN_MAX,
+        activation: "relu",
+        name: "dense_hidden"
+      }));
+      m.add(tf.layers.dense({
+        units: NUM_CLASSES,
+        activation: "softmax",
+        name: "dense_out"
+      }));
+      compileModel(m);
+      return m;
+    }
+
+    /******************************************************************
+     * PESI FLOAT / QUANTIZZAZIONE
+     ******************************************************************/
+    function extractFloatWeights() {
+      const tensors = model.getWeights();
+      const shapes = tensors.map(t => t.shape);
+      const arrays = tensors.map(t => Float32Array.from(t.dataSync()));
+      tensors.forEach(t => t.dispose());
+      return { shapes, arrays };
+    }
+
+    function applyFloatWeights(shapes, arrays) {
+      const tensors = arrays.map((arr, i) => tf.tensor(arr, shapes[i]));
+      model.setWeights(tensors);
+      tensors.forEach(t => t.dispose());
+    }
+
+    function quantizeWeights(shapes, arrays) {
+      const scales = [];
+      const quantArrays = [];
+      for (const arr of arrays) {
+        let maxAbs = 0;
+        for (let i = 0; i < arr.length; i++) {
+          const a = Math.abs(arr[i]);
+          if (a > maxAbs) maxAbs = a;
+        }
+        const scale = maxAbs > 0 ? maxAbs / 127.0 : 1e-8;
+        const q = new Int8Array(arr.length);
+        for (let i = 0; i < arr.length; i++) {
+          q[i] = Math.max(-127, Math.min(127, Math.round(arr[i] / scale)));
+        }
+        scales.push(scale);
+        quantArrays.push(Array.from(q));
+      }
+      return { shapes, scales, quantArrays };
+    }
+
+    function dequantizeSnapshot(snapDoc) {
+      const shapes = snapDoc.shapes;
+      const scales = snapDoc.scales;
+      const quantArrays = snapDoc.quantArrays;
+      const arrays = [];
+      for (let t = 0; t < quantArrays.length; t++) {
+        const qArr = quantArrays[t];
+        const scale = scales[t];
+        const fArr = new Float32Array(qArr.length);
+        for (let i = 0; i < qArr.length; i++) {
+          fArr[i] = qArr[i] * scale;
+        }
+        arrays.push(fArr);
+      }
+      return { shapes, arrays };
+    }
+
+    /******************************************************************
+     * IMAGE LOADING → TENSOR
+     ******************************************************************/
+    async function loadImageAsTensor(url) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          const canvas = document.getElementById("imageLoaderCanvas");
+          const ctx = canvas.getContext("2d");
+          canvas.width = IMG_SIZE;
+          canvas.height = IMG_SIZE;
+          ctx.drawImage(img, 0, 0, IMG_SIZE, IMG_SIZE);
+          let imgTensor = tf.browser.fromPixels(canvas, NUM_CHANNELS);
+          imgTensor = tf.tidy(() => imgTensor.toFloat().div(255.0));
+          const batched = imgTensor.expandDims(0);
+          imgTensor.dispose();
+          resolve(batched);
+        };
+        img.onerror = (e) => reject(e);
+        img.src = url;
+      });
+    }
+
+    async function loadBatchFromManifest(manifest, batchSize) {
+      const items = manifest.items;
+      if (!items || items.length === 0) {
+        throw new Error("Manifest dataset vuoto.");
+      }
+      const xsList = [];
+      const ysList = [];
+      for (let i = 0; i < batchSize; i++) {
+        const idx = Math.floor(Math.random() * items.length);
+        const item = items[idx];
+        const x = await loadImageAsTensor(item.url); // [1,H,W,C]
+        xsList.push(x);
+        ysList.push(item.label);
+      }
+      const xs = tf.concat(xsList, 0); // [B,H,W,C]
+      xsList.forEach(t => t.dispose());
+      const ysIdx = tf.tensor1d(ysList, "int32");
+      const ys = tf.oneHot(ysIdx, NUM_CLASSES);
+      ysIdx.dispose();
+      return { xs, ys };
+    }
+
+    /******************************************************************
+     * SINKHORN & NEURONI NASCOSTI
+     ******************************************************************/
+    function denseHiddenKernelToNeuronMatrix(flatArray, shape, activeSize) {
+      const inDim = shape[0];
+      const hiddenMax = shape[1];
+      const H = Math.min(activeSize, hiddenMax);
+      const matrix = [];
+      for (let h = 0; h < H; h++) {
+        const neuron = [];
+        for (let i = 0; i < inDim; i++) {
+          const idx = i * hiddenMax + h;
+          neuron.push(flatArray[idx]);
+        }
+        matrix.push(neuron);
+      }
+      return matrix;
+    }
+
+    function euclideanDistance(a, b) {
+      let sum = 0;
+      for (let i = 0; i < a.length; i++) {
+        const d = a[i] - b[i];
+        sum += d * d;
+      }
+      return Math.sqrt(sum);
+    }
+
+    function computeCostMatrix(localMat, neighMat) {
+      const Hloc = localMat.length;
+      const Hnei = neighMat.length;
+      const H = Math.min(Hloc, Hnei);
+      const C = [];
+      for (let i = 0; i < H; i++) {
+        const row = [];
+        for (let j = 0; j < H; j++) {
+          row.push(euclideanDistance(localMat[i], neighMat[j]));
+        }
+        C.push(row);
+      }
+      return C;
+    }
+
+    function runSinkhorn(costMatrix, epsilon = 0.1, iterations = 20) {
+      const H = costMatrix.length;
+      const P = [];
+      for (let i = 0; i < H; i++) {
+        const row = [];
+        for (let j = 0; j < H; j++) {
+          row.push(Math.exp(-costMatrix[i][j] / epsilon));
+        }
+        P.push(row);
+      }
+      for (let it = 0; it < iterations; it++) {
+        // normalizza righe
+        for (let i = 0; i < H; i++) {
+          let s = 0;
+          for (let j = 0; j < H; j++) s += P[i][j];
+          if (s > 0) {
+            for (let j = 0; j < H; j++) P[i][j] /= s;
+          }
+        }
+        // normalizza colonne
+        for (let j = 0; j < H; j++) {
+          let s = 0;
+          for (let i = 0; i < H; i++) s += P[i][j];
+          if (s > 0) {
+            for (let i = 0; i < H; i++) P[i][j] /= s;
+          }
+        }
+      }
+      let quality = 0;
+      for (let i = 0; i < H; i++) {
+        let maxVal = 0;
+        for (let j = 0; j < H; j++) {
+          if (P[i][j] > maxVal) maxVal = P[i][j];
+        }
+        quality += maxVal;
+      }
+      quality /= H;
+      return { P, quality };
+    }
+
+    function argmaxPermutation(P) {
+      const H = P.length;
+      const perm = new Array(H).fill(0);
+      const used = new Array(H).fill(false);
+      for (let i = 0; i < H; i++) {
+        let bestJ = 0;
+        let bestVal = -Infinity;
+        for (let j = 0; j < H; j++) {
+          if (!used[j] && P[i][j] > bestVal) {
+            bestVal = P[i][j];
+            bestJ = j;
+          }
+        }
+        perm[i] = bestJ;
+        used[bestJ] = true;
+      }
+      return perm;
+    }
+
+    function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neighActive) {
+      const H = Math.min(localActive, neighActive);
+      if (H === 0) return { arraysAligned: arraysNeigh, quality: 0 };
+
+      const kernelShape = shapes[IDX_DH_KERNEL];
+      const inDim = kernelShape[0];
+      const hiddenMax = kernelShape[1];
+
+      const localKernel = arraysLocal[IDX_DH_KERNEL];
+      const neighKernel = arraysNeigh[IDX_DH_KERNEL];
+
+      const localMat = denseHiddenKernelToNeuronMatrix(localKernel, kernelShape, localActive);
+      const neighMat = denseHiddenKernelToNeuronMatrix(neighKernel, kernelShape, neighActive);
+
+      const C = computeCostMatrix(localMat.slice(0, H), neighMat.slice(0, H));
+      const { P, quality } = runSinkhorn(C, 0.1, 20);
+      const perm = argmaxPermutation(P);
+
+      const alignedNeighArrays = arraysNeigh.map(arr => arr.slice());
+      const neighKernelFlat = alignedNeighArrays[IDX_DH_KERNEL];
+      const neighBiasFlat   = alignedNeighArrays[IDX_DH_BIAS];
+      const neighOutKernel  = alignedNeighArrays[IDX_DO_KERNEL];
+
+      for (let h = 0; h < H; h++) {
+        const srcH = perm[h];
+        if (srcH === h) continue;
+        for (let i = 0; i < inDim; i++) {
+          const idx1 = i * hiddenMax + h;
+          const idx2 = i * hiddenMax + srcH;
+          const tmp = neighKernelFlat[idx1];
+          neighKernelFlat[idx1] = neighKernelFlat[idx2];
+          neighKernelFlat[idx2] = tmp;
+        }
+        const tmpb = neighBiasFlat[h];
+        neighBiasFlat[h] = neighBiasFlat[srcH];
+        neighBiasFlat[srcH] = tmpb;
+
+        const numClasses = shapes[IDX_DO_KERNEL][1];
+        for (let c = 0; c < numClasses; c++) {
+          const idx1 = h * numClasses + c;
+          const idx2 = srcH * numClasses + c;
+          const tmp2 = neighOutKernel[idx1];
+          neighOutKernel[idx1] = neighOutKernel[idx2];
+          neighOutKernel[idx2] = tmp2;
+        }
+      }
+
+      return { arraysAligned: alignedNeighArrays, quality };
+    }
+
+    function computeHiddenImportance(shapes, arrays) {
+      const outKernel = arrays[IDX_DO_KERNEL];
+      const hiddenMax = shapes[IDX_DO_KERNEL][0];
+      const numClasses = shapes[IDX_DO_KERNEL][1];
+      const importance = new Float32Array(hiddenMax);
+      for (let h = 0; h < hiddenMax; h++) {
+        let sum = 0;
+        for (let c = 0; c < numClasses; c++) {
+          const v = outKernel[h * numClasses + c];
+          sum += v * v;
+        }
+        importance[h] = Math.sqrt(sum);
+      }
+      return importance;
+    }
+
+    function enforceActiveHiddenMask(shapes, arrays, activeSize) {
+      const dhShape = shapes[IDX_DH_KERNEL];
+      const inDim = dhShape[0];
+      const hiddenMax = dhShape[1];
+      const outShape = shapes[IDX_DO_KERNEL];
+      const numClasses = outShape[1];
+
+      const hiddenKernel = arrays[IDX_DH_KERNEL];
+      const hiddenBias   = arrays[IDX_DH_BIAS];
+      const outKernel    = arrays[IDX_DO_KERNEL];
+
+      for (let h = activeSize; h < hiddenMax; h++) {
+        for (let i = 0; i < inDim; i++) {
+          const idx = i * hiddenMax + h;
+          hiddenKernel[idx] = 0;
+        }
+        hiddenBias[h] = 0;
+        for (let c = 0; c < numClasses; c++) {
+          const idx = h * numClasses + c;
+          outKernel[idx] = 0;
+        }
+      }
+    }
+
+    function importNewNeuronsFromNeighbor(shapes, arraysLocal, arraysNeighAligned, activeSize, neighActiveSize, maxNew) {
+      const hiddenMax = shapes[IDX_DH_KERNEL][1];
+      if (activeSize >= hiddenMax) return activeSize;
+      if (neighActiveSize <= activeSize) return activeSize;
+
+      const startExtra = Math.min(activeSize, neighActiveSize);
+      const numExtra = Math.min(neighActiveSize, hiddenMax) - startExtra;
+      if (numExtra <= 0) return activeSize;
+
+      const neighImportance = computeHiddenImportance(shapes, arraysNeighAligned);
+      const candidates = [];
+      for (let h = startExtra; h < startExtra + numExtra; h++) {
+        candidates.push({ idx: h, score: neighImportance[h] });
+      }
+      candidates.sort((a, b) => b.score - a.score);
+
+      const hiddenKernelLocal = arraysLocal[IDX_DH_KERNEL];
+      const hiddenBiasLocal   = arraysLocal[IDX_DH_BIAS];
+      const outKernelLocal    = arraysLocal[IDX_DO_KERNEL];
+
+      const hiddenKernelNeigh = arraysNeighAligned[IDX_DH_KERNEL];
+      const hiddenBiasNeigh   = arraysNeighAligned[IDX_DH_BIAS];
+      const outKernelNeigh    = arraysNeighAligned[IDX_DO_KERNEL];
+
+      const inDim = shapes[IDX_DH_KERNEL][0];
+      const numClasses = shapes[IDX_DO_KERNEL][1];
+
+      let imported = 0;
+      for (let i = 0; i < candidates.length; i++) {
+        if (imported >= maxNew) break;
+        if (activeSize >= hiddenMax) break;
+        const srcH = candidates[i].idx;
+        const dstH = activeSize;
+
+        for (let r = 0; r < inDim; r++) {
+          const idxSrc = r * hiddenMax + srcH;
+          const idxDst = r * hiddenMax + dstH;
+          hiddenKernelLocal[idxDst] = hiddenKernelNeigh[idxSrc];
+        }
+        hiddenBiasLocal[dstH] = hiddenBiasNeigh[srcH];
+        for (let c = 0; c < numClasses; c++) {
+          const idxSrc = srcH * numClasses + c;
+          const idxDst = dstH * numClasses + c;
+          outKernelLocal[idxDst] = outKernelNeigh[idxSrc];
+        }
+
+        activeHiddenSize++;
+        imported++;
+      }
+      return activeHiddenSize;
+    }
+
+    function swapHiddenNeurons(shapes, arrays, i, j) {
+      if (i === j) return;
+      const hiddenMax = shapes[IDX_DH_KERNEL][1];
+      const inDim = shapes[IDX_DH_KERNEL][0];
+      const numClasses = shapes[IDX_DO_KERNEL][1];
+
+      const hiddenKernel = arrays[IDX_DH_KERNEL];
+      const hiddenBias   = arrays[IDX_DH_BIAS];
+      const outKernel    = arrays[IDX_DO_KERNEL];
+
+      for (let r = 0; r < inDim; r++) {
+        const idx1 = r * hiddenMax + i;
+        const idx2 = r * hiddenMax + j;
+        const tmp = hiddenKernel[idx1];
+        hiddenKernel[idx1] = hiddenKernel[idx2];
+        hiddenKernel[idx2] = tmp;
+      }
+
+      const tmpb = hiddenBias[i];
+      hiddenBias[i] = hiddenBias[j];
+      hiddenBias[j] = tmpb;
+
+      for (let c = 0; c < numClasses; c++) {
+        const idx1 = i * numClasses + c;
+        const idx2 = j * numClasses + c;
+        const tmp2 = outKernel[idx1];
+        outKernel[idx1] = outKernel[idx2];
+        outKernel[idx2] = tmp2;
+      }
+    }
+
+    function pruneHiddenIfNeeded(shapes, arrays) {
+      let target = activeHiddenSize;
+      if (activeHiddenSize > HIDDEN_TARGET_HIGH) {
+        target = HIDDEN_TARGET_HIGH;
+      }
+      if (target >= activeHiddenSize) return;
+
+      const importance = computeHiddenImportance(shapes, arrays);
+      let iterations = FUSION_PRUNE_STEPS;
+      while (activeHiddenSize > target && activeHiddenSize > HIDDEN_MIN && iterations > 0) {
+        iterations--;
+        let minIdx = 0;
+        let minVal = Infinity;
+        for (let h = 0; h < activeHiddenSize; h++) {
+          if (importance[h] < minVal) {
+            minVal = importance[h];
+            minIdx = h;
+          }
+        }
+        const lastIdx = activeHiddenSize - 1;
+        swapHiddenNeurons(shapes, arrays, minIdx, lastIdx);
+
+        const hiddenKernel = arrays[IDX_DH_KERNEL];
+        const hiddenBias   = arrays[IDX_DH_BIAS];
+        const outKernel    = arrays[IDX_DO_KERNEL];
+        const inDim = shapes[IDX_DH_KERNEL][0];
+        const hiddenMax = shapes[IDX_DH_KERNEL][1];
+        const numClasses = shapes[IDX_DO_KERNEL][1];
+
+        for (let r = 0; r < inDim; r++) {
+          const idx = r * hiddenMax + lastIdx;
+          hiddenKernel[idx] = 0;
+        }
+        hiddenBias[lastIdx] = 0;
+        for (let c = 0; c < numClasses; c++) {
+          const idx = lastIdx * numClasses + c;
+          outKernel[idx] = 0;
+        }
+        activeHiddenSize--;
+      }
+    }
+
+    function robustAggregateTwo(shapes, arraysA, arraysB) {
+      const out = [];
+      for (let t = 0; t < arraysA.length; t++) {
+        const a = arraysA[t];
+        const b = arraysB[t];
+        const n = a.length;
+        const r = new Float32Array(n);
+        for (let i = 0; i < n; i++) {
+          r[i] = 0.5 * (a[i] + b[i]);
+        }
+        out.push(r);
+      }
+      return out;
+    }
+
+    /******************************************************************
+     * UI: CHARTS, STATO, MESH
+     ******************************************************************/
+    function initCharts() {
+      const localCtx = document.getElementById("localLossChart").getContext("2d");
+      localLossChart = new Chart(localCtx, {
+        type: "line",
+        data: { labels: [], datasets: [{ label: "Loss locale", data: [], tension: 0.2 }] },
+        options: {
+          responsive: true,
+          scales: { x: { display: false }, y: { display: true } },
+          plugins: { legend: { display: false } }
+        }
+      });
+
+      const globalCtx = document.getElementById("globalLossChart").getContext("2d");
+      globalLossChart = new Chart(globalCtx, {
+        type: "line",
+        data: { labels: [], datasets: [{ label: "Loss globale stimata", data: [], tension: 0.2 }] },
+        options: {
+          responsive: true,
+          scales: { x: { display: false }, y: { display: true } },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    function pushChartPoint(chart, value) {
+      if (!chart || value == null) return;
+      chart.data.labels.push("");
+      chart.data.datasets[0].data.push(value);
+      if (chart.data.labels.length > 60) {
+        chart.data.labels.shift();
+        chart.data.datasets[0].data.shift();
+      }
+      chart.update("quiet");
+    }
+
+    function updateLocalStatusUI() {
+      document.getElementById("tf-backend").textContent = tf.getBackend() || "–";
+      document.getElementById("tf-version").textContent = "TF.js " + (tf.version ? tf.version.tfjs : "");
+
+      document.getElementById("samples-trained").textContent = samplesTrained.toString();
+      document.getElementById("batches-trained").textContent = batchesTrained + " batch";
+      document.getElementById("batch-ms").textContent = formatMs(avgBatchMs);
+      const throughput = avgBatchMs > 0 ? (TRAIN_BATCH_SIZE / (avgBatchMs / 1000)).toFixed(1) + " img/s" : "–";
+      document.getElementById("throughput").textContent = throughput;
+
+      const battLevelEl = document.getElementById("battery-level");
+      const battStatusEl = document.getElementById("battery-status");
+      if (batteryInfo) {
+        const level = Math.round(batteryInfo.level * 100);
+        battLevelEl.textContent = level + " %";
+        battStatusEl.textContent = batteryInfo.charging ? "in carica" : "su batteria";
+      } else {
+        battLevelEl.textContent = "–";
+        battStatusEl.textContent = "API non disponibile";
+      }
+
+      document.getElementById("local-loss").textContent =
+        lastTrainLoss != null ? lastTrainLoss.toFixed(4) : "–";
+      document.getElementById("val-loss").textContent =
+        lastValLoss != null ? "validation: " + lastValLoss.toFixed(4) : "validation: –";
+
+      document.getElementById("hidden-size").textContent = activeHiddenSize + " / " + HIDDEN_MAX;
+      let policyText = "target [" + HIDDEN_TARGET_LOW + "," + HIDDEN_TARGET_HIGH + "]";
+      if (activeHiddenSize < HIDDEN_TARGET_LOW) policyText += " (tendente ad espandere)";
+      else if (activeHiddenSize > HIDDEN_TARGET_HIGH) policyText += " (tendente a potare)";
+      document.getElementById("hidden-policy").textContent = policyText;
+
+      document.getElementById("sinkhorn-quality").textContent =
+        lastSinkhornQuality != null ? lastSinkhornQuality.toFixed(3) : "–";
+    }
+
+    function updateGlobalStatusUI() {
+      document.getElementById("clients-count").textContent = "Nodi: " + clientsState.size;
+
+      const losses = [];
+      for (const [, data] of clientsState.entries()) {
+        if (data.localLoss != null) losses.push(data.localLoss);
+      }
+      let globalLoss = null;
+      if (losses.length > 0) {
+        losses.sort((a, b) => a - b);
+        const mid = Math.floor(losses.length / 2);
+        globalLoss = losses.length % 2 === 1
+          ? losses[mid]
+          : 0.5 * (losses[mid - 1] + losses[mid]);
+      }
+      document.getElementById("global-loss").textContent =
+        globalLoss != null ? globalLoss.toFixed(4) : "–";
+      pushChartPoint(globalLossChart, globalLoss);
+
+      document.getElementById("snapshots-count").textContent = lastSnapshots.length.toString();
+      const lastSnapshotAgeEl = document.getElementById("last-snapshot-age");
+      if (lastSnapshots.length > 0) {
+        const last = lastSnapshots[0];
+        if (last.localTimestamp) {
+          const ageS = Math.round((Date.now() - last.localTimestamp) / 1000);
+          lastSnapshotAgeEl.textContent = "ultimo snapshot ≈ " + ageS + " s fa";
+        } else {
+          lastSnapshotAgeEl.textContent = "ultimo snapshot: –";
+        }
+      } else {
+        lastSnapshotAgeEl.textContent = "nessuno snapshot ancora";
+      }
+    }
+
+    function resizeMeshCanvas() {
+      const rect = meshCanvas.getBoundingClientRect();
+      meshCanvas.width = rect.width * window.devicePixelRatio;
+      meshCanvas.height = rect.height * window.devicePixelRatio;
+      meshCtx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+      drawMesh();
+    }
+    window.addEventListener("resize", resizeMeshCanvas);
+
+    function drawMesh() {
+      const ctx = meshCtx;
+      const width = meshCanvas.clientWidth;
+      const height = meshCanvas.clientHeight;
+      ctx.clearRect(0, 0, width, height);
+
+      const entries = Array.from(clientsState.entries());
+      const n = entries.length;
+      if (n === 0) return;
+
+      const cx = width / 2;
+      const cy = height / 2;
+      const radius = Math.min(width, height) * 0.35;
+      meshNodesLayout.clear();
+
+      for (let i = 0; i < n; i++) {
+        const [cid, data] = entries[i];
+        const angle = 2 * Math.PI * i / n;
+        const x = cx + radius * Math.cos(angle);
+        const y = cy + radius * Math.sin(angle);
+        const cred = data.activeHiddenSize ? (data.activeHiddenSize / HIDDEN_MAX) : 0.5;
+        const r = 10 + 8 * cred;
+        meshNodesLayout.set(cid, { x, y, r });
+      }
+
+      ctx.strokeStyle = "rgba(120,150,255,0.15)";
+      ctx.lineWidth = 1;
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          const [cid1] = entries[i];
+          const [cid2] = entries[j];
+          const n1 = meshNodesLayout.get(cid1);
+          const n2 = meshNodesLayout.get(cid2);
+          ctx.beginPath();
+          ctx.moveTo(n1.x, n1.y);
+          ctx.lineTo(n2.x, n2.y);
+          ctx.stroke();
+        }
+      }
+
+      for (let i = 0; i < n; i++) {
+        const [cid, data] = entries[i];
+        const node = meshNodesLayout.get(cid);
+        const isSelf = cid === clientId;
+        let color = "#4f9cff";
+        const loss = data.localLoss;
+        if (loss != null) {
+          if (loss < 0.4) color = "#57e39f";
+          else if (loss < 0.8) color = "#ffd166";
+          else color = "#ff6b6b";
+        }
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.r, 0, 2 * Math.PI);
+        ctx.fillStyle = isSelf ? "#ffffff" : color;
+        ctx.fill();
+        ctx.lineWidth = isSelf ? 3 : 1.5;
+        ctx.strokeStyle = isSelf ? "#4f9cff" : "#111728";
+        ctx.stroke();
+      }
+    }
+
+    meshCanvas.addEventListener("click", (evt) => {
+      const rect = meshCanvas.getBoundingClientRect();
+      const x = evt.clientX - rect.left;
+      const y = evt.clientY - rect.top;
+
+      if (!meshNodesLayout.size) {
+        console.warn("Nessun nodo nel layout mesh al click.");
+        return;
+      }
+
+      let bestId = null;
+      let bestDist2 = Infinity;
+      for (const [cid, node] of meshNodesLayout.entries()) {
+        const dx = x - node.x;
+        const dy = y - node.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestDist2) {
+          bestDist2 = d2;
+          bestId = cid;
+        }
+      }
+      if (!bestId) return;
+
+      const node = meshNodesLayout.get(bestId);
+      const maxDist2 = (meshNodesLayout.size === 1) ? Infinity : (4 * node.r * node.r);
+      if (bestDist2 <= maxDist2) {
+        showNodeDetails(bestId);
+      }
+    });
+
+    function showNodeDetails(cid) {
+      console.log("Mostro dettagli nodo:", cid);
+      const data = clientsState.get(cid);
+      const body = document.getElementById("node-details-body");
+      if (!data) {
+        body.textContent = "Nessun dato per questo nodo.";
+        return;
+      }
+      const isSelf = cid === clientId;
+      const lines = [];
+      lines.push(`<div><strong>${isSelf ? "Questo nodo" : "Nodo remoto"}</strong></div>`);
+      lines.push(`<div style="word-break:break-all;font-size:0.7rem;">ID: ${cid}</div>`);
+      lines.push(`<div>Loss locale: ${data.localLoss != null ? data.localLoss.toFixed(4) : "–"}</div>`);
+      lines.push(`<div>Val loss: ${data.valLoss != null ? data.valLoss.toFixed(4) : "–"}</div>`);
+      lines.push(`<div>Neuroni nascosti attivi: ${data.activeHiddenSize ?? "?"} / ${HIDDEN_MAX}</div>`);
+      lines.push(`<div>Samples macinati: ${data.numSamplesTrained ?? 0}</div>`);
+      lines.push(`<div>Ultimo visto: ${data.lastSeen ? new Date(data.lastSeen).toLocaleTimeString() : "–"}</div>`);
+      body.innerHTML = lines.join("");
+    }
+
+    /******************************************************************
+     * BATTERIA
+     ******************************************************************/
+    function initBattery() {
+      if ("getBattery" in navigator) {
+        navigator.getBattery().then(b => {
+          batteryInfo = b;
+          b.addEventListener("levelchange", updateLocalStatusUI);
+          b.addEventListener("chargingchange", updateLocalStatusUI);
+          updateLocalStatusUI();
+        }).catch(() => {});
+      }
+    }
+
+    /******************************************************************
+     * TESTER: FILE + SAMPLE GALLERY
+     ******************************************************************/
+    function initTesterUI() {
+      const input = document.getElementById("test-image-input");
+      const btn = document.getElementById("test-btn");
+      btn.addEventListener("click", async () => {
+        const file = input.files && input.files[0];
+        if (!file || !model || !trainManifest) return;
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const img = new Image();
+          img.onload = async () => {
+            const canvas = document.getElementById("imageLoaderCanvas");
+            const ctx = canvas.getContext("2d");
+            canvas.width = IMG_SIZE;
+            canvas.height = IMG_SIZE;
+            ctx.drawImage(img, 0, 0, IMG_SIZE, IMG_SIZE);
+            let imgTensor = tf.browser.fromPixels(canvas, NUM_CHANNELS);
+            imgTensor = tf.tidy(() => imgTensor.toFloat().div(255.0));
+            const x = imgTensor.expandDims(0);
+            imgTensor.dispose();
+
+            const y = model.predict(x);
+            const probs = await y.data();
+            x.dispose();
+            y.dispose();
+
+            const classes = trainManifest.classes || [];
+            let bestIdx = 0;
+            for (let i = 1; i < probs.length; i++) {
+              if (probs[i] > probs[bestIdx]) bestIdx = i;
+            }
+            const resultEl = document.getElementById("tester-result");
+            const labelsStr = probs.map((p, i) => {
+              const name = classes[i] ?? String(i);
+              return name + ":" + p.toFixed(3);
+            }).join(", ");
+            resultEl.textContent =
+              "Softmax: [" + labelsStr + "], classe predetta = " +
+              (classes[bestIdx] ?? String(bestIdx));
+          };
+          img.onerror = () => {
+            document.getElementById("tester-result").textContent =
+              "Errore caricamento immagine di test.";
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function populateSampleImagesGallery() {
+      const container = document.getElementById("sample-images-container");
+      if (!container || !valManifest || !valManifest.items || !valManifest.items.length) {
+        console.warn("Val manifest non pronto, nessuna immagine di esempio.");
+        return;
+      }
+      container.innerHTML = "";
+      const items = valManifest.items;
+      const numSamples = Math.min(12, items.length);
+      const used = new Set();
+      while (used.size < numSamples) {
+        const idx = Math.floor(Math.random() * items.length);
+        used.add(idx);
+      }
+      for (const idx of used) {
+        const item = items[idx];
+        const imgEl = document.createElement("img");
+        imgEl.src = item.url;
+        imgEl.className = "sample-thumb";
+        imgEl.title = "Label reale: " + item.label;
+        imgEl.dataset.label = item.label;
+        imgEl.dataset.url = item.url;
+        imgEl.addEventListener("click", () => {
+          document.querySelectorAll(".sample-thumb.selected")
+            .forEach(el => el.classList.remove("selected"));
+          imgEl.classList.add("selected");
+          runPredictionOnSample(item.url, item.label).catch(err => {
+            console.error("Errore predizione sample:", err);
+          });
+        });
+        container.appendChild(imgEl);
+      }
+    }
+
+    async function runPredictionOnSample(url, label) {
+      if (!model || !trainManifest) {
+        document.getElementById("tester-result").textContent =
+          "Modello non ancora pronto.";
+        return;
+      }
+      const x = await loadImageAsTensor(url);
+      const y = model.predict(x);
+      const probs = await y.data();
+      x.dispose();
+      y.dispose();
+
+      const classes = trainManifest.classes || [];
+      let bestIdx = 0;
+      for (let i = 1; i < probs.length; i++) {
+        if (probs[i] > probs[bestIdx]) bestIdx = i;
+      }
+      const predName = classes[bestIdx] ?? String(bestIdx);
+      const trueName = classes[label] ?? String(label);
+      const probsStr = probs.map((p, i) => {
+        const name = classes[i] ?? String(i);
+        return name + ":" + p.toFixed(3);
+      }).join(", ");
+
+      const resultEl = document.getElementById("tester-result");
+      resultEl.textContent =
+        `Sample dal dataset → softmax [${probsStr}] | pred: ${predName} | label reale: ${trueName}`;
+    }
+
+    /******************************************************************
+     * LOCAL MODEL & META
+     ******************************************************************/
+    async function saveLocalModelAndMeta() {
+      try {
+        await model.save("localstorage://" + MODEL_STORAGE_KEY);
+      } catch (e) {
+        console.warn("Salvataggio modello localStorage fallito:", e);
+      }
+      const meta = {
+        activeHiddenSize,
+        samplesTrained,
+        batchesTrained,
+        lastTrainLoss,
+        lastValLoss
+      };
+      try {
+        localStorage.setItem(META_STORAGE_KEY, JSON.stringify(meta));
+      } catch (e) {
+        console.warn("Salvataggio meta localStorage fallito:", e);
+      }
+    }
+
+    async function loadLocalModelIfExists() {
+      let meta = null;
+      try {
+        const metaStr = localStorage.getItem(META_STORAGE_KEY);
+        if (metaStr) meta = JSON.parse(metaStr);
+      } catch {}
+      if (meta) {
+        activeHiddenSize = Math.min(Math.max(meta.activeHiddenSize || HIDDEN_INIT, HIDDEN_MIN), HIDDEN_MAX);
+        samplesTrained = meta.samplesTrained || 0;
+        batchesTrained = meta.batchesTrained || 0;
+        lastTrainLoss = meta.lastTrainLoss ?? null;
+        lastValLoss = meta.lastValLoss ?? null;
+      } else {
+        activeHiddenSize = HIDDEN_INIT;
+      }
+
+      const models = await tf.io.listModels();
+      const storageKey = "localstorage://" + MODEL_STORAGE_KEY;
+      if (models[storageKey]) {
+        try {
+          model = await tf.loadLayersModel(storageKey);
+          compileModel(model);
+          return;
+        } catch (e) {
+          console.warn("Caricamento modello localStorage fallito, ricreo da zero:", e);
+        }
+      }
+      model = buildModel();
+      await saveLocalModelAndMeta();
+    }
+
+    /******************************************************************
+     * FIREBASE SUBSCRIPTIONS (CLIENTS + SNAPSHOTS)
+     ******************************************************************/
+    function subscribeToClientsAndSnapshots(db, roomId) {
+      const clientsColRef = collection(db, "rooms", roomId, "clients");
+      const snapshotsColRef = collection(db, "rooms", roomId, "snapshots");
+
+      onSnapshot(clientsColRef, (snap) => {
+        clientsState.clear();
+        const now = Date.now();
+        snap.forEach(docSnap => {
+          const d = docSnap.data();
+          let lastSeenMs = null;
+          if (d.lastSeen && d.lastSeen.toMillis) {
+            lastSeenMs = d.lastSeen.toMillis();
+          }
+          const isOffline = lastSeenMs && (now - lastSeenMs > OFFLINE_THRESHOLD_MS);
+          if (isOffline) {
+            // nodo considerato offline → non lo includiamo nella mesh
+            return;
+          }
+          clientsState.set(docSnap.id, {
+            localLoss: d.localLoss ?? null,
+            valLoss: d.valLoss ?? null,
+            activeHiddenSize: d.activeHiddenSize ?? null,
+            numSamplesTrained: d.numSamplesTrained ?? 0,
+            lastSeen: lastSeenMs
+          });
+        });
+        updateGlobalStatusUI();
+        drawMesh();
+      });
+
+      const q = query(snapshotsColRef, orderBy("createdAt", "desc"), limit(10));
+      onSnapshot(q, snap => {
+        const docs = [];
+        snap.forEach(docSnap => {
+          const d = docSnap.data();
+          docs.push({ id: docSnap.id, data: d, localTimestamp: Date.now() });
+        });
+        lastSnapshots = docs;
+        updateGlobalStatusUI();
+      });
+
+      return snapshotsColRef;
+    }
+
+    /******************************************************************
+     * TRAINING LOOP LOCALE
+     ******************************************************************/
+    async function trainingLoop(clientRef, snapshotsColRef) {
+      while (true) {
+        const t0 = performance.now();
+        let xs = null, ys = null;
+        try {
+          const batch = await loadBatchFromManifest(trainManifest, TRAIN_BATCH_SIZE);
+          xs = batch.xs;
+          ys = batch.ys;
+        } catch (e) {
+          console.warn("Errore caricamento batch training:", e);
+          await sleep(TRAINING_PAUSE_MS);
+          continue;
+        }
+
+        const history = await model.fit(xs, ys, {
+          epochs: 1,
+          batchSize: TRAIN_BATCH_SIZE,
+          shuffle: true,
+          verbose: 0
+        });
+        const t1 = performance.now();
+        const loss = history.history.loss[0];
+        lastTrainLoss = loss;
+        stepsTrained += 1;
+        batchesTrained += 1;
+        samplesTrained += TRAIN_BATCH_SIZE;
+
+        const batchMs = t1 - t0;
+        if (avgBatchMs === 0) avgBatchMs = batchMs;
+        else avgBatchMs = avgBatchMs * 0.9 + batchMs * 0.1;
+
+        xs.dispose();
+        ys.dispose();
+
+        pushChartPoint(localLossChart, loss);
+
+        if (stepsTrained % VALIDATION_EVERY_STEPS === 0) {
+          try {
+            const valBatch = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
+            const evalRes = await model.evaluate(valBatch.xs, valBatch.ys, {
+              batchSize: VAL_BATCH_SIZE,
+              verbose: 0
+            });
+            const valLossTensor = Array.isArray(evalRes) ? evalRes[0] : evalRes;
+            const valLossVal = (await valLossTensor.data())[0];
+            lastValLoss = valLossVal;
+            valLossTensor.dispose();
+            valBatch.xs.dispose();
+            valBatch.ys.dispose();
+          } catch (e) {
+            console.warn("Errore validation batch:", e);
+          }
+        }
+
+        if (stepsTrained % MASK_EVERY_STEPS === 0) {
+          const { shapes, arrays } = extractFloatWeights();
+          enforceActiveHiddenMask(shapes, arrays, activeHiddenSize);
+          applyFloatWeights(shapes, arrays);
+        }
+
+        if (stepsTrained % SNAPSHOT_EVERY_STEPS === 0) {
+          const { shapes, arrays } = extractFloatWeights();
+          const quant = quantizeWeights(shapes, arrays);
+          const snapshotDoc = {
+            clientId,
+            createdAt: serverTimestamp(),
+            localValLoss: lastValLoss,
+            modelVersion: stepsTrained,
+            shapes: quant.shapes,
+            scales: quant.scales,
+            quantArrays: quant.quantArrays,
+            activeHiddenSize
+          };
+          await addDoc(snapshotsColRef, snapshotDoc);
+          await saveLocalModelAndMeta();
+        }
+
+        await setDoc(clientRef, {
+          lastSeen: serverTimestamp(),
+          localLoss: lastTrainLoss,
+          valLoss: lastValLoss,
+          activeHiddenSize,
+          numSamplesTrained: samplesTrained
+        }, { merge: true });
+
+        updateLocalStatusUI();
+        await sleep(TRAINING_PAUSE_MS);
+      }
+    }
+
+    /******************************************************************
+     * FUSIONE DISTRIBUITA
+     ******************************************************************/
+    async function fusionLoop() {
+      while (true) {
+        await sleep(FUSION_INTERVAL_MS);
+        if (!lastSnapshots.length || !model) continue;
+
+        const others = lastSnapshots.filter(s => s.data && s.data.clientId !== clientId);
+        if (!others.length) continue;
+
+        const { shapes, arrays: localArrays0 } = extractFloatWeights();
+        let arraysCurrent = localArrays0;
+        let fused = false;
+        let qualityAccum = 0;
+        let qualityCount = 0;
+
+        const neighbors = others.slice(0, FUSION_NEIGHBORS_LIMIT);
+        for (const snap of neighbors) {
+          const d = snap.data;
+          try {
+            const { shapes: neighShapes, arrays: neighArrays0 } = dequantizeSnapshot(d);
+            if (JSON.stringify(neighShapes) !== JSON.stringify(shapes)) continue;
+
+            const neighActive = Math.min(Math.max(d.activeHiddenSize ?? HIDDEN_INIT, HIDDEN_MIN), HIDDEN_MAX);
+            const localActiveBefore = activeHiddenSize;
+
+            const { arraysAligned, quality } =
+              alignNeighborHidden(shapes, arraysCurrent, neighArrays0, activeHiddenSize, neighActive);
+            if (quality < 0.5) continue;
+
+            qualityAccum += quality;
+            qualityCount++;
+
+            const aggregated = robustAggregateTwo(shapes, arraysCurrent, arraysAligned);
+            arraysCurrent = aggregated;
+            fused = true;
+
+            if (neighActive > localActiveBefore) {
+              activeHiddenSize = importNewNeuronsFromNeighbor(
+                shapes,
+                arraysCurrent,
+                arraysAligned,
+                localActiveBefore,
+                neighActive,
+                NEW_NEURONS_PER_FUSION
+              );
+            }
+          } catch (e) {
+            console.warn("Errore nella fusione con snapshot", snap.id, e);
+          }
+        }
+
+        if (fused) {
+          pruneHiddenIfNeeded(shapes, arraysCurrent);
+          enforceActiveHiddenMask(shapes, arraysCurrent, activeHiddenSize);
+          applyFloatWeights(shapes, arraysCurrent);
+          if (qualityCount > 0) {
+            lastSinkhornQuality = qualityAccum / qualityCount;
+          }
+          await saveLocalModelAndMeta();
+          updateLocalStatusUI();
+        }
+      }
+    }
+
+    /******************************************************************
+     * ENTRYPOINT
+     ******************************************************************/
+    async function start() {
+      initCharts();
+      initTesterUI();
+      initBattery();
+      resizeMeshCanvas();
+      updateLocalStatusUI();
+      updateGlobalStatusUI();
+
+      // Carica MNIST PNG (train/val) da CSV remoto
+      const { trainManifest: tm, valManifest: vm } = await loadMnistPngManifests();
+      trainManifest = tm;
+      valManifest   = vm;
+      populateSampleImagesGallery();
+
+      try {
+        await signInAnonymously(auth);
+      } catch (err) {
+        console.error("signInAnonymously error:", err);
+        return;
+      }
+
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) return;
+        currentUser = user;
+        clientId = user.uid;
+        document.getElementById("client-id-pill").textContent =
+          "Client: " + clientId.slice(0, 6) + "…";
+
+        await loadLocalModelIfExists();
+        document.getElementById("model-ready-pill").textContent = "Modello: pronto";
+        document.getElementById("test-btn").disabled = false;
+        updateLocalStatusUI();
+
+        const roomRef = doc(db, "rooms", ROOM_ID);
+        await setDoc(roomRef, {
+          name: "Distributed image demo",
+          task: "MNIST PNG federated",
+          createdAt: serverTimestamp()
+        }, { merge: true });
+
+        const clientRef = doc(db, "rooms", ROOM_ID, "clients", clientId);
+        await setDoc(clientRef, {
+          lastSeen: serverTimestamp(),
+          localLoss: lastTrainLoss,
+          valLoss: lastValLoss,
+          activeHiddenSize,
+          numSamplesTrained: samplesTrained
+        }, { merge: true });
+
+        setInterval(() => {
+          setDoc(clientRef, { lastSeen: serverTimestamp() }, { merge: true });
+        }, 30000);
+
+        const snapshotsColRef = subscribeToClientsAndSnapshots(db, ROOM_ID);
+        trainingLoop(clientRef, snapshotsColRef);
+        fusionLoop();
+      });
+    }
+
+    start().catch(err => console.error("Errore start()", err));
+  </script>
+</body>
+</html>
