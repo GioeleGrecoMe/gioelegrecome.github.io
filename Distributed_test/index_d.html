@@ -478,6 +478,8 @@
     let batteryInfo = null;
 
     const clientsState = new Map();
+    let trustScores = new Map(); // clientId -> { score, ts }
+
     let lastSnapshots = [];
     let currentResetToken = null;
 
@@ -726,6 +728,89 @@
       }
       return changed;
     }
+    async function computeTrustScoreForSnapshot(snap) {
+  // Se non abbiamo ancora il validation set, diamo un trust "neutrale"
+  if (!valManifest || !valManifest.items || !valManifest.items.length) {
+    devLog("Trust: valManifest non pronto, uso trust neutrale 0.5");
+    return 0.5;
+  }
+
+  const d = snap.data || {};
+  const peerId = d.clientId || "unknown";
+  devLog(`Trust: valutazione snapshot ${snap.id} da client ${peerId}`);
+
+  const { shapes, arrays } = dequantizeSnapshot(d);
+
+  try {
+    // Costruiamo un modello temporaneo con QUEI pesi
+    const tempModel = buildModel();
+    const tensors = arrays.map((arr, idx) =>
+      tf.tensor(arr, shapes[idx], "float32")
+    );
+    tempModel.setWeights(tensors);
+    tensors.forEach(t => t.dispose());
+
+    // Mini-task di validazione locale (message test): 24–32 esempi
+    const B = Math.min(VAL_BATCH_SIZE * 2, 32);
+    const batch = await loadBatchFromManifest(valManifest, B);
+    const evalRes = await tempModel.evaluate(batch.xs, batch.ys, {
+      batchSize: VAL_BATCH_SIZE,
+      verbose: 0
+    });
+
+    const lossTensor = Array.isArray(evalRes) ? evalRes[0] : evalRes;
+    const accTensor  = Array.isArray(evalRes) ? evalRes[1] : null;
+
+    const lossArr = await lossTensor.data();
+    const loss = lossArr[0];
+    let acc = null;
+    if (accTensor) {
+      const accArr = await accTensor.data();
+      acc = accArr[0];
+    }
+
+    lossTensor.dispose();
+    accTensor && accTensor.dispose();
+    batch.xs.dispose();
+    batch.ys.dispose();
+    tempModel.dispose();
+
+    if (!Number.isFinite(loss) || acc == null || !Number.isFinite(acc)) {
+      devLog(`Trust: snapshot ${snap.id} produce NaN/acc=null → trust=0.`);
+      return 0;
+    }
+
+    // Accuracy random per 10 classi ≈ 0.1 → normalizziamo tra 0 e 1
+    const trust = clamp((acc - 0.10) / 0.90, 0, 1);
+    devLog(
+      `Trust: snapshot ${snap.id} acc=${(acc * 100).toFixed(1)}%, loss=${loss.toFixed(
+        3
+      )} → trust=${trust.toFixed(3)}`
+    );
+    return trust;
+  } catch (e) {
+    console.warn("Errore computeTrustScoreForSnapshot:", e);
+    devLog("Trust: errore valutando snapshot " + snap.id + ": " + e.message);
+    return 0;
+  }
+}
+
+async function getTrustScoreForSnapshot(snap) {
+  const d = snap.data || {};
+  const peerId = d.clientId || "unknown";
+  const now = Date.now();
+  const existing = trustScores.get(peerId);
+
+  // Ricicla il trust se è recente (es. < 10 minuti)
+  if (existing && now - existing.ts < 10 * 60 * 1000) {
+    return existing.score;
+  }
+
+  const score = await computeTrustScoreForSnapshot(snap);
+  trustScores.set(peerId, { score, ts: now });
+  return score;
+}
+
 
     /******************************************************************
      * SALVATAGGIO MANUALE DEL MODELLO IN LOCALSTORAGE
@@ -912,7 +997,7 @@
   const meanC = count > 0 ? sum / count : 1.0;
   const epsilon = Math.max(meanC * baseEpsFactor, 1e-6);
 
-  // Inizializzazione kernel entropico
+  // Kernel entropico iniziale
   const P = [];
   for (let i = 0; i < H; i++) {
     const row = [];
@@ -959,13 +1044,13 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
   const { P } = runSinkhorn(C, 0.25, 20);
   const perm = argmaxPermutation(P);
 
-  // qualità "normalizzata": 0 = random, 1 = perfettamente allineato
+  // qualità normalizzata: 0 ≈ matching casuale, 1 ≈ matching perfetto
   let diagSum = 0;
   for (let i = 0; i < H; i++) {
     diagSum += P[i][perm[i]];
   }
-  const meanDiag = diagSum / H;          // media dei termini corrispondenti
-  const uniformDiag = 1.0 / H;          // baseline di una matrice "casuale" quasi uniforme
+  const meanDiag = diagSum / H;
+  const uniformDiag = 1.0 / H;
   let qNorm = (meanDiag - uniformDiag) / (1 - uniformDiag + 1e-6);
   qNorm = clamp(qNorm, 0, 1);
 
@@ -1010,6 +1095,7 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
 }
 
 
+
     function argmaxPermutation(P) {
       const H = P.length;
       const perm = new Array(H).fill(0);
@@ -1031,9 +1117,9 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
 
 
 
-    function robustAggregateTwo(shapes, arraysA, arraysB, stepAlpha) {
+   function robustAggregateTwo(shapes, arraysA, arraysB, stepAlpha) {
   // stepAlpha è la "forza" con cui il vicino influenza il modello globale
-  const alpha = clamp(stepAlpha, 0.01, 0.15); // 1–15% massimo per step
+  const alpha = clamp(stepAlpha, 0.01, 0.15); // max 15% per fusione
   const out = [];
   for (let t = 0; t < arraysA.length; t++) {
     const a = arraysA[t];
@@ -1047,6 +1133,7 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
   }
   return out;
 }
+
 
     /******************************************************************
      * UI: CHARTS, STATO, MESH
@@ -1259,6 +1346,13 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
       lines.push(`<div>Val loss: ${data.valLoss != null && Number.isFinite(data.valLoss) ? data.valLoss.toFixed(4) : "–"}</div>`);
       lines.push(`<div>Neuroni nascosti attivi (meta): ${data.activeHiddenSize ?? "?"} / ${HIDDEN_MAX}</div>`);
       lines.push(`<div>Samples macinati: ${data.numSamplesTrained ?? 0}</div>`);
+            const trustEntry = trustScores.get(cid);
+      if (trustEntry && typeof trustEntry.score === "number") {
+        lines.push(
+          `<div>Trust locale: ${(trustEntry.score * 100).toFixed(1)} %</div>`
+        );
+      }
+
       lines.push(`<div>Ultimo visto: ${data.lastSeen ? new Date(data.lastSeen).toLocaleTimeString() : "–"}</div>`);
       body.innerHTML = lines.join("");
     }
@@ -1840,7 +1934,7 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
             `Global model inizializzato da snapshot ${best.id} (activeH=${baseActive})`
           );
         } else {
-                  const { shapes } = globalModelState;
+                const { shapes } = globalModelState;
         let globalArrays = globalModelState.arrays;
         let globalActive = globalModelState.activeHiddenSize;
 
@@ -1885,20 +1979,28 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
               ageSec = (Date.now() - snap.localTimestamp) / 1000;
             }
             const timeFactor = Math.exp(-ageSec / 120); // 2 minuti → ~1/e
-
-            // Se la qualità è troppo bassa o lo snapshot è molto vecchio, lo saltiamo
             const qEff = quality * timeFactor;
+
             if (qEff < 0.15) {
               devLog(
-                `Fusion: snapshot ${snap.id} scartato (qEff=${qEff.toFixed(3)}, age=${ageSec.toFixed(
-                  1
-                )}s)`
+                `Fusion: snapshot ${snap.id} scartato (qEff=${qEff.toFixed(
+                  3
+                )}, age=${ageSec.toFixed(1)}s)`
               );
               continue;
             }
 
-            // α di aggiornamento: proporzionale a qEff, ma limitato
-            const stepAlpha = clamp(0.08 * qEff, 0.01, 0.10);
+            // 🔐 TRUST: mini-task di validazione sul modello del vicino
+            const trust = await getTrustScoreForSnapshot(snap);
+            if (trust < 0.2) {
+              devLog(
+                `Fusion: snapshot ${snap.id} scartato (trust=${trust.toFixed(3)})`
+              );
+              continue;
+            }
+
+            // α di aggiornamento: dipende da qualità, tempo e trust
+            const stepAlpha = clamp(0.08 * qEff * trust, 0.01, 0.10);
 
             qualityAccum += quality;
             qualityCount++;
@@ -1910,7 +2012,6 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
               stepAlpha
             );
 
-            // meta: aggiustiamo lentamente la dimensione attiva globale
             const metaAlpha = 0.05;
             globalActive = Math.round(
               (1 - metaAlpha) * globalActive + metaAlpha * neighActive
@@ -1920,7 +2021,9 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
             devLog(
               `Fusion step con ${snap.id}: quality=${quality.toFixed(
                 3
-              )}, qEff=${qEff.toFixed(3)}, alpha=${stepAlpha.toFixed(3)}, globalH=${globalActive}`
+              )}, qEff=${qEff.toFixed(3)}, trust=${trust.toFixed(
+                3
+              )}, alpha=${stepAlpha.toFixed(3)}, globalH=${globalActive}`
             );
           } catch (e) {
             console.warn("Errore nella fusione globale con snapshot", snap.id, e);
@@ -1929,6 +2032,7 @@ function alignNeighborHidden(shapes, arraysLocal, arraysNeigh, localActive, neig
             );
           }
         }
+
 
         if (qualityCount > 0) {
           lastSinkhornQuality = qualityAccum / qualityCount;
