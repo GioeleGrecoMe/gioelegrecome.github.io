@@ -436,6 +436,8 @@
     let meshNodesLayout = new Map();
 
     const trustScores = new Map(); // clientId -> { score, ts }
+// Peso dell’ultima combinazione ATC con ciascun vicino (quota 0..1)
+let lastEdgeWeights = new Map(); // neighborClientId -> weightShare
 
     const devLogBuffer = [];
     const DEV_LOG_MAX = 200;
@@ -1150,127 +1152,191 @@
      * COMBINE LOOP (THEN-COMBINE): AGGIORNA *MODEL* CON SNAPSHOT VICINI
      ******************************************************************/
     async function combineLoop() {
-      devLog("Combine loop ATC avviato.");
-      while (true) {
-        await sleep(COMBINE_INTERVAL_MS);
-        try {
-          if (!model || !recentSnapshots.length || localSteps < COMBINE_WARMUP_STEPS) {
-            continue;
-          }
-          const { shapes, arrays: arraysLocal } = extractLocalWeights();
-          const combinedArrays = arraysLocal.map(a => a.slice());
+  devLog("Combine loop ATC avviato.");
+  while (true) {
+    await sleep(COMBINE_INTERVAL_MS);
+    try {
+      if (!model || localSteps < COMBINE_WARMUP_STEPS) {
+        continue;
+      }
 
-          let used = 0;
-          let trustAccum = 0;
-          let sinkAccum = 0;
+      const { shapes, arrays: arraysLocal } = extractLocalWeights();
+      const now = Date.now();
 
-          const now = Date.now();
-          const candidates = recentSnapshots.filter(
-            s => s.data && s.data.clientId !== clientId
+      // prendiamo gli snapshot più recenti (già in recentSnapshots) tranne il nostro
+      const candidates = recentSnapshots.filter(
+        (s) => s.data && s.data.clientId && s.data.clientId !== clientId
+      );
+
+      const neighborsInfo = [];
+      let trustAccum = 0;
+      let sinkAccum = 0;
+
+      for (const snap of candidates) {
+        const d = snap.data;
+        const peerId = d.clientId || snap.id;
+
+        // tempo di vita dello snapshot
+        const createdAtMs =
+          d.createdAt && d.createdAt.toMillis
+            ? d.createdAt.toMillis()
+            : snap.localTimestamp || now;
+        const ageSec = (now - createdAtMs) / 1000;
+        const timeFactor = Math.exp(-ageSec / 120); // 2 min → ~1/e
+
+        // se è *estremamente* vecchio, lo scartiamo duro
+        if (timeFactor < 0.02) {
+          devLog(
+            `Combine: snapshot ${snap.id} molto vecchio (${ageSec.toFixed(
+              1
+            )}s) → skip duro.`
           );
+          continue;
+        }
 
-          for (const snap of candidates) {
-            const d = snap.data;
-            const createdAt = d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : snap.localTimestamp || now;
-            const ageSec = (now - createdAt) / 1000;
-            const timeFactor = Math.exp(-ageSec / 120); // 2 minuti
+        // dequantizza
+        const { shapes: neighShapes, arrays: neighArrays } = dequantizeSnapshot(d);
+        if (JSON.stringify(neighShapes) !== JSON.stringify(shapes)) {
+          devLog(`Combine: snapshot ${snap.id} shape diversa → skip.`);
+          continue;
+        }
 
-            if (timeFactor < 0.1) {
-              devLog(`Combine: snapshot ${snap.id} troppo vecchio (${ageSec.toFixed(1)}s) → skip.`);
-              continue;
-            }
+        // trust locale (message test task)
+        const trust = await getTrustScoreForSnapshot(snap);
 
-            const trust = await getTrustScoreForSnapshot(snap);
-            if (trust < 0.2) {
-              devLog(`Combine: snapshot ${snap.id} trust basso (${trust.toFixed(3)}) → skip.`);
-              continue;
-            }
+        // allineamento neuroni nascosti via Sinkhorn
+        const { arraysAligned, quality } = alignNeighborHidden(
+          shapes,
+          arraysLocal,
+          neighArrays
+        );
+        if (!Number.isFinite(quality)) {
+          devLog(`Combine: snapshot ${snap.id} quality NaN → skip.`);
+          continue;
+        }
 
-            const neigh = dequantizeSnapshot(d);
-            if (JSON.stringify(neigh.shapes) !== JSON.stringify(shapes)) {
-              devLog(`Combine: snapshot ${snap.id} shape diversa → skip.`);
-              continue;
-            }
+        // score grezzo: trust * qualità * “giovinezza”
+        const score = Math.max(0, trust * quality * timeFactor);
+        // rawWeight con floor > 0: anche i vicini poco credibili entrano, ma pochissimo
+        const rawWeight = 0.05 + score; // 0.05 è ~peso minimo
 
-            const { arraysAligned, quality } = alignNeighborHidden(
-              shapes,
-              arraysLocal,
-              neigh.arrays
-            );
-            if (!Number.isFinite(quality)) {
-              devLog(`Combine: snapshot ${snap.id} quality NaN → skip.`);
-              continue;
-            }
+        neighborsInfo.push({
+          clientId: peerId,
+          arraysAligned,
+          trust,
+          quality,
+          timeFactor,
+          score,
+          rawWeight
+        });
 
-            const score = trust * quality * timeFactor;
-            if (score < 0.15) {
-              devLog(`Combine: snapshot ${snap.id} score basso (${score.toFixed(3)}) → skip.`);
-              continue;
-            }
+        trustAccum += trust;
+        sinkAccum += quality;
+      }
 
-            const stepAlpha = clamp(0.08 * score, 0.01, 0.10);
-
-            for (let t = 0; t < combinedArrays.length; t++) {
-              const base = arraysLocal[t];
-              const neighArr = arraysAligned[t];
-              const out = combinedArrays[t];
-              for (let i = 0; i < out.length; i++) {
-                out[i] += stepAlpha * (neighArr[i] - base[i]);
-              }
-            }
-
-            used += 1;
-            trustAccum += trust;
-            sinkAccum += quality;
-            devLog(
-              `Combine step con ${snap.id}: trust=${trust.toFixed(3)}, quality=${quality.toFixed(
-                3
-              )}, age=${ageSec.toFixed(1)}s, alpha=${stepAlpha.toFixed(3)}`
-            );
+      // nessun vicino utilizzabile → comunque facciamo una valutazione locale per il grafico
+      if (neighborsInfo.length === 0) {
+        if (valManifest && valManifest.items && valManifest.items.length) {
+          const vb = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
+          const evalRes = await model.evaluate(vb.xs, vb.ys, {
+            batchSize: VAL_BATCH_SIZE,
+            verbose: 0
+          });
+          let lossT;
+          if (Array.isArray(evalRes)) lossT = evalRes[0];
+          else lossT = evalRes;
+          const arr = await lossT.data();
+          const vLoss = arr[0];
+          lossT.dispose();
+          vb.xs.dispose();
+          vb.ys.dispose();
+          if (Number.isFinite(vLoss)) {
+            lastCombineValLoss = vLoss;
+            pushChartPoint(globalLossChart, vLoss);
+            devLog(`Combine (solo self): valLoss=${vLoss.toFixed(4)}`);
           }
+        }
+        lastCombineTime = Date.now();
+        lastCombineNeighbors = 0;
+        lastCombineTrustMean = null;
+        lastCombineSinkhornMean = null;
+        lastEdgeWeights.clear();
+        updateCombineUI();
+        continue;
+      }
 
-          if (used === 0) {
-            continue;
+      // Normalizziamo i pesi dei vicini → wNorm, somma=1
+      const sumRaw = neighborsInfo.reduce((s, n) => s + n.rawWeight, 0);
+      const alphaTotal = 0.15; // massimo “passo” complessivo
+
+      const combinedArrays = arraysLocal.map((a) => a.slice());
+      lastEdgeWeights.clear();
+
+      for (const info of neighborsInfo) {
+        const wNorm = info.rawWeight / sumRaw; // quota 0..1 di questo vicino
+        const alpha = alphaTotal * wNorm;      // quanto spinge il vicino
+
+        // Salviamo il peso normalizzato per la UI/mesh
+        lastEdgeWeights.set(info.clientId, wNorm);
+
+        for (let t = 0; t < combinedArrays.length; t++) {
+          const base = arraysLocal[t];
+          const neighArr = info.arraysAligned[t];
+          const out = combinedArrays[t];
+          for (let i = 0; i < out.length; i++) {
+            out[i] += alpha * (neighArr[i] - base[i]);
           }
+        }
 
-          sanitizeWeightArrays(combinedArrays);
-          applyWeightsToModel(shapes, combinedArrays);
-          await saveLocalMeta();
+        devLog(
+          `Combine con ${info.clientId}: trust=${info.trust.toFixed(
+            3
+          )}, q=${info.quality.toFixed(3)}, ageF=${info.timeFactor.toFixed(
+            3
+          )}, wNorm=${wNorm.toFixed(3)}, alpha=${alpha.toFixed(3)}`
+        );
+      }
 
-          lastCombineTime = Date.now();
-          lastCombineNeighbors = used;
-          lastCombineTrustMean = trustAccum / used;
-          lastCombineSinkhornMean = sinkAccum / used;
+      // sanitizza e applica i nuovi pesi al *modello locale*
+      sanitizeWeightArrays(combinedArrays);
+      applyWeightsToModel(shapes, combinedArrays);
+      await saveLocalMeta();
 
-          // Valutazione rapida dopo fusione
-          if (valManifest && valManifest.items && valManifest.items.length) {
-            const vb = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
-            const evalRes = await model.evaluate(vb.xs, vb.ys, {
-              batchSize: VAL_BATCH_SIZE,
-              verbose: 0
-            });
-            let lossT;
-            if (Array.isArray(evalRes)) lossT = evalRes[0];
-            else lossT = evalRes;
-            const arr = await lossT.data();
-            const vLoss = arr[0];
-            lossT.dispose();
-            vb.xs.dispose();
-            vb.ys.dispose();
-            if (Number.isFinite(vLoss)) {
-              lastCombineValLoss = vLoss;
-              pushChartPoint(globalLossChart, vLoss);
-              devLog(`Combine: valLoss dopo fusione=${vLoss.toFixed(4)}`);
-            }
-          }
+      lastCombineTime = Date.now();
+      lastCombineNeighbors = neighborsInfo.length;
+      lastCombineTrustMean = trustAccum / neighborsInfo.length;
+      lastCombineSinkhornMean = sinkAccum / neighborsInfo.length;
 
-          updateCombineUI();
-        } catch (e) {
-          console.error("Errore combineLoop:", e);
-          devLog("Errore combineLoop: " + e.message);
+      // valutazione post-fusione per popolare il grafico Fusion ATC
+      if (valManifest && valManifest.items && valManifest.items.length) {
+        const vb = await loadBatchFromManifest(valManifest, VAL_BATCH_SIZE);
+        const evalRes = await model.evaluate(vb.xs, vb.ys, {
+          batchSize: VAL_BATCH_SIZE,
+          verbose: 0
+        });
+        let lossT;
+        if (Array.isArray(evalRes)) lossT = evalRes[0];
+        else lossT = evalRes;
+        const arr = await lossT.data();
+        const vLoss = arr[0];
+        lossT.dispose();
+        vb.xs.dispose();
+        vb.ys.dispose();
+        if (Number.isFinite(vLoss)) {
+          lastCombineValLoss = vLoss;
+          pushChartPoint(globalLossChart, vLoss);
+          devLog(`Combine: valLoss dopo fusione=${vLoss.toFixed(4)}`);
         }
       }
+
+      updateCombineUI();
+    } catch (e) {
+      console.error("Errore combineLoop:", e);
+      devLog("Errore combineLoop: " + e.message);
     }
+  }
+}
+
 
     /******************************************************************
      * FIREBASE: CLIENTS + SNAPSHOTS
@@ -1441,20 +1507,34 @@
         meshNodesLayout.set(cid, { x, y, r });
       }
 
-      ctx.strokeStyle = "rgba(120,150,255,0.15)";
-      ctx.lineWidth = 1;
+            // Edges: spessore in funzione dei pesi di combinazione ATC
       for (let i = 0; i < n; i++) {
-        for (let j = i+1; j < n; j++) {
+        for (let j = i + 1; j < n; j++) {
           const [cid1] = entries[i];
           const [cid2] = entries[j];
           const n1 = meshNodesLayout.get(cid1);
           const n2 = meshNodesLayout.get(cid2);
+
+          let lineWidth = 1;
+          let alpha = 0.15;
+
+          // se uno dei due è il nodo locale, usiamo il peso da lastEdgeWeights
+          if (cid1 === clientId || cid2 === clientId) {
+            const neighborId = cid1 === clientId ? cid2 : cid1;
+            const w = lastEdgeWeights.get(neighborId) || 0;
+            lineWidth = 1 + 4 * w;           // da 1px a ~5px
+            alpha = 0.15 + 0.35 * w;         // più opaco se w è alto
+          }
+
+          ctx.strokeStyle = `rgba(120,150,255,${alpha})`;
+          ctx.lineWidth = lineWidth;
           ctx.beginPath();
           ctx.moveTo(n1.x, n1.y);
           ctx.lineTo(n2.x, n2.y);
           ctx.stroke();
         }
       }
+
 
       for (let i = 0; i < n; i++) {
         const [cid, data] = entries[i];
@@ -1527,6 +1607,13 @@
           `<div>Trust (locale): ${(trustEntry.score*100).toFixed(1)} %</div>`
         );
       }
+            const edgeW = lastEdgeWeights.get(cid);
+      if (edgeW != null) {
+        lines.push(
+          `<div>Peso combinazione ATC: ${(edgeW * 100).toFixed(1)} %</div>`
+        );
+      }
+
       lines.push(`<div>Ultimo visto: ${
         d.lastSeen ? new Date(d.lastSeen).toLocaleTimeString() : "–"
       }</div>`);
