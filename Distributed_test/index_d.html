@@ -182,6 +182,148 @@
       }
       #meshCanvas { height: 260px; }
     }
+
+    /* --- VISUALIZZATORE NN LIVE --- */
+    #nn-live-wrapper {
+      margin-top: 0.8rem;
+    }
+    .nn-layout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      align-items: flex-start;
+    }
+    .nn-left {
+      flex: 0 0 260px;
+      max-width: 100%;
+    }
+    .nn-right {
+      flex: 1 1 260px;
+      min-width: 0;
+    }
+    #drawCanvas {
+      width: 100%;
+      max-width: 260px;
+      height: auto;
+      border-radius: 0.6rem;
+      border: 1px solid #303857;
+      background: #000;
+      touch-action: none;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+      display: block;
+    }
+    .nn-controls {
+      margin-top: 0.4rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+    }
+
+    button.secondary {
+      background: #1f2937;
+      border: 1px solid #374151;
+      color: #e5e7eb;
+      border-radius: 0.5rem;
+      padding: 0.25rem 0.7rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    button.secondary:hover {
+      background: #111827;
+    }
+
+    .nn-label-row {
+      margin-top: 0.4rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+      font-size: 0.75rem;
+    }
+    .nn-label-row input {
+      width: 3rem;
+      margin-left: 0.25rem;
+      padding: 0.1rem 0.2rem;
+      border-radius: 0.3rem;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+    }
+    .nn-label-status {
+      font-size: 0.7rem;
+      color: #9ca4c7;
+    }
+
+    #pixelGridCanvas {
+      width: 100%;
+      max-width: 260px;
+      height: auto;
+      margin-top: 0.45rem;
+      border-radius: 0.6rem;
+      border: 1px solid #303857;
+      background: #000;
+      image-rendering: pixelated;
+      display: block;
+    }
+    #nnCanvas {
+      width: 100%;
+      height: 260px;
+      border-radius: 0.6rem;
+      border: 1px solid #222a42;
+      background: radial-gradient(circle at top left, #1b2340, #050814);
+      box-sizing: border-box;
+      display: block;
+    }
+    #draw-output-panel {
+      margin-top: 0.4rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.8rem;
+      background: #0b1020;
+      border-radius: 0.5rem;
+      border: 1px solid #232b45;
+      padding: 0.4rem 0.6rem;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .prob-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.15rem;
+    }
+    .prob-label {
+      width: 1.3rem;
+      text-align: right;
+      color: #9ca4c7;
+      font-size: 0.75rem;
+    }
+    .prob-bar-wrap {
+      flex: 1;
+      background: #050b18;
+      border-radius: 999px;
+      overflow: hidden;
+      height: 0.5rem;
+      position: relative;
+    }
+    .prob-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #22c55e, #22d3ee);
+      border-radius: 999px;
+    }
+    .prob-val {
+      width: 3.2rem;
+      text-align: right;
+      color: #e5e7eb;
+      font-size: 0.75rem;
+    }
+    .prob-row.best .prob-label {
+      color: #fbbf24;
+      font-weight: 600;
+    }
+    .prob-row.best .prob-val {
+      color: #fbbf24;
+    }
   </style>
 </head>
 <body>
@@ -232,7 +374,7 @@
         </div>
         <div class="stat">
           <div class="label">Hidden units</div>
-          <div class="value" id="hidden-size">32</div>
+          <div class="value" id="hidden-size">16+32+16</div>
           <div class="sub">stessa architettura per tutti</div>
         </div>
       </div>
@@ -289,7 +431,7 @@
         <span class="pill" id="model-pill">Modello: inizializzazione…</span>
       </h2>
       <p style="font-size:0.78rem;color:#9ca4c7;">
-        Carica una piccola immagine (ridimensionata a 28×28, scala di grigi)
+        Carica una piccola immagine (ridimensionata a 32×32, scala di grigi)
         oppure clicca su cifre dal test set MNIST. La rete che risponde è
         <strong>quella locale</strong>, dopo i passi di Adapt–Then–Combine.
       </p>
@@ -304,10 +446,58 @@
         <div id="sample-images-container" style="display:flex;flex-wrap:wrap;gap:0.3rem;"></div>
       </div>
 
+      <!-- VISUALIZZATORE LIVE: DISEGNO + RETE NEURALE + MATRICE PIXEL -->
+      <div id="nn-live-wrapper">
+        <h3 style="margin:0.7rem 0 0.3rem;font-size:0.85rem;color:#f0f4ff;">
+          Rete neurale live (modello locale)
+        </h3>
+        <p style="font-size:0.72rem;color:#9ca4c7;margin:0 0 0.4rem;">
+          Disegna una cifra: l'immagine viene campionata in una matrice
+          di input 32×32 e passata al modello locale
+          <code>conv8 → conv16 → flatten → dense16 → dense32 → dense16 → softmax10</code>.
+          A sinistra vedi i pixel effettivi (matrice input), a destra le attivazioni
+          interne di <strong>tutti i tre hidden layer</strong> che si accendono.
+        </p>
+        <div class="nn-layout">
+          <div class="nn-left">
+            <canvas id="drawCanvas" width="260" height="260"></canvas>
+            <div class="nn-controls">
+              <button id="draw-clear-btn" class="secondary">Pulisci</button>
+              <button id="draw-noise-btn" class="secondary">Rumore</button>
+              <span style="font-size:0.7rem;color:#9ca4c7;">
+                Aggiornamento in tempo reale mentre disegni
+              </span>
+            </div>
+            <div class="nn-label-row">
+              <label style="color:#e5e7eb;">
+                Etichetta:
+                <input id="draw-label-input" type="number" min="0" max="9" value="0" />
+              </label>
+              <button id="draw-train-btn" class="secondary">Usa per training</button>
+              <span id="draw-train-status" class="nn-label-status"></span>
+            </div>
+            <canvas id="pixelGridCanvas" width="128" height="128"></canvas>
+            <p style="font-size:0.7rem;color:#9ca4c7;margin:0.2rem 0 0;">
+              Matrice input (32×32) usata dal modello (un quadratino per pixel).
+            </p>
+            <h4 style="margin:0.5rem 0 0.2rem;font-size:0.8rem;">Output live (softmax)</h4>
+            <div id="draw-output-panel"></div>
+          </div>
+          <div class="nn-right">
+            <canvas id="nnCanvas"></canvas>
+            <div class="legend" style="margin-top:0.35rem;font-size:0.72rem;color:#9ca4c7;">
+              <span style="display:inline-block;width:16px;height:8px;border-radius:999px;background:linear-gradient(90deg,#000000,#ffffff);margin-right:4px;"></span>
+              da nodo spento (nero) a molto attivo (bianco, con bagliore).<br/>
+              Le linee più luminose corrispondono a neuroni sorgente più attivi.
+            </div>
+          </div>
+        </div>
+      </div>
+
       <hr style="border-color:#20263a;margin:0.8rem 0;"/>
       <p style="font-size:0.72rem;color:#7b84a7;">
         Architettura:
-        <code>conv8 → conv16 → flatten → dense32 → softmax10</code><br/>
+        <code>conv8 → conv16 → flatten → dense16 → dense32 → dense16 → softmax10</code><br/>
         Algoritmo: <strong>ATC</strong> con scambio del vettore
         <em>ψ</em> (pesi dopo l'adattamento) e combinazione
         <strong>Adaptive Relative Variance</strong>: i nodi con update più stabili
@@ -335,18 +525,18 @@
      ******************************************************************/
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
     import {
-  getFirestore,
-  doc,
-  setDoc,
-  collection,
-  addDoc,
-  onSnapshot,
-  query,
-  orderBy,
-  limit,
-  serverTimestamp,
-  getDocs
-} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+      getFirestore,
+      doc,
+      setDoc,
+      collection,
+      addDoc,
+      onSnapshot,
+      query,
+      orderBy,
+      limit,
+      serverTimestamp,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
     import {
       getAuth,
       signInAnonymously,
@@ -355,7 +545,6 @@
 
     /******************************************************************
      * CONFIGURAZIONE FIREBASE
-     * (Sostituisci questi valori con i tuoi e NON committare le chiavi reali)
      ******************************************************************/
     const firebaseConfig = {
       apiKey: "AIzaSyDUYL3b05b0RoyNMYCy9GZRtDs-4SBb-AI",
@@ -376,17 +565,25 @@
      ******************************************************************/
     const ROOM_ID = "atc-mnist-room";
 
-    const IMG_SIZE = 28;
+    const IMG_SIZE = 32; // input effettivo usato dal modello (32×32)
     const NUM_CHANNELS = 1;
     const NUM_CLASSES = 10;
-    const HIDDEN_UNITS = 32;
-// Indici dei tensori di pesi nella CNN:
-// 0: conv1/kernel, 1: conv1/bias, 2: conv2/kernel, 3: conv2/bias,
-// 4: dense_hidden/kernel, 5: dense_hidden/bias,
-// 6: dense_out/kernel, 7: dense_out/bias
-const IDX_DH_KERNEL = 4;
-const IDX_DH_BIAS   = 5;
-const IDX_DO_KERNEL = 6;
+    const HIDDEN1_UNITS = 16;
+    const HIDDEN2_UNITS = 32;
+    const HIDDEN3_UNITS = 16;
+    const TOTAL_HIDDEN_UNITS = HIDDEN1_UNITS + HIDDEN2_UNITS + HIDDEN3_UNITS;
+
+    // Indici dei tensori di pesi nella CNN:
+    // 0: conv1/kernel, 1: conv1/bias,
+    // 2: conv2/kernel, 3: conv2/bias,
+    // 4: dense_hidden1/kernel, 5: dense_hidden1/bias,
+    // 6: dense_hidden2/kernel, 7: dense_hidden2/bias,
+    // 8: dense_hidden3/kernel, 9: dense_hidden3/bias,
+    // 10: dense_out/kernel,   11: dense_out/bias
+    // Per il gossip allineiamo il TERZO hidden (dense_hidden3)
+    const IDX_DH_KERNEL = 8;
+    const IDX_DH_BIAS   = 9;
+    const IDX_DO_KERNEL = 10;
 
     const TRAIN_BATCH_SIZE = 16;
     const VAL_BATCH_SIZE   = 32;
@@ -399,12 +596,11 @@ const IDX_DO_KERNEL = 6;
     const MNIST_TRAIN_CSV = MNIST_ROOT + "train.csv";
     const MNIST_TEST_CSV  = MNIST_ROOT + "test.csv";
 
-    const META_STORAGE_KEY = "atc-mnist-meta-v2";
+    // nuova versione per non clashare con meta precedenti
+    const META_STORAGE_KEY = "atc-mnist-meta-v4-32x32";
 
-    // ATC: parametri per la parte Combine
-    const VAR_BETA = 0.1;              // smoothing per stima varianza
-    const VAR_WARMUP_ITERS = 10;       // prima di usare un nodo nella ARV
-    const COMBINE_VAL_EVERY = 10;      // ogni tot passi facciamo una val loss dopo combine
+    const VAR_BETA = 0.1;
+    const COMBINE_VAL_EVERY = 10;
     const OFFLINE_THRESHOLD_MS = 60000;
 
     /******************************************************************
@@ -414,18 +610,19 @@ const IDX_DO_KERNEL = 6;
     let clientId = null;
 
     let model = null;
+    let activationModel = null;
 
     let trainManifest = null;
     let valManifest   = null;
 
-    let localSteps   = 0;    // iterazioni ATC
+    let localSteps   = 0;
     let localSamples = 0;
     let lastTrainLoss = null;
     let lastValLoss   = null;
     let avgBatchMs = 0;
 
-    let localGradVar = null;      // stima varianza grad / update
-    let localGradVarCount = 0;    // quante iterazioni sono state accumulate
+    let localGradVar = null;
+    let localGradVarCount = 0;
 
     let lastCombineTime        = null;
     let lastCombineNeighbors   = 0;
@@ -433,7 +630,7 @@ const IDX_DO_KERNEL = 6;
     let lastCombineValLoss     = null;
 
     const clientsState = new Map();
-    let recentSnapshots = []; // snapshot ψ dei vicini (Firebase)
+    let recentSnapshots = [];
 
     let batteryInfo = null;
 
@@ -441,11 +638,20 @@ const IDX_DO_KERNEL = 6;
     let globalLossChart = null;
 
     let meshNodesLayout = new Map();
-    let lastEdgeWeights = new Map(); // neighborId -> a_ij nell’ultimo combine
-let hasLocalMeta = false; // true se abbiamo caricato pesi da localStorage o bootstrap
+    let lastEdgeWeights = new Map();
+    let hasLocalMeta = false;
 
     const devLogBuffer = [];
     const DEV_LOG_MAX  = 200;
+
+    // canvas per griglia di pixel
+    let pixelGridCanvas = null;
+    let pixelGridCtx = null;
+
+    // coordinazione tra training ATC e training da disegno
+    let trainingBusy = false;
+    let clientDocRef = null;
+    let snapshotsColRefGlobal = null;
 
     /******************************************************************
      * DEV LOG
@@ -473,158 +679,152 @@ let hasLocalMeta = false; // true se abbiamo caricato pesi da localStorage o boo
       if (ms == null) return "–";
       return ms.toFixed(1) + " ms/batch";
     }
-/******************************************************************
- * GOSSIP: Sinkhorn per allineare i neuroni nascosti
- ******************************************************************/
 
-function denseHiddenKernelToNeuronMatrix(flatArray, shape) {
-  // shape = [inDim, H], array flatten in ordine (i, h)
-  const inDim = shape[0];
-  const H = shape[1];
-  const mat = [];
-  for (let h = 0; h < H; h++) {
-    const neuron = [];
-    for (let i = 0; i < inDim; i++) {
-      const idx = i * H + h;
-      neuron.push(flatArray[idx]);
-    }
-    mat.push(neuron);
-  }
-  return mat;
-}
-
-function euclideanDistanceVec(a, b) {
-  let sum = 0;
-  for (let i = 0; i < a.length; i++) {
-    const d = a[i] - b[i];
-    sum += d * d;
-  }
-  return Math.sqrt(sum);
-}
-
-function computeCostMatrix(localMat, neighMat) {
-  const H = Math.min(localMat.length, neighMat.length);
-  const C = [];
-  for (let i = 0; i < H; i++) {
-    const row = [];
-    for (let j = 0; j < H; j++) {
-      row.push(euclideanDistanceVec(localMat[i], neighMat[j]));
-    }
-    C.push(row);
-  }
-  return C;
-}
-
-// Sinkhorn "forte": poche iterazioni, epsilon piccolo → quasi permutazione
-function runSinkhornGossip(costMatrix, epsFactor = 0.1, iterations = 5) {
-  const H = costMatrix.length;
-  if (!H) return { P: [] };
-
-  let sum = 0, cnt = 0;
-  for (let i = 0; i < H; i++) {
-    for (let j = 0; j < H; j++) {
-      sum += costMatrix[i][j];
-      cnt++;
-    }
-  }
-  const meanC = cnt > 0 ? sum / cnt : 1.0;
-  const epsilon = Math.max(meanC * epsFactor, 1e-6);
-
-  const P = [];
-  for (let i = 0; i < H; i++) {
-    const row = [];
-    for (let j = 0; j < H; j++) {
-      row.push(Math.exp(-costMatrix[i][j] / epsilon));
-    }
-    P.push(row);
-  }
-
-  for (let it = 0; it < iterations; it++) {
-    // normalizza righe
-    for (let i = 0; i < H; i++) {
-      let s = 0;
-      for (let j = 0; j < H; j++) s += P[i][j];
-      if (s > 0) {
-        for (let j = 0; j < H; j++) P[i][j] /= s;
+    /******************************************************************
+     * GOSSIP: Sinkhorn per allineare i neuroni nascosti (3° layer dense)
+     ******************************************************************/
+    function denseHiddenKernelToNeuronMatrix(flatArray, shape) {
+      const inDim = shape[0];
+      const H = shape[1];
+      const mat = [];
+      for (let h = 0; h < H; h++) {
+        const neuron = [];
+        for (let i = 0; i < inDim; i++) {
+          const idx = i * H + h;
+          neuron.push(flatArray[idx]);
+        }
+        mat.push(neuron);
       }
+      return mat;
     }
-    // normalizza colonne
-    for (let j = 0; j < H; j++) {
-      let s = 0;
-      for (let i = 0; i < H; i++) s += P[i][j];
-      if (s > 0) {
-        for (let i = 0; i < H; i++) P[i][j] /= s;
+
+    function euclideanDistanceVec(a, b) {
+      let sum = 0;
+      for (let i = 0; i < a.length; i++) {
+        const d = a[i] - b[i];
+        sum += d * d;
       }
+      return Math.sqrt(sum);
     }
-  }
 
-  return { P };
-}
-
-function argmaxPermutation(P) {
-  const H = P.length;
-  const perm = new Array(H).fill(0);
-  const used = new Array(H).fill(false);
-  for (let i = 0; i < H; i++) {
-    let bestJ = 0;
-    let best = -Infinity;
-    for (let j = 0; j < H; j++) {
-      if (!used[j] && P[i][j] > best) {
-        best = P[i][j];
-        bestJ = j;
+    function computeCostMatrix(localMat, neighMat) {
+      const H = Math.min(localMat.length, neighMat.length);
+      const C = [];
+      for (let i = 0; i < H; i++) {
+        const row = [];
+        for (let j = 0; j < H; j++) {
+          row.push(euclideanDistanceVec(localMat[i], neighMat[j]));
+        }
+        C.push(row);
       }
+      return C;
     }
-    perm[i] = bestJ;
-    used[bestJ] = true;
-  }
-  return perm;
-}
 
-// Permuta i neuroni nascosti del modello locale secondo perm (dimensione H)
-function permuteHiddenInPlace(arrays, shapes, perm) {
-  const kernelShape = shapes[IDX_DH_KERNEL]; // [inDim, H]
-  const inDim = kernelShape[0];
-  const H = kernelShape[1];
+    function runSinkhornGossip(costMatrix, epsFactor = 0.1, iterations = 5) {
+      const H = costMatrix.length;
+      if (!H) return { P: [] };
 
-  const kernel = arrays[IDX_DH_KERNEL];
-  const bias   = arrays[IDX_DH_BIAS];
-  const outK   = arrays[IDX_DO_KERNEL];
-  const outShape = shapes[IDX_DO_KERNEL]; // [H, numClasses]
-  const numClasses = outShape[1];
+      let sum = 0, cnt = 0;
+      for (let i = 0; i < H; i++) {
+        for (let j = 0; j < H; j++) {
+          sum += costMatrix[i][j];
+          cnt++;
+        }
+      }
+      const meanC = cnt > 0 ? sum / cnt : 1.0;
+      const epsilon = Math.max(meanC * epsFactor, 1e-6);
 
-  const newKernel = new Float32Array(kernel.length);
-  const newBias   = new Float32Array(bias.length);
-  const newOutK   = new Float32Array(outK.length);
+      const P = [];
+      for (let i = 0; i < H; i++) {
+        const row = [];
+        for (let j = 0; j < H; j++) {
+          row.push(Math.exp(-costMatrix[i][j] / epsilon));
+        }
+        P.push(row);
+      }
 
-  // dense_hidden kernel: colonne = neuroni
-  for (let h = 0; h < H; h++) {
-    const srcH = perm[h];
-    for (let i = 0; i < inDim; i++) {
-      const srcIdx = i * H + srcH;
-      const dstIdx = i * H + h;
-      newKernel[dstIdx] = kernel[srcIdx];
+      for (let it = 0; it < iterations; it++) {
+        // righe
+        for (let i = 0; i < H; i++) {
+          let s = 0;
+          for (let j = 0; j < H; j++) s += P[i][j];
+          if (s > 0) {
+            for (let j = 0; j < H; j++) P[i][j] /= s;
+          }
+        }
+        // colonne
+        for (let j = 0; j < H; j++) {
+          let s = 0;
+          for (let i = 0; i < H; i++) s += P[i][j];
+          if (s > 0) {
+            for (let i = 0; i < H; i++) P[i][j] /= s;
+          }
+        }
+      }
+
+      return { P };
     }
-  }
 
-  // bias hidden
-  for (let h = 0; h < H; h++) {
-    newBias[h] = bias[perm[h]];
-  }
-
-  // dense_out kernel: righe = neuroni
-  for (let h = 0; h < H; h++) {
-    const srcH = perm[h];
-    for (let c = 0; c < numClasses; c++) {
-      const srcIdx = srcH * numClasses + c;
-      const dstIdx = h * numClasses + c;
-      newOutK[dstIdx] = outK[srcIdx];
+    function argmaxPermutation(P) {
+      const H = P.length;
+      const perm = new Array(H).fill(0);
+      const used = new Array(H).fill(false);
+      for (let i = 0; i < H; i++) {
+        let bestJ = 0;
+        let best = -Infinity;
+        for (let j = 0; j < H; j++) {
+          if (!used[j] && P[i][j] > best) {
+            best = P[i][j];
+            bestJ = j;
+          }
+        }
+        perm[i] = bestJ;
+        used[bestJ] = true;
+      }
+      return perm;
     }
-  }
 
-  arrays[IDX_DH_KERNEL] = newKernel;
-  arrays[IDX_DH_BIAS]   = newBias;
-  arrays[IDX_DO_KERNEL] = newOutK;
-}
+    function permuteHiddenInPlace(arrays, shapes, perm) {
+      const kernelShape = shapes[IDX_DH_KERNEL]; // [inDim, H] del terzo hidden
+      const inDim = kernelShape[0];
+      const H = kernelShape[1];
+
+      const kernel = arrays[IDX_DH_KERNEL];
+      const bias   = arrays[IDX_DH_BIAS];
+      const outK   = arrays[IDX_DO_KERNEL];
+      const outShape = shapes[IDX_DO_KERNEL]; // [H, numClasses]
+      const numClasses = outShape[1];
+
+      const newKernel = new Float32Array(kernel.length);
+      const newBias   = new Float32Array(bias.length);
+      const newOutK   = new Float32Array(outK.length);
+
+      for (let h = 0; h < H; h++) {
+        const srcH = perm[h];
+        for (let i = 0; i < inDim; i++) {
+          const srcIdx = i * H + srcH;
+          const dstIdx = i * H + h;
+          newKernel[dstIdx] = kernel[srcIdx];
+        }
+      }
+
+      for (let h = 0; h < H; h++) {
+        newBias[h] = bias[perm[h]];
+      }
+
+      for (let h = 0; h < H; h++) {
+        const srcH = perm[h];
+        for (let c = 0; c < numClasses; c++) {
+          const srcIdx = srcH * numClasses + c;
+          const dstIdx = h * numClasses + c;
+          newOutK[dstIdx] = outK[srcIdx];
+        }
+      }
+
+      arrays[IDX_DH_KERNEL] = newKernel;
+      arrays[IDX_DH_BIAS]   = newBias;
+      arrays[IDX_DO_KERNEL] = newOutK;
+    }
 
     /******************************************************************
      * MNIST PNG: CSV → MANIFESTO
@@ -702,7 +902,7 @@ function permuteHiddenInPlace(arrays, shapes, perm) {
     }
 
     /******************************************************************
-     * MODELLO CNN (UNICO PER NODO)
+     * MODELLO CNN (3 hidden: 16 → 32 → 16, input 32×32)
      ******************************************************************/
     function buildModel() {
       const m = tf.sequential();
@@ -725,9 +925,19 @@ function permuteHiddenInPlace(arrays, shapes, perm) {
       m.add(tf.layers.maxPooling2d({ poolSize: 2 }));
       m.add(tf.layers.flatten());
       m.add(tf.layers.dense({
-        units: HIDDEN_UNITS,
+        units: HIDDEN1_UNITS,
         activation: "relu",
-        name: "dense_hidden"
+        name: "dense_hidden1"
+      }));
+      m.add(tf.layers.dense({
+        units: HIDDEN2_UNITS,
+        activation: "relu",
+        name: "dense_hidden2"
+      }));
+      m.add(tf.layers.dense({
+        units: HIDDEN3_UNITS,
+        activation: "relu",
+        name: "dense_hidden3"
       }));
       m.add(tf.layers.dense({
         units: NUM_CLASSES,
@@ -853,50 +1063,50 @@ function permuteHiddenInPlace(arrays, shapes, perm) {
       }
     }
 
-   async function loadLocalModelOrInit() {
-  model = buildModel();
-  hasLocalMeta = false;
-  try {
-    const metaStr = localStorage.getItem(META_STORAGE_KEY);
-    if (!metaStr) {
-      devLog("Nessun meta locale, modello nuovo.");
-      return;
-    }
-    const meta = JSON.parse(metaStr);
-    if (!meta.weights || !meta.weights.shapes || !meta.weights.arrays) {
-      devLog("Meta incompleto, uso modello nuovo.");
-      return;
-    }
-    const shapes = meta.weights.shapes;
-    const arrays = meta.weights.arrays;
-    if (shapes.length !== arrays.length) {
-      devLog("Meta pesi incoerente, modello nuovo.");
-      return;
-    }
-    const tensors = shapes.map((shape, idx) =>
-      tf.tensor(arrays[idx], shape, "float32")
-    );
-    model.setWeights(tensors);
-    tensors.forEach(t => t.dispose());
+    async function loadLocalModelOrInit() {
+      model = buildModel();
+      hasLocalMeta = false;
+      try {
+        const metaStr = localStorage.getItem(META_STORAGE_KEY);
+        if (!metaStr) {
+          devLog("Nessun meta locale, modello nuovo.");
+          return;
+        }
+        const meta = JSON.parse(metaStr);
+        if (!meta.weights || !meta.weights.shapes || !meta.weights.arrays) {
+          devLog("Meta incompleto, uso modello nuovo.");
+          return;
+        }
+        const shapes = meta.weights.shapes;
+        const arrays = meta.weights.arrays;
+        const expectedWeights = model.getWeights().length;
+        if (shapes.length !== arrays.length || shapes.length !== expectedWeights) {
+          devLog("Meta pesi incoerente con la nuova architettura, uso modello nuovo.");
+          return;
+        }
+        const tensors = shapes.map((shape, idx) =>
+          tf.tensor(arrays[idx], shape, "float32")
+        );
+        model.setWeights(tensors);
+        tensors.forEach(t => t.dispose());
 
-    localSteps          = meta.localSteps || 0;
-    localSamples        = meta.localSamples || 0;
-    lastTrainLoss       = meta.lastTrainLoss ?? null;
-    lastValLoss         = meta.lastValLoss ?? null;
-    localGradVar        = meta.localGradVar ?? null;
-    localGradVarCount   = meta.localGradVarCount || 0;
+        localSteps          = meta.localSteps || 0;
+        localSamples        = meta.localSamples || 0;
+        lastTrainLoss       = meta.lastTrainLoss ?? null;
+        lastValLoss         = meta.lastValLoss ?? null;
+        localGradVar        = meta.localGradVar ?? null;
+        localGradVarCount   = meta.localGradVarCount || 0;
 
-    hasLocalMeta = true;
-    devLog(`Meta locale ripristinato: steps=${localSteps}, samples=${localSamples}, gradVarCount=${localGradVarCount}`);
-  } catch (e) {
-    console.warn("Errore loadLocalModelOrInit:", e);
-    devLog("Errore loadLocalModelOrInit: " + e.message);
-  }
-}
-
+        hasLocalMeta = true;
+        devLog(`Meta locale ripristinato: steps=${localSteps}, samples=${localSamples}, gradVarCount=${localGradVarCount}`);
+      } catch (e) {
+        console.warn("Errore loadLocalModelOrInit:", e);
+        devLog("Errore loadLocalModelOrInit: " + e.message);
+      }
+    }
 
     /******************************************************************
-     * IMAGE → TENSOR
+     * IMAGE → TENSOR (da URL) - ora 32×32
      ******************************************************************/
     async function loadImageAsTensor(url) {
       return new Promise((resolve, reject) => {
@@ -907,7 +1117,7 @@ function permuteHiddenInPlace(arrays, shapes, perm) {
           const ctx = canvas.getContext("2d");
           canvas.width = IMG_SIZE;
           canvas.height = IMG_SIZE;
-          ctx.drawImage(img, 0, 0, IMG_SIZE, IMG_SIZE);
+          ctx.drawImage(img, 0, 0, IMG_SIZE, IMG_SIZE); // “stira” il 28×28 in 32×32
           let imgTensor = tf.browser.fromPixels(canvas, NUM_CHANNELS);
           imgTensor = tf.tidy(() => imgTensor.toFloat().div(255.0));
           const batched = imgTensor.expandDims(0);
@@ -981,48 +1191,47 @@ function permuteHiddenInPlace(arrays, shapes, perm) {
      * UI UPDATE
      ******************************************************************/
     function updateLocalUI() {
-  document.getElementById("tf-backend").textContent = tf.getBackend() || "–";
-  document.getElementById("tf-version").textContent =
-    "TF.js " + (tf.version ? tf.version.tfjs : "");
+      document.getElementById("tf-backend").textContent = tf.getBackend() || "–";
+      document.getElementById("tf-version").textContent =
+        "TF.js " + (tf.version ? tf.version.tfjs : "");
 
-  document.getElementById("local-steps").textContent   = localSteps.toString();
-  document.getElementById("local-samples").textContent = `${localSamples} samples`;
-  document.getElementById("local-loss").textContent =
-    lastTrainLoss != null && Number.isFinite(lastTrainLoss)
-      ? lastTrainLoss.toFixed(4)
-      : "–";
-  document.getElementById("local-valloss").textContent =
-    lastValLoss != null && Number.isFinite(lastValLoss)
-      ? "validation: " + lastValLoss.toFixed(4)
-      : "validation: –";
+      document.getElementById("local-steps").textContent   = localSteps.toString();
+      document.getElementById("local-samples").textContent = `${localSamples} samples`;
+      document.getElementById("local-loss").textContent =
+        lastTrainLoss != null && Number.isFinite(lastTrainLoss)
+          ? lastTrainLoss.toFixed(4)
+          : "–";
+      document.getElementById("local-valloss").textContent =
+        lastValLoss != null && Number.isFinite(lastValLoss)
+          ? "validation: " + lastValLoss.toFixed(4)
+          : "validation: –";
 
-  document.getElementById("batch-ms").textContent = formatMs(avgBatchMs);
-  const thr = avgBatchMs > 0 ? (TRAIN_BATCH_SIZE / (avgBatchMs / 1000)).toFixed(1) + " img/s" : "–";
-  document.getElementById("throughput").textContent = thr;
+      document.getElementById("batch-ms").textContent = formatMs(avgBatchMs);
+      const thr = avgBatchMs > 0 ? (TRAIN_BATCH_SIZE / (avgBatchMs / 1000)).toFixed(1) + " img/s" : "–";
+      document.getElementById("throughput").textContent = thr;
 
-  const gv = localGradVar;
-  document.getElementById("grad-var").textContent =
-    (gv != null && Number.isFinite(gv)) ? gv.toExponential(2) : "–";
-  document.getElementById("grad-var-count").textContent =
-    `stima ARV (k=${localGradVarCount})`;
+      const gv = localGradVar;
+      document.getElementById("grad-var").textContent =
+        (gv != null && Number.isFinite(gv)) ? gv.toExponential(2) : "–";
+      document.getElementById("grad-var-count").textContent =
+        `stima ARV (k=${localGradVarCount})`;
 
-  document.getElementById("hidden-size").textContent = HIDDEN_UNITS.toString();
+      document.getElementById("hidden-size").textContent =
+        `${HIDDEN1_UNITS}+${HIDDEN2_UNITS}+${HIDDEN3_UNITS}`;
 
-  // 🔧 BLOCCO BATTERIA FIXATO
-  if (batteryInfo) {
-    const lvl = Math.round(batteryInfo.level * 100);
-    const bl = document.getElementById("battery-level");
-    const bs = document.getElementById("battery-status");
-    if (bl) bl.textContent = lvl + " %";
-    if (bs) bs.textContent = batteryInfo.charging ? "in carica" : "su batteria";
-  } else {
-    const bl = document.getElementById("battery-level");
-    const bs = document.getElementById("battery-status");
-    if (bl) bl.textContent = "–";
-    if (bs) bs.textContent = "API batteria non disponibile";
-  }
-}
-
+      if (batteryInfo) {
+        const lvl = Math.round(batteryInfo.level * 100);
+        const bl = document.getElementById("battery-level");
+        const bs = document.getElementById("battery-status");
+        if (bl) bl.textContent = lvl + " %";
+        if (bs) bs.textContent = batteryInfo.charging ? "in carica" : "su batteria";
+      } else {
+        const bl = document.getElementById("battery-level");
+        const bs = document.getElementById("battery-status");
+        if (bl) bl.textContent = "–";
+        if (bs) bs.textContent = "API batteria non disponibile";
+      }
+    }
 
     function updateCombineUI() {
       document.getElementById("clients-count").textContent =
@@ -1092,7 +1301,6 @@ function permuteHiddenInPlace(arrays, shapes, perm) {
         meshNodesLayout.set(cid, { x, y, r });
       }
 
-      // Edges: spessore in base ai pesi di combinazione dell’ultimo step di questo nodo
       for (let i = 0; i < n; i++) {
         for (let j = i+1; j < n; j++) {
           const [cid1] = entries[i];
@@ -1119,7 +1327,6 @@ function permuteHiddenInPlace(arrays, shapes, perm) {
         }
       }
 
-      // nodi
       for (let i = 0; i < n; i++) {
         const [cid, data] = entries[i];
         const node = meshNodesLayout.get(cid);
@@ -1205,7 +1412,7 @@ function permuteHiddenInPlace(arrays, shapes, perm) {
     function initBattery() {
       if ("getBattery" in navigator) {
         navigator.getBattery().then(b => {
-            batteryInfo = b;
+          batteryInfo = b;
           b.addEventListener("levelchange", updateLocalUI);
           b.addEventListener("chargingchange", updateLocalUI);
           updateLocalUI();
@@ -1214,7 +1421,7 @@ function permuteHiddenInPlace(arrays, shapes, perm) {
     }
 
     /******************************************************************
-     * TESTER: FILE + SAMPLE GALLERY (USA model LOCALE)
+     * TESTER: FILE + SAMPLE GALLERY
      ******************************************************************/
     function probsContainNonFinite(arr) {
       for (let i = 0; i < arr.length; i++) {
@@ -1331,6 +1538,687 @@ function permuteHiddenInPlace(arrays, shapes, perm) {
     }
 
     /******************************************************************
+     * VISUALIZZATORE NN LIVE (disegno → attivazioni modello locale)
+     * Visualizza la rete effettiva:
+     *   input (4x4 blocchi) → hidden1(16) → hidden2(32) → hidden3(16) → output(10)
+     ******************************************************************/
+    const VIS_IN  = 16;                // 4×4 blocchi dall'immagine
+    const VIS_H1  = HIDDEN1_UNITS;     // 16 neuroni
+    const VIS_H2  = HIDDEN2_UNITS;     // 32 neuroni
+    const VIS_H3  = HIDDEN3_UNITS;     // 16 neuroni
+    const VIS_OUT = NUM_CLASSES;       // 10 cifre
+
+    let drawCanvasNN = null;
+    let drawCtxNN = null;
+    let drawDownCanvasNN = null;
+    let drawDownCtxNN = null;
+    let drawIsDrawing = false;
+    let drawLastX = 0, drawLastY = 0;
+    let drawUpdateQueuedNN = false;
+    let drawPredictBusy = false;
+
+    let nnCanvasEl = null;
+    let nnCtx = null;
+    let nnPositions = {
+      input: [],
+      hidden1: [],
+      hidden2: [],
+      hidden3: [],
+      output: []
+    };
+
+    let visActs = {
+      input:  new Array(VIS_IN).fill(0),
+      hidden1: new Array(VIS_H1).fill(0),
+      hidden2: new Array(VIS_H2).fill(0),
+      hidden3: new Array(VIS_H3).fill(0),
+      output: new Array(VIS_OUT).fill(1 / VIS_OUT)
+    };
+
+    function initActivationModel() {
+      if (!model) return;
+      try {
+        if (activationModel) {
+          activationModel.dispose();
+          activationModel = null;
+        }
+        const dense1 = model.getLayer("dense_hidden1");
+        const dense2 = model.getLayer("dense_hidden2");
+        const dense3 = model.getLayer("dense_hidden3");
+        const denseOut = model.getLayer("dense_out");
+        activationModel = tf.model({
+          inputs: model.inputs,
+          outputs: [dense1.output, dense2.output, dense3.output, denseOut.output]
+        });
+        devLog("Activation model inizializzato per visualizzazione live (dense_hidden1-2-3 + output).");
+      } catch (e) {
+        console.warn("Impossibile creare activationModel:", e);
+        devLog("Impossibile creare activationModel: " + e.message);
+      }
+    }
+
+    function initNNVisualizer() {
+      initPixelGridCanvas();
+      setupDrawingNNCanvas();
+      setupNNCanvas();
+      updateFromDrawingNN();
+
+      const trainBtn = document.getElementById("draw-train-btn");
+      if (trainBtn) {
+        trainBtn.addEventListener("click", () => {
+          trainOnDrawingExample().catch(e => {
+            console.error("Errore trainOnDrawingExample (click):", e);
+          });
+        });
+      }
+    }
+
+    function initPixelGridCanvas() {
+      pixelGridCanvas = document.getElementById("pixelGridCanvas");
+      if (!pixelGridCanvas) return;
+      pixelGridCtx = pixelGridCanvas.getContext("2d");
+      if (pixelGridCtx) {
+        pixelGridCtx.imageSmoothingEnabled = false;
+        renderPixelGridNN(new Float32Array(IMG_SIZE * IMG_SIZE).fill(0));
+      }
+    }
+
+    function setupDrawingNNCanvas() {
+      drawCanvasNN = document.getElementById("drawCanvas");
+      if (!drawCanvasNN) return;
+      drawCtxNN = drawCanvasNN.getContext("2d");
+
+      drawDownCanvasNN = document.createElement("canvas");
+      drawDownCanvasNN.width = IMG_SIZE;
+      drawDownCanvasNN.height = IMG_SIZE;
+      drawDownCtxNN = drawDownCanvasNN.getContext("2d");
+
+      clearDrawingNN();
+
+      const getPos = (e) => {
+        const rect = drawCanvasNN.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+          x: clientX - rect.left,
+          y: clientY - rect.top
+        };
+      };
+
+      const start = (e) => {
+        e.preventDefault();
+        drawIsDrawing = true;
+        const p = getPos(e);
+        drawLastX = p.x;
+        drawLastY = p.y;
+        scheduleUpdateFromDrawingNN();
+      };
+
+      const move = (e) => {
+        if (!drawIsDrawing) return;
+        e.preventDefault();
+        const p = getPos(e);
+        drawCtxNN.lineCap = "round";
+        drawCtxNN.lineJoin = "round";
+        drawCtxNN.lineWidth = 18;
+        drawCtxNN.strokeStyle = "#ffffff";
+        drawCtxNN.beginPath();
+        drawCtxNN.moveTo(drawLastX, drawLastY);
+        drawCtxNN.lineTo(p.x, p.y);
+        drawCtxNN.stroke();
+        drawLastX = p.x;
+        drawLastY = p.y;
+        scheduleUpdateFromDrawingNN();
+      };
+
+      const end = (e) => {
+        if (!drawIsDrawing) return;
+        e.preventDefault();
+        drawIsDrawing = false;
+        scheduleUpdateFromDrawingNN();
+      };
+
+      drawCanvasNN.addEventListener("mousedown", start);
+      drawCanvasNN.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", end);
+
+      drawCanvasNN.addEventListener("touchstart", start, { passive: false });
+      drawCanvasNN.addEventListener("touchmove", move, { passive: false });
+      drawCanvasNN.addEventListener("touchend", end);
+
+      const clearBtn = document.getElementById("draw-clear-btn");
+      const noiseBtn = document.getElementById("draw-noise-btn");
+      if (clearBtn) clearBtn.addEventListener("click", () => {
+        clearDrawingNN();
+        updateFromDrawingNN();
+      });
+      if (noiseBtn) noiseBtn.addEventListener("click", () => {
+        addRandomNoiseNN();
+        updateFromDrawingNN();
+      });
+    }
+
+    function clearDrawingNN() {
+      if (!drawCtxNN || !drawCanvasNN) return;
+      drawCtxNN.fillStyle = "#000000";
+      drawCtxNN.fillRect(0, 0, drawCanvasNN.width, drawCanvasNN.height);
+    }
+
+    function addRandomNoiseNN() {
+      if (!drawCtxNN || !drawCanvasNN) return;
+      const imgData = drawCtxNN.getImageData(0, 0, drawCanvasNN.width, drawCanvasNN.height);
+      const data = imgData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const v = Math.random() < 0.04 ? 255 : 0;
+        data[i] = v;
+        data[i + 1] = v;
+        data[i + 2] = v;
+      }
+      drawCtxNN.putImageData(imgData, 0, 0);
+    }
+
+    function scheduleUpdateFromDrawingNN() {
+      if (drawUpdateQueuedNN) return;
+      drawUpdateQueuedNN = true;
+      requestAnimationFrame(() => {
+        drawUpdateQueuedNN = false;
+        if (!drawPredictBusy) {
+          updateFromDrawingNN();
+        }
+      });
+    }
+
+    // estrai dalla canvas di disegno la matrice IMG_SIZE×IMG_SIZE e le feature 4×4
+    function extractFeaturesFromDrawing() {
+      if (!drawDownCtxNN || !drawCanvasNN) return null;
+      drawDownCtxNN.fillStyle = "#000000";
+      drawDownCtxNN.fillRect(0, 0, IMG_SIZE, IMG_SIZE);
+      drawDownCtxNN.drawImage(drawCanvasNN, 0, 0, IMG_SIZE, IMG_SIZE);
+
+      const imgData = drawDownCtxNN.getImageData(0, 0, IMG_SIZE, IMG_SIZE);
+      const data = imgData.data;
+      const pixels = new Float32Array(IMG_SIZE * IMG_SIZE);
+
+      const features = new Array(VIS_IN).fill(0);
+      const counts = new Array(VIS_IN).fill(0);
+      const blocksPerSide = 4;
+      const blockW = IMG_SIZE / blocksPerSide;
+      const blockH = IMG_SIZE / blocksPerSide;
+
+      for (let y = 0; y < IMG_SIZE; y++) {
+        for (let x = 0; x < IMG_SIZE; x++) {
+          const idx = (y * IMG_SIZE + x) * 4;
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
+          const v = (r + g + b) / 3 / 255;
+          pixels[y * IMG_SIZE + x] = v;
+
+          const bx = Math.floor(x / blockW);
+          const by = Math.floor(y / blockH);
+          const bi = by * blocksPerSide + bx;
+          if (bi >= 0 && bi < VIS_IN) {
+            features[bi] += v;
+            counts[bi]  += 1;
+          }
+        }
+      }
+
+      for (let i = 0; i < VIS_IN; i++) {
+        features[i] = counts[i] > 0 ? features[i] / counts[i] : 0;
+      }
+
+      return { inputVec: features, pixels };
+    }
+
+    function renderPixelGridNN(pixels) {
+      if (!pixelGridCtx || !pixelGridCanvas || !pixels) return;
+      const size = IMG_SIZE;
+      const w = pixelGridCanvas.width;
+      const h = pixelGridCanvas.height;
+      const cellW = w / size;
+      const cellH = h / size;
+
+      pixelGridCtx.clearRect(0, 0, w, h);
+      pixelGridCtx.fillStyle = "#000000";
+      pixelGridCtx.fillRect(0, 0, w, h);
+
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const v = clamp(pixels[y * size + x] || 0, 0, 1);
+          const c = Math.round(v * 255);
+          pixelGridCtx.fillStyle = `rgb(${c},${c},${c})`;
+          pixelGridCtx.fillRect(x * cellW, y * cellH, cellW + 0.5, cellH + 0.5);
+        }
+      }
+
+      pixelGridCtx.strokeStyle = "rgba(15,23,42,0.7)";
+      pixelGridCtx.lineWidth = 0.5;
+      for (let x = 0; x <= size; x++) {
+        const px = x * cellW;
+        pixelGridCtx.beginPath();
+        pixelGridCtx.moveTo(px, 0);
+        pixelGridCtx.lineTo(px, h);
+        pixelGridCtx.stroke();
+      }
+      for (let y = 0; y <= size; y++) {
+        const py = y * cellH;
+        pixelGridCtx.beginPath();
+        pixelGridCtx.moveTo(0, py);
+        pixelGridCtx.lineTo(w, py);
+        pixelGridCtx.stroke();
+      }
+    }
+
+    async function updateFromDrawingNN() {
+      const pack = extractFeaturesFromDrawing();
+      if (!pack) return;
+      const { inputVec, pixels } = pack;
+
+      // aggiorna SEMPRE la griglia dei pixel 32×32
+      renderPixelGridNN(pixels);
+
+      if (!model || !activationModel) {
+        return;
+      }
+
+      drawPredictBusy = true;
+      const tensor = tf.tensor4d(pixels, [1, IMG_SIZE, IMG_SIZE, 1], "float32");
+      try {
+        const pred = activationModel.predict(tensor);
+        if (!Array.isArray(pred) || pred.length < 4) {
+          throw new Error("activationModel non ha restituito 4 output");
+        }
+        const [h1T, h2T, h3T, outT] = pred;
+        const h1Vals = await h1T.data();
+        const h2Vals = await h2T.data();
+        const h3Vals = await h3T.data();
+        const outVals = await outT.data();
+        h1T.dispose();
+        h2T.dispose();
+        h3T.dispose();
+        outT.dispose();
+        tensor.dispose();
+
+        visActs.input   = inputVec;
+        visActs.hidden1 = Array.from(h1Vals);
+        visActs.hidden2 = Array.from(h2Vals);
+        visActs.hidden3 = Array.from(h3Vals);
+        visActs.output  = Array.from(outVals);
+
+        drawNetworkNN(visActs);
+        updateDrawOutputPanel(visActs.output);
+      } catch (e) {
+        console.error("Errore updateFromDrawingNN:", e);
+        devLog("Errore updateFromDrawingNN: " + e.message);
+        try { tensor.dispose(); } catch {}
+      } finally {
+        drawPredictBusy = false;
+      }
+    }
+
+    function setupNNCanvas() {
+      nnCanvasEl = document.getElementById("nnCanvas");
+      if (!nnCanvasEl) return;
+      const rect = nnCanvasEl.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const w = (rect.width || 260) * dpr;
+      const h = (rect.height || 260) * dpr;
+      nnCanvasEl.width  = w;
+      nnCanvasEl.height = h;
+      nnCtx = nnCanvasEl.getContext("2d");
+      nnCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      computeNNPositions(rect.width || 260, rect.height || 260);
+      drawNetworkNN(visActs);
+    }
+
+    window.addEventListener("resize", () => {
+      setupNNCanvas();
+    });
+
+    function computeNNPositions(width, height) {
+      const marginX = 50;
+      const xIn   = marginX;
+      const xH1   = width * 0.30;
+      const xH2   = width * 0.50;
+      const xH3   = width * 0.70;
+      const xOut  = width - marginX;
+      nnPositions.input   = makeLayerPositionsNN(VIS_IN,  xIn,  height);
+      nnPositions.hidden1 = makeLayerPositionsNN(VIS_H1, xH1, height);
+      nnPositions.hidden2 = makeLayerPositionsNN(VIS_H2, xH2, height);
+      nnPositions.hidden3 = makeLayerPositionsNN(VIS_H3, xH3, height);
+      nnPositions.output  = makeLayerPositionsNN(VIS_OUT, xOut, height);
+    }
+
+    function makeLayerPositionsNN(nNodes, x, canvasHeight) {
+      const marginY = 30;
+      const usableH = Math.max(10, canvasHeight - 2 * marginY);
+      const step = nNodes > 1 ? usableH / (nNodes - 1) : 0;
+      const arr = [];
+      for (let i = 0; i < nNodes; i++) {
+        arr.push({ x, y: marginY + i * step });
+      }
+      return arr;
+    }
+
+    function computeNorms(values, isOutput) {
+      const n = values ? values.length : 0;
+      const norms = new Array(n).fill(0);
+      if (!n) return norms;
+      let min = Infinity, max = -Infinity;
+      if (isOutput) {
+        min = 0;
+        max = 1;
+      } else {
+        for (let i = 0; i < n; i++) {
+          const v = values[i];
+          if (!Number.isFinite(v)) continue;
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+        if (!Number.isFinite(min)) min = 0;
+        if (!Number.isFinite(max)) max = min + 1;
+        if (max <= min) max = min + 1;
+      }
+      const span = max - min;
+      for (let i = 0; i < n; i++) {
+        let lin;
+        if (isOutput) {
+          lin = clamp(values[i] ?? 0, 0, 1);
+        } else {
+          const v = values[i];
+          if (!Number.isFinite(v)) lin = 0;
+          else lin = clamp((v - min) / span, 0, 1);
+        }
+        // mappa esponenziale per aumentare il contrasto
+        const expo = 1 - Math.exp(-3 * lin);
+        norms[i] = clamp(expo, 0, 1);
+      }
+      return norms;
+    }
+
+    function drawNetworkNN(acts) {
+      if (!nnCtx || !nnCanvasEl) return;
+      const width  = nnCanvasEl.clientWidth  || nnCanvasEl.width;
+      const height = nnCanvasEl.clientHeight || nnCanvasEl.height;
+
+      nnCtx.clearRect(0, 0, width, height);
+      nnCtx.fillStyle = "#050814";
+      nnCtx.fillRect(0, 0, width, height);
+
+      const cx = width / 2;
+      const cy = height / 2;
+      const grad = nnCtx.createRadialGradient(cx, cy, 10, cx, cy, width * 0.8);
+      grad.addColorStop(0, "rgba(79,156,255,0.25)");
+      grad.addColorStop(1, "rgba(5,8,20,0)");
+      nnCtx.fillStyle = grad;
+      nnCtx.fillRect(0, 0, width, height);
+
+      const normsIn  = computeNorms(acts.input,  false);
+      const normsH1  = computeNorms(acts.hidden1, false);
+      const normsH2  = computeNorms(acts.hidden2, false);
+      const normsH3  = computeNorms(acts.hidden3, false);
+      const normsOut = computeNorms(acts.output, true);
+
+      // edges per ogni layer della rete effettiva
+      drawEdgesNN(nnCtx, nnPositions.input,   nnPositions.hidden1, normsIn);
+      drawEdgesNN(nnCtx, nnPositions.hidden1, nnPositions.hidden2, normsH1);
+      drawEdgesNN(nnCtx, nnPositions.hidden2, nnPositions.hidden3, normsH2);
+      drawEdgesNN(nnCtx, nnPositions.hidden3, nnPositions.output,  normsH3);
+
+      // nodi
+      drawNodesNN(nnCtx, nnPositions.input,   acts.input,   normsIn,  null, false, "input (4×4 blocchi)");
+      drawNodesNN(nnCtx, nnPositions.hidden1, acts.hidden1, normsH1,  null, false, `hidden1 (${VIS_H1})`);
+      drawNodesNN(nnCtx, nnPositions.hidden2, acts.hidden2, normsH2,  null, false, `hidden2 (${VIS_H2})`);
+      drawNodesNN(nnCtx, nnPositions.hidden3, acts.hidden3, normsH3,  null, false, `hidden3 (${VIS_H3})`);
+
+      const outLabels = Array.from({ length: VIS_OUT }, (_, i) => String(i));
+      drawNodesNN(nnCtx, nnPositions.output, acts.output, normsOut, outLabels, true, "output (cifre)");
+    }
+
+    function drawEdgesNN(ctx, srcPos, dstPos, srcNorms) {
+      if (!srcPos || !dstPos) return;
+      for (let i = 0; i < srcPos.length; i++) {
+        const src = srcPos[i];
+        const a = srcNorms[i] ?? 0;
+        const alpha = 0.03 + 0.75 * Math.pow(a, 1.5);
+        ctx.strokeStyle = `rgba(148,163,184,${alpha.toFixed(3)})`;
+        ctx.lineWidth = 1;
+        for (let j = 0; j < dstPos.length; j++) {
+          const dst = dstPos[j];
+          ctx.beginPath();
+          ctx.moveTo(src.x, src.y);
+          ctx.lineTo(dst.x, dst.y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    function drawNodesNN(ctx, positions, values, norms, labels, isOutput, layerLabel) {
+      if (!positions) return;
+      const radius = 8;
+      let bestIdx = -1;
+      if (isOutput && values && values.length) {
+        bestIdx = 0;
+        for (let i = 1; i < values.length; i++) {
+          if ((values[i] ?? 0) > (values[bestIdx] ?? 0)) bestIdx = i;
+        }
+      }
+
+      for (let i = 0; i < positions.length; i++) {
+        const { x, y } = positions[i];
+        const n = norms[i] ?? 0;
+        const c = Math.round(clamp(n, 0, 1) * 255);
+        const fillColor = `rgb(${c},${c},${c})`;
+        const isBest = isOutput && i === bestIdx;
+
+        if (n > 0.02) {
+          const glowR = radius + 4 + n * 10;
+          const g = ctx.createRadialGradient(x, y, radius * 0.3, x, y, glowR);
+          g.addColorStop(0, `rgba(255,255,255,${(0.4 * n).toFixed(3)})`);
+          g.addColorStop(1, "rgba(5,8,20,0)");
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(x, y, glowR, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+        ctx.lineWidth = isBest ? 2 : 1;
+        ctx.strokeStyle = isBest ? "#ffd166" : "#e5e7eb";
+        ctx.stroke();
+
+        if (labels && labels[i] !== undefined) {
+          ctx.fillStyle = c > 150 ? "#000000" : "#f9fafb";
+          ctx.font = "9px system-ui";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(labels[i], x, y);
+        }
+      }
+
+      if (positions.length && layerLabel) {
+        const x = positions[0].x;
+        let yTop = positions[0].y;
+        for (let i = 1; i < positions.length; i++) {
+          if (positions[i].y < yTop) yTop = positions[i].y;
+        }
+        ctx.fillStyle = "#9ca4c7";
+        ctx.font = "10px system-ui";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillText(layerLabel, x, yTop - 6);
+      }
+    }
+
+    function updateDrawOutputPanel(probs) {
+      const container = document.getElementById("draw-output-panel");
+      if (!container || !probs) return;
+      let maxIdx = 0;
+      for (let i = 1; i < probs.length; i++) {
+        if (probs[i] > probs[maxIdx]) maxIdx = i;
+      }
+      let html = "";
+      for (let i = 0; i < probs.length; i++) {
+        const p = probs[i] || 0;
+        const isBest = i === maxIdx;
+        const widthPercent = Math.max(2, p * 100);
+        html +=
+          `<div class="prob-row ${isBest ? "best" : ""}">
+            <div class="prob-label">${i}</div>
+            <div class="prob-bar-wrap">
+              <div class="prob-bar" style="width:${widthPercent.toFixed(1)}%;"></div>
+            </div>
+            <div class="prob-val">${p.toFixed(3)}</div>
+          </div>`;
+      }
+      container.innerHTML = html;
+    }
+
+    /******************************************************************
+     * TRAINING SUL DISEGNO UTENTE
+     ******************************************************************/
+    async function trainOnDrawingExample() {
+      if (!model) return;
+
+      const labelInput = document.getElementById("draw-label-input");
+      const statusEl   = document.getElementById("draw-train-status");
+      if (!labelInput || !statusEl) return;
+
+      const labelStr = labelInput.value.trim();
+      const label = Number(labelStr);
+      if (!Number.isInteger(label) || label < 0 || label >= NUM_CLASSES) {
+        statusEl.textContent = "L'etichetta deve essere un intero tra 0 e 9.";
+        statusEl.style.color = "#f87171";
+        return;
+      }
+
+      const pack = extractFeaturesFromDrawing();
+      if (!pack) {
+        statusEl.textContent = "Nessun disegno da usare.";
+        statusEl.style.color = "#f87171";
+        return;
+      }
+      const { pixels } = pack;
+
+      let sum = 0;
+      for (let i = 0; i < pixels.length; i++) sum += pixels[i];
+      if (sum <= 0.01) {
+        statusEl.textContent = "Il disegno è quasi vuoto, niente da apprendere.";
+        statusEl.style.color = "#f97316";
+        return;
+      }
+
+      const xs = tf.tensor4d(pixels, [1, IMG_SIZE, IMG_SIZE, 1], "float32");
+      const ysIdx = tf.tensor1d([label], "int32");
+      const ys = tf.oneHot(ysIdx, NUM_CLASSES);
+      ysIdx.dispose();
+
+      statusEl.textContent = "Aggiorno il modello locale…";
+      statusEl.style.color = "#93c5fd";
+
+      while (trainingBusy) {
+        await sleep(30);
+      }
+      trainingBusy = true;
+
+      const t0 = performance.now();
+      try {
+        const { shapes, arrays: arraysBefore } = extractWeights();
+
+        const history = await model.fit(xs, ys, {
+          epochs: 1,
+          batchSize: 1,
+          shuffle: false,
+          verbose: 0
+        });
+        const loss = history.history.loss[0];
+
+        const { arrays: arraysAfter } = extractWeights();
+
+        let sumSq = 0;
+        let count = 0;
+        for (let t = 0; t < arraysBefore.length; t++) {
+          const a0 = arraysBefore[t];
+          const a1 = arraysAfter[t];
+          for (let i = 0; i < a0.length; i++) {
+            const d = a1[i] - a0[i];
+            sumSq += d * d;
+            count++;
+          }
+        }
+        const stepVar = sumSq / Math.max(1, count);
+        if (!Number.isFinite(stepVar) || stepVar <= 0) {
+          if (localGradVar == null) localGradVar = 1e-4;
+        } else {
+          if (localGradVar == null) localGradVar = stepVar;
+          else localGradVar = (1 - VAR_BETA) * localGradVar + VAR_BETA * stepVar;
+        }
+        localGradVarCount++;
+
+        localSteps   += 1;
+        localSamples += 1;
+        lastTrainLoss = loss;
+
+        const batchMs = performance.now() - t0;
+        if (avgBatchMs === 0) avgBatchMs = batchMs;
+        else avgBatchMs = avgBatchMs * 0.9 + batchMs * 0.1;
+
+        pushChartPoint(localLossChart, loss);
+
+        if (snapshotsColRefGlobal && clientDocRef) {
+          const q = quantizeWeights(shapes, arraysAfter);
+          const snapshotDoc = {
+            clientId,
+            createdAt: serverTimestamp(),
+            iter: localSteps,
+            localSamples,
+            localTrainLoss: lastTrainLoss,
+            localValLoss: lastValLoss,
+            gradVar: localGradVar,
+            gradVarCount: localGradVarCount,
+            shapes: q.shapes,
+            scales: q.scales,
+            quantArrays: q.quantArrays
+          };
+          await addDoc(snapshotsColRefGlobal, snapshotDoc);
+
+          await setDoc(clientDocRef, {
+            lastSeen: serverTimestamp(),
+            localSteps,
+            localSamples,
+            localValLoss: lastValLoss,
+            gradVar: localGradVar,
+            gradVarCount: localGradVarCount
+          }, { merge: true });
+        }
+
+        updateLocalUI();
+        statusEl.textContent =
+          `Aggiunto al training (label ${label}, loss ${Number.isFinite(loss) ? loss.toFixed(3) : "n/d"})`;
+        statusEl.style.color = "#4ade80";
+
+        devLog(
+          `Training da disegno utente: label=${label}, loss=${Number.isFinite(loss) ? loss.toFixed(4) : "NaN"}`
+        );
+
+        updateFromDrawingNN();
+      } catch (e) {
+        console.error("Errore trainOnDrawingExample:", e);
+        devLog("Errore trainOnDrawingExample: " + e.message);
+        statusEl.textContent = "Errore durante il training.";
+        statusEl.style.color = "#f87171";
+      } finally {
+        xs.dispose();
+        ys.dispose();
+        trainingBusy = false;
+      }
+    }
+
+    /******************************************************************
      * PANIC BUTTON
      ******************************************************************/
     async function localPanicReset() {
@@ -1341,8 +2229,13 @@ function permuteHiddenInPlace(arrays, shapes, perm) {
       try {
         localStorage.removeItem(META_STORAGE_KEY);
       } catch {}
+      if (activationModel) {
+        activationModel.dispose();
+        activationModel = null;
+      }
       if (model) model.dispose();
       model = buildModel();
+      initActivationModel();
       localSteps = 0;
       localSamples = 0;
       lastTrainLoss = null;
@@ -1354,6 +2247,7 @@ function permuteHiddenInPlace(arrays, shapes, perm) {
       updateLocalUI();
       document.getElementById("tester-result").textContent =
         "Modello locale resettato. Il training riparte da zero.";
+      updateFromDrawingNN();
     }
 
     /******************************************************************
@@ -1399,74 +2293,79 @@ function permuteHiddenInPlace(arrays, shapes, perm) {
 
       return { clientsRef, snapsRef };
     }
-async function bootstrapFromBestPeerIfAny(snapsRef) {
-  try {
-    const qBoot = query(snapsRef, orderBy("createdAt", "desc"), limit(50));
-    const snap = await getDocs(qBoot);
-    if (snap.empty) {
-      devLog("Bootstrap: nessun snapshot remoto disponibile.");
-      return;
-    }
 
-    let bestData = null;
-    let bestScore = -Infinity;
+    async function bootstrapFromBestPeerIfAny(snapsRef) {
+      try {
+        const qBoot = query(snapsRef, orderBy("createdAt", "desc"), limit(50));
+        const snap = await getDocs(qBoot);
+        if (snap.empty) {
+          devLog("Bootstrap: nessun snapshot remoto disponibile.");
+          return;
+        }
 
-    snap.forEach(docSnap => {
-      const d = docSnap.data();
-      if (!d || !d.clientId || d.clientId === clientId) return;
+        let bestData = null;
+        let bestScore = -Infinity;
 
-      const valLoss = d.localValLoss;
-      const steps   = d.iter || d.localSteps || 0;
+        snap.forEach(docSnap => {
+          const d = docSnap.data();
+          if (!d || !d.clientId || d.clientId === clientId) return;
 
-      if (valLoss == null || !Number.isFinite(valLoss)) return;
+          const valLoss = d.localValLoss;
+          const steps   = d.iter || d.localSteps || 0;
 
-      // score alto = bassa loss, molti step
-      const score = -valLoss + 1e-4 * steps;
-      if (score > bestScore) {
-        bestScore = score;
-        bestData = d;
+          if (valLoss == null || !Number.isFinite(valLoss)) return;
+
+          const score = -valLoss + 1e-4 * steps;
+          if (score > bestScore) {
+            bestScore = score;
+            bestData = d;
+          }
+        });
+
+        if (!bestData) {
+          devLog("Bootstrap: nessun candidato valido trovato.");
+          return;
+        }
+
+        const { shapes, arrays } = dequantizeSnapshot(bestData);
+        applyWeightsToModel(shapes, arrays);
+
+        if (bestData.gradVar != null && Number.isFinite(bestData.gradVar)) {
+          localGradVar = bestData.gradVar;
+        }
+        if (bestData.gradVarCount != null) {
+          localGradVarCount = bestData.gradVarCount;
+        }
+
+        await saveLocalMeta();
+        hasLocalMeta = true;
+
+        let lossStr = "n/d";
+        if (typeof bestData.localValLoss === "number" && Number.isFinite(bestData.localValLoss)) {
+          lossStr = bestData.localValLoss.toFixed(4);
+        }
+        devLog(`Bootstrap: modello copiato da client ${bestData.clientId}, valLoss=${lossStr}`);
+      } catch (e) {
+        console.error("Errore bootstrapFromBestPeerIfAny:", e);
+        devLog("Errore bootstrapFromBestPeerIfAny: " + e.message);
       }
-    });
-
-    if (!bestData) {
-      devLog("Bootstrap: nessun candidato valido trovato.");
-      return;
     }
-
-    const { shapes, arrays } = dequantizeSnapshot(bestData);
-    applyWeightsToModel(shapes, arrays);
-
-    // Copiamo anche la stima di varianza se presente
-    if (bestData.gradVar != null && Number.isFinite(bestData.gradVar)) {
-      localGradVar = bestData.gradVar;
-    }
-    if (bestData.gradVarCount != null) {
-      localGradVarCount = bestData.gradVarCount;
-    }
-
-    await saveLocalMeta();
-    hasLocalMeta = true;
-
-    let lossStr = "n/d";
-    if (typeof bestData.localValLoss === "number" && Number.isFinite(bestData.localValLoss)) {
-      lossStr = bestData.localValLoss.toFixed(4);
-    }
-    devLog(`Bootstrap: modello copiato da client ${bestData.clientId}, valLoss=${lossStr}`);
-  } catch (e) {
-    console.error("Errore bootstrapFromBestPeerIfAny:", e);
-    devLog("Errore bootstrapFromBestPeerIfAny: " + e.message);
-  }
-}
 
     /******************************************************************
-     * ATC TRAINING LOOP (Adapt + Combine nello stesso ciclo)
+     * ATC TRAINING LOOP
      ******************************************************************/
     async function trainingLoop(clientRef, snapshotsColRef) {
       devLog("Training loop ATC avviato.");
       let combineValCounter = 0;
 
       while (true) {
-        let xs=null, ys=null;
+        if (trainingBusy) {
+          await sleep(50);
+          continue;
+        }
+        trainingBusy = true;
+
+        let xs = null, ys = null;
         const t0 = performance.now();
         try {
           // --- ADAPT STEP: ψ_i = w_i - μ ∇J_i(w_i) ---
@@ -1490,8 +2389,13 @@ async function bootstrapFromBestPeerIfAny(snapsRef) {
           const loss = history.history.loss[0];
           if (!Number.isFinite(loss)) {
             devLog("Loss NaN/Inf. Resetto modello locale.");
+            if (activationModel) {
+              activationModel.dispose();
+              activationModel = null;
+            }
             model.dispose();
             model = buildModel();
+            initActivationModel();
             localSteps = 0;
             localSamples = 0;
             lastTrainLoss = null;
@@ -1501,7 +2405,7 @@ async function bootstrapFromBestPeerIfAny(snapsRef) {
             await saveLocalMeta();
             updateLocalUI();
             await sleep(TRAINING_PAUSE_MS);
-            continue;
+            throw new Error("Loss NaN/Inf durante trainingLoop");
           }
 
           localSteps   += 1;
@@ -1524,7 +2428,6 @@ async function bootstrapFromBestPeerIfAny(snapsRef) {
           }
           const stepVar = sumSq / Math.max(1, count);
           if (!Number.isFinite(stepVar) || stepVar <= 0) {
-            // fallback
             if (localGradVar == null) localGradVar = 1e-4;
           } else {
             if (localGradVar == null) localGradVar = stepVar;
@@ -1573,7 +2476,7 @@ async function bootstrapFromBestPeerIfAny(snapsRef) {
             const d = snap.data;
             if (!d.clientId) continue;
             const cid = d.clientId;
-            if (cid === clientId) continue; // self gestito separatamente
+            if (cid === clientId) continue;
             const ts = d.createdAt && d.createdAt.toMillis
               ? d.createdAt.toMillis()
               : snap.localTimestamp || now;
@@ -1584,30 +2487,27 @@ async function bootstrapFromBestPeerIfAny(snapsRef) {
           }
 
           const neighborsInfo = [];
-for (const [cid, {snap}] of byClient.entries()) {
-  const d = snap.data;
-  const { shapes: neighShapes, arrays: neighArrays } = dequantizeSnapshot(d);
-  if (JSON.stringify(neighShapes) !== JSON.stringify(shapes)) {
-    continue; // architettura diversa
-  }
-  const gVar   = d.gradVar;
-  const gCount = d.gradVarCount || 0;
-  const valLoss = d.localValLoss;
-  neighborsInfo.push({
-    clientId: cid,
-    arrays: neighArrays,
-    gradVar: gVar,
-    gradVarCount: gCount,
-    valLoss
-  });
-}
+          for (const [cid, {snap}] of byClient.entries()) {
+            const d = snap.data;
+            const { shapes: neighShapes, arrays: neighArrays } = dequantizeSnapshot(d);
+            if (JSON.stringify(neighShapes) !== JSON.stringify(shapes)) {
+              continue;
+            }
+            const gVar   = d.gradVar;
+            const gCount = d.gradVarCount || 0;
+            const valLoss = d.localValLoss;
+            neighborsInfo.push({
+              clientId: cid,
+              arrays: neighArrays,
+              gradVar: gVar,
+              gradVarCount: gCount,
+              valLoss
+            });
+          }
 
-
-          // ARV: costruiamo l’insieme S di nodi maturi (self sempre incluso)
-                    const S = [];
+          const S = [];
           const EPS_GVAR = 1e-12;
 
-          // Self: se non abbiamo ancora una varianza sensata, usiamo un valore default
           const selfGamma = (localGradVar != null && Number.isFinite(localGradVar) && localGradVar > 0)
             ? localGradVar
             : 1e-4;
@@ -1618,11 +2518,9 @@ for (const [cid, {snap}] of byClient.entries()) {
             isSelf: true
           });
 
-          // Vicini: NESSUN warmup a 10 step, li includiamo subito.
           for (const n of neighborsInfo) {
             let gVar = n.gradVar;
             if (gVar == null || !Number.isFinite(gVar) || gVar <= 0) {
-              // se il vicino non ha ancora una varianza stimata, usiamo un fallback
               gVar = selfGamma;
             }
             S.push({
@@ -1633,21 +2531,17 @@ for (const [cid, {snap}] of byClient.entries()) {
             });
           }
 
-
-          // Se solo self o nessun gamma decente → w_i = ψ_i (no combine effettivo)
           let combinedArrays = arraysAfter.map(a => a.slice());
           lastEdgeWeights.clear();
           let neighborWeightSum = 0;
 
           if (S.length > 1) {
-            // ARV: r_j = 1 / (eps + gamma_j), a_j = r_j / Σ r
             let anyValidGamma = false;
             for (const s of S) {
               if (s.gamma > 0) { anyValidGamma = true; break; }
             }
             let weights = new Map();
             if (!anyValidGamma) {
-              // averaging rule uniforme
               const w = 1 / S.length;
               S.forEach(s => weights.set(s.clientId, w));
             } else {
@@ -1662,7 +2556,6 @@ for (const [cid, {snap}] of byClient.entries()) {
               }
             }
 
-            // combine w_i = Σ_j a_j ψ_j (ψ_j = arrays di S[j])
             combinedArrays = arraysAfter.map(() => null);
             for (let t = 0; t < arraysAfter.length; t++) {
               const len = arraysAfter[t].length;
@@ -1695,21 +2588,20 @@ for (const [cid, {snap}] of byClient.entries()) {
           sanitizeWeightArrays(combinedArrays);
           applyWeightsToModel(shapes, combinedArrays);
           await saveLocalMeta(combinedArrays, shapes);
-// GOSSIP: ogni 5 iterazioni, se ci sono vicini, controlla divergenza
-if (neighborsInfo.length > 0 && (localSteps % 5 === 0)) {
-  try {
-    await gossipAlignIfDivergent(shapes, combinedArrays, neighborsInfo);
-  } catch (e) {
-    console.error("Errore gossipAlignIfDivergent:", e);
-    devLog("Errore gossipAlignIfDivergent: " + e.message);
-  }
-}
 
-lastCombineTime        = Date.now();
-lastCombineNeighbors   = S.length - 1;
-lastCombineNeighborAvg = neighborWeightSum;
+          if (neighborsInfo.length > 0 && (localSteps % 5 === 0)) {
+            try {
+              await gossipAlignIfDivergent(shapes, combinedArrays, neighborsInfo);
+            } catch (e) {
+              console.error("Errore gossipAlignIfDivergent:", e);
+              devLog("Errore gossipAlignIfDivergent: " + e.message);
+            }
+          }
 
-          // ogni COMBINE_VAL_EVERY iter facciamo una val loss post-combine
+          lastCombineTime        = Date.now();
+          lastCombineNeighbors   = S.length - 1;
+          lastCombineNeighborAvg = neighborWeightSum;
+
           combineValCounter++;
           if (valManifest && valManifest.items && valManifest.items.length &&
               combineValCounter % COMBINE_VAL_EVERY === 0) {
@@ -1743,128 +2635,111 @@ lastCombineNeighborAvg = neighborWeightSum;
           console.error("Errore trainingLoop ATC:", e);
           devLog("Errore trainingLoop ATC: " + e.message);
           await sleep(TRAINING_PAUSE_MS);
+        } finally {
+          trainingBusy = false;
         }
       }
     }
-/******************************************************************
- * GOSSIP STEP:
- * se il nodo diverge molto da un vicino "buono", usa Sinkhorn
- * per riallineare i neuroni nascosti (permutazione).
- ******************************************************************/
-async function gossipAlignIfDivergent(shapes, localArrays, neighborsInfo) {
-  if (!neighborsInfo.length) return;
 
-  // selezioniamo un vicino "buono":
-  // - valLoss simile alla nostra
-  // - distanza nei pesi relativamente grande → sospetta permutazione
-  const selfVal = lastValLoss;
-  let best = null;
-  let bestScore = -Infinity;
+    async function gossipAlignIfDivergent(shapes, localArrays, neighborsInfo) {
+      if (!neighborsInfo.length) return;
 
-  // Precalcolo norma dei pesi locali
-  let normSelfSq = 0;
-  for (let t = 0; t < localArrays.length; t++) {
-    const arr = localArrays[t];
-    for (let i = 0; i < arr.length; i++) {
-      normSelfSq += arr[i] * arr[i];
-    }
-  }
-  const normSelf = Math.sqrt(normSelfSq + 1e-12);
+      const selfVal = lastValLoss;
+      let best = null;
+      let bestScore = -Infinity;
 
-  for (const n of neighborsInfo) {
-    const neighArr = n.arrays;
-    // norma del vicino
-    let normNeighSq = 0;
-    for (let t = 0; t < neighArr.length; t++) {
-      const arr = neighArr[t];
-      for (let i = 0; i < arr.length; i++) {
-        normNeighSq += arr[i] * arr[i];
+      let normSelfSq = 0;
+      for (let t = 0; t < localArrays.length; t++) {
+        const arr = localArrays[t];
+        for (let i = 0; i < arr.length; i++) {
+          normSelfSq += arr[i] * arr[i];
+        }
       }
-    }
-    const normNeigh = Math.sqrt(normNeighSq + 1e-12);
+      const normSelf = Math.sqrt(normSelfSq + 1e-12);
 
-    // distanza L2 normalizzata tra i vettori di pesi
-    let distSq = 0;
-    for (let t = 0; t < localArrays.length; t++) {
-      const a = localArrays[t];
-      const b = neighArr[t];
-      if (a.length !== b.length) continue;
-      for (let i = 0; i < a.length; i++) {
-        const d = a[i] - b[i];
-        distSq += d * d;
+      for (const n of neighborsInfo) {
+        const neighArr = n.arrays;
+        let normNeighSq = 0;
+        for (let t = 0; t < neighArr.length; t++) {
+          const arr = neighArr[t];
+          for (let i = 0; i < arr.length; i++) {
+            normNeighSq += arr[i] * arr[i];
+          }
+        }
+        const normNeigh = Math.sqrt(normNeighSq + 1e-12);
+
+        let distSq = 0;
+        for (let t = 0; t < localArrays.length; t++) {
+          const a = localArrays[t];
+          const b = neighArr[t];
+          if (a.length !== b.length) continue;
+          for (let i = 0; i < a.length; i++) {
+            const d = a[i] - b[i];
+            distSq += d * d;
+          }
+        }
+        const dist = Math.sqrt(distSq + 1e-12);
+        const normDist = dist / (normSelf + normNeigh);
+
+        let valDiff = null;
+        if (selfVal != null && n.valLoss != null &&
+            Number.isFinite(selfVal) && Number.isFinite(n.valLoss)) {
+          valDiff = Math.abs(selfVal - n.valLoss);
+        }
+
+        const DIVERGENCE_THRESHOLD = 0.4;
+        const VAL_DIFF_MAX = 0.15;
+
+        const diverging = normDist > DIVERGENCE_THRESHOLD;
+        const similarPerf = (valDiff == null) ? true : (valDiff < VAL_DIFF_MAX);
+
+        if (diverging && similarPerf) {
+          const gamma = (n.gradVar != null && Number.isFinite(n.gradVar) && n.gradVar > 0)
+            ? n.gradVar
+            : 1e-4;
+          const score = normDist / (1 + (valDiff || 0.0)) / (1e-8 + gamma);
+          if (score > bestScore) {
+            bestScore = score;
+            best = { neighbor: n, normDist, valDiff };
+          }
+        }
       }
-    }
-    const dist = Math.sqrt(distSq + 1e-12);
-    const normDist = dist / (normSelf + normNeigh);
 
-    // differenza di valLoss (se entrambe finite)
-    let valDiff = null;
-    if (selfVal != null && n.valLoss != null &&
-        Number.isFinite(selfVal) && Number.isFinite(n.valLoss)) {
-      valDiff = Math.abs(selfVal - n.valLoss);
-    }
-
-    // Heuristica:
-    // - vogliamo divergenza abbastanza grande
-    // - e prestazioni simili (valDiff piccola) → probabile permutazione
-    const DIVERGENCE_THRESHOLD = 0.4; // tuning
-    const VAL_DIFF_MAX = 0.15;
-
-    const diverging = normDist > DIVERGENCE_THRESHOLD;
-    const similarPerf = (valDiff == null) ? true : (valDiff < VAL_DIFF_MAX);
-
-    if (diverging && similarPerf) {
-      // score = divergenza / (1 + valDiff) / gamma ~ preferiamo vicini stabili
-      const gamma = (n.gradVar != null && Number.isFinite(n.gradVar) && n.gradVar > 0)
-        ? n.gradVar
-        : 1e-4;
-      const score = normDist / (1 + (valDiff || 0.0)) / (1e-8 + gamma);
-      if (score > bestScore) {
-        bestScore = score;
-        best = { neighbor: n, normDist, valDiff };
+      if (!best) {
+        return;
       }
+
+      const n = best.neighbor;
+      devLog(
+        `[GOSSIP] Divergenza rilevata con ${n.clientId}: dist=${best.normDist.toFixed(3)}, ` +
+        `valDiff=${best.valDiff != null ? best.valDiff.toFixed(3) : "n/d"} → eseguo Sinkhorn (gossip)`
+      );
+
+      const kernelShape = shapes[IDX_DH_KERNEL];
+      const localKernel  = localArrays[IDX_DH_KERNEL];
+      const neighKernel  = n.arrays[IDX_DH_KERNEL];
+
+      const localMat = denseHiddenKernelToNeuronMatrix(localKernel, kernelShape);
+      const neighMat = denseHiddenKernelToNeuronMatrix(neighKernel, kernelShape);
+
+      const H = Math.min(localMat.length, neighMat.length);
+      if (!H) return;
+
+      const C = computeCostMatrix(localMat.slice(0, H), neighMat.slice(0, H));
+      const { P } = runSinkhornGossip(C, 0.1, 5);
+      const perm = argmaxPermutation(P);
+
+      permuteHiddenInPlace(localArrays, shapes, perm);
+
+      sanitizeWeightArrays(localArrays);
+      applyWeightsToModel(shapes, localArrays);
+      await saveLocalMeta(localArrays, shapes);
+
+      devLog(
+        `[GOSSIP] Allineamento completato con ${n.clientId}: ` +
+        `perm[0..4]=${perm.slice(0, Math.min(5, perm.length)).join(",")}`
+      );
     }
-  }
-
-  if (!best) {
-    // nessun vicino che suggerisca permutazione
-    return;
-  }
-
-  const n = best.neighbor;
-  devLog(
-    `[GOSSIP] Divergenza rilevata con ${n.clientId}: dist=${best.normDist.toFixed(3)}, ` +
-    `valDiff=${best.valDiff != null ? best.valDiff.toFixed(3) : "n/d"} → eseguo Sinkhorn (gossip)`
-  );
-
-  // Costruiamo la matrice di costi sui neuroni nascosti e ricaviamo una permutazione
-  const kernelShape = shapes[IDX_DH_KERNEL];
-  const localKernel  = localArrays[IDX_DH_KERNEL];
-  const neighKernel  = n.arrays[IDX_DH_KERNEL];
-
-  const localMat = denseHiddenKernelToNeuronMatrix(localKernel, kernelShape);
-  const neighMat = denseHiddenKernelToNeuronMatrix(neighKernel, kernelShape);
-
-  const H = Math.min(localMat.length, neighMat.length);
-  if (!H) return;
-
-  const C = computeCostMatrix(localMat.slice(0, H), neighMat.slice(0, H));
-  const { P } = runSinkhornGossip(C, 0.1, 5); // pochi step, epsilon piccolo
-  const perm = argmaxPermutation(P);
-
-  // Applichiamo la permutazione ai pesi del modello locale
-  permuteHiddenInPlace(localArrays, shapes, perm);
-
-  // Aggiorniamo il modello con i nuovi pesi riallineati
-  sanitizeWeightArrays(localArrays);
-  applyWeightsToModel(shapes, localArrays);
-  await saveLocalMeta(localArrays, shapes);
-
-  devLog(
-    `[GOSSIP] Allineamento completato con ${n.clientId}: ` +
-    `perm[0..4]=${perm.slice(0, Math.min(5, perm.length)).join(",")}`
-  );
-}
 
     /******************************************************************
      * ENTRYPOINT
@@ -1901,6 +2776,9 @@ async function gossipAlignIfDivergent(shapes, localArrays, neighborsInfo) {
         devLog("Auth: clientId=" + clientId);
 
         await loadLocalModelOrInit();
+        initActivationModel();
+        initNNVisualizer();
+
         document.getElementById("model-pill").textContent = "Modello: pronto";
         document.getElementById("test-btn").disabled = false;
         updateLocalUI();
@@ -1912,6 +2790,7 @@ async function gossipAlignIfDivergent(shapes, localArrays, neighborsInfo) {
         }, { merge: true });
 
         const clientRef = doc(db, "rooms", ROOM_ID, "clients", clientId);
+        clientDocRef = clientRef;
         await setDoc(clientRef, {
           lastSeen: serverTimestamp(),
           localSteps,
@@ -1922,20 +2801,19 @@ async function gossipAlignIfDivergent(shapes, localArrays, neighborsInfo) {
         }, { merge: true });
 
         setInterval(() => {
-          if (!clientId) return;
-          setDoc(clientRef, { lastSeen: serverTimestamp() }, { merge: true });
+          if (!clientId || !clientDocRef) return;
+          setDoc(clientDocRef, { lastSeen: serverTimestamp() }, { merge: true });
         }, 30000);
 
         const { snapsRef } = subscribeClientsAndSnapshots(db, ROOM_ID);
+        snapshotsColRefGlobal = snapsRef;
 
-// Se è un nodo nuovo (nessun meta locale), prova a clonare il migliore
-if (!hasLocalMeta) {
-  await bootstrapFromBestPeerIfAny(snapsRef);
-  updateLocalUI();
-}
+        if (!hasLocalMeta) {
+          await bootstrapFromBestPeerIfAny(snapsRef);
+          updateLocalUI();
+        }
 
-trainingLoop(clientRef, snapsRef);
-
+        trainingLoop(clientRef, snapsRef);
       });
 
       document.getElementById("panic-btn").addEventListener("click", () => {
