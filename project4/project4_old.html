@@ -1,0 +1,1347 @@
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Fruit Ripeness — IR Measurement Tool</title>
+    <style>
+        :root {
+            --bg: #0b1220;
+            --card: #0f1724;
+            --accent: #60a5fa;
+            --muted: #94a3b8;
+            --success: #34d399;
+            --warn: #f59e0b;
+            --glass: rgba(255, 255, 255, 0.02);
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+            color: #e6eef8;
+            background: linear-gradient(180deg, #071029 0%, #071827 100%);
+        }
+
+        .app {
+            max-width: 1100px;
+            margin: 28px auto;
+            padding: 20px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(2, 6, 23, 0.6)
+        }
+
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px
+        }
+
+        .app-header h1 {
+            margin: 0;
+            font-size: 20px
+        }
+
+        button {
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 10px 14px;
+            border: none;
+            cursor: pointer
+        }
+        .logo {
+            color: white;
+            text-decoration: none;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .logo span {
+            font-weight: 400;
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+        }
+
+        .nav-links li {
+            margin-left: 1.5rem;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--secondary);
+        }
+        button.primary {
+            background: var(--accent);
+            color: #04202e
+        }
+
+        button.ghost {
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 8px
+        }
+
+        .stage {
+            padding: 12px 0
+        }
+
+        .hidden {
+            display: none !important
+        }
+
+        .device-grid {
+            display: grid;
+            grid-template-columns:1fr;
+            gap: 12px;
+            margin-bottom: 12px
+        }
+
+        @media (min-width: 600px) {
+            .device-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .control {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 8px
+        }
+
+        .control label {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 6px
+        }
+
+        .control input[type=number], .control select, .control input[type=range] {
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: var(--glass);
+            color: inherit
+        }
+
+        .params {
+            display: grid;
+            grid-template-columns:repeat(4, 1fr);
+            gap: 12px;
+            margin: 12px 0
+        }
+
+        .row.actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            align-items: center
+        }
+
+        .row.actions.tight {
+            margin-top: 6px
+        }
+
+        .hint {
+            color: var(--muted);
+            margin-top: 10px
+        }
+
+        .plots {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 12px
+        }
+
+        .plots canvas {
+            background: #020617;
+            border-radius: 8px;
+            padding: 8px
+        }
+
+        .loader {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            margin-top: 12px
+        }
+
+        .loader.show {
+            display: flex
+        }
+
+        .pulse {
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            background: linear-gradient(180deg, var(--accent), #34d399);
+            box-shadow: 0 8px 30px rgba(96, 165, 250, 0.12);
+            animation: pulse 1.2s infinite
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1
+            }
+            50% {
+                transform: scale(1.12);
+                opacity: 0.9
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1
+            }
+        }
+
+        .loader-text {
+            font-weight: 700;
+            color: var(--muted)
+        }
+
+        .slider-row {
+            margin-top: 12px
+        }
+
+        .json-preview {
+            background: #021024;
+            padding: 12px;
+            border-radius: 8px;
+            color: #a6b8d9;
+            max-height: 280px;
+            overflow: auto;
+            margin-top: 12px
+        }
+
+        .app-footer {
+            margin-top: 16px;
+            color: var(--muted);
+            font-size: 13px
+        }
+
+        /* Test blocks */
+        .test-block {
+            margin: 10px 0;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02)
+        }
+
+        .test-head {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 8px
+        }
+
+        .muted {
+            color: var(--muted);
+            font-size: 13px
+        }
+
+        #micScope {
+            width: 100%;
+            height: 140px;
+            background: #020617;
+            border-radius: 8px
+        }
+
+        @media (max-width: 1000px) {
+            .params {
+                grid-template-columns:repeat(2, 1fr)
+            }
+
+            .device-grid {
+                grid-template-columns:1fr
+            }
+
+            .plots {
+                flex-direction: column
+            }
+        }
+
+    </style>
+
+</head>
+<body>
+<nav id="navbar">
+        <a href="../index.html" class="logo">Acoustic Research<span>Innovative Sound Solutions</span></a>
+        <ul class="nav-links">
+            <li><a href="../index.html#about">About</a></li>
+            <li><a href="../index.html#projects">Projects</a></li>
+            <li><a href="../index.html#contact">Contact</a></li>
+        </ul>
+</nav>
+<main class="app">
+    <header class="app-header">
+        <h1>Fruit Ripeness — IR Measurement Tool</h1>
+        <button id="backBtn" class="ghost" title="Back">← Back</button>
+    </header>
+
+    <!-- Stage 0: Device Setup -->
+    <section id="stage-0" class="stage">
+        <h2>Stage 0 — Device Setup</h2>
+        <p id="permStatus">Awaiting microphone permissions.</p>
+
+        <div class="device-grid">
+            <div class="control">
+                <label for="inputSelect">Microphone (input)</label>
+                <select id="inputSelect"></select>
+            </div>
+            <div class="control">
+                <label for="outputSelect">Speaker / Output</label>
+                <select id="outputSelect"></select>
+            </div>
+        </div>
+
+        <!-- Mic realtime test -->
+        <div id="micTest" class="test-block hidden">
+            <div class="test-head">
+                <strong>Microphone Test</strong>
+                <span class="muted">Tap near the mic and watch the waveform.</span>
+            </div>
+            <canvas id="micScope" width="900" height="140"></canvas>
+            <div class="row actions tight">
+                <button id="stopMicTestBtn" class="ghost">Stop Mic Monitor</button>
+            </div>
+        </div>
+
+        <!-- Speaker test -->
+        <div id="speakerTest" class="test-block hidden">
+            <div class="test-head">
+                <strong>Speaker Test</strong>
+                <span class="muted">Play a short beep to locate the speaker/earpiece.</span>
+            </div>
+            <div class="row actions tight">
+                <button id="playTestSoundBtn" class="primary">Play Test Sound</button>
+            </div>
+        </div>
+
+        <div class="params">
+            <div class="control"><label for="delay">Delay before sweep (s)</label><input id="delay" type="number"
+                                                                                         min="0" step="0.1" value="1">
+            </div>
+            <div class="control"><label for="sweepDuration">Sweep duration (s)</label><input id="sweepDuration"
+                                                                                             type="number" min="0.5"
+                                                                                             step="0.1" value="4"></div>
+            <div class="control"><label for="f1">Start freq (Hz)</label><input id="f1" type="number" min="1" value="50">
+            </div>
+            <div class="control"><label for="f2">End freq (Hz)</label><input id="f2" type="number" min="50"
+                                                                             value="10000"></div>
+        </div>
+
+        <div class="row actions">
+            <button id="requestPermBtn">Grant microphone permission</button>
+            <button id="startAppBtn" class="primary" disabled>Start App →</button>
+        </div>
+    </section>
+
+    <!-- Stage 1: Calibration -->
+    <section id="stage-1" class="stage hidden">
+        <h2>Stage 1 — Calibration (your hand)</h2>
+        <p>Place the speaker and microphone on your hand and press <strong>Start Calibration</strong>. You can repeat
+            the measurement multiple times; results are averaged to improve quality.</p>
+
+        <div class="row actions">
+            <button id="startCalBtn" class="primary">Start Calibration</button>
+            <button id="addCalRunBtn" class="ghost" disabled>Add Another Calibration Run</button>
+            <button id="resetCalRunsBtn" class="ghost">Reset Cal Runs</button>
+            <span id="calRunCount" class="muted">0 runs</span>
+        </div>
+
+        <div id="calLoader" class="loader">
+            <div class="pulse"></div>
+            <div class="loader-text">Measuring…</div>
+        </div>
+
+        <div id="calPlots" class="plots hidden">
+            <canvas id="calRaw" width="600" height="150"></canvas>
+            <canvas id="calIRTime" width="600" height="150"></canvas>
+            <canvas id="calIRFreq" width="600" height="150"></canvas>
+        </div>
+
+        <div class="row actions">
+            <button id="continueToMeasureBtn" class="primary" disabled>Continue →</button>
+        </div>
+    </section>
+
+    <!-- Stage 2: Fruit Measurement -->
+    <section id="stage-2" class="stage hidden">
+        <h2>Stage 2 — Measurement (fruit)</h2>
+        <p>Place the devices on the fruit and press <strong>Start Measurement</strong>. You can repeat the measurement
+            multiple times; results are averaged.</p>
+
+        <div class="row actions">
+            <button id="startMeasBtn" class="primary">Start Measurement</button>
+            <button id="addMeasRunBtn" class="ghost" disabled>Add Another Measurement Run</button>
+            <button id="resetMeasRunsBtn" class="ghost">Reset Fruit Runs</button>
+            <span id="measRunCount" class="muted">0 runs</span>
+        </div>
+
+        <div id="measLoader" class="loader">
+            <div class="pulse"></div>
+            <div class="loader-text">Measuring…</div>
+        </div>
+
+        <div id="measPlots" class="plots hidden">
+            <canvas id="measRaw" width="600" height="150"></canvas>
+            <canvas id="measIRTime" width="600" height="150"></canvas>
+            <canvas id="measIRFreq" width="600" height="150"></canvas>
+        </div>
+
+        <div class="row actions">
+            <button id="continueToCompareBtn" class="primary" disabled>Continue →</button>
+        </div>
+    </section>
+
+    <!-- Stage 3: Comparison & Download -->
+    <section id="stage-3" class="stage hidden">
+        <h2>Stage 3 — Compare & Download</h2>
+        <p>Comparison of averaged calibration vs fruit responses. Use the slider to mark ripeness, then download the
+            data.</p>
+
+        <div class="control slider-row">
+            <label for="ripeness">Ripeness: <span id="ripenessVal">5</span></label>
+            <input id="ripeness" type="range" min="0" max="10" step="1" value="5">
+        </div>
+
+        <div id="comparePlots" class="plots">
+            <canvas id="cmpIR" width="600" height="180"></canvas>
+            <canvas id="cmpFR" width="600" height="180"></canvas>
+        </div>
+
+        <div class="row actions">
+            <button id="downloadJsonBtn" class="primary">Download Data (JSON)</button>
+        </div>
+
+        <pre id="jsonPreview" class="json-preview"></pre>
+    </section>
+
+    <footer class="app-footer">Built with Web Audio API • Educational demo</footer>
+</main>
+
+<script>
+    /*
+Fruit Ripeness — IR Measurement Tool
+- Multi-stage client-side app using Web Audio API
+- Step 0: device selection + realtime mic monitor + speaker test
+- Step 1/2: run multiple measurements; averages are computed to improve SNR
+- Deconvolution by convolving recorded signal with time-reversed sweep (educational)
+- Step 3: overlay comparison plots (cal vs fruit), JSON export
+- UPDATES:
+  - Added stereo microphone channel splitting in device enumeration.
+  - Moved ripeness slider and data download to Stage 3.
+*/
+
+    // Stage holders
+    const stages = {
+        0: document.getElementById('stage-0'),
+        1: document.getElementById('stage-1'),
+        2: document.getElementById('stage-2'),
+        3: document.getElementById('stage-3')
+    };
+    const backBtn = document.getElementById('backBtn');
+
+    function showStage(n) {
+        Object.values(stages).forEach(s => s.classList.add('hidden'));
+        stages[n].classList.remove('hidden');
+        backBtn.style.display = n === 0 ? 'none' : 'inline-block';
+    }
+
+    // === Stage 0 elements ===
+    const permStatus = document.getElementById('permStatus');
+    const requestPermBtn = document.getElementById('requestPermBtn');
+    const startAppBtn = document.getElementById('startAppBtn');
+    const inputSelect = document.getElementById('inputSelect');
+    const outputSelect = document.getElementById('outputSelect');
+    const delayEl = document.getElementById('delay');
+    const sweepDurationEl = document.getElementById('sweepDuration');
+    const f1El = document.getElementById('f1');
+    const f2El = document.getElementById('f2');
+
+    // device tests
+    const micTest = document.getElementById('micTest');
+    const micScope = document.getElementById('micScope');
+    const stopMicTestBtn = document.getElementById('stopMicTestBtn');
+    const speakerTest = document.getElementById('speakerTest');
+    const playTestSoundBtn = document.getElementById('playTestSoundBtn');
+
+    // Stage 1
+    const startCalBtn = document.getElementById('startCalBtn');
+    const addCalRunBtn = document.getElementById('addCalRunBtn');
+    const resetCalRunsBtn = document.getElementById('resetCalRunsBtn');
+    const calRunCount = document.getElementById('calRunCount');
+    const calLoader = document.getElementById('calLoader');
+    const calPlots = document.getElementById('calPlots');
+    const calRawCanvas = document.getElementById('calRaw');
+    const calIRTimeCanvas = document.getElementById('calIRTime');
+    const calIRFreqCanvas = document.getElementById('calIRFreq');
+    const continueToMeasureBtn = document.getElementById('continueToMeasureBtn');
+
+    // Stage 2
+    const startMeasBtn = document.getElementById('startMeasBtn');
+    const addMeasRunBtn = document.getElementById('addMeasRunBtn');
+    const resetMeasRunsBtn = document.getElementById('resetMeasRunsBtn');
+    const measRunCount = document.getElementById('measRunCount');
+    const measLoader = document.getElementById('measLoader');
+    const measPlots = document.getElementById('measPlots');
+    const measRawCanvas = document.getElementById('measRaw');
+    const measIRTimeCanvas = document.getElementById('measIRTime');
+    const measIRFreqCanvas = document.getElementById('measIRFreq');
+    const continueToCompareBtn = document.getElementById('continueToCompareBtn');
+
+    // Stage 3
+    const ripenessSlider = document.getElementById('ripeness');
+    const ripenessVal = document.getElementById('ripenessVal');
+    const cmpIR = document.getElementById('cmpIR');
+    const cmpFR = document.getElementById('cmpFR');
+    const downloadJsonBtn = document.getElementById('downloadJsonBtn');
+    const jsonPreview = document.getElementById('jsonPreview');
+
+    // Audio state
+    let audioContext = null;
+    let currentStream = null; // measurement
+    let monitorStream = null; // monitor
+    let monitorSource = null, monitorAnalyser = null, monitorRAF = 0;
+
+    // Data state (multiple runs)
+    let calRuns = [];   // each: {rir: Float32Array, freq: Float32Array, raw: Float32Array}
+    let measRuns = [];
+
+    function ensureAudioContext() {
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        return audioContext;
+    }
+
+    function updateStartEnabled() {
+        startAppBtn.disabled = !(inputSelect.value && outputSelect.value);
+    }
+
+    function clearCanvas(canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // ===== Device enumeration / permissions =====
+    async function enumerateDevices() {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const inputs = devices.filter(d => d.kind === 'audioinput');
+            const outputs = devices.filter(d => d.kind === 'audiooutput');
+
+            // Clear and populate input select
+            inputSelect.innerHTML = '';
+            inputs.forEach((d, i) => {
+                // If a device has 2 channels, split it into two options
+                // This is a heuristic based on common stereo device labels
+                if (d.label.toLowerCase().includes('stereo') || d.label.toLowerCase().includes('2-ch')) {
+                    const optionL = document.createElement('option');
+                    optionL.value = d.deviceId + '_left';
+                    optionL.textContent = `${d.label} (Left)`;
+                    inputSelect.appendChild(optionL);
+
+                    const optionR = document.createElement('option');
+                    optionR.value = d.deviceId + '_right';
+                    optionR.textContent = `${d.label} (Right)`;
+                    inputSelect.appendChild(optionR);
+                } else {
+                    const o = document.createElement('option');
+                    o.value = d.deviceId;
+                    o.textContent = d.label || `Microphone ${i + 1}`;
+                    inputSelect.appendChild(o);
+                }
+            });
+
+            // Clear and populate output select
+            outputSelect.innerHTML = '';
+            outputs.forEach((d, i) => {
+                const o = document.createElement('option');
+                o.value = d.deviceId;
+                o.textContent = d.label || `Speaker ${i + 1}`;
+                outputSelect.appendChild(o);
+            });
+
+            if (inputs.length) permStatus.textContent = 'Microphone access available.'; else permStatus.textContent = 'No microphones found.';
+            updateStartEnabled();
+        } catch (e) {
+            permStatus.textContent = 'Unable to enumerate devices.';
+            console.warn(e);
+        }
+    }
+
+    async function requestPermissions() {
+        try {
+            permStatus.textContent = 'Requesting microphone permission...';
+            const s = await navigator.mediaDevices.getUserMedia({audio: true});
+            s.getTracks().forEach(t => t.stop());
+            permStatus.textContent = 'Microphone permission granted.';
+            await enumerateDevices();
+        } catch (e) {
+            permStatus.textContent = 'Microphone permission denied.';
+        }
+    }
+
+    // ===== Realtime mic monitor =====
+    async function startMicMonitor(deviceId) {
+        await stopMicMonitor();
+        ensureAudioContext();
+        try {
+            // Handle split stereo channel deviceId
+            const device = deviceId.split('_')[0];
+            const channel = deviceId.split('_')[1];
+
+            monitorStream = await navigator.mediaDevices.getUserMedia({audio: {deviceId: device ? {exact: device} : undefined}});
+            monitorSource = audioContext.createMediaStreamSource(monitorStream);
+
+            let sourceNode = monitorSource;
+            if (channel === 'left' || channel === 'right') {
+                const splitter = audioContext.createChannelSplitter(2);
+                sourceNode.connect(splitter);
+                sourceNode = (channel === 'left') ? splitter.get(0) : splitter.get(1);
+            }
+
+            monitorAnalyser = audioContext.createAnalyser();
+            monitorAnalyser.fftSize = 2048;
+            sourceNode.connect(monitorAnalyser);
+            micTest.classList.remove('hidden');
+            const ctx = micScope.getContext('2d');
+            const N = monitorAnalyser.fftSize;
+            const data = new Uint8Array(N);
+
+            function draw() {
+                monitorRAF = requestAnimationFrame(draw);
+                monitorAnalyser.getByteTimeDomainData(data);
+                const w = micScope.width, h = micScope.height;
+                ctx.clearRect(0, 0, w, h);
+                ctx.fillStyle = '#071022';
+                ctx.fillRect(0, 0, w, h);
+                ctx.strokeStyle = '#34d399';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                const slice = w / N;
+                let x = 0;
+                for (let i = 0; i < N; i++) {
+                    const v = data[i] / 128.0;
+                    const y = v * h / 2;
+                    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+                    x += slice;
+                }
+                ctx.stroke();
+            }
+
+            draw();
+        } catch (e) {
+            alert('Unable to start microphone monitor: ' + (e.message || e));
+        }
+    }
+
+    async function stopMicMonitor() {
+        if (monitorRAF) {
+            cancelAnimationFrame(monitorRAF);
+            monitorRAF = 0;
+        }
+        if (monitorSource) {
+            try {
+                monitorSource.disconnect();
+            } catch {
+            }
+            monitorSource = null;
+        }
+        if (monitorAnalyser) {
+            try {
+                monitorAnalyser.disconnect();
+            } catch {
+            }
+            monitorAnalyser = null;
+        }
+        if (monitorStream) {
+            monitorStream.getTracks().forEach(t => t.stop());
+            monitorStream = null;
+        }
+    }
+
+    // ===== Speaker test =====
+    function floatToWav(float32Array, sampleRate) {
+        const numChannels = 1, bps = 2, block = numChannels * bps, dataSize = float32Array.length * bps;
+        const buffer = new ArrayBuffer(44 + dataSize);
+        const v = new DataView(buffer);
+        const w = (o, s) => {
+            for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i));
+        };
+        w(0, 'RIFF');
+        v.setUint32(4, 36 + dataSize, true);
+        w(8, 'WAVE');
+        w(12, 'fmt ');
+        v.setUint32(16, 16, true);
+        v.setUint16(20, 1, true);
+        v.setUint16(22, numChannels, true);
+        v.setUint32(24, sampleRate, true);
+        v.setUint32(28, sampleRate * block, true);
+        v.setUint16(32, block, true);
+        v.setUint16(34, bps * 8, true);
+        w(36, 'data');
+        v.setUint32(40, dataSize, true);
+        let off = 44;
+        for (let i = 0; i < float32Array.length; i++, off += 2) {
+            let s = Math.max(-1, Math.min(1, float32Array[i]));
+            v.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        }
+        return new Blob([v], {type: 'audio/wav'});
+    }
+
+    function generateBeepFloat(sr = 44100, dur = 0.5, f = 1200) {
+        const len = Math.floor(sr * dur);
+        const a = new Float32Array(len);
+        for (let n = 0; n < len; n++) a[n] = 0.8 * Math.sin(2 * Math.PI * f * (n / sr));
+        return {arr: a, sr};
+    }
+
+    async function playTestBeepForSink(sinkId) {
+        try {
+            if (sinkId && typeof HTMLMediaElement.prototype.setSinkId === 'function') {
+                const {arr, sr} = generateBeepFloat();
+                const url = URL.createObjectURL(floatToWav(arr, sr));
+                const el = new Audio();
+                await el.setSinkId(sinkId);
+                el.src = url;
+                await el.play();
+                await new Promise(r => {
+                    el.onended = r;
+                    setTimeout(r, 700);
+                });
+                URL.revokeObjectURL(url);
+                return;
+            }
+        } catch (e) {
+            console.warn('setSinkId failed', e);
+        } // fallback
+        const ctx = ensureAudioContext();
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        g.gain.value = 0.2;
+        osc.type = 'sine';
+        osc.frequency.value = 1200;
+        osc.connect(g).connect(ctx.destination);
+        const now = ctx.currentTime;
+        osc.start(now);
+        osc.stop(now + 0.5);
+        await new Promise(r => setTimeout(r, 600));
+    }
+
+    // ===== Sweep generation & deconvolution =====
+    function makeLogSweep(context, duration, f1, f2) {
+        const sr = context.sampleRate;
+        const len = Math.floor(duration * sr);
+        const buf = context.createBuffer(1, len, sr);
+        const out = buf.getChannelData(0);
+        const L = Math.log(f2 / f1);
+        for (let n = 0; n < len; n++) {
+            const t = n / sr;
+            const phi = 2 * Math.PI * (f1 * duration / L) * (Math.pow(f2 / f1, t / duration) - 1);
+            out[n] = 0.9 * Math.sin(phi);
+        }
+        return buf;
+    }
+
+    function buildInverse(sweepBuffer) {
+        const len = sweepBuffer.length;
+        const s = sweepBuffer.getChannelData(0);
+        const inv = new Float32Array(len);
+        for (let i = 0; i < len; i++) inv[i] = s[len - 1 - i];
+        return inv;
+    }
+
+    function nextPow2(n) {
+        let p = 1;
+        while (p < n) p <<= 1;
+        return p;
+    }
+
+    function fft(re, im, inverse) {
+        const n = re.length;
+        let j = 0;
+        for (let i = 1; i < n - 1; i++) {
+            let bit = n >> 1;
+            for (; j & bit; bit >>= 1) j ^= bit;
+            j ^= bit;
+            if (i < j) {
+                [re[i], re[j]] = [re[j], re[i]];
+                [im[i], im[j]] = [im[j], im[i]];
+            }
+        }
+        for (let len = 2; len <= n; len <<= 1) {
+            const ang = 2 * Math.PI / len * (inverse ? -1 : 1);
+            const wlen_r = Math.cos(ang), wlen_i = Math.sin(ang);
+            for (let i = 0; i < n; i += len) {
+                let wr = 1, wi = 0;
+                for (let k = 0; k < len / 2; k++) {
+                    const u_r = re[i + k], u_i = im[i + k];
+                    const v_r = re[i + k + len / 2] * wr - im[i + k + len / 2] * wi;
+                    const v_i = re[i + k + len / 2] * wi + u_i * wr;
+                    re[i + k] = u_r + v_r;
+                    im[i + k] = u_i + v_i;
+                    re[i + k + len / 2] = u_r - v_r;
+                    im[i + k + len / 2] = u_i - v_i;
+                    const tmp = wr * wlen_r - wi * wlen_i;
+                    wi = wr * wlen_i + wi * wlen_r;
+                    wr = tmp;
+                }
+            }
+        }
+        if (inverse) {
+            for (let i = 0; i < n; i++) {
+                re[i] /= n;
+                im[i] /= n;
+            }
+        }
+    }
+
+    function convolve(a, b) {
+        const n = nextPow2(a.length + b.length - 1);
+        const ar = new Float32Array(n), ai = new Float32Array(n), br = new Float32Array(n), bi = new Float32Array(n);
+        ar.set(a);
+        br.set(b);
+        fft(ar, ai, false);
+        fft(br, bi, false);
+        for (let i = 0; i < n; i++) {
+            const rr = ar[i] * br[i] - ai[i] * bi[i];
+            const ii = ar[i] * bi[i] + ai[i] * br[i];
+            ar[i] = rr;
+            ai[i] = ii;
+        }
+        fft(ar, ai, true);
+        return ar.subarray(0, a.length + b.length - 1);
+    }
+
+    // ===== Recorder (ScriptProcessor preferred, fallback MediaRecorder) =====
+    let currentRecorder = null;
+
+    async function startRecorderForDevice(deviceId) {
+        ensureAudioContext();
+        if (currentStream) {
+            currentStream.getTracks().forEach(t => t.stop());
+            currentStream = null;
+        }
+        // Handle split stereo channel deviceId
+        const device = deviceId.split('_')[0];
+        const channel = deviceId.split('_')[1];
+
+        const constraints = {audio: {deviceId: device ? {exact: device} : undefined}};
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        currentStream = stream;
+
+        // ScriptProcessor fallback
+        if (typeof audioContext.createScriptProcessor === 'function') {
+            const source = audioContext.createMediaStreamSource(stream);
+            const node = audioContext.createScriptProcessor(4096, 1, 1);
+
+            // Select a single channel if specified
+            if (channel) {
+                const splitter = audioContext.createChannelSplitter(source.channelCount);
+                source.connect(splitter);
+                const channelIndex = (channel === 'left') ? 0 : 1;
+                splitter.connect(node, channelIndex, 0);
+            } else {
+                source.connect(node);
+            }
+
+            const chunks = [];
+            node.onaudioprocess = e => {
+                chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+            };
+            node.connect(audioContext.destination);
+            currentRecorder = {
+                stop: async () => {
+                    node.disconnect();
+                    node.onaudioprocess = null;
+                    source.disconnect();
+                    stream.getTracks().forEach(t => t.stop());
+                    const len = chunks.reduce((s, c) => s + c.length, 0);
+                    const out = new Float32Array(len);
+                    let off = 0;
+                    for (const c of chunks) {
+                        out.set(c, off);
+                        off += c.length;
+                    }
+                    currentRecorder = null;
+                    return out;
+                }
+            };
+            return currentRecorder;
+        }
+
+        // fallback for unsupported browsers
+        return await new Promise((resolve, reject) => {
+            try {
+                const mime = 'audio/webm';
+                const mr = new MediaRecorder(stream, {mimeType: mime});
+                const data = [];
+                mr.ondataavailable = e => {
+                    if (e.data && e.data.size) data.push(e.data);
+                };
+                mr.start();
+                resolve({
+                    stop: async () => new Promise(res => {
+                        mr.onstop = async () => {
+                            const blob = new Blob(data, {type: mime});
+                            const ab = await blob.arrayBuffer();
+                            const decoded = await audioContext.decodeAudioData(ab.slice(0));
+                            res(new Float32Array(decoded.getChannelData(0)));
+                            stream.getTracks().forEach(t => t.stop());
+                            currentRecorder = null;
+                        };
+                        mr.stop();
+                    })
+                });
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
+
+    async function playBufferThroughOutput(context, audioBuffer, sinkId) {
+        try {
+            if (sinkId && typeof HTMLMediaElement.prototype.setSinkId === 'function') {
+                const wavBlob = floatToWav(audioBuffer.getChannelData(0), context.sampleRate);
+                const url = URL.createObjectURL(wavBlob);
+                const el = new Audio();
+                await el.setSinkId(sinkId);
+                el.src = url;
+                await el.play();
+                await new Promise(r => {
+                    el.onended = r;
+                    el.onerror = r;
+                });
+                URL.revokeObjectURL(url);
+                return;
+            }
+        } catch (e) {
+            console.warn('setSinkId playback failed', e);
+        }
+        return new Promise(res => {
+            const src = context.createBufferSource();
+            src.buffer = audioBuffer;
+            src.connect(context.destination);
+            src.start();
+            src.onended = res;
+        });
+    }
+
+    function computeIRAndFreq(recorded, sweepBuffer) {
+        const inv = buildInverse(sweepBuffer);
+        const rir = convolve(recorded, inv); // normalize
+        let mx = 0;
+        for (let i = 0; i < rir.length; i++) {
+            const a = Math.abs(rir[i]);
+            if (a > mx) mx = a;
+        }
+        if (mx > 0) for (let i = 0; i < rir.length; i++) rir[i] /= mx;
+        const n = nextPow2(rir.length);
+        const re = new Float32Array(n), im = new Float32Array(n);
+        re.set(rir);
+        fft(re, im, false);
+        const half = n / 2;
+        const mags = new Float32Array(half);
+        let maxM = 1e-12;
+        for (let i = 0; i < half; i++) {
+            const m = Math.hypot(re[i], im[i]);
+            mags[i] = m;
+            if (m > maxM) maxM = m;
+        }
+        return {rir, freq: mags};
+    }
+
+    // ===== Drawing helpers =====
+    function drawTime(canvas, data, opts = {}) {
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width, h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#071022';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = opts.color || '#60a5fa';
+        ctx.lineWidth = opts.lineWidth || 1.2;
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+            const idx = Math.floor(x * data.length / w);
+            const v = data[idx] || 0;
+            const y = (1 - ((v * 0.5) + 0.5)) * h;
+            x ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        }
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.font = '12px system-ui';
+        if (opts.title) ctx.fillText(opts.title, 8, 14);
+    }
+
+    function drawFreq(canvas, signal, sampleRate, opts = {}) {
+        const n = nextPow2(signal.length);
+        const re = new Float32Array(n), im = new Float32Array(n);
+        re.set(signal);
+        fft(re, im, false);
+        const half = n / 2;
+        const mags = new Float32Array(half);
+        let max = 1e-12;
+        for (let i = 0; i < half; i++) {
+            const m = Math.hypot(re[i], im[i]);
+            mags[i] = m;
+            if (m > max) max = m;
+        }
+        const db = new Float32Array(half);
+        for (let i = 0; i < half; i++) db[i] = 20 * Math.log10(mags[i] / max + 1e-12);
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width, h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#071022';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = opts.color || '#34d399';
+        ctx.lineWidth = opts.lineWidth || 1.2;
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+            const idx = Math.floor(x * db.length / w);
+            const v = db[idx];
+            const y = (1 - ((v + 80) / 80)) * h;
+            x ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        }
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.font = '12px system-ui';
+        if (opts.title) ctx.fillText(opts.title, 8, 14);
+    }
+
+    function drawComparison(canvas, a, b, opts = {}) {
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width, h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#071022';
+        ctx.fillRect(0, 0, w, h);
+        const plotLine = (data, color) => {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            for (let x = 0; x < w; x++) {
+                const idx = Math.floor(x * data.length / w);
+                const v = data[idx] || 0;
+                const y = (1 - ((v * 0.5) + 0.5)) * h;
+                x ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+            }
+            ctx.stroke();
+        };
+        plotLine(a, '#60a5fa');
+        plotLine(b, '#ef4444');
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.font = '12px system-ui';
+        if (opts.title) ctx.fillText(opts.title, 8, 14);
+        // legend
+        ctx.fillStyle = '#60a5fa';
+        ctx.fillRect(w - 160, 10, 10, 10);
+        ctx.fillStyle = '#e6eef8';
+        ctx.fillText('Calibration', w - 144, 19);
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(w - 160, 28, 10, 10);
+        ctx.fillStyle = '#e6eef8';
+        ctx.fillText('Fruit', w - 144, 37);
+    }
+
+    function drawComparisonFreq(canvas, a, b, sampleRate, opts = {}) { // compute dB for both
+        const dbA = computeDB(a);
+        const dbB = computeDB(b);
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width, h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#071022';
+        ctx.fillRect(0, 0, w, h);
+        const plotDB = (db, color) => {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            for (let x = 0; x < w; x++) {
+                const idx = Math.floor(x * db.length / w);
+                const v = db[idx];
+                const y = (1 - ((v + 80) / 80)) * h;
+                x ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+            }
+            ctx.stroke();
+        };
+        plotDB(dbA, '#60a5fa');
+        plotDB(dbB, '#ef4444');
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.font = '12px system-ui';
+        if (opts.title) ctx.fillText(opts.title, 8, 14);
+        ctx.fillStyle = '#60a5fa';
+        ctx.fillRect(w - 160, 10, 10, 10);
+        ctx.fillStyle = '#e6eef8';
+        ctx.fillText('Calibration (dB)', w - 144, 19);
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(w - 160, 28, 10, 10);
+        ctx.fillStyle = '#e6eef8';
+        ctx.fillText('Fruit (dB)', w - 144, 37);
+    }
+
+    function computeDB(signal) {
+        const n = nextPow2(signal.length);
+        const re = new Float32Array(n), im = new Float32Array(n);
+        re.set(signal);
+        fft(re, im, false);
+        const half = n / 2;
+        const mags = new Float32Array(half);
+        let max = 1e-12;
+        for (let i = 0; i < half; i++) {
+            const m = Math.hypot(re[i], im[i]);
+            mags[i] = m;
+            if (m > max) max = m;
+        }
+        const db = new Float32Array(half);
+        for (let i = 0; i < half; i++) db[i] = 20 * Math.log10(mags[i] / max + 1e-12);
+        return db;
+    }
+
+    // ===== Measurement pipeline =====
+    async function performMeasurement({deviceIn, deviceOut, delaySec, sweepSec, f1, f2}) {
+        ensureAudioContext();
+        const sweepBuf = makeLogSweep(audioContext, sweepSec, f1, f2);
+        const recorder = await startRecorderForDevice(deviceIn);
+        // delay before sweep
+        await new Promise(r => setTimeout(r, Math.max(0, delaySec * 1000)));
+        // play sweep
+        await playBufferThroughOutput(audioContext, sweepBuf, deviceOut);
+        // record extra silence equal to sweep duration
+        await new Promise(r => setTimeout(r, Math.max(0, sweepSec * 1000)));
+        const recorded = await recorder.stop();
+        return {raw: recorded, sweepBuffer: sweepBuf};
+    }
+
+    // ===== Run helpers (multi-run averaging) =====
+    function averageFloatArrays(arr) {
+        if (!arr.length) return new Float32Array();
+        const len = arr[0].length;
+        const out = new Float32Array(len);
+        for (const a of arr) {
+            for (let i = 0; i < len; i++) out[i] += a[i];
+        }
+        for (let i = 0; i < len; i++) out[i] /= arr.length;
+        return out;
+    }
+
+    function updateRunCounters() {
+        calRunCount.textContent = `${calRuns.length} run${calRuns.length !== 1 ? 's' : ''}`;
+        measRunCount.textContent = `${measRuns.length} run${measRuns.length !== 1 ? 's' : ''}`;
+    }
+
+    // ===== UI lifecycle =====
+    showStage(0);
+
+    requestPermBtn.addEventListener('click', requestPermissions);
+    startAppBtn.addEventListener('click', async () => {
+        await stopMicMonitor();
+        showStage(1);
+    });
+    backBtn.addEventListener('click', async () => {
+        await resetAllState();
+        showStage(0);
+    });
+
+    inputSelect.addEventListener('change', async e => {
+        updateStartEnabled();
+        if (e.target.value) await startMicMonitor(e.target.value);
+    });
+    outputSelect.addEventListener('change', e => {
+        updateStartEnabled();
+        if (e.target.value) speakerTest.classList.remove('hidden');
+    });
+    playTestSoundBtn.addEventListener('click', async () => {
+        await playTestBeepForSink(outputSelect.value || '');
+    });
+    stopMicTestBtn.addEventListener('click', stopMicMonitor);
+
+    navigator.mediaDevices?.addEventListener?.('devicechange', enumerateDevices);
+    enumerateDevices();
+
+    // --- Stage 1 events ---
+    startCalBtn.addEventListener('click', async () => {
+        addCalRunBtn.disabled = true;
+        continueToMeasureBtn.disabled = true;
+        calLoader.classList.add('show');
+        try {
+            const deviceIn = inputSelect.value || undefined;
+            const deviceOut = outputSelect.value || undefined;
+            const delaySec = parseFloat(delayEl.value) || 1;
+            const sweepSec = parseFloat(sweepDurationEl.value) || 4;
+            const f1 = parseFloat(f1El.value) || 20;
+            const f2 = parseFloat(f2El.value) || 20000;
+            const {raw, sweepBuffer} = await performMeasurement({deviceIn, deviceOut, delaySec, sweepSec, f1, f2});
+            const out = computeIRAndFreq(raw, sweepBuffer);
+            calRuns.push({raw, rir: out.rir, freq: out.freq});
+            updateRunCounters();
+            // Draw latest raw and averaged IR/FR
+            const avgIR = averageFloatArrays(calRuns.map(r => r.rir));
+            const avgFR = averageFloatArrays(calRuns.map(r => r.freq));
+            drawTime(calRawCanvas, raw, {title: 'Calibration raw (time)'});
+            drawTime(calIRTimeCanvas, avgIR, {title: 'Calibration IR (avg)'});
+            drawFreq(calIRFreqCanvas, avgIR, audioContext.sampleRate, {title: 'Calibration FR (avg dB)'});
+            calPlots.classList.remove('hidden');
+            addCalRunBtn.disabled = false;
+            continueToMeasureBtn.disabled = false;
+        } catch (e) {
+            alert('Calibration failed: ' + (e.message || e));
+        }
+        calLoader.classList.remove('show');
+    });
+    addCalRunBtn.addEventListener('click', () => startCalBtn.click());
+    resetCalRunsBtn.addEventListener('click', () => {
+        calRuns = [];
+        updateRunCounters();
+        calPlots.classList.add('hidden');
+        clearCanvas(calRawCanvas);
+        clearCanvas(calIRTimeCanvas);
+        clearCanvas(calIRFreqCanvas);
+        continueToMeasureBtn.disabled = true;
+    });
+    continueToMeasureBtn.addEventListener('click', () => showStage(2));
+
+    // --- Stage 2 events ---
+    startMeasBtn.addEventListener('click', async () => {
+        addMeasRunBtn.disabled = true;
+        continueToCompareBtn.disabled = true;
+        measLoader.classList.add('show');
+        try {
+            const deviceIn = inputSelect.value || undefined;
+            const deviceOut = outputSelect.value || undefined;
+            const delaySec = parseFloat(delayEl.value) || 1;
+            const sweepSec = parseFloat(sweepDurationEl.value) || 4;
+            const f1 = parseFloat(f1El.value) || 20;
+            const f2 = parseFloat(f2El.value) || 20000;
+            const {raw, sweepBuffer} = await performMeasurement({deviceIn, deviceOut, delaySec, sweepSec, f1, f2});
+            const out = computeIRAndFreq(raw, sweepBuffer);
+            measRuns.push({raw, rir: out.rir, freq: out.freq});
+            updateRunCounters();
+            const avgIR = averageFloatArrays(measRuns.map(r => r.rir));
+            drawTime(measRawCanvas, raw, {title: 'Fruit raw (time)'});
+            drawTime(measIRTimeCanvas, avgIR, {title: 'Fruit IR (avg)', color: '#ef4444'});
+            drawFreq(measIRFreqCanvas, avgIR, audioContext.sampleRate, {title: 'Fruit FR (avg dB)', color: '#ef4444'});
+            measPlots.classList.remove('hidden');
+            addMeasRunBtn.disabled = false;
+            continueToCompareBtn.disabled = false;
+        } catch (e) {
+            alert('Measurement failed: ' + (e.message || e));
+        }
+        measLoader.classList.remove('show');
+    });
+    addMeasRunBtn.addEventListener('click', () => startMeasBtn.click());
+    resetMeasRunsBtn.addEventListener('click', () => {
+        measRuns = [];
+        updateRunCounters();
+        measPlots.classList.add('hidden');
+        clearCanvas(measRawCanvas);
+        clearCanvas(measIRTimeCanvas);
+        clearCanvas(measIRFreqCanvas);
+        continueToCompareBtn.disabled = true;
+    });
+    continueToCompareBtn.addEventListener('click', () => {
+        if (!calRuns.length || !measRuns.length) {
+            alert('Please run both calibration and fruit measurements.');
+            return;
+        }
+        const avgCalIR = averageFloatArrays(calRuns.map(r => r.rir));
+        const avgMeasIR = averageFloatArrays(measRuns.map(r => r.rir));
+        drawComparison(cmpIR, avgCalIR, avgMeasIR, {title: 'IR (time): Calibration vs Fruit'});
+        drawComparisonFreq(cmpFR, avgCalIR, avgMeasIR, audioContext.sampleRate, {title: 'FR (dB): Calibration vs Fruit'});
+        const payload = {
+            timestamp: new Date().toISOString(),
+            ripeness: Number(ripenessSlider.value),
+            calibration_rir: Array.from(avgCalIR),
+            calibration_freq_response: Array.from(averageFloatArrays(calRuns.map(r => r.freq))),
+            measurement_rir: Array.from(avgMeasIR),
+            measurement_freq_response: Array.from(averageFloatArrays(measRuns.map(r => r.freq)))
+        };
+        jsonPreview.textContent = JSON.stringify(payload, null, 2);
+        showStage(3);
+    });
+
+    // slider in stage 3
+    ripenessSlider.addEventListener('input', () => {
+        ripenessVal.textContent = ripenessSlider.value;
+    });
+
+    downloadJsonBtn.addEventListener('click', () => {
+        const text = jsonPreview.textContent || '{}';
+        const blob = new Blob([text], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `rir_fruit_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    });
+
+    // ===== Reset all state (Back) =====
+    async function resetAllState() {
+        await stopMicMonitor();
+        if (currentStream) {
+            try {
+                currentStream.getTracks().forEach(t => t.stop());
+            } catch {
+            }
+            currentStream = null;
+        }
+        if (audioContext) {
+            try {
+                await audioContext.close();
+            } catch {
+            }
+            audioContext = null;
+        }
+        calRuns = [];
+        measRuns = [];
+        updateRunCounters();
+        // reset UI
+        calPlots.classList.add('hidden');
+        measPlots.classList.add('hidden');
+        calLoader.classList.remove('show');
+        measLoader.classList.remove('show');
+        continueToMeasureBtn.disabled = true;
+        addCalRunBtn.disabled = true;
+        continueToCompareBtn.disabled = true;
+        addMeasRunBtn.disabled = true;
+        clearCanvas(calRawCanvas);
+        clearCanvas(calIRTimeCanvas);
+        clearCanvas(calIRFreqCanvas);
+        clearCanvas(measRawCanvas);
+        clearCanvas(measIRTimeCanvas);
+        clearCanvas(measIRFreqCanvas);
+        clearCanvas(cmpIR);
+        clearCanvas(cmpFR);
+        jsonPreview.textContent = '';
+        micTest.classList.add('hidden');
+        speakerTest.classList.add('hidden');
+        permStatus.textContent = 'Awaiting microphone permissions.';
+        await enumerateDevices();
+        updateStartEnabled();
+        ripenessSlider.value = 5;
+        ripenessVal.textContent = '5';
+    }
+
+    // init
+    updateRunCounters();
+</script>
+
+</body>
+</html>
