@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Gioele Greco — sassofonista, elettronica e nuove tecnologie. Profilo professionale tra sax, live electronics, AI audio & music, produzione sonora e ricerca musicale.">
+  <meta property="og:title" content="Gioele Greco | Sassofonista, elettronica e nuove tecnologie">
+  <meta property="og:description" content="Sassofonista, elettronica e nuove tecnologie. Tra sax, live electronics, produzione sonora, AI audio & music e ricerca musicale.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="Ody.png">
+  <title>Gioele Greco | Sassofonista, elettronica e nuove tecnologie</title>
+  <style>
+    :root {
+      --bg: #08090d;
+      --bg-soft: #0f1218;
+      --card: rgba(255,255,255,0.06);
+      --card-strong: rgba(255,255,255,0.10);
+      --line: rgba(255,255,255,0.10);
+      --text: #f6f2eb;
+      --muted: #cbc4b7;
+      --gold: #d9b06f;
+      --gold-soft: rgba(217,176,111,0.16);
+      --shadow: 0 28px 80px rgba(0,0,0,0.38);
+      --radius-xl: 32px;
+      --radius-lg: 24px;
+      --radius-md: 18px;
+      --max: 1160px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(90, 132, 255, 0.12), transparent 22%),
+        radial-gradient(circle at 85% 18%, rgba(217, 176, 111, 0.12), transparent 26%),
+        radial-gradient(circle at 50% 110%, rgba(147, 70, 255, 0.10), transparent 28%),
+        linear-gradient(180deg, #07080b 0%, #0c0f14 35%, #090b0f 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 32px 32px;
+      mask-image: radial-gradient(circle at center, black 48%, transparent 100%);
+      opacity: 0.22;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    img { display: block; max-width: 100%; }
+
+    .container {
+      width: min(calc(100% - 28px), var(--max));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(16px);
+      background: rgba(8,9,13,0.72);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .topbar-inner {
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand strong {
+      font-size: 1rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .brand span {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .nav a:hover,
+    .nav a:focus-visible,
+    .text-link:hover,
+    .button:hover,
+    .icon-link:hover,
+    .pill-link:hover {
+      color: var(--text);
+      border-color: rgba(255,255,255,0.18);
+      transform: translateY(-1px);
+    }
+
+    .hero {
+      position: relative;
+      padding: 48px 0 32px;
+      overflow: hidden;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 999px;
+      filter: blur(44px);
+      opacity: 0.55;
+      pointer-events: none;
+      animation: drift 15s ease-in-out infinite;
+    }
+
+    .orb.a {
+      width: 360px;
+      height: 360px;
+      background: rgba(217,176,111,0.16);
+      top: -80px;
+      left: -120px;
+    }
+
+    .orb.b {
+      width: 300px;
+      height: 300px;
+      background: rgba(86,110,255,0.14);
+      top: 140px;
+      right: -70px;
+      animation-delay: -4s;
+    }
+
+    .orb.c {
+      width: 260px;
+      height: 260px;
+      background: rgba(179,90,255,0.14);
+      bottom: -40px;
+      left: 48%;
+      animation-delay: -8s;
+    }
+
+    .hero-shell {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1.02fr 0.98fr;
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .panel {
+      position: relative;
+      background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.035));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero-copy {
+      padding: 40px;
+      min-height: 620px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 24px;
+    }
+
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.04);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .kicker::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--gold);
+      box-shadow: 0 0 0 7px rgba(217,176,111,0.12);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(3rem, 7vw, 5.8rem);
+      line-height: 0.92;
+      letter-spacing: -0.055em;
+    }
+
+    .lead {
+      margin: 0;
+      max-width: 58ch;
+      font-size: 1.08rem;
+      color: #efe8dc;
+    }
+
+    .accent { color: var(--gold); }
+
+    .fact-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.035);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .action-row,
+    .project-actions,
+    .link-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .button,
+    .pill-link,
+    .icon-link {
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 13px 18px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      font-weight: 700;
+    }
+
+    .button.primary {
+      color: #1a1205;
+      background: linear-gradient(180deg, #e4bb79, #d2a055);
+      border-color: transparent;
+    }
+
+    .button.secondary {
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+    }
+
+    .hero-visual {
+      min-height: 620px;
+      padding: 26px;
+      display: grid;
+      gap: 18px;
+      align-content: center;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02)),
+        radial-gradient(circle at 70% 20%, rgba(217,176,111,0.10), transparent 30%),
+        radial-gradient(circle at 20% 80%, rgba(107,89,255,0.12), transparent 28%);
+    }
+
+    .profile-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      width: fit-content;
+      padding: 12px 14px 12px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(0,0,0,0.24);
+      backdrop-filter: blur(12px);
+    }
+
+    .profile-chip img {
+      width: 52px;
+      height: 52px;
+      border-radius: 999px;
+      object-fit: cover;
+      border: 2px solid rgba(255,255,255,0.16);
+    }
+
+    .profile-chip strong {
+      display: block;
+      font-size: 0.98rem;
+    }
+
+    .profile-chip span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .cover-stack {
+      position: relative;
+      min-height: 500px;
+    }
+
+    .cover-stack::before {
+      content: "";
+      position: absolute;
+      inset: 10% 8% 6% 8%;
+      border-radius: 40px;
+      background: radial-gradient(circle at center, rgba(255,255,255,0.05), transparent 68%);
+      filter: blur(2px);
+    }
+
+    .cover-card {
+      position: absolute;
+      width: clamp(180px, 34vw, 280px);
+      aspect-ratio: 1 / 1;
+      overflow: hidden;
+      border-radius: 28px;
+      border: 1px solid rgba(255,255,255,0.10);
+      box-shadow: 0 30px 70px rgba(0,0,0,0.34);
+      animation: float 8s ease-in-out infinite;
+      background: #10141c;
+    }
+
+    .cover-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .cover-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 25%, rgba(0,0,0,0.38) 100%);
+    }
+
+    .cover-card small {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 12px;
+      z-index: 2;
+      color: #fff9ef;
+      font-size: 0.86rem;
+      letter-spacing: 0.01em;
+    }
+
+    .cover-card.one {
+      top: 0;
+      right: 8%;
+      transform: rotate(7deg);
+      animation-delay: -1.2s;
+    }
+
+    .cover-card.two {
+      left: 2%;
+      top: 112px;
+      transform: rotate(-7deg);
+      animation-delay: -3.6s;
+    }
+
+    .cover-card.three {
+      right: 14%;
+      bottom: 6px;
+      transform: rotate(-3deg);
+      animation-delay: -5.2s;
+    }
+
+    .cover-card.four {
+      left: 16%;
+      bottom: 28px;
+      width: clamp(156px, 24vw, 220px);
+      transform: rotate(4deg);
+      animation-delay: -6.4s;
+      z-index: 1;
+      border-color: rgba(217,176,111,0.24);
+    }
+
+    .visual-note {
+      padding: 18px 20px;
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.045);
+      color: var(--muted);
+      max-width: 34rem;
+    }
+
+    .visual-note strong {
+      display: block;
+      color: var(--text);
+      margin-bottom: 6px;
+      font-size: 1rem;
+    }
+
+    section {
+      padding: 30px 0;
+      scroll-margin-top: 88px;
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: 0.78fr 1.22fr;
+      gap: 22px;
+      margin-bottom: 22px;
+      align-items: start;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: clamp(1.9rem, 3vw, 3.1rem);
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1rem;
+      max-width: 64ch;
+    }
+
+    .projects {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 22px;
+    }
+
+    .project {
+      overflow: hidden;
+      padding: 0;
+    }
+
+    .project-media {
+      position: relative;
+      aspect-ratio: 16 / 10;
+      overflow: hidden;
+    }
+
+    .project-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scale(1.01);
+      transition: transform 0.45s ease;
+    }
+
+    .project:hover .project-media img { transform: scale(1.05); }
+
+    .project.featured {
+      display: grid;
+      grid-template-columns: 1.06fr 0.94fr;
+      grid-column: 1 / -1;
+      background:
+        linear-gradient(135deg, rgba(217,176,111,0.14), rgba(255,255,255,0.03) 44%, rgba(86,110,255,0.08));
+    }
+
+    .project.featured .project-media {
+      aspect-ratio: auto;
+      min-height: 100%;
+    }
+
+    .project.featured .project-body {
+      padding: 26px;
+      justify-content: center;
+    }
+
+    .project-kicker {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(217,176,111,0.22);
+      background: rgba(217,176,111,0.12);
+      color: #f5e5c7;
+      font-size: 0.84rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .project-media::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 25%, rgba(0,0,0,0.48) 100%);
+    }
+
+    .project-body {
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #f4ecde;
+      font-size: 0.84rem;
+    }
+
+    .project h3 {
+      margin: 0;
+      font-size: 1.3rem;
+      line-height: 1.04;
+    }
+
+    .project p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+    }
+
+    .pill-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.05);
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+
+    .icon-link {
+      width: 42px;
+      height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+    }
+
+    .icon-link svg,
+    .pill-link svg {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1.04fr 0.96fr;
+      gap: 22px;
+    }
+
+    .copy-card,
+    .list-card,
+    .link-card {
+      padding: 24px;
+    }
+
+    .copy-card p,
+    .list-card p,
+    .list-card li,
+    .link-card p {
+      color: var(--muted);
+      margin: 0;
+      font-size: 0.98rem;
+    }
+
+    .stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .mini {
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.035);
+    }
+
+    .mini strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.98rem;
+    }
+
+    .mini span {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .bullet-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 14px;
+    }
+
+    .bullet-list li {
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .bullet-list li:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .bullet-list strong {
+      display: block;
+      color: var(--text);
+      margin-bottom: 4px;
+      font-size: 1rem;
+    }
+
+    .note {
+      margin-top: 16px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(217,176,111,0.12), rgba(255,255,255,0.03));
+      border: 1px solid rgba(217,176,111,0.20);
+      color: #f0e7da;
+    }
+
+    .links-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .link-card {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      justify-content: space-between;
+      min-height: 180px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+    }
+
+    .link-card h3 {
+      margin: 0;
+      font-size: 1.08rem;
+    }
+
+    footer {
+      padding: 26px 0 40px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .footer-box {
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 18px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    @keyframes drift {
+      0%, 100% { transform: translate3d(0,0,0) scale(1); }
+      50% { transform: translate3d(12px,-22px,0) scale(1.05); }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(var(--tilt)); }
+      50% { transform: translateY(-10px) rotate(var(--tilt)); }
+    }
+
+    .cover-card.one { --tilt: 7deg; }
+    .cover-card.two { --tilt: -7deg; }
+    .cover-card.three { --tilt: -3deg; }
+    .cover-card.four { --tilt: 4deg; }
+
+    @media (max-width: 1040px) {
+      .hero-shell,
+      .section-head,
+      .split,
+      .links-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-copy,
+      .hero-visual {
+        min-height: auto;
+      }
+
+      .cover-stack {
+        min-height: 420px;
+      }
+
+      .project.featured {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .topbar-inner {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 12px 0;
+      }
+
+      .hero-copy,
+      .hero-visual,
+      .copy-card,
+      .list-card,
+      .link-card {
+        padding: 22px;
+      }
+
+      .projects,
+      .mini-grid,
+      .links-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .cover-stack {
+        min-height: 360px;
+      }
+
+      .cover-card {
+        width: min(66vw, 250px);
+      }
+
+      .cover-card.one { right: 2%; }
+      .cover-card.two { left: 0; top: 86px; }
+      .cover-card.three { right: 10%; bottom: 0; }
+      .cover-card.four { left: 8%; bottom: 8px; width: min(44vw, 180px); }
+
+      h1 { font-size: 2.9rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="#top" aria-label="Vai all'inizio pagina">
+        <strong>Gioele Greco</strong>
+        <span>Sassofonista, elettronica e nuove tecnologie</span>
+      </a>
+      <nav class="nav" aria-label="Navigazione principale">
+        <a href="#ascolti">Ascolti</a>
+        <a href="#profilo">Profilo</a>
+        <a href="#ricerca">Ricerca</a>
+        <a href="#link">Link</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="orb a"></div>
+      <div class="orb b"></div>
+      <div class="orb c"></div>
+      <div class="container hero-shell">
+        <article class="panel hero-copy">
+          <div class="kicker">Sax • Live electronics • AI audio &amp; music</div>
+          <div>
+            <h1>Gioele<br>Greco</h1>
+          </div>
+          <p class="lead">
+            <span class="accent">Sassofonista, elettronica e nuove tecnologie.</span>
+            Musicista con doppia formazione tra Conservatorio di Milano e Politecnico di Milano,
+            attivo nell'incontro fra sassofono, produzione sonora, live electronics, spatial audio e acustica musicale.
+            Al Politecnico ricerca nell'area <span class="accent">AI audio &amp; music</span> per esplorare ogni linguaggio musicale.
+          </p>
+          <div class="fact-row" aria-label="Punti chiave del profilo">
+            <span class="chip">Saxofono contemporaneo</span>
+            <span class="chip">Live electronics</span>
+            <span class="chip">Music and Acoustic Engineering</span>
+            <span class="chip">Produzione sonora</span>
+          </div>
+          <div class="action-row">
+            <a class="button primary" href="#ascolti">Ascolta i lavori</a>
+            <a class="button secondary" href="#link">Apri i link</a>
+          </div>
+        </article>
+
+        <aside class="panel hero-visual" aria-label="Copertine dei lavori selezionati">
+          <div class="profile-chip">
+            <img src="bio.png" alt="Foto profilo Gioele Greco">
+            <div>
+              <strong>Conservatorio + Politecnico</strong>
+              <span>Sax, ricerca musicale, tecnologia del suono</span>
+            </div>
+          </div>
+
+          <div class="cover-stack">
+            <div class="cover-card one">
+              <img src="ulia.png" alt="Copertina video ULIA">
+              <small>ULIA</small>
+            </div>
+            <div class="cover-card two">
+              <img src="Ody.png" alt="Copertina Odisseus memory">
+              <small>Odisseus memory</small>
+            </div>
+            <div class="cover-card four">
+              <img src="suggestioni.png" alt="Copertina video Suggestioni">
+              <small>Suggestioni</small>
+            </div>
+          </div>
+
+          <div class="visual-note">
+            <strong>Tra strumento, elettronica e ricerca</strong>
+            Un percorso che unisce sax contemporaneo, musica elettronica, scrittura personale,
+            ascolto e tecnologie per l'audio, fino al concerto immersivo <span class="accent">Suggestioni</span>.
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="ascolti">
+      <div class="container">
+        <div class="section-head">
+          <h2>Lavori selezionati</h2>
+          <p>
+            Scrittura personale, live electronics,
+            interpretazione, ricerca sul suono
+          </p>
+        </div>
+
+        <div class="projects">
+          <article class="panel project featured">
+            <div class="project-media">
+              <img src="Sug2.png" alt="Copertina video Suggestioni su YouTube">
+            </div>
+            <div class="project-body">
+              <span class="project-kicker">Ultima produzione in evidenza</span>
+              <div class="tag-row">
+                <span class="tag">Concerto</span>
+                <span class="tag">Sax + visual</span>
+                <span class="tag">Realtime video</span>
+              </div>
+              <h3>Suggestioni</h3>
+              <p>
+                Concerto per saxofono e visore MusicD: un'esperienza immersiva in cui suono e immagine
+                si fondono, con video generato e proiettato in tempo reale. Il programma attraversa brani
+                originali e repertorio, da <em>La notte di San Lorenzo</em> e <em>ULIA</em> a <em>Gate</em>
+                e <em>Fuzzy Bird</em>.
+              </p>
+              <div class="project-actions">
+                <a class="icon-link" href="https://youtu.be/Tw3x7Nw3TOE" target="_blank" rel="noreferrer" aria-label="Guarda Suggestioni su YouTube" title="Guarda Suggestioni su YouTube">
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.7V8.3L16 12l-6.4 3.7Z"/></svg>
+                </a>
+                <a class="pill-link" href="assets/suggestioni_programma.pdf" target="_blank" rel="noreferrer">
+                  Programma PDF
+                </a>
+              </div>
+            </div>
+          </article>
+          <article class="panel project">
+            <div class="project-media">
+              <img src="ulia.png" alt="Copertina ULIA su YouTube">
+            </div>
+            <div class="project-body">
+              <div class="tag-row">
+                <span class="tag">Sax</span>
+                <span class="tag">Visual art</span>
+                <span class="tag">Scrittura personale</span>
+              </div>
+              <h3>ULIA — Meditazione con un albero d'ulivo</h3>
+              <p>
+                Un lavoro basato sul concetto di tempo e sul rapporto tra musica e visual art.
+                E' uno dei progetti piu' chiari per raccontare l'identita' artistica del percorso.
+              </p>
+              <div class="project-actions">
+                <a class="icon-link" href="https://youtu.be/JsuyPANNe8Q" target="_blank" rel="noreferrer" aria-label="Guarda ULIA su YouTube" title="Guarda ULIA su YouTube">
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.7V8.3L16 12l-6.4 3.7Z"/></svg>
+                </a>
+                <a class="pill-link" href="https://www.academia.edu/45198157/ULIA_Meditazione_con_un_albero_dulivo" target="_blank" rel="noreferrer">
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 2 22h3.2l2.2-4.6h9.1l2.2 4.6H22L12 2Zm-3.1 12.5L12 8l3.1 6.5H8.9Z"/></svg>
+                  Academia
+                </a>
+              </div>
+            </div>
+          </article>
+          <article class="panel project">
+            <div class="project-media">
+              <img src="Ody.png" alt="Copertina Odisseus memory su SoundCloud">
+            </div>
+            <div class="project-body">
+              <div class="tag-row">
+                <span class="tag">Sax soprano solo</span>
+                <span class="tag">Live electronics</span>
+                <span class="tag">Electronic</span>
+              </div>
+              <h3>Odisseus memory</h3>
+              <p>
+                Scrittura per sax soprano solo e live elettronica. Un lavoro essenziale,
+                diretto, molto rappresentativo del rapporto tra strumento e tecnologia.
+              </p>
+              <div class="project-actions">
+                <a class="icon-link" href="https://youtu.be/iZLlizZALjo?si=5IswDOF4u4bPgGt2" target="_blank" rel="noreferrer" aria-label="Guarda Odisseus memory su YouTube" title="Guarda Odisseus memory su YouTube">
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.7V8.3L16 12l-6.4 3.7Z"/></svg>
+                </a>
+                <a class="pill-link" href="https://soundcloud.com/gioele-greco-1/odisseus-memory" target="_blank" rel="noreferrer">
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7.6 18.2H5.8V9.5h1.8v8.7Zm3.1 0H8.9V7.4h1.8v10.8Zm3.1 0H12V6.1h1.8v12.1Zm3.1 0h-1.8V8.3h1.8v9.9Zm3 .1c1.7 0 3.1-1.4 3.1-3.1S21.6 12 19.9 12c-.2 0-.4 0-.6.1-.3-2.3-2.3-4-4.7-4-.3 0-.7 0-1 .1v10.1h6.3Z"/></svg>
+                  SoundCloud
+                </a>
+              </div>
+            </div>
+          </article>
+
+
+          <article class="panel project">
+            <div class="project-media">
+              <img src="sa.png" alt="Copertina Sperimentazione arcaica su SoundCloud">
+            </div>
+            <div class="project-body">
+              <div class="tag-row">
+                <span class="tag">Salento</span>
+                <span class="tag">Musica popolare</span>
+                <span class="tag">Ricerca sonora</span>
+              </div>
+              <h3>Sperimentazione arcaica</h3>
+              <p>
+                Un progetto che intreccia suono ambientale, gesto ritmico e il canto popolare salentino
+                “Lu trainieri” di Gli Ucci, in una rilettura essenziale e personale.
+              </p>
+              <div class="project-actions">
+                <a class="pill-link" href="https://soundcloud.com/gioele-greco-1/sperimentazione-arcaica" target="_blank" rel="noreferrer">
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7.6 18.2H5.8V9.5h1.8v8.7Zm3.1 0H8.9V7.4h1.8v10.8Zm3.1 0H12V6.1h1.8v12.1Zm3.1 0h-1.8V8.3h1.8v9.9Zm3 .1c1.7 0 3.1-1.4 3.1-3.1S21.6 12 19.9 12c-.2 0-.4 0-.6.1-.3-2.3-2.3-4-4.7-4-.3 0-.7 0-1 .1v10.1h6.3Z"/></svg>
+                  SoundCloud
+                </a>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="profilo">
+      <div class="container split">
+        <article class="panel copy-card">
+          <div class="section-head" style="margin-bottom: 18px; grid-template-columns: 1fr;">
+            <h2>Profilo</h2>
+            <p>
+              Gioele Greco e' un sassofonista, musicista elettronico e ricercatore audio.
+              Ha conseguito la laurea di primo e secondo livello in Saxofono al Conservatorio “G. Verdi” di Milano
+              e la laurea magistrale in Music and Acoustic Engineering.
+            </p>
+          </div>
+          <div class="stack">
+            <p>
+              Sul piano artistico porta avanti un percorso che unisce sax contemporaneo, musica elettronica,
+              scrittura personale e ricerca sul suono. Il focus resta sempre musicale: partire dallo strumento,
+              aprire lo spazio all'elettronica, costruire un'identita' sonora riconoscibile.
+            </p>
+            <p>
+              E' un profilo adatto a concerti, progetti interdisciplinari, laboratori e didattica,
+              soprattutto nei contesti in cui sax, tecnologia e produzione convivono nello stesso linguaggio.
+            </p>
+          </div>
+          <div class="mini-grid">
+            <div class="mini">
+              <strong>Sassofonista</strong>
+              <span>Solo, ensemble, repertorio contemporaneo</span>
+            </div>
+            <div class="mini">
+              <strong>Producer</strong>
+              <span>Live electronics, produzione, progetto sonoro</span>
+            </div>
+            <div class="mini">
+              <strong>Ricerca</strong>
+              <span>AI audio &amp; music, spatial audio, acustica</span>
+            </div>
+            <div class="mini">
+              <strong>Didattica</strong>
+              <span>Sax, ascolto, tecnologie per musicisti</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel list-card">
+          <div class="section-head" style="margin-bottom: 18px; grid-template-columns: 1fr;">
+            <h2>Contesti</h2>
+            <p>
+              Qui il fuoco resta sul musicista; i concerti e le collaborazioni entrano come cornice,
+              senza rubare spazio ai lavori e al profilo.
+            </p>
+          </div>
+          <ul class="bullet-list">
+            <li>
+              <strong>Suggestioni</strong>
+              concerto per saxofono e visore MusicD, con video generato in tempo reale e un percorso tra brani originali e repertorio contemporaneo.
+            </li>
+            <li>
+              <strong>Crossing Borders — Spazio Teatro No'hma</strong>
+              con Interplay Collective e Tamara Jokic, tra ensemble internazionale, world fusion e contaminazione tra linguaggi.
+            </li>
+            <li>
+              <strong>Area contemporanea e ricerca musicale</strong>
+              con scritture e approfondimenti su Giacinto Scelsi, Gerard Grisey, fisica del sax e acustica dell'imboccatura.
+            </li>
+            <li>
+              <strong>Salento</strong>
+              tra ricerca sulla musica popolare, collaborazioni con la scena pop emergente salentina e contesti estivi legati al territorio.
+            </li>
+          </ul>
+          <div class="note">
+            Una linea artistica che tiene insieme strumento, elettronica, scrittura e ascolto,
+            con il concerto sempre al centro.
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="ricerca">
+      <div class="container split">
+        <article class="panel copy-card">
+          <div class="section-head" style="margin-bottom: 18px; grid-template-columns: 1fr;">
+            <h2>Ricerca</h2>
+            <p>
+              Al Politecnico di Milano lavora tra AI audio &amp; music, spatial audio e analisi del suono,
+              con un interesse che va dalle reti acustiche distribuite alla ricostruzione del campo sonoro.
+            </p>
+          </div>
+          <div class="stack">
+            <p>
+              Il suo percorso collega pratica musicale e tecnologia: localizzazione di sorgenti sonore,
+              sound field reconstruction, microphone arrays, acustica degli strumenti a fiato,
+              progettazione e ascolto.
+            </p>
+            <p>
+              Questa parte rafforza il profilo artistico senza appesantirlo: non una vetrina accademica,
+              ma una base solida per un musicista che lavora anche con le tecnologie del suono.
+            </p>
+          </div>
+        </article>
+
+        <article class="panel list-card">
+          <div class="section-head" style="margin-bottom: 18px; grid-template-columns: 1fr;">
+            <h2>Competenze</h2>
+            <p>
+              Alcune aree che raccontano bene il profilo anche per scuole, festival, workshop,
+              progetti discografici o collaborazioni trasversali.
+            </p>
+          </div>
+          <ul class="bullet-list">
+            <li><strong>Live electronics</strong> trattamento del suono, performance e scrittura</li>
+            <li><strong>Produzione sonora</strong> recording, progetto, ascolto e identita' timbrica</li>
+            <li><strong>Spatial audio</strong> immagine sonora, spazio e tecnologie immersive</li>
+            <li><strong>AI audio &amp; music</strong> ricerca e applicazioni sul versante musicale</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="link">
+      <div class="container">
+        <div class="section-head">
+          <h2>Link essenziali</h2>
+          <p>
+            Solo riferimenti utili e gia' pubblici: ascolti, profilo accademico, ricerca e programma del concerto.
+          </p>
+        </div>
+        <div class="links-grid">
+          <article class="panel link-card">
+            <div>
+              <h3>DEIB / Politecnico di Milano</h3>
+              <p>Profilo istituzionale con formazione e area di ricerca.</p>
+            </div>
+            <div class="link-row">
+              <a class="pill-link" href="https://www.deib.polimi.it/ita/personale/dettagli/1161746" target="_blank" rel="noreferrer">Apri</a>
+            </div>
+          </article>
+
+          <article class="panel link-card">
+            <div>
+              <h3>Academia</h3>
+              <p>Scritti, materiali e profilo con ULIA e altri lavori.</p>
+            </div>
+            <div class="link-row">
+              <a class="pill-link" href="https://consmilano.academia.edu/GioeleGreco" target="_blank" rel="noreferrer">Apri</a>
+            </div>
+          </article>
+
+          <article class="panel link-card">
+            <div>
+              <h3>SoundCloud</h3>
+              <p>Ascolti principali: Odisseus memory, Shaping the curve, Sperimentazione arcaica.</p>
+            </div>
+            <div class="link-row">
+              <a class="pill-link" href="https://soundcloud.com/gioele-greco-1" target="_blank" rel="noreferrer">Apri</a>
+            </div>
+          </article>
+
+          <article class="panel link-card">
+            <div>
+              <h3>Suggestioni</h3>
+              <p>Video del concerto e programma PDF inserito direttamente nel sito.</p>
+            </div>
+            <div class="link-row">
+              <a class="pill-link" href="https://youtu.be/Tw3x7Nw3TOE" target="_blank" rel="noreferrer">Apri video</a>
+              <a class="pill-link" href="assets/suggestioni_programma.pdf" target="_blank" rel="noreferrer">Apri PDF</a>
+            </div>
+          </article>
+
+          <article class="panel link-card">
+            <div>
+              <h3>Crossing Borders</h3>
+              <p>Programma del concerto con Interplay Collective e Tamara Jokic.</p>
+            </div>
+            <div class="link-row">
+              <a class="pill-link" href="https://new.deib.polimi.it/allegati/eventi/2645/programma.pdf" target="_blank" rel="noreferrer">Apri</a>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-box">
+      <div><strong>Gioele Greco</strong> — Sassofonista, elettronica e nuove tecnologie.</div>
+      <div>Pagina HTML pronta per GitHub Pages. <span id="year"></span></div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
