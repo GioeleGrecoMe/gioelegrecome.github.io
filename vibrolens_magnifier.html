@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>VibroLens Web Magnifier</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--panel2:#202734;--text:#e6edf3;--muted:#9da7b3;--accent:#58a6ff;--ok:#3fb950;--warn:#d29922;--bad:#f85149;--line:#30363d}*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}header{padding:18px 16px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#121822,#0d1117)}h1{margin:0 0 6px;font-size:22px}p{margin:0;color:var(--muted);line-height:1.35}.wrap{display:grid;grid-template-columns:1fr 360px;gap:14px;padding:14px;max-width:1400px;margin:0 auto}.viewer{background:#000;border:1px solid var(--line);border-radius:18px;overflow:hidden;min-height:280px;position:relative}.viewer canvas{width:100%;height:auto;display:block;background:#000}.videoHidden{position:absolute;left:-10000px;top:-10000px;width:1px;height:1px;opacity:0}.badge{position:absolute;top:10px;left:10px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.65);font-size:12px;color:#fff}.side{display:flex;flex-direction:column;gap:12px}.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px;box-shadow:0 12px 30px rgba(0,0,0,.18)}.row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin:12px 0 4px}label{font-weight:650;font-size:14px}.value{font-variant-numeric:tabular-nums;color:var(--accent);font-weight:700}input[type=range]{width:100%;accent-color:var(--accent)}select,button,input[type=number]{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--panel2);color:var(--text);font:inherit}button{cursor:pointer;font-weight:700;background:#1f6feb;border-color:#388bfd}button.secondary{background:var(--panel2)}button.danger{background:#3b2020;border-color:#8e3030}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px}.status{padding:10px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-size:13px;line-height:1.35}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.metric{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px}.metric b{display:block;font-size:18px;margin-top:3px}.small{font-size:12px;color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.note{font-size:12px;color:var(--muted);margin-top:8px}.toggle{display:flex;gap:8px;align-items:center;margin-top:8px}.toggle input{width:auto}.overlayMsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:28px;background:rgba(0,0,0,.72);color:#fff}.overlayMsg div{max-width:650px}.overlayMsg h2{margin:0 0 8px}.hide{display:none}@media(max-width:900px){.wrap{grid-template-columns:1fr;padding:10px}.side{order:-1}.buttons{grid-template-columns:1fr}.viewer{border-radius:14px}.card{border-radius:14px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>VibroLens Web Magnifier</h1>
+  <p>Motion/color magnification real-time con buffer temporale. Scegli una frequenza sotto il limite della camera e amplifica il residuo oscillante.</p>
+</header>
+<div class="wrap">
+  <main class="viewer">
+    <video id="video" class="videoHidden" playsinline muted autoplay></video>
+    <canvas id="output" width="320" height="180"></canvas>
+    <div class="badge" id="badge">camera ferma</div>
+    <div id="overlay" class="overlayMsg"><div><h2>Avvia la camera</h2><p>Serve HTTPS, GitHub Pages o localhost. Da file locale <span class="mono">file://</span> molti browser bloccano la fotocamera.</p></div></div>
+  </main>
+  <aside class="side">
+    <section class="card">
+      <div class="buttons">
+        <button id="startBtn">Avvia camera</button>
+        <button id="stopBtn" class="danger">Ferma</button>
+      </div>
+      <div class="buttons" style="margin-top:10px">
+        <button id="resetBtn" class="secondary">Reset buffer</button>
+        <button id="snapBtn" class="secondary">Snapshot</button>
+      </div>
+      <p class="note">La magnification parte davvero dopo che il buffer è pieno almeno al 35–50%.</p>
+      <div id="status" class="status" style="margin-top:10px">Pronto.</div>
+    </section>
+
+    <section class="card">
+      <div class="row"><label for="freq">Frequenza osservata</label><span id="freqVal" class="value">5.0 Hz</span></div>
+      <input id="freq" type="range" min="0.2" max="25" step="0.1" value="5">
+      <div class="row"><label for="band">Larghezza banda</label><span id="bandVal" class="value">1.5 Hz</span></div>
+      <input id="band" type="range" min="0.4" max="8" step="0.1" value="1.5">
+      <div class="row"><label for="gain">Amplificazione</label><span id="gainVal" class="value">18×</span></div>
+      <input id="gain" type="range" min="0" max="80" step="1" value="18">
+      <div class="row"><label for="blend">Blend video originale</label><span id="blendVal" class="value">70%</span></div>
+      <input id="blend" type="range" min="0" max="100" step="1" value="70">
+      <div class="row"><label for="resolution">Risoluzione processing</label></div>
+      <select id="resolution">
+        <option value="160x90">160×90 - veloce</option>
+        <option value="240x135" selected>240×135 - bilanciata</option>
+        <option value="320x180">320×180 - qualità</option>
+        <option value="480x270">480×270 - pesante</option>
+      </select>
+      <div class="row"><label for="bufferLen">Buffer temporale</label></div>
+      <select id="bufferLen">
+        <option value="64">64 frame - bassa latenza</option>
+        <option value="96" selected>96 frame - consigliato</option>
+        <option value="128">128 frame - più selettivo</option>
+        <option value="192">192 frame - lento ma stabile</option>
+      </select>
+      <div class="toggle"><input id="residualOnly" type="checkbox"><label for="residualOnly">Mostra solo residuo amplificato</label></div>
+      <div class="toggle"><input id="monoMode" type="checkbox"><label for="monoMode">Modalità luma monocromatica</label></div>
+    </section>
+
+    <section class="card">
+      <div class="grid">
+        <div class="metric small">FPS reale<b id="fpsM">0.0</b></div>
+        <div class="metric small">Max consigliata<b id="maxM">0.0 Hz</b></div>
+        <div class="metric small">Buffer<b id="bufM">0%</b></div>
+        <div class="metric small">Drop/jank<b id="dropM">0</b></div>
+      </div>
+      <p class="note">Per risultati puliti: treppiede, buona luce diffusa, oggetto ad alto contrasto, frequenza target sotto circa 0.4×FPS.</p>
+    </section>
+
+    <section class="card">
+      <b>Che cosa fa davvero</b>
+      <p class="note">Per ogni pixel mantiene una finestra temporale di frame, stima la componente oscillante nella banda scelta tramite correlazione sinusoidale/DFT locale, e la reinietta amplificata. È magnification euleriana: evidenzia variazioni periodiche di intensità causate da micro-movimenti, ombre, bordi e colore.</p>
+    </section>
+  </aside>
+</div>
+<script>
+(() => {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const video = $('video');
+  const canvas = $('output');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const overlay = $('overlay');
+  const badge = $('badge');
+  const statusEl = $('status');
+
+  const controls = {
+    start: $('startBtn'), stop: $('stopBtn'), reset: $('resetBtn'), snap: $('snapBtn'),
+    freq: $('freq'), band: $('band'), gain: $('gain'), blend: $('blend'),
+    resolution: $('resolution'), bufferLen: $('bufferLen'), residualOnly: $('residualOnly'), monoMode: $('monoMode')
+  };
+
+  const labels = {
+    freq: $('freqVal'), band: $('bandVal'), gain: $('gainVal'), blend: $('blendVal'),
+    fps: $('fpsM'), max: $('maxM'), buf: $('bufM'), drop: $('dropM')
+  };
+
+  let stream = null;
+  let running = false;
+  let rafId = 0;
+  let lastFrameT = 0;
+  let fpsSmooth = 0;
+  let frameCount = 0;
+  let jankCount = 0;
+  let off = document.createElement('canvas');
+  let offCtx = off.getContext('2d', { willReadFrequently: true });
+
+  let W = 240, H = 135, P = W * H;
+  let N = 96;
+  let ring = [];
+  let ringIndex = 0;
+  let filled = 0;
+  let frameTimes = [];
+  let lastImage = null;
+  let weightsCache = { key: '', cos: null, sin: null, env: null };
+
+  function setStatus(html, cls='') {
+    statusEl.className = 'status ' + cls;
+    statusEl.innerHTML = html;
+  }
+
+  function updateLabels() {
+    labels.freq.textContent = Number(controls.freq.value).toFixed(1) + ' Hz';
+    labels.band.textContent = Number(controls.band.value).toFixed(1) + ' Hz';
+    labels.gain.textContent = Number(controls.gain.value).toFixed(0) + '×';
+    labels.blend.textContent = Number(controls.blend.value).toFixed(0) + '%';
+  }
+
+  function secureContextOk() {
+    return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  }
+
+  function configureProcessing() {
+    const [w, h] = controls.resolution.value.split('x').map(Number);
+    W = w; H = h; P = W * H;
+    N = Number(controls.bufferLen.value);
+    canvas.width = W; canvas.height = H;
+    off.width = W; off.height = H;
+    resetBuffers();
+  }
+
+  function resetBuffers() {
+    ring = new Array(N);
+    for (let i = 0; i < N; i++) ring[i] = new Uint8ClampedArray(P * 3);
+    frameTimes = new Array(N).fill(0);
+    ringIndex = 0; filled = 0; frameCount = 0; jankCount = 0; lastImage = null;
+    weightsCache.key = '';
+    labels.buf.textContent = '0%';
+    labels.drop.textContent = '0';
+  }
+
+  function getWeights(dt) {
+    const freq = Number(controls.freq.value);
+    const band = Number(controls.band.value);
+    const key = N + ':' + freq.toFixed(3) + ':' + band.toFixed(3) + ':' + dt.toFixed(5);
+    if (weightsCache.key === key) return weightsCache;
+
+    const cos = new Float32Array(N);
+    const sin = new Float32Array(N);
+    const env = new Float32Array(N);
+    const omega = 2 * Math.PI * freq;
+
+    // Gaussian-like temporal window. The selected bandwidth controls how much of the buffer contributes.
+    // Smaller bandwidth = longer effective window = more frequency selectivity but more latency/smearing.
+    const sigmaSeconds = Math.max(0.08, 0.45 / Math.max(0.4, band));
+    let norm = 0;
+    for (let k = 0; k < N; k++) {
+      const age = (N - 1 - k) * dt;
+      const e = Math.exp(-0.5 * Math.pow(age / sigmaSeconds, 2));
+      env[k] = e;
+      cos[k] = Math.cos(omega * age) * e;
+      sin[k] = Math.sin(omega * age) * e;
+      norm += e;
+    }
+    weightsCache = { key, cos, sin, env, norm };
+    return weightsCache;
+  }
+
+  function copyCurrentFrameIntoRing(img) {
+    const data = img.data;
+    const dst = ring[ringIndex];
+    for (let i = 0, j = 0; i < data.length; i += 4, j += 3) {
+      dst[j] = data[i];
+      dst[j + 1] = data[i + 1];
+      dst[j + 2] = data[i + 2];
+    }
+    frameTimes[ringIndex] = performance.now();
+    ringIndex = (ringIndex + 1) % N;
+    filled = Math.min(N, filled + 1);
+  }
+
+  function processFrame(now) {
+    if (!running) return;
+
+    offCtx.drawImage(video, 0, 0, W, H);
+    const img = offCtx.getImageData(0, 0, W, H);
+    copyCurrentFrameIntoRing(img);
+
+    if (lastFrameT > 0) {
+      const instFps = 1000 / Math.max(1, now - lastFrameT);
+      fpsSmooth = fpsSmooth ? fpsSmooth * 0.92 + instFps * 0.08 : instFps;
+      if (fpsSmooth > 0 && instFps < fpsSmooth * 0.55) jankCount++;
+    }
+    lastFrameT = now;
+    frameCount++;
+
+    const maxGood = fpsSmooth * 0.4;
+    labels.fps.textContent = fpsSmooth.toFixed(1);
+    labels.max.textContent = maxGood.toFixed(1) + ' Hz';
+    labels.buf.textContent = Math.round((filled / N) * 100) + '%';
+    labels.drop.textContent = String(jankCount);
+
+    const f = Number(controls.freq.value);
+    if (fpsSmooth && f > maxGood) {
+      badge.textContent = 'frequenza troppo alta per FPS reale';
+      badge.style.background = 'rgba(150,70,0,.75)';
+    } else if (filled < Math.max(24, N * 0.35)) {
+      badge.textContent = 'riempimento buffer...';
+      badge.style.background = 'rgba(0,0,0,.65)';
+    } else {
+      badge.textContent = 'magnification attiva';
+      badge.style.background = 'rgba(0,90,30,.75)';
+    }
+
+    if (filled >= Math.max(16, Math.floor(N * 0.25))) {
+      magnify(img);
+    }
+
+    ctx.putImageData(img, 0, 0);
+
+    if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+      video.requestVideoFrameCallback((t) => processFrame(t));
+    } else {
+      rafId = requestAnimationFrame(processFrame);
+    }
+  }
+
+  function magnify(img) {
+    const data = img.data;
+    const gain = Number(controls.gain.value);
+    const blend = Number(controls.blend.value) / 100;
+    const residualOnly = controls.residualOnly.checked;
+    const mono = controls.monoMode.checked;
+    const effectiveN = filled;
+    const fps = Math.max(15, fpsSmooth || 60);
+    const dt = 1 / fps;
+    const weights = getWeights(dt);
+
+    // Convert circular buffer to chronological indices: oldest -> newest.
+    const start = (ringIndex - effectiveN + N) % N;
+    const scale = 2 / Math.max(1, weights.norm || effectiveN);
+    const mid = 128;
+
+    for (let p = 0, di = 0; p < P; p++, di += 4) {
+      let rC = 0, rS = 0, gC = 0, gS = 0, bC = 0, bS = 0;
+      let meanR = 0, meanG = 0, meanB = 0, meanW = 0;
+
+      for (let kk = 0; kk < effectiveN; kk++) {
+        const chronological = (start + kk) % N;
+        const source = ring[chronological];
+        const j = p * 3;
+        const wi = N - effectiveN + kk;
+        const c = weights.cos[wi];
+        const s = weights.sin[wi];
+        const e = weights.env[wi];
+        const r = source[j], g = source[j + 1], b = source[j + 2];
+        rC += r * c; rS += r * s;
+        gC += g * c; gS += g * s;
+        bC += b * c; bS += b * s;
+        meanR += r * e; meanG += g * e; meanB += b * e; meanW += e;
+      }
+
+      meanR /= Math.max(1e-6, meanW); meanG /= Math.max(1e-6, meanW); meanB /= Math.max(1e-6, meanW);
+
+      // Reconstruct the selected sinusoidal component at the current phase.
+      // Since weights use age=0 for newest frame, selected residual at current time is proportional to cosine coefficient.
+      let rr = rC * scale;
+      let gg = gC * scale;
+      let bb = bC * scale;
+
+      // Remove DC leakage and favor edge/motion differences. This prevents the whole image from simply brightening.
+      rr -= (meanR - 128) * 0.015;
+      gg -= (meanG - 128) * 0.015;
+      bb -= (meanB - 128) * 0.015;
+
+      if (mono) {
+        const lum = 0.2126 * rr + 0.7152 * gg + 0.0722 * bb;
+        rr = gg = bb = lum;
+      }
+
+      const baseR = data[di], baseG = data[di + 1], baseB = data[di + 2];
+      let outR, outG, outB;
+      if (residualOnly) {
+        outR = mid + gain * rr;
+        outG = mid + gain * gg;
+        outB = mid + gain * bb;
+      } else {
+        outR = baseR * blend + (baseR + gain * rr) * (1 - blend);
+        outG = baseG * blend + (baseG + gain * gg) * (1 - blend);
+        outB = baseB * blend + (baseB + gain * bb) * (1 - blend);
+      }
+      data[di] = clamp(outR); data[di + 1] = clamp(outG); data[di + 2] = clamp(outB); data[di + 3] = 255;
+    }
+  }
+
+  function clamp(x) { return x < 0 ? 0 : x > 255 ? 255 : x | 0; }
+
+  async function startCamera() {
+    updateLabels();
+    configureProcessing();
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setStatus('Questo browser non espone <span class="mono">getUserMedia</span>. Usa Chrome, Edge, Firefox o Safari aggiornato.', 'bad');
+      return;
+    }
+    if (!secureContextOk()) {
+      overlay.classList.remove('hide');
+      overlay.innerHTML = '<div><h2>Camera bloccata dal browser</h2><p>Stai aprendo la pagina come file locale o in un contesto non sicuro. Caricala su GitHub Pages/HTTPS oppure usa un piccolo server locale. Su smartphone <span class="mono">file://</span> non basta.</p></div>';
+      setStatus('Contesto non sicuro: la camera richiede HTTPS, GitHub Pages o localhost. Non posso chiedere il permesso da file locale.', 'bad');
+      return;
+    }
+
+    try {
+      stopCamera(false);
+      setStatus('Richiesta permesso fotocamera...', 'warn');
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 60, min: 24 }
+        }
+      });
+      video.srcObject = stream;
+      await video.play();
+      running = true;
+      lastFrameT = 0; fpsSmooth = 0; jankCount = 0; frameCount = 0;
+      overlay.classList.add('hide');
+      const track = stream.getVideoTracks()[0];
+      const settings = track ? track.getSettings() : {};
+      setStatus('Camera avviata. Impostazioni negoziate: ' +
+        '<span class="mono">' + [settings.width, settings.height].filter(Boolean).join('×') +
+        (settings.frameRate ? ', ' + settings.frameRate.toFixed(1) + ' fps' : '') + '</span>.', 'ok');
+      if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+        video.requestVideoFrameCallback((t) => processFrame(t));
+      } else {
+        rafId = requestAnimationFrame(processFrame);
+      }
+    } catch (err) {
+      running = false;
+      const name = err && err.name ? err.name : 'Errore';
+      let help = 'Errore camera: ' + name + '. ';
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') help += 'Permesso negato. Riabilita la fotocamera nelle impostazioni del sito/browser.';
+      else if (name === 'NotFoundError') help += 'Nessuna camera trovata.';
+      else if (name === 'NotReadableError') help += 'La camera è occupata da un’altra app o dal sistema.';
+      else if (name === 'OverconstrainedError') help += 'Il dispositivo non supporta i vincoli richiesti; prova un altro browser.';
+      else help += (err && err.message) ? err.message : 'Dettagli non disponibili.';
+      overlay.classList.remove('hide');
+      overlay.innerHTML = '<div><h2>Fotocamera non disponibile</h2><p>' + escapeHtml(help) + '</p></div>';
+      setStatus(escapeHtml(help), 'bad');
+    }
+  }
+
+  function stopCamera(show = true) {
+    running = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+    if (stream) {
+      for (const tr of stream.getTracks()) tr.stop();
+      stream = null;
+    }
+    video.srcObject = null;
+    if (show) {
+      overlay.classList.remove('hide');
+      overlay.innerHTML = '<div><h2>Camera ferma</h2><p>Premi Avvia camera per ricominciare.</p></div>';
+      badge.textContent = 'camera ferma';
+      setStatus('Camera fermata.', '');
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+  }
+
+  function snapshot() {
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    a.download = 'vibrolens-' + stamp + '.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  }
+
+  for (const el of [controls.freq, controls.band, controls.gain, controls.blend]) {
+    el.addEventListener('input', () => { updateLabels(); weightsCache.key = ''; });
+  }
+  controls.resolution.addEventListener('change', configureProcessing);
+  controls.bufferLen.addEventListener('change', configureProcessing);
+  controls.reset.addEventListener('click', () => { resetBuffers(); setStatus('Buffer temporale azzerato.', 'ok'); });
+  controls.snap.addEventListener('click', snapshot);
+  controls.start.addEventListener('click', startCamera);
+  controls.stop.addEventListener('click', () => stopCamera(true));
+
+  updateLabels();
+  configureProcessing();
+  if (!secureContextOk()) {
+    setStatus('Aprendo da file locale o contesto non sicuro la fotocamera verrà bloccata. Usa HTTPS/GitHub Pages o localhost.', 'bad');
+  }
+})();
+</script>
+</body>
+</html>
