@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <title>VibroLens Web - Real-Time Motion Magnification</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #070b12;
+      --panel: rgba(17, 24, 39, 0.92);
+      --panel-2: rgba(31, 41, 55, 0.88);
+      --text: #f9fafb;
+      --muted: #9ca3af;
+      --line: rgba(255,255,255,0.12);
+      --accent: #60a5fa;
+      --good: #34d399;
+      --warn: #fbbf24;
+      --bad: #fb7185;
+      --shadow: 0 20px 60px rgba(0,0,0,0.35);
+      --radius: 20px;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(96,165,250,0.25), transparent 36rem),
+        radial-gradient(circle at bottom right, rgba(52,211,153,0.14), transparent 32rem),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 22px 18px 12px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 46px);
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .subtitle {
+      margin-top: 10px;
+      color: var(--muted);
+      max-width: 820px;
+      line-height: 1.45;
+      font-size: 15px;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 18px;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 12px 18px 28px;
+    }
+
+    .stage, .controls, .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .stage {
+      padding: 14px;
+      min-height: 420px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .viewport-wrap {
+      position: relative;
+      overflow: hidden;
+      border-radius: 16px;
+      background: #000;
+      min-height: 300px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+    }
+
+    canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      max-height: 72vh;
+      object-fit: contain;
+      background: #000;
+    }
+
+    video {
+      position: absolute;
+      pointer-events: none;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+    }
+
+    .placeholder {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+      background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+    }
+
+    .placeholder.hidden { display: none; }
+
+    .controls {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    button, select {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel-2);
+      color: var(--text);
+      min-height: 44px;
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 700;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    }
+
+    button:hover { transform: translateY(-1px); border-color: rgba(96,165,250,0.65); }
+    button:active { transform: translateY(0); }
+    button.primary { background: linear-gradient(135deg, #2563eb, #0891b2); }
+    button.danger { background: linear-gradient(135deg, #be123c, #7f1d1d); }
+    button:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+    label {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.3;
+    }
+
+    .label-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 11px;
+      min-height: 72px;
+    }
+
+    .metric .name { color: var(--muted); font-size: 12px; }
+    .metric .value { font-size: 22px; font-weight: 800; margin-top: 3px; letter-spacing: -0.03em; }
+    .metric .unit { font-size: 12px; color: var(--muted); margin-left: 3px; }
+
+    .status {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      line-height: 1.4;
+      font-size: 13px;
+      white-space: pre-line;
+    }
+
+    .status.good { color: var(--good); border-color: rgba(52,211,153,0.35); }
+    .status.warn { color: var(--warn); border-color: rgba(251,191,36,0.38); }
+    .status.bad { color: var(--bad); border-color: rgba(251,113,133,0.38); }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.04);
+    }
+
+    summary { cursor: pointer; font-weight: 700; }
+
+    .help {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      margin-top: 10px;
+    }
+
+    .log {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      color: #d1d5db;
+      max-height: 160px;
+      overflow: auto;
+      white-space: pre-wrap;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      .controls { order: -1; }
+      .stage { min-height: 300px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>VibroLens Web</h1>
+    <div class="subtitle">
+      Motion magnification in tempo reale nel browser. Scegli una frequenza osservata, l'app filtra temporalmente il video e amplifica le variazioni coerenti con quella banda. Funziona meglio con camera ferma, buona luce e vibrazioni tra 1 e 15 Hz; fino a circa 25 Hz solo se la camera mantiene davvero 60 fps.
+    </div>
+  </header>
+
+  <main>
+    <section class="stage">
+      <div class="viewport-wrap">
+        <video id="video" playsinline muted autoplay></video>
+        <canvas id="output" width="480" height="270"></canvas>
+        <div id="placeholder" class="placeholder">
+          <div>
+            <strong>Premi “Avvia camera”.</strong><br>
+            Su smartphone serve HTTPS, localhost o GitHub Pages. Se non succede nulla, guarda il pannello stato: questa versione mostra gli errori reali della camera.
+          </div>
+        </div>
+      </div>
+      <div id="status" class="status">Pronto. Camera non ancora avviata.</div>
+      <div id="localWarning" class="local-warning hidden">
+        <strong>File locale rilevato.</strong> Su smartphone i browser bloccano la fotocamera dalle pagine aperte come <code>file://</code>.
+        Carica questo HTML su GitHub Pages/Netlify/Vercel oppure servilo da <code>localhost</code>. Finché resta file locale, il browser non può mostrare il permesso camera.
+      </div>
+    </section>
+
+    <aside class="controls">
+      <div class="button-row">
+        <button id="startBtn" class="primary">Avvia camera</button>
+        <button id="stopBtn" class="danger" disabled>Ferma</button>
+      </div>
+
+      <label>
+        <span class="label-head"><span>Camera</span><span id="cameraLabel">default</span></span>
+        <select id="cameraSelect" disabled>
+          <option value="">Camera predefinita</option>
+        </select>
+      </label>
+
+      <label>
+        <span class="label-head"><span>Frequenza centrale</span><span><span id="freqValue">8.0</span> Hz</span></span>
+        <input id="freq" type="range" min="0.2" max="25" step="0.1" value="8">
+      </label>
+
+      <label>
+        <span class="label-head"><span>Larghezza banda</span><span>±<span id="bwValue">1.5</span> Hz</span></span>
+        <input id="bandwidth" type="range" min="0.2" max="8" step="0.1" value="1.5">
+      </label>
+
+      <label>
+        <span class="label-head"><span>Amplificazione</span><span><span id="gainValue">24</span>x</span></span>
+        <input id="gain" type="range" min="0" max="80" step="1" value="24">
+      </label>
+
+      <label>
+        <span class="label-head"><span>Risoluzione processing</span><span id="resLabel">480 × 270</span></span>
+        <select id="resolution">
+          <option value="320x180">320 × 180 - veloce</option>
+          <option value="480x270" selected>480 × 270 - bilanciata</option>
+          <option value="640x360">640 × 360 - pesante</option>
+        </select>
+      </label>
+
+      <div class="switch-row">
+        <span>Mostra solo residuo filtrato</span>
+        <input id="residualOnly" type="checkbox">
+      </div>
+
+      <div class="switch-row">
+        <span>Stabilizza luminosità globale</span>
+        <input id="normalize" type="checkbox" checked>
+      </div>
+
+      <div class="button-row">
+        <button id="resetBtn">Reset filtro</button>
+        <button id="snapshotBtn">Snapshot</button>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric"><div class="name">FPS reali</div><div class="value"><span id="fpsMetric">0.0</span><span class="unit">fps</span></div></div>
+        <div class="metric"><div class="name">Max consigliata</div><div class="value"><span id="safeMetric">0.0</span><span class="unit">Hz</span></div></div>
+        <div class="metric"><div class="name">Frame drop</div><div class="value"><span id="dropMetric">0</span><span class="unit">%</span></div></div>
+        <div class="metric"><div class="name">Stato filtro</div><div class="value"><span id="filterMetric">idle</span></div></div>
+      </div>
+
+      <details>
+        <summary>Note tecniche e debug</summary>
+        <div class="help">
+          Algoritmo: filtro temporale IIR passa-banda per pixel su frame downsampled. L'output è immagine originale più residuo filtrato amplificato. Non ricostruisce frequenze sopra Nyquist: con 60 fps usare preferibilmente frequenze sotto 24–25 Hz.
+        </div>
+        <div id="log" class="log"></div>
+      </details>
+    </aside>
+  </main>
+
+  <script>
+    'use strict';
+
+    /*
+      VibroLens Web - single-file build.
+      Design goals:
+      - No external dependencies, no module loading, no service worker requirement.
+      - Robust camera startup with visible error messages.
+      - Real-time Eulerian-style temporal band-pass magnification.
+      - Debug-friendly comments and diagnostics.
+    */
+
+    const els = {
+      video: document.getElementById('video'),
+      output: document.getElementById('output'),
+      placeholder: document.getElementById('placeholder'),
+      status: document.getElementById('status'),
+      localWarning: document.getElementById('localWarning'),
+      startBtn: document.getElementById('startBtn'),
+      stopBtn: document.getElementById('stopBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+      snapshotBtn: document.getElementById('snapshotBtn'),
+      cameraSelect: document.getElementById('cameraSelect'),
+      cameraLabel: document.getElementById('cameraLabel'),
+      freq: document.getElementById('freq'),
+      bandwidth: document.getElementById('bandwidth'),
+      gain: document.getElementById('gain'),
+      resolution: document.getElementById('resolution'),
+      residualOnly: document.getElementById('residualOnly'),
+      normalize: document.getElementById('normalize'),
+      freqValue: document.getElementById('freqValue'),
+      bwValue: document.getElementById('bwValue'),
+      gainValue: document.getElementById('gainValue'),
+      resLabel: document.getElementById('resLabel'),
+      fpsMetric: document.getElementById('fpsMetric'),
+      safeMetric: document.getElementById('safeMetric'),
+      dropMetric: document.getElementById('dropMetric'),
+      filterMetric: document.getElementById('filterMetric'),
+      log: document.getElementById('log')
+    };
+
+    const ctx = els.output.getContext('2d', { willReadFrequently: true });
+    const work = document.createElement('canvas');
+    const workCtx = work.getContext('2d', { willReadFrequently: true });
+
+    const state = {
+      stream: null,
+      running: false,
+      rafId: 0,
+      lastFrameTimeMs: 0,
+      fpsSmooth: 0,
+      frameCounter: 0,
+      droppedCounter: 0,
+      statsWindow: [],
+      width: 480,
+      height: 270,
+      pixels: 480 * 270 * 4,
+      // Two one-pole low-pass states are subtracted to approximate a temporal band-pass.
+      lowFast: null,
+      lowSlow: null,
+      initialized: false,
+      lastFilterKey: '',
+      brightnessReference: null,
+      // Used by requestVideoFrameCallback if available.
+      rvfcHandle: 0
+    };
+
+    function log(message) {
+      const stamp = new Date().toLocaleTimeString();
+      els.log.textContent = `[${stamp}] ${message}\n` + els.log.textContent;
+    }
+
+    function setStatus(message, kind = '') {
+      els.status.textContent = message;
+      els.status.className = `status ${kind}`.trim();
+    }
+
+    function updateLabels() {
+      els.freqValue.textContent = Number(els.freq.value).toFixed(1);
+      els.bwValue.textContent = Number(els.bandwidth.value).toFixed(1);
+      els.gainValue.textContent = String(Math.round(Number(els.gain.value)));
+      const [w, h] = els.resolution.value.split('x').map(Number);
+      els.resLabel.textContent = `${w} × ${h}`;
+    }
+
+    function setResolutionFromUi() {
+      const [w, h] = els.resolution.value.split('x').map(Number);
+      if (w === state.width && h === state.height) return;
+      state.width = w;
+      state.height = h;
+      els.output.width = w;
+      els.output.height = h;
+      work.width = w;
+      work.height = h;
+      resetFilter('resolution changed');
+    }
+
+    function resetFilter(reason = 'manual reset') {
+      state.pixels = state.width * state.height * 4;
+      state.lowFast = new Float32Array(state.pixels);
+      state.lowSlow = new Float32Array(state.pixels);
+      state.initialized = false;
+      state.brightnessReference = null;
+      state.lastFilterKey = '';
+      els.filterMetric.textContent = 'reset';
+      log(`Filter reset: ${reason}`);
+    }
+
+    function isLocalFile() {
+      return location.protocol === 'file:';
+    }
+
+    function isCameraSecureContext() {
+      return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    }
+
+    function assertCameraApiAvailable() {
+      if (isLocalFile()) {
+        const err = new Error('Questa pagina è stata aperta come file locale. I browser mobili non consentono getUserMedia da file://, quindi non possono mostrare il prompt camera.');
+        err.name = 'LocalFileContextError';
+        throw err;
+      }
+      if (!isCameraSecureContext()) {
+        const err = new Error('La camera richiede HTTPS, localhost o GitHub Pages. Apri questa pagina via https:// oppure avvia un server locale.');
+        err.name = 'InsecureContextError';
+        throw err;
+      }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const err = new Error('Questo browser non supporta navigator.mediaDevices.getUserMedia(). Prova Chrome, Edge o Safari aggiornato.');
+        err.name = 'UnsupportedBrowserError';
+        throw err;
+      }
+    }
+
+    async function readCameraPermissionState() {
+      // The Permissions API is not equally supported by every browser for camera.
+      // When unavailable, we simply return "unknown" and rely on getUserMedia,
+      // which is the only reliable way to trigger the native permission prompt.
+      try {
+        if (!navigator.permissions || !navigator.permissions.query) return 'unknown';
+        const result = await navigator.permissions.query({ name: 'camera' });
+        return result.state || 'unknown';
+      } catch (_) {
+        return 'unknown';
+      }
+    }
+
+    async function requestCameraStreamWithFriendlyFallback(videoConstraint) {
+      const permissionState = await readCameraPermissionState();
+      if (permissionState === 'denied') {
+        const err = new Error('Il browser segnala che il permesso camera è già negato per questo sito.');
+        err.name = 'NotAllowedError';
+        throw err;
+      }
+
+      setStatus('Il browser sta per chiedere il permesso fotocamera. Premi “Consenti” per avviare VibroLens.', 'warn');
+      log(`Camera permission state before request: ${permissionState}`);
+
+      try {
+        // First attempt: use the requested camera and preferred 60 fps settings.
+        return await navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: false });
+      } catch (err) {
+        // Some mobile browsers reject ideal/exact constraints before opening a usable stream.
+        // If the user did not deny permission, retry with the most permissive video request.
+        if (err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.name === 'SecurityError')) {
+          throw err;
+        }
+        log(`Preferred camera request failed, retrying with generic video:true. Reason: ${err.name || 'Error'} - ${err.message || ''}`);
+        setStatus('La configurazione camera preferita non è disponibile. Riprovo con richiesta base video:true...', 'warn');
+        return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+    }
+
+    async function listCameras() {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cams = devices.filter(d => d.kind === 'videoinput');
+        els.cameraSelect.innerHTML = '<option value="">Camera predefinita</option>';
+        cams.forEach((cam, index) => {
+          const opt = document.createElement('option');
+          opt.value = cam.deviceId;
+          opt.textContent = cam.label || `Camera ${index + 1}`;
+          els.cameraSelect.appendChild(opt);
+        });
+        els.cameraSelect.disabled = cams.length === 0;
+        els.cameraLabel.textContent = cams.length ? `${cams.length} trovate` : 'default';
+      } catch (err) {
+        log(`Camera enumeration failed: ${err.message}`);
+      }
+    }
+
+    async function startCamera() {
+      try {
+        assertCameraApiAvailable();
+        stopCamera(false);
+        updateLabels();
+        setResolutionFromUi();
+        resetFilter('camera start');
+
+        const selectedId = els.cameraSelect.value;
+        const videoConstraint = selectedId
+          ? { deviceId: { exact: selectedId }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60, min: 30 } }
+          : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60, min: 30 } };
+
+        setStatus('Preparazione richiesta permesso fotocamera...', 'warn');
+        log('Requesting camera stream...');
+        const stream = await requestCameraStreamWithFriendlyFallback(videoConstraint);
+        state.stream = stream;
+        els.video.srcObject = stream;
+        await els.video.play();
+
+        const track = stream.getVideoTracks()[0];
+        const settings = track ? track.getSettings() : {};
+        log(`Camera settings: ${JSON.stringify(settings)}`);
+        await listCameras();
+
+        state.running = true;
+        state.lastFrameTimeMs = performance.now();
+        state.fpsSmooth = Number(settings.frameRate) || 0;
+        state.frameCounter = 0;
+        state.droppedCounter = 0;
+        state.statsWindow = [];
+
+        els.placeholder.classList.add('hidden');
+        els.startBtn.disabled = true;
+        els.stopBtn.disabled = false;
+        setStatus('Camera attiva. Mantieni il telefono fermo e scegli una frequenza sotto il limite consigliato.', 'good');
+        scheduleNextFrame();
+      } catch (err) {
+        stopCamera(false);
+        const message = formatCameraError(err);
+        setStatus(message, 'bad');
+        log(`Camera start failed: ${err.name || 'Error'} - ${err.message}`);
+      }
+    }
+
+    function formatCameraError(err) {
+      const name = err && err.name ? err.name : 'Errore';
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        return 'Permesso camera negato. Tocca l’icona lucchetto/camera nella barra indirizzi, consenti la fotocamera per questo sito, poi premi di nuovo “Avvia camera”. Su iPhone: Impostazioni Safari/Chrome → Fotocamera → Consenti.';
+      }
+      if (name === 'LocalFileContextError') {
+        return 'Stai aprendo l’HTML come file locale. Da file:// il browser non può chiedere il permesso fotocamera. Carica il file su GitHub Pages/Netlify/Vercel oppure servilo tramite localhost.';
+      }
+      if (name === 'InsecureContextError') {
+        return 'La camera non può partire da HTTP non sicuro. Usa GitHub Pages, HTTPS o localhost.';
+      }
+      if (name === 'UnsupportedBrowserError') {
+        return 'Questo browser non espone l’API camera. Prova Chrome, Edge o Safari aggiornato.';
+      }
+      if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        return 'Nessuna camera trovata dal browser.';
+      }
+      if (name === 'NotReadableError' || name === 'TrackStartError') {
+        return 'La camera è occupata da un’altra app o non è accessibile al browser.';
+      }
+      if (name === 'OverconstrainedError') {
+        return 'I vincoli richiesti alla camera non sono supportati. Prova un’altra camera o browser.';
+      }
+      if (name === 'SecurityError') {
+        return 'Accesso camera bloccato per ragioni di sicurezza. Usa HTTPS o localhost.';
+      }
+      return `${name}: ${err.message || 'impossibile avviare la camera.'}`;
+    }
+
+    function stopCamera(updateUi = true) {
+      state.running = false;
+      if (state.rafId) cancelAnimationFrame(state.rafId);
+      state.rafId = 0;
+      if (state.rvfcHandle && els.video.cancelVideoFrameCallback) {
+        try { els.video.cancelVideoFrameCallback(state.rvfcHandle); } catch (_) {}
+      }
+      state.rvfcHandle = 0;
+      if (state.stream) {
+        for (const track of state.stream.getTracks()) track.stop();
+      }
+      state.stream = null;
+      els.video.srcObject = null;
+      if (updateUi) {
+        els.placeholder.classList.remove('hidden');
+        els.startBtn.disabled = false;
+        els.stopBtn.disabled = true;
+        setStatus('Camera fermata.', '');
+      }
+    }
+
+    function scheduleNextFrame() {
+      if (!state.running) return;
+      if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+        state.rvfcHandle = els.video.requestVideoFrameCallback((now) => {
+          processFrame(now);
+          scheduleNextFrame();
+        });
+      } else {
+        state.rafId = requestAnimationFrame((now) => {
+          processFrame(now);
+          scheduleNextFrame();
+        });
+      }
+    }
+
+    function getFilterParams(dtSec) {
+      const center = Number(els.freq.value);
+      const bw = Number(els.bandwidth.value);
+      const lowCut = Math.max(0.02, center - bw);
+      const highCut = Math.max(lowCut + 0.02, center + bw);
+      // RC low-pass smoothing factors. Band-pass approx = LP(highCut) - LP(lowCut).
+      const fastAlpha = 1 - Math.exp(-2 * Math.PI * highCut * dtSec);
+      const slowAlpha = 1 - Math.exp(-2 * Math.PI * lowCut * dtSec);
+      return {
+        center,
+        bw,
+        lowCut,
+        highCut,
+        fastAlpha: clamp(fastAlpha, 0.001, 1),
+        slowAlpha: clamp(slowAlpha, 0.001, 1),
+        gain: Number(els.gain.value)
+      };
+    }
+
+    function processFrame(nowMs) {
+      if (!state.running || els.video.readyState < 2) return;
+      setResolutionFromUi();
+
+      const dtMsRaw = Math.max(1, nowMs - state.lastFrameTimeMs);
+      state.lastFrameTimeMs = nowMs;
+      const fpsInstant = 1000 / dtMsRaw;
+      if (Number.isFinite(fpsInstant) && fpsInstant > 0 && fpsInstant < 240) {
+        state.fpsSmooth = state.fpsSmooth ? state.fpsSmooth * 0.92 + fpsInstant * 0.08 : fpsInstant;
+        state.statsWindow.push(fpsInstant);
+        if (state.statsWindow.length > 90) state.statsWindow.shift();
+      }
+
+      const expectedMs = state.fpsSmooth > 1 ? 1000 / state.fpsSmooth : 16.7;
+      if (dtMsRaw > expectedMs * 1.85) state.droppedCounter++;
+      state.frameCounter++;
+
+      const dtSec = clamp(dtMsRaw / 1000, 1 / 120, 1 / 8);
+      const params = getFilterParams(dtSec);
+      const filterKey = `${state.width}x${state.height}:${params.lowCut.toFixed(2)}:${params.highCut.toFixed(2)}`;
+      if (!state.lowFast || !state.lowSlow || state.lastFilterKey !== filterKey) {
+        state.lastFilterKey = filterKey;
+        resetFilter('filter parameters changed');
+      }
+
+      workCtx.drawImage(els.video, 0, 0, state.width, state.height);
+      const image = workCtx.getImageData(0, 0, state.width, state.height);
+      const data = image.data;
+      const lowFast = state.lowFast;
+      const lowSlow = state.lowSlow;
+      const gain = params.gain;
+      const residualOnly = els.residualOnly.checked;
+      const normalize = els.normalize.checked;
+
+      // Estimate global brightness to reduce false amplification from automatic exposure flicker.
+      let globalBrightness = 0;
+      if (normalize) {
+        for (let i = 0; i < data.length; i += 16) {
+          globalBrightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
+        }
+        globalBrightness /= Math.max(1, data.length / 16);
+        if (state.brightnessReference == null) state.brightnessReference = globalBrightness;
+      }
+      const brightnessOffset = normalize ? (globalBrightness - state.brightnessReference) : 0;
+      if (normalize && state.brightnessReference != null) {
+        state.brightnessReference = state.brightnessReference * 0.995 + globalBrightness * 0.005;
+      }
+
+      if (!state.initialized) {
+        for (let i = 0; i < data.length; i++) {
+          lowFast[i] = data[i];
+          lowSlow[i] = data[i];
+        }
+        state.initialized = true;
+      }
+
+      const af = params.fastAlpha;
+      const as = params.slowAlpha;
+      for (let i = 0; i < data.length; i += 4) {
+        for (let c = 0; c < 3; c++) {
+          const idx = i + c;
+          const input = data[idx] - brightnessOffset;
+          const lf = lowFast[idx] + af * (input - lowFast[idx]);
+          const ls = lowSlow[idx] + as * (input - lowSlow[idx]);
+          lowFast[idx] = lf;
+          lowSlow[idx] = ls;
+          const band = lf - ls;
+          data[idx] = residualOnly ? clampByte(128 + band * gain) : clampByte(input + band * gain);
+        }
+        data[i + 3] = 255;
+      }
+
+      ctx.putImageData(image, 0, 0);
+      updateMetrics(params);
+    }
+
+    function updateMetrics(params) {
+      const fps = state.fpsSmooth || 0;
+      const safe = fps * 0.4;
+      const dropPct = state.frameCounter > 0 ? (state.droppedCounter / state.frameCounter) * 100 : 0;
+      els.fpsMetric.textContent = fps.toFixed(1);
+      els.safeMetric.textContent = safe.toFixed(1);
+      els.dropMetric.textContent = Math.min(99, dropPct).toFixed(0);
+      els.filterMetric.textContent = state.initialized ? 'on' : 'init';
+
+      const center = Number(els.freq.value);
+      if (!state.running) return;
+      if (fps > 0 && center > safe) {
+        setStatus(`Attenzione: ${center.toFixed(1)} Hz è troppo vicino al limite per ${fps.toFixed(1)} fps. Riduci la frequenza sotto circa ${safe.toFixed(1)} Hz o aumenta la luce/FPS.`, 'warn');
+      } else if (dropPct > 8) {
+        setStatus(`Camera attiva, ma ci sono frame drop (${dropPct.toFixed(0)}%). Riduci risoluzione processing o chiudi altre app.`, 'warn');
+      } else {
+        setStatus(`Camera attiva. Banda osservata: ${params.lowCut.toFixed(1)}–${params.highCut.toFixed(1)} Hz.`, 'good');
+      }
+    }
+
+    function takeSnapshot() {
+      const a = document.createElement('a');
+      a.download = `vibrolens-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+      a.href = els.output.toDataURL('image/png');
+      a.click();
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function clampByte(value) {
+      return value < 0 ? 0 : value > 255 ? 255 : value | 0;
+    }
+
+    els.startBtn.addEventListener('click', startCamera);
+    els.stopBtn.addEventListener('click', () => stopCamera(true));
+    els.resetBtn.addEventListener('click', () => resetFilter('manual reset'));
+    els.snapshotBtn.addEventListener('click', takeSnapshot);
+    els.freq.addEventListener('input', updateLabels);
+    els.bandwidth.addEventListener('input', updateLabels);
+    els.gain.addEventListener('input', updateLabels);
+    els.resolution.addEventListener('change', () => { updateLabels(); setResolutionFromUi(); });
+    els.cameraSelect.addEventListener('change', () => {
+      if (state.running) startCamera();
+    });
+
+    window.addEventListener('beforeunload', () => stopCamera(false));
+
+    updateLabels();
+    setResolutionFromUi();
+    resetFilter('initialization');
+    listCameras();
+
+    if (isLocalFile()) {
+      els.localWarning.classList.remove('hidden');
+      els.startBtn.disabled = true;
+      setStatus('File locale rilevato: la camera non può essere richiesta da file://. Carica index.html su GitHub Pages oppure aprilo tramite un server locale.', 'bad');
+      log('Blocked before camera request: local file:// context. This is a browser security rule, not an app bug.');
+    } else if (!isCameraSecureContext()) {
+      els.localWarning.classList.remove('hidden');
+      els.startBtn.disabled = true;
+      setStatus('Contesto non sicuro: la camera funziona solo via HTTPS, localhost o GitHub Pages.', 'bad');
+      log('Blocked before camera request: insecure context.');
+    } else {
+      els.localWarning.classList.add('hidden');
+      readCameraPermissionState().then((state) => {
+        if (state === 'denied') {
+          setStatus('Permesso camera già negato per questo sito. Usa l’icona lucchetto/camera del browser per abilitarlo, poi premi “Avvia camera”.', 'bad');
+        } else if (state === 'granted') {
+          setStatus('Permesso camera già concesso. Premi “Avvia camera” per iniziare.', 'good');
+        } else {
+          setStatus('Premi “Avvia camera”: il browser aprirà direttamente la richiesta di permesso fotocamera.', 'warn');
+        }
+      });
+    }
+  </script>
+</body>
+</html>
