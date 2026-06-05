@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fisica del suono nel saxofono — V7</title>
+<style>
+
+:root{--bg:#070a0f;--slide:#101722;--panel:#17202c;--panel2:#202b3a;--ink:#f8fafc;--muted:#c7d2df;--soft:#8fa2b8;--gold:#f0be63;--cyan:#7bdff2;--green:#8ee08e;--red:#ff7b7b;--violet:#b89cff;--line:rgba(255,255,255,.14);--shadow:0 20px 70px rgba(0,0,0,.45)}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}body{overflow:hidden}.deck{position:fixed;inset:0;display:grid;place-items:center;padding:clamp(8px,1.5vmin,18px)}
+.slide{display:none;position:relative;width:min(1600px,calc(100vw - 1.4rem));height:min(900px,calc(100vh - 1.4rem));aspect-ratio:16/9;overflow:hidden;border-radius:24px;border:1px solid var(--line);background:radial-gradient(circle at 15% 10%,rgba(123,223,242,.13),transparent 28%),radial-gradient(circle at 85% 15%,rgba(240,190,99,.12),transparent 32%),linear-gradient(145deg,#121a26,#0b0f16 82%);box-shadow:var(--shadow)}.slide.active{display:block}.slideTop{position:absolute;left:30px;right:30px;top:18px;height:30px;display:flex;align-items:center;justify-content:space-between;color:var(--soft);font-size:13px;letter-spacing:.08em;text-transform:uppercase;z-index:5}.num{color:var(--gold);font-weight:800}.progress{position:absolute;left:0;right:0;bottom:0;height:5px;background:rgba(255,255,255,.05);z-index:5}.bar{height:100%;width:0;background:linear-gradient(90deg,var(--gold),var(--cyan));transition:width .25s ease}.content{position:absolute;inset:64px 34px 56px 34px;display:grid;grid-template-columns:minmax(420px,.90fr) minmax(540px,1.10fr);gap:28px;align-items:stretch}.content.wide{grid-template-columns:1fr}.text{min-width:0;display:flex;flex-direction:column;justify-content:center}.visual{min-width:0;min-height:0;display:grid;grid-template-rows:1fr auto;gap:12px;padding:14px;border-radius:22px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.03));box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}.content.wide+.visual{position:absolute;left:34px;right:34px;bottom:56px;height:240px}h1{font-size:clamp(42px,4.4vw,76px);line-height:.99;letter-spacing:-.045em;margin:0 0 18px;max-width:15ch}h2{font-size:clamp(30px,2.5vw,48px);line-height:1.06;letter-spacing:-.03em;margin:0 0 16px;max-width:20ch}.content.wide h2{max-width:30ch}.kicker{font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:12px}.subtitle{font-size:clamp(19px,1.55vw,28px);line-height:1.25;color:var(--muted);margin:-6px 0 18px}.body{font-size:clamp(17px,1.18vw,22px);line-height:1.38;color:#e9eef7}.body p{margin:.55em 0}.body ul,.body ol{margin:.5em 0 .25em 1.05em;padding:0}.body li{margin:.26em 0}.lead{font-size:clamp(24px,1.95vw,34px);line-height:1.18;color:white}.small{font-size:clamp(14px,.95vw,17px);color:var(--muted);line-height:1.35}.note{color:var(--muted)}.pillRow{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}.pill{border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:999px;padding:8px 12px;color:#eef;white-space:nowrap}.takeaway{margin-top:14px;padding:14px 16px;border-radius:16px;border-left:5px solid var(--gold);background:rgba(240,190,99,.10);color:#fff6df}.formula{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:1.0em;background:#080c12;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:12px 0;color:#fff}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{border:1px solid var(--line);background:rgba(255,255,255,.055);border-radius:18px;padding:15px}.card b{color:var(--gold)}.toc,.myths{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.toc .card,.myths .card{min-height:110px}.canvas{width:100%;height:100%;min-height:330px;display:block;border-radius:16px;border:1px solid rgba(255,255,255,.12);background:#071019}.ui{display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-height:42px;color:var(--muted);font-size:14px}.ui label{display:flex;align-items:center;gap:8px}.ui input[type=range]{width:145px;accent-color:var(--gold)}.ui select{background:#101722;color:white;border:1px solid var(--line);border-radius:999px;padding:6px 10px}button{border:1px solid var(--line);background:rgba(255,255,255,.08);color:white;border-radius:999px;padding:8px 12px;cursor:pointer}button:hover{background:rgba(255,255,255,.15)}.eq{color:var(--cyan)}.footerHint{position:absolute;right:30px;bottom:18px;color:var(--soft);font-size:13px}.posterGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;height:100%;align-items:center}.posterIcon{display:grid;place-items:center;min-height:180px;border-radius:22px;background:rgba(255,255,255,.06);border:1px solid var(--line);font-size:72px;color:var(--gold)}.refs{font-size:clamp(13px,0.88vw,16px);line-height:1.28;columns:2;column-gap:28px}.refs p{break-inside:avoid;margin:.25em 0 .7em}.titleSlide h1{max-width:13ch}
+@media (max-width:1050px),(max-aspect-ratio:1/1){body{overflow:auto}.deck{position:static;display:block;padding:8px}.slide{width:100%;height:auto;min-height:100vh;aspect-ratio:auto;overflow:auto;border-radius:18px}.slide:not(.active){display:none}.slideTop{position:sticky;top:0;left:auto;right:auto;background:rgba(11,14,19,.93);padding:12px 18px;height:auto}.content{position:static;display:grid;grid-template-columns:1fr;gap:18px;padding:58px 18px 54px}.visual{min-height:420px}.content.wide+.visual{position:static;margin:0 18px 54px;height:420px}.canvas{min-height:340px}.footerHint{display:none}.toc,.myths{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.refs{columns:1}}
+@media print{body{overflow:visible;background:white}.deck{display:block;position:static;padding:0}.slide{display:block!important;width:297mm;height:167mm;page-break-after:always;border-radius:0;box-shadow:none}.slideTop,.progress,.footerHint{display:none}}
+
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+<section class="slide active titleSlide">
+  <div class="slideTop"><span>Fisica del suono nel saxofono</span><span class="num">01 / 30</span></div>
+  <div class="content">
+    <div class="text"><div class="kicker">Acustica musicale per sassofonisti</div><h1>Dal respiro al suono: cosa controlla davvero il sax</h1><p class="subtitle">Un percorso pratico: ancia → tubo conico e fori → bocchino → tratto vocale → tecniche avanzate.</p><div class="pillRow"><span class="pill">30 slide</span><span class="pill">applet interattive</span><span class="pill">senza matematica superflua</span></div><p class="takeaway">Obiettivo: capire cosa succede quando una nota parte, non parte, si piega, salta all'ottava o diventa multifonico.</p></div>
+    <div class="visual"><canvas class="canvas" data-app="hero"></canvas><div class="ui">Energia continua del fiato → valvola ancia → risonatore → suono irradiato.</div></div>
+  </div><div class="progress"><div class="bar"></div></div><div class="footerHint">← → naviga · F schermo intero · clic sugli slider</div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Percorso della lezione</span><span class="num">02 / 30</span></div>
+  <div class="content wide">
+    <div class="text"><h2>La fisica che serve al musicista, nell’ordine giusto</h2><div class="body">
+<div class="toc"><div class="card"><b>1. Cosa oscilla?</b><p>Pressione e flusso: due grandezze che il sax trasforma in altezza e timbro.</p></div><div class="card"><b>2. Chi sceglie la nota?</b><p>Il tubo conico e i fori selezionano i regimi possibili tramite l’impedenza.</p></div><div class="card"><b>3. Chi accende il suono?</b><p>L’ancia è una valvola non lineare: troppo poca pressione dà aria, troppa chiude.</p></div><div class="card"><b>4. Come si controlla?</b><p>Bocchino, ancia, imboccatura e tratto vocale cambiano soglie e stabilità.</p></div><div class="card"><b>5. Perché le tecniche estese?</b><p>Altissimo, bending e multifonici sono altri regimi, non “magia”.</p></div><div class="card"><b>6. Come studiarlo?</b><p>Esperimenti semplici per collegare sensazione, spettro e risposta dello strumento.</p></div></div>
+</div></div>
+    
+  </div>
+  <div class="visual textVisual"><div class="posterGrid"><div class="posterIcon">♬</div><div class="posterIcon">≈</div><div class="posterIcon">Z</div></div><div class="ui">Sintesi concettuale.</div></div>
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Variabili fondamentali</span><span class="num">03 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Prima domanda pratica: quando “spingo”, cosa sto davvero cambiando?</h2><div class="body">
+<p>Nel sax non controlliamo direttamente la frequenza: controlliamo un <b>serbatoio di pressione</b>, una <b>valvola elastica</b> e un <b>risonatore</b>.</p>
+<ul><li><b>Pressione acustica</b> <span class="eq">p(t)</span> [Pa]: compressioni e rarefazioni, non la pressione media del fiato.</li><li><b>Flusso acustico</b> <span class="eq">U(t)</span> [m³/s]: volume d’aria che attraversa una sezione ogni secondo.</li><li><b>Frequenza</b> <span class="eq">f</span> [Hz]: velocità dell’oscillazione. L’altezza è la percezione di questa frequenza.</li></ul>
+<div class="formula">Impedenza d'ingresso: Z_in(f) = p(f) / U(f)  [Pa·s/m³]</div><p class="takeaway">Per il musicista: “resistenza” non è solo fatica. È il rapporto tra pressione che senti e flusso che passa.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="tubeVars"></canvas><div class="ui">Tubo didattico: colore = p(t), frecce = U(t), tacche = periodo T=1/f.</div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Onda sonora</span><span class="num">04 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Perché il suono può viaggiare senza “spostare” l’aria fino alla campana?</h2><div class="body">
+<p>Le particelle d’aria non corrono dal bocchino alla campana: oscillano avanti e indietro intorno alla posizione media. A viaggiare è la perturbazione di pressione.</p><p>Questa distinzione è cruciale: il fiato fornisce energia quasi continua, ma il sax deve trasformarla in una oscillazione periodica.</p><p class="note">L’applet è ispirata all’approccio visuale di Fisica Onde Musica/Unimore: prima si vede il fenomeno, poi si nomina la grandezza [R1].</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="particles"></canvas><div class="ui"><label>ampiezza <input type="range" data-param="amp" min="0.2" max="1.5" step="0.01" value="0.8"></label><label>f [Hz] <input type="range" data-param="freq" min="80" max="520" step="1" value="220"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Onda stazionaria</span><span class="num">05 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Perché alcune note “agganciano” e altre sembrano scappare?</h2><div class="body">
+<p>Nel tubo convivono un’onda che va verso la campana e una riflessa. Quando si sommano con la fase giusta, nasce un’onda stazionaria.</p><p>Nel sax reale il bocchino non è un tappo ideale e la campana non è un’apertura ideale, ma il principio resta: i modi stabili hanno una distribuzione precisa di pressione e flusso.</p><p class="takeaway">Un attacco pulito è il momento in cui ancia e risonatore trovano un ciclo comune.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="standing"></canvas><div class="ui"><label>modo n <input type="range" data-param="mode" min="1" max="6" step="1" value="2"></label><label>riflessione <input type="range" data-param="refl" min="0.2" max="1" step="0.01" value="0.9"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Spettro e timbro</span><span class="num">06 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Perché due sax sulla stessa nota non suonano uguali?</h2><div class="body">
+<p>La nota non è una sinusoide pura. È un pacchetto di fondamentale, armonici, transitorio, rumore di soffio e piccole componenti non armoniche.</p><p><b>FFT</b>: fotografia dello spettro in un istante. <b>STFT</b>: spettro che scorre nel tempo. In aula è il modo più rapido per vedere il timbro.</p><p class="note">Il microfono richiede permesso del browser. Se non funziona, la demo sintetica genera una nota tipo sax con armonici variabili.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="spectral"></canvas><div class="ui"><button id="micBtn">Microfono</button><button id="demoBtn">Demo sintetica</button><button id="stopAudio">Stop</button><span id="audioState">Pronto</span></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Impedenza</span><span class="num">07 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Perché una diteggiatura “preferisce” certe frequenze?</h2><div class="body">
+<p>L’impedenza d’ingresso <span class="eq">Z_in(f)</span> è la risposta vista dall’ancia: a quali frequenze una piccola variazione di flusso produce una grande variazione di pressione.</p><p>Un picco di impedenza è una <b>candidata nota stabile</b>. Picchi alti e coerenti aiutano l’ancia; picchi bassi, larghi o multipli rendono l’attacco più fragile o aprono regimi speciali.</p><p class="takeaway">Dire “questa nota è chiusa” spesso significa: il picco giusto non è abbastanza forte, o compete con altri picchi.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="impIntro"></canvas><div class="ui">Picchi normalizzati di Z_in(f): non valori assoluti, ma geometria concettuale.</div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Cilindro e cono</span><span class="num">08 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Perché il clarinetto sovracuta alla dodicesima e il sax all’ottava?</h2><div class="body">
+<p>Qui l’applet è volutamente “alla Unimore”: geometria, condizioni al contorno e frequenze normalizzate sono nello stesso disegno.</p><ul><li><b>Cilindro chiuso-aperto</b>: pressione massima al bocchino, minima all’apertura; compaiono soprattutto armonici dispari <span class="eq">1, 3, 5…</span>.</li><li><b>Cono chiuso all’apice acustico e aperto alla campana</b>: la serie è quasi completa <span class="eq">1, 2, 3, 4…</span>, quindi l’ottava è naturale.</li></ul><p class="note">Lo slider interpola didatticamente tra i due casi: non è un solver FEM, ma visualizza perché il cono “fa comparire” il secondo modo.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="boreModes"></canvas><div class="ui"><label>forma: cilindro → cono <input type="range" data-param="geom" min="0" max="1" step="0.01" value="1"></label><label>modo mostrato <input type="range" data-param="mode" min="1" max="5" step="1" value="2"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Sax reale</span><span class="num">09 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Il sax non è un cono perfetto: è un sistema compensato</h2><div class="body">
+<p>Il sax reale è un cono troncato. L’apice acustico sta “dietro” al bocchino; il bocchino, l’ancia e il volume della camera compensano l’apice mancante.</p><p>Fori, camino delle chiavi, campana e perdite rendono i picchi meno ideali. Per questo le misure di impedenza per ogni diteggiatura sono così informative [R2].</p><p class="takeaway">La diteggiatura non impone una frequenza: prepara un paesaggio di picchi su cui l’ancia può stabilizzarsi.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="realSax"></canvas><div class="ui"><label>perdite distribuite <input type="range" data-param="loss" min="0.10" max="1.20" step="0.01" value="0.45"></label><label>compensazione bocchino <input type="range" data-param="comp" min="0" max="1" step="0.01" value="0.65"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Fori e perdite</span><span class="num">10 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Perché una chiave che perde uccide soprattutto le note basse?</h2><div class="body">
+<p>Una fuga non è solo “aria che esce”: è una derivazione laterale che cambia l’impedenza del tubo. Se cade vicino a un antinodo di pressione, assorbe energia proprio dove il modo ne ha bisogno.</p><p>Effetto pratico: picchi più bassi e più larghi, attacco meno netto, instabilità e intonazione che scappa.</p><p class="note">La scala è normalizzata; ciò che conta è il confronto tra chiusura ideale e perdita.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="leak"></canvas><div class="ui"><label>perdita [% area foro] <input type="range" data-param="leak" min="0" max="12" step="0.1" value="0"></label><label>posizione fuga <input type="range" data-param="pos" min="0.1" max="0.9" step="0.01" value="0.55"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Lunghezza effettiva</span><span class="num">11 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Perché le diteggiature alternative possono intonare meglio?</h2><div class="body">
+<p>Nel modello ideale del cono, aumentando <span class="eq">L_eff</span> tutti i picchi scendono. Nel sax reale però i fori aperti e la campana introducono correzioni di estremità che crescono con frequenza.</p><p>L’app mostra un cono orientato correttamente: apice/bocchino a sinistra, campana aperta a destra. Le frequenze sono in Hz, l’impedenza è normalizzata.</p><p class="takeaway">Una diteggiatura alternativa non è solo “mezzo tono più in su”: modifica la distribuzione dei picchi e quindi la suonabilità.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="lengthZ"></canvas><div class="ui"><label>L_eff [m] <input type="range" data-param="L" min="0.38" max="1.45" step="0.01" value="0.78"></label><label>correzione fori/campana <input type="range" data-param="holes" min="0" max="1" step="0.01" value="0.35"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Bocchino</span><span class="num">12 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Perché il bocchino non si può ridurre a “volume della camera”?</h2><div class="body">
+<p>Il bocchino è un tratto acustico corto ma molto influente: camera, baffle, facing, finestra, rail e volume sotto l’ancia cambiano inerzia, perdite e fase del flusso.</p><p>I modelli moderni del laboratorio di Scavone descrivono il bocchino con una <b>matrice di trasferimento</b>: ciò che entra come pressione/flusso non esce uguale, e l’effetto dipende dalla frequenza [R4]. Il dataset e i modelli recenti di Greco vanno nella stessa direzione: il bocchino va caratterizzato come sottosistema, non come semplice cavità [R8].</p><p class="takeaway">Per il musicista: due bocchini con stesso tip opening possono avere soglie e timbro molto diversi.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="mouthpieceTM"></canvas><div class="ui"><label>camera [cm³] <input type="range" data-param="V" min="5" max="11" step="0.1" value="7.5"></label><label>baffle <input type="range" data-param="baffle" min="0" max="1" step="0.01" value="0.45"></label><label>facing <input type="range" data-param="facing" min="0" max="1" step="0.01" value="0.55"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Ancia come valvola</span><span class="num">13 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Quando il fiato diventa suono?</h2><div class="body">
+<p>Immagina la bocca come una camera a pressione quasi costante. L’aria prova a uscire dalla fessura ancia-bocchino. La differenza di pressione piega l’ancia, che cambia la fessura, quindi cambia il flusso.</p><ul><li><b>Poca pressione:</b> flusso quasi continuo, rumore d’aria, nessun ciclo stabile.</li><li><b>Pressione intermedia:</b> ancia e tubo si sincronizzano; il flusso diventa armonico/periodico.</li><li><b>Troppa pressione:</b> l’ancia batte sul lay, il flusso si clippa o si chiude.</li></ul>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="reedValve"></canvas><div class="ui"><label>P_m [kPa] <input type="range" data-param="Pm" min="0.5" max="9" step="0.1" value="3.2"></label><label>rigidità ancia <input type="range" data-param="k" min="0.6" max="1.7" step="0.01" value="1.0"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Punto di lavoro</span><span class="num">14 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Dove sto lavorando sulla curva ancia-risonatore?</h2><div class="body">
+<p>La curva blu è la valvola ancia: per una differenza di pressione <span class="eq">Δp</span> il flusso prima cresce, poi cala perché l’ancia chiude la fessura. La curva oro è il carico acustico del risonatore.</p><p>Il punto bianco è il punto di lavoro. Muovendo la pressione della bocca vedi se il sistema resta in aria, entra nel regime suonabile o va in beating. A destra compare il segnale teorico associato.</p><p class="takeaway">Le due curve devono essere sempre lette insieme: l’ancia senza tubo non definisce la nota, il tubo senza ancia non genera energia.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="operating"></canvas><div class="ui"><label>P_m/P_c <input type="range" data-param="gamma" min="0" max="1.35" step="0.01" value="0.48"></label><label>forza picco Z <input type="range" data-param="Z" min="0.45" max="1.8" step="0.01" value="1.0"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Biforcazioni</span><span class="num">15 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Perché l’attacco e lo spegnimento non avvengono alla stessa pressione?</h2><div class="body">
+<p>Negli strumenti ad ancia il regime stabile può mostrare isteresi: nel crescendo il suono parte sopra una soglia; nel diminuendo può restare vivo sotto quella soglia.</p><p>Il diagramma mostra ampiezza stabile contro pressione di bocca normalizzata. Il ramo <b>crescendo</b> e il ramo <b>diminuendo</b> non coincidono. La zona rossa rappresenta il beating/chiusura.</p><p class="note">È una mappa qualitativa basata sui modelli non lineari ancia-risonatore: utile per capire soglie, non per predire un setup commerciale.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="bifurcation"></canvas><div class="ui"><label>P_m/P_c <input type="range" data-param="gamma" min="0" max="1.45" step="0.01" value="0.52"></label><label>percorso <select data-param="path"><option value="up">crescendo</option><option value="down">diminuendo</option></select></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Risonanza dell’ancia</span><span class="num">16 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>L’ancia ha una frequenza propria, ma non è la nota che senti</h2><div class="body">
+<p>Le prime risonanze meccaniche dell’ancia sono spesso molto più alte della fondamentale suonata. L’ancia funziona soprattutto come <b>valvola modulatrice</b>: apre, chiude e inietta energia nei modi del tubo.</p><p>Se la risonanza/meccanica dell’ancia e il suo smorzamento sono inadatti, cambiano soglia, risposta e ricchezza armonica, ma la frequenza fondamentale resta normalmente vicina a un picco del tubo.</p><p class="takeaway">Una canna “più pronta” non ha semplicemente una frequenza più bassa: ha una mobilità e uno smorzamento compatibili col tuo setup.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="reedRes"></canvas><div class="ui"><label>f_r ancia [Hz] <input type="range" data-param="fr" min="1200" max="4200" step="20" value="2400"></label><label>smorzamento <input type="range" data-param="damp" min="0.1" max="1" step="0.01" value="0.5"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Portavoce</span><span class="num">17 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Perché il foro di registro aiuta l’ottava?</h2><div class="body">
+<p>Il portavoce non “crea” l’ottava: indebolisce il regime fondamentale e favorisce un modo superiore. È efficace se posto dove il modo fondamentale ha pressione significativa e il modo desiderato è meno penalizzato.</p><p>Nel sax, l’ottava è già favorita dalla geometria conica; il portavoce serve a rendere stabile la scelta del modo alto e a evitare che l’ancia torni al regime basso.</p><p class="takeaway">Quando l’ottava è instabile, spesso non manca pressione: manca selezione del modo.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="register"></canvas><div class="ui"><label>apertura portavoce <input type="range" data-param="vent" min="0" max="1" step="0.01" value="0.35"></label><label>pressione relativa <input type="range" data-param="gamma" min="0" max="1" step="0.01" value="0.55"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Tratto vocale</span><span class="num">18 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Cosa cambia davvero quando pensi “A-E-I-U”?</h2><div class="body">
+<p>Il tratto vocale è un secondo risonatore, controllato da lingua, palato, mandibola e gola. Nel registro ordinario il tubo domina; in altissimo, bugling, bending, subtone e multifonici la sua impedenza può diventare comparabile [R5, R6].</p><p>L’app mostra tre curve: impedenza dello strumento, impedenza della bocca e curva combinata. Non è “cantare nel sax”: è cambiare il carico acustico visto dall’ancia.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="vocalSum"></canvas><div class="ui"><label>vocale <select data-param="vowel"><option value="a">A aperta</option><option value="e">E</option><option value="i">I alta</option><option value="u">U scura</option></select></label><label>forza Z_vocale <input type="range" data-param="strength" min="0" max="1.4" step="0.01" value="0.75"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Altissimo</span><span class="num">19 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Altissimo: scegliere un picco, non schiacciare più aria</h2><div class="body">
+<p>Una diteggiatura può presentare molti picchi. Il musicista esperto accorda una risonanza orale ampia ma significativa vicino al picco che vuole selezionare.</p><p>Lo slider evidenzia lo stesso picco nel grafico di impedenza e nella forma d’onda teorica. Il collegamento è importante: senza coordinamento grafico, “scegliere il picco” resta una frase astratta.</p><p class="takeaway">Il gesto pratico è piccolo: lingua e cavità orale cambiano il carico; la pressione da sola spesso peggiora la stabilità.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="peakSelect"></canvas><div class="ui"><label>picco selezionato <input type="range" data-param="peak" min="1" max="8" step="1" value="4"></label><label>supporto vocal tract <input type="range" data-param="support" min="0" max="1" step="0.01" value="0.65"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Bending</span><span class="num">20 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Nel bending la bocca sposta il punto di equilibrio, non il tubo fisico</h2><div class="body">
+<p>Col bending modifichi la geometria orale e l’imboccatura. Questo cambia fase e ampiezza dell’impedenza vista dall’ancia e sposta leggermente la frequenza verso un picco combinato strumento+bocca.</p><p>Il limite è la stabilità: oltre un certo spostamento il ciclo limite perde coerenza, il timbro si sporca o la nota salta.</p><p class="note">La curva bianca non è somma aritmetica universale: rappresenta qualitativamente il carico equivalente del sistema accoppiato.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="bending"></canvas><div class="ui"><label>posizione bocca <input type="range" data-param="mouth" min="0" max="1" step="0.01" value="0.45"></label><label>forza accoppiamento <input type="range" data-param="force" min="0" max="1" step="0.01" value="0.5"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Multifonici</span><span class="num">21 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Multifonici: perché non sono semplicemente “due note insieme”?</h2><div class="body">
+<p>Le diteggiature multifoniche costruiscono un’impedenza anomala: più picchi comparabili, spesso non armonici, entrano nella finestra di lavoro dell’ancia [R7].</p><p>La non linearità dell’ancia accoppia i modi; separazioni di flusso e moti vorticosi in bocchino, fori e zone di discontinuità aggiungono rumore e componenti broadband. I pitch percepiti sono i modi dominanti, non una somma lineare di canne semplici.</p><p class="takeaway">Per studiarli: prima stabilizza il regime, poi cerca la finestra di pressione e vocal tract che non fa vincere un solo picco.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="multiphonics"></canvas><div class="ui"><label>complessità impedenza <input type="range" data-param="complex" min="0" max="1" step="0.01" value="0.65"></label><label>vortici/rumore <input type="range" data-param="noise" min="0" max="1" step="0.01" value="0.35"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Setup ancia-bocchino</span><span class="num">22 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Come setup diversi cambiano la mappa di suonabilità?</h2><div class="body">
+<p>Apertura punta, facing, durezza e smorzamento dell’ancia spostano soglia di attacco, soglia di estinzione, ampiezza stabile e zona di beating.</p><p>Questo rende sensata una prova professionale: non chiederti solo “è più scuro?”, ma “dove parte, dove si spegne, quanto è ampia la zona stabile, quanto tollera il diminuendo?”.</p><p class="takeaway">La scelta del setup è una scelta di diagramma di biforcazione, percepita come comfort, controllo e range dinamico.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="setupMap"></canvas><div class="ui"><label>apertura punta [mm] <input type="range" data-param="tip" min="1.2" max="3.4" step="0.05" value="2.0"></label><label>durezza ancia <input type="range" data-param="hard" min="1" max="5" step="0.1" value="3"></label><label>facing <input type="range" data-param="face" min="0" max="1" step="0.01" value="0.5"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Attacco</span><span class="num">23 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Perché un attacco pulito è un transitorio, non un interruttore?</h2><div class="body">
+<p>All’attacco il sistema passa da equilibrio statico a ciclo limite. Lingua, rampa di pressione, apertura dell’ancia e fase della risonanza determinano se l’oscillazione nasce subito o con aria/colpo.</p><p>Una rampa troppo rapida può portare direttamente al beating; una troppo lenta resta sotto soglia. La lingua non “fa il suono”: prepara le condizioni iniziali.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="attack"></canvas><div class="ui"><label>rampa pressione [ms] <input type="range" data-param="ramp" min="20" max="600" step="5" value="140"></label><label>chiusura lingua <input type="range" data-param="tongue" min="0" max="1" step="0.01" value="0.45"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Dinamica e timbro</span><span class="num">24 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Perché suonare più forte cambia anche il colore?</h2><div class="body">
+<p>Aumentare la pressione non aumenta solo l’ampiezza: deforma la forma d’onda, rende il flusso più impulsivo e aumenta armonici alti e rumore.</p><p>Il timbro finale è filtrato tre volte: generatore ancia-bocchino, corpo dello strumento, radiazione da fori e campana.</p><p class="takeaway">Il controllo professionale del forte è controllo della distorsione, non semplice aumento di volume.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="dynamics"></canvas><div class="ui"><label>pressione <input type="range" data-param="drive" min="0" max="1" step="0.01" value="0.55"></label><label>imboccatura <input type="range" data-param="emb" min="0" max="1" step="0.01" value="0.5"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Intonazione</span><span class="num">25 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Perché tirare il bocchino non corregge tutto?</h2><div class="body">
+<p>Muovere il bocchino cambia la lunghezza acustica globale, ma non sposta allo stesso modo tutti i picchi e tutti i registri. Per questo uno strumento può essere accordato al centro e problematico su note specifiche.</p><p>Il controllo orale e le diteggiature alternative correggono localmente, ma se usati oltre la zona stabile alterano attacco e timbro.</p><p class="takeaway">Accorda il centro, poi correggi i punti critici con diteggiature, vocal tract e ascolto armonico.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="intonation"></canvas><div class="ui"><label>bocchino [mm] <input type="range" data-param="pull" min="-6" max="8" step="0.1" value="0"></label><label>correzione orale [cent] <input type="range" data-param="oral" min="-45" max="45" step="1" value="0"></label></div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Miti utili da sfatare</span><span class="num">26 / 30</span></div>
+  <div class="content wide">
+    <div class="text"><h2>Cosa è vero, cosa è incompleto?</h2><div class="body">
+<div class="myths"><div class="card"><b>“Il materiale fa il suono”</b><p>Il materiale conta soprattutto se cambia geometria, massa, smorzamento o perdite. La geometria acustica domina.</p></div><div class="card"><b>“Più aria = più suono”</b><p>Serve pressione e flusso nel regime giusto; oltre soglia l’ancia può chiudere o distorcere.</p></div><div class="card"><b>“Il bocchino è solo apertura”</b><p>Camera, baffle, facing e perdite cambiano la matrice acustica del sistema.</p></div><div class="card"><b>“Altissimo = mordere”</b><p>Mordere aumenta controllo apparente ma spesso riduce la finestra stabile. La selezione viene da picchi e vocal tract.</p></div></div>
+</div></div>
+    
+  </div>
+  <div class="visual textVisual"><div class="posterGrid"><div class="posterIcon">♬</div><div class="posterIcon">≈</div><div class="posterIcon">Z</div></div><div class="ui">Sintesi concettuale.</div></div>
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Routine di studio</span><span class="num">27 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Esercizi che isolano variabili fisiche</h2><div class="body">
+<ol><li><b>Soglia:</b> attacchi senza lingua da aria a suono. Cerca la pressione minima di partenza.</li><li><b>Isteresi:</b> crescendo e diminuendo lunghi. Nota se il suono si spegne sotto la soglia di attacco.</li><li><b>Overtones:</b> stessa diteggiatura, modi diversi. Allena la selezione dei picchi.</li><li><b>Vocali mute:</b> A-E-I-U su armonici e altissimo, senza aggiungere pressione.</li><li><b>Setup:</b> cambia una variabile alla volta e annota soglia, stabilità, timbro, intonazione.</li></ol>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="practice"></canvas><div class="ui">Mappa esercizio → variabile fisica allenata.</div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Mini-lab</span><span class="num">28 / 30</span></div>
+  <div class="content">
+    <div class="text"><h2>Cosa puoi misurare senza laboratorio di impedenza?</h2><div class="body">
+<p>Con telefono/microfono puoi osservare spettro, STFT, stabilità di attacco, drift di intonazione, presenza di rumore e cambi di armonici.</p><p>Non misuri direttamente <span class="eq">Z_in(f)</span>: quella richiede sorgenti calibrate e metodi specifici [R2, R9]. Però puoi collegare sensazione e pattern oggettivi.</p><p class="takeaway">Regola: stesso microfono, stessa distanza, stesso ambiente, stesso frammento musicale.</p>
+</div></div>
+    <div class="visual"><canvas class="canvas" data-app="measurement"></canvas><div class="ui">Workflow consigliato: registra → guarda FFT/STFT → annota setup → confronta.</div></div>
+  </div>
+  
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Takeaway finale</span><span class="num">29 / 30</span></div>
+  <div class="content wide">
+    <div class="text"><h2>La frase più importante della lezione</h2><div class="body">
+<p class="lead">Il saxofono non è un tubo che amplifica il fiato: è un sistema auto-oscillante in cui ancia, bocchino, tubo e tratto vocale negoziano un regime stabile.</p><div class="grid2"><div class="card"><b>Quando una nota funziona</b><p>La pressione alimenta la valvola, il tubo offre un picco coerente, il vocal tract non lo ostacola, il setup resta nella zona stabile.</p></div><div class="card"><b>Quando una nota non funziona</b><p>La soglia è sbagliata, la perdita abbassa il picco, il bocchino altera la fase, l’ancia chiude o un altro modo compete.</p></div></div><p class="takeaway">Studiare il sax significa imparare a riconoscere e spostare queste soglie.</p>
+</div></div>
+    
+  </div>
+  <div class="visual textVisual"><div class="posterGrid"><div class="posterIcon">♬</div><div class="posterIcon">≈</div><div class="posterIcon">Z</div></div><div class="ui">Sintesi concettuale.</div></div>
+  <div class="progress"><div class="bar"></div></div>
+</section>
+<section class="slide ">
+  <div class="slideTop"><span>Riferimenti</span><span class="num">30 / 30</span></div>
+  <div class="content wide">
+    <div class="text"><h2>Fonti usate e corrispondenza con le slide</h2><div class="body">
+<div class="refs"><p><b>R0.</b> Gioele Greco, <i>Saxophone: From wood to brass between physics</i>, presentazione originale: impedenza, modello ancia, bocchino, esperimenti di risonanza. Slide 3–15, 22.</p><p><b>R1.</b> Fisica Onde Musica, Università di Modena e Reggio Emilia: onde, risonanza, canne cilindriche/coniche, applet didattiche. Slide 4, 5, 8.</p><p><b>R2.</b> Chen, Smith, Wolfe, <i>Saxophone acoustics: introducing a compendium of impedance and sound spectra</i>, Acoustics Australia 2009. Slide 7–11, 17, 28.</p><p><b>R3.</b> Fletcher & Rossing, <i>The Physics of Musical Instruments</i>. Slide 3–8, 13–16, 24.</p><p><b>R4.</b> Wang, Maestre, Scavone, <i>Acoustical modeling of the saxophone mouthpiece as a transfer matrix</i>, JASA 2021. Slide 12, 22.</p><p><b>R5.</b> Chen, Smith, Wolfe, <i>Saxophonists tune vocal tract resonances in advanced performance techniques</i>, JASA 2011. Slide 18–20.</p><p><b>R6.</b> Chen et al., <i>Experienced saxophonists learn to tune their vocal tracts</i>, Science 2008. Slide 18–20.</p><p><b>R7.</b> Letteratura su modelli non lineari, biforcazioni, ghost reed e multifonici in strumenti ad ancia. Slide 14, 15, 21, 22.</p><p><b>R8.</b> Greco / mouthpiece dataset e modelli data-driven per bocchini di sax. Slide 12.</p><p><b>R9.</b> Dickens, Smith, Wolfe, misure di impedenza con carichi di calibrazione. Slide 28.</p></div>
+</div></div>
+    
+  </div>
+  <div class="visual textVisual"><div class="posterGrid"><div class="posterIcon">♬</div><div class="posterIcon">≈</div><div class="posterIcon">Z</div></div><div class="ui">Sintesi concettuale.</div></div>
+  <div class="progress"><div class="bar"></div></div>
+</section>
+</div>
+<script>
+
+// Interactive slide deck: all drawings are procedural and offline-capable.
+const $=(s,e=document)=>e.querySelector(s), $$=(s,e=document)=>Array.from(e.querySelectorAll(s));
+const slides=$$('.slide'); let current=0; const TAU=Math.PI*2, C=343, t0=performance.now();
+function show(i){current=(i+slides.length)%slides.length;slides.forEach((s,k)=>s.classList.toggle('active',k===current));$$('.bar').forEach((b,k)=>b.style.width=(k===current?((current+1)/slides.length*100)+'%':'0%'));renderAll();}
+window.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();show(current+1)} if(e.key==='ArrowLeft'){e.preventDefault();show(current-1)} if(e.key.toLowerCase()==='f'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{})}});
+function fit(c){const dpr=Math.min(2,window.devicePixelRatio||1);const r=c.getBoundingClientRect();const w=Math.max(320,Math.floor(r.width*dpr)),h=Math.max(240,Math.floor(r.height*dpr));if(c.width!==w||c.height!==h){c.width=w;c.height=h}const ctx=c.getContext('2d');ctx.setTransform(1,0,0,1,0,0);return [ctx,w,h,dpr]}
+function params(c){let o={};$$('[data-param]',c.closest('.slide')).forEach(el=>{o[el.dataset.param]=el.tagName==='SELECT'?el.value:parseFloat(el.value)});return o}
+function clear(ctx,w,h){ctx.clearRect(0,0,w,h);ctx.fillStyle='#071019';ctx.fillRect(0,0,w,h);}
+function txt(ctx,s,x,y,size=16,color='#fff',align='left'){ctx.fillStyle=color;ctx.font=`${size}px Inter, system-ui, sans-serif`;ctx.textAlign=align;ctx.textBaseline='middle';ctx.fillText(s,x,y)}
+function line(ctx,pts,color='#7bdff2',lw=2){ctx.strokeStyle=color;ctx.lineWidth=lw;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke()}
+function round(ctx,x,y,w,h,r=16){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
+function axes(ctx,x,y,w,h,xlab='',ylab=''){ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=1.5;ctx.strokeRect(x,y,w,h);ctx.strokeStyle='rgba(255,255,255,.08)';for(let i=1;i<5;i++){ctx.beginPath();ctx.moveTo(x+i*w/5,y);ctx.lineTo(x+i*w/5,y+h);ctx.moveTo(x,y+i*h/5);ctx.lineTo(x+w,y+i*h/5);ctx.stroke()}txt(ctx,xlab,x+w/2,y+h+24,13,'#9fb0c5','center');ctx.save();ctx.translate(x-28,y+h/2);ctx.rotate(-Math.PI/2);txt(ctx,ylab,0,0,13,'#9fb0c5','center');ctx.restore();}
+function arrow(ctx,x1,y1,x2,y2,color='#c2cfdd',lw=2){ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=lw;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();const a=Math.atan2(y2-y1,x2-x1);ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-10*Math.cos(a-.5),y2-10*Math.sin(a-.5));ctx.lineTo(x2-10*Math.cos(a+.5),y2-10*Math.sin(a+.5));ctx.closePath();ctx.fill();}
+function drawCone(ctx,x,y,w,h,geom=1){ctx.strokeStyle='rgba(255,255,255,.78)';ctx.lineWidth=4;ctx.beginPath();const narrow=h*(0.28+0.30*(1-geom));const wide=h;ctx.moveTo(x,y+h/2-narrow/2);ctx.lineTo(x+w,y+h/2-wide/2);ctx.moveTo(x,y+h/2+narrow/2);ctx.lineTo(x+w,y+h/2+wide/2);ctx.stroke();ctx.strokeStyle='#f0be63';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,y+h/2-narrow/2);ctx.lineTo(x,y+h/2+narrow/2);ctx.stroke();ctx.strokeStyle='#7bdff2';ctx.beginPath();ctx.moveTo(x+w,y+h/2-wide/2);ctx.lineTo(x+w,y+h/2+wide/2);ctx.stroke();txt(ctx,'bocchino / apice acustico',x+8,y+h+18,13,'#f0be63');txt(ctx,'campana aperta',x+w-5,y+h+18,13,'#7bdff2','right');}
+function drawCylinder(ctx,x,y,w,h){ctx.strokeStyle='rgba(255,255,255,.78)';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+w,y);ctx.moveTo(x,y+h);ctx.lineTo(x+w,y+h);ctx.stroke();ctx.strokeStyle='#f0be63';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y+h);ctx.stroke();ctx.strokeStyle='#7bdff2';ctx.beginPath();ctx.moveTo(x+w,y);ctx.lineTo(x+w,y+h);ctx.stroke();}
+function spectrum(f,peaks){let s=0;for(const [fc,bw,amp] of peaks)s+=amp/(1+((f-fc)/bw)**2);return s}
+function plotSpectrum(ctx,x,y,w,h,peaks,fmax=2000,color='#7bdff2',highlight=-1){axes(ctx,x,y,w,h,'f [Hz]','Z norm.');let max=0;for(let i=0;i<=800;i++)max=Math.max(max,spectrum(i/800*fmax,peaks));let pts=[];for(let i=0;i<=800;i++){const f=i/800*fmax;pts.push([x+i/800*w,y+h-(spectrum(f,peaks)/max)*h*.90]);}line(ctx,pts,color,2.4);ctx.fillStyle=color;peaks.forEach((p,i)=>{const px=x+p[0]/fmax*w;if(px<x||px>x+w)return;ctx.globalAlpha=i===highlight?1:.45;ctx.beginPath();ctx.arc(px,y+h-(spectrum(p[0],peaks)/max)*h*.90, i===highlight?7:4,0,TAU);ctx.fill();txt(ctx,Math.round(p[0])+'',px,y+h+14,10,color,'center')});ctx.globalAlpha=1;}
+function appHero(c){const[ctx,w,h]=fit(c),time=(performance.now()-t0)/1000;clear(ctx,w,h);const y=h*.52;txt(ctx,'bocca',w*.10,h*.20,16,'#f0be63');txt(ctx,'ancia',w*.32,h*.20,16,'#7bdff2');txt(ctx,'tubo conico',w*.56,h*.20,16,'#fff');txt(ctx,'campana',w*.86,h*.20,16,'#8ee08e','center');arrow(ctx,w*.13,y,w*.28,y,'#f0be63',4);drawCone(ctx,w*.46,h*.38,w*.38,h*.22,1);for(let i=0;i<20;i++){const x=w*.08+((time*90+i*45)%(w*.82));ctx.fillStyle=i%2?'#7bdff2':'#f0be63';ctx.globalAlpha=.55;ctx.beginPath();ctx.arc(x,y+Math.sin(time*3+i)*18,4,0,TAU);ctx.fill()}ctx.globalAlpha=1;let pts=[];for(let i=0;i<400;i++){const x=w*.14+i/399*w*.74;pts.push([x,h*.78-Math.sin(i/399*TAU*6-time*4)*32*Math.exp(-((i/399-.72)**2)/.42)]);}line(ctx,pts,'#8ee08e',3);txt(ctx,'energia continua → oscillazione auto-sostenuta',w*.5,h*.90,18,'#c2cfdd','center');}
+function appTubeVars(c){const[ctx,w,h]=fit(c),time=(performance.now()-t0)/1000;clear(ctx,w,h);drawCylinder(ctx,w*.10,h*.34,w*.78,h*.24);for(let i=0;i<46;i++){const x=w*.12+i*w*.76/45;const phase=TAU*(i/12-time*1.4);const p=Math.sin(phase);ctx.fillStyle=p>0?'rgba(255,123,123,.55)':'rgba(123,223,242,.45)';ctx.beginPath();ctx.arc(x,h*.46,7+4*Math.abs(p),0,TAU);ctx.fill();if(i%5===0)arrow(ctx,x,h*.64,x+Math.cos(phase)*30,h*.64,'#f0be63',2)}txt(ctx,'p(t) [Pa] = colore: rosso compressione, blu rarefazione',w*.5,h*.18,16,'#fff','center');txt(ctx,'U(t) [m³/s] = frecce di volume attraverso la sezione',w*.5,h*.73,16,'#f0be63','center');txt(ctx,'f [Hz] = oscillazioni al secondo',w*.5,h*.83,16,'#7bdff2','center');}
+function appParticles(c){const[ctx,w,h]=fit(c),p=params(c),time=(performance.now()-t0)/1000;clear(ctx,w,h);const amp=p.amp||.8,f=p.freq||220;for(let i=0;i<24;i++){for(let j=0;j<7;j++){const baseX=w*.08+i*w*.84/23, baseY=h*.25+j*h*.48/6;const phase=TAU*(i/10-time*f/220);const dx=Math.sin(phase)*20*amp;ctx.fillStyle='rgba(255,255,255,.75)';ctx.beginPath();ctx.arc(baseX+dx,baseY,3,0,TAU);ctx.fill();}}let pts=[];for(let i=0;i<500;i++){const x=w*.08+i/499*w*.84;pts.push([x,h*.82-Math.sin(i/499*TAU*4-time*f/60)*35*amp]);}line(ctx,pts,'#7bdff2',3);txt(ctx,'particelle: oscillano localmente',w*.5,h*.12,17,'#fff','center');txt(ctx,`f = ${Math.round(f)} Hz · ampiezza relativa = ${amp.toFixed(2)}`,w*.5,h*.93,14,'#c2cfdd','center');}
+function appStanding(c){const[ctx,w,h]=fit(c),p=params(c),time=(performance.now()-t0)/1000;clear(ctx,w,h);const n=p.mode||2,refl=p.refl||.9;drawCone(ctx,w*.10,h*.16,w*.80,h*.20,1);const x0=w*.12,x1=w*.88,mid=h*.50;let pts=[];for(let i=0;i<600;i++){const x=i/599;const wave=Math.sin(n*Math.PI*x)*Math.cos(time*TAU*1.4);pts.push([x0+x*(x1-x0),mid-wave*h*.22*refl]);}line(ctx,pts,'#7bdff2',3);for(let k=0;k<=n;k++){const xx=x0+k/n*(x1-x0);ctx.strokeStyle='rgba(255,255,255,.20)';ctx.beginPath();ctx.moveTo(xx,mid-h*.26);ctx.lineTo(xx,mid+h*.26);ctx.stroke();}txt(ctx,'pressione p(x,t): nodo alla campana, antinodo verso il bocchino',w*.5,h*.83,16,'#fff','center');txt(ctx,`modo n=${n} · riflessione=${refl.toFixed(2)}`,w*.5,h*.92,14,'#c2cfdd','center');}
+// audio/STFT demo
+let audioCtx=null, analyser=null, micStream=null, demoOsc=null, demoGain=null, specHist=[];
+function initAudioButtons(){const mic=$('#micBtn'), demo=$('#demoBtn'), stop=$('#stopAudio'), state=$('#audioState'); if(!mic||mic.dataset.bound)return; mic.dataset.bound=1;mic.onclick=async()=>{try{audioCtx=new (window.AudioContext||window.webkitAudioContext)();micStream=await navigator.mediaDevices.getUserMedia({audio:true});const src=audioCtx.createMediaStreamSource(micStream);analyser=audioCtx.createAnalyser();analyser.fftSize=2048;src.connect(analyser);state.textContent='Microfono attivo'}catch(e){state.textContent='Microfono bloccato: usa demo'}};demo.onclick=()=>{audioCtx=new (window.AudioContext||window.webkitAudioContext)();analyser=audioCtx.createAnalyser();analyser.fftSize=2048;demoOsc=audioCtx.createOscillator();demoGain=audioCtx.createGain();demoGain.gain.value=.05;const shaper=audioCtx.createWaveShaper();let curve=new Float32Array(2048);for(let i=0;i<curve.length;i++){let x=i/(curve.length-1)*2-1;curve[i]=Math.tanh(2.4*x)}shaper.curve=curve;demoOsc.frequency.value=220;demoOsc.type='sawtooth';demoOsc.connect(shaper);shaper.connect(demoGain);demoGain.connect(analyser);demoGain.connect(audioCtx.destination);demoOsc.start();state.textContent='Demo sintetica'};stop.onclick=()=>{if(micStream)micStream.getTracks().forEach(t=>t.stop()); if(demoOsc)try{demoOsc.stop()}catch(e){} if(audioCtx)audioCtx.close(); audioCtx=null; analyser=null; specHist=[];state.textContent='Stop'};}
+function appSpectral(c){initAudioButtons();const[ctx,w,h]=fit(c);clear(ctx,w,h);const N=512;let data=new Uint8Array(N);if(analyser){analyser.getByteFrequencyData(data)}else{const time=(performance.now()-t0)/1000;for(let i=0;i<N;i++){const f=i/N*4000;let v=0;for(let k=1;k<=10;k++)v+=170/(k*k)/(1+((f-220*k)/(20+8*k))**2);v+=15*Math.random();data[i]=Math.max(0,Math.min(255,v*(.8+.2*Math.sin(time))))}}const fftX=w*.06,fftY=h*.10,fftW=w*.38,fftH=h*.78;axes(ctx,fftX,fftY,fftW,fftH,'f [Hz]','ampiezza');ctx.fillStyle='#7bdff2';for(let i=0;i<N/2;i++){const x=fftX+i/(N/2)*fftW;const bh=data[i]/255*fftH*.92;ctx.fillRect(x,fftY+fftH-bh,Math.max(1,fftW/(N/2)-1),bh)}const row=[];for(let i=0;i<160;i++){const idx=Math.floor(i/160*N/2);row.push(data[idx]);}specHist.push(row);if(specHist.length>160)specHist.shift();const sx=w*.52,sy=h*.10,sw=w*.42,sh=h*.78;ctx.strokeStyle='rgba(255,255,255,.25)';ctx.strokeRect(sx,sy,sw,sh);for(let x=0;x<specHist.length;x++){const col=specHist[x];for(let y=0;y<col.length;y++){const v=col[y]/255;ctx.fillStyle=`rgb(${Math.floor(40+220*v)},${Math.floor(70+130*v)},${Math.floor(110+100*v)})`;ctx.fillRect(sx+x/specHist.length*sw,sy+sh-y/col.length*sh,sw/specHist.length+1,sh/col.length+1)}}txt(ctx,'FFT',fftX+fftW/2,fftY-22,16,'#fff','center');txt(ctx,'STFT / spettrogramma',sx+sw/2,sy-22,16,'#fff','center');}
+function appImpIntro(c){const[ctx,w,h]=fit(c);clear(ctx,w,h);plotSpectrum(ctx,w*.08,h*.15,w*.84,h*.62,[[190,18,1],[380,28,.75],[570,36,.55],[760,48,.40],[950,62,.30]],1100,'#7bdff2',1);txt(ctx,'picco alto = il risonatore restituisce molta pressione per poco flusso',w*.5,h*.86,16,'#fff','center');}
+function appBoreModes(c){const[ctx,w,h]=fit(c),p=params(c);clear(ctx,w,h);const g=p.geom||1,mode=p.mode||2;const x=w*.08,y=h*.12,ww=w*.38,hh=h*.26;if(g<.5)drawCylinder(ctx,x,y,ww,hh);else drawCone(ctx,x,y,ww,hh,g);txt(ctx,g<.5?'cilindro chiuso-aperto':'cono chiuso-aperto',x+ww/2,y-24,16,'#fff','center');const px=x,py=h*.55,pw=ww,ph=h*.23;axes(ctx,px,py,pw,ph,'x/L','p norm.');let pts=[];for(let i=0;i<500;i++){const xx=i/499;let cyl=Math.cos((2*mode-1)*Math.PI*xx/2);let cone=Math.cos(mode*Math.PI*xx);let val=(1-g)*cyl+g*cone;pts.push([px+xx*pw,py+ph/2-val*ph*.42]);}line(ctx,pts,'#f0be63',3);const gx=w*.54,gy=h*.14,gw=w*.38,gh=h*.62;axes(ctx,gx,gy,gw,gh,'f/f1','picchi normalizzati');let peaks=[];[1,2,3,4,5,6].forEach(n=>{let amp=(n%2?1:0.05)*(1-g)+g*(1/(.55+n*.15));peaks.push([n,0.045,amp]);});let max=Math.max(...peaks.map(p=>p[2]));for(const [fr,bw,amp] of peaks){const xx=gx+(fr-0.5)/6*gw;const bh=amp/max*gh*.85;ctx.fillStyle=fr===mode?'#f0be63':'#7bdff2';ctx.fillRect(xx-8,gy+gh-bh,16,bh);txt(ctx,String(fr),xx,gy+gh+14,12,'#c2cfdd','center')}txt(ctx,'cilindro: 1,3,5… · cono: 1,2,3…',w*.5,h*.91,15,'#fff','center');}
+function appRealSax(c){const[ctx,w,h]=fit(c),p=params(c);clear(ctx,w,h);const loss=p.loss||.45,comp=p.comp||.65;drawCone(ctx,w*.08,h*.11,w*.84,h*.18,1);for(let i=0;i<9;i++){ctx.fillStyle='rgba(240,190,99,.75)';ctx.beginPath();ctx.arc(w*.22+i*w*.055,h*.22+i*.003*h,5+i*.7,0,TAU);ctx.fill()}let peaks=[];for(let n=1;n<=8;n++){const fc=n*190*(1+(1-comp)*.018*n);peaks.push([fc,20+n*9+loss*30,1/(.45+n*.12)/(1+loss*.35*n)]);}plotSpectrum(ctx,w*.08,h*.45,w*.84,h*.34,peaks,1800,'#7bdff2');txt(ctx,'fori + campana + bocchino = picchi reali, non serie perfetta',w*.5,h*.88,15,'#c2cfdd','center');}
+function appLeak(c){const[ctx,w,h]=fit(c),p=params(c);clear(ctx,w,h);const leak=p.leak||0,pos=p.pos||.55;drawCone(ctx,w*.08,h*.10,w*.84,h*.18,1);const lx=w*.08+pos*w*.84;ctx.strokeStyle='#ff7b7b';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(lx,h*.20);ctx.lineTo(lx,h*.06);ctx.stroke();txt(ctx,'fuga',lx,h*.045,13,'#ffb3b3','center');let base=[];for(let n=1;n<=6;n++)base.push([n*185,20+n*7,1/(.42+n*.12)]);let leaky=base.map((q,n)=>[q[0]*(1-.004*leak*Math.sin(pos*Math.PI*(n+1))),q[1]+leak*5*(.35+Math.sin(pos*Math.PI*(n+1))**2),q[2]*(1-leak/16*(.4+Math.sin(pos*Math.PI*(n+1))**2))]);plotSpectrum(ctx,w*.08,h*.42,w*.84,h*.38,base,1300,'rgba(123,223,242,.45)');plotSpectrum(ctx,w*.08,h*.42,w*.84,h*.38,leaky,1300,'#ff7b7b');txt(ctx,'azzurro = chiusura ideale · rosso = perdita: picchi più bassi/largi/spostati',w*.5,h*.89,14,'#c2cfdd','center');}
+function appLengthZ(c){const[ctx,w,h]=fit(c),p=params(c);clear(ctx,w,h);const L=p.L||.78,holes=p.holes||.35;drawCone(ctx,w*.08,h*.08,w*.84,h*.20,1);txt(ctx,`L_eff = ${L.toFixed(2)} m`,w*.50,h*.06,16,'#fff','center');let peaks=[];const Le=L+.055+.035*holes;for(let n=1;n<=8;n++){const corr=1+0.004*holes*n*n;const f=n*C/(2*Le)*corr;peaks.push([f,18+n*8+holes*28,1/(.45+n*.12)]);}plotSpectrum(ctx,w*.08,h*.42,w*.84,h*.40,peaks,2600,'#7bdff2');txt(ctx,'Formula base: f_n≈n·c/(2L_eff). Correzioni di fori/campana aumentano in alto.',w*.5,h*.90,14,'#c2cfdd','center');}
+function appMouthpieceTM(c){const[ctx,w,h]=fit(c),p=params(c);clear(ctx,w,h);const V=p.V||7.5,b=p.baffle||.45,fac=p.facing||.55;ctx.fillStyle='rgba(240,190,99,.13)';round(ctx,w*.06,h*.13,w*.28,h*.22,18);ctx.fill();txt(ctx,'bocchino',w*.20,h*.19,16,'#fff','center');txt(ctx,'T(f): [p,U]in → [p,U]out',w*.20,h*.26,13,'#c2cfdd','center');drawCone(ctx,w*.42,h*.12,w*.50,h*.20,1);arrow(ctx,w*.35,h*.23,w*.42,h*.23,'#f0be63',3);let peaks=[];for(let n=1;n<=7;n++){const shift=(7.5-V)*2.5*n + b*n*9 - fac*4*n;const bw=20+n*8+(1-fac)*28+b*7;const amp=(1/(.42+n*.13))*(1+b*.10*n)*(1+.04*(V-7.5));peaks.push([n*190+shift,bw,amp]);}plotSpectrum(ctx,w*.08,h*.48,w*.84,h*.32,peaks,1800,'#7bdff2');txt(ctx,`camera ${V.toFixed(1)} cm³ · baffle ${b.toFixed(2)} · facing ${fac.toFixed(2)}: cambia ampiezza, fase e posizione dei picchi`,w*.5,h*.89,13,'#f0be63','center');}
+function appReedValve(c){const[ctx,w,h]=fit(c),p=params(c),time=(performance.now()-t0)/1000;clear(ctx,w,h);const Pm=p.Pm||3.2,k=p.k||1;const Pc=5.8*k;const gamma=Pm/Pc;let regime=gamma<.28?'aria quasi continua':gamma<.95?'suono periodico': 'beating / chiusura';ctx.fillStyle='rgba(240,190,99,.12)';round(ctx,w*.06,h*.12,w*.26,h*.52,22);ctx.fill();txt(ctx,'camera bocca',w*.19,h*.18,17,'#fff','center');txt(ctx,`P_m = ${Pm.toFixed(1)} kPa`,w*.19,h*.25,16,'#f0be63','center');ctx.fillStyle='rgba(255,255,255,.08)';round(ctx,w*.40,h*.22,w*.50,h*.20,20);ctx.fill();txt(ctx,'camera bocchino / inizio tubo',w*.65,h*.18,15,'#c2cfdd','center');const rx=w*.35,ry=h*.39;const osc=gamma<.28?0:(gamma<.95?Math.sin(time*TAU*4)*(0.08+gamma*.20):Math.max(-.8,Math.sin(time*TAU*4))*.34);const gap=Math.max(0.006,.13-.10*gamma-osc*.05);ctx.strokeStyle='#d4dce8';ctx.lineWidth=10;ctx.beginPath();ctx.moveTo(rx,ry+h*.08);ctx.lineTo(rx+w*.22,ry+h*.055);ctx.stroke();ctx.strokeStyle='#7bdff2';ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(rx,ry-h*.045);ctx.lineTo(rx+w*.22,ry-h*.045+gap*h);ctx.stroke();for(let i=0;i<28;i++){const base=w*.14+i*w*.025;const speed=gamma<.28?.55:gamma<.95?(1.0+.55*Math.sin(time*TAU*4+i*.3)):.18;const xx=base+((time*90*speed+i*17)%80);ctx.fillStyle=i%2?'rgba(123,223,242,.70)':'rgba(255,123,123,.65)';ctx.beginPath();ctx.arc(xx,h*.50+Math.sin(i*1.7+time)*20,3.5,0,TAU);ctx.fill();}let pts=[];const sx=w*.48,sy=h*.58,sw=w*.40,sh=h*.24;ctx.strokeStyle='rgba(255,255,255,.22)';ctx.strokeRect(sx,sy,sw,sh);for(let i=0;i<420;i++){const x=i/419;let amp=gamma<.28?0.05:gamma<.95?(gamma-.28)/.67:0.55;let s=Math.sin(TAU*(5*x-time*2));if(gamma>.95)s=Math.max(-.25,Math.sin(TAU*(5*x-time*2)));pts.push([sx+x*sw,sy+sh/2-s*amp*sh*.38]);}line(ctx,pts,gamma<.28?'#c2cfdd':gamma<.95?'#8ee08e':'#ff7b7b',2);txt(ctx,regime,w*.5,h*.88,22,gamma<.28?'#c2cfdd':gamma<.95?'#8ee08e':'#ffb3b3','center');}
+function appOperating(c){const[ctx,w,h]=fit(c),p=params(c),time=(performance.now()-t0)/1000;clear(ctx,w,h);const gamma=p.gamma||.48,Z=p.Z||1;const x=w*.07,y=h*.11,ww=w*.55,hh=h*.64;axes(ctx,x,y,ww,hh,'Δp/P_c','U normalizzato');let reed=[],load=[];for(let i=0;i<=400;i++){const dp=i/400*1.15;const U=dp<1?(1-dp)*Math.sqrt(Math.max(dp,0)):0;reed.push([x+dp/1.15*ww,y+hh-U/.39*hh*.88]);const Ul=Math.max(0,(gamma-dp))/(1.55*Z);load.push([x+dp/1.15*ww,y+hh-Ul/.39*hh*.88]);}line(ctx,reed,'#7bdff2',3);line(ctx,load,'#f0be63',3);let best=0,bd=9;for(let i=0;i<=400;i++){const dp=i/400*1.15,U=dp<1?(1-dp)*Math.sqrt(dp):0,Ul=Math.max(0,(gamma-dp))/(1.55*Z),d=Math.abs(U-Ul);if(d<bd){bd=d;best=i}}const dp=best/400*1.15,U=dp<1?(1-dp)*Math.sqrt(dp):0;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x+dp/1.15*ww,y+hh-U/.39*hh*.88,8,0,TAU);ctx.fill();txt(ctx,'curva ancia',x+ww*.68,y+hh*.18,14,'#7bdff2');txt(ctx,'carico risonatore',x+ww*.60,y+hh*.57,14,'#f0be63');let sx=w*.68,sy=h*.18,sw=w*.25,sh=h*.34;ctx.strokeStyle='rgba(255,255,255,.22)';ctx.strokeRect(sx,sy,sw,sh);let amp=gamma<.25?0:gamma<1?Math.min(1,(gamma-.25)*1.65):Math.max(.12,1.15-gamma);let pts=[];for(let i=0;i<360;i++){let xx=i/359;let s=Math.sin(TAU*(5*xx-time*1.7));s+=.25*amp*Math.sin(TAU*(10*xx-time*3.4));if(gamma>1)s=Math.max(-.35,s);pts.push([sx+xx*sw,sy+sh/2-s*amp*sh*.37]);}line(ctx,pts,amp>.05?'#8ee08e':'#c2cfdd',2);txt(ctx,amp>.05?'segnale p(t)':'solo aria',sx+sw/2,sy-18,14,amp>.05?'#8ee08e':'#c2cfdd','center');txt(ctx,`P_m/P_c=${gamma.toFixed(2)} · Δp/P_c=${dp.toFixed(2)}`,sx+sw/2,sy+sh+24,14,'#f0be63','center');}
+function appBifurcation(c){const[ctx,w,h]=fit(c),p=params(c),time=(performance.now()-t0)/1000;clear(ctx,w,h);const gamma=p.gamma||.52,path=p.path||'up';const x=w*.07,y=h*.11,ww=w*.58,hh=h*.64;axes(ctx,x,y,ww,hh,'P_m/P_c','ampiezza stabile');const gOn=.42,gOff=.28,gBeat=1.08;let up=[],down=[];for(let i=0;i<=600;i++){const g=i/600*1.45;const Au=g<gOn?0:g<gBeat?Math.sqrt((g-gOn)/(gBeat-gOn))*.88:.88-.32*(g-gBeat)/.37;const Ad=g<gOff?0:g<gBeat?Math.sqrt((g-gOff)/(gBeat-gOff))*.90:.90-.32*(g-gBeat)/.37;up.push([x+g/1.45*ww,y+hh-Math.max(0,Au)*hh*.9]);down.push([x+g/1.45*ww,y+hh-Math.max(0,Ad)*hh*.9]);}line(ctx,up,'#f0be63',3);line(ctx,down,'#7bdff2',3);ctx.setLineDash([5,7]);[[gOff,'estinzione','#7bdff2'],[gOn,'attacco','#f0be63'],[gBeat,'beating','#ff7b7b']].forEach(([G,L,col])=>{const px=x+G/1.45*ww;ctx.strokeStyle=col;ctx.beginPath();ctx.moveTo(px,y);ctx.lineTo(px,y+hh);ctx.stroke();txt(ctx,L,px,y-14,12,col,'center')});ctx.setLineDash([]);const branch=path==='up'?up:down;let idx=Math.max(0,Math.min(600,Math.round(gamma/1.45*600)));ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x+gamma/1.45*ww,branch[idx][1],8,0,TAU);ctx.fill();txt(ctx,'crescendo',x+ww*.76,y+hh*.22,14,'#f0be63');txt(ctx,'diminuendo',x+ww*.33,y+hh*.46,14,'#7bdff2');const sx=w*.71,sy=h*.22,sw=w*.22,sh=h*.32;ctx.strokeStyle='rgba(255,255,255,.22)';ctx.strokeRect(sx,sy,sw,sh);let amp=(path==='up'?Math.max(0,gamma-gOn)/(gBeat-gOn):Math.max(0,gamma-gOff)/(gBeat-gOff));amp=Math.max(0,Math.min(1,amp));let pts=[];for(let i=0;i<260;i++){let xx=i/259,s=Math.sin(TAU*(5*xx-time*1.8));if(gamma>gBeat)s=Math.tanh(2.2*s);pts.push([sx+xx*sw,sy+sh/2-s*amp*sh*.4]);}line(ctx,pts,amp>0?'#8ee08e':'#c2cfdd',2);txt(ctx,amp>0?'suono stabile':'sotto soglia',sx+sw/2,sy+sh+24,15,amp>0?'#8ee08e':'#c2cfdd','center');}
+function appReedRes(c){const[ctx,w,h]=fit(c),p=params(c);clear(ctx,w,h);const fr=p.fr||2400,d=p.damp||.5;let bore=[];for(let n=1;n<=6;n++)bore.push([n*185,20+n*7,1/(.43+n*.12)]);plotSpectrum(ctx,w*.08,h*.12,w*.84,h*.32,bore,3500,'#7bdff2');plotSpectrum(ctx,w*.08,h*.12,w*.84,h*.32,[[fr,90+230*d,.75]],3500,'#f0be63');ctx.fillStyle='rgba(255,255,255,.06)';round(ctx,w*.10,h*.58,w*.80,h*.22,18);ctx.fill();txt(ctx,'La fondamentale segue il tubo; la mobilità dell’ancia decide soglia, risposta e ricchezza armonica.',w*.50,h*.69,17,'#fff','center');txt(ctx,`f_r ancia ≈ ${Math.round(fr)} Hz · smorzamento ${d.toFixed(2)}`,w*.5,h*.89,14,'#c2cfdd','center');}
+function appRegister(c){const[ctx,w,h]=fit(c),p=params(c);clear(ctx,w,h);const vent=p.vent||.35,gamma=p.gamma||.55;drawCone(ctx,w*.08,h*.09,w*.84,h*.16,1);const vx=w*.30;ctx.fillStyle='#ff7b7b';ctx.beginPath();ctx.arc(vx,h*.17,5+vent*9,0,TAU);ctx.fill();txt(ctx,'portavoce',vx,h*.05,13,'#ffb3b3','center');let peaks=[];for(let n=1;n<=7;n++){let amp=1/(.43+n*.12);if(n===1)amp*=1-.82*vent;if(n===2)amp*=1+.28*vent;if(n===3)amp*=1+.10*vent;peaks.push([n*185,20+n*8,amp]);}plotSpectrum(ctx,w*.08,h*.38,w*.84,h*.40,peaks,1500,'#7bdff2',gamma+vent>.9?1:0);txt(ctx,'il primo picco viene indebolito: aumenta la probabilità di aggancio al modo superiore',w*.5,h*.89,14,'#c2cfdd','center');}
+function appVocalSum(c){const[ctx,w,h]=fit(c),p=params(c);clear(ctx,w,h);const vowels={a:750,e:560,i:1080,u:330};const fc=vowels[p.vowel||'a'],st=p.strength||.75;ctx.fillStyle='rgba(240,190,99,.11)';round(ctx,w*.07,h*.09,w*.25,h*.18,20);ctx.fill();txt(ctx,'bocca / lingua',w*.195,h*.16,15,'#f0be63','center');drawCone(ctx,w*.40,h*.09,w*.50,h*.16,1);let bore=[];for(let n=1;n<=8;n++)bore.push([n*190,22+n*8,1/(.50+n*.12)]);let vocal=[[fc,110,st*.85],[fc*2.1,180,st*.35]];const x=w*.07,y=h*.39,ww=w*.86,hh=h*.42;axes(ctx,x,y,ww,hh,'f [Hz]','Z norm.');let ptsB=[],ptsV=[],ptsS=[],max=0;for(let i=0;i<=700;i++){const f=i/700*1800;max=Math.max(max,spectrum(f,bore)+spectrum(f,vocal));}for(let i=0;i<=700;i++){const f=i/700*1800,b=spectrum(f,bore)/max,v=spectrum(f,vocal)/max,s=(spectrum(f,bore)+spectrum(f,vocal))/max,px=x+i/700*ww;ptsB.push([px,y+hh-b*hh*.92]);ptsV.push([px,y+hh-v*hh*.92]);ptsS.push([px,y+hh-s*hh*.92]);}line(ctx,ptsB,'#7bdff2',2);line(ctx,ptsV,'#f0be63',2);line(ctx,ptsS,'#fff',3);txt(ctx,'Z strumento',x+ww*.13,y+18,13,'#7bdff2');txt(ctx,'Z bocca',x+ww*.13,y+38,13,'#f0be63');txt(ctx,'Z combinata',x+ww*.13,y+58,13,'#fff');txt(ctx,`risonanza orale ≈ ${fc} Hz`,w*.5,h*.90,14,'#c2cfdd','center');}
+function appPeakSelect(c){const[ctx,w,h]=fit(c),p=params(c),time=(performance.now()-t0)/1000;clear(ctx,w,h);const pk=(p.peak||4)-1,sup=p.support||.65;let peaks=[];for(let n=1;n<=8;n++)peaks.push([n*190,20+n*9,1/(.45+n*.10)*(n-1===pk?1+sup*.8:1)]);plotSpectrum(ctx,w*.07,h*.10,w*.86,h*.45,peaks,1700,'#7bdff2',pk);const f=peaks[pk][0];ctx.fillStyle='rgba(240,190,99,.12)';round(ctx,w*.10,h*.66,w*.80,h*.16,16);ctx.fill();let pts=[];for(let i=0;i<520;i++){pts.push([w*.14+i/519*w*.72,h*.74-Math.sin(i/519*TAU*(4+pk*.4)-time*TAU*2)*34]);}line(ctx,pts,'#f0be63',2.5);txt(ctx,`picco ${pk+1}: ${Math.round(f)} Hz · il grafico evidenzia lo stesso modo selezionato`,w*.5,h*.89,15,'#fff','center');}
+function appBending(c){const[ctx,w,h]=fit(c),p=params(c);clear(ctx,w,h);const mouth=p.mouth||.45,force=p.force||.5,baseF=570;const mouthF=baseF+(mouth-.5)*210;const shift=(mouthF-baseF)*force*.20;const bore=[[baseF,36,1],[baseF*2,58,.44],[baseF*3,82,.25]];const vocal=[[mouthF,110,force*.8]];const combined=[[baseF+shift,42,1.16],[baseF*2+shift*.25,62,.45]];plotSpectrum(ctx,w*.07,h*.12,w*.86,h*.48,bore,1500,'rgba(123,223,242,.45)');plotSpectrum(ctx,w*.07,h*.12,w*.86,h*.48,vocal,1500,'#f0be63');plotSpectrum(ctx,w*.07,h*.12,w*.86,h*.48,combined,1500,'#fff');const cents=Math.round(1200*Math.log2((baseF+shift)/baseF));txt(ctx,`picco strumento ${baseF} Hz → oscillazione stimata ${Math.round(baseF+shift)} Hz (${cents} cent)`,w*.5,h*.80,16,'#fff','center');txt(ctx,'azzurro = strumento · oro = bocca · bianco = equilibrio accoppiato',w*.5,h*.89,13,'#c2cfdd','center');}
+function appMultiphonics(c){const[ctx,w,h]=fit(c),p=params(c),time=(performance.now()-t0)/1000;clear(ctx,w,h);const comp=p.complex||.65,noise=p.noise||.35;let peaks=[[240,30,1],[420,36,.45+.55*comp],[690,45,.35+.45*comp],[910,55,.25+.40*comp],[1190,70,.22+.30*comp]];plotSpectrum(ctx,w*.07,h*.08,w*.86,h*.35,peaks,1400,'#7bdff2');const mx=w*.10,my=h*.50,mw=w*.34,mh=h*.20;ctx.fillStyle='rgba(255,255,255,.06)';round(ctx,mx,my,mw,mh,18);ctx.fill();txt(ctx,'bocchino: separazioni di flusso e vortici',mx+mw/2,my-18,13,'#c2cfdd','center');for(let i=0;i<34;i++){const ang=time*2+i*.7,r=10+20*((i*17)%31)/31;ctx.strokeStyle=i%2?'#f0be63':'#ff7b7b';ctx.globalAlpha=.55;ctx.beginPath();ctx.arc(mx+mw*.25+(i%3)*mw*.20,my+mh*.50+Math.sin(i)*25,r,ang,ang+1.7);ctx.stroke()}ctx.globalAlpha=1;const sx=w*.50,sy=h*.52,sw=w*.42,sh=h*.24;ctx.strokeStyle='rgba(255,255,255,.22)';ctx.strokeRect(sx,sy,sw,sh);let pts=[];for(let i=0;i<800;i++){const x=i/799;let s=.65*Math.sin(TAU*(5*x-time*1.8))+.45*comp*Math.sin(TAU*(8.7*x-time*2.5))+.30*comp*Math.sin(TAU*(13.9*x-time*3.3));s+=noise*(Math.random()-.5)*.7;pts.push([sx+x*sw,sy+sh/2-s*sh*.28]);}line(ctx,pts,'#f0be63',1.8);txt(ctx,'segnale: modi non armonici + rumore broadband',sx+sw/2,sy+sh+22,13,'#c2cfdd','center');}
+function appSetupMap(c){const[ctx,w,h]=fit(c),p=params(c);clear(ctx,w,h);const tip=p.tip||2,hard=p.hard||3,face=p.face||.5;const onset=.34+.055*(hard-3)-.045*(tip-2)+.04*(1-face);const off=onset-.14-.03*(tip-2);const beat=.98+.07*(hard-3)-.08*(tip-2)+.05*face;const x=w*.07,y=h*.12,ww=w*.86,hh=h*.56;axes(ctx,x,y,ww,hh,'P_m/P_c','ampiezza');let pts=[];for(let i=0;i<=600;i++){const g=i/600*1.4;let A=0;if(g>onset)A=Math.sqrt(Math.max(0,(g-onset)/(beat-onset)));if(g>beat)A=.95-.45*(g-beat)/(1.4-beat);pts.push([x+g/1.4*ww,y+hh-Math.max(0,A)*hh*.9]);}line(ctx,pts,'#7bdff2',3);[[off,'estinzione','#8ee08e'],[onset,'attacco','#f0be63'],[beat,'beating','#ff7b7b']].forEach(([G,L,col])=>{const px=x+G/1.4*ww;ctx.strokeStyle=col;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px,y);ctx.lineTo(px,y+hh);ctx.stroke();txt(ctx,L,px,y+hh+20,12,col,'center')});txt(ctx,`tip ${tip.toFixed(2)} mm · durezza ${hard.toFixed(1)} · facing ${face.toFixed(2)}`,w*.5,h*.88,14,'#fff','center');}
+function appAttack(c){const[ctx,w,h]=fit(c),p=params(c);clear(ctx,w,h);const ramp=p.ramp||140,tongue=p.tongue||.45;const x=w*.07,y=h*.12,ww=w*.86,hh=h*.62;axes(ctx,x,y,ww,hh,'tempo [ms]','p(t)');let pts=[],env=[];for(let i=0;i<650;i++){const ms=i/649*800;const e=Math.min(1,ms/ramp)*(1-.35*tongue*Math.exp(-ms/60));const s=Math.sin(ms/1000*TAU*220);pts.push([x+i/649*ww,y+hh/2-s*e*hh*.38]);env.push([x+i/649*ww,y+hh-e*hh*.9]);}line(ctx,env,'#f0be63',2.5);line(ctx,pts,'#7bdff2',1.8);txt(ctx,'oro = inviluppo pressione · azzurro = oscillazione che si aggancia',w*.5,h*.88,15,'#c2cfdd','center');}
+function appDynamics(c){const[ctx,w,h]=fit(c),p=params(c);clear(ctx,w,h);const drive=p.drive||.55,emb=p.emb||.5;const x=w*.07,y=h*.10,ww=w*.86,hh=h*.34;axes(ctx,x,y,ww,hh,'tempo','p(t)');let pts=[];for(let i=0;i<650;i++){const t=i/649;let s=Math.sin(TAU*6*t)+drive*.38*Math.sin(TAU*12*t)+drive*drive*.25*Math.sin(TAU*18*t);s=Math.tanh(s*(1+drive*1.8+emb*.6));pts.push([x+t*ww,y+hh/2-s*hh*.36]);}line(ctx,pts,'#7bdff2',2);let peaks=[];for(let n=1;n<=11;n++)peaks.push([n*150,20+n*6,Math.pow(drive+.1,n*.22)/(n*.34)]);plotSpectrum(ctx,w*.07,h*.58,w*.86,h*.26,peaks,1800,'#f0be63');}
+function appIntonation(c){const[ctx,w,h]=fit(c),p=params(c);clear(ctx,w,h);const pull=p.pull||0,oral=p.oral||0;const notes=['D','E','F#','G','A','B','C#','D'];const x=w*.07,y=h*.18,ww=w*.86,hh=h*.54;ctx.strokeStyle='rgba(255,255,255,.20)';for(let i=0;i<=8;i++){const xx=x+i/8*ww;ctx.beginPath();ctx.moveTo(xx,y);ctx.lineTo(xx,y+hh);ctx.stroke()}ctx.strokeStyle='rgba(255,255,255,.50)';ctx.beginPath();ctx.moveTo(x,y+hh/2);ctx.lineTo(x+ww,y+hh/2);ctx.stroke();for(let i=0;i<8;i++){const cent=15*Math.sin(i*.9)+pull*(-6+i*1.7)+oral*(.38+.05*i);const yy=y+hh/2-cent/85*hh;ctx.fillStyle=Math.abs(cent)<12?'#8ee08e':Math.abs(cent)<30?'#f0be63':'#ff7b7b';ctx.beginPath();ctx.arc(x+(i+.5)/8*ww,yy,8,0,TAU);ctx.fill();txt(ctx,notes[i],x+(i+.5)/8*ww,y+hh+24,13,'#c2cfdd','center');txt(ctx,Math.round(cent)+'c',x+(i+.5)/8*ww,yy-18,11,ctx.fillStyle,'center')}txt(ctx,'deviazione in cent: bocchino e bocca non correggono tutto allo stesso modo',w*.5,h*.10,15,'#fff','center');}
+function appPractice(c){const[ctx,w,h]=fit(c);clear(ctx,w,h);const items=[['Soglia','P_m'],['Diminuendo','isteresi'],['Overtones','picchi Z'],['Vocali','Z orale'],['Setup','biforcazione']];items.forEach((it,i)=>{const x=w*.14+i*w*.18,y=h*.42+Math.sin(i)*24;ctx.fillStyle='rgba(123,223,242,.15)';ctx.beginPath();ctx.arc(x,y,45,0,TAU);ctx.fill();ctx.strokeStyle='#7bdff2';ctx.lineWidth=2;ctx.stroke();txt(ctx,it[0],x,y-8,14,'#fff','center');txt(ctx,it[1],x,y+13,13,'#f0be63','center');if(i<items.length-1)arrow(ctx,x+45,y,w*.14+(i+1)*w*.18-45,h*.42+Math.sin(i+1)*24,'rgba(255,255,255,.35)',2)});txt(ctx,'ogni esercizio isola una variabile fisica percepibile',w*.5,h*.78,18,'#c2cfdd','center');}
+function appMeasurement(c){const[ctx,w,h]=fit(c);clear(ctx,w,h);const steps=['registra','FFT/STFT','annota setup','confronta','decidi esercizio'];steps.forEach((s,i)=>{const x=w*.12+i*w*.19,y=h*.40;ctx.fillStyle='rgba(240,190,99,.13)';round(ctx,x-58,y-36,116,72,16);ctx.fill();ctx.strokeStyle='#f0be63';ctx.stroke();txt(ctx,s,x,y,14,'#fff','center');if(i<steps.length-1)arrow(ctx,x+58,y,w*.12+(i+1)*w*.19-58,y,'#7bdff2',2)});txt(ctx,'misura tendenze, non verità assolute: stessa distanza, stessa stanza, stesso frammento',w*.5,h*.68,16,'#c2cfdd','center');}
+const apps={hero:appHero,tubeVars:appTubeVars,particles:appParticles,standing:appStanding,spectral:appSpectral,impIntro:appImpIntro,boreModes:appBoreModes,realSax:appRealSax,leak:appLeak,lengthZ:appLengthZ,mouthpieceTM:appMouthpieceTM,reedValve:appReedValve,operating:appOperating,bifurcation:appBifurcation,reedRes:appReedRes,register:appRegister,vocalSum:appVocalSum,peakSelect:appPeakSelect,bending:appBending,multiphonics:appMultiphonics,setupMap:appSetupMap,attack:appAttack,dynamics:appDynamics,intonation:appIntonation,practice:appPractice,measurement:appMeasurement};
+function renderAll(){const active=slides[current];$$('canvas[data-app]',active).forEach(c=>{const fn=apps[c.dataset.app];if(fn)fn(c);});}
+function loop(){renderAll();requestAnimationFrame(loop)}window.addEventListener('resize',renderAll);show(0);loop();
+
+</script>
+</body>
+</html>
