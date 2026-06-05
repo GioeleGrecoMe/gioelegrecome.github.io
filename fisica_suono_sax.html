@@ -12,6 +12,44 @@
 @media (max-width:1050px),(max-aspect-ratio:1/1){body{overflow:auto}.deck{position:static;display:block;padding:8px}.slide{width:100%;height:auto;min-height:100vh;aspect-ratio:auto;overflow:auto;border-radius:18px}.slide:not(.active){display:none}.slideTop{position:sticky;top:0;left:auto;right:auto;background:rgba(11,14,19,.93);padding:12px 18px;height:auto}.content{position:static;display:grid;grid-template-columns:1fr;gap:18px;padding:58px 18px 54px}.visual{min-height:420px}.content.wide+.visual{position:static;margin:0 18px 54px;height:420px}.canvas{min-height:340px}.footerHint{display:none}.toc,.myths{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.refs{columns:1}}
 @media print{body{overflow:visible;background:white}.deck{display:block;position:static;padding:0}.slide{display:block!important;width:297mm;height:167mm;page-break-after:always;border-radius:0;box-shadow:none}.slideTop,.progress,.footerHint{display:none}}
 
+
+/* Mobile-friendly slide navigation arrows (added only; existing slide content unchanged). */
+.slideNavArrows{
+  position:fixed;
+  left:50%;
+  bottom:max(14px,env(safe-area-inset-bottom));
+  transform:translateX(-50%);
+  display:flex;
+  gap:14px;
+  z-index:9999;
+  pointer-events:auto;
+}
+.slideNavArrows button{
+  width:58px;
+  height:58px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.28);
+  background:rgba(7,10,15,.72);
+  color:#fff;
+  font-size:30px;
+  line-height:1;
+  display:grid;
+  place-items:center;
+  box-shadow:0 10px 34px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.10);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  touch-action:manipulation;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.slideNavArrows button:active{transform:scale(.96);background:rgba(240,190,99,.28)}
+.slideNavArrows button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+@media (min-width:1051px) and (min-aspect-ratio:1/1){
+  .slideNavArrows{bottom:22px;right:28px;left:auto;transform:none;gap:10px}
+  .slideNavArrows button{width:46px;height:46px;font-size:24px;background:rgba(7,10,15,.50)}
+}
+@media print{.slideNavArrows{display:none!important}}
+
 </style>
 </head>
 <body>
@@ -398,5 +436,30 @@ function renderAll(){const active=slides[current];$$('canvas[data-app]',active).
 function loop(){renderAll();requestAnimationFrame(loop)}window.addEventListener('resize',renderAll);show(0);loop();
 
 </script>
+
+<!-- Mobile-friendly slide navigation arrows (added only; existing slide content unchanged). -->
+<nav class="slideNavArrows" aria-label="Navigazione slide">
+  <button type="button" class="slideNavPrev" aria-label="Slide precedente" title="Slide precedente">‹</button>
+  <button type="button" class="slideNavNext" aria-label="Slide successiva" title="Slide successiva">›</button>
+</nav>
+<script>
+(function(){
+  function sendArrow(key){
+    window.dispatchEvent(new KeyboardEvent('keydown',{key:key,bubbles:true,cancelable:true}));
+  }
+  function bindSlideArrows(){
+    var prev=document.querySelector('.slideNavPrev');
+    var next=document.querySelector('.slideNavNext');
+    if(!prev||!next) return;
+    prev.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();sendArrow('ArrowLeft');});
+    next.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();sendArrow('ArrowRight');});
+    prev.addEventListener('touchend',function(e){e.preventDefault();e.stopPropagation();sendArrow('ArrowLeft');},{passive:false});
+    next.addEventListener('touchend',function(e){e.preventDefault();e.stopPropagation();sendArrow('ArrowRight');},{passive:false});
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bindSlideArrows);
+  else bindSlideArrows();
+})();
+</script>
+
 </body>
 </html>
