@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Federated Mixture-of-Experts for Efficient Spatial Acoustic Characterization</title>
+    <title>Distributed Mixture-of-Experts for Efficient Spatial Acoustic Characterization</title>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -182,7 +182,7 @@
 <body>
     <header>
         <div class="container">
-            <h1>Federated Mixture-of-Experts for Efficient Spatial Acoustic Characterization</h1>
+            <h1>Distributed Mixture-of-Experts for Efficient Spatial Acoustic Characterization</h1>
             <p class="authors">Gioele Greco¹, Dongzhe Zhang², Mirco Pezzoli¹, Member, IEEE, and Fabio Antonacci¹</p>
             <p>¹Politecnico di Milano, Italy | ²Northwestern Polytechnical University, China</p>
         </div>
@@ -193,16 +193,16 @@
 
         <div class="abstract">
             <h2>Abstract</h2>
-            <img src="FAME.png" alt="FAME" class="room-map">
+            <img src="DAME.png" alt="DAME" class="room-map">
 
-            <p>Accurate and efficient spatial acoustic characterization is crucial for immersive audio applications, such as virtual and augmented reality, which require real-time, high-fidelity rendering of sound fields. Traditional methods, including physics-based simulations and centralized deep learning models, face significant challenges in scalability, data efficiency, and generalization under sparse measurement conditions. This paper introduces FAME, a Federated Acoustic Mixture-of-Experts framework designed for large-area spatial acoustic modeling. FAME decomposes the global sound field reconstruction task into localized sub-problems, each handled by a specialized neural network expert trained on region-specific data. A lightweight gating network intelligently combines these experts' predictions based on spatial queries, enabling seamless integration of new measurements without full retraining.</p>
+            <p>Accurate and efficient spatial acoustic characterization is crucial for immersive audio applications, such as virtual and augmented reality, which require real-time, high-fidelity rendering of sound fields. Traditional methods, including physics-based simulations and centralized deep learning models, face significant challenges in scalability, data efficiency, and generalization under sparse measurement conditions. This paper introduces DAME, a Distributed Acoustic Mixture-of-Experts framework designed for large-area spatial acoustic modeling. DAME decomposes the global sound field reconstruction task into localized sub-problems, each handled by a specialized neural network expert trained on region-specific data. A lightweight gating network intelligently combines these experts' predictions based on spatial queries, enabling seamless integration of new measurements without full retraining.</p>
         </div>
 
         <div class="section">
             <h2>Introduction</h2>
             <p>The spatial room impulse response (RIR) encapsulates how an acoustic environment transforms sound from a fixed source to a receiver location. Predicting these source-specific responses across large spatial regions is fundamental for six degrees of freedom (6DoF) audio rendering in virtual and augmented reality [1], architectural acoustics, and immersive audio applications. The challenge lies in modeling complex wave phenomena with strong spatial dependencies while maintaining real-time computational efficiency for streaming applications.</p>
 
-            <p>We propose FAME a Federated Experts Learning framework for higher-order Ambisonic sound field reconstruction that addresses these scalability challenges. Following the standard approach in spatial RIR modeling, our method learns the mapping from receiver positions to HOA RIRs for a given source location.</p>
+            <p>We propose DAME a Distributed Experts Learning framework for higher-order Ambisonic sound field reconstruction that addresses these scalability challenges. Following the standard approach in spatial RIR modeling, our method learns the mapping from receiver positions to HOA RIRs for a given source location.</p>
         </div>
 
         <div class="section">
@@ -227,9 +227,9 @@
                 </div>
 
                 <div class="audio-demo">
-                    <p><strong>FAME Reconstruction:</strong></p>
+                    <p><strong>DAME Reconstruction:</strong></p>
                     <audio controls class="audio-player">
-                        <source src="audio/FAME3.mp3" type="audio/wav">
+                        <source src="audio/DAME3.mp3" type="audio/wav">
                         Your browser does not support the audio element.
                     </audio>
                 </div>
@@ -271,9 +271,9 @@
                 </div>
 
                 <div class="audio-demo">
-                    <p><strong>FAME Reconstruction:</strong></p>
+                    <p><strong>DAME Reconstruction:</strong></p>
                     <audio controls class="audio-player">
-                        <source src="audio/FAME20.mp3" type="audio/wav">
+                        <source src="audio/DAME20.mp3" type="audio/wav">
                         Your browser does not support the audio element.
                     </audio>
                 </div>
@@ -317,9 +317,9 @@
                 </div>
 
                 <div class="audio-demo">
-                    <p><strong>FAME Reconstruction:</strong></p>
+                    <p><strong>DAME Reconstruction:</strong></p>
                     <audio controls class="audio-player">
-                        <source src="audio/FAME28.mp3" type="audio/wav">
+                        <source src="audio/DAME28.mp3" type="audio/wav">
                         Your browser does not support the audio element.
                     </audio>
                 </div>
@@ -361,9 +361,9 @@
                 </div>
 
                 <div class="audio-demo">
-                    <p><strong>FAME Reconstruction:</strong></p>
+                    <p><strong>DAME Reconstruction:</strong></p>
                     <audio controls class="audio-player">
-                        <source src="audio/FAME45.mp3" type="audio/wav">
+                        <source src="audio/DAME45.mp3" type="audio/wav">
                         Your browser does not support the audio element.
                     </audio>
                 </div>
@@ -394,16 +394,16 @@
 
         <div class="section">
             <h2>Method Overview</h2>
-            <p>FAME decomposes the global sound field reconstruction task into localized sub-problems, each handled by a specialized neural network expert trained on region-specific data. A lightweight gating network intelligently combines these experts' predictions based on spatial queries, enabling seamless integration of new measurements without full retraining.</p>
+            <p>DAME decomposes the global sound field reconstruction task into localized sub-problems, each handled by a specialized neural network expert trained on region-specific data. A lightweight gating network intelligently combines these experts' predictions based on spatial queries, enabling seamless integration of new measurements without full retraining.</p>
 
-            <p>Our federated setup assumes that the measuring space is spatially partitioned into K non-overlapping subsets corresponding to distinct receiver regions. Each expert network learns the local mapping from coordinates to the preprocessed, normalized HOA RIR.</p>
+            <p>Our Distributed setup assumes that the measuring space is spatially partitioned into K non-overlapping subsets corresponding to distinct receiver regions. Each expert network learns the local mapping from coordinates to the preprocessed, normalized HOA RIR.</p>
         </div>
 
         <div class="section">
             <h2>Results</h2>
-            <p>Evaluated on a benchmark dataset of higher-order ambisonic room impulse responses [10], FAME significantly outperforms state-of-the-art baselines in reconstruction accuracy, directional error, and energy decay preservation. The framework offers a scalable, data-efficient solution for real-time spatial audio applications, supporting incremental expansion and robust performance in sparse-data regimes.</p>
+            <p>Evaluated on a benchmark dataset of higher-order ambisonic room impulse responses [10], DAME significantly outperforms state-of-the-art baselines in reconstruction accuracy, directional error, and energy decay preservation. The framework offers a scalable, data-efficient solution for real-time spatial audio applications, supporting incremental expansion and robust performance in sparse-data regimes.</p>
 
-            <p>Key advantages of FAME:</p>
+            <p>Key advantages of DAME:</p>
             <ul>
                 <li>Scalable deployment - new spatial regions can be incorporated without retraining existing models</li>
                 <li>Real-time estimation capabilities with lightweight expert networks</li>
