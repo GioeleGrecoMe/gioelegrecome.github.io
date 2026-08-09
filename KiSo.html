@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0b1220">
-<title>Ki Sonar Mapper v7 · Fixed External Source</title>
+<title>Ki Sonar Mapper v8 · Persistent Surface Graph</title>
 <style>
 :root{color-scheme:dark;--bg:#07101e;--panel:#0e1a2b;--panel2:#14243a;--fg:#eef6ff;--muted:#9cb0c8;--ok:#4dd39b;--warn:#ffc857;--bad:#ff6b6b;--accent:#65a9ff;--detail:#9d8cff}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -37,7 +37,7 @@ main{position:relative;min-height:0}canvas{display:block;width:100%;height:100%;
   <button id="diagnosticBtn" class="btn secondary" disabled>Esporta diagnostica</button>
   <button id="rawWavBtn" class="btn" disabled>Ultimo RAW WAV</button>
   <button id="settingsBtn" class="btn">Impostazioni</button>
-  <div id="status"><div class="statusMain" id="statusMain">Pronto</div><div class="statusSub" id="statusSub">Speaker fisso, microfono mobile. Calibra la sorgente prima della scansione.</div></div>
+  <div id="status"><div class="statusMain" id="statusMain">Pronto</div><div class="statusSub" id="statusSub">Speaker fisso, microfono mobile. Ki + grafo persistente separano muri, ordini superiori e firma materiale.</div></div>
 </header>
 <main>
   <canvas id="scene"></canvas>
@@ -74,7 +74,7 @@ main{position:relative;min-height:0}canvas{display:block;width:100%;height:100%;
   </section>
 </main>
 <section id="rirShelf">
-  <div id="rirShelfHead"><span><b>RIR · speaker fisso / microfono mobile · finestra 0–3 m equivalente dal diretto</b> · gli eventi oltre il supporto fisico sono ignorati · RIR signed bianca / envelope ciano</span><span id="rirShelfSummary">nessuna misura</span></div>
+  <div id="rirShelfHead"><span><b>RIR · speaker fisso / microfono mobile · Ki + surface graph persistente</b> · 0–3 m · first-order ai nodi, ordine superiore ai walk del grafo · firma materiale Abelès-ready</span><span id="rirShelfSummary">nessuna misura</span></div>
   <div id="rirStrip" aria-label="Cronologia RIR stimate"></div>
 </section>
 <section id="rawShelf" class="debugShelf">
@@ -625,6 +625,34 @@ function fuseStableRIR(single,directLocal,mode){
   const y=new Float64Array(z.length),tmp=new Array(liveRIRFusion.length);for(let i=0;i<y.length;i++){for(let k=0;k<liveRIRFusion.length;k++)tmp[k]=liveRIRFusion[k][i]||0;y[i]=median(tmp);}return{rir:y,count:liveRIRFusion.length,similarity:sim};
 }
 
+
+// -------------------------------------------------------------------------
+// Surface acoustic mark (complex/frequency dependent)
+// -------------------------------------------------------------------------
+// Geometry is inferred from delay.  Material identity is a separate state.
+// For every echo we compute a compact complex spectrum in local coordinates
+// around the arrival, divide it by the local direct spectrum and store the
+// result with the event.  Because both windows are centered on their own
+// arrivals, gross path delay is removed before the ratio is formed.
+function materialBandList(){
+  const lo=calibratedBand.ready?calibratedBand.f0:CFG.f0,hi=calibratedBand.ready?calibratedBand.f1:CFG.f1;
+  return (CFG.materialBandsHz||[900,1400,2200,3500,5500,8500]).filter(f=>f>=lo*.92&&f<=Math.min(hi*1.04,.46*FS));
+}
+function localComplexBands(x,center,bands){
+  const half=Math.max(6,Math.round((CFG.materialWindowSec||.00075)*FS)),out=[];
+  for(const f of bands){let re=0,im=0,ws=0;for(let d=-half;d<=half;d++){const q=center+d;if(q<0||q>=x.length)continue;const u=(d+half)/Math.max(1,2*half),w=.5-.5*Math.cos(2*Math.PI*u),ph=-2*Math.PI*f*d/FS,z=x[q]*w;re+=z*Math.cos(ph);im+=z*Math.sin(ph);ws+=w;}out.push([re/Math.max(1e-12,ws),im/Math.max(1e-12,ws)]);}return out;
+}
+function relativeMaterialMark(x,directLocal,eventLocal){
+  const bands=materialBandList();if(!bands.length)return{bands:[],magDB:[],phase:[],quality:0};
+  const d=localComplexBands(x,directLocal,bands),e=localComplexBands(x,eventLocal,bands),magDB=[],phase=[],dq=[];
+  for(let k=0;k<bands.length;k++){const ar=d[k][0],ai=d[k][1],br=e[k][0],bi=e[k][1],den=ar*ar+ai*ai+1e-18,rr=(br*ar+bi*ai)/den,ri=(bi*ar-br*ai)/den,m=Math.hypot(rr,ri);magDB.push(20*Math.log10(m+1e-12));phase.push(Math.atan2(ri,rr));dq.push(Math.sqrt(den));}
+  const sep=Math.abs(eventLocal-directLocal)/FS,overlap=clamp01(sep/Math.max(.0005,2*(CFG.materialWindowSec||.00075))),q=clamp01(overlap*Math.min(1,(median(dq)||0)*1e4));
+  return{bands,magDB,phase,quality:q};
+}
+function medianVector(vs){if(!vs||!vs.length)return[];const n=Math.max(...vs.map(v=>v?v.length:0)),o=[];for(let j=0;j<n;j++)o.push(median(vs.map(v=>v&&v[j]).filter(Number.isFinite)));return o;}
+function circularMeanVector(vs){if(!vs||!vs.length)return[];const n=Math.max(...vs.map(v=>v?v.length:0)),o=[];for(let j=0;j<n;j++){let c=0,ss=0,nv=0;for(const v of vs){if(v&&Number.isFinite(v[j])){c+=Math.cos(v[j]);ss+=Math.sin(v[j]);nv++;}}o.push(nv?Math.atan2(ss,c):NaN);}return o;}
+function materialDistance(a,b){const A=a&&a.materialMagDB||a&&a.magDB,B=b&&b.materialMagDB||b&&b.magDB;if(!A||!B||!A.length||!B.length)return 0;const z=[];for(let j=0;j<Math.min(A.length,B.length);j++)if(Number.isFinite(A[j])&&Number.isFinite(B[j]))z.push(Math.abs(A[j]-B[j]));return z.length?Math.min(1.5,(median(z)||0)/12):0;}
+
 function analyzeCycle(raw,id,mode='measure'){
   const t0=performance.now();
   if(!(raw instanceof Float32Array||raw instanceof Float64Array))raw=new Float64Array(raw||[]);
@@ -680,7 +708,7 @@ function analyzeCycle(raw,id,mode='measure'){
   const pp=prunePrimaryOMP(cp.filter(x=>x.snr>=minPeakSNRDB&&x.corr>=minPrimaryCorr)).sort((a,b)=>(b.snr+5*b.corr)-(a.snr+5*a.corr)).slice(0,CFG.maxPrimaryEvents).sort((a,b)=>a.i-b.i);
   function mkEvents(peaks,primary){
     const ma=Math.max(1e-15,...peaks.map(x=>x.a));
-    return peaks.map(x=>{const tau=(x.i-directLocal)/FS,early=Math.exp(-tau/Math.max(.020,.45*CFG.maxRirSec)),amp=x.a/ma,prom=x.prom/ma,importance=.45*clamp01((x.snr-CFG.detailMinPeakSNRDB)/20)+.25*amp+.15*prom+.15*early;return{tau,timeAfterDirect:tau,timeLocal:x.i/FS,rangeApproxM:.5*C*tau,amp,prom,snr:x.snr,fitCorr:x.corr||0,atomGain:x.gain||0,importance,primary,isDirect:false};}).sort((a,b)=>b.importance-a.importance);
+    return peaks.map(x=>{const tau=(x.i-directLocal)/FS,early=Math.exp(-tau/Math.max(.020,.45*CFG.maxRirSec)),amp=x.a/ma,prom=x.prom/ma,importance=.45*clamp01((x.snr-CFG.detailMinPeakSNRDB)/20)+.25*amp+.15*prom+.15*early,mark=relativeMaterialMark(rirSigned,directLocal,x.i);return{tau,timeAfterDirect:tau,timeLocal:x.i/FS,rangeApproxM:.5*C*tau,amp,prom,snr:x.snr,fitCorr:x.corr||0,atomGain:x.gain||0,importance,primary,isDirect:false,materialBandsHz:mark.bands,materialMagDB:mark.magDB,materialPhase:mark.phase,materialQuality:mark.quality};}).sort((a,b)=>b.importance-a.importance);
   }
   const maxTau=2*(CFG.hardSensingRangeM||3)/C,primaryReflections=mkEvents(pp,true).filter(e=>e.tau<=maxTau).slice(0,CFG.maxPrimaryEvents),detailReflections=mkEvents(cp,false).filter(e=>e.tau<=maxTau).slice(0,CFG.maxDetailEvents);
   const directEvent={tau:0,timeAfterDirect:0,timeLocal:directLocal/FS,rangeApproxM:0,amp:1,prom:1,snr:direct.snr,importance:1,primary:true,isDirect:true};
@@ -772,24 +800,25 @@ function buildKeyframes(ms,useDetail=false){
 function fuseKeyframe(ms,idx,id,useDetail=false){
   const all=[];for(const i of idx){const src=(useDetail?ms[i].candidates:ms[i].primary).filter(e=>!e.isDirect);for(const e of src)all.push({...e,mid:i});}
   all.sort((a,b)=>a.tau-b.tau);const clusters=[];
-  for(const e of all){let best=null,bd=Infinity;for(const c of clusters){const d=Math.abs(e.tau-c.t);if(d<CFG.fuseGateSec&&d<bd){best=c;bd=d;}}if(!best){best={times:[],amps:[],scores:[],mids:new Set(),t:e.tau};clusters.push(best);}best.times.push(e.tau);best.amps.push(Math.max(.02,e.amp));best.scores.push(e.importance);best.mids.add(e.mid);best.t=weightedMedian(best.times,best.amps);}
-  const events=clusters.map(c=>({time:c.t,tau:c.t,amp:median(c.amps),support:c.mids.size/idx.length,importance:median(c.scores)})).filter(e=>e.support>=CFG.fuseMinSupport||idx.length<=2).sort((a,b)=>(b.importance+.35*b.support)-(a.importance+.35*a.support)).slice(0,useDetail?CFG.maxDetailEvents:CFG.maxPrimaryEvents);
+  for(const e of all){let best=null,bd=Infinity;for(const c of clusters){const d=Math.abs(e.tau-c.t);if(d<CFG.fuseGateSec&&d<bd){best=c;bd=d;}}if(!best){best={times:[],amps:[],scores:[],mids:new Set(),marksMag:[],marksPhase:[],marksQ:[],bands:e.materialBandsHz||[],t:e.tau};clusters.push(best);}best.times.push(e.tau);best.amps.push(Math.max(.02,e.amp));best.scores.push(e.importance);best.mids.add(e.mid);if(e.materialMagDB&&e.materialMagDB.length){best.marksMag.push(e.materialMagDB);best.marksPhase.push(e.materialPhase||[]);best.marksQ.push(e.materialQuality||0);}best.t=weightedMedian(best.times,best.amps);}
+  const events=clusters.map(c=>({time:c.t,tau:c.t,amp:median(c.amps),support:c.mids.size/idx.length,importance:median(c.scores),materialBandsHz:c.bands,materialMagDB:medianVector(c.marksMag),materialPhase:circularMeanVector(c.marksPhase),materialQuality:c.marksQ.length?median(c.marksQ):0})).filter(e=>e.support>=CFG.fuseMinSupport||idx.length<=2).sort((a,b)=>(b.importance+.35*b.support)-(a.importance+.35*a.support)).slice(0,useDetail?CFG.maxDetailEvents:CFG.maxPrimaryEvents);
   const ds=idx.map(i=>ms[i].directDistanceProbableM).filter(Number.isFinite),dc=idx.map(i=>ms[i].directDistanceConfidence).filter(Number.isFinite),dr=idx.map(i=>ms[i].directRMS).filter(Number.isFinite);return{id,measurementIndices:idx,events,numMeasurements:idx.length,directDistanceM:ds.length?median(ds):NaN,directDistanceConfidence:dc.length?median(dc):0,directRMS:dr.length?median(dr):NaN};
 }
 function predictTrack(tr,g){if(tr.obs.length<2)return tr.obs[tr.obs.length-1].time;const a=tr.obs[tr.obs.length-2],b=tr.obs[tr.obs.length-1];return b.time+(b.time-a.time)/(b.g-a.g||1)*(g-b.g);}
-function mergeDuplicateTracks(tracks){const keep=[];for(const t of tracks.sort((a,b)=>b.score-a.score)){let dup=false;for(const q of keep){const common=[];for(const o of t.obs){const p=q.obs.find(x=>x.g===o.g);if(p)common.push(Math.abs(o.time-p.time));}if(common.length>=3&&median(common)<CFG.duplicateTrackGateSec){dup=true;break;}}if(!dup)keep.push(t);}return keep;}
-function transferIds(newT,oldT){if(!oldT||!oldT.length){for(const t of newT)t.id=nextTrackId++;return;}const used=new Set;for(const t of newT){let bi=-1,bc=1e9;for(let j=0;j<oldT.length;j++){if(used.has(j))continue;const c=Math.abs(median(t.obs.map(o=>o.time))-median(oldT[j].obs.map(o=>o.time)))+.2*Math.abs(t.slope-oldT[j].slope);if(c<bc){bc=c;bi=j;}}if(bi>=0&&bc<CFG.trackIdTransferGateSec){t.id=oldT[bi].id;used.add(bi);}else t.id=nextTrackId++;}}
+function trackMaterialPrototype(t){const mags=t.obs.filter(o=>o.materialMagDB&&o.materialMagDB.length).map(o=>o.materialMagDB),ph=t.obs.filter(o=>o.materialPhase&&o.materialPhase.length).map(o=>o.materialPhase);return{materialMagDB:medianVector(mags),materialPhase:circularMeanVector(ph)};}
+function finalizeTrackStats(t,kfsLength){const ts=t.obs.map(o=>o.time);let sm=0;for(let i=2;i<ts.length;i++)sm+=Math.abs(ts[i]-2*ts[i-1]+ts[i-2]);sm/=Math.max(1,ts.length-2);t.hits=new Set(t.obs.map(o=>o.g)).size;t.persistence=t.hits/Math.max(1,kfsLength);t.medAmp=median(t.obs.map(o=>o.amp));t.medSupport=median(t.obs.map(o=>o.support||1));t.slope=t.obs.length>1?(t.obs[t.obs.length-1].time-t.obs[0].time)/(t.obs[t.obs.length-1].g-t.obs[0].g||1):0;t.smooth=sm;const proto=trackMaterialPrototype(t);t.materialMagDB=proto.materialMagDB;t.materialPhase=proto.materialPhase;const dev=[];for(const o of t.obs){if(o.materialMagDB&&proto.materialMagDB.length)for(let j=0;j<Math.min(o.materialMagDB.length,proto.materialMagDB.length);j++)if(Number.isFinite(o.materialMagDB[j])&&Number.isFinite(proto.materialMagDB[j]))dev.push(Math.abs(o.materialMagDB[j]-proto.materialMagDB[j]));}t.materialConsistency=Math.exp(-(median(dev)||12)/(CFG.materialConsistencyScaleDB||7));t.score=.33*Math.min(1,t.hits/6)+.24*t.persistence+.13*Math.min(1,t.medAmp)+.10*t.medSupport+.08*Math.exp(-sm/.00045)+.07*t.materialConsistency+.05*Math.exp(-median(t.obs.map(o=>o.time))/.035);return t;}
+function mergeDuplicateTracks(tracks){const keep=[];for(const t of tracks.sort((a,b)=>b.score-a.score)){let dup=false;for(const q of keep){const common=[];for(const o of t.obs){const p=q.obs.find(x=>x.g===o.g);if(p)common.push(Math.abs(o.time-p.time));}if(common.length>=3&&median(common)<CFG.duplicateTrackGateSec&&materialDistance(t,q)<.65){dup=true;break;}}if(!dup)keep.push(t);}return keep;}
+function transferIds(newT,oldT){if(!oldT||!oldT.length){for(const t of newT)t.id=nextTrackId++;return;}const used=new Set;for(const t of newT){let bi=-1,bc=1e9;for(let j=0;j<oldT.length;j++){if(used.has(j))continue;const c=Math.abs(median(t.obs.map(o=>o.time))-median(oldT[j].obs.map(o=>o.time)))+.2*Math.abs(t.slope-oldT[j].slope)+.00035*materialDistance(t,oldT[j]);if(c<bc){bc=c;bi=j;}}if(bi>=0&&bc<CFG.trackIdTransferGateSec){t.id=oldT[bi].id;used.add(bi);}else t.id=nextTrackId++;}}
 function buildTracks(kfs,useDetail=false){
   let tracks=[];const maxE=useDetail?CFG.maxDetailEvents:CFG.maxPrimaryEvents;
   for(let g=0;g<kfs.length;g++){
     const ev=kfs[g].events.slice(0,maxE),cand=[];
-    for(let k=0;k<tracks.length;k++){const gap=g-tracks[k].lastG;if(gap<1||gap>CFG.trackMaxGap)continue;const pred=predictTrack(tracks[k],g),gate=CFG.trackGateSec*(1+.18*(gap-1));for(let e=0;e<ev.length;e++){const dt=Math.abs(ev[e].time-pred);if(dt<gate)cand.push([dt/gate+.06*Math.abs(Math.log((ev[e].amp+.05)/(tracks[k].lastAmp+.05))),k,e]);}}
-    cand.sort((a,b)=>a[0]-b[0]);const ut=new Set,ue=new Set;for(const c of cand){const k=c[1],e=c[2];if(ut.has(k)||ue.has(e))continue;tracks[k].obs.push({g,time:ev[e].time,amp:ev[e].amp,support:ev[e].support});tracks[k].lastG=g;tracks[k].lastAmp=ev[e].amp;ut.add(k);ue.add(e);}for(let e=0;e<ev.length;e++)if(!ue.has(e))tracks.push({id:0,obs:[{g,time:ev[e].time,amp:ev[e].amp,support:ev[e].support}],lastG:g,lastAmp:ev[e].amp});
+    for(let k=0;k<tracks.length;k++){const gap=g-tracks[k].lastG;if(gap<1||gap>CFG.trackMaxGap)continue;const pred=predictTrack(tracks[k],g),gate=CFG.trackGateSec*(1+.18*(gap-1)),proto=trackMaterialPrototype(tracks[k]);for(let e=0;e<ev.length;e++){const dt=Math.abs(ev[e].time-pred);if(dt<gate){const mc=materialDistance(ev[e],proto);cand.push([dt/gate+.06*Math.abs(Math.log((ev[e].amp+.05)/(tracks[k].lastAmp+.05)))+(CFG.graphMaterialWeight||.10)*mc,k,e]);}}}
+    cand.sort((a,b)=>a[0]-b[0]);const ut=new Set,ue=new Set;for(const c of cand){const k=c[1],e=c[2];if(ut.has(k)||ue.has(e))continue;tracks[k].obs.push({g,time:ev[e].time,amp:ev[e].amp,support:ev[e].support,materialBandsHz:ev[e].materialBandsHz||[],materialMagDB:ev[e].materialMagDB||[],materialPhase:ev[e].materialPhase||[],materialQuality:ev[e].materialQuality||0});tracks[k].lastG=g;tracks[k].lastAmp=ev[e].amp;ut.add(k);ue.add(e);}for(let e=0;e<ev.length;e++)if(!ue.has(e))tracks.push({id:0,obs:[{g,time:ev[e].time,amp:ev[e].amp,support:ev[e].support,materialBandsHz:ev[e].materialBandsHz||[],materialMagDB:ev[e].materialMagDB||[],materialPhase:ev[e].materialPhase||[],materialQuality:ev[e].materialQuality||0}],lastG:g,lastAmp:ev[e].amp});
   }
-  for(const t of tracks){const ts=t.obs.map(o=>o.time);let sm=0;for(let i=2;i<ts.length;i++)sm+=Math.abs(ts[i]-2*ts[i-1]+ts[i-2]);sm/=Math.max(1,ts.length-2);t.hits=new Set(t.obs.map(o=>o.g)).size;t.persistence=t.hits/Math.max(1,kfs.length);t.medAmp=median(t.obs.map(o=>o.amp));t.medSupport=median(t.obs.map(o=>o.support||1));t.slope=t.obs.length>1?(t.obs[t.obs.length-1].time-t.obs[0].time)/(t.obs[t.obs.length-1].g-t.obs[0].g||1):0;t.smooth=sm;t.score=.38*Math.min(1,t.hits/6)+.27*t.persistence+.14*Math.min(1,t.medAmp)+.12*t.medSupport+.09*Math.exp(-sm/.00045);}
-  tracks=mergeDuplicateTracks(tracks.filter(t=>t.hits>=2));transferIds(tracks,prevModel?prevModel.allTracks:[]);return tracks;
+  for(const t of tracks)finalizeTrackStats(t,kfs.length);tracks=mergeDuplicateTracks(tracks.filter(t=>t.hits>=2));transferIds(tracks,prevModel?prevModel.allTracks:[]);return tracks;
 }
-function selectPrimary(tracks){const prev=new Set(prevModel?prevModel.primaryTrackIds:[]),sorted=tracks.slice();for(const t of sorted)t.selectScore=t.score+(prev.has(t.id)?CFG.primaryRetentionBonus:0)+.06*Math.exp(-median(t.obs.map(o=>o.time))/.035);sorted.sort((a,b)=>b.selectScore-a.selectScore);const out=[];for(const t of sorted){const th=prev.has(t.id)?CFG.primaryDropScore:CFG.primaryAddScore;if(t.selectScore<th)continue;out.push(t);if(out.length>=CFG.maxPrimarySurfaces)break;}return out;}
+function selectPrimary(tracks,cap=CFG.maxPrimarySurfaces,thresholdScale=1){const prev=new Set(prevModel?prevModel.primaryTrackIds:[]),sorted=tracks.slice();for(const t of sorted)t.selectScore=t.score+(prev.has(t.id)?CFG.primaryRetentionBonus:0);sorted.sort((a,b)=>b.selectScore-a.selectScore);const out=[];for(const t of sorted){const th=(prev.has(t.id)?CFG.primaryDropScore:CFG.primaryAddScore)*thresholdScale;if(t.selectScore<th)continue;out.push(t);if(out.length>=cap)break;}return out;}
 
 function solveLinear(A,b,lambda=1e-6,prior=null){
   const n=A.length,M=Array.from({length:n},(_,i)=>Array.from(A[i])),x=Array.from(b);for(let i=0;i<n;i++){M[i][i]+=lambda;if(prior)x[i]+=lambda*prior[i];}
@@ -812,8 +841,8 @@ function alsNoRow(Z,W,rank,warm){
 function inv3(A){const[a,b,c,d,e,f,g,h,i]=[A[0][0],A[0][1],A[0][2],A[1][0],A[1][1],A[1][2],A[2][0],A[2][1],A[2][2]],A11=e*i-f*h,A12=-(d*i-f*g),A13=d*h-e*g,A21=-(b*i-c*h),A22=a*i-c*g,A23=-(a*h-b*g),A31=b*f-c*e,A32=-(a*f-c*d),A33=a*e-b*d,det=a*A11+b*A12+c*A13;if(Math.abs(det)<1e-12)return null;return[[A11/det,A21/det,A31/det],[A12/det,A22/det,A32/det],[A13/det,A23/det,A33/det]];}
 function chol3(G){const L=[[0,0,0],[0,0,0],[0,0,0]];for(let i=0;i<3;i++)for(let j=0;j<=i;j++){let s=G[i][j];for(let k=0;k<j;k++)s-=L[i][k]*L[j][k];if(i===j){if(s<=1e-9)return null;L[i][j]=Math.sqrt(s);}else L[i][j]=s/L[j][j];}return L;}
 function basis(n){const a=Math.abs(n[2])<.85?[0,0,1]:[0,1,0];let u=[a[1]*n[2]-a[2]*n[1],a[2]*n[0]-a[0]*n[2],a[0]*n[1]-a[1]*n[0]],q=Math.hypot(...u)||1;u=u.map(x=>x/q);const v=[n[1]*u[2]-n[2]*u[1],n[2]*u[0]-n[0]*u[2],n[0]*u[1]-n[1]*u[0]];return[u,v];}
-function mergePatches(p){const out=[];for(const x of p.sort((a,b)=>b.score-a.score)){let dup=false;for(const y of out){const dot=Math.abs(x.normal[0]*y.normal[0]+x.normal[1]*y.normal[1]+x.normal[2]*y.normal[2]),ang=Math.acos(clamp(dot,-1,1))*180/Math.PI;if(ang<CFG.surfaceMergeAngleDeg&&Math.abs(Math.abs(x.offset)-Math.abs(y.offset))<CFG.surfaceMergeOffsetM){dup=true;break;}}if(!dup)out.push(x);}return out;}
-function holdModel(P,selected,tracks,msg){const old=prevModel||{},path=(old.path&&old.path.length?old.path.map(x=>x.slice()):[[0,0,0]]);while(path.length<P)path.push(path[path.length-1].slice());if(path.length>P)path.length=P;return{path,source:[0,0,0],imageSources:old.imageSources||[],primary:old.primary||[],detail:old.detail||[],rank:old.rank||0,rmse:old.rmse,normalRMSE:old.normalRMSE,metric:old.metric||false,primaryTrackIds:selected.map(t=>t.id),allTracks:tracks,factor:old.factor||null,message:msg,mode:'HOLD'};}
+function mergePatches(p){const out=[];for(const x of p.sort((a,b)=>b.score-a.score)){let merged=null;for(const y of out){const dot=Math.abs(x.normal[0]*y.normal[0]+x.normal[1]*y.normal[1]+x.normal[2]*y.normal[2]),ang=Math.acos(clamp(dot,-1,1))*180/Math.PI;if(ang<CFG.surfaceMergeAngleDeg&&Math.abs(Math.abs(x.offset)-Math.abs(y.offset))<CFG.surfaceMergeOffsetM){merged=y;break;}}if(merged){merged.mergedIds=merged.mergedIds||[];merged.mergedIds.push(x.id);merged.score=Math.max(merged.score||0,x.score||0);if(x.material&&(!merged.material||(x.material.consistency||0)>(merged.material.consistency||0)))merged.material=x.material;}else{x.mergedIds=[];out.push(x);}}return out;}
+function holdModel(P,selected,tracks,msg){const old=prevModel||{},path=(old.path&&old.path.length?old.path.map(x=>x.slice()):[[0,0,0]]);while(path.length<P)path.push(path[path.length-1].slice());if(path.length>P)path.length=P;return{path,source:[0,0,0],imageSources:old.imageSources||[],primary:old.primary||[],detail:old.detail||[],rank:old.rank||0,rmse:old.rmse,normalRMSE:old.normalRMSE,metric:old.metric||false,primaryTrackIds:old.primaryTrackIds||selected.map(t=>t.id),allTracks:tracks,factor:old.factor||null,surfaceGraph:old.surfaceGraph||{schema:'KiPersistentSurfaceGraph-v1',nodes:[],edges:[]},higherOrderTracks:old.higherOrderTracks||[],message:msg,mode:'HOLD'};}
 
 // -------------------------------------------------------------------------
 // v7 fixed-source geometry
@@ -898,24 +927,79 @@ function alignFixedSourceAxes(M,V,oldPath){
   const tr=x=>best.p.map((q,j)=>best.sg[j]*x[q]);return{M:M.map(tr),V:V.map(tr)};
 }
 function reflectionPointFixed(m,v){const q=Math.hypot(...v);if(q<1e-6)return null;const n=v.map(x=>x/q),den=q-(n[0]*m[0]+n[1]*m[1]+n[2]*m[2]);if(Math.abs(den)<1e-6)return null;const t=q/(2*den);if(!Number.isFinite(t))return null;return[v[0]+t*(m[0]-v[0]),v[1]+t*(m[1]-v[1]),v[2]+t*(m[2]-v[2])];}
+
+// -------------------------------------------------------------------------
+// Ki plane chart + persistent surface graph
+// -------------------------------------------------------------------------
+function predictedTauFixed(m,v){return(Math.hypot(m[0]-v[0],m[1]-v[1],m[2]-v[2])-Math.hypot(...m))/C;}
+function kiPlaneResidualM(m,tau,v){
+  const L=Math.hypot(...m),sv=Math.hypot(...v);if(L<1e-6||sv<1e-6||tau<0)return Infinity;const n=v.map(x=>x/sv),d=sv/2,D=L+C*tau,a=D/2,b2=Math.max(0,a*a-L*L/4),nc=.5*(n[0]*m[0]+n[1]*m[1]+n[2]*m[2]),ne=-(n[0]*m[0]+n[1]*m[1]+n[2]*m[2])/L,q=Math.sqrt(Math.max(0,b2+L*L*ne*ne/4));return Math.min(Math.abs(d-(nc+q)),Math.abs(d-(nc-q)));
+}
+function surfaceKiRMSE(M,t,v){const z=[];for(const o of t.obs)if(M[o.g]){const r=kiPlaneResidualM(M[o.g],o.time,v);if(Number.isFinite(r))z.push(r*r);}return Math.sqrt(median(z)||0);}
+function surfaceDelayRMSE(M,t,v){const z=[];for(const o of t.obs)if(M[o.g])z.push((predictedTauFixed(M[o.g],v)-o.time)**2);return Math.sqrt(median(z)||0);}
+function reflectAcrossPlane(x,v){const s=Math.hypot(...v);if(s<1e-8)return x.slice();const n=v.map(q=>q/s),d=s/2,h=d-(n[0]*x[0]+n[1]*x[1]+n[2]*x[2]);return[x[0]+2*h*n[0],x[1]+2*h*n[1],x[2]+2*h*n[2]];}
+function composedImageSource(vA,vB){return reflectAcrossPlane(reflectAcrossPlane([0,0,0],vA),vB);}
+function classifyHigherOrderImages(M,V,tracks){
+  const cls=tracks.map((t,k)=>({index:k,id:t.id,order:1,parents:null,imageResidualM:Infinity,delayRMSESec:Infinity})),gateM=CFG.graphOrder2ImageGateM||.28,gateT=CFG.graphOrder2DelayGateSec||.00115,minHits=CFG.graphOrder2MinHits||3;
+  for(let k=0;k<tracks.length;k++){if((tracks[k].hits||0)<minHits)continue;let best=null;for(let a=0;a<tracks.length;a++)for(let b=0;b<tracks.length;b++){if(a===b||a===k||b===k||(tracks[a].hits||0)<minHits||(tracks[b].hits||0)<minHits||.5*((tracks[a].score||0)+(tracks[b].score||0))<(tracks[k].score||0)-.02)continue;const q=composedImageSource(V[a],V[b]),di=Math.hypot(V[k][0]-q[0],V[k][1]-q[1],V[k][2]-q[2]),zz=[];for(const o of tracks[k].obs)if(M[o.g])zz.push((predictedTauFixed(M[o.g],q)-o.time)**2);const md=median(zz),dr=Number.isFinite(md)?Math.sqrt(Math.max(0,md)):Infinity,globallyExplained=(dr<=.72*gateT&&di<=gateM)||(dr<=.42*gateT&&di<=1.5*gateM),cost=dr/gateT+.35*di/gateM;if(globallyExplained&&(!best||cost<best.cost))best={a,b,di,dr,cost};}if(best)cls[k]={index:k,id:tracks[k].id,order:2,parents:[tracks[best.a].id,tracks[best.b].id],parentIndices:[best.a,best.b],imageResidualM:best.di,delayRMSESec:best.dr,evidenceCost:best.cost};}
+  return cls;
+}
+function surfaceMaterialProfile(M,v,t){
+  const rows=[],sv=Math.max(1e-8,Math.hypot(...v)),n=v.map(x=>x/sv);
+  for(const o of t.obs){if(!M[o.g]||!o.materialMagDB||!o.materialMagDB.length)continue;const m=M[o.g],r=Math.max(.06,Math.hypot(...m)),e=Math.max(.06,Math.hypot(m[0]-v[0],m[1]-v[1],m[2]-v[2])),spread=20*Math.log10(e/r),mag=o.materialMagDB.map(x=>Number.isFinite(x)?x+spread:NaN),rp=reflectionPointFixed(m,v);let angleDeg=NaN;if(rp){const rs=Math.max(1e-8,Math.hypot(...rp)),co=clamp(Math.abs((n[0]*rp[0]+n[1]*rp[1]+n[2]*rp[2])/rs),0,1);angleDeg=Math.acos(co)*180/Math.PI;}rows.push({mag,phase:o.materialPhase||[],q:(o.materialQuality||0)*(o.support||1),incidenceDeg:angleDeg,g:o.g});}
+  const ang=rows.map(x=>x.incidenceDeg).filter(Number.isFinite),a0=ang.length?median(ang):NaN,refRows=Number.isFinite(a0)&&rows.filter(x=>Number.isFinite(x.incidenceDeg)&&Math.abs(x.incidenceDeg-a0)<=15).length>=2?rows.filter(x=>Number.isFinite(x.incidenceDeg)&&Math.abs(x.incidenceDeg-a0)<=15):rows;
+  const magDB=medianVector(refRows.map(x=>x.mag)),phase=circularMeanVector(refRows.map(x=>x.phase)),dev=[];for(const r of refRows)for(let j=0;j<Math.min(r.mag.length,magDB.length);j++)if(Number.isFinite(r.mag[j])&&Number.isFinite(magDB[j]))dev.push(Math.abs(r.mag[j]-magDB[j]));const magConsistency=Math.exp(-(median(dev)||20)/(CFG.materialConsistencyScaleDB||7));let pc=[];for(let j=0;j<phase.length;j++){let c=0,ss=0,nv=0;for(const r of refRows)if(Number.isFinite(r.phase[j])){c+=Math.cos(r.phase[j]);ss+=Math.sin(r.phase[j]);nv++;}if(nv)pc.push(Math.hypot(c,ss)/nv);}const phaseCoherence=pc.length?median(pc):0,consistency=.72*magConsistency+.28*phaseCoherence,bands=(t.obs.find(o=>o.materialBandsHz&&o.materialBandsHz.length)||{}).materialBandsHz||materialBandList(),reflection=[],impedanceNorm=[];
+  for(let j=0;j<magDB.length;j++){const mag=Math.min(1.6,Math.pow(10,(magDB[j]||-80)/20)),ph=Number.isFinite(phase[j])?phase[j]:0,rr=mag*Math.cos(ph),ri=mag*Math.sin(ph);reflection.push([rr,ri]);const ar=1+rr,ai=ri,br=1-rr,bi=-ri,den=br*br+bi*bi+1e-12;impedanceNorm.push([(ar*br+ai*bi)/den,(ai*br-ar*bi)/den]);}
+  const passivityFraction=magDB.length?magDB.filter(x=>Number.isFinite(x)&&x<=1).length/magDB.length:0,incidenceRangeDeg=ang.length?[Math.min(...ang),Math.max(...ang)]:[NaN,NaN];return{bandsHz:bands,reflectionMagDB:magDB,reflectionPhaseRad:phase,reflectionComplex:reflection,effectiveImpedanceNorm:impedanceNorm,observations:rows.length,referenceAngleObservations:refRows.length,incidenceMedianDeg:a0,incidenceRangeDeg,observationsByAngle:rows.map(x=>({g:x.g,incidenceDeg:x.incidenceDeg,quality:x.q})),consistency,passivityFraction,abelesReady:refRows.length>=(CFG.materialMinObservations||3)&&consistency>.30&&passivityFraction>=.5,model:'effective complex reflection at local incidence / normalized impedance; Abelès multilayer inversion intentionally disabled'};
+}
+function reassociateSelectedTracks(kfs,tracks,M,V){
+  const out=tracks.map(t=>({...t,obs:[]})),gate=CFG.graphAssociationGateSec||.00135;
+  for(let g=0;g<kfs.length;g++){const ev=kfs[g].events,cand=[];for(let k=0;k<tracks.length;k++){const pred=predictedTauFixed(M[g],V[k]),proto=tracks[k];for(let e=0;e<ev.length;e++){const dt=Math.abs(ev[e].time-pred);if(dt>gate)continue;const kr=kiPlaneResidualM(M[g],ev[e].time,V[k]),mc=materialDistance(ev[e],proto),cost=dt/gate+(CFG.graphKiWeight||.18)*kr/Math.max(.02,CFG.kiPlaneGateM||.16)+(CFG.graphMaterialWeight||.10)*mc;cand.push([cost,k,e]);}}cand.sort((a,b)=>a[0]-b[0]);const uk=new Set,ue=new Set;for(const c of cand){const k=c[1],e=c[2];if(uk.has(k)||ue.has(e))continue;const q=ev[e];out[k].obs.push({g,time:q.time,amp:q.amp,support:q.support,materialBandsHz:q.materialBandsHz||[],materialMagDB:q.materialMagDB||[],materialPhase:q.materialPhase||[],materialQuality:q.materialQuality||0});uk.add(k);ue.add(e);}}
+  for(let k=0;k<out.length;k++){if(out[k].obs.length<2)out[k].obs=tracks[k].obs.map(o=>({...o}));finalizeTrackStats(out[k],kfs.length);out[k].id=tracks[k].id;}return out;
+}
+function buildSurfaceGraph(kfs,M,V,tracks,classes){
+  const nodes=[];for(let k=0;k<tracks.length;k++){const t=tracks[k],cl=classes[k],ki=surfaceKiRMSE(M,t,V[k]),dr=surfaceDelayRMSE(M,t,V[k]),mat=surfaceMaterialProfile(M,V[k],t),s=Math.hypot(...V[k]),n=s>1e-8?V[k].map(x=>x/s):[1,0,0],d=s/2,outside=M.length?M.filter(m=>n[0]*m[0]+n[1]*m[1]+n[2]*m[2]>d+(CFG.roomInteriorMarginM||.035)).length/M.length:0,kiScore=Math.exp(-ki/Math.max(.03,CFG.kiPlaneGateM||.16)),confidence=t.score*(.72+.28*kiScore)*(.90+.10*mat.consistency)*(outside>.25?.55:1);nodes.push({id:t.id,order:cl.order,parents:cl.parents,imageSource:V[k].slice(),normal:n,offset:d,persistence:t.persistence,hits:t.hits,trackScore:t.score,confidence,kiRMSEM:ki,delayRMSESec:dr,outsideFraction:outside,material:mat});}
+  // Residual higher-order evidence is represented as graph edges.  It can
+  // strengthen adjacency but can never create a new physical wall by itself.
+  const physical=nodes.map((n,i)=>({n,i})).filter(x=>x.n.order===1),edges=new Map,firstGate=CFG.graphAssociationGateSec||.00135,walkGate=CFG.graphOrder2DelayGateSec||.00115;
+  for(let g=0;g<kfs.length;g++)for(const e of kfs[g].events){let first=false;for(const x of physical)if(Math.abs(e.time-predictedTauFixed(M[g],V[x.i]))<firstGate){first=true;break;}if(first)continue;let best=null;for(const a of physical)for(const b of physical){if(a.i===b.i)continue;const q=composedImageSource(V[a.i],V[b.i]),er=Math.abs(e.time-predictedTauFixed(M[g],q));if(er<walkGate&&(!best||er<best.er))best={a:a.n.id,b:b.n.id,er};}if(best){const key=`${best.a}>${best.b}`,z=edges.get(key)||{from:best.a,to:best.b,order:2,hits:0,residuals:[]};z.hits++;z.residuals.push(best.er);edges.set(key,z);}}
+  for(const cl of classes)if(cl.order===2&&cl.parents){const key=`${cl.parents[0]}>${cl.parents[1]}`,z=edges.get(key)||{from:cl.parents[0],to:cl.parents[1],order:2,hits:0,residuals:[]};z.hits+=tracks[cl.index].hits||1;z.residuals.push(cl.delayRMSESec);edges.set(key,z);}
+  const byId=new Map(nodes.map(n=>[n.id,n])),E=Array.from(edges.values()).map(e=>{const A=byId.get(e.from),B=byId.get(e.to),ma=A&&A.material&&A.material.reflectionMagDB||[],mb=B&&B.material&&B.material.reflectionMagDB||[],prod=[];for(let j=0;j<Math.min(ma.length,mb.length);j++)prod.push((ma[j]||0)+(mb[j]||0));return{from:e.from,to:e.to,order:2,hits:e.hits,support:e.hits/Math.max(1,kfs.length),rmseSec:Math.sqrt(median(e.residuals.map(x=>x*x))||0),predictedMaterialProductMagDB:prod,materialWalkReady:!!(A&&B&&A.material&&B.material&&A.material.abelesReady&&B.material.abelesReady)};}).sort((a,b)=>b.hits-a.hits);return{schema:'KiPersistentSurfaceGraph-v1',nodes,edges:E,physicalNodeIds:nodes.filter(n=>n.order===1).map(n=>n.id),higherOrderNodeIds:nodes.filter(n=>n.order>1).map(n=>n.id),materialState:'complex reflection + normalized impedance; no multilayer parameter inversion'};
+}
+
 function makeFixedSourcePatches(M,V,D,tracks,kind){
   const out=[];for(let k=0;k<tracks.length;k++){const q=Math.hypot(...V[k]);if(q<.08)continue;const n=V[k].map(x=>x/q),d=q/2,pts=[];for(let i=0;i<M.length;i++)if(Number.isFinite(D[i][k])){const p=reflectionPointFixed(M[i],V[k]);if(p)pts.push(p);}if(pts.length<2)continue;const [u,w]=basis(n),cu=pts.map(p=>p[0]*u[0]+p[1]*u[1]+p[2]*u[2]),cv=pts.map(p=>p[0]*w[0]+p[1]*w[1]+p[2]*w[2]),loU=quantile(cu,.05)-CFG.patchMargin,hiU=quantile(cu,.95)+CFG.patchMargin,loV=quantile(cv,.05)-CFG.patchMargin,hiV=quantile(cv,.95)+CFG.patchMargin,c=n.map(x=>x*d),vert=[[loU,loV],[hiU,loV],[hiU,hiV],[loU,hiV]].map(z=>[c[0]+z[0]*u[0]+z[1]*w[0],c[1]+z[0]*u[1]+z[1]*w[1],c[2]+z[0]*u[2]+z[1]*w[2]]);out.push({id:tracks[k].id,vertices:vert,normal:n,offset:d,imageSource:V[k].slice(),score:tracks[k].score,kind});}return out;
 }
 function buildModelFixedSource(kfs,tracks,detail=false){
   const selected=detail?tracks.filter(t=>t.score>=CFG.detailTrackScore).sort((a,b)=>b.score-a.score).slice(0,CFG.maxDetailSurfaces):selectPrimary(tracks),P=kfs.length,K=selected.length;
   if(P<3||K<2)return holdModel(P,selected,tracks,'fixed-source: waiting for >=3 microphone poses and >=2 persistent image-source tracks');
-  const ini=fixedSourceInitial(kfs,selected),rr=refineFixedSource(ini.M,ini.V,ini.D,ini.W,ini.directR,ini.directConf),al=alignFixedSourceAxes(rr.M,rr.V,prevModel&&prevModel.path),M=al.M,V=al.V,patch=mergePatches(makeFixedSourcePatches(M,V,ini.D,selected,detail?'detail':'primary')).slice(0,detail?CFG.maxDetailSurfaces:CFG.maxPrimarySurfaces);
-  if(!patch.length&&prevModel)return holdModel(P,selected,tracks,'fixed-source factorization exists but no finite plane patches');
+  // Metric backbone deliberately remains the stable v7 fixed-source solver.
+  // The persistent graph is a verifier/classifier around this solution, not a
+  // second optimizer allowed to drag the trajectory on uncertain evidence.
+  const ini=fixedSourceInitial(kfs,selected),rr=refineFixedSource(ini.M,ini.V,ini.D,ini.W,ini.directR,ini.directConf),al=alignFixedSourceAxes(rr.M,rr.V,prevModel&&prevModel.path),M=al.M,V=al.V;
+  let classes=classifyHigherOrderImages(M,V,selected),physicalIdx=classes.map((c,i)=>c.order===1?i:-1).filter(i=>i>=0),demotionDeferred=false;
+  // Never let an uncertain higher-order classification erase the minimum set
+  // needed to maintain a 3-D room solution.  In that case keep the nodes as
+  // first-order candidates and record the order-2 evidence only on graph edges.
+  if(physicalIdx.length<3){classes=selected.map((t,i)=>({index:i,id:t.id,order:1,parents:null,imageResidualM:Infinity,delayRMSESec:surfaceDelayRMSE(M,t,V[i])}));physicalIdx=classes.map((_,i)=>i);demotionDeferred=true;}
+  const graph=buildSurfaceGraph(kfs,M,V,selected,classes);graph.demotionDeferred=demotionDeferred;
+  const physicalTracks=physicalIdx.map(i=>selected[i]),physicalV=physicalIdx.map(i=>V[i]),Dphys=physicalTracks.length?fixedSourceData(kfs,physicalTracks).D:[];
+  let patch=mergePatches(makeFixedSourcePatches(M,physicalV,Dphys,physicalTracks,detail?'detail':'primary'));
+  const nodeById=new Map(graph.nodes.map(n=>[n.id,n]));for(const p of patch){const n=nodeById.get(p.id);if(n){p.score=(p.score||0)*(.78+.22*Math.exp(-n.kiRMSEM/Math.max(.03,CFG.kiPlaneGateM||.16)))*(.94+.06*(n.material&&n.material.consistency||0));p.kiRMSEM=n.kiRMSEM;p.material=n.material;p.persistence=n.persistence;p.outsideFraction=n.outsideFraction;}}
+  patch.sort((a,b)=>b.score-a.score);patch=patch.slice(0,detail?CFG.maxDetailSurfaces:CFG.maxPrimarySurfaces);
+  if(!patch.length&&prevModel)return holdModel(P,selected,tracks,'persistent graph exists but no finite first-order plane patch');
+  graph.displayNodeIds=patch.map(p=>p.id);const displaySet=new Set(graph.displayNodeIds);for(const n of graph.nodes)n.status=n.order>1?'higher-order':displaySet.has(n.id)?'primary':'candidate';
   const directPriorRMSE=Math.sqrt(median(M.map((m,i)=>Number.isFinite(ini.directR[i])?(Math.hypot(...m)-ini.directR[i])**2:0))||0);
-  return{path:M,source:[0,0,0],imageSources:V,primary:detail?(prevModel?prevModel.primary:[]):patch,detail:detail?patch:[],rank:ini.rank,rmse:rr.rmse,normalRMSE:NaN,metric:true,primaryTrackIds:selected.map(t=>t.id),allTracks:tracks,factor:null,message:'fixed source / moving microphone',mode:'FIXED-SOURCE',directPriorRMSE};
+  return{path:M,source:[0,0,0],imageSources:physicalV,primary:detail?(prevModel?prevModel.primary:[]):patch,detail:detail?patch:[],rank:ini.rank,rmse:rr.rmse,normalRMSE:NaN,metric:true,primaryTrackIds:patch.map(p=>p.id),allTracks:tracks,factor:null,message:'Ki persistent surface graph / stable fixed-source metric backbone',mode:'KI-GRAPH-FIXED-SOURCE',directPriorRMSE,surfaceGraph:graph,higherOrderTracks:classes.filter(c=>c.order>1).map(c=>({id:c.id,order:c.order,parents:c.parents,imageResidualM:c.imageResidualM,delayRMSESec:c.delayRMSESec,evidenceCost:c.evidenceCost}))};
 }
 function buildModel(kfs,tracks,detail=false){return buildModelFixedSource(kfs,tracks,detail);}
 
 function rebuild(detail=false){
-  // This is intentionally GLOBAL.  Every new chirp re-fuses every accepted RIR,
-  // redoes temporal keyframes, echo association, track persistence and geometry.
+  // GLOBAL retrospective inference. Every chirp re-fuses all accepted RIRs,
+  // rebuilds keyframes/tracks, re-estimates image sources, re-associates all
+  // echoes with Ki+material evidence, and reclassifies higher-order graph walks.
   const ms=measurements.filter(m=>m.accepted),kfs=buildKeyframes(ms,detail),tracks=buildTracks(kfs,detail),model=buildModel(kfs,tracks,detail);
-  if(detail&&prevModel){model.path=prevModel.path;model.primary=prevModel.primary;model.primaryTrackIds=prevModel.primaryTrackIds;model.factor=prevModel.factor;model.rank=prevModel.rank;model.rmse=prevModel.rmse;model.metric=prevModel.metric;model.normalRMSE=prevModel.normalRMSE;}
+  if(detail&&prevModel){model.path=prevModel.path;model.primary=prevModel.primary;model.primaryTrackIds=prevModel.primaryTrackIds;model.rank=prevModel.rank;model.rmse=prevModel.rmse;model.metric=prevModel.metric;model.normalRMSE=prevModel.normalRMSE;model.surfaceGraph=prevModel.surfaceGraph||model.surfaceGraph;}
   prevModel=model;return{model,keyframes:kfs,tracks};
 }
 
@@ -944,6 +1028,15 @@ function selfTestCase(name,raw,trueDirect,trueTau,minRef,shouldAccept){
   const directErr=Math.abs(a.directTimeSec-trueDirect),found=a.primary.filter(e=>!e.isDirect).map(e=>e.tau),hits=trueTau.filter(t=>found.some(x=>Math.abs(x-t)<.0012)).length,previewOK=(a.rirPreviewSigned||[]).length>80&&(a.rirPreviewEnv||[]).length>80;
   const ok=directErr<.0012&&hits>=minRef&&previewOK&&(!shouldAccept||a.accepted);return{name,ok,directErr,hits,found:found.length,accepted:a.accepted,directOnly:!!a.directOnly,quality:a.qualityScore,previewOK,reason:a.reason};
 }
+
+function runPersistentGraphSelfTest(){
+  try{
+    const M=[[.45,.35,.10],[.75,.30,.18],[1.05,.55,.22],[.85,.90,.30],[.45,1.05,.26],[.20,.70,.16]],V=[[4.0,0,0],[0,4.8,0],[-4.4,0,0],[0,-4.6,0]],tracks=[];
+    function mkTrack(id,v,score=.86){const obs=M.map((m,g)=>({g,time:predictedTauFixed(m,v),amp:.6,support:1,materialBandsHz:[900,1400,2200],materialMagDB:[-20-id,-21-id,-23-id],materialPhase:[.10*id,.08*id,.05*id],materialQuality:.9}));const t={id,obs,lastG:M.length-1,lastAmp:.6};finalizeTrackStats(t,M.length);t.score=score;t.persistence=1;t.hits=M.length;return t;}
+    for(let k=0;k<V.length;k++)tracks.push(mkTrack(k+1,V[k],.90-.02*k));const v2=composedImageSource(V[0],V[1]),t2=mkTrack(99,v2,.70);tracks.push(t2);const VV=[...V,v2],classes=classifyHigherOrderImages(M,VV,tracks),order2=classes.find(c=>c.id===99),mat=surfaceMaterialProfile(M,V[0],tracks[0]),ok=!!order2&&order2.order===2&&order2.parents&&mat.abelesReady&&surfaceKiRMSE(M,tracks[0],V[0])<1e-5;return{name:'persistent-graph-order2-material',ok,order2:order2&&order2.parents,kiRMSE:surfaceKiRMSE(M,tracks[0],V[0]),materialConsistency:mat.consistency,abelesReady:mat.abelesReady};
+  }catch(e){return{name:'persistent-graph-order2-material',ok:false,error:e.message};}
+}
+
 function runESSSelfTest(full=false){
   try{
     const tau=[.0030,.0058,.0086,.0122,.0162],amp=[.30,-.22,.15,-.10,.075],cases=[],d0=CFG.preSilenceSec+.055,dLate=CFG.preSilenceSec+.300;
@@ -960,6 +1053,7 @@ function runESSSelfTest(full=false){
     let bootOK=true;for(let j=0;j<3;j++){const rr=synthRaw(d0+.004,[.00060],[.20],.00035,0),aa=analyzeCycle(rr,-100-j,'calibration');const at=bootstrapSystemAtom(aa._calAtom);accumulateCalibrationAtom(at);finalizeCalibrationAtom();}
     const wallTau=2*.80/C,rr=synthRaw(d0+.004,[.00060,wallTau],[.20,.16],.00035,0),aa=analyzeCycle(rr,-120,'selftest'),foundWall=aa.primary.filter(e=>!e.isDirect).some(e=>Math.abs(e.tau-wallTau)<.0010);bootOK=calibrationDirectCount>=3&&foundWall;cases.push({name:'system-bootstrap-multipath',ok:bootOK,found:aa.reflectionCount,accepted:aa.accepted,directOnly:aa.directOnly,previewOK:true,reason:aa.reason});
     calibrationDirectSum=saveSum;calibrationDirectAtom=saveAtom;calibrationDirectCount=saveCount;calibrationDirectWeight=saveWeight;calibrationDirectStability=saveStab;
+    cases.push(runPersistentGraphSelfTest());
     const ok=cases.every(x=>x.ok);postMessage({type:'selftest',ok,cases});postLog(`ESS self-test ${ok?'PASS':'FAIL'}: ${cases.map(x=>`${x.name}:${x.ok?'ok':'FAIL'}`).join(' ')}`,ok?'info':'error');return{ok,cases};
   }catch(e){postMessage({type:'selftest',ok:false,cases:[],error:e.message});postLog(`ESS self-test ERROR: ${e.stack||e.message}`,'error');return{ok:false,cases:[],error:e.message};}
 }
@@ -969,7 +1063,7 @@ onmessage=e=>{
   if(m.type==='init'){
     CFG=m.cfg;FS=m.sampleRate;chirp=new Float64Array(m.chirp);measurements=[];prevModel=null;nextTrackId=1;
     calibrationProfile=null;calibrationDirectAtom=null;calibrationDirectSum=null;calibrationDirectCount=0;calibrationDirectWeight=0;calibrationDirectStability=[];calibrationDirectLowSimilarity=0;calibrationSpectrumFrames=[];calibratedBand={ready:false,f0:NaN,f1:NaN,quality:0};liveRIRFusion=[];
-    buildInverseESS();postLog(`worker v7 fixed-source + external-speaker residual-OMP initialized @ ${FS} Hz`);runESSSelfTest(false);
+    buildInverseESS();postLog(`worker v8 Ki persistent-surface graph + fixed-source image sources initialized @ ${FS} Hz`);runESSSelfTest(false);
   }else if(m.type==='cycle'){
     const raw=new Float32Array(m.raw),mode=m.mode||'measure';let a;try{a=analyzeCycle(raw,m.id,mode);}catch(err){a=failedAnalysis(m.id,raw,err);postLog(`cycle ${m.id}: ${err.stack||err.message}`,'error');}
     // Fixed-source calibration must not deadlock just because the room already has
@@ -1010,7 +1104,7 @@ onmessage=e=>{
 </script>
 <script>
 'use strict';
-const BUILD='KiSonarPrimaryMapper-v7-fixed-source-external';
+const BUILD='KiSonarPrimaryMapper-v8-persistent-surface-graph';
 const $=id=>document.getElementById(id);
 const ui={start:$('startBtn'),stop:$('stopBtn'),moveSpeaker:$('moveSpeakerBtn'),calibrate:$('calibrateBtn'),demo:$('demoBtn'),detail:$('detailBtn'),export:$('exportBtn'),diagnostic:$('diagnosticBtn'),rawWav:$('rawWavBtn'),settings:$('settingsBtn'),apply:$('applyBtn'),close:$('closeSettingsBtn'),panel:$('settings'),statusMain:$('statusMain'),statusSub:$('statusSub'),hud1:$('hud1'),hud2:$('hud2'),hud3:$('hud3'),hud4:$('hud4'),metrics:$('metrics'),log:$('log'),canvas:$('scene'),rirStrip:$('rirStrip'),rirShelfSummary:$('rirShelfSummary'),permissionGate:$('permissionGate'),permissionText:$('permissionText'),permissionRetry:$('permissionRetryBtn'),permissionCancel:$('permissionCancelBtn'),reflectionHint:$('reflectionHint'),calibrationPanel:$('calibrationPanel'),calibrationTitle:$('calibrationTitle'),calibrationInstruction:$('calibrationInstruction'),calibrationPhase:$('calibrationPhase'),calibrationDistance:$('calibrationDistance'),calibrationSNR:$('calibrationSNR'),calibrationTemplate:$('calibrationTemplate'),calibrationProgress:$('calibrationProgress'),calibrationAction:$('calibrationActionBtn'),speakerSelect:$('speakerSelect'),refreshSpeaker:$('refreshSpeakerBtn'),micSelect:$('microphoneSelect'),refreshMic:$('refreshMicBtn'),debugRaw:$('debugRaw'),rawShelf:$('rawShelf'),rawStrip:$('rawStrip'),rawShelfSummary:$('rawShelfSummary'),outputMode:$('outputMode'),sourceReferenceDistance:$('sourceReferenceDistance'),maxOutputLatencySearch:$('maxOutputLatencySearch')};
 let cfg={},worker=null,audio=null,renderer=null,logs=[],cycleLogs=[],rirHistory=[],diagnosticHistory=[],lastRawCapture=null,lastRawMeta=null,speakerEpoch=1,speakerSegments=[],latest={model:{path:[[0,0,0]],primary:[],detail:[]},accepted:0,rejected:0,keyframes:0,tracks:0,analysis:null},wakeLock=null;
@@ -1046,7 +1140,15 @@ function readCfg(){
     fuseGateSec:.00075,fuseMinSupport:.30,trackGateSec:.0016,trackMaxGap:8,trackIdTransferGateSec:.0018,
     duplicateTrackGateSec:.00055,primaryRetentionBonus:.25,primaryDropScore:.40,primaryAddScore:.55,detailTrackScore:.52,
     alsIterations:12,alsRidge:2e-4,mapHuberM:.09,metricRidge:.35,patchMargin:.18,surfaceMergeAngleDeg:10,
-    surfaceMergeOffsetM:.35,directCalibrationFrames:5,directReturnFrames:4,directLostConfirmCycles:3,sourceDistancePriorWeight:.15,fixedSourceRefineIterations:80,fixedSourceStep:.035,calibrationMaxCycles:120,calibrationMaxDistanceM:6,
+    surfaceMergeOffsetM:.35,directCalibrationFrames:5,directReturnFrames:4,directLostConfirmCycles:3,sourceDistancePriorWeight:.15,fixedSourceAbsoluteWeight:0,fixedSourceRefineIterations:80,fixedSourceStep:.035,fixedSourceMaxStepM:.055,calibrationMaxCycles:120,calibrationMaxDistanceM:6,
+    // Persistent surface graph. Ki is used as a plane-space consistency score;
+    // image sources remain the optimization parameterization. Order-2 image
+    // sources are explicitly explained as graph walks before becoming walls.
+    graphAssociationGateSec:.00135,kiPlaneGateM:.16,graphOrder2ImageGateM:.28,graphOrder2DelayGateSec:.00115,graphOrder2MinHits:3,
+    roomInteriorPenalty:.055,roomInteriorMarginM:.035,graphMaterialWeight:.10,graphKiWeight:.18,
+    // Complex, frequency-dependent surface identity. This is intentionally an
+    // Abelès-ready reflection state, NOT an invented multilayer material fit.
+    materialBandsHz:[900,1400,2200,3500,5500,8500],materialWindowSec:.00075,materialMinObservations:3,materialConsistencyScaleDB:7.0,
     wallGuideAcquireConfirmCycles:3,wallGuideNewWallConfirmCycles:3,wallGuideLostConfirmCycles:3,wallGuideReacquireConfirmCycles:2,
     wallGuideTrackGateSec:.0030,wallGuideReacquireGateSec:.0055,wallGuideNewWallMinSeparationSec:.00115,wallGuideCandidateGateSec:.0025,
     wallGuideNoNewWallWarnCycles:14,wallGuideMinEventSNRMarginDB:-1.0,inputSettings:{}
@@ -1236,7 +1338,7 @@ function handleCalibrationAnalysis(a,directTemplateCount=0){
 }
 function resetRIRStrip(){directOnlyStreak=0;if(ui.rawStrip)ui.rawStrip.textContent='';if(ui.rawShelfSummary)ui.rawShelfSummary.textContent=cfg&&cfg.debugRaw?'nessuna misura':'debug off';wallGuide=freshWallGuide();if(ui.reflectionHint)ui.reflectionHint.classList.remove('show');rirHistory=[];if(ui.rirStrip)ui.rirStrip.textContent='';if(ui.rirShelfSummary)ui.rirShelfSummary.textContent='nessuna misura';}
 function addAcquisitionFailureCard(id,reason){const a={id,accepted:false,rirValid:false,reliability:'errore',qualityScore:0,snr:-Infinity,energySNR:-Infinity,rawSNR:-Infinity,matchSNR:-Infinity,matchCoeff:0,consistency:0,clipFrac:0,longestClipMs:0,reflectionCount:0,directOnly:false,postAvailableSec:0,reason,primary:[],rirPreviewSigned:[],rirPreviewEnv:[],rirDurationSec:cfg.maxRirSec||.26,directLocalSec:0};cycleLogs.push({id,accepted:false,reason,acquisitionError:true});addRIRCard(a);updateReflectionHint(null);setStatus(`Chirp ${id} non acquisito`,reason,'warn');}
-function updateHUD(){const m=latest.model||{},a=latest.analysis,lim=calibration.profile&&calibration.profile.maxReliableDirectDistanceM;ui.hud1.textContent=`chirp ${(a&&a.id)||0} · pose ${latest.keyframes} · speaker epoch ${speakerEpoch}`;ui.hud2.textContent=`superfici ${(m.primary||[]).length} · dettaglio ${(m.detail||[]).length} · mode ${m.mode||'—'}`;ui.hud3.textContent=`direct d≈${a?finiteFmt(a.directDistanceProbableM,2):'—'} m · refl ${a?(a.reflectionCount||0):0} · rank ${m.rank||0}`;ui.hud4.textContent=Number.isFinite(lim)?`direct leggibile ≤≈${lim.toFixed(2)} m · SYS ${a&&a.systemResponseCount||calibration.directTemplateCount||0} · speaker FERMO`:(calibration.active?'calibrazione sorgente':'range direct non calibrato');ui.metrics.innerHTML=`<span>accettati <b>${latest.accepted||0}</b></span><span>rifiutati <b>${latest.rejected||0}</b></span><span>track <b>${latest.tracks||0}</b></span><span>rank <b>${m.rank||0}</b></span><span>direct <b>${a?finiteFmt(a.directDistanceProbableM,2)+' m':'—'}</b></span><span>range direct <b>${Number.isFinite(lim)?lim.toFixed(2)+' m':'—'}</b></span><span>epoch <b>${speakerEpoch}</b></span><span>RMSE <b>${Number.isFinite(m.rmse)?(100*m.rmse).toFixed(1)+' cm':'—'}</b></span>`;}
+function updateHUD(){const m=latest.model||{},a=latest.analysis,lim=calibration.profile&&calibration.profile.maxReliableDirectDistanceM,g=m.surfaceGraph||{},nodes=g.nodes||[],edges=g.edges||[],n1=nodes.filter(x=>x.order===1).length,n2=nodes.filter(x=>x.order>1).length,mat=nodes.filter(x=>x.order===1&&x.material&&x.material.abelesReady).length;ui.hud1.textContent=`chirp ${(a&&a.id)||0} · pose ${latest.keyframes} · speaker epoch ${speakerEpoch}`;ui.hud2.textContent=`muri ${(m.primary||[]).length} · nodi1 ${n1} · ord2 ${n2} · archi ${edges.length}`;ui.hud3.textContent=`direct d≈${a?finiteFmt(a.directDistanceProbableM,2):'—'} m · refl ${a?(a.reflectionCount||0):0} · rank ${m.rank||0}`;ui.hud4.textContent=Number.isFinite(lim)?`direct ≤≈${lim.toFixed(2)} m · SYS ${a&&a.systemResponseCount||calibration.directTemplateCount||0} · Abelès-ready ${mat}`:(calibration.active?'calibrazione sorgente':'range direct non calibrato');ui.metrics.innerHTML=`<span>accettati <b>${latest.accepted||0}</b></span><span>track <b>${latest.tracks||0}</b></span><span>muri <b>${(m.primary||[]).length}</b></span><span>nodi1 <b>${n1}</b></span><span>ord2 <b>${n2}</b></span><span>archi <b>${edges.length}</b></span><span>materiali <b>${mat}</b></span><span>rank <b>${m.rank||0}</b></span><span>RMSE <b>${Number.isFinite(m.rmse)?(100*m.rmse).toFixed(1)+' cm':'—'}</b></span>`;}
 function handleWorker(m){
   if(m.type==='log'){log(m.message,m.level);return;}
   if(m.type==='calibrationResult'){handleCalibrationAnalysis(m.analysis,m.directTemplateCount);return;}
