@@ -67,7 +67,7 @@ main{position:relative;min-height:0}canvas{display:block;width:100%;height:100%;
   </section>
 </main>
 <section id="rirShelf">
-  <div id="rirShelfHead"><span><b>RIR stimate</b> · ESS Farina + PSF-OMP/CLEAN · template operativo speaker→microfono aggiornato da ogni misura SOLO DIRETTO · RIR signed bianca / envelope ciano</span><span id="rirShelfSummary">nessuna misura</span></div>
+  <div id="rirShelfHead"><span><b>RIR stimate</b> · ESS Farina + residual PSF-OMP/CLEAN near-wall · template operativo speaker→microfono aggiornato da ogni misura SOLO DIRETTO · RIR signed bianca / envelope ciano</span><span id="rirShelfSummary">nessuna misura</span></div>
   <div id="rirStrip" aria-label="Cronologia RIR stimate"></div>
 </section>
 <section id="rawShelf" class="debugShelf">
@@ -350,7 +350,13 @@ function softwarePSFAtom(){
   const N=chirp.length,pre=Math.max(4,Math.round((CFG.psfPreSec||.0015)*FS)),post=Math.max(8,Math.round((CFG.psfPostSec||.0035)*FS));
   if(psfAtomCache&&psfAtomCache.fs===FS&&psfAtomCache.N===N&&psfAtomCache.pre===pre&&psfAtomCache.post===post)return psfAtomCache;
   const nfft=nextPow2(2*N-1),c=ensureConvCache(nfft),re=new Float64Array(nfft),im=new Float64Array(nfft);
-  for(let i=0;i<nfft;i++){re[i]=c.Xr[i]*c.Zr[i]-c.Xi[i]*c.Zi[i];im[i]=c.Xr[i]*c.Zi[i]+c.Xi[i]*c.Zr[i];}
+  for(let i=0;i<nfft;i++){
+    // MUST use the same effective frequency mask as estimateESS().  Otherwise
+    // the OMP dictionary PSF and the measured Farina RIR have different kernels,
+    // which makes genuine echoes appear/disappear depending on their delay.
+    const k=i<=nfft/2?i:nfft-i,f=k*FS/nfft,w=effectiveBandWeight(f);
+    re[i]=w*(c.Xr[i]*c.Zr[i]-c.Xi[i]*c.Zi[i]);im[i]=w*(c.Xr[i]*c.Zi[i]+c.Xi[i]*c.Zr[i]);
+  }
   fft(re,im,true);const center=N-1,v=new Float64Array(pre+post+1);let e=0;
   for(let j=0;j<v.length;j++){const q=center-pre+j;v[j]=(q>=0&&q<re.length)?re[q]:0;e+=v[j]*v[j];}
   e=Math.sqrt(Math.max(e,1e-24));for(let j=0;j<v.length;j++)v[j]/=e;
@@ -388,21 +394,57 @@ function finalizeCalibrationAtom(){
   e=Math.sqrt(Math.max(e,1e-24));for(let j=0;j<v.length;j++)v[j]/=e;const sw=softwarePSFAtom();calibrationDirectAtom={pre:sw.pre,post:sw.post,v,energy:1,peak:maxArray(Array.from(v,Math.abs)),kind:'system-direct'};return calibrationDirectAtom;
 }
 function systemResponseStability(){return calibrationDirectStability.length?median(calibrationDirectStability):NaN;}
+function updateOnlineSystemCore(atom){
+  // After calibration, every trustworthy direct-only frame may improve the system
+  // estimate, but ONLY in the compact direct core.  The post-direct tail is kept
+  // frozen from the dedicated no-echo calibration so a missed wall echo cannot
+  // slowly become part of the phone response.
+  if(!atom||!atom.v||!atom.v.length)return{used:false,similarity:NaN,weight:0};
+  if(!calibrationDirectAtom||!calibrationDirectAtom.v||calibrationDirectAtom.v.length!==atom.v.length){const u=accumulateCalibrationAtom(atom);finalizeCalibrationAtom();return u;}
+  let dot=0,aa=0,bb=0;for(let j=0;j<atom.v.length;j++){dot+=atom.v[j]*calibrationDirectAtom.v[j];aa+=atom.v[j]*atom.v[j];bb+=calibrationDirectAtom.v[j]*calibrationDirectAtom.v[j];}
+  const sign=dot<0?-1:1,sim=Math.abs(dot)/Math.sqrt(Math.max(1e-24,aa*bb)),alpha=clamp(.03+.12*clamp01((sim-.80)/.18),.03,.15),post=Math.round((CFG.onlineSystemCorePostSec||.00035)*FS);
+  for(let j=0;j<atom.v.length;j++){const rel=j-calibrationDirectAtom.pre;if(rel<=post)calibrationDirectAtom.v[j]=(1-alpha)*calibrationDirectAtom.v[j]+alpha*sign*atom.v[j];}
+  let e=0;for(const v of calibrationDirectAtom.v)e+=v*v;e=Math.sqrt(Math.max(e,1e-24));for(let j=0;j<calibrationDirectAtom.v.length;j++)calibrationDirectAtom.v[j]/=e;calibrationDirectAtom.peak=maxArray(Array.from(calibrationDirectAtom.v,Math.abs));
+  calibrationDirectCount++;if(Number.isFinite(sim)){calibrationDirectStability.push(sim);if(calibrationDirectStability.length>80)calibrationDirectStability.shift();}
+  return{used:true,similarity:sim,weight:alpha};
+}
 
-function adaptivePSFAtom(rirSigned,directLocal,noiseRms){
+function directObservationAtom(rirSigned,directLocal,noiseRms){
+  // IMPORTANT: this atom is ONLY an observation used to update the system model
+  // AFTER the RIR has independently been classified as direct-only.  It is never
+  // used to decide whether the same RIR contains an echo; otherwise a close wall
+  // can be absorbed into the direct template and become permanently invisible.
   const sw=softwarePSFAtom(),pre=sw.pre,post=sw.post,L=pre+post+1,emp=new Float64Array(L);let ee=0;
   for(let j=0;j<L;j++){const q=directLocal-pre+j;if(q>=0&&q<rirSigned.length){const u=j/Math.max(1,L-1),win=.5-.5*Math.cos(2*Math.PI*u);emp[j]=rirSigned[q]*win;ee+=emp[j]*emp[j];}}
   const empRms=Math.sqrt(ee/Math.max(1,L)),usable=ee>1e-20&&empRms>Math.max(1e-12,noiseRms)*2.5;
-  if(!usable)return blendWithCalibrationAtom(sw);
+  if(!usable)return sw;
   const ne=Math.sqrt(ee);for(let j=0;j<L;j++)emp[j]/=ne;
-  // A strong empirical contribution removes real phone ringing.  Keeping a
-  // software contribution avoids learning a very-early room echo as PSF.
-  const b=clamp(CFG.ompEmpiricalBlend==null?.78:CFG.ompEmpiricalBlend,0,1),v=new Float64Array(L);let e=0;
-  // Align polarity so direct/software kernels do not cancel in the blend.
   let dot=0;for(let j=0;j<L;j++)dot+=emp[j]*sw.v[j];const sign=dot<0?-1:1;
+  const b=clamp(CFG.ompEmpiricalBlend==null?.78:CFG.ompEmpiricalBlend,0,1),v=new Float64Array(L);let e=0;
   for(let j=0;j<L;j++){v[j]=b*sign*emp[j]+(1-b)*sw.v[j];e+=v[j]*v[j];}
   e=Math.sqrt(Math.max(e,1e-24));for(let j=0;j<L;j++)v[j]/=e;
-  return blendWithCalibrationAtom({pre,post,v,energy:1,peak:maxArray(Array.from(v,Math.abs)),kind:'empirical'});
+  return{pre,post,v,energy:1,peak:maxArray(Array.from(v,Math.abs)),kind:'direct-observation'};
+}
+function detectionPSFAtom(){
+  // The detector must be independent of the RIR it is explaining.  Use the
+  // previously learned direct-system PSF when available, blended with the exact
+  // software ESS resolution kernel.  This prevents circular self-cancellation.
+  const sw=softwarePSFAtom();
+  if(!calibrationDirectAtom||!calibrationDirectAtom.v||calibrationDirectAtom.v.length!==sw.v.length)return sw;
+  let b=clamp(CFG.detectionCalibrationBlend==null?.88:CFG.detectionCalibrationBlend,0,.95);
+  if(calibrationDirectCount<2)b=Math.min(b,.55);
+  const st=systemResponseStability();if(Number.isFinite(st)&&st<.80)b*=clamp01((st-.55)/.25);
+  let dot=0;for(let j=0;j<sw.v.length;j++)dot+=sw.v[j]*calibrationDirectAtom.v[j];const sign=dot<0?-1:1;
+  const v=new Float64Array(sw.v.length);let e=0;for(let j=0;j<v.length;j++){v[j]=(1-b)*sw.v[j]+b*sign*calibrationDirectAtom.v[j];e+=v[j]*v[j];}
+  e=Math.sqrt(Math.max(e,1e-24));for(let j=0;j<v.length;j++)v[j]/=e;
+  return{pre:sw.pre,post:sw.post,v,energy:1,peak:maxArray(Array.from(v,Math.abs)),kind:b>.05?'system-model':'software'};
+}
+function residualMagnitudeEnvelope(x){
+  // Cheap envelope proxy for iterative CLEAN candidate generation.  Recomputing
+  // the Hilbert envelope with an FFT at every OMP iteration is unnecessarily
+  // expensive on a phone; smoothed |residual| is sufficient for candidate seeds.
+  const a=new Float64Array(x.length);for(let i=0;i<x.length;i++)a[i]=Math.abs(x[i]);
+  return movingMean(a,Math.max(1,Math.round(CFG.eventSmoothSec*FS)));
 }
 function atomDotAt(signal,atom,center){let s=0,e=0,y=0;for(let j=0;j<atom.v.length;j++){const q=center-atom.pre+j;if(q<0||q>=signal.length)continue;const a=atom.v[j],z=signal[q];s+=z*a;e+=a*a;y+=z*z;}return{dot:s,atomE:e,sigE:y,gain:s/Math.max(e,1e-24),corr:Math.abs(s)/Math.sqrt(Math.max(1e-24,e*y))};}
 function shiftedAtomDot(atom,c1,c2,n){let s=0;const d=c2-c1;for(let j=0;j<atom.v.length;j++){const k=j-d;if(k>=0&&k<atom.v.length){const q=c1-atom.pre+j;if(q>=0&&q<n)s+=atom.v[j]*atom.v[k];}}return s;}
@@ -417,34 +459,63 @@ function lowThresholdCandidates(env,start,thr,maxN){
   const z=[];for(let i=Math.max(1,start);i<env.length-1;i++)if(env[i]>=thr&&env[i]>=env[i-1]&&env[i]>env[i+1])z.push({i,a:env[i]});
   z.sort((a,b)=>b.a-a.a);return z.slice(0,Math.max(maxN,24));
 }
+function earlyJointEchoCandidate(original,atom,directCenter,reflStart,noise){
+  // Close reflections make the direct and echo atoms highly coherent.  Greedy
+  // residual correlation can then be weak even when a real echo is present.
+  // Explicitly compare a 1-atom (direct) model with a 2-atom (direct+echo) model.
+  const f0=atomDotAt(original,atom,directCenter),g00=f0.atomE,b0=f0.dot,e1=b0*b0/Math.max(g00,1e-24);
+  const d0=Math.max(reflStart-directCenter,Math.round(.00045*FS)),d1=Math.min(original.length-directCenter-1,Math.round((CFG.earlyPairMaxSec||.010)*FS));
+  let best=null,evidence=null;
+  for(let d=d0;d<=d1;d++){
+    const q=directCenter+d,f1=atomDotAt(original,atom,q),g11=f1.atomE,b1=f1.dot,g01=shiftedAtomDot(atom,directCenter,q,original.length),det=g00*g11-g01*g01;
+    if(det<=1e-8)continue;
+    const a0=(b0*g11-b1*g01)/det,a1=(b1*g00-b0*g01)/det,e2=a0*b0+a1*b1,improve=Math.max(0,e2-e1),frac=improve/Math.max(e2,1e-24),gainRatio=Math.abs(a1)/Math.max(Math.abs(a0),1e-12),predPeak=Math.abs(a1)*atom.peak,snr=20*Math.log10((predPeak+1e-15)/(noise+1e-15));
+    const jointCorr=Math.max(f1.corr,clamp01(Math.sqrt(Math.max(0,frac)))),score=improve*(.45+.55*jointCorr),z={i:q,score,snr,corr:jointCorr,gain:a1,predPeak,a0,improveFrac:frac,gainRatio};
+    if(!evidence||frac>evidence.improveFrac)evidence=z;
+    const minImprove=calibrationDirectCount<2?Math.max(.06,CFG.earlyPairMinImprove||.0025):(CFG.earlyPairMinImprove||.0025);
+    if(snr<(CFG.detailMinPeakSNRDB||2.5)||frac<minImprove||gainRatio<(CFG.earlyPairMinGainRatio||.012))continue;
+    if(!best||score>best.score)best=z;
+  }
+  return{candidate:best,evidence};
+}
+
 function psfOMPArrivals(rirSigned,env,directLocal,reflStart,noise,noiseRms,detailThr){
-  const atom=adaptivePSFAtom(rirSigned,directLocal,noiseRms),original=new Float64Array(rirSigned),centers=[directLocal];
+  const atom=detectionPSFAtom(),original=new Float64Array(rirSigned),centers=[directLocal],picked=[];
+  const earlyScan=earlyJointEchoCandidate(original,atom,directLocal,reflStart,noise),early=earlyScan.candidate;
+  if(early){centers.push(early.i);picked.push({i:early.i,a:early.predPeak,prom:early.predPeak,snr:early.snr,corr:early.corr,gain:early.gain,earlyJoint:true,improveFrac:early.improveFrac});}
   let fit=reconstructOMP(original,atom,centers),residual=fit.residual;
-  const candidateThr=Math.max(noise*Math.pow(10,(CFG.ompCandidateSNRDB||1.5)/20),detailThr*(CFG.ompCandidateThresholdScale||.55));
-  const candidates=lowThresholdCandidates(env,reflStart,candidateThr,CFG.ompMaxCandidates||96);
-  const picked=[];let initialPostE=0;for(let i=reflStart;i<residual.length;i++)initialPostE+=residual[i]*residual[i];
+  let initialPostE=0;for(let i=reflStart;i<residual.length;i++)initialPostE+=residual[i]*residual[i];
   const maxIter=Math.min(CFG.maxDetailEvents||24,CFG.ompMaxIterations||14),minGap=Math.max(1,Math.round((CFG.ompMinDistinctSec||.00016)*FS));
   for(let it=0;it<maxIter;it++){
+    // Re-seed candidates from the CURRENT residual.  A very early wall echo can
+    // overlap the direct PSF and have no local maximum in the original envelope;
+    // after the direct component is fitted/subtracted, the shifted echo emerges.
+    const resEnv=residualMagnitudeEnvelope(residual),seg=resEnv.slice(reflStart);
+    const med=median(seg),md=mad(seg),mx=maxArray(seg);
+    const candidateThr=Math.max(noise*Math.pow(10,(CFG.ompCandidateSNRDB||1.5)/20),
+      (Number.isFinite(med)?med:0)+2.2*(Number.isFinite(md)?md:0),.006*mx);
+    const candidates=lowThresholdCandidates(resEnv,reflStart,candidateThr,CFG.ompMaxCandidates||96);
     let best=null;
     for(const c0 of candidates){
       if(c0.i<reflStart)continue;
       if(centers.some(c=>Math.abs(c-c0.i)<minGap))continue;
       let localBest=null;const r=CFG.ompRefineSamples||2;
-      for(let d=-r;d<=r;d++){const q=c0.i+d;if(q<reflStart||q>=rirSigned.length)continue;const f=atomDotAt(residual,atom,q),predPeak=Math.abs(f.gain)*atom.peak,snr=20*Math.log10((predPeak+1e-15)/(noise+1e-15)),score=(f.dot*f.dot/Math.max(f.atomE,1e-24))*(.35+.65*f.corr);if(!localBest||score>localBest.score)localBest={i:q,score,snr,corr:f.corr,gain:f.gain,predPeak};}
-      if(localBest&&(!best||localBest.score>best.score))best=localBest;
+      for(let d=-r;d<=r;d++){const q=c0.i+d;if(q<reflStart||q>=rirSigned.length)continue;const f=atomDotAt(residual,atom,q),predPeak=Math.abs(f.gain)*atom.peak,snr=20*Math.log10((predPeak+1e-15)/(noise+1e-15)),score=(f.dot*f.dot/Math.max(f.atomE,1e-24))*(.30+.70*f.corr);if(!localBest||score>localBest.score)localBest={i:q,score,snr,corr:f.corr,gain:f.gain,predPeak};}
+      // Reject an invalid residual lobe HERE instead of letting it become the
+      // global 'best' and terminating the whole OMP loop.  The old code could
+      // pick one low-correlation direct-ring artifact, fail the gate, and stop
+      // before examining a perfectly valid wall echo later in the candidate list.
+      if(localBest&&(localBest.snr>=(CFG.detailMinPeakSNRDB||2.5))&&localBest.corr>=(CFG.ompMinCorrelation||.12)&&(!best||localBest.score>best.score))best=localBest;
     }
     if(!best)break;
-    if(best.snr<(CFG.detailMinPeakSNRDB||2.5)||best.corr<(CFG.ompMinCorrelation||.12))break;
     centers.push(best.i);fit=reconstructOMP(original,atom,centers);residual=fit.residual;
     const k=centers.length-1,g=fit.gains[k]||0,predPeak=Math.abs(g)*atom.peak,snr=20*Math.log10((predPeak+1e-15)/(noise+1e-15)),f0=atomDotAt(original,atom,best.i);
     picked.push({i:best.i,a:predPeak,prom:predPeak,snr,corr:f0.corr,gain:g});
   }
-  // Recompute amplitudes/SNR after the final joint OMP fit; this is the OMP
-  // step that prevents duplicated arrivals from stealing each other's energy.
   for(let k=0;k<picked.length;k++){const g=fit.gains[k+1]||0,p=Math.abs(g)*atom.peak;picked[k].gain=g;picked[k].a=p;picked[k].prom=p;picked[k].snr=20*Math.log10((p+1e-15)/(noise+1e-15));}
   let finalPostE=0;for(let i=reflStart;i<residual.length;i++)finalPostE+=residual[i]*residual[i];
   const residualRatio=finalPostE/Math.max(initialPostE,1e-24),explained=clamp01(1-residualRatio);
-  picked.sort((a,b)=>a.i-b.i);return{events:picked,atomKind:atom.kind,residualRatio,explained,atom,cleanResidual:residual};
+  picked.sort((a,b)=>a.i-b.i);const ee=earlyScan.evidence;return{events:picked,atomKind:atom.kind,residualRatio,explained,atom,cleanResidual:residual,earlyEchoEvidence:ee?ee.improveFrac:0,earlyEchoEvidenceTau:ee?(ee.i-directLocal)/FS:NaN,earlyEchoEvidenceSNR:ee?ee.snr:-Infinity};
 }
 
 
@@ -581,28 +652,31 @@ function analyzeCycle(raw,id,mode='measure'){
   const qualityScore=clamp01((.20*qMatch+.25*qEcho+.16*qEnergy+.08*qRaw+.12*qCount+.14*qCons+.05*clipPenalty)*browserPenalty);
   const grossClip=clipFrac>CFG.maxGrossClipFrac||longestClipMs>CFG.maxClipRunMs;
   const rirValid=direct.found&&postAvailableSec>=CFG.minPreviewTailSec&&captureAudit.ok;
-  const directOnly=direct.found&&postAvailableSec>=CFG.minPreviewTailSec&&captureAudit.ok&&primaryReflections.length===0;
+  const sysGuard=calibrationDirectCount<2?(CFG.systemEchoGuardBootstrapImprove||.045):(CFG.systemEchoGuardImprove||.0035),guardedEarlyEcho=(omp.earlyEchoEvidence||0)>=sysGuard;
+  const weakEchoOnly=direct.found&&postAvailableSec>=CFG.minPreviewTailSec&&captureAudit.ok&&primaryReflections.length===0&&(detailReflections.length>0||guardedEarlyEcho);
+  const directOnly=direct.found&&postAvailableSec>=CFG.minPreviewTailSec&&captureAudit.ok&&detailReflections.length===0&&!guardedEarlyEcho;
   const accepted=rirValid&&!grossClip&&rawSNR>=CFG.minRawSNRDB&&reflectionSNR>=minReflectionSNRDB&&energySNR>=CFG.minEnergySNRDB&&primaryReflections.length>=CFG.minPrimaryReflections&&qualityScore>=CFG.minRIRQuality;
-  let reason='OK';if(directOnly){reason='SOLO DIRETTO: nessuna riflessione utile rilevata; avvicinati a un muro o orienta il telefono verso una superficie riflettente';}
+  let reason='OK';if(directOnly){reason='SOLO DIRETTO: nessuna evidenza di riflessione, nemmeno debole; questa misura può aggiornare il modello del sistema';}
+  else if(weakEchoOnly){reason=`ECO DEBOLE: evidenza residua ${(100*(omp.earlyEchoEvidence||0)).toFixed(1)}%, ${detailReflections.length} candidato/i; non aggiorno il modello SYS. Resta fermo o avvicinati leggermente alla parete`; }
   else if(!accepted){const r=[];if(!captureAudit.ok)r.push(`capture non valida: pre ${captureAudit.preSec.toFixed(2)} s, post ${captureAudit.postSec.toFixed(2)}/${captureAudit.requiredPostSec.toFixed(2)} s, sweep ${captureAudit.fullSweep?'completo':'TRONCO'}, emission-silence ${captureAudit.scheduleSilent?'OK':'NO'}`);if(!direct.found)r.push(`direct match ${direct.snr.toFixed(1)} dB / ${direct.coeff.toFixed(3)}`);if(postAvailableSec<CFG.minPreviewTailSec)r.push(`tail ${(1000*postAvailableSec).toFixed(0)} ms`);if(grossClip)r.push(`gross clipping ${(100*clipFrac).toFixed(1)}%, run ${longestClipMs.toFixed(1)} ms`);if(rawSNR<CFG.minRawSNRDB)r.push(`raw SNR ${rawSNR.toFixed(1)} dB`);if(reflectionSNR<minReflectionSNRDB)r.push(`reflection SNR ${reflectionSNR.toFixed(1)} dB < calibrated ${minReflectionSNRDB.toFixed(1)} dB`);if(energySNR<CFG.minEnergySNRDB)r.push(`energy SNR ${Number.isFinite(energySNR)?energySNR.toFixed(1):'n/a'} dB`);if(primaryReflections.length<CFG.minPrimaryReflections)r.push(`${primaryReflections.length} strong reflections`);if(qualityScore<CFG.minRIRQuality)r.push(`quality ${(100*qualityScore).toFixed(0)}%`);reason=r.join(', ')||'unreliable RIR';}
   if(proc.echoCancellation===true)reason+=(reason==='OK'?'':' ;')+' browser AEC active';
 
   const pv=previewWaveforms(rirSigned,env,CFG.previewBins||240),rawPv=CFG.debugRaw?rawPreviewWaveform(raw,360):[];
   return{
-    id,accepted,rirValid,directOnly,reason,reliability:accepted?(qualityScore>=.72?'alta':'media'):'scartata',qualityScore,
+    id,accepted,rirValid,directOnly,weakEchoOnly,echoEvidenceCount:detailReflections.length,reason,reliability:accepted?(qualityScore>=.72?'alta':'media'):'scartata',qualityScore,
     matchSNR:direct.snr,matchCoeff:direct.coeff,directFound:direct.found,directTimeSec:lag/FS,directLocalSec:directLocal/FS,
     snr:reflectionSNR,energySNR,rawSNR,consistency,noise,noiseRms,clipFrac,longestClipMs,
     echoToDirectDB,firstReflectionDistanceM,firstReflectionTau,bestReflectionFitCorr,bestReflectionEventSNR,
     calibrationRangeM:cal&&Number.isFinite(cal.maxReliableWallDistanceM)?cal.maxReliableWallDistanceM:NaN,
-    reflectionCount:primaryReflections.length,primary,candidates,postAvailableSec,tailTruncated,psfMode:omp.atomKind,ompExplained:omp.explained,ompResidualRatio:omp.residualRatio,
+    reflectionCount:primaryReflections.length,primary,candidates,postAvailableSec,tailTruncated,psfMode:omp.atomKind,ompExplained:omp.explained,ompResidualRatio:omp.residualRatio,earlyEchoEvidence:omp.earlyEchoEvidence,earlyEchoEvidenceTau:omp.earlyEchoEvidenceTau,systemEchoGuard:sysGuard,
     rirPreviewSigned:pv.signed,rirPreviewEnv:pv.env,rirPreview:pv.signed,rirDurationSec:rirSigned.length/FS,
-    rawPeakDBFS:20*Math.log10(rawPeak+1e-12),rawPreview:rawPv,rawDurationSec:raw.length/FS,captureAudit,averageCount:fusion.count,averageSimilarity:fusion.similarity,usableBandF0Hz:calibratedBand.ready?calibratedBand.f0:CFG.f0,usableBandF1Hz:calibratedBand.ready?calibratedBand.f1:CFG.f1,systemResponseCount:calibrationDirectCount,systemResponseStability:systemResponseStability(),processingMs:performance.now()-t0,inputSettings:proc,_calAtom:{pre:omp.atom.pre,post:omp.atom.post,v:Array.from(omp.atom.v)}
+    rawPeakDBFS:20*Math.log10(rawPeak+1e-12),rawPreview:rawPv,rawDurationSec:raw.length/FS,captureAudit,averageCount:fusion.count,averageSimilarity:fusion.similarity,usableBandF0Hz:calibratedBand.ready?calibratedBand.f0:CFG.f0,usableBandF1Hz:calibratedBand.ready?calibratedBand.f1:CFG.f1,systemResponseCount:calibrationDirectCount,systemResponseStability:systemResponseStability(),processingMs:performance.now()-t0,inputSettings:proc,_calAtom:(()=>{const z=directObservationAtom(rirSingle,directLocal,noiseRms);return{pre:z.pre,post:z.post,v:Array.from(z.v)}})()
   };
 }
 
 function failedAnalysis(id,raw,e){
   const x=raw&&raw.length?Array.from(raw.slice(0,Math.min(raw.length,4096))):[],m=maxArray(x.map(Math.abs))||1,p=x.length?previewWaveforms(Float64Array.from(x,v=>v/m),Float64Array.from(x,v=>Math.abs(v/m)),240):{signed:[],env:[]};
-  return{id,accepted:false,rirValid:false,reason:`processing error: ${e.message}`,rawPreview:CFG.debugRaw?rawPreviewWaveform(raw,360):[],rawDurationSec:raw?raw.length/FS:0,captureAudit:{ok:false,fullSweep:false,preOK:false,postOK:false,scheduleSilent:false,preSec:0,postSec:0,requiredPostSec:2*(CFG.sweepDurationSec||0),rawDurationSec:raw?raw.length/FS:0,scheduledChirpStartSec:CFG.preSilenceSec||0,receivedSweepStartSec:NaN,receivedSweepEndSec:NaN},reliability:'errore',qualityScore:0,matchSNR:-Infinity,matchCoeff:0,directFound:false,directTimeSec:NaN,directLocalSec:0,snr:-Infinity,energySNR:-Infinity,rawSNR:-Infinity,consistency:0,noise:NaN,noiseRms:NaN,echoToDirectDB:-Infinity,firstReflectionDistanceM:NaN,firstReflectionTau:NaN,bestReflectionFitCorr:0,bestReflectionEventSNR:-Infinity,calibrationRangeM:calibrationProfile&&Number.isFinite(calibrationProfile.maxReliableWallDistanceM)?calibrationProfile.maxReliableWallDistanceM:NaN,clipFrac:0,longestClipMs:0,reflectionCount:0,directOnly:false,primary:[],candidates:[],postAvailableSec:0,psfMode:'none',ompExplained:0,ompResidualRatio:1,tailTruncated:true,rirPreviewSigned:p.signed,rirPreviewEnv:p.env,rirPreview:p.signed,rirDurationSec:x.length/FS,processingMs:0,inputSettings:CFG.inputSettings||{}};
+  return{id,accepted:false,rirValid:false,reason:`processing error: ${e.message}`,rawPreview:CFG.debugRaw?rawPreviewWaveform(raw,360):[],rawDurationSec:raw?raw.length/FS:0,captureAudit:{ok:false,fullSweep:false,preOK:false,postOK:false,scheduleSilent:false,preSec:0,postSec:0,requiredPostSec:2*(CFG.sweepDurationSec||0),rawDurationSec:raw?raw.length/FS:0,scheduledChirpStartSec:CFG.preSilenceSec||0,receivedSweepStartSec:NaN,receivedSweepEndSec:NaN},reliability:'errore',qualityScore:0,matchSNR:-Infinity,matchCoeff:0,directFound:false,directTimeSec:NaN,directLocalSec:0,snr:-Infinity,energySNR:-Infinity,rawSNR:-Infinity,consistency:0,noise:NaN,noiseRms:NaN,echoToDirectDB:-Infinity,firstReflectionDistanceM:NaN,firstReflectionTau:NaN,bestReflectionFitCorr:0,bestReflectionEventSNR:-Infinity,calibrationRangeM:calibrationProfile&&Number.isFinite(calibrationProfile.maxReliableWallDistanceM)?calibrationProfile.maxReliableWallDistanceM:NaN,clipFrac:0,longestClipMs:0,reflectionCount:0,directOnly:false,weakEchoOnly:false,echoEvidenceCount:0,primary:[],candidates:[],postAvailableSec:0,psfMode:'none',ompExplained:0,ompResidualRatio:1,earlyEchoEvidence:0,earlyEchoEvidenceTau:NaN,tailTruncated:true,rirPreviewSigned:p.signed,rirPreviewEnv:p.env,rirPreview:p.signed,rirDurationSec:x.length/FS,processingMs:0,inputSettings:CFG.inputSettings||{}};
 }
 
 // -------------------------------------------------------------------------
@@ -757,6 +831,7 @@ function runESSSelfTest(full=false){
     const noisy=selfTestCase('noise',synthRaw(d0+.010,tau,amp,.20,0),d0+.010,tau,0,false);noisy.ok=noisy.previewOK&&!noisy.accepted;cases.push(noisy);
     const clipped=selfTestCase('nonlinear',synthRaw(d0+.002,tau,amp,.001,2.4),d0+.002,tau,2,false);clipped.ok=clipped.previewOK&&clipped.directErr<.002;cases.push(clipped);
     const only=selfTestCase('direct-only',synthRaw(d0+.006,[],[],.0005,0),d0+.006,[],0,false);only.ok=only.previewOK&&!only.accepted&&only.directOnly&&only.directErr<.0012;cases.push(only);
+    for(const [nm,dist,amp] of [['wall10cm',.10,.24],['wall20cm',.20,.22],['wall35cm',.35,.20],['wall70cm',.70,.17]]){const tau=2*dist/C,q=selfTestCase(nm,synthRaw(d0+.006,[tau],[amp],.00045,0),d0+.006,[tau],1,false);q.ok=q.previewOK&&q.hits>=1&&!q.directOnly&&q.directErr<.0012;cases.push(q);}
     const rt=[.019,.051,.106],ra=[.28,-.18,.12],ring=selfTestCase('sinc-ringing',synthRingyRaw(d0,rt,ra,.00025),d0+120/FS,rt,3,false);ring.ok=ring.previewOK&&ring.hits>=3&&ring.found<=4;cases.push(ring);
     const ok=cases.every(x=>x.ok);postMessage({type:'selftest',ok,cases});postLog(`ESS self-test ${ok?'PASS':'FAIL'}: ${cases.map(x=>`${x.name}:${x.ok?'ok':'FAIL'}`).join(' ')}`,ok?'info':'error');return{ok,cases};
   }catch(e){postMessage({type:'selftest',ok:false,cases:[],error:e.message});postLog(`ESS self-test ERROR: ${e.stack||e.message}`,'error');return{ok:false,cases:[],error:e.message};}
@@ -767,12 +842,12 @@ onmessage=e=>{
   if(m.type==='init'){
     CFG=m.cfg;FS=m.sampleRate;chirp=new Float64Array(m.chirp);measurements=[];prevModel=null;nextTrackId=1;
     calibrationProfile=null;calibrationDirectAtom=null;calibrationDirectSum=null;calibrationDirectCount=0;calibrationDirectWeight=0;calibrationDirectStability=[];calibrationDirectLowSimilarity=0;calibrationSpectrumFrames=[];calibratedBand={ready:false,f0:NaN,f1:NaN,quality:0};liveRIRFusion=[];
-    buildInverseESS();postLog(`worker v6.6 long-ESS + online system-response + raw-capture audit initialized @ ${FS} Hz`);runESSSelfTest(false);
+    buildInverseESS();postLog(`worker v6.7 near-wall residual-OMP + protected system response initialized @ ${FS} Hz`);runESSSelfTest(false);
   }else if(m.type==='cycle'){
     const raw=new Float32Array(m.raw),mode=m.mode||'measure';let a;try{a=analyzeCycle(raw,m.id,mode);}catch(err){a=failedAnalysis(m.id,raw,err);postLog(`cycle ${m.id}: ${err.stack||err.message}`,'error');}
-    const directDominated=a.directOnly||(a.rirValid&&a.reflectionCount<=1&&Number.isFinite(a.echoToDirectDB)&&a.echoToDirectDB<-28&&a.snr<(CFG.minSNRDB+1));
+    const directDominated=!!a.directOnly;
     const learnSystem=(mode==='calibration'&&m.calibrationPhase==='seek-no-echo'&&directDominated)||(mode!=='calibration'&&a.directOnly&&a.directFound&&a.rawSNR>=CFG.minRawSNRDB&&a.matchCoeff>=CFG.minMatchCoeff);
-    if(learnSystem&&a._calAtom){const u=accumulateCalibrationAtom(a._calAtom);finalizeCalibrationAtom();a.systemResponseUpdated=true;a.systemResponseCount=calibrationDirectCount;a.systemResponseStability=systemResponseStability();a.systemResponseUpdateSimilarity=u.similarity;a.systemResponseUpdateWeight=u.weight;if(mode==='calibration'&&!calibrationProfile&&a.directFound)accumulateCalibrationSpectrum(raw,Math.round(a.directTimeSec*FS));}
+    if(learnSystem&&a._calAtom){const u=mode==='calibration'?accumulateCalibrationAtom(a._calAtom):updateOnlineSystemCore(a._calAtom);if(mode==='calibration')finalizeCalibrationAtom();a.systemResponseUpdated=true;a.systemResponseCount=calibrationDirectCount;a.systemResponseStability=systemResponseStability();a.systemResponseUpdateSimilarity=u.similarity;a.systemResponseUpdateWeight=u.weight;if(mode==='calibration'&&!calibrationProfile&&a.directFound)accumulateCalibrationSpectrum(raw,Math.round(a.directTimeSec*FS));}
     else{a.systemResponseUpdated=false;a.systemResponseCount=calibrationDirectCount;a.systemResponseStability=systemResponseStability();}
     if(mode==='calibration'){if(a._calAtom)delete a._calAtom;postMessage({type:'calibrationResult',analysis:a,directTemplateCount:calibrationDirectCount});return;}
     if(a._calAtom)delete a._calAtom;
@@ -795,7 +870,7 @@ onmessage=e=>{
 </script>
 <script>
 'use strict';
-const BUILD='KiSonarPrimaryMapper-v6.6-nearwallfix';
+const BUILD='KiSonarPrimaryMapper-v6.7-near-wall-residual-omp';
 const $=id=>document.getElementById(id);
 const ui={start:$('startBtn'),stop:$('stopBtn'),calibrate:$('calibrateBtn'),demo:$('demoBtn'),detail:$('detailBtn'),export:$('exportBtn'),settings:$('settingsBtn'),apply:$('applyBtn'),close:$('closeSettingsBtn'),panel:$('settings'),statusMain:$('statusMain'),statusSub:$('statusSub'),hud1:$('hud1'),hud2:$('hud2'),hud3:$('hud3'),hud4:$('hud4'),metrics:$('metrics'),log:$('log'),canvas:$('scene'),rirStrip:$('rirStrip'),rirShelfSummary:$('rirShelfSummary'),permissionGate:$('permissionGate'),permissionText:$('permissionText'),permissionRetry:$('permissionRetryBtn'),permissionCancel:$('permissionCancelBtn'),reflectionHint:$('reflectionHint'),calibrationPanel:$('calibrationPanel'),calibrationTitle:$('calibrationTitle'),calibrationInstruction:$('calibrationInstruction'),calibrationPhase:$('calibrationPhase'),calibrationDistance:$('calibrationDistance'),calibrationSNR:$('calibrationSNR'),calibrationTemplate:$('calibrationTemplate'),calibrationProgress:$('calibrationProgress'),micSelect:$('microphoneSelect'),refreshMic:$('refreshMicBtn'),debugRaw:$('debugRaw'),rawShelf:$('rawShelf'),rawStrip:$('rawStrip'),rawShelfSummary:$('rawShelfSummary')};
 let cfg={},worker=null,audio=null,renderer=null,logs=[],cycleLogs=[],rirHistory=[],latest={model:{path:[[0,0,0]],primary:[],detail:[]},accepted:0,rejected:0,keyframes:0,tracks:0,analysis:null},wakeLock=null;
@@ -820,11 +895,11 @@ function readCfg(){
     maxPrimaryEvents:+$('maxPrimaryEvents').value,maxPrimarySurfaces:+$('maxPrimarySurfaces').value,
     detailEvery:+$('detailEvery').value,maxCycles:+$('maxCycles').value,
     maxRirSec:.32,maxLatencySearchSec:.50,directSearchPaddingSec:.07,interSweepGuardSec:.18,
-    directSearchPreToleranceSec:.03,directMatchEarliestRelative:.40,rirPreDirectSec:.008,directExcludeSec:.0006,
+    directSearchPreToleranceSec:.03,directMatchEarliestRelative:.40,rirPreDirectSec:.008,directExcludeSec:.00045,
     minGeometryTailSec:.14,minPreviewTailSec:.12,deconvRegularization:3e-4,matchSmoothSec:.00016,eventSmoothSec:.00022,
     eventMinSeparationSec:.00065,minPeakSNRDB:5,detailMinPeakSNRDB:2.5,primaryMAD:4.5,primaryRelative:.020,
     detailMAD:2.6,detailRelative:.008,maxDetailEvents:24,maxDetailSurfaces:14,minEnergySNRDB:2.5,minPrimaryReflections:1,
-    psfPreSec:.0022,psfPostSec:.0080,ompEmpiricalBlend:.82,calibrationDirectBlend:.42,ompCandidateSNRDB:1.8,ompCandidateThresholdScale:.52,ompMaxCandidates:120,ompMaxIterations:14,ompMinDistinctSec:.00018,ompRefineSamples:2,ompMinCorrelation:.11,ompPrimaryMinCorrelation:.15,ompPrimaryMergeSec:.00045,ompKeepCloseRatio:.72,ompRidge:2e-5,
+    psfPreSec:.0022,psfPostSec:.0080,ompEmpiricalBlend:.82,calibrationDirectBlend:.42,detectionCalibrationBlend:.88,earlyPairMaxSec:.010,earlyPairMinImprove:.0025,earlyPairMinGainRatio:.012,systemEchoGuardBootstrapImprove:.045,systemEchoGuardImprove:.0035,onlineSystemCorePostSec:.00035,ompCandidateSNRDB:1.8,ompCandidateThresholdScale:.52,ompMaxCandidates:120,ompMaxIterations:14,ompMinDistinctSec:.00018,ompRefineSamples:2,ompMinCorrelation:.11,ompPrimaryMinCorrelation:.15,ompPrimaryMergeSec:.00045,ompKeepCloseRatio:.72,ompRidge:2e-5,
     rirAverageCount:3,rirAverageSimilarity:.82,
     maxGrossClipFrac:.18,maxClipRunMs:12,previewBins:260,signatureMaxSec:.09,
     stationaryNoise:.065,motionThreshold:.145,motionCusumDecay:.020,motionCusumThreshold:.26,motionConfirmCycles:2,
@@ -836,7 +911,7 @@ function readCfg(){
     wallGuideTrackGateSec:.0030,wallGuideReacquireGateSec:.0055,wallGuideNewWallMinSeparationSec:.00115,wallGuideCandidateGateSec:.0025,
     wallGuideNoNewWallWarnCycles:14,wallGuideMinEventSNRMarginDB:-1.0,inputSettings:{}
   };
-  q.minPostChirpRecordSec=Math.max(.30,q.maxRirSec+.08);q.captureEndGuardSec=.12;
+  q.minPostChirpRecordSec=2*q.sweepDurationSec;q.captureEndGuardSec=.12;
   q.captureWindowSec=q.preSilenceSec+q.maxLatencySearchSec+q.directSearchPaddingSec+q.sweepDurationSec+q.minPostChirpRecordSec+q.captureEndGuardSec;
   q.effectiveCyclePeriodSec=Math.max(q.cyclePeriodSec,q.captureWindowSec+q.interSweepGuardSec);
   return q;
@@ -857,12 +932,12 @@ function addRIRCard(a){
     const hist={id:a.id,accepted:a.accepted,rirValid:a.rirValid,directOnly:!!a.directOnly,reliability:a.reliability,qualityScore:a.qualityScore,snr:a.snr,energySNR:a.energySNR,rawSNR:a.rawSNR,matchSNR:a.matchSNR,matchCoeff:a.matchCoeff,consistency:a.consistency,clipFrac:a.clipFrac,longestClipMs:a.longestClipMs,reason:a.reason,reflectionCount:a.reflectionCount,psfMode:a.psfMode,ompExplained:a.ompExplained,ompResidualRatio:a.ompResidualRatio,postAvailableSec:a.postAvailableSec,rirDurationSec:a.rirDurationSec,directLocalSec:a.directLocalSec,rirPreviewSigned:a.rirPreviewSigned||[],rirPreviewEnv:a.rirPreviewEnv||[],systemResponseCount:a.systemResponseCount||0,systemResponseStability:a.systemResponseStability,systemResponseUpdated:!!a.systemResponseUpdated,captureAudit:a.captureAudit||null,primary:(a.primary||[]).map(e=>({timeLocal:e.timeLocal,tau:e.tau,isDirect:e.isDirect,amp:e.amp,snr:e.snr}))};
     rirHistory.push(hist);
     const wasAtEnd=ui.rirStrip.scrollWidth-ui.rirStrip.scrollLeft-ui.rirStrip.clientWidth<45,card=document.createElement('div');
-    const cls=a.calibration?'cal':a.directOnly?'mid':!a.accepted?'bad':a.qualityScore>=.72?'good':'mid';card.className=`rirCard ${cls}`;card.dataset.rirId=String(a.id);card.dataset.preview=((a.rirPreviewSigned||[]).length>20?'yes':'no');card.dataset.reflections=String(a.reflectionCount||0);
+    const cls=a.calibration?'cal':(a.directOnly||a.weakEchoOnly)?'mid':!a.accepted?'bad':a.qualityScore>=.72?'good':'mid';card.className=`rirCard ${cls}`;card.dataset.rirId=String(a.id);card.dataset.preview=((a.rirPreviewSigned||[]).length>20?'yes':'no');card.dataset.reflections=String(a.reflectionCount||0);
     card.title=a.directOnly?`RIR ${a.id}: solo diretto; avvicinati a un muro`:a.accepted?`RIR ${a.id}: ${a.reflectionCount||0} riflessioni principali`:`RIR ${a.id} SCARTATA: ${a.reason}`;
     const W=168,H=58,dSigned=pathOf(a.rirPreviewSigned||a.rirPreview||[],W,H,false),dEnv=pathOf(a.rirPreviewEnv||[],W,H,true),dur=Math.max(1e-6,a.rirDurationSec||cfg.maxRirSec||.26),ev=a.primary||[];
     const peaks=ev.map(e=>{const x=Math.max(0,Math.min(W,(e.timeLocal||0)/dur*W)),isGuide=!e.isDirect&&wallGuide.active&&Number.isFinite(wallGuide.currentTau)&&Number.isFinite(e.tau)&&Math.abs(e.tau-wallGuide.currentTau)<=cfg.wallGuideTrackGateSec,isCand=!e.isDirect&&wallGuide.active&&Number.isFinite(wallGuide.candidateTau)&&Number.isFinite(e.tau)&&Math.abs(e.tau-wallGuide.candidateTau)<=cfg.wallGuideCandidateGateSec,col=e.isDirect?'#ffd166':isGuide?'#ff9f43':isCand?'#c792ea':'#4dd39b',sw=e.isDirect?1.6:(isGuide||isCand?1.8:1.15);return`<line x1="${x.toFixed(1)}" y1="1" x2="${x.toFixed(1)}" y2="${H-1}" stroke="${col}" stroke-width="${sw}" opacity=".94"/>`;}).join('');
-    const state=a.reliability==='errore'?'ERRORE':a.calibration?(a.directOnly?'CAL · SOLO D':'CAL · ECO'):a.directOnly?'SOLO DIRETTO':!a.accepted?(a.rirValid?'SCARTATA':'RIR INVALIDA'):a.qualityScore>=.72?'AFFIDABILE':'USABILE';
-    card.innerHTML=`<div class="rirTop"><span><b>RIR #${a.id}</b></span><span class="rirState">${state}</span></div><svg class="rirSvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" stroke="rgba(156,176,200,.25)" stroke-width=".7"/><path d="${dEnv}" fill="none" stroke="#56d9ff" stroke-width=".8" opacity=".6"/>${peaks}<path d="${dSigned}" fill="none" stroke="#eef6ff" stroke-width="1.05" vector-effect="non-scaling-stroke"/></svg><div class="rirMeta"><b>Q ${finiteFmt(100*a.qualityScore,0)}%</b> · refl ${a.reflectionCount||0} · match ${finiteFmt(a.matchSNR)} dB/${finiteFmt(a.matchCoeff,3)} · SNRr ${finiteFmt(a.snr)} dB · E/D ${finiteFmt(a.echoToDirectDB)} dB · d1 ${finiteFmt(a.firstReflectionDistanceM,2)} m · E ${finiteFmt(a.energySNR)} · raw ${finiteFmt(a.rawSNR)} · pk ${finiteFmt(a.rawPeakDBFS)} dBFS · coh ${finiteFmt(a.consistency,2)} · PSF ${a.psfMode||'—'} · SYS ${a.systemResponseCount||0}${a.systemResponseUpdated?'↑':''} · OMP ${finiteFmt(100*(a.ompExplained||0),0)}% · AVG ${a.averageCount||1} · band ${finiteFmt((a.usableBandF0Hz||cfg.f0)/1000,1)}-${finiteFmt((a.usableBandF1Hz||cfg.f1)/1000,1)}k · clip ${finiteFmt(100*(a.clipFrac||0),1)}% · tail ${finiteFmt(1000*(a.postAvailableSec||0),0)} ms · ${finiteFmt(a.processingMs,0)} ms${a.directOnly?' · AVVICINATI A UN MURO':a.accepted?'':` · ${a.reason||'errore'}`}</div>`;
+    const state=a.reliability==='errore'?'ERRORE':a.calibration?(a.directOnly?'CAL · SOLO D':'CAL · ECO'):a.directOnly?'SOLO DIRETTO':a.weakEchoOnly?'ECO DEBOLE':!a.accepted?(a.rirValid?'SCARTATA':'RIR INVALIDA'):a.qualityScore>=.72?'AFFIDABILE':'USABILE';
+    card.innerHTML=`<div class="rirTop"><span><b>RIR #${a.id}</b></span><span class="rirState">${state}</span></div><svg class="rirSvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" stroke="rgba(156,176,200,.25)" stroke-width=".7"/><path d="${dEnv}" fill="none" stroke="#56d9ff" stroke-width=".8" opacity=".6"/>${peaks}<path d="${dSigned}" fill="none" stroke="#eef6ff" stroke-width="1.05" vector-effect="non-scaling-stroke"/></svg><div class="rirMeta"><b>Q ${finiteFmt(100*a.qualityScore,0)}%</b> · refl ${a.reflectionCount||0} · match ${finiteFmt(a.matchSNR)} dB/${finiteFmt(a.matchCoeff,3)} · SNRr ${finiteFmt(a.snr)} dB · E/D ${finiteFmt(a.echoToDirectDB)} dB · d1 ${finiteFmt(a.firstReflectionDistanceM,2)} m · E ${finiteFmt(a.energySNR)} · raw ${finiteFmt(a.rawSNR)} · pk ${finiteFmt(a.rawPeakDBFS)} dBFS · coh ${finiteFmt(a.consistency,2)} · PSF ${a.psfMode||'—'} · early ${(100*(a.earlyEchoEvidence||0)).toFixed(2)}%/${(100*(a.systemEchoGuard||0)).toFixed(2)}% · SYS ${a.systemResponseCount||0}${a.systemResponseUpdated?'↑':''} · OMP ${finiteFmt(100*(a.ompExplained||0),0)}% · AVG ${a.averageCount||1} · band ${finiteFmt((a.usableBandF0Hz||cfg.f0)/1000,1)}-${finiteFmt((a.usableBandF1Hz||cfg.f1)/1000,1)}k · clip ${finiteFmt(100*(a.clipFrac||0),1)}% · tail ${finiteFmt(1000*(a.postAvailableSec||0),0)} ms · ${finiteFmt(a.processingMs,0)} ms${a.directOnly?' · AVVICINATI A UN MURO':a.accepted?'':` · ${a.reason||'errore'}`}</div>`;
     ui.rirStrip.appendChild(card);ui.rirShelfSummary.textContent=`${rirHistory.length} RIR · ultima Q ${finiteFmt(100*a.qualityScore,0)}% · refl ${a.reflectionCount||0}`;
     if(wasAtEnd||rirHistory.length<=3)requestAnimationFrame(()=>{ui.rirStrip.scrollLeft=ui.rirStrip.scrollWidth;});
   }catch(e){uiErrorCount++;console.error(e);log(`RIR card ${a&&a.id}: ${e.stack||e.message}`,'error');}
@@ -939,6 +1014,17 @@ function updateWallGuidance(a){
 }
 function updateReflectionHint(a){
   if(calibration.active){directOnlyStreak=0;if(ui.reflectionHint)ui.reflectionHint.classList.remove('show');return;}
+  // Weak residual echo evidence is deliberately distinct from direct-only.
+  // It is not yet strong enough to enter the geometry, but it MUST prevent the
+  // current measurement from being learned as measurement-system response.
+  if(a&&a.weakEchoOnly){
+    directOnlyStreak=0;
+    const tau=Number.isFinite(a.earlyEchoEvidenceTau)?a.earlyEchoEvidenceTau:NaN;
+    const d=Number.isFinite(tau)?0.5*SOUND_SPEED*tau:NaN;
+    const ev=100*(a.earlyEchoEvidence||0),gate=100*(a.systemEchoGuard||0);
+    setMeasurementHint('Eco di parete debole',Number.isFinite(d)?`Vedo una struttura riflessa debole a circa ${d.toFixed(2)} m (evidenza ${ev.toFixed(2)}%, guard ${gate.toFixed(2)}%). Rimani fermo e avvicinati leggermente: NON la sto assimilando al modello del telefono.`:`Vedo una struttura riflessa debole (evidenza ${ev.toFixed(2)}%, guard ${gate.toFixed(2)}%). Rimani fermo o avvicinati leggermente: NON la sto assimilando al modello del telefono.`);
+    return;
+  }
   if(updateWallGuidance(a))return;
   const directOnly=!!(a&&a.directOnly);if(!directOnly){directOnlyStreak=0;if(ui.reflectionHint)ui.reflectionHint.classList.remove('show');return;}
   directOnlyStreak++;if(!ui.reflectionHint)return;ui.reflectionHint.classList.add('show');ui.reflectionHint.querySelector('b').textContent='Nessuna riflessione leggibile';
@@ -969,7 +1055,7 @@ function handleCalibrationAnalysis(a,directTemplateCount=0){
   if(!a.rirValid||!a.directFound){setCalibrationPanel('Calibrazione · RIR non valida','Tieni il telefono fermo e rivolto verso la parete; devo prima localizzare bene il diretto.',.08);return;}
   if(calibration.phase==='seek-no-echo'){
     if(Number.isFinite(a.rawSNR)&&a.rawSNR<10){calibration.noEchoCount=0;setCalibrationPanel('Calibrazione · emissione troppo debole',`Raw SNR ${a.rawSNR.toFixed(1)} dB. Alza il volume MEDIA del telefono e mantienilo fermo; con questo livello non posso ottenere una RIR pulita.`,.08);return;}
-    const directDominated=a.directOnly||(a.reflectionCount<=1&&Number.isFinite(a.echoToDirectDB)&&a.echoToDirectDB<-28&&a.snr<(cfg.minSNRDB+1));if(directDominated){calibration.noEchoCount++;const q=clampNum(calibration.noEchoCount/cfg.calibrationNoEchoConfirmCycles,0,1);setCalibrationPanel('Calibrazione 1/2 · diretto isolato',`Bene: ${calibration.noEchoCount}/${cfg.calibrationNoEchoConfirmCycles} misure con solo diretto. Rimani ancora un momento fermo.`,.15+.25*q);if(calibration.noEchoCount>=cfg.calibrationNoEchoConfirmCycles&&calibration.directTemplateCount>=1){calibration.phase='approach';calibration.detectionWindow=[];setCalibrationPanel('Calibrazione 2/2 · avvicinati','Ora avvicinati LENTAMENTE alla stessa parete, mantenendo orientamento e altezza. Mi fermo appena la stessa riflessione diventa leggibile per più chirp.',.45);}}
+    const directDominated=!!a.directOnly;if(directDominated){calibration.noEchoCount++;const q=clampNum(calibration.noEchoCount/cfg.calibrationNoEchoConfirmCycles,0,1);setCalibrationPanel('Calibrazione 1/2 · diretto isolato',`Bene: ${calibration.noEchoCount}/${cfg.calibrationNoEchoConfirmCycles} misure con solo diretto. Rimani ancora un momento fermo.`,.15+.25*q);if(calibration.noEchoCount>=cfg.calibrationNoEchoConfirmCycles&&calibration.directTemplateCount>=1){calibration.phase='approach';calibration.detectionWindow=[];setCalibrationPanel('Calibrazione 2/2 · avvicinati','Ora avvicinati LENTAMENTE alla stessa parete, mantenendo orientamento e altezza. Mi fermo appena la stessa riflessione diventa leggibile per più chirp.',.45);}}
     else{calibration.noEchoCount=0;setCalibrationPanel('Calibrazione 1/2 · sei ancora troppo vicino','Vedo già una riflessione. Allontanati dalla parete finché nelle RIR rimane soltanto il diretto; così imparo la distorsione/coupling speaker→microfono.',.10);}return;
   }
   if(calibration.phase==='approach'){
@@ -991,8 +1077,8 @@ function handleWorker(m){
   if(m.type==='selftest'){workerSelfTest=m;log(`self-test Worker ${m.ok?'PASS':'FAIL'}${m.error?': '+m.error:''}`,m.ok?'info':'error');evaluateBrowserSelfTest();return;}
   if(m.type==='result'||m.type==='model'){
     latest.model=m.model||latest.model;latest.accepted=m.accepted??latest.accepted;latest.rejected=m.rejected??latest.rejected;latest.keyframes=m.keyframes??latest.keyframes;latest.tracks=m.trackCount??latest.tracks;
-    if(m.analysis){latest.analysis=m.analysis;selfTestResults++;updateReflectionHint(m.analysis);cycleLogs.push({id:m.analysis.id,accepted:m.analysis.accepted,rirValid:m.analysis.rirValid,qualityScore:m.analysis.qualityScore,reflections:m.analysis.reflectionCount,directOnly:!!m.analysis.directOnly,matchSNR:m.analysis.matchSNR,matchCoeff:m.analysis.matchCoeff,reflectionSNR:m.analysis.snr,psfMode:m.analysis.psfMode,ompExplained:m.analysis.ompExplained,ompResidualRatio:m.analysis.ompResidualRatio,energySNR:m.analysis.energySNR,rawSNR:m.analysis.rawSNR,consistency:m.analysis.consistency,clipFrac:m.analysis.clipFrac,echoToDirectDB:m.analysis.echoToDirectDB,firstReflectionDistanceM:m.analysis.firstReflectionDistanceM,calibrationRangeM:m.analysis.calibrationRangeM,reason:m.analysis.reason,keyframes:m.keyframes,tracks:m.trackCount,surfaces:(m.model.primary||[]).length,rank:m.model.rank,rmse:m.model.rmse,baselineM:m.model.baselineM,processingMs:m.analysis.processingMs,guidanceWall:wallGuide.wallIndex,guidancePhase:wallGuide.phase,guidanceCandidateSeen:wallGuide.candidateSeen});addRIRCard(m.analysis);addRawCard(m.analysis);}
-    renderer.setModel(latest.model);updateHUD();ui.detail.disabled=false;ui.export.disabled=false;const a=latest.analysis;if(a){if(wallGuide.active&&calibration.done){if(wallGuide.phase==='lost-wall')setStatus(`Torna alla parete ${wallGuide.wallIndex}`,'Ho perso il picco della parete corrente: torna indietro finché ricompare.','warn');else if(wallGuide.phase==='follow-wall')setStatus(`Segui parete ${wallGuide.wallIndex}`,`Mantieni il suo eco e cerca il picco della parete ${wallGuide.wallIndex+1}.`,a.accepted?'ok':'warn');else setStatus('Aggancia una parete','Avvicinati e mantieni un eco stabile prima di proseguire.','warn');}else if(a.directOnly){const lim=calibration.profile&&calibration.profile.maxReliableWallDistanceM;setStatus('Solo diretto rilevato',Number.isFinite(lim)?`Oltre ≈${lim.toFixed(2)} m non vedo affidabilmente: avvicinati a un muro.`:'Avvicinati a un muro o orienta il telefono verso una superficie riflettente.','warn');}else setStatus(a.accepted?`Chirp ${a.id} accettato`:`Chirp ${a.id} scartato`,a.accepted?`RIR Q ${finiteFmt(100*a.qualityScore,0)}% · ${a.reflectionCount||0} riflessioni · SNR ${finiteFmt(a.snr)} dB`:a.reason,a.accepted?'ok':'warn');}if(m.detailAuto)log('raffinamento dettaglio globale eseguito');evaluateBrowserSelfTest();
+    if(m.analysis){latest.analysis=m.analysis;selfTestResults++;updateReflectionHint(m.analysis);cycleLogs.push({id:m.analysis.id,accepted:m.analysis.accepted,rirValid:m.analysis.rirValid,qualityScore:m.analysis.qualityScore,reflections:m.analysis.reflectionCount,directOnly:!!m.analysis.directOnly,weakEchoOnly:!!m.analysis.weakEchoOnly,earlyEchoEvidence:m.analysis.earlyEchoEvidence,systemEchoGuard:m.analysis.systemEchoGuard,systemResponseCount:m.analysis.systemResponseCount,systemResponseUpdated:!!m.analysis.systemResponseUpdated,matchSNR:m.analysis.matchSNR,matchCoeff:m.analysis.matchCoeff,reflectionSNR:m.analysis.snr,psfMode:m.analysis.psfMode,ompExplained:m.analysis.ompExplained,ompResidualRatio:m.analysis.ompResidualRatio,energySNR:m.analysis.energySNR,rawSNR:m.analysis.rawSNR,consistency:m.analysis.consistency,clipFrac:m.analysis.clipFrac,echoToDirectDB:m.analysis.echoToDirectDB,firstReflectionDistanceM:m.analysis.firstReflectionDistanceM,calibrationRangeM:m.analysis.calibrationRangeM,reason:m.analysis.reason,keyframes:m.keyframes,tracks:m.trackCount,surfaces:(m.model.primary||[]).length,rank:m.model.rank,rmse:m.model.rmse,baselineM:m.model.baselineM,processingMs:m.analysis.processingMs,guidanceWall:wallGuide.wallIndex,guidancePhase:wallGuide.phase,guidanceCandidateSeen:wallGuide.candidateSeen});addRIRCard(m.analysis);addRawCard(m.analysis);}
+    renderer.setModel(latest.model);updateHUD();ui.detail.disabled=false;ui.export.disabled=false;const a=latest.analysis;if(a){if(a.weakEchoOnly){const tau=Number.isFinite(a.earlyEchoEvidenceTau)?a.earlyEchoEvidenceTau:NaN,d=Number.isFinite(tau)?0.5*SOUND_SPEED*tau:NaN;setStatus('Eco di parete debole',Number.isFinite(d)?`Possibile eco a ≈${d.toFixed(2)} m: resta fermo o avvicinati. La misura non aggiorna SYS.`:'Resta fermo o avvicinati: vedo energia riflessa, ma non è ancora abbastanza forte per la geometria.','warn');}else if(wallGuide.active&&calibration.done){if(wallGuide.phase==='lost-wall')setStatus(`Torna alla parete ${wallGuide.wallIndex}`,'Ho perso il picco della parete corrente: torna indietro finché ricompare.','warn');else if(wallGuide.phase==='follow-wall')setStatus(`Segui parete ${wallGuide.wallIndex}`,`Mantieni il suo eco e cerca il picco della parete ${wallGuide.wallIndex+1}.`,a.accepted?'ok':'warn');else setStatus('Aggancia una parete','Avvicinati e mantieni un eco stabile prima di proseguire.','warn');}else if(a.directOnly){const lim=calibration.profile&&calibration.profile.maxReliableWallDistanceM;setStatus('Solo diretto rilevato',Number.isFinite(lim)?`Oltre ≈${lim.toFixed(2)} m non vedo affidabilmente: avvicinati a un muro.`:'Avvicinati a un muro o orienta il telefono verso una superficie riflettente.','warn');}else setStatus(a.accepted?`Chirp ${a.id} accettato`:`Chirp ${a.id} scartato`,a.accepted?`RIR Q ${finiteFmt(100*a.qualityScore,0)}% · ${a.reflectionCount||0} riflessioni · SNR ${finiteFmt(a.snr)} dB`:a.reason,a.accepted?'ok':'warn');}if(m.detailAuto)log('raffinamento dettaglio globale eseguito');evaluateBrowserSelfTest();
   }
 }
 
