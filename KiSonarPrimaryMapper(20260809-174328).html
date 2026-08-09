@@ -1,0 +1,1061 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0b1220">
+<title>Ki Sonar Primary Mapper v6.6 System Response + Raw Debug</title>
+<style>
+:root{color-scheme:dark;--bg:#07101e;--panel:#0e1a2b;--panel2:#14243a;--fg:#eef6ff;--muted:#9cb0c8;--ok:#4dd39b;--warn:#ffc857;--bad:#ff6b6b;--accent:#65a9ff;--detail:#9d8cff}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+#app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto}
+header{display:flex;gap:.5rem;align-items:center;padding:.55rem .65rem;background:linear-gradient(180deg,#112039,#0a1424);border-bottom:1px solid #263b57;flex-wrap:wrap}
+button,select,input{font:inherit}.btn{border:1px solid #365273;background:#17304c;color:var(--fg);border-radius:.65rem;padding:.62rem .8rem;min-height:42px;font-weight:650}.btn:active{transform:translateY(1px)}.btn.primary{background:#155c4a;border-color:#36a582}.btn.danger{background:#6b2931;border-color:#b74b58}.btn.secondary{background:#342c62;border-color:#6559a6}.btn:disabled{opacity:.45}
+#status{flex:1;min-width:210px}.statusMain{font-weight:750}.statusSub{font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+main{position:relative;min-height:0}canvas{display:block;width:100%;height:100%;touch-action:none;background:radial-gradient(circle at 50% 40%,#13253d 0,#081320 52%,#050b13 100%)}
+#hud{position:absolute;left:.65rem;top:.65rem;display:grid;gap:.35rem;pointer-events:none}.chip{background:rgba(4,10,19,.76);border:1px solid rgba(119,157,199,.28);border-radius:.55rem;padding:.38rem .55rem;font-size:.76rem;backdrop-filter:blur(5px)}
+#legend{position:absolute;right:.65rem;top:.65rem;background:rgba(4,10,19,.76);border:1px solid rgba(119,157,199,.28);border-radius:.55rem;padding:.45rem .55rem;font-size:.73rem;line-height:1.45;pointer-events:none}.sw{display:inline-block;width:.9rem;height:.18rem;vertical-align:middle;margin-right:.35rem}.sw.path{background:#f7f7ff}.sw.primary{background:var(--accent)}.sw.detail{background:var(--detail)}
+#rirShelf{background:#091523;border-top:1px solid #263b57;padding:.38rem .5rem .44rem;min-height:138px;max-height:154px;overflow:hidden}#rirShelfHead{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-bottom:.3rem;font-size:.72rem;color:var(--muted)}#rirShelfHead b{color:var(--fg)}#rirStrip{display:flex;gap:.42rem;overflow-x:auto;overflow-y:hidden;padding-bottom:.16rem;scrollbar-width:thin;overscroll-behavior-x:contain}.rirCard{flex:0 0 176px;height:112px;background:#0d1b2d;border:1px solid #314862;border-radius:.55rem;padding:.32rem .4rem;display:grid;grid-template-rows:auto 1fr auto;gap:.14rem;content-visibility:auto;contain:layout paint style;contain-intrinsic-size:176px 100px}.rirCard.good{border-color:rgba(77,211,155,.65)}.rirCard.mid{border-color:rgba(255,200,87,.65)}.rirCard.bad{border-color:rgba(255,107,107,.72)}.rirTop{display:flex;justify-content:space-between;gap:.3rem;align-items:center;font-size:.66rem;line-height:1}.rirState{font-weight:800}.rirCard.good .rirState{color:var(--ok)}.rirCard.mid .rirState{color:var(--warn)}.rirCard.bad .rirState{color:var(--bad)}.rirSvg{width:100%;height:64px;display:block;background:#07111d;border-radius:.3rem}.rirMeta{font-size:.61rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rirMeta b{color:var(--fg)}#drawer{background:#0b1727;border-top:1px solid #263b57;padding:.45rem .65rem;display:grid;grid-template-columns:1fr auto;gap:.55rem;align-items:center}.metrics{display:flex;gap:.8rem;overflow:auto;font-size:.76rem;color:var(--muted);white-space:nowrap}.metrics b{color:var(--fg)}
+#settings{position:absolute;inset:auto .65rem .65rem .65rem;max-height:70%;overflow:auto;background:rgba(9,20,35,.97);border:1px solid #355170;border-radius:.8rem;padding:.8rem;display:none;z-index:4}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.65rem}.field{display:grid;gap:.25rem}.field label{font-size:.74rem;color:var(--muted)}.field input,.field select{width:100%;background:#071220;color:var(--fg);border:1px solid #314966;border-radius:.45rem;padding:.48rem}.field input[type=checkbox]{width:auto;transform:scale(1.15);accent-color:#65a9ff}.inlineField{display:flex;gap:.4rem;align-items:center}.inlineField select{min-width:0;flex:1}.debugShelf{display:none;background:#06101b;border-top:1px solid #263b57;padding:.38rem .5rem .44rem;min-height:142px;max-height:168px;overflow:hidden}.debugShelf.show{display:block}.rawStrip{display:flex;gap:.42rem;overflow-x:auto;overflow-y:hidden;padding-bottom:.16rem}.rawCard{flex:0 0 220px;height:118px;background:#0b1828;border:1px solid #31506e;border-radius:.55rem;padding:.32rem .4rem;display:grid;grid-template-rows:auto 1fr auto;gap:.14rem}.rawCard.bad{border-color:rgba(255,107,107,.75)}.rawCard.good{border-color:rgba(77,211,155,.58)}.rawSvg{width:100%;height:65px;display:block;background:#050d16;border-radius:.3rem}.rawMeta{font-size:.61rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.notice{font-size:.78rem;color:var(--warn);margin:.35rem 0}.log{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.7rem;white-space:pre-wrap;background:#050b12;border:1px solid #24384f;border-radius:.5rem;padding:.5rem;max-height:130px;overflow:auto}
+#permissionGate{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:1rem;background:rgba(3,8,15,.82);backdrop-filter:blur(8px)}
+#permissionGate.show{display:flex}
+.permissionCard{width:min(92vw,520px);background:#0d1b2d;border:1px solid #4b6e96;border-radius:1rem;padding:1rem;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.permissionCard h2{margin:.1rem 0 .45rem;font-size:1.15rem}.permissionCard p{margin:.35rem 0;color:var(--muted);line-height:1.4}.permissionActions{display:flex;gap:.55rem;flex-wrap:wrap;margin-top:.85rem}.permissionHint{font-size:.75rem;color:var(--warn)}
+@media(max-width:680px){header{padding:.42rem}.btn{padding:.55rem .62rem}.statusSub{max-width:240px}#legend{font-size:.68rem}.metrics{gap:.55rem}#rirShelf{min-height:130px;max-height:146px}.rirCard{flex-basis:160px;height:106px}.rirSvg{height:58px}}
+#reflectionHint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:3;display:none;width:min(88vw,560px);padding:.85rem 1rem;border-radius:.85rem;border:1px solid rgba(255,200,87,.78);background:rgba(66,43,8,.92);box-shadow:0 12px 40px rgba(0,0,0,.38);text-align:center;pointer-events:none}#reflectionHint.show{display:block}#reflectionHint b{display:block;color:#ffe09a;font-size:1.02rem;margin-bottom:.25rem}#reflectionHint span{display:block;color:#fff3ce;font-size:.84rem;line-height:1.4}#calibrationPanel{position:absolute;left:50%;bottom:.75rem;transform:translateX(-50%);z-index:5;display:none;width:min(92vw,650px);padding:.85rem 1rem;border-radius:.9rem;border:1px solid rgba(86,217,255,.65);background:rgba(7,27,43,.94);box-shadow:0 16px 45px rgba(0,0,0,.42);backdrop-filter:blur(7px)}#calibrationPanel.show{display:block}.calTitle{font-size:1rem;font-weight:800;color:#8ee8ff;margin-bottom:.28rem}.calInstruction{font-size:.86rem;line-height:1.42;color:#eef8ff}.calMetrics{display:flex;gap:.55rem;flex-wrap:wrap;margin-top:.48rem;font-size:.72rem;color:#b9cadc}.calMetrics span{background:rgba(255,255,255,.055);padding:.24rem .38rem;border-radius:.35rem}.calProgress{height:5px;background:#13263b;border-radius:99px;overflow:hidden;margin-top:.55rem}.calProgress>i{display:block;height:100%;width:0;background:#56d9ff;transition:width .18s ease}.calDone{border-color:rgba(77,211,155,.72)!important;background:rgba(10,54,42,.94)!important}.rirCard.cal{border-color:rgba(86,217,255,.72)}.rirCard.cal .rirState{color:#8ee8ff}</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <button id="startBtn" class="btn primary">Avvia + calibra</button>
+  <button id="stopBtn" class="btn danger" disabled>Stop</button>
+  <button id="calibrateBtn" class="btn" disabled>Ricalibra parete</button>
+  <button id="demoBtn" class="btn secondary">Demo sintetica</button>
+  <button id="detailBtn" class="btn" disabled>Raffina dettaglio</button>
+  <button id="exportBtn" class="btn" disabled>Esporta</button>
+  <button id="settingsBtn" class="btn">Impostazioni</button>
+  <div id="status"><div class="statusMain" id="statusMain">Pronto</div><div class="statusSub" id="statusSub">Il live guida la scansione parete-per-parete e mostra solo superfici persistenti principali.</div></div>
+</header>
+<main>
+  <canvas id="scene"></canvas>
+  <div id="hud">
+    <div class="chip" id="hud1">chirp 0 · pose 0</div>
+    <div class="chip" id="hud2">superfici primarie 0 · dettaglio 0</div>
+    <div class="chip" id="hud3">SNR — · stato idle</div>
+    <div class="chip" id="hud4">range non calibrato</div>
+  </div>
+  <div id="legend"><div><span class="sw path"></span>path stimato</div><div><span class="sw primary"></span>superfici primarie</div><div><span class="sw detail"></span>dettaglio post-process</div></div><div id="reflectionHint" role="status" aria-live="polite"><b>Solo diretto rilevato</b><span>Avvicinati a un muro o orienta il telefono verso una superficie riflettente.</span></div><div id="calibrationPanel" role="status" aria-live="polite"><div class="calTitle" id="calibrationTitle">Calibrazione visibilità parete</div><div class="calInstruction" id="calibrationInstruction">Punta il telefono verso una parete ampia e dura.</div><div class="calMetrics"><span id="calibrationPhase">fase —</span><span id="calibrationDistance">distanza —</span><span id="calibrationSNR">SNR —</span><span id="calibrationTemplate">PSF 0</span></div><div class="calProgress"><i id="calibrationProgress"></i></div></div>
+  <section id="settings">
+    <div class="notice" id="secureNotice"></div>
+    <div class="grid">
+      <div class="field"><label>Durata chirp [s]</label><input id="sweepDuration" type="number" step="0.10" min="0.40" max="2.50" value="1.00"></div>
+      <div class="field"><label>Periodo [s]</label><input id="cyclePeriod" type="number" step="0.10" min="1.20" max="6" value="2.40"></div>
+      <div class="field"><label>Frequenza iniziale [Hz]</label><input id="f0" type="number" step="50" min="300" max="3000" value="700"></div>
+      <div class="field"><label>Frequenza finale [Hz]</label><input id="f1" type="number" step="100" min="4000" max="18000" value="10000"></div>
+      <div class="field"><label>Livello [dBFS]</label><input id="level" type="number" step="1" min="-30" max="-6" value="-12"></div>
+      <div class="field"><label>SNR minimo [dB]</label><input id="minSNR" type="number" step="1" min="4" max="30" value="6"></div>
+      <div class="field"><label>Picchi online per RIR</label><input id="maxPrimaryEvents" type="number" step="1" min="3" max="12" value="7"></div>
+      <div class="field"><label>Superfici primarie massime</label><input id="maxPrimarySurfaces" type="number" step="1" min="3" max="12" value="6"></div>
+      <div class="field"><label>Raffinamento automatico ogni N chirp</label><input id="detailEvery" type="number" step="1" min="0" max="100" value="20"></div>
+      <div class="field"><label>Chirp massimi</label><input id="maxCycles" type="number" step="10" min="10" max="2000" value="300"></div>
+      <div class="field"><label>Microfono</label><div class="inlineField"><select id="microphoneSelect"><option value="">Predefinito</option></select><button id="refreshMicBtn" class="btn" type="button">Aggiorna</button></div></div>
+      <div class="field"><label>Debug acquisizione raw</label><div class="inlineField"><input id="debugRaw" type="checkbox"><span style="font-size:.75rem;color:var(--muted)">Mostra il segnale registrato e l'audit della finestra.</span></div></div>
+    </div>
+    <div style="display:flex;gap:.5rem;margin-top:.7rem"><button id="applyBtn" class="btn primary">Applica</button><button id="closeSettingsBtn" class="btn">Chiudi</button></div>
+    <div class="notice">Per il microfono serve una pagina in contesto sicuro (HTTPS o localhost). Tieni lo smartphone in primo piano; se la pagina viene nascosta la misura viene sospesa.</div>
+    <div id="log" class="log">Nessun evento.</div>
+  </section>
+</main>
+<section id="rirShelf">
+  <div id="rirShelfHead"><span><b>RIR stimate</b> · ESS Farina + PSF-OMP/CLEAN · template operativo speaker→microfono aggiornato da ogni misura SOLO DIRETTO · RIR signed bianca / envelope ciano</span><span id="rirShelfSummary">nessuna misura</span></div>
+  <div id="rirStrip" aria-label="Cronologia RIR stimate"></div>
+</section>
+<section id="rawShelf" class="debugShelf">
+  <div id="rirShelfHead"><span><b>DEBUG · segnale registrato usato per la RIR</b> · blu = inizio chirp programmato · oro = chirp ricevuto · verde = fine chirp ricevuto</span><span id="rawShelfSummary">debug off</span></div>
+  <div id="rawStrip" class="rawStrip" aria-label="Cronologia segnali raw"></div>
+</section>
+<div id="drawer"><div class="metrics" id="metrics"><span>accettati <b>0</b></span><span>rifiutati <b>0</b></span><span>track <b>0</b></span><span>rank <b>0</b></span><span>RMSE <b>—</b></span></div><div style="font-size:.72rem;color:var(--muted)">drag: ruota · pinch/wheel: zoom</div></div>
+</div>
+<div id="permissionGate" role="dialog" aria-modal="true" aria-labelledby="permissionTitle">
+  <div class="permissionCard">
+    <h2 id="permissionTitle">Permesso microfono necessario</h2>
+    <p id="permissionText">Per misurare le RIR serve l’accesso al microfono.</p>
+    <p class="permissionHint">Se avevi negato il permesso, abilita il microfono per questo sito nelle impostazioni del browser e poi premi di nuovo “Richiedi microfono”.</p>
+    <div class="permissionActions">
+      <button id="permissionRetryBtn" class="btn primary">Richiedi microfono</button>
+      <button id="permissionCancelBtn" class="btn">Annulla</button>
+    </div>
+  </div>
+</div>
+
+<script id="capture-worklet" type="text/plain">
+class KiCaptureProcessor extends AudioWorkletProcessor {
+  constructor(){super();this.buf=new Float32Array(4096);this.used=0;this.start=0;}
+  process(inputs){
+    const input=inputs[0]&&inputs[0][0];
+    if(input&&input.length){
+      if(this.used===0)this.start=currentFrame;
+      let off=0;
+      while(off<input.length){
+        const n=Math.min(input.length-off,this.buf.length-this.used);
+        this.buf.set(input.subarray(off,off+n),this.used);this.used+=n;off+=n;
+        if(this.used===this.buf.length){
+          const out=this.buf;this.port.postMessage({frame:this.start,data:out},[out.buffer]);
+          this.buf=new Float32Array(4096);this.used=0;this.start=currentFrame+off;
+        }
+      }
+    }
+    return true;
+  }
+}
+registerProcessor('ki-capture',KiCaptureProcessor);
+</script>
+
+<script id="worker-code" type="text/plain">
+'use strict';
+
+/*
+ * KiSonar v6 worker
+ * -----------------
+ * Processing stages are deliberately separated:
+ *   1) ESS measurement -> signed RIR + diagnostic confidence
+ *   2) signed RIR -> direct/reflection event hypotheses
+ *   3) event hypotheses -> temporal keyframes -> persistent echo tracks
+ *   4) persistent first-order tracks -> Ki free-L range chart -> surfaces/path
+ *
+ * Geometry NEVER uses browser absolute TOA.  Each reflection is represented by
+ * tau = t_echo - t_direct from the same RIR, which removes the per-measurement
+ * playback/record latency.  A global source/microphone baseline L is treated as
+ * a weak nuisance parameter in the Ki radial coordinate.
+ */
+
+let CFG = {};
+let FS = 48000;
+let chirp = null;
+let invESS = null;
+let measurements = [];
+let prevModel = null;
+let nextTrackId = 1;
+let convCache = null;
+let psfAtomCache = null;
+// Calibration state is kept inside the Worker so the direct speaker->microphone
+// coupling template is learned from full-resolution RIRs without shipping large
+// arrays through the UI thread.  The calibrated range/threshold profile is a
+// confidence model, not a hard physical wall cutoff.
+let calibrationProfile = null;
+let calibrationDirectAtom = null;
+let calibrationDirectSum = null;
+let calibrationDirectCount = 0;          // number of direct-only observations seen
+let calibrationDirectWeight = 0;         // robust effective weight of those observations
+let calibrationDirectStability = [];
+let calibrationDirectLowSimilarity = 0;
+let calibrationSpectrumFrames = [];
+let calibratedBand = {ready:false,f0:NaN,f1:NaN,quality:0};
+let liveRIRFusion = [];
+const C = 343;
+
+function postLog(message, level='info'){ postMessage({type:'log', message, level}); }
+function clamp(x,a,b){ return Math.max(a,Math.min(b,x)); }
+function clamp01(x){ return clamp(x,0,1); }
+function nextPow2(n){ let p=1; while(p<n) p<<=1; return p; }
+function finite(x,d=0){ return Number.isFinite(x) ? Number(x.toFixed(d)) : x; }
+function median(a){ const x=Array.from(a||[]).filter(Number.isFinite).sort((u,v)=>u-v); if(!x.length)return NaN; const m=x.length>>1; return x.length&1?x[m]:(x[m-1]+x[m])/2; }
+function quantile(a,q){ const x=Array.from(a||[]).filter(Number.isFinite).sort((u,v)=>u-v); if(!x.length)return NaN; const u=(x.length-1)*q,i=Math.floor(u),j=Math.ceil(u); return i===j?x[i]:x[i]+(u-i)*(x[j]-x[i]); }
+function mad(a){ const m=median(a); if(!Number.isFinite(m))return NaN; return 1.4826*median(Array.from(a,x=>Math.abs(x-m)))+1e-15; }
+function rms(x){ if(!x||!x.length)return 0; let s=0,n=0; for(const v of x){if(Number.isFinite(v)){s+=v*v;n++;}} return n?Math.sqrt(s/n):0; }
+function weightedMedian(a,w){ const z=[]; for(let i=0;i<a.length;i++) if(Number.isFinite(a[i])&&Number.isFinite(w[i])&&w[i]>0) z.push([a[i],w[i]]); if(!z.length)return NaN; z.sort((x,y)=>x[0]-y[0]); const s=z.reduce((v,x)=>v+x[1],0); let c=0; for(const x of z){c+=x[1]; if(c>=s/2)return x[0];} return z[z.length-1][0]; }
+function maxArray(a){ let m=-Infinity; for(const v of a) if(v>m)m=v; return Number.isFinite(m)?m:0; }
+function sumsq(a){ let s=0; for(const v of a)s+=v*v; return s; }
+
+function fft(re,im,inverse=false){
+  const n=re.length;
+  for(let i=1,j=0;i<n;i++){
+    let bit=n>>1; for(;j&bit;bit>>=1)j^=bit; j^=bit;
+    if(i<j){ const tr=re[i];re[i]=re[j];re[j]=tr;const ti=im[i];im[i]=im[j];im[j]=ti; }
+  }
+  for(let len=2;len<=n;len<<=1){
+    const ang=2*Math.PI/len*(inverse?1:-1),wr0=Math.cos(ang),wi0=Math.sin(ang);
+    for(let i=0;i<n;i+=len){
+      let wr=1,wi=0;
+      for(let j=0;j<len/2;j++){
+        const u=i+j,v=u+len/2,vr=re[v]*wr-im[v]*wi,vi=re[v]*wi+im[v]*wr;
+        re[v]=re[u]-vr;im[v]=im[u]-vi;re[u]+=vr;im[u]+=vi;
+        const nw=wr*wr0-wi*wi0; wi=wr*wi0+wi*wr0; wr=nw;
+      }
+    }
+  }
+  if(inverse) for(let i=0;i<n;i++){re[i]/=n;im[i]/=n;}
+}
+
+function buildInverseESS(){
+  const N=chirp.length,R=Math.log(Math.max(1.000001,CFG.f1/CFG.f0));
+  invESS=new Float64Array(N);
+  for(let n=0;n<N;n++) invESS[n]=chirp[N-1-n]*Math.exp(-R*n/Math.max(1,N-1));
+  // Normalize using the exact emitted sweep, including its fades and level.
+  let center=0;
+  for(let k=0;k<N;k++) center += chirp[k]*invESS[N-1-k];
+  if(Math.abs(center)<1e-15)throw new Error('inverse ESS normalization failed');
+  for(let n=0;n<N;n++) invESS[n]/=center;
+  convCache=null;
+  psfAtomCache=null;
+}
+
+function essBandWeight(f){
+  const f0=Math.max(20,CFG.f0),f1=Math.min(CFG.f1,.47*FS),lo0=.72*f0,lo1=1.04*f0,hi0=.96*f1,hi1=Math.min(.495*FS,1.08*f1);
+  if(f<=lo0||f>=hi1)return 0;
+  if(f<lo1){const u=(f-lo0)/Math.max(1e-12,lo1-lo0);return .5-.5*Math.cos(Math.PI*u);}
+  if(f<=hi0)return 1;
+  const u=(f-hi0)/Math.max(1e-12,hi1-hi0);return .5+.5*Math.cos(Math.PI*u);
+}
+
+function effectiveBandWeight(f){
+  let w=essBandWeight(f);
+  if(!calibratedBand.ready||!Number.isFinite(calibratedBand.f0)||!Number.isFinite(calibratedBand.f1))return w;
+  const lo0=Math.max(20,.86*calibratedBand.f0),lo1=calibratedBand.f0,hi0=calibratedBand.f1,hi1=Math.min(.49*FS,1.10*calibratedBand.f1);
+  let c=0;
+  if(f<=lo0||f>=hi1)c=0;
+  else if(f<lo1){const u=(f-lo0)/Math.max(1e-12,lo1-lo0);c=.5-.5*Math.cos(Math.PI*u);}
+  else if(f<=hi0)c=1;
+  else {const u=(f-hi0)/Math.max(1e-12,hi1-hi0);c=.5+.5*Math.cos(Math.PI*u);}
+  return w*c;
+}
+function directSpectrumFrame(raw,lag){
+  const N=chirp.length;if(lag<0||lag+N>raw.length)return null;
+  const nfft=nextPow2(N),c=ensureConvCache(nfft),Yr=new Float64Array(nfft),Yi=new Float64Array(nfft);Yr.set(raw.subarray(lag,lag+N));fft(Yr,Yi);
+  const B=192,fmin=Math.max(350,CFG.f0),fmax=Math.min(CFG.f1,.44*FS),db=new Float64Array(B);
+  let mx=-Infinity;
+  for(let b=0;b<B;b++){
+    const f=fmin+(fmax-fmin)*b/Math.max(1,B-1),k=Math.max(1,Math.min(nfft/2-1,Math.round(f*nfft/FS)));
+    const yp=Yr[k]*Yr[k]+Yi[k]*Yi[k],xp=c.Xr[k]*c.Xr[k]+c.Xi[k]*c.Xi[k];
+    const h=10*Math.log10((yp+1e-24)/(xp+1e-24));db[b]=h;if(h>mx)mx=h;
+  }
+  const sm=movingMean(db,7);for(let b=0;b<B;b++)sm[b]-=mx;return{fmin,fmax,db:sm};
+}
+function accumulateCalibrationSpectrum(raw,lag){const f=directSpectrumFrame(raw,lag);if(!f)return;calibrationSpectrumFrames.push(f);if(calibrationSpectrumFrames.length>8)calibrationSpectrumFrames.shift();}
+function finalizeCalibrationBand(){
+  if(calibrationSpectrumFrames.length<2){calibratedBand={ready:true,f0:Math.max(CFG.f0,700),f1:Math.min(CFG.f1,10000),quality:0};convCache=null;psfAtomCache=null;return calibratedBand;}
+  const B=calibrationSpectrumFrames[0].db.length,med=new Float64Array(B);for(let b=0;b<B;b++)med[b]=median(calibrationSpectrumFrames.map(x=>x.db[b]));
+  const sm=movingMean(med,9),thr=-28;let lo=-1,hi=-1;for(let b=0;b<B;b++)if(sm[b]>=thr){if(lo<0)lo=b;hi=b;}
+  const ref=calibrationSpectrumFrames[0],toF=b=>ref.fmin+(ref.fmax-ref.fmin)*b/Math.max(1,B-1);
+  let f0=lo>=0?toF(lo):Math.max(CFG.f0,700),f1=hi>=0?toF(hi):Math.min(CFG.f1,10000);
+  f0=Math.max(CFG.f0,500,f0);f1=Math.min(CFG.f1,.44*FS,12000,f1);
+  if(f1-f0<3000){f0=Math.max(CFG.f0,700);f1=Math.min(CFG.f1,10000,.44*FS);}
+  const quality=clamp01((f1-f0)/Math.max(3000,CFG.f1-CFG.f0));calibratedBand={ready:true,f0,f1,quality};convCache=null;psfAtomCache=null;return calibratedBand;
+}
+
+function ensureConvCache(nfft){
+  if(convCache&&convCache.nfft===nfft)return convCache;
+  const N=chirp.length;
+  const Xr=new Float64Array(nfft),Xi=new Float64Array(nfft),Zr=new Float64Array(nfft),Zi=new Float64Array(nfft),Rr=new Float64Array(nfft),Ri=new Float64Array(nfft);
+  Xr.set(chirp); Zr.set(invESS);
+  for(let i=0;i<N;i++)Rr[i]=chirp[N-1-i];
+  fft(Xr,Xi);fft(Zr,Zi);fft(Rr,Ri);
+  let maxPow=0,energy=0;for(const v of chirp)energy+=v*v;
+  const band=new Float64Array(nfft);
+  for(let i=0;i<nfft;i++){
+    const p=Xr[i]*Xr[i]+Xi[i]*Xi[i];if(p>maxPow)maxPow=p;
+    const k=i<=nfft/2?i:nfft-i;band[i]=essBandWeight(k*FS/nfft);
+  }
+  convCache={nfft,Xr,Xi,Zr,Zi,Rr,Ri,band,maxPow,energy:Math.max(energy,1e-15)};
+  return convCache;
+}
+
+function estimateESS(raw){
+  const outLen=raw.length+chirp.length-1,nfft=nextPow2(outLen),c=ensureConvCache(nfft);
+  const Yr=new Float64Array(nfft),Yi=new Float64Array(nfft);Yr.set(raw);fft(Yr,Yi);
+  const Fr=new Float64Array(nfft),Fi=new Float64Array(nfft),Cr=new Float64Array(nfft),Ci=new Float64Array(nfft),Sr=new Float64Array(nfft),Si=new Float64Array(nfft);
+  const reg=Math.max(1e-18,CFG.deconvRegularization*c.maxPow);
+  for(let i=0;i<nfft;i++){
+    // Canonical Farina convolution y * inverseESS.  IMPORTANT: the recovered
+    // RIR is explicitly band-limited to frequencies that the phone can actually
+    // excite.  The old code band-limited only the secondary spectral estimate,
+    // leaving out-of-band phone/self-noise visible in the main RIR.
+    const k=i<=nfft/2?i:nfft-i,f=k*FS/nfft,w=effectiveBandWeight(f);
+    Fr[i]=w*(Yr[i]*c.Zr[i]-Yi[i]*c.Zi[i]);Fi[i]=w*(Yr[i]*c.Zi[i]+Yi[i]*c.Zr[i]);
+    // Linear cross-correlation y star x = y * reverse(x), used only for timing.
+    Cr[i]=Yr[i]*c.Rr[i]-Yi[i]*c.Ri[i];Ci[i]=Yr[i]*c.Ri[i]+Yi[i]*c.Rr[i];
+    // Independent regularized spectral inverse, used only as a consistency check.
+    const xr=c.Xr[i],xi=c.Xi[i],px=xr*xr+xi*xi,den=px+reg;
+    Sr[i]=w*(Yr[i]*xr+Yi[i]*xi)/den;Si[i]=w*(Yi[i]*xr-Yr[i]*xi)/den;
+  }
+  fft(Fr,Fi,true);fft(Cr,Ci,true);fft(Sr,Si,true);
+  return{farina:Fr.slice(0,outLen),corr:Cr.slice(0,outLen),spectral:Sr};
+}
+
+function movingMean(x,w){
+  w=Math.max(1,w|0);const y=new Float64Array(x.length);let s=0;
+  for(let i=0;i<x.length;i++){s+=x[i];if(i>=w)s-=x[i-w];y[i]=s/Math.min(w,i+1);}return y;
+}
+function analyticEnvelope(x){
+  const nfft=nextPow2(Math.max(2,x.length)),re=new Float64Array(nfft),im=new Float64Array(nfft);re.set(x);fft(re,im);
+  if(nfft%2===0){for(let k=1;k<nfft/2;k++){re[k]*=2;im[k]*=2;}for(let k=nfft/2+1;k<nfft;k++){re[k]=0;im[k]=0;}}
+  else{for(let k=1;k<=(nfft-1)/2;k++){re[k]*=2;im[k]*=2;}for(let k=(nfft+1)/2;k<nfft;k++){re[k]=0;im[k]=0;}}
+  fft(re,im,true);const e=new Float64Array(x.length);for(let i=0;i<x.length;i++)e[i]=Math.hypot(re[i],im[i]);return e;
+}
+function prefixEnergy(x){const p=new Float64Array(x.length+1);for(let i=0;i<x.length;i++)p[i+1]=p[i]+x[i]*x[i];return p;}
+function segmentEnergy(p,a,b){a=clamp(a|0,0,p.length-1);b=clamp(b|0,a,p.length-1);return p[b]-p[a];}
+
+function locateDirect(raw,corr){
+  const N=chirp.length,p=prefixEnergy(raw),off=N-1;
+  const lagLo=Math.max(0,Math.floor(Math.max(0,CFG.preSilenceSec-CFG.directSearchPreToleranceSec)*FS));
+  const lagHi=Math.min(raw.length-N-1,Math.ceil((CFG.preSilenceSec+CFG.maxLatencySearchSec+CFG.directSearchPaddingSec)*FS));
+  if(lagHi<=lagLo+8)throw new Error(`invalid matched-filter lag search ${lagLo}:${lagHi}`);
+  const n=lagHi-lagLo+1,norm=new Float64Array(n),ex=convCache.energy;
+  for(let q=0;q<n;q++){
+    const lag=lagLo+q,ec=Math.max(1e-20,segmentEnergy(p,lag,lag+N));
+    norm[q]=Math.abs(corr[lag+off])/Math.sqrt(ex*ec);
+  }
+  const sm=movingMean(norm,Math.max(1,Math.round(CFG.matchSmoothSec*FS)));
+  const base=median(sm),md=mad(sm),floor=Math.max(1e-8,base+2*md),global=maxArray(sm);
+  const thr=Math.max(CFG.minMatchCoeff||.035,floor*Math.pow(10,CFG.minMatchSNRDB/20),(CFG.directMatchEarliestRelative||.18)*global);
+  let idx=-1;
+  for(let q=1;q<sm.length-1;q++)if(sm[q]>=thr&&sm[q]>=sm[q-1]&&sm[q]>sm[q+1]){idx=q;break;}
+  if(idx<0){let bi=0;for(let q=1;q<sm.length;q++)if(sm[q]>sm[bi])bi=q;idx=bi;}
+  const lag=lagLo+idx,coeff=sm[idx],snr=20*Math.log10((coeff+1e-12)/(floor+1e-12));
+  return{lag,coeff,snr,found:coeff>=(CFG.minMatchCoeff||.035)&&snr>=CFG.minMatchSNRDB,trace:sm,lagLo,floor};
+}
+
+function localPeakCandidates(env,start,noise,minSep,thr,maxN){
+  const cand=[];
+  for(let i=Math.max(start+1,1);i<env.length-1;i++){
+    if(env[i]<thr||env[i]<env[i-1]||env[i]<=env[i+1])continue;
+    const rad=Math.max(minSep*3,Math.round(.0025*FS)),lo=Math.max(start,i-rad),hi=Math.min(env.length,i+rad+1),bg=[];
+    for(let j=lo;j<hi;j++)if(Math.abs(j-i)>minSep)bg.push(env[j]);
+    const baseline=Math.max(noise,Number.isFinite(median(bg))?median(bg):noise),prom=Math.max(0,env[i]-baseline),snr=20*Math.log10((env[i]+1e-15)/(noise+1e-15));
+    cand.push({i,a:env[i],prom,snr});
+  }
+  cand.sort((a,b)=>(b.snr+.5*20*Math.log10(1+b.prom/(noise+1e-15)))-(a.snr+.5*20*Math.log10(1+a.prom/(noise+1e-15))));
+  const out=[];for(const x of cand){if(out.every(y=>Math.abs(y.i-x.i)>=minSep)){out.push(x);if(out.length>=maxN)break;}}
+  out.sort((a,b)=>a.i-b.i);return out;
+}
+
+
+/* -------------------------------------------------------------------------
+ * PSF-aware sparse arrival extraction (OMP/CLEAN).
+ *
+ * A finite-bandwidth deconvolution does NOT turn a physical arrival into an
+ * ideal Kronecker delta.  It produces the resolution kernel / point-spread
+ * function (PSF) of the emitted sweep + inverse filter + phone audio chain.
+ * Local peak picking on |h(t)| can therefore count sidelobes of ONE arrival
+ * as several echoes.  We explicitly model that kernel here.
+ *
+ * The software PSF is x * inverseESS.  The empirical direct-path kernel from
+ * the same RIR is blended with it, so speaker/microphone band limitation and
+ * phone-specific ringing are represented without requiring calibration.
+ * OMP then selects a small number of shifted atoms and re-estimates all gains
+ * jointly after each selection.  Sidelobes explained by an already selected
+ * atom disappear from the residual instead of becoming new wall candidates.
+ * ---------------------------------------------------------------------- */
+function softwarePSFAtom(){
+  const N=chirp.length,pre=Math.max(4,Math.round((CFG.psfPreSec||.0015)*FS)),post=Math.max(8,Math.round((CFG.psfPostSec||.0035)*FS));
+  if(psfAtomCache&&psfAtomCache.fs===FS&&psfAtomCache.N===N&&psfAtomCache.pre===pre&&psfAtomCache.post===post)return psfAtomCache;
+  const nfft=nextPow2(2*N-1),c=ensureConvCache(nfft),re=new Float64Array(nfft),im=new Float64Array(nfft);
+  for(let i=0;i<nfft;i++){re[i]=c.Xr[i]*c.Zr[i]-c.Xi[i]*c.Zi[i];im[i]=c.Xr[i]*c.Zi[i]+c.Xi[i]*c.Zr[i];}
+  fft(re,im,true);const center=N-1,v=new Float64Array(pre+post+1);let e=0;
+  for(let j=0;j<v.length;j++){const q=center-pre+j;v[j]=(q>=0&&q<re.length)?re[q]:0;e+=v[j]*v[j];}
+  e=Math.sqrt(Math.max(e,1e-24));for(let j=0;j<v.length;j++)v[j]/=e;
+  return psfAtomCache={fs:FS,N,pre,post,v,energy:1,peak:maxArray(Array.from(v,Math.abs)),kind:'software'};
+}
+function blendWithCalibrationAtom(base){
+  if(!calibrationDirectAtom||!calibrationDirectAtom.v||calibrationDirectAtom.v.length!==base.v.length)return base;
+  const b=clamp(CFG.calibrationDirectBlend==null?.35:CFG.calibrationDirectBlend,0,.65),v=new Float64Array(base.v.length);let dot=0,e=0;
+  for(let j=0;j<v.length;j++)dot+=base.v[j]*calibrationDirectAtom.v[j];const sign=dot<0?-1:1;
+  for(let j=0;j<v.length;j++){v[j]=(1-b)*base.v[j]+b*sign*calibrationDirectAtom.v[j];e+=v[j]*v[j];}
+  e=Math.sqrt(Math.max(e,1e-24));for(let j=0;j<v.length;j++)v[j]/=e;
+  return{pre:base.pre,post:base.post,v,energy:1,peak:maxArray(Array.from(v,Math.abs)),kind:base.kind+'+cal'};
+}
+function accumulateCalibrationAtom(atom){
+  // Every high-confidence direct-only measurement contributes to the operational
+  // measurement-chain PSF.  We estimate ONLY the compact direct kernel, not the
+  // full room tail, because an apparently direct-only RIR can still contain weak
+  // undetected room energy.  Normalization + sign alignment + robust weighting
+  // make incoherent residual echoes average out instead of becoming "system".
+  if(!atom||!atom.v||!atom.v.length)return{used:false,similarity:NaN,weight:0};
+  if(!calibrationDirectSum||calibrationDirectSum.length!==atom.v.length){calibrationDirectSum=new Float64Array(atom.v.length);calibrationDirectCount=0;calibrationDirectWeight=0;calibrationDirectStability=[];calibrationDirectLowSimilarity=0;}
+  let ref=null;if(calibrationDirectWeight>0){ref=new Float64Array(atom.v.length);for(let j=0;j<ref.length;j++)ref[j]=calibrationDirectSum[j]/calibrationDirectWeight;}else ref=softwarePSFAtom().v;
+  let dot=0,aa=0,bb=0;for(let j=0;j<atom.v.length;j++){dot+=atom.v[j]*(ref[j]||0);aa+=atom.v[j]*atom.v[j];bb+=(ref[j]||0)*(ref[j]||0);}
+  const sign=dot<0?-1:1,sim=Math.abs(dot)/Math.sqrt(Math.max(1e-24,aa*bb));
+  // Do not throw away a frame already classified as direct-only: give unusual
+  // observations a small weight, while coherent observations rapidly improve SNR.
+  const w=calibrationDirectCount===0?1:clamp(.08+.92*clamp01((sim-.55)/.40),.08,1);
+  if(Number.isFinite(sim)){calibrationDirectStability.push(sim);if(calibrationDirectStability.length>80)calibrationDirectStability.shift();if(sim<.75)calibrationDirectLowSimilarity++;}
+  for(let j=0;j<atom.v.length;j++)calibrationDirectSum[j]+=w*sign*atom.v[j];calibrationDirectWeight+=w;calibrationDirectCount++;
+  return{used:true,similarity:sim,weight:w};
+}
+function finalizeCalibrationAtom(){
+  if(!calibrationDirectSum||calibrationDirectWeight<=0){calibrationDirectAtom=null;return null;}
+  const v=new Float64Array(calibrationDirectSum.length);let e=0;for(let j=0;j<v.length;j++){v[j]=calibrationDirectSum[j]/calibrationDirectWeight;e+=v[j]*v[j];}
+  e=Math.sqrt(Math.max(e,1e-24));for(let j=0;j<v.length;j++)v[j]/=e;const sw=softwarePSFAtom();calibrationDirectAtom={pre:sw.pre,post:sw.post,v,energy:1,peak:maxArray(Array.from(v,Math.abs)),kind:'system-direct'};return calibrationDirectAtom;
+}
+function systemResponseStability(){return calibrationDirectStability.length?median(calibrationDirectStability):NaN;}
+
+function adaptivePSFAtom(rirSigned,directLocal,noiseRms){
+  const sw=softwarePSFAtom(),pre=sw.pre,post=sw.post,L=pre+post+1,emp=new Float64Array(L);let ee=0;
+  for(let j=0;j<L;j++){const q=directLocal-pre+j;if(q>=0&&q<rirSigned.length){const u=j/Math.max(1,L-1),win=.5-.5*Math.cos(2*Math.PI*u);emp[j]=rirSigned[q]*win;ee+=emp[j]*emp[j];}}
+  const empRms=Math.sqrt(ee/Math.max(1,L)),usable=ee>1e-20&&empRms>Math.max(1e-12,noiseRms)*2.5;
+  if(!usable)return blendWithCalibrationAtom(sw);
+  const ne=Math.sqrt(ee);for(let j=0;j<L;j++)emp[j]/=ne;
+  // A strong empirical contribution removes real phone ringing.  Keeping a
+  // software contribution avoids learning a very-early room echo as PSF.
+  const b=clamp(CFG.ompEmpiricalBlend==null?.78:CFG.ompEmpiricalBlend,0,1),v=new Float64Array(L);let e=0;
+  // Align polarity so direct/software kernels do not cancel in the blend.
+  let dot=0;for(let j=0;j<L;j++)dot+=emp[j]*sw.v[j];const sign=dot<0?-1:1;
+  for(let j=0;j<L;j++){v[j]=b*sign*emp[j]+(1-b)*sw.v[j];e+=v[j]*v[j];}
+  e=Math.sqrt(Math.max(e,1e-24));for(let j=0;j<L;j++)v[j]/=e;
+  return blendWithCalibrationAtom({pre,post,v,energy:1,peak:maxArray(Array.from(v,Math.abs)),kind:'empirical'});
+}
+function atomDotAt(signal,atom,center){let s=0,e=0,y=0;for(let j=0;j<atom.v.length;j++){const q=center-atom.pre+j;if(q<0||q>=signal.length)continue;const a=atom.v[j],z=signal[q];s+=z*a;e+=a*a;y+=z*z;}return{dot:s,atomE:e,sigE:y,gain:s/Math.max(e,1e-24),corr:Math.abs(s)/Math.sqrt(Math.max(1e-24,e*y))};}
+function shiftedAtomDot(atom,c1,c2,n){let s=0;const d=c2-c1;for(let j=0;j<atom.v.length;j++){const k=j-d;if(k>=0&&k<atom.v.length){const q=c1-atom.pre+j;if(q>=0&&q<n)s+=atom.v[j]*atom.v[k];}}return s;}
+function reconstructOMP(original,atom,centers){
+  const K=centers.length,G=Array.from({length:K},()=>Array(K).fill(0)),b=Array(K).fill(0);
+  for(let j=0;j<K;j++){const f=atomDotAt(original,atom,centers[j]);b[j]=f.dot;for(let k=0;k<K;k++)G[j][k]=shiftedAtomDot(atom,centers[j],centers[k],original.length);}
+  const gains=solveLinear(G,b,CFG.ompRidge||1e-5),residual=new Float64Array(original);
+  for(let k=0;k<K;k++){const c=centers[k],g=gains[k]||0;for(let j=0;j<atom.v.length;j++){const q=c-atom.pre+j;if(q>=0&&q<residual.length)residual[q]-=g*atom.v[j];}}
+  return{gains,residual};
+}
+function lowThresholdCandidates(env,start,thr,maxN){
+  const z=[];for(let i=Math.max(1,start);i<env.length-1;i++)if(env[i]>=thr&&env[i]>=env[i-1]&&env[i]>env[i+1])z.push({i,a:env[i]});
+  z.sort((a,b)=>b.a-a.a);return z.slice(0,Math.max(maxN,24));
+}
+function psfOMPArrivals(rirSigned,env,directLocal,reflStart,noise,noiseRms,detailThr){
+  const atom=adaptivePSFAtom(rirSigned,directLocal,noiseRms),original=new Float64Array(rirSigned),centers=[directLocal];
+  let fit=reconstructOMP(original,atom,centers),residual=fit.residual;
+  const candidateThr=Math.max(noise*Math.pow(10,(CFG.ompCandidateSNRDB||1.5)/20),detailThr*(CFG.ompCandidateThresholdScale||.55));
+  const candidates=lowThresholdCandidates(env,reflStart,candidateThr,CFG.ompMaxCandidates||96);
+  const picked=[];let initialPostE=0;for(let i=reflStart;i<residual.length;i++)initialPostE+=residual[i]*residual[i];
+  const maxIter=Math.min(CFG.maxDetailEvents||24,CFG.ompMaxIterations||14),minGap=Math.max(1,Math.round((CFG.ompMinDistinctSec||.00016)*FS));
+  for(let it=0;it<maxIter;it++){
+    let best=null;
+    for(const c0 of candidates){
+      if(c0.i<reflStart)continue;
+      if(centers.some(c=>Math.abs(c-c0.i)<minGap))continue;
+      let localBest=null;const r=CFG.ompRefineSamples||2;
+      for(let d=-r;d<=r;d++){const q=c0.i+d;if(q<reflStart||q>=rirSigned.length)continue;const f=atomDotAt(residual,atom,q),predPeak=Math.abs(f.gain)*atom.peak,snr=20*Math.log10((predPeak+1e-15)/(noise+1e-15)),score=(f.dot*f.dot/Math.max(f.atomE,1e-24))*(.35+.65*f.corr);if(!localBest||score>localBest.score)localBest={i:q,score,snr,corr:f.corr,gain:f.gain,predPeak};}
+      if(localBest&&(!best||localBest.score>best.score))best=localBest;
+    }
+    if(!best)break;
+    if(best.snr<(CFG.detailMinPeakSNRDB||2.5)||best.corr<(CFG.ompMinCorrelation||.12))break;
+    centers.push(best.i);fit=reconstructOMP(original,atom,centers);residual=fit.residual;
+    const k=centers.length-1,g=fit.gains[k]||0,predPeak=Math.abs(g)*atom.peak,snr=20*Math.log10((predPeak+1e-15)/(noise+1e-15)),f0=atomDotAt(original,atom,best.i);
+    picked.push({i:best.i,a:predPeak,prom:predPeak,snr,corr:f0.corr,gain:g});
+  }
+  // Recompute amplitudes/SNR after the final joint OMP fit; this is the OMP
+  // step that prevents duplicated arrivals from stealing each other's energy.
+  for(let k=0;k<picked.length;k++){const g=fit.gains[k+1]||0,p=Math.abs(g)*atom.peak;picked[k].gain=g;picked[k].a=p;picked[k].prom=p;picked[k].snr=20*Math.log10((p+1e-15)/(noise+1e-15));}
+  let finalPostE=0;for(let i=reflStart;i<residual.length;i++)finalPostE+=residual[i]*residual[i];
+  const residualRatio=finalPostE/Math.max(initialPostE,1e-24),explained=clamp01(1-residualRatio);
+  picked.sort((a,b)=>a.i-b.i);return{events:picked,atomKind:atom.kind,residualRatio,explained,atom,cleanResidual:residual};
+}
+
+
+function prunePrimaryOMP(events){
+  // Live geometry deliberately prefers one stable main arrival over several
+  // almost-coincident OMP atoms.  Very close comparable atoms are retained;
+  // weak neighbors are treated as unresolved sidelobe/multipath detail and
+  // remain available in the detail reservoir for periodic post-processing.
+  const gate=Math.max(1,Math.round((CFG.ompPrimaryMergeSec||.00038)*FS)),ratio=CFG.ompKeepCloseRatio||.70;
+  const ranked=events.slice().sort((a,b)=>b.a-a.a),keep=[];
+  for(const e of ranked){let near=null;for(const q of keep)if(Math.abs(e.i-q.i)<=gate){near=q;break;}if(!near){keep.push(e);continue;}const r=Math.min(e.a,near.a)/Math.max(e.a,near.a,1e-15);if(r>=ratio)keep.push(e);}
+  return keep.sort((a,b)=>a.i-b.i);
+}
+
+function previewWaveforms(signed,env,n=240){
+  if(!signed||!signed.length)return{signed:[],env:[]};
+  const bins=Math.min(n,signed.length),step=signed.length/bins,ys=new Array(bins),ye=new Array(bins);
+  const abs=[];for(let i=0;i<signed.length;i++)abs.push(Math.abs(signed[i]));
+  const scale=Math.max(1e-12,quantile(abs,.995)||maxArray(abs));
+  const eScale=Math.max(1e-12,quantile(env,.995)||maxArray(env));
+  for(let b=0;b<bins;b++){
+    const lo=Math.floor(b*step),hi=Math.max(lo+1,Math.floor((b+1)*step));let best=0,ba=-1,em=0;
+    for(let i=lo;i<Math.min(hi,signed.length);i++){const a=Math.abs(signed[i]);if(a>ba){ba=a;best=signed[i];}if(env[i]>em)em=env[i];}
+    ys[b]=Math.tanh(best/(1.7*scale));ye[b]=clamp01(em/eScale);
+  }
+  return{signed:ys,env:ye};
+}
+function rawPreviewWaveform(raw,n=360){
+  if(!raw||!raw.length)return[];const bins=Math.min(n,raw.length),step=raw.length/bins,y=new Array(bins),vals=[];
+  for(let i=0;i<raw.length;i+=Math.max(1,Math.floor(raw.length/5000)))vals.push(Math.abs(raw[i]));const sc=Math.max(1e-9,quantile(vals,.995)||maxArray(vals));
+  for(let b=0;b<bins;b++){const lo=Math.floor(b*step),hi=Math.max(lo+1,Math.floor((b+1)*step));let best=0,ba=-1;for(let i=lo;i<Math.min(hi,raw.length);i++){const a=Math.abs(raw[i]);if(a>ba){ba=a;best=raw[i];}}y[b]=clamp(best/sc,-1,1);}return y;
+}
+function auditRecording(raw,lag){
+  const N=chirp.length,T=N/FS,preSec=lag/FS,sweepEnd=lag+N,postSec=(raw.length-sweepEnd)/FS,requiredPost=Math.max(2*T,CFG.minPostChirpRecordSec||0);
+  const minPre=Math.min(.060,Math.max(.020,.35*CFG.preSilenceSec));
+  const fullSweep=lag>=0&&sweepEnd<=raw.length,preOK=preSec>=minPre,postOK=postSec+1/FS>=requiredPost;
+  const scheduleSilent=(CFG.effectiveCyclePeriodSec||0)>=(CFG.captureWindowSec||0)+Math.max(.04,.5*(CFG.interSweepGuardSec||0));
+  const ok=fullSweep&&preOK&&postOK&&scheduleSilent;
+  return{ok,fullSweep,preOK,postOK,scheduleSilent,preSec,postSec,requiredPostSec:requiredPost,rawDurationSec:raw.length/FS,scheduledChirpStartSec:CFG.preSilenceSec,receivedSweepStartSec:lag/FS,receivedSweepEndSec:(lag+N)/FS};
+}
+
+function pearson(a,b,start=0){
+  const n=Math.min(a.length,b.length);if(n-start<16)return 0;let ma=0,mb=0,c=0;for(let i=start;i<n;i++){ma+=a[i];mb+=b[i];c++;}ma/=c;mb/=c;let sa=0,sb=0,sab=0;for(let i=start;i<n;i++){const x=a[i]-ma,y=b[i]-mb;sa+=x*x;sb+=y*y;sab+=x*y;}return sab/Math.sqrt(Math.max(1e-24,sa*sb));
+}
+
+function rirCosine(a,b,start,end){
+  const n=Math.min(a.length,b.length,end||1e9);start=Math.max(0,start|0);let ab=0,aa=0,bb=0;for(let i=start;i<n;i++){ab+=a[i]*b[i];aa+=a[i]*a[i];bb+=b[i]*b[i];}return ab/Math.sqrt(Math.max(1e-24,aa*bb));
+}
+function normalizeRIRForFusion(x,directLocal){
+  const lo=Math.max(0,directLocal-Math.round(.001*FS)),hi=Math.min(x.length,directLocal+Math.round(.002*FS)+1);let sc=1e-12;for(let i=lo;i<hi;i++)sc=Math.max(sc,Math.abs(x[i]));const y=new Float64Array(x.length);for(let i=0;i<x.length;i++)y[i]=x[i]/sc;return y;
+}
+function fuseStableRIR(single,directLocal,mode){
+  if(mode!=='measure'||(CFG.rirAverageCount||1)<=1){if(mode!=='measure')liveRIRFusion=[];return{rir:single,count:1,similarity:NaN};}
+  const z=normalizeRIRForFusion(single,directLocal),start=directLocal+Math.round(.006*FS),end=Math.min(z.length,directLocal+Math.round(.18*FS));
+  let sim=NaN;if(liveRIRFusion.length)sim=rirCosine(liveRIRFusion[liveRIRFusion.length-1],z,start,end);
+  if(!liveRIRFusion.length||!Number.isFinite(sim)||sim<(CFG.rirAverageSimilarity||.82))liveRIRFusion=[z];else{liveRIRFusion.push(z);while(liveRIRFusion.length>(CFG.rirAverageCount||3))liveRIRFusion.shift();}
+  if(liveRIRFusion.length===1)return{rir:z,count:1,similarity:sim};
+  const y=new Float64Array(z.length),tmp=new Array(liveRIRFusion.length);for(let i=0;i<y.length;i++){for(let k=0;k<liveRIRFusion.length;k++)tmp[k]=liveRIRFusion[k][i]||0;y[i]=median(tmp);}return{rir:y,count:liveRIRFusion.length,similarity:sim};
+}
+
+function analyzeCycle(raw,id,mode='measure'){
+  const t0=performance.now();
+  if(!(raw instanceof Float32Array||raw instanceof Float64Array))raw=new Float64Array(raw||[]);
+  if(raw.length<chirp.length+256)throw new Error(`recording too short (${raw.length} samples)`);
+  let rawPeak=0,clipN=0,longest=0,run=0;for(const v of raw){const a=Math.abs(v);rawPeak=Math.max(rawPeak,a);if(a>=.995){clipN++;run++;longest=Math.max(longest,run);}else run=0;}
+  const clipFrac=clipN/raw.length,longestClipMs=1000*longest/FS;
+  const est=estimateESS(raw),direct=locateDirect(raw,est.corr),lag=direct.lag,N=chirp.length,captureAudit=auditRecording(raw,lag);
+  const rawNoiseEnd=Math.max(16,Math.min(raw.length,lag-Math.round(.006*FS))),rawNoise=raw.subarray(0,rawNoiseEnd),rawNoiseRms=Math.max(1e-12,rms(rawNoise));
+  const directRawEnd=Math.min(raw.length,lag+N),rawSweepRms=Math.max(1e-12,rms(raw.subarray(Math.max(0,lag),directRawEnd))),rawSNR=20*Math.log10(rawSweepRms/rawNoiseRms);
+
+  const directFarina=lag+N-1,preN=Math.max(8,Math.round(CFG.rirPreDirectSec*FS));
+  const physicallyAvailable=Math.max(0,raw.length-(lag+N)),postN=Math.max(16,Math.min(Math.round(CFG.maxRirSec*FS),physicallyAvailable));
+  const start=Math.max(0,directFarina-preN),end=Math.min(est.farina.length,directFarina+postN+1),rirSingle=est.farina.slice(start,end),directLocal=directFarina-start;
+  const envSingle=movingMean(analyticEnvelope(rirSingle),Math.max(1,Math.round(CFG.eventSmoothSec*FS)));
+  const fusion=fuseStableRIR(rirSingle,directLocal,mode),rirSigned=fusion.rir;
+  const env0=analyticEnvelope(rirSigned),env=movingMean(env0,Math.max(1,Math.round(CFG.eventSmoothSec*FS)));
+  const postAvailableSec=Math.max(0,(rirSigned.length-directLocal-1)/FS),tailTruncated=postAvailableSec<(CFG.minGeometryTailSec||.10);
+
+  // The independent Tikhonov estimate has its direct impulse at lag, not lag+N-1.
+  // Consistency is evaluated on the SINGLE frame; fusion is allowed to improve
+  // SNR only after that frame has independently passed timing extraction.
+  const s0=Math.max(0,lag-preN),s1=Math.min(est.spectral.length,lag+postN+1),spec=est.spectral.slice(s0,s1),specEnv=movingMean(analyticEnvelope(spec),Math.max(1,Math.round(CFG.eventSmoothSec*FS)));
+  const compareStart=Math.min(envSingle.length-1,directLocal+Math.round(.0025*FS)),consistency=clamp01((pearson(envSingle,specEnv,compareStart)+1)/2);
+
+  // Noise in the deconvolved domain: use the few milliseconds immediately before
+  // the linear direct response.  ESS harmonic distortion lies farther BEFORE the
+  // direct for the selected sweep parameters; the last ~4 ms are deliberately kept.
+  const n0=Math.max(0,directLocal-Math.round(.0045*FS)),n1=Math.max(n0+4,directLocal-Math.round(.0008*FS)),noiseSeg=env.slice(n0,Math.min(n1,env.length));
+  let noise=median(noiseSeg)+2*mad(noiseSeg);if(!Number.isFinite(noise)||noise<=0)noise=Math.max(1e-12,quantile(env,.12)||1e-12);
+  const noiseSigned=rirSigned.slice(n0,Math.min(n1,rirSigned.length)),noiseRms=Math.max(1e-12,rms(noiseSigned));
+
+  const reflStart=Math.min(env.length-2,directLocal+Math.max(2,Math.round(CFG.directExcludeSec*FS))),reflEnv=env.slice(reflStart),rMed=median(reflEnv),rMad=mad(reflEnv),rMax=maxArray(reflEnv);
+  const cal=(calibrationProfile&&calibrationProfile.enabled)?calibrationProfile:null;
+  const minPeakSNRDB=cal&&Number.isFinite(cal.minPeakSNRDB)?cal.minPeakSNRDB:CFG.minPeakSNRDB;
+  const minReflectionSNRDB=cal&&Number.isFinite(cal.minReflectionSNRDB)?cal.minReflectionSNRDB:CFG.minSNRDB;
+  const minPrimaryCorr=cal&&Number.isFinite(cal.minFitCorr)?cal.minFitCorr:(CFG.ompPrimaryMinCorrelation||.16);
+  const primaryThr=Math.max(noise*Math.pow(10,minPeakSNRDB/20),rMed+CFG.primaryMAD*rMad,CFG.primaryRelative*rMax);
+  const detailThr=Math.max(noise*Math.pow(10,CFG.detailMinPeakSNRDB/20),rMed+CFG.detailMAD*rMad,CFG.detailRelative*rMax);
+  const minSep=Math.max(2,Math.round(CFG.eventMinSeparationSec*FS));
+  // IMPORTANT: do not equate every envelope maximum with a physical arrival.
+  // The finite-bandwidth RIR is sinc/ringing-like.  OMP/CLEAN removes the whole
+  // PSF of each selected arrival before the next one is considered.
+  const omp=psfOMPArrivals(rirSigned,env,directLocal,reflStart,noise,noiseRms,detailThr);
+  const cp=omp.events.filter(x=>x.snr>=CFG.detailMinPeakSNRDB&&x.corr>=(CFG.ompMinCorrelation||.12)).slice(0,CFG.maxDetailEvents);
+  const pp=prunePrimaryOMP(cp.filter(x=>x.snr>=minPeakSNRDB&&x.corr>=minPrimaryCorr)).sort((a,b)=>(b.snr+5*b.corr)-(a.snr+5*a.corr)).slice(0,CFG.maxPrimaryEvents).sort((a,b)=>a.i-b.i);
+  function mkEvents(peaks,primary){
+    const ma=Math.max(1e-15,...peaks.map(x=>x.a));
+    return peaks.map(x=>{const tau=(x.i-directLocal)/FS,early=Math.exp(-tau/Math.max(.020,.45*CFG.maxRirSec)),amp=x.a/ma,prom=x.prom/ma,importance=.45*clamp01((x.snr-CFG.detailMinPeakSNRDB)/20)+.25*amp+.15*prom+.15*early;return{tau,timeAfterDirect:tau,timeLocal:x.i/FS,rangeApproxM:.5*C*tau,amp,prom,snr:x.snr,fitCorr:x.corr||0,atomGain:x.gain||0,importance,primary,isDirect:false};}).sort((a,b)=>b.importance-a.importance);
+  }
+  const primaryReflections=mkEvents(pp,true).slice(0,CFG.maxPrimaryEvents),detailReflections=mkEvents(cp,false).slice(0,CFG.maxDetailEvents);
+  const directEvent={tau:0,timeAfterDirect:0,timeLocal:directLocal/FS,rangeApproxM:0,amp:1,prom:1,snr:direct.snr,importance:1,primary:true,isDirect:true};
+  const primary=[directEvent,...primaryReflections],candidates=[directEvent,...detailReflections];
+
+  const reflPeak=primaryReflections.length?Math.max(...pp.map(x=>x.a)):rMax,reflectionSNR=20*Math.log10((reflPeak+1e-15)/(noise+1e-15));
+  const directPeak=Math.max(1e-15,env[Math.max(0,Math.min(env.length-1,directLocal))]);
+  const echoToDirectDB=20*Math.log10((reflPeak+1e-15)/directPeak);
+  const firstReflection=primaryReflections.length?primaryReflections.slice().sort((a,b)=>a.tau-b.tau)[0]:null;
+  const firstReflectionDistanceM=firstReflection?.rangeApproxM??NaN,firstReflectionTau=firstReflection?.tau??NaN;
+  const bestReflectionFitCorr=primaryReflections.length?Math.max(...primaryReflections.map(e=>e.fitCorr||0)):0;
+  const bestReflectionEventSNR=primaryReflections.length?Math.max(...primaryReflections.map(e=>e.snr||-Infinity)):-Infinity;
+  let peakEnergy=0,peakSamples=0,totalEnergy=0;const used=new Uint8Array(rirSigned.length),half=Math.max(2,Math.round(.0008*FS));
+  for(let i=reflStart;i<rirSigned.length;i++)totalEnergy+=rirSigned[i]*rirSigned[i];
+  for(const e of primaryReflections){const q=Math.round(directLocal+e.tau*FS);for(let i=Math.max(reflStart,q-half);i<Math.min(rirSigned.length,q+half+1);i++)used[i]=1;}
+  for(let i=reflStart;i<rirSigned.length;i++)if(used[i]){peakEnergy+=rirSigned[i]*rirSigned[i];peakSamples++;}
+  const energySNR=peakSamples?20*Math.log10((Math.sqrt(peakEnergy/peakSamples)+1e-15)/noiseRms):-Infinity,concentration=totalEnergy>0?peakEnergy/totalEnergy:0;
+
+  // Clipping is intentionally a SOFT diagnostic.  A direct sweep may saturate
+  // while delayed echoes remain very useful.  We reject only gross saturation
+  // or when the recovered RIR itself has poor SNR/consistency.
+  const clipPenalty=clipFrac<=.002?1:clamp01(1-(clipFrac-.002)/Math.max(.001,CFG.maxGrossClipFrac-.002));
+  const qMatch=.55*clamp01((direct.snr-CFG.minMatchSNRDB+2)/18)+.45*clamp01((direct.coeff-(CFG.minMatchCoeff||.035))/.25);
+  const qEcho=clamp01((reflectionSNR-minReflectionSNRDB+3)/18),qEnergy=clamp01((energySNR-CFG.minEnergySNRDB+3)/18),qRaw=clamp01((rawSNR-CFG.minRawSNRDB+2)/16),qCount=clamp01(primaryReflections.length/3),qCons=consistency;
+  const proc=CFG.inputSettings||{},browserPenalty=(proc.echoCancellation===true?.62:1)*(proc.noiseSuppression===true?.88:1)*(proc.autoGainControl===true?.88:1);
+  const qualityScore=clamp01((.20*qMatch+.25*qEcho+.16*qEnergy+.08*qRaw+.12*qCount+.14*qCons+.05*clipPenalty)*browserPenalty);
+  const grossClip=clipFrac>CFG.maxGrossClipFrac||longestClipMs>CFG.maxClipRunMs;
+  const rirValid=direct.found&&postAvailableSec>=CFG.minPreviewTailSec&&captureAudit.ok;
+  const directOnly=direct.found&&postAvailableSec>=CFG.minPreviewTailSec&&captureAudit.ok&&primaryReflections.length===0;
+  const accepted=rirValid&&!grossClip&&rawSNR>=CFG.minRawSNRDB&&reflectionSNR>=minReflectionSNRDB&&energySNR>=CFG.minEnergySNRDB&&primaryReflections.length>=CFG.minPrimaryReflections&&qualityScore>=CFG.minRIRQuality;
+  let reason='OK';if(directOnly){reason='SOLO DIRETTO: nessuna riflessione utile rilevata; avvicinati a un muro o orienta il telefono verso una superficie riflettente';}
+  else if(!accepted){const r=[];if(!captureAudit.ok)r.push(`capture non valida: pre ${captureAudit.preSec.toFixed(2)} s, post ${captureAudit.postSec.toFixed(2)}/${captureAudit.requiredPostSec.toFixed(2)} s, sweep ${captureAudit.fullSweep?'completo':'TRONCO'}, emission-silence ${captureAudit.scheduleSilent?'OK':'NO'}`);if(!direct.found)r.push(`direct match ${direct.snr.toFixed(1)} dB / ${direct.coeff.toFixed(3)}`);if(postAvailableSec<CFG.minPreviewTailSec)r.push(`tail ${(1000*postAvailableSec).toFixed(0)} ms`);if(grossClip)r.push(`gross clipping ${(100*clipFrac).toFixed(1)}%, run ${longestClipMs.toFixed(1)} ms`);if(rawSNR<CFG.minRawSNRDB)r.push(`raw SNR ${rawSNR.toFixed(1)} dB`);if(reflectionSNR<minReflectionSNRDB)r.push(`reflection SNR ${reflectionSNR.toFixed(1)} dB < calibrated ${minReflectionSNRDB.toFixed(1)} dB`);if(energySNR<CFG.minEnergySNRDB)r.push(`energy SNR ${Number.isFinite(energySNR)?energySNR.toFixed(1):'n/a'} dB`);if(primaryReflections.length<CFG.minPrimaryReflections)r.push(`${primaryReflections.length} strong reflections`);if(qualityScore<CFG.minRIRQuality)r.push(`quality ${(100*qualityScore).toFixed(0)}%`);reason=r.join(', ')||'unreliable RIR';}
+  if(proc.echoCancellation===true)reason+=(reason==='OK'?'':' ;')+' browser AEC active';
+
+  const pv=previewWaveforms(rirSigned,env,CFG.previewBins||240),rawPv=CFG.debugRaw?rawPreviewWaveform(raw,360):[];
+  return{
+    id,accepted,rirValid,directOnly,reason,reliability:accepted?(qualityScore>=.72?'alta':'media'):'scartata',qualityScore,
+    matchSNR:direct.snr,matchCoeff:direct.coeff,directFound:direct.found,directTimeSec:lag/FS,directLocalSec:directLocal/FS,
+    snr:reflectionSNR,energySNR,rawSNR,consistency,noise,noiseRms,clipFrac,longestClipMs,
+    echoToDirectDB,firstReflectionDistanceM,firstReflectionTau,bestReflectionFitCorr,bestReflectionEventSNR,
+    calibrationRangeM:cal&&Number.isFinite(cal.maxReliableWallDistanceM)?cal.maxReliableWallDistanceM:NaN,
+    reflectionCount:primaryReflections.length,primary,candidates,postAvailableSec,tailTruncated,psfMode:omp.atomKind,ompExplained:omp.explained,ompResidualRatio:omp.residualRatio,
+    rirPreviewSigned:pv.signed,rirPreviewEnv:pv.env,rirPreview:pv.signed,rirDurationSec:rirSigned.length/FS,
+    rawPeakDBFS:20*Math.log10(rawPeak+1e-12),rawPreview:rawPv,rawDurationSec:raw.length/FS,captureAudit,averageCount:fusion.count,averageSimilarity:fusion.similarity,usableBandF0Hz:calibratedBand.ready?calibratedBand.f0:CFG.f0,usableBandF1Hz:calibratedBand.ready?calibratedBand.f1:CFG.f1,systemResponseCount:calibrationDirectCount,systemResponseStability:systemResponseStability(),processingMs:performance.now()-t0,inputSettings:proc,_calAtom:{pre:omp.atom.pre,post:omp.atom.post,v:Array.from(omp.atom.v)}
+  };
+}
+
+function failedAnalysis(id,raw,e){
+  const x=raw&&raw.length?Array.from(raw.slice(0,Math.min(raw.length,4096))):[],m=maxArray(x.map(Math.abs))||1,p=x.length?previewWaveforms(Float64Array.from(x,v=>v/m),Float64Array.from(x,v=>Math.abs(v/m)),240):{signed:[],env:[]};
+  return{id,accepted:false,rirValid:false,reason:`processing error: ${e.message}`,rawPreview:CFG.debugRaw?rawPreviewWaveform(raw,360):[],rawDurationSec:raw?raw.length/FS:0,captureAudit:{ok:false,fullSweep:false,preOK:false,postOK:false,scheduleSilent:false,preSec:0,postSec:0,requiredPostSec:2*(CFG.sweepDurationSec||0),rawDurationSec:raw?raw.length/FS:0,scheduledChirpStartSec:CFG.preSilenceSec||0,receivedSweepStartSec:NaN,receivedSweepEndSec:NaN},reliability:'errore',qualityScore:0,matchSNR:-Infinity,matchCoeff:0,directFound:false,directTimeSec:NaN,directLocalSec:0,snr:-Infinity,energySNR:-Infinity,rawSNR:-Infinity,consistency:0,noise:NaN,noiseRms:NaN,echoToDirectDB:-Infinity,firstReflectionDistanceM:NaN,firstReflectionTau:NaN,bestReflectionFitCorr:0,bestReflectionEventSNR:-Infinity,calibrationRangeM:calibrationProfile&&Number.isFinite(calibrationProfile.maxReliableWallDistanceM)?calibrationProfile.maxReliableWallDistanceM:NaN,clipFrac:0,longestClipMs:0,reflectionCount:0,directOnly:false,primary:[],candidates:[],postAvailableSec:0,psfMode:'none',ompExplained:0,ompResidualRatio:1,tailTruncated:true,rirPreviewSigned:p.signed,rirPreviewEnv:p.env,rirPreview:p.signed,rirDurationSec:x.length/FS,processingMs:0,inputSettings:CFG.inputSettings||{}};
+}
+
+// -------------------------------------------------------------------------
+// Graph / Ki layer
+// -------------------------------------------------------------------------
+function eventSignature(events){
+  const e=events.filter(x=>!x.isDirect).sort((a,b)=>a.tau-b.tau).slice(0,CFG.maxPrimaryEvents),bins=new Float64Array(56);
+  for(const x of e){const k=clamp(Math.floor(x.tau/CFG.signatureMaxSec*bins.length),0,bins.length-1);bins[k]+=Math.max(.05,x.amp);}
+  for(let i=0;i<e.length;i++)for(let j=i+1;j<e.length;j++){const d=Math.abs(e[j].tau-e[i].tau),k=clamp(Math.floor(d/CFG.signatureMaxSec*bins.length),0,bins.length-1);bins[k]+=.35*Math.sqrt(e[i].amp*e[j].amp);}
+  let s=0;for(const v of bins)s+=v;if(s>0)for(let i=0;i<bins.length;i++)bins[i]/=s;return bins;
+}
+function sigDist(a,b){let s=0;for(let i=0;i<a.length;i++)s+=Math.abs(a[i]-b[i]);return .5*s;}
+function buildKeyframes(ms,useDetail=false){
+  if(!ms.length)return[];for(const m of ms)m.signature=eventSignature(m.primary);
+  const segs=[[0]];let cus=0,high=0;
+  for(let i=1;i<ms.length;i++){
+    const cur=segs[segs.length-1],ref=ms[cur[Math.max(0,cur.length-3)]].signature,d=sigDist(ref,ms[i].signature),adj=sigDist(ms[i-1].signature,ms[i].signature);
+    cus=Math.max(0,cus+Math.max(0,d-CFG.stationaryNoise)-CFG.motionCusumDecay);
+    const move=(d>CFG.motionThreshold&&adj>CFG.stationaryNoise)||(cus>CFG.motionCusumThreshold);if(move)high++;else high=Math.max(0,high-1);
+    if(high>=CFG.motionConfirmCycles){segs.push([i]);cus=0;high=0;}else cur.push(i);
+  }
+  return segs.map((idx,g)=>fuseKeyframe(ms,idx,g,useDetail));
+}
+function fuseKeyframe(ms,idx,id,useDetail=false){
+  const all=[];for(const i of idx){const src=(useDetail?ms[i].candidates:ms[i].primary).filter(e=>!e.isDirect);for(const e of src)all.push({...e,mid:i});}
+  all.sort((a,b)=>a.tau-b.tau);const clusters=[];
+  for(const e of all){let best=null,bd=Infinity;for(const c of clusters){const d=Math.abs(e.tau-c.t);if(d<CFG.fuseGateSec&&d<bd){best=c;bd=d;}}if(!best){best={times:[],amps:[],scores:[],mids:new Set(),t:e.tau};clusters.push(best);}best.times.push(e.tau);best.amps.push(Math.max(.02,e.amp));best.scores.push(e.importance);best.mids.add(e.mid);best.t=weightedMedian(best.times,best.amps);}
+  const events=clusters.map(c=>({time:c.t,tau:c.t,amp:median(c.amps),support:c.mids.size/idx.length,importance:median(c.scores)})).filter(e=>e.support>=CFG.fuseMinSupport||idx.length<=2).sort((a,b)=>(b.importance+.35*b.support)-(a.importance+.35*a.support)).slice(0,useDetail?CFG.maxDetailEvents:CFG.maxPrimaryEvents);
+  return{id,measurementIndices:idx,events,numMeasurements:idx.length};
+}
+function predictTrack(tr,g){if(tr.obs.length<2)return tr.obs[tr.obs.length-1].time;const a=tr.obs[tr.obs.length-2],b=tr.obs[tr.obs.length-1];return b.time+(b.time-a.time)/(b.g-a.g||1)*(g-b.g);}
+function mergeDuplicateTracks(tracks){const keep=[];for(const t of tracks.sort((a,b)=>b.score-a.score)){let dup=false;for(const q of keep){const common=[];for(const o of t.obs){const p=q.obs.find(x=>x.g===o.g);if(p)common.push(Math.abs(o.time-p.time));}if(common.length>=3&&median(common)<CFG.duplicateTrackGateSec){dup=true;break;}}if(!dup)keep.push(t);}return keep;}
+function transferIds(newT,oldT){if(!oldT||!oldT.length){for(const t of newT)t.id=nextTrackId++;return;}const used=new Set;for(const t of newT){let bi=-1,bc=1e9;for(let j=0;j<oldT.length;j++){if(used.has(j))continue;const c=Math.abs(median(t.obs.map(o=>o.time))-median(oldT[j].obs.map(o=>o.time)))+.2*Math.abs(t.slope-oldT[j].slope);if(c<bc){bc=c;bi=j;}}if(bi>=0&&bc<CFG.trackIdTransferGateSec){t.id=oldT[bi].id;used.add(bi);}else t.id=nextTrackId++;}}
+function buildTracks(kfs,useDetail=false){
+  let tracks=[];const maxE=useDetail?CFG.maxDetailEvents:CFG.maxPrimaryEvents;
+  for(let g=0;g<kfs.length;g++){
+    const ev=kfs[g].events.slice(0,maxE),cand=[];
+    for(let k=0;k<tracks.length;k++){const gap=g-tracks[k].lastG;if(gap<1||gap>CFG.trackMaxGap)continue;const pred=predictTrack(tracks[k],g),gate=CFG.trackGateSec*(1+.18*(gap-1));for(let e=0;e<ev.length;e++){const dt=Math.abs(ev[e].time-pred);if(dt<gate)cand.push([dt/gate+.06*Math.abs(Math.log((ev[e].amp+.05)/(tracks[k].lastAmp+.05))),k,e]);}}
+    cand.sort((a,b)=>a[0]-b[0]);const ut=new Set,ue=new Set;for(const c of cand){const k=c[1],e=c[2];if(ut.has(k)||ue.has(e))continue;tracks[k].obs.push({g,time:ev[e].time,amp:ev[e].amp,support:ev[e].support});tracks[k].lastG=g;tracks[k].lastAmp=ev[e].amp;ut.add(k);ue.add(e);}for(let e=0;e<ev.length;e++)if(!ue.has(e))tracks.push({id:0,obs:[{g,time:ev[e].time,amp:ev[e].amp,support:ev[e].support}],lastG:g,lastAmp:ev[e].amp});
+  }
+  for(const t of tracks){const ts=t.obs.map(o=>o.time);let sm=0;for(let i=2;i<ts.length;i++)sm+=Math.abs(ts[i]-2*ts[i-1]+ts[i-2]);sm/=Math.max(1,ts.length-2);t.hits=new Set(t.obs.map(o=>o.g)).size;t.persistence=t.hits/Math.max(1,kfs.length);t.medAmp=median(t.obs.map(o=>o.amp));t.medSupport=median(t.obs.map(o=>o.support||1));t.slope=t.obs.length>1?(t.obs[t.obs.length-1].time-t.obs[0].time)/(t.obs[t.obs.length-1].g-t.obs[0].g||1):0;t.smooth=sm;t.score=.38*Math.min(1,t.hits/6)+.27*t.persistence+.14*Math.min(1,t.medAmp)+.12*t.medSupport+.09*Math.exp(-sm/.00045);}
+  tracks=mergeDuplicateTracks(tracks.filter(t=>t.hits>=2));transferIds(tracks,prevModel?prevModel.allTracks:[]);return tracks;
+}
+function selectPrimary(tracks){const prev=new Set(prevModel?prevModel.primaryTrackIds:[]),sorted=tracks.slice();for(const t of sorted)t.selectScore=t.score+(prev.has(t.id)?CFG.primaryRetentionBonus:0)+.06*Math.exp(-median(t.obs.map(o=>o.time))/.035);sorted.sort((a,b)=>b.selectScore-a.selectScore);const out=[];for(const t of sorted){const th=prev.has(t.id)?CFG.primaryDropScore:CFG.primaryAddScore;if(t.selectScore<th)continue;out.push(t);if(out.length>=CFG.maxPrimarySurfaces)break;}return out;}
+
+function solveLinear(A,b,lambda=1e-6,prior=null){
+  const n=A.length,M=Array.from({length:n},(_,i)=>Array.from(A[i])),x=Array.from(b);for(let i=0;i<n;i++){M[i][i]+=lambda;if(prior)x[i]+=lambda*prior[i];}
+  for(let k=0;k<n;k++){let p=k;for(let i=k+1;i<n;i++)if(Math.abs(M[i][k])>Math.abs(M[p][k]))p=i;[M[k],M[p]]=[M[p],M[k]];[x[k],x[p]]=[x[p],x[k]];let d=M[k][k];if(Math.abs(d)<1e-12)d=d>=0?1e-12:-1e-12;for(let j=k;j<n;j++)M[k][j]/=d;x[k]/=d;for(let i=0;i<n;i++)if(i!==k){const f=M[i][k];for(let j=k;j<n;j++)M[i][j]-=f*M[k][j];x[i]-=f*x[k];}}return x;
+}
+function alsNoRow(Z,W,rank,warm){
+  const P=Z.length,K=Z[0].length,b=new Float64Array(K),U=Array.from({length:P},()=>new Float64Array(rank)),V=Array.from({length:K},()=>new Float64Array(rank));
+  for(let k=0;k<K;k++){const z=[];for(let i=0;i<P;i++)if(Number.isFinite(Z[i][k]))z.push(Z[i][k]);b[k]=z.length?median(z):0;}
+  for(let i=0;i<P;i++)for(let r=0;r<rank;r++)U[i][r]=warm&&warm.U&&warm.U[i]?(warm.U[i][r]||0):.01*Math.sin((i+1)*(r+2));
+  for(let k=0;k<K;k++)for(let r=0;r<rank;r++)V[k][r]=warm&&warm.V&&warm.V[k]?(warm.V[k][r]||0):.01*Math.cos((k+2)*(r+1));
+  let robust=Array.from({length:P},()=>Array(K).fill(1));
+  for(let it=0;it<CFG.alsIterations;it++){
+    for(let i=0;i<P;i++){const G=Array.from({length:rank},()=>Array(rank).fill(0)),h=Array(rank).fill(0);for(let k=0;k<K;k++)if(Number.isFinite(Z[i][k])){const ww=W[i][k]*robust[i][k],y=Z[i][k]-b[k];for(let r=0;r<rank;r++){h[r]+=ww*V[k][r]*y;for(let s=0;s<rank;s++)G[r][s]+=ww*V[k][r]*V[k][s];}}U[i].set(solveLinear(G,h,CFG.alsRidge));}
+    for(let k=0;k<K;k++){const G=Array.from({length:rank},()=>Array(rank).fill(0)),h=Array(rank).fill(0);for(let i=0;i<P;i++)if(Number.isFinite(Z[i][k])){const ww=W[i][k]*robust[i][k],y=Z[i][k]-b[k];for(let r=0;r<rank;r++){h[r]+=ww*U[i][r]*y;for(let s=0;s<rank;s++)G[r][s]+=ww*U[i][r]*U[i][s];}}V[k].set(solveLinear(G,h,CFG.alsRidge));const rr=[],ww=[];for(let i=0;i<P;i++)if(Number.isFinite(Z[i][k])){let uv=0;for(let r=0;r<rank;r++)uv+=U[i][r]*V[k][r];rr.push(Z[i][k]-uv);ww.push(W[i][k]);}if(rr.length)b[k]=weightedMedian(rr,ww);}
+    // Huber reweighting on metric residuals.
+    const res=[];for(let i=0;i<P;i++)for(let k=0;k<K;k++)if(Number.isFinite(Z[i][k])){let p=b[k];for(let r=0;r<rank;r++)p+=U[i][r]*V[k][r];res.push(Math.abs(Z[i][k]-p));}const sc=Math.max(.015,1.4826*(median(res)||.02));for(let i=0;i<P;i++)for(let k=0;k<K;k++)if(Number.isFinite(Z[i][k])){let p=b[k];for(let r=0;r<rank;r++)p+=U[i][r]*V[k][r];const u=Math.abs(Z[i][k]-p)/(CFG.mapHuberM||(.08+sc));robust[i][k]=u<=1?1:1/u;}
+  }
+  let se=0,sw=0;for(let i=0;i<P;i++)for(let k=0;k<K;k++)if(Number.isFinite(Z[i][k])){let p=b[k];for(let r=0;r<rank;r++)p+=U[i][r]*V[k][r];const w=W[i][k];se+=w*(Z[i][k]-p)**2;sw+=w;}return{b,U,V,rmse:Math.sqrt(se/Math.max(1e-12,sw))};
+}
+function kiRange(tau,L){const D=L+C*Math.max(0,tau),q=Math.max(0,D*D-L*L);return .5*Math.sqrt(q);}
+function makeZW(kfs,tracks,L){const P=kfs.length,K=tracks.length,Z=Array.from({length:P},()=>Array(K).fill(NaN)),W=Array.from({length:P},()=>Array(K).fill(0));for(let k=0;k<K;k++)for(const o of tracks[k].obs){Z[o.g][k]=kiRange(o.time,L);W[o.g][k]=.35+.40*o.amp+.25*(o.support||1);}return{Z,W};}
+function chooseBaseline(kfs,tracks,rank){
+  const n=Math.max(1,CFG.baselineCandidates||7),maxL=Math.max(0,CFG.baselineMaxM||.24),fits=[];
+  for(let q=0;q<n;q++){const L=n===1?0:maxL*q/(n-1),zw=makeZW(kfs,tracks,L),f=alsNoRow(zw.Z,zw.W,rank,null);fits.push({L,f,Z:zw.Z,W:zw.W});}
+  let best=fits[0];for(const x of fits)if(x.f.rmse<best.f.rmse)best=x;const tol=best.f.rmse*1.06+.002;for(const x of fits)if(x.f.rmse<=tol){best=x;break;}return best;
+}
+function inv3(A){const[a,b,c,d,e,f,g,h,i]=[A[0][0],A[0][1],A[0][2],A[1][0],A[1][1],A[1][2],A[2][0],A[2][1],A[2][2]],A11=e*i-f*h,A12=-(d*i-f*g),A13=d*h-e*g,A21=-(b*i-c*h),A22=a*i-c*g,A23=-(a*h-b*g),A31=b*f-c*e,A32=-(a*f-c*d),A33=a*e-b*d,det=a*A11+b*A12+c*A13;if(Math.abs(det)<1e-12)return null;return[[A11/det,A21/det,A31/det],[A12/det,A22/det,A32/det],[A13/det,A23/det,A33/det]];}
+function chol3(G){const L=[[0,0,0],[0,0,0],[0,0,0]];for(let i=0;i<3;i++)for(let j=0;j<=i;j++){let s=G[i][j];for(let k=0;k<j;k++)s-=L[i][k]*L[j][k];if(i===j){if(s<=1e-9)return null;L[i][j]=Math.sqrt(s);}else L[i][j]=s/L[j][j];}return L;}
+function metricUpgrade(U,V,rank){
+  const X=U.map(u=>[u[0]||0,u[1]||0,u[2]||0]),N=V.map(v=>[-(v[0]||0),-(v[1]||0),-(v[2]||0)]);
+  if(rank<3||V.length<3)return{X,N,metric:false,normalRMSE:NaN};
+  // ALS factors have an arbitrary reciprocal scale U<->V.  Solve the metric
+  // only AFTER normalizing V to order-one magnitude; otherwise an identity
+  // regularizer is dimensionally meaningless and can inflate X by tens of m.
+  const norms=V.map(v=>Math.hypot(v[0],v[1],v[2])).filter(x=>x>1e-9),medNorm=median(norms);
+  if(!Number.isFinite(medNorm)||medNorm<=1e-9)return{X,N,metric:false,normalRMSE:NaN};
+  const scale=1/medNorm,AtA=Array.from({length:6},()=>Array(6).fill(0)),Atb=Array(6).fill(0),prior=[1,1,1,0,0,0];
+  for(const vv of V){const v=[vv[0]*scale,vv[1]*scale,vv[2]*scale],r=[v[0]*v[0],v[1]*v[1],v[2]*v[2],2*v[0]*v[1],2*v[0]*v[2],2*v[1]*v[2]];for(let a=0;a<6;a++){Atb[a]+=r[a];for(let b=0;b<6;b++)AtA[a][b]+=r[a]*r[b];}}
+  const h=solveLinear(AtA,Atb,CFG.metricRidge||.25,prior),H=[[h[0],h[3],h[4]],[h[3],h[1],h[5]],[h[4],h[5],h[2]]];
+  for(let j=0;j<3;j++)H[j][j]=Math.max(H[j][j],.03);let LH=chol3(H);if(!LH){for(let j=0;j<3;j++)H[j][j]+=.35;LH=chol3(H);}if(!LH)return{X,N,metric:false,normalRMSE:NaN};
+  // G = scale^2 H = T T^T, so T = scale * chol(H).
+  const T=LH.map(row=>row.map(x=>x*scale)),TT=[[T[0][0],T[1][0],T[2][0]],[T[0][1],T[1][1],T[2][1]],[T[0][2],T[1][2],T[2][2]]],invTT=inv3(TT);
+  if(!invTT)return{X,N,metric:false,normalRMSE:NaN};
+  for(let p=0;p<U.length;p++)for(let j=0;j<3;j++)X[p][j]=U[p][0]*invTT[0][j]+U[p][1]*invTT[1][j]+U[p][2]*invTT[2][j];
+  let se=0;for(let k=0;k<V.length;k++){for(let j=0;j<3;j++)N[k][j]=-(V[k][0]*T[0][j]+V[k][1]*T[1][j]+V[k][2]*T[2][j]);const q=Math.hypot(...N[k])||1;se+=(q-1)*(q-1);for(let j=0;j<3;j++)N[k][j]/=q;}
+  return{X,N,metric:true,normalRMSE:Math.sqrt(se/V.length)};
+}
+function alignAxes(X,N,d,oldPath){
+  if(!oldPath||oldPath.length<2||X.length<2)return{X,N,d};const n=Math.min(X.length,oldPath.length),perms=[[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];let best=null;
+  const ca=[0,0,0],cb=[0,0,0];for(let i=0;i<n;i++)for(let j=0;j<3;j++){ca[j]+=X[i][j]/n;cb[j]+=oldPath[i][j]/n;}
+  for(const p of perms)for(let mask=0;mask<8;mask++){const s=[mask&1?-1:1,mask&2?-1:1,mask&4?-1:1];let e=0;for(let i=0;i<n;i++)for(let j=0;j<3;j++){const q=s[j]*(X[i][p[j]]-ca[p[j]])-(oldPath[i][j]-cb[j]);e+=q*q;}if(!best||e<best.e)best={p,s,e};}
+  const XX=X.map(x=>best.p.map((q,j)=>best.s[j]*(x[q]-ca[q])+cb[j])),NN=N.map(v=>best.p.map((q,j)=>best.s[j]*v[q]));
+  // Translation from centroids modifies plane offsets.
+  const t=best.p.map((q,j)=>cb[j]-best.s[j]*ca[q]),dd=d.map((v,k)=>v+NN[k][0]*t[0]+NN[k][1]*t[1]+NN[k][2]*t[2]);return{X:XX,N:NN,d:dd};
+}
+function basis(n){const a=Math.abs(n[2])<.85?[0,0,1]:[0,1,0];let u=[a[1]*n[2]-a[2]*n[1],a[2]*n[0]-a[0]*n[2],a[0]*n[1]-a[1]*n[0]],q=Math.hypot(...u)||1;u=u.map(x=>x/q);const v=[n[1]*u[2]-n[2]*u[1],n[2]*u[0]-n[0]*u[2],n[0]*u[1]-n[1]*u[0]];return[u,v];}
+function makePatches(X,N,d,Z,tracks,kind){const out=[];for(let k=0;k<tracks.length;k++){const pts=[];for(let i=0;i<X.length;i++)if(Number.isFinite(Z[i][k])){const h=N[k][0]*X[i][0]+N[k][1]*X[i][1]+N[k][2]*X[i][2]-d[k];pts.push([X[i][0]-h*N[k][0],X[i][1]-h*N[k][1],X[i][2]-h*N[k][2]]);}if(pts.length<2)continue;const [u,v]=basis(N[k]),cu=pts.map(p=>p[0]*u[0]+p[1]*u[1]+p[2]*u[2]),cv=pts.map(p=>p[0]*v[0]+p[1]*v[1]+p[2]*v[2]),loU=quantile(cu,.05)-CFG.patchMargin,hiU=quantile(cu,.95)+CFG.patchMargin,loV=quantile(cv,.05)-CFG.patchMargin,hiV=quantile(cv,.95)+CFG.patchMargin,c=N[k].map(x=>x*d[k]);const vert=[[loU,loV],[hiU,loV],[hiU,hiV],[loU,hiV]].map(q=>[c[0]+q[0]*u[0]+q[1]*v[0],c[1]+q[0]*u[1]+q[1]*v[1],c[2]+q[0]*u[2]+q[1]*v[2]]);out.push({id:tracks[k].id,vertices:vert,normal:N[k],offset:d[k],score:tracks[k].score,kind});}return out;}
+function mergePatches(p){const out=[];for(const x of p.sort((a,b)=>b.score-a.score)){let dup=false;for(const y of out){const dot=Math.abs(x.normal[0]*y.normal[0]+x.normal[1]*y.normal[1]+x.normal[2]*y.normal[2]),ang=Math.acos(clamp(dot,-1,1))*180/Math.PI;if(ang<CFG.surfaceMergeAngleDeg&&Math.abs(Math.abs(x.offset)-Math.abs(y.offset))<CFG.surfaceMergeOffsetM){dup=true;break;}}if(!dup)out.push(x);}return out;}
+function holdModel(P,selected,tracks,msg){const old=prevModel||{},path=(old.path&&old.path.length?old.path.map(x=>x.slice()):[[0,0,0]]);while(path.length<P)path.push(path[path.length-1].slice());if(path.length>P)path.length=P;return{path,primary:old.primary||[],detail:old.detail||[],rank:old.rank||0,rmse:old.rmse,baselineM:old.baselineM||0,normalRMSE:old.normalRMSE,metric:old.metric||false,primaryTrackIds:selected.map(t=>t.id),allTracks:tracks,factor:old.factor||null,message:msg,mode:'HOLD'};}
+function buildModel(kfs,tracks,detail=false){
+  const selected=detail?tracks.filter(t=>t.score>=CFG.detailTrackScore).sort((a,b)=>b.score-a.score).slice(0,CFG.maxDetailSurfaces):selectPrimary(tracks),P=kfs.length,K=selected.length;
+  if(P<2||K<2)return holdModel(P,selected,tracks,'waiting for >=2 acoustic poses and >=2 persistent first-order tracks');
+  const rank=Math.min(3,P-1,K-1),fit=chooseBaseline(kfs,selected,rank),f=fit.f,mu=metricUpgrade(f.U,f.V,rank),vals=[];
+  for(let k=0;k<K;k++)vals.push(f.b[k]);const gauge=(quantile(vals,.06)||0)-.08,d=Array.from(f.b,x=>x-gauge);let X=mu.X,N=mu.N,dd=d;
+  const al=alignAxes(X,N,dd,prevModel&&prevModel.path);X=al.X;N=al.N;dd=al.d;
+  const patch=mergePatches(makePatches(X,N,dd,fit.Z,selected,detail?'detail':'primary')).slice(0,detail?CFG.maxDetailSurfaces:CFG.maxPrimarySurfaces);
+  if(!patch.length&&prevModel)return holdModel(P,selected,tracks,'factorization exists but no stable finite patches');
+  return{path:X,primary:detail?(prevModel?prevModel.primary:[]):patch,detail:detail?patch:[],rank,rmse:f.rmse,baselineM:fit.L,normalRMSE:mu.normalRMSE,metric:mu.metric,primaryTrackIds:selected.map(t=>t.id),allTracks:tracks,factor:f,message:'OK',mode:mu.metric?'METRIC':'LATENT'};
+}
+function rebuild(detail=false){
+  // This is intentionally GLOBAL.  Every new chirp re-fuses every accepted RIR,
+  // redoes temporal keyframes, echo association, track persistence and geometry.
+  const ms=measurements.filter(m=>m.accepted),kfs=buildKeyframes(ms,detail),tracks=buildTracks(kfs,detail),model=buildModel(kfs,tracks,detail);
+  if(detail&&prevModel){model.path=prevModel.path;model.primary=prevModel.primary;model.primaryTrackIds=prevModel.primaryTrackIds;model.factor=prevModel.factor;model.rank=prevModel.rank;model.rmse=prevModel.rmse;model.baselineM=prevModel.baselineM;model.metric=prevModel.metric;model.normalRMSE=prevModel.normalRMSE;}
+  prevModel=model;return{model,keyframes:kfs,tracks};
+}
+
+function synthRaw(delaySec,refDelays,refAmps,noise=0,nonlinear=0){
+  const n=Math.round((CFG.captureWindowSec||1.0)*FS),raw=new Float32Array(n),imp=[{d:delaySec,a:1}];for(let i=0;i<refDelays.length;i++)imp.push({d:delaySec+refDelays[i],a:refAmps[i]});
+  for(const h of imp){const off=Math.round(h.d*FS);for(let j=0;j<chirp.length&&off+j<n;j++)raw[off+j]+=h.a*chirp[j];}
+  if(nonlinear>0)for(let i=0;i<n;i++)raw[i]=Math.tanh((1+nonlinear)*raw[i])/(Math.tanh(1+nonlinear)||1);
+  let seed=1234567;function rnd(){seed=(1664525*seed+1013904223)>>>0;return seed/4294967296-.5;}for(let i=0;i<n;i++)raw[i]+=noise*2*rnd();return raw;
+}
+
+function synthRingyRaw(delaySec,refDelays,refAmps,noise=0){
+  // Deliberately band-limit every path with a sinc-like phone kernel.  A naive
+  // envelope peak picker sees the ringing lobes as extra echoes; PSF-OMP must
+  // return one event per physical delayed copy.
+  const M=241,mid=(M-1)/2,h=new Float64Array(M),flo=900,fhi=9000;
+  const sinc=x=>Math.abs(x)<1e-12?1:Math.sin(Math.PI*x)/(Math.PI*x);let he=0;
+  for(let n=0;n<M;n++){const t=n-mid,w=.5-.5*Math.cos(2*Math.PI*n/(M-1));h[n]=(2*fhi/FS*sinc(2*fhi/FS*t)-2*flo/FS*sinc(2*flo/FS*t))*w;he+=h[n]*h[n];}
+  he=Math.sqrt(Math.max(he,1e-24));for(let n=0;n<M;n++)h[n]/=he;
+  const wave=new Float64Array(chirp.length+M-1);for(let i=0;i<chirp.length;i++)for(let j=0;j<M;j++)wave[i+j]+=chirp[i]*h[j];
+  const n=Math.round((CFG.captureWindowSec||1.0)*FS),raw=new Float32Array(n),d=[delaySec,...refDelays.map(x=>delaySec+x)],a=[1,...refAmps];
+  for(let k=0;k<d.length;k++){const off=Math.round(d[k]*FS);for(let i=0;i<wave.length&&off+i<n;i++)raw[off+i]+=a[k]*wave[i];}
+  let seed=884422;function rnd(){seed=(1664525*seed+1013904223)>>>0;return seed/4294967296-.5;}for(let i=0;i<n;i++)raw[i]+=noise*2*rnd();return raw;
+}
+function selfTestCase(name,raw,trueDirect,trueTau,minRef,shouldAccept){
+  const save=CFG.inputSettings;CFG.inputSettings={echoCancellation:false,noiseSuppression:false,autoGainControl:false};let a;try{a=analyzeCycle(raw,-1,'selftest');}finally{CFG.inputSettings=save;}
+  const directErr=Math.abs(a.directTimeSec-trueDirect),found=a.primary.filter(e=>!e.isDirect).map(e=>e.tau),hits=trueTau.filter(t=>found.some(x=>Math.abs(x-t)<.0012)).length,previewOK=(a.rirPreviewSigned||[]).length>80&&(a.rirPreviewEnv||[]).length>80;
+  const ok=directErr<.0012&&hits>=minRef&&previewOK&&(!shouldAccept||a.accepted);return{name,ok,directErr,hits,found:found.length,accepted:a.accepted,directOnly:!!a.directOnly,quality:a.qualityScore,previewOK,reason:a.reason};
+}
+function runESSSelfTest(full=false){
+  try{
+    const tau=[.012,.031,.067,.118,.190],amp=[.30,-.22,.15,-.10,.075],cases=[],d0=CFG.preSilenceSec+.055,dLate=CFG.preSilenceSec+.300;
+    cases.push(selfTestCase('clean',synthRaw(d0,tau,amp,.001,0),d0,tau,4,true));
+    cases.push(selfTestCase('latency300ms',synthRaw(dLate,tau,amp,.0015,0),dLate,tau,4,true));
+    const noisy=selfTestCase('noise',synthRaw(d0+.010,tau,amp,.20,0),d0+.010,tau,0,false);noisy.ok=noisy.previewOK&&!noisy.accepted;cases.push(noisy);
+    const clipped=selfTestCase('nonlinear',synthRaw(d0+.002,tau,amp,.001,2.4),d0+.002,tau,2,false);clipped.ok=clipped.previewOK&&clipped.directErr<.002;cases.push(clipped);
+    const only=selfTestCase('direct-only',synthRaw(d0+.006,[],[],.0005,0),d0+.006,[],0,false);only.ok=only.previewOK&&!only.accepted&&only.directOnly&&only.directErr<.0012;cases.push(only);
+    const rt=[.019,.051,.106],ra=[.28,-.18,.12],ring=selfTestCase('sinc-ringing',synthRingyRaw(d0,rt,ra,.00025),d0+120/FS,rt,3,false);ring.ok=ring.previewOK&&ring.hits>=3&&ring.found<=4;cases.push(ring);
+    const ok=cases.every(x=>x.ok);postMessage({type:'selftest',ok,cases});postLog(`ESS self-test ${ok?'PASS':'FAIL'}: ${cases.map(x=>`${x.name}:${x.ok?'ok':'FAIL'}`).join(' ')}`,ok?'info':'error');return{ok,cases};
+  }catch(e){postMessage({type:'selftest',ok:false,cases:[],error:e.message});postLog(`ESS self-test ERROR: ${e.stack||e.message}`,'error');return{ok:false,cases:[],error:e.message};}
+}
+
+onmessage=e=>{
+  const m=e.data;
+  if(m.type==='init'){
+    CFG=m.cfg;FS=m.sampleRate;chirp=new Float64Array(m.chirp);measurements=[];prevModel=null;nextTrackId=1;
+    calibrationProfile=null;calibrationDirectAtom=null;calibrationDirectSum=null;calibrationDirectCount=0;calibrationDirectWeight=0;calibrationDirectStability=[];calibrationDirectLowSimilarity=0;calibrationSpectrumFrames=[];calibratedBand={ready:false,f0:NaN,f1:NaN,quality:0};liveRIRFusion=[];
+    buildInverseESS();postLog(`worker v6.6 long-ESS + online system-response + raw-capture audit initialized @ ${FS} Hz`);runESSSelfTest(false);
+  }else if(m.type==='cycle'){
+    const raw=new Float32Array(m.raw),mode=m.mode||'measure';let a;try{a=analyzeCycle(raw,m.id,mode);}catch(err){a=failedAnalysis(m.id,raw,err);postLog(`cycle ${m.id}: ${err.stack||err.message}`,'error');}
+    const directDominated=a.directOnly||(a.rirValid&&a.reflectionCount<=1&&Number.isFinite(a.echoToDirectDB)&&a.echoToDirectDB<-28&&a.snr<(CFG.minSNRDB+1));
+    const learnSystem=(mode==='calibration'&&m.calibrationPhase==='seek-no-echo'&&directDominated)||(mode!=='calibration'&&a.directOnly&&a.directFound&&a.rawSNR>=CFG.minRawSNRDB&&a.matchCoeff>=CFG.minMatchCoeff);
+    if(learnSystem&&a._calAtom){const u=accumulateCalibrationAtom(a._calAtom);finalizeCalibrationAtom();a.systemResponseUpdated=true;a.systemResponseCount=calibrationDirectCount;a.systemResponseStability=systemResponseStability();a.systemResponseUpdateSimilarity=u.similarity;a.systemResponseUpdateWeight=u.weight;if(mode==='calibration'&&!calibrationProfile&&a.directFound)accumulateCalibrationSpectrum(raw,Math.round(a.directTimeSec*FS));}
+    else{a.systemResponseUpdated=false;a.systemResponseCount=calibrationDirectCount;a.systemResponseStability=systemResponseStability();}
+    if(mode==='calibration'){if(a._calAtom)delete a._calAtom;postMessage({type:'calibrationResult',analysis:a,directTemplateCount:calibrationDirectCount});return;}
+    if(a._calAtom)delete a._calAtom;
+    measurements.push(a);const detail=CFG.detailEvery>0&&a.accepted&&measurements.filter(x=>x.accepted).length%CFG.detailEvery===0;let r;
+    try{r=rebuild(detail);}catch(err){postLog(`global graph cycle ${m.id}: ${err.stack||err.message}`,'error');r={model:prevModel||{path:[[0,0,0]],primary:[],detail:[],rank:0,rmse:NaN,allTracks:[],primaryTrackIds:[],mode:'ERROR'},keyframes:[],tracks:[]};}
+    postMessage({type:'result',analysis:a,model:r.model,keyframes:r.keyframes.length,trackCount:r.tracks.length,accepted:measurements.filter(x=>x.accepted).length,rejected:measurements.filter(x=>!x.accepted).length,detailAuto:detail});
+  }else if(m.type==='setCalibration'){
+    calibrationProfile={...(m.profile||{}),enabled:true};finalizeCalibrationAtom();const cb=finalizeCalibrationBand();calibrationProfile.usableF0Hz=cb.f0;calibrationProfile.usableF1Hz=cb.f1;calibrationProfile.bandQuality=cb.quality;calibrationProfile.directStability=Number.isFinite(systemResponseStability())?systemResponseStability():1;calibrationProfile.systemResponseCount=calibrationDirectCount;liveRIRFusion=[];
+    postMessage({type:'calibrationAck',profile:calibrationProfile,directTemplateCount:calibrationDirectCount,directTemplateReady:!!calibrationDirectAtom});
+    postLog(`calibration locked: range ${finite(calibrationProfile.maxReliableWallDistanceM,2)} m, safe ${finite(calibrationProfile.safeWallDistanceM,2)} m, band ${finite(calibrationProfile.usableF0Hz,0)}-${finite(calibrationProfile.usableF1Hz,0)} Hz, direct stability ${finite(calibrationProfile.directStability,3)}, reflSNR ${finite(calibrationProfile.minReflectionSNRDB,1)} dB, PSF frames ${calibrationDirectCount}`);
+  }else if(m.type==='clearCalibration'){
+    calibrationProfile=null;calibrationDirectAtom=null;calibrationDirectSum=null;calibrationDirectCount=0;calibrationDirectWeight=0;calibrationDirectStability=[];calibrationDirectLowSimilarity=0;calibrationSpectrumFrames=[];calibratedBand={ready:false,f0:NaN,f1:NaN,quality:0};liveRIRFusion=[];convCache=null;psfAtomCache=null;postMessage({type:'calibrationCleared'});
+  }else if(m.type==='setDebugRaw'){CFG.debugRaw=!!m.enabled;postMessage({type:'debugRawAck',enabled:CFG.debugRaw});
+  }else if(m.type==='postprocess'){
+    try{const r=rebuild(true);postMessage({type:'model',model:r.model,keyframes:r.keyframes.length,trackCount:r.tracks.length,accepted:measurements.filter(x=>x.accepted).length,rejected:measurements.filter(x=>!x.accepted).length});}catch(err){postLog(`postprocess: ${err.stack||err.message}`,'error');}
+  }else if(m.type==='selftest'){runESSSelfTest(true);
+  }else if(m.type==='reset'){measurements=[];prevModel=null;nextTrackId=1;postMessage({type:'resetDone'});}
+};
+
+</script>
+<script>
+'use strict';
+const BUILD='KiSonarPrimaryMapper-v6.6-system-response-mic-debug';
+const $=id=>document.getElementById(id);
+const ui={start:$('startBtn'),stop:$('stopBtn'),calibrate:$('calibrateBtn'),demo:$('demoBtn'),detail:$('detailBtn'),export:$('exportBtn'),settings:$('settingsBtn'),apply:$('applyBtn'),close:$('closeSettingsBtn'),panel:$('settings'),statusMain:$('statusMain'),statusSub:$('statusSub'),hud1:$('hud1'),hud2:$('hud2'),hud3:$('hud3'),hud4:$('hud4'),metrics:$('metrics'),log:$('log'),canvas:$('scene'),rirStrip:$('rirStrip'),rirShelfSummary:$('rirShelfSummary'),permissionGate:$('permissionGate'),permissionText:$('permissionText'),permissionRetry:$('permissionRetryBtn'),permissionCancel:$('permissionCancelBtn'),reflectionHint:$('reflectionHint'),calibrationPanel:$('calibrationPanel'),calibrationTitle:$('calibrationTitle'),calibrationInstruction:$('calibrationInstruction'),calibrationPhase:$('calibrationPhase'),calibrationDistance:$('calibrationDistance'),calibrationSNR:$('calibrationSNR'),calibrationTemplate:$('calibrationTemplate'),calibrationProgress:$('calibrationProgress'),micSelect:$('microphoneSelect'),refreshMic:$('refreshMicBtn'),debugRaw:$('debugRaw'),rawShelf:$('rawShelf'),rawStrip:$('rawStrip'),rawShelfSummary:$('rawShelfSummary')};
+let cfg={},worker=null,audio=null,renderer=null,logs=[],cycleLogs=[],rirHistory=[],latest={model:{path:[[0,0,0]],primary:[],detail:[]},accepted:0,rejected:0,keyframes:0,tracks:0,analysis:null},wakeLock=null;
+let uiErrorCount=0,workerSelfTest=null,selfTestResults=0,directOnlyStreak=0;
+const SOUND_SPEED=343;
+function freshCalibration(){return{active:false,done:false,phase:'idle',noEchoCount:0,cycles:0,detectionWindow:[],profile:null,directTemplateCount:0,startedAt:0};}
+let calibration=freshCalibration();
+
+// Guided wall-chain state.  This is intentionally a UI/measurement guidance
+// layer: it never fabricates geometry or overrides the global graph solver.
+// It simply asks the operator to keep one physical reflection observable until
+// a second, independently persistent arrival is present.
+function freshWallGuide(){return{active:false,phase:'idle',wallIndex:0,currentTau:NaN,currentVel:0,currentSeen:0,lostStreak:0,reacquireStreak:0,followCycles:0,candidateTau:NaN,candidateVel:0,candidateSeen:0,candidateMiss:0,transitions:[],lastMessage:'',lastMeasurementId:0};}
+let wallGuide=freshWallGuide();
+const queryParams=new URLSearchParams(location.search),querySelfTest=queryParams.get('selftest')==='1',queryDebug=queryParams.get('debug')==='1';
+
+function readCfg(){
+  const q={
+    preSilenceSec:.18,sweepDurationSec:+$('sweepDuration').value,cyclePeriodSec:+$('cyclePeriod').value,micDeviceId:(ui.micSelect&&ui.micSelect.value)||'',debugRaw:!!(ui.debugRaw&&ui.debugRaw.checked),
+    f0:+$('f0').value,f1:+$('f1').value,levelDBFS:+$('level').value,
+    minSNRDB:+$('minSNR').value,minRawSNRDB:6,minMatchSNRDB:9,minMatchCoeff:.030,minRIRQuality:.34,
+    maxPrimaryEvents:+$('maxPrimaryEvents').value,maxPrimarySurfaces:+$('maxPrimarySurfaces').value,
+    detailEvery:+$('detailEvery').value,maxCycles:+$('maxCycles').value,
+    maxRirSec:.32,maxLatencySearchSec:.50,directSearchPaddingSec:.07,interSweepGuardSec:.18,
+    directSearchPreToleranceSec:.03,directMatchEarliestRelative:.40,rirPreDirectSec:.008,directExcludeSec:.0025,
+    minGeometryTailSec:.14,minPreviewTailSec:.12,deconvRegularization:3e-4,matchSmoothSec:.00016,eventSmoothSec:.00022,
+    eventMinSeparationSec:.00065,minPeakSNRDB:5,detailMinPeakSNRDB:2.5,primaryMAD:4.5,primaryRelative:.020,
+    detailMAD:2.6,detailRelative:.008,maxDetailEvents:24,maxDetailSurfaces:14,minEnergySNRDB:2.5,minPrimaryReflections:1,
+    psfPreSec:.0022,psfPostSec:.0080,ompEmpiricalBlend:.82,calibrationDirectBlend:.42,ompCandidateSNRDB:1.8,ompCandidateThresholdScale:.52,ompMaxCandidates:120,ompMaxIterations:14,ompMinDistinctSec:.00018,ompRefineSamples:2,ompMinCorrelation:.11,ompPrimaryMinCorrelation:.15,ompPrimaryMergeSec:.00045,ompKeepCloseRatio:.72,ompRidge:2e-5,
+    rirAverageCount:3,rirAverageSimilarity:.82,
+    maxGrossClipFrac:.18,maxClipRunMs:12,previewBins:260,signatureMaxSec:.09,
+    stationaryNoise:.065,motionThreshold:.145,motionCusumDecay:.020,motionCusumThreshold:.26,motionConfirmCycles:2,
+    fuseGateSec:.00075,fuseMinSupport:.30,trackGateSec:.0016,trackMaxGap:8,trackIdTransferGateSec:.0018,
+    duplicateTrackGateSec:.00055,primaryRetentionBonus:.25,primaryDropScore:.40,primaryAddScore:.55,detailTrackScore:.52,
+    alsIterations:12,alsRidge:2e-4,mapHuberM:.09,metricRidge:.35,patchMargin:.18,surfaceMergeAngleDeg:10,
+    surfaceMergeOffsetM:.35,baselineMaxM:.24,baselineCandidates:7,calibrationNoEchoConfirmCycles:5,calibrationDetectConfirmCycles:3,calibrationRangeSafety:.90,calibrationMaxCycles:70,calibrationMaxDistanceM:8,
+    wallGuideAcquireConfirmCycles:3,wallGuideNewWallConfirmCycles:3,wallGuideLostConfirmCycles:3,wallGuideReacquireConfirmCycles:2,
+    wallGuideTrackGateSec:.0030,wallGuideReacquireGateSec:.0055,wallGuideNewWallMinSeparationSec:.00115,wallGuideCandidateGateSec:.0025,
+    wallGuideNoNewWallWarnCycles:14,wallGuideMinEventSNRMarginDB:-1.0,inputSettings:{}
+  };
+  q.minPostChirpRecordSec=2*q.sweepDurationSec;q.captureEndGuardSec=.12;
+  q.captureWindowSec=q.preSilenceSec+q.maxLatencySearchSec+q.directSearchPaddingSec+q.sweepDurationSec+q.minPostChirpRecordSec+q.captureEndGuardSec;
+  q.effectiveCyclePeriodSec=Math.max(q.cyclePeriodSec,q.captureWindowSec+q.interSweepGuardSec);
+  return q;
+}
+function finiteFmt(x,d=1,fallback='—'){return Number.isFinite(x)?x.toFixed(d):fallback;}
+function clampNum(x,a,b){return Math.max(a,Math.min(b,x));}
+function medianNum(a){const x=(a||[]).filter(Number.isFinite).slice().sort((u,v)=>u-v);if(!x.length)return NaN;const m=x.length>>1;return x.length%2?x[m]:(x[m-1]+x[m])/2;}
+function log(msg,level='info'){const t=new Date().toISOString().slice(11,23),line=`${t} ${level.toUpperCase()} ${msg}`;logs.push(line);if(logs.length>400)logs.shift();ui.log.textContent=logs.slice(-90).join('\n');ui.log.scrollTop=ui.log.scrollHeight;if(level==='error')uiErrorCount++;}
+function setStatus(a,b,kind=''){ui.statusMain.textContent=a;ui.statusMain.style.color=kind==='bad'?'var(--bad)':kind==='warn'?'var(--warn)':kind==='ok'?'var(--ok)':'var(--fg)';ui.statusSub.textContent=b;}
+function makeWorker(){if(worker)worker.terminate();const src=$('worker-code').textContent,url=URL.createObjectURL(new Blob([src],{type:'text/javascript'}));worker=new Worker(url);URL.revokeObjectURL(url);worker.onmessage=e=>{try{handleWorker(e.data);}catch(err){uiErrorCount++;console.error(err);log(`UI result: ${err.stack||err.message}`,'error');setStatus('Errore UI',err.message,'bad');evaluateBrowserSelfTest();}};worker.onerror=e=>{uiErrorCount++;log(`worker: ${e.message}`,'error');setStatus('Errore processing',e.message,'bad');evaluateBrowserSelfTest();};worker.onmessageerror=e=>{uiErrorCount++;log(`worker decode: ${e.message||'unknown'}`,'error');evaluateBrowserSelfTest();};}
+
+function pathOf(v,w,h,positive=false){if(!v||v.length<2)return'';let d='';for(let i=0;i<v.length;i++){const x=i/(v.length-1)*w,val=positive?Math.max(0,Math.min(1,v[i])):Math.max(-1,Math.min(1,v[i])),y=positive?h-2-val*(h-5):h*.5-val*h*.42;d+=(i?'L':'M')+x.toFixed(1)+','+y.toFixed(1);}return d;}
+function syncDebugUI(){const on=!!(ui.debugRaw&&ui.debugRaw.checked);if(ui.rawShelf)ui.rawShelf.classList.toggle('show',on);if(!on&&ui.rawShelfSummary)ui.rawShelfSummary.textContent='debug off';}
+function addRawCard(a){if(!cfg.debugRaw||!ui.rawStrip||!a)return;const au=a.captureAudit||{},card=document.createElement('div'),ok=!!au.ok;card.className=`rawCard ${ok?'good':'bad'}`;const W=210,H=65,d=pathOf(a.rawPreview||[],W,H,false),dur=Math.max(1e-6,a.rawDurationSec||au.rawDurationSec||cfg.captureWindowSec),x=t=>Math.max(0,Math.min(W,(Number.isFinite(t)?t:0)/dur*W)),play=x(au.scheduledChirpStartSec),rx=x(au.receivedSweepStartSec),end=x(au.receivedSweepEndSec);card.innerHTML=`<div class="rirTop"><span><b>RAW #${a.id}</b></span><span class="rirState">${ok?'CAPTURE OK':'CAPTURE INVALIDA'}</span></div><svg class="rawSvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" stroke="rgba(156,176,200,.25)"/><path d="${d}" fill="none" stroke="#eef6ff" stroke-width=".9"/><line x1="${play.toFixed(1)}" y1="1" x2="${play.toFixed(1)}" y2="${H-1}" stroke="#65a9ff" stroke-width="1.2"/><line x1="${rx.toFixed(1)}" y1="1" x2="${rx.toFixed(1)}" y2="${H-1}" stroke="#ffd166" stroke-width="1.4"/><line x1="${end.toFixed(1)}" y1="1" x2="${end.toFixed(1)}" y2="${H-1}" stroke="#4dd39b" stroke-width="1.2"/></svg><div class="rawMeta"><b>${ok?'OK':'NO'}</b> · durata ${finiteFmt(dur,2)} s · pre ${finiteFmt(au.preSec,2)} s · post ${finiteFmt(au.postSec,2)}/${finiteFmt(au.requiredPostSec,2)} s · chirp ${au.fullSweep?'intero':'TRONCO'} · silence ${au.scheduleSilent?'OK':'NO'}</div>`;ui.rawStrip.appendChild(card);ui.rawShelfSummary.textContent=`RAW ${a.id} · ${ok?'finestra valida':'ATTENZIONE finestra non valida'}`;requestAnimationFrame(()=>{ui.rawStrip.scrollLeft=ui.rawStrip.scrollWidth;});}
+function addRIRCard(a){
+  if(!a||!ui.rirStrip)return;
+  try{
+    const hist={id:a.id,accepted:a.accepted,rirValid:a.rirValid,directOnly:!!a.directOnly,reliability:a.reliability,qualityScore:a.qualityScore,snr:a.snr,energySNR:a.energySNR,rawSNR:a.rawSNR,matchSNR:a.matchSNR,matchCoeff:a.matchCoeff,consistency:a.consistency,clipFrac:a.clipFrac,longestClipMs:a.longestClipMs,reason:a.reason,reflectionCount:a.reflectionCount,psfMode:a.psfMode,ompExplained:a.ompExplained,ompResidualRatio:a.ompResidualRatio,postAvailableSec:a.postAvailableSec,rirDurationSec:a.rirDurationSec,directLocalSec:a.directLocalSec,rirPreviewSigned:a.rirPreviewSigned||[],rirPreviewEnv:a.rirPreviewEnv||[],systemResponseCount:a.systemResponseCount||0,systemResponseStability:a.systemResponseStability,systemResponseUpdated:!!a.systemResponseUpdated,captureAudit:a.captureAudit||null,primary:(a.primary||[]).map(e=>({timeLocal:e.timeLocal,tau:e.tau,isDirect:e.isDirect,amp:e.amp,snr:e.snr}))};
+    rirHistory.push(hist);
+    const wasAtEnd=ui.rirStrip.scrollWidth-ui.rirStrip.scrollLeft-ui.rirStrip.clientWidth<45,card=document.createElement('div');
+    const cls=a.calibration?'cal':a.directOnly?'mid':!a.accepted?'bad':a.qualityScore>=.72?'good':'mid';card.className=`rirCard ${cls}`;card.dataset.rirId=String(a.id);card.dataset.preview=((a.rirPreviewSigned||[]).length>20?'yes':'no');card.dataset.reflections=String(a.reflectionCount||0);
+    card.title=a.directOnly?`RIR ${a.id}: solo diretto; avvicinati a un muro`:a.accepted?`RIR ${a.id}: ${a.reflectionCount||0} riflessioni principali`:`RIR ${a.id} SCARTATA: ${a.reason}`;
+    const W=168,H=58,dSigned=pathOf(a.rirPreviewSigned||a.rirPreview||[],W,H,false),dEnv=pathOf(a.rirPreviewEnv||[],W,H,true),dur=Math.max(1e-6,a.rirDurationSec||cfg.maxRirSec||.26),ev=a.primary||[];
+    const peaks=ev.map(e=>{const x=Math.max(0,Math.min(W,(e.timeLocal||0)/dur*W)),isGuide=!e.isDirect&&wallGuide.active&&Number.isFinite(wallGuide.currentTau)&&Number.isFinite(e.tau)&&Math.abs(e.tau-wallGuide.currentTau)<=cfg.wallGuideTrackGateSec,isCand=!e.isDirect&&wallGuide.active&&Number.isFinite(wallGuide.candidateTau)&&Number.isFinite(e.tau)&&Math.abs(e.tau-wallGuide.candidateTau)<=cfg.wallGuideCandidateGateSec,col=e.isDirect?'#ffd166':isGuide?'#ff9f43':isCand?'#c792ea':'#4dd39b',sw=e.isDirect?1.6:(isGuide||isCand?1.8:1.15);return`<line x1="${x.toFixed(1)}" y1="1" x2="${x.toFixed(1)}" y2="${H-1}" stroke="${col}" stroke-width="${sw}" opacity=".94"/>`;}).join('');
+    const state=a.reliability==='errore'?'ERRORE':a.calibration?(a.directOnly?'CAL · SOLO D':'CAL · ECO'):a.directOnly?'SOLO DIRETTO':!a.accepted?(a.rirValid?'SCARTATA':'RIR INVALIDA'):a.qualityScore>=.72?'AFFIDABILE':'USABILE';
+    card.innerHTML=`<div class="rirTop"><span><b>RIR #${a.id}</b></span><span class="rirState">${state}</span></div><svg class="rirSvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" stroke="rgba(156,176,200,.25)" stroke-width=".7"/><path d="${dEnv}" fill="none" stroke="#56d9ff" stroke-width=".8" opacity=".6"/>${peaks}<path d="${dSigned}" fill="none" stroke="#eef6ff" stroke-width="1.05" vector-effect="non-scaling-stroke"/></svg><div class="rirMeta"><b>Q ${finiteFmt(100*a.qualityScore,0)}%</b> · refl ${a.reflectionCount||0} · match ${finiteFmt(a.matchSNR)} dB/${finiteFmt(a.matchCoeff,3)} · SNRr ${finiteFmt(a.snr)} dB · E/D ${finiteFmt(a.echoToDirectDB)} dB · d1 ${finiteFmt(a.firstReflectionDistanceM,2)} m · E ${finiteFmt(a.energySNR)} · raw ${finiteFmt(a.rawSNR)} · pk ${finiteFmt(a.rawPeakDBFS)} dBFS · coh ${finiteFmt(a.consistency,2)} · PSF ${a.psfMode||'—'} · SYS ${a.systemResponseCount||0}${a.systemResponseUpdated?'↑':''} · OMP ${finiteFmt(100*(a.ompExplained||0),0)}% · AVG ${a.averageCount||1} · band ${finiteFmt((a.usableBandF0Hz||cfg.f0)/1000,1)}-${finiteFmt((a.usableBandF1Hz||cfg.f1)/1000,1)}k · clip ${finiteFmt(100*(a.clipFrac||0),1)}% · tail ${finiteFmt(1000*(a.postAvailableSec||0),0)} ms · ${finiteFmt(a.processingMs,0)} ms${a.directOnly?' · AVVICINATI A UN MURO':a.accepted?'':` · ${a.reason||'errore'}`}</div>`;
+    ui.rirStrip.appendChild(card);ui.rirShelfSummary.textContent=`${rirHistory.length} RIR · ultima Q ${finiteFmt(100*a.qualityScore,0)}% · refl ${a.reflectionCount||0}`;
+    if(wasAtEnd||rirHistory.length<=3)requestAnimationFrame(()=>{ui.rirStrip.scrollLeft=ui.rirStrip.scrollWidth;});
+  }catch(e){uiErrorCount++;console.error(e);log(`RIR card ${a&&a.id}: ${e.stack||e.message}`,'error');}
+}
+function nearestMappedSurfaceDistance(){
+  const m=latest.model||{},p=(m.path&&m.path.length)?m.path[m.path.length-1]:null;if(!p)return NaN;let best=Infinity;
+  for(const s of m.primary||[]){if(!s.normal||!Number.isFinite(s.offset))continue;const d=Math.abs((s.normal[0]||0)*p[0]+(s.normal[1]||0)*p[1]+(s.normal[2]||0)*p[2]-s.offset);if(Number.isFinite(d))best=Math.min(best,d);}return Number.isFinite(best)?best:NaN;
+}
+
+function setMeasurementHint(title,text,show=true){
+  if(!ui.reflectionHint)return;
+  if(!show){ui.reflectionHint.classList.remove('show');return;}
+  ui.reflectionHint.classList.add('show');
+  const b=ui.reflectionHint.querySelector('b'),sp=ui.reflectionHint.querySelector('span');
+  if(b)b.textContent=title;if(sp)sp.textContent=text;
+}
+function guidanceReflections(a){
+  if(!a||!a.rirValid)return[];
+  const minS=(calibration.profile&&Number.isFinite(calibration.profile.minPeakSNRDB)?calibration.profile.minPeakSNRDB:cfg.minPeakSNRDB)+(cfg.wallGuideMinEventSNRMarginDB||0);
+  const minC=calibration.profile&&Number.isFinite(calibration.profile.minFitCorr)?calibration.profile.minFitCorr:Math.max(.06,cfg.ompPrimaryMinCorrelation*.55);
+  return (a.primary||[]).filter(e=>!e.isDirect&&Number.isFinite(e.tau)&&e.tau>0&&(!Number.isFinite(e.snr)||e.snr>=minS)&&(!Number.isFinite(e.fitCorr)||e.fitCorr>=minC)).sort((x,y)=>(y.importance||0)-(x.importance||0));
+}
+function nearestTauEvent(events,pred,gate){let best=null,bd=Infinity;for(const e of events){const d=Math.abs(e.tau-pred);if(d<=gate&&d<bd){best=e;bd=d;}}return best;}
+function resetGuideCandidate(){wallGuide.candidateTau=NaN;wallGuide.candidateVel=0;wallGuide.candidateSeen=0;wallGuide.candidateMiss=0;}
+function seedGuideCurrent(e){wallGuide.currentTau=e.tau;wallGuide.currentVel=0;wallGuide.currentSeen=1;wallGuide.lostStreak=0;wallGuide.reacquireStreak=0;wallGuide.followCycles=0;}
+function updateGuideTrack(e){const prev=wallGuide.currentTau,err=e.tau-prev;wallGuide.currentVel=.65*wallGuide.currentVel+.35*err;wallGuide.currentTau=.72*prev+.28*e.tau;wallGuide.currentSeen++;wallGuide.lostStreak=0;wallGuide.followCycles++;}
+function updateWallGuidance(a){
+  if(calibration.active||!calibration.done||!wallGuide.active){return false;}
+  wallGuide.lastMeasurementId=a&&a.id||wallGuide.lastMeasurementId;
+  const ev=guidanceReflections(a),lim=calibration.profile&&calibration.profile.maxReliableWallDistanceM;
+  if(wallGuide.phase==='acquire-wall'){
+    if(!ev.length){wallGuide.currentSeen=0;setMeasurementHint('Aggancia la prima parete',Number.isFinite(lim)?`Avvicinati a una parete entro ≈${lim.toFixed(2)} m e mantieni il telefono rivolto verso di essa finché il suo eco resta stabile.`:'Avvicinati a una parete e mantieni il telefono rivolto verso di essa finché il suo eco resta stabile.');return true;}
+    const e=ev[0];
+    if(!Number.isFinite(wallGuide.currentTau)||Math.abs(e.tau-wallGuide.currentTau)>cfg.wallGuideTrackGateSec){seedGuideCurrent(e);}else updateGuideTrack(e);
+    const n=wallGuide.currentSeen,need=cfg.wallGuideAcquireConfirmCycles;
+    setMeasurementHint('Sto agganciando la parete',`Eco principale stabile ${Math.min(n,need)}/${need}. Rimani vicino a questa parete e inizia a seguirla lentamente.`);
+    if(n>=need){wallGuide.wallIndex=1;wallGuide.phase='follow-wall';wallGuide.followCycles=0;resetGuideCandidate();setMeasurementHint('Parete 1 agganciata','Continua a seguire questa parete lentamente. Non lasciarla finché compare anche un secondo picco stabile, separato, attribuibile a un’altra parete.');log('guida: parete 1 agganciata');}
+    return true;
+  }
+  const pred=wallGuide.currentTau+wallGuide.currentVel,current=nearestTauEvent(ev,pred,cfg.wallGuideTrackGateSec);
+  if(wallGuide.phase==='lost-wall'){
+    const reacq=nearestTauEvent(ev,pred,cfg.wallGuideReacquireGateSec);
+    if(reacq){wallGuide.reacquireStreak++;updateGuideTrack(reacq);if(wallGuide.reacquireStreak>=cfg.wallGuideReacquireConfirmCycles){wallGuide.phase='follow-wall';wallGuide.reacquireStreak=0;resetGuideCandidate();setMeasurementHint(`Parete ${wallGuide.wallIndex} ritrovata`,'Bene. Riprendi a seguirla lentamente finché compare un nuovo picco stabile di un’altra parete.');log(`guida: parete ${wallGuide.wallIndex} riacquisita`);}else setMeasurementHint(`Sto ritrovando la parete ${wallGuide.wallIndex}`,`Eco compatibile ${wallGuide.reacquireStreak}/${cfg.wallGuideReacquireConfirmCycles}. Rimani qui un momento.`);}
+    else{wallGuide.reacquireStreak=0;setMeasurementHint(`Hai perso la parete ${wallGuide.wallIndex}`,`TORNA INDIETRO lungo l’ultimo tratto misurato e riavvicinati alla parete ${wallGuide.wallIndex} finché ricompare il suo picco. Non proseguire con la mappa senza questo eco.`);}
+    return true;
+  }
+  if(!current){
+    wallGuide.lostStreak++;resetGuideCandidate();
+    if(wallGuide.lostStreak>=cfg.wallGuideLostConfirmCycles){wallGuide.phase='lost-wall';setMeasurementHint(`Hai perso la parete ${wallGuide.wallIndex}`,`TORNA INDIETRO e rimisura la parete ${wallGuide.wallIndex}. Il suo eco non è più presente da ${wallGuide.lostStreak} chirp, quindi non considero affidabile il tratto successivo.`);log(`guida: parete ${wallGuide.wallIndex} persa`,'warn');}
+    else setMeasurementHint(`Parete ${wallGuide.wallIndex} debole`,`Non vedo bene il picco della parete corrente (${wallGuide.lostStreak}/${cfg.wallGuideLostConfirmCycles}). Rallenta e torna leggermente verso la parete.`);
+    return true;
+  }
+  updateGuideTrack(current);
+  // A new wall must coexist with the current wall and be resolvable as a
+  // genuinely separate PSF-OMP arrival.  This prevents a disappearing current
+  // wall from being silently relabelled as the next one.
+  const others=ev.filter(e=>e!==current&&Math.abs(e.tau-current.tau)>=cfg.wallGuideNewWallMinSeparationSec);
+  let cand=null;
+  if(others.length){
+    if(Number.isFinite(wallGuide.candidateTau))cand=nearestTauEvent(others,wallGuide.candidateTau+wallGuide.candidateVel,cfg.wallGuideCandidateGateSec);
+    if(!cand)cand=others[0];
+  }
+  if(cand){
+    if(!Number.isFinite(wallGuide.candidateTau)||Math.abs(cand.tau-wallGuide.candidateTau)>cfg.wallGuideCandidateGateSec){wallGuide.candidateTau=cand.tau;wallGuide.candidateVel=0;wallGuide.candidateSeen=1;}else{const d=cand.tau-wallGuide.candidateTau;wallGuide.candidateVel=.65*wallGuide.candidateVel+.35*d;wallGuide.candidateTau=.70*wallGuide.candidateTau+.30*cand.tau;wallGuide.candidateSeen++;}
+    wallGuide.candidateMiss=0;const need=cfg.wallGuideNewWallConfirmCycles;
+    setMeasurementHint(`Possibile parete ${wallGuide.wallIndex+1}`,`Vedo un secondo picco indipendente insieme alla parete ${wallGuide.wallIndex}: conferma ${Math.min(wallGuide.candidateSeen,need)}/${need}. Continua nella stessa direzione senza perdere la parete corrente.`);
+    if(wallGuide.candidateSeen>=need){const old=wallGuide.wallIndex,oldTau=wallGuide.currentTau,newTau=wallGuide.candidateTau;wallGuide.transitions.push({from:old,to:old+1,measurementId:a.id,oldTau,newTau});wallGuide.wallIndex++;wallGuide.currentTau=newTau;wallGuide.currentVel=wallGuide.candidateVel;wallGuide.currentSeen=need;wallGuide.lostStreak=0;wallGuide.followCycles=0;resetGuideCandidate();setMeasurementHint(`Parete ${wallGuide.wallIndex} confermata`,`Hai raggiunto una nuova parete. Ora segui la parete ${wallGuide.wallIndex}; mantieni il suo picco visibile finché compare un’altra riflessione indipendente.`);log(`guida: transizione parete ${old} -> ${wallGuide.wallIndex}`);}
+  }else{
+    wallGuide.candidateMiss++;if(wallGuide.candidateMiss>=2)resetGuideCandidate();
+    if(wallGuide.followCycles>=cfg.wallGuideNoNewWallWarnCycles){setMeasurementHint(`Ancora solo parete ${wallGuide.wallIndex}`,`Continua a seguirla. Se sei già arrivato a un bordo/angolo e non compare un secondo picco, TORNA INDIETRO e ripassa questa parete più vicino: non ho ancora abbastanza evidenza per passare alla successiva.`);}
+    else setMeasurementHint(`Segui la parete ${wallGuide.wallIndex}`,`Eco della parete corrente presente. Continua lungo il muro lentamente finché appare anche un secondo picco stabile di un’altra parete.`);
+  }
+  return true;
+}
+function updateReflectionHint(a){
+  if(calibration.active){directOnlyStreak=0;if(ui.reflectionHint)ui.reflectionHint.classList.remove('show');return;}
+  if(updateWallGuidance(a))return;
+  const directOnly=!!(a&&a.directOnly);if(!directOnly){directOnlyStreak=0;if(ui.reflectionHint)ui.reflectionHint.classList.remove('show');return;}
+  directOnlyStreak++;if(!ui.reflectionHint)return;ui.reflectionHint.classList.add('show');ui.reflectionHint.querySelector('b').textContent='Nessuna riflessione leggibile';
+  const lim=calibration.profile&&calibration.profile.maxReliableWallDistanceM,near=nearestMappedSurfaceDistance();
+  if(Number.isFinite(lim)){
+    if(Number.isFinite(near)&&near>lim)ui.reflectionHint.querySelector('span').textContent=`Parete mappata più vicina ≈${near.toFixed(2)} m: oltre ≈${lim.toFixed(2)} m questa configurazione non vede affidabilmente. Avvicinati.`;
+    else ui.reflectionHint.querySelector('span').textContent=`Con la calibrazione corrente oltre ≈${lim.toFixed(2)} m non vedo affidabilmente. Avvicinati a un muro o orienta il telefono verso una superficie riflettente.`;
+  }else ui.reflectionHint.querySelector('span').textContent='Avvicinati a un muro o orienta il telefono verso una superficie riflettente.';
+}
+function showCalibrationPanel(){if(ui.calibrationPanel)ui.calibrationPanel.classList.add('show');}
+function hideCalibrationPanel(){if(ui.calibrationPanel)ui.calibrationPanel.classList.remove('show');}
+function setCalibrationPanel(title,instruction,progress=0){showCalibrationPanel();ui.calibrationTitle.textContent=title;ui.calibrationInstruction.textContent=instruction;ui.calibrationProgress.style.width=`${clampNum(progress,0,1)*100}%`;ui.calibrationPhase.textContent=`fase ${calibration.phase}`;ui.calibrationTemplate.textContent=`PSF ${calibration.directTemplateCount}`;if(calibration.profile&&Number.isFinite(calibration.profile.maxReliableWallDistanceM))ui.calibrationDistance.textContent=`limite ≈${calibration.profile.maxReliableWallDistanceM.toFixed(2)} m`;}
+function beginCalibration(){
+  wallGuide=freshWallGuide();
+  calibration=freshCalibration();calibration.active=true;calibration.phase='seek-no-echo';calibration.startedAt=performance.now();if(audio)audio.mode='calibration';if(worker)worker.postMessage({type:'clearCalibration'});
+  if(ui.calibrationPanel)ui.calibrationPanel.classList.remove('calDone');setCalibrationPanel('Calibrazione 1/2 · impara il diretto','Imposta il volume MEDIA del telefono circa 80-100%, punta lo speaker verso una parete ampia e dura e tieni il telefono fermo. Parti abbastanza lontano: prima misuro 5 sweep lunghi del percorso diretto e la banda realmente utilizzabile dal tuo speaker/microfono.',.08);setStatus('Calibrazione parete','Prima devo misurare il percorso diretto speaker→microfono senza una riflessione dominante.','warn');
+}
+function completeCalibration(){
+  const w=calibration.detectionWindow.slice(-cfg.calibrationDetectConfirmCycles),ds=w.map(x=>x.distance),maxRange=Math.max(...ds),safe=cfg.calibrationRangeSafety*maxRange;
+  const profile={enabled:true,maxReliableWallDistanceM:maxRange,safeWallDistanceM:safe,minReflectionSNRDB:clampNum(medianNum(w.map(x=>x.reflectionSNR))-2.5,3,12),minPeakSNRDB:clampNum(medianNum(w.map(x=>x.eventSNR))-2.0,2.5,10),minFitCorr:clampNum(medianNum(w.map(x=>x.corr))*.70,.07,.20),minEchoToDirectDB:medianNum(w.map(x=>x.echoToDirectDB))-3,levelDBFS:cfg.levelDBFS,f0:cfg.f0,f1:cfg.f1,sweepDurationSec:cfg.sweepDurationSec,sampleRate:cfg.sampleRate,detectionDistancesM:ds.slice(),createdAt:new Date().toISOString()};
+  calibration.profile=profile;calibration.active=false;calibration.done=true;calibration.phase='locked';if(worker)worker.postMessage({type:'setCalibration',profile});if(audio)audio.mode='measure';
+  wallGuide=freshWallGuide();wallGuide.active=true;wallGuide.phase='acquire-wall';
+  if(ui.calibrationPanel)ui.calibrationPanel.classList.add('calDone');setCalibrationPanel('Calibrazione completata',`Prima riflessione stabile rilevata a ≈${maxRange.toFixed(2)} m. Zona consigliata ≤${safe.toFixed(2)} m. Oltre ≈${maxRange.toFixed(2)} m l'assenza di eco NON significa spazio libero: questa catena speaker/microfono non vede affidabilmente.`,1);setStatus('Calibrazione OK',`Oltre ≈${maxRange.toFixed(2)} m non vedo affidabilmente. Ora avvicinati alla prima parete e agganciala.`, 'ok');log(`calibrazione: range ${maxRange.toFixed(2)} m, safe ${safe.toFixed(2)} m, SNR gate ${profile.minReflectionSNRDB.toFixed(1)} dB, corr ${profile.minFitCorr.toFixed(3)}`);
+  setTimeout(()=>{if(calibration.done&&!calibration.active)hideCalibrationPanel();},6500);
+}
+function handleCalibrationAnalysis(a,directTemplateCount=0){
+  a.calibration=true;calibration.cycles++;calibration.directTemplateCount=directTemplateCount||calibration.directTemplateCount;addRIRCard(a);addRawCard(a);latest.analysis=a;updateHUD();ui.calibrationTemplate.textContent=`PSF ${calibration.directTemplateCount}`;
+  if(!a.rirValid||!a.directFound){setCalibrationPanel('Calibrazione · RIR non valida','Tieni il telefono fermo e rivolto verso la parete; devo prima localizzare bene il diretto.',.08);return;}
+  if(calibration.phase==='seek-no-echo'){
+    if(Number.isFinite(a.rawSNR)&&a.rawSNR<10){calibration.noEchoCount=0;setCalibrationPanel('Calibrazione · emissione troppo debole',`Raw SNR ${a.rawSNR.toFixed(1)} dB. Alza il volume MEDIA del telefono e mantienilo fermo; con questo livello non posso ottenere una RIR pulita.`,.08);return;}
+    const directDominated=a.directOnly||(a.reflectionCount<=1&&Number.isFinite(a.echoToDirectDB)&&a.echoToDirectDB<-28&&a.snr<(cfg.minSNRDB+1));if(directDominated){calibration.noEchoCount++;const q=clampNum(calibration.noEchoCount/cfg.calibrationNoEchoConfirmCycles,0,1);setCalibrationPanel('Calibrazione 1/2 · diretto isolato',`Bene: ${calibration.noEchoCount}/${cfg.calibrationNoEchoConfirmCycles} misure con solo diretto. Rimani ancora un momento fermo.`,.15+.25*q);if(calibration.noEchoCount>=cfg.calibrationNoEchoConfirmCycles&&calibration.directTemplateCount>=1){calibration.phase='approach';calibration.detectionWindow=[];setCalibrationPanel('Calibrazione 2/2 · avvicinati','Ora avvicinati LENTAMENTE alla stessa parete, mantenendo orientamento e altezza. Mi fermo appena la stessa riflessione diventa leggibile per più chirp.',.45);}}
+    else{calibration.noEchoCount=0;setCalibrationPanel('Calibrazione 1/2 · sei ancora troppo vicino','Vedo già una riflessione. Allontanati dalla parete finché nelle RIR rimane soltanto il diretto; così imparo la distorsione/coupling speaker→microfono.',.10);}return;
+  }
+  if(calibration.phase==='approach'){
+    if(a.reflectionCount<1||!Number.isFinite(a.firstReflectionDistanceM)){calibration.detectionWindow=[];setCalibrationPanel('Calibrazione 2/2 · avvicinati',`Ancora solo diretto. Continua ad avvicinarti lentamente.${calibration.cycles>18?' Se sei già molto vicino e non compare nulla, prova una parete più dura o aumenta leggermente il livello di emissione.':''}`,.48);return;}
+    const sample={distance:a.firstReflectionDistanceM,reflectionSNR:a.snr,eventSNR:a.bestReflectionEventSNR,corr:a.bestReflectionFitCorr,echoToDirectDB:a.echoToDirectDB};if(sample.distance<.06||sample.distance>cfg.calibrationMaxDistanceM){calibration.detectionWindow=[];return;}
+    calibration.detectionWindow.push(sample);if(calibration.detectionWindow.length>cfg.calibrationDetectConfirmCycles)calibration.detectionWindow.shift();const n=calibration.detectionWindow.length;ui.calibrationDistance.textContent=`eco ≈${sample.distance.toFixed(2)} m`;ui.calibrationSNR.textContent=`SNR ${finiteFmt(sample.reflectionSNR)} dB · E/D ${finiteFmt(sample.echoToDirectDB)} dB`;setCalibrationPanel('Calibrazione 2/2 · eco trovato',`Riflessione candidata a ≈${sample.distance.toFixed(2)} m. Conferma ${n}/${cfg.calibrationDetectConfirmCycles}: continua ad avvicinarti lentamente.`,.50+.45*n/cfg.calibrationDetectConfirmCycles);
+    if(n>=cfg.calibrationDetectConfirmCycles){const ds=calibration.detectionWindow.map(x=>x.distance),monotonic=ds.every((d,i)=>i===0||d<=ds[i-1]+.18),smooth=Math.max(...ds)-Math.min(...ds)<1.2,goodCorr=medianNum(calibration.detectionWindow.map(x=>x.corr))>=.07;if(monotonic&&smooth&&goodCorr)completeCalibration();else calibration.detectionWindow.shift();}
+  }
+  if(calibration.cycles>cfg.calibrationMaxCycles&&calibration.active)setCalibrationPanel('Calibrazione non conclusa','Non riesco a trovare una transizione pulita solo-diretto → riflessione. Usa una parete ampia/dura, riduci rumore e riprova; se il diretto è pulito ma l’eco non compare, aumenta il livello di emissione con cautela.',.5);
+}
+function resetRIRStrip(){directOnlyStreak=0;if(ui.rawStrip)ui.rawStrip.textContent='';if(ui.rawShelfSummary)ui.rawShelfSummary.textContent=cfg&&cfg.debugRaw?'nessuna misura':'debug off';wallGuide=freshWallGuide();if(ui.reflectionHint)ui.reflectionHint.classList.remove('show');rirHistory=[];if(ui.rirStrip)ui.rirStrip.textContent='';if(ui.rirShelfSummary)ui.rirShelfSummary.textContent='nessuna misura';}
+function addAcquisitionFailureCard(id,reason){const a={id,accepted:false,rirValid:false,reliability:'errore',qualityScore:0,snr:-Infinity,energySNR:-Infinity,rawSNR:-Infinity,matchSNR:-Infinity,matchCoeff:0,consistency:0,clipFrac:0,longestClipMs:0,reflectionCount:0,directOnly:false,postAvailableSec:0,reason,primary:[],rirPreviewSigned:[],rirPreviewEnv:[],rirDurationSec:cfg.maxRirSec||.26,directLocalSec:0};cycleLogs.push({id,accepted:false,reason,acquisitionError:true});addRIRCard(a);updateReflectionHint(null);setStatus(`Chirp ${id} non acquisito`,reason,'warn');}
+function updateHUD(){const m=latest.model||{},a=latest.analysis;ui.hud1.textContent=`chirp ${(a&&a.id)||0} · pose ${latest.keyframes} · mode ${calibration.active?'CAL':(m.mode||'—')}`;ui.hud2.textContent=`superfici ${(m.primary||[]).length} · dettaglio ${(m.detail||[]).length} · L ${finiteFmt(m.baselineM,2)} m`;ui.hud3.textContent=`SNR refl ${a?finiteFmt(a.snr):'—'} dB · refl ${a?(a.reflectionCount||0):0} · rank ${m.rank||0}`;ui.hud4.textContent=calibration.profile&&Number.isFinite(calibration.profile.maxReliableWallDistanceM)?`vedo ≤≈${calibration.profile.maxReliableWallDistanceM.toFixed(2)} m · SYS ${a&&a.systemResponseCount||calibration.directTemplateCount||0} · guida P${wallGuide.wallIndex||0} ${wallGuide.phase}`:(calibration.active?'calibrazione in corso':'range non calibrato');ui.metrics.innerHTML=`<span>accettati <b>${latest.accepted||0}</b></span><span>rifiutati <b>${latest.rejected||0}</b></span><span>track <b>${latest.tracks||0}</b></span><span>rank <b>${m.rank||0}</b></span><span>range <b>${calibration.profile?finiteFmt(calibration.profile.maxReliableWallDistanceM,2)+' m':'—'}</b></span><span>parete guida <b>${wallGuide.wallIndex||0}</b></span><span>RMSE <b>${Number.isFinite(m.rmse)?(100*m.rmse).toFixed(1)+' cm':'—'}</b></span>`;}
+function handleWorker(m){
+  if(m.type==='log'){log(m.message,m.level);return;}
+  if(m.type==='calibrationResult'){handleCalibrationAnalysis(m.analysis,m.directTemplateCount);return;}
+  if(m.type==='calibrationAck'){calibration.profile=m.profile||calibration.profile;calibration.directTemplateCount=m.directTemplateCount||calibration.directTemplateCount;const st=m.profile&&m.profile.directStability;log(`template diretto calibrato: ${m.directTemplateReady?'OK':'fallback software'} (${calibration.directTemplateCount} frame), banda ${m.profile&&Number.isFinite(m.profile.usableF0Hz)?(m.profile.usableF0Hz/1000).toFixed(1):'?'}-${m.profile&&Number.isFinite(m.profile.usableF1Hz)?(m.profile.usableF1Hz/1000).toFixed(1):'?'} kHz, stabilita ${Number.isFinite(st)?st.toFixed(3):'?'}`);if(Number.isFinite(st)&&st<.88){log('Percorso diretto instabile a telefono fermo: possibile DSP/AGC/AEC o clock audio instabile. Le RIR non sono affidabili.','error');setStatus('Front-end audio instabile','Il diretto cambia tra sweep: verifica AEC/AGC/NS e tieni il telefono fermo.','bad');}updateHUD();return;}
+  if(m.type==='debugRawAck'){log(`debug raw ${m.enabled?'ON':'OFF'}`);return;}
+  if(m.type==='selftest'){workerSelfTest=m;log(`self-test Worker ${m.ok?'PASS':'FAIL'}${m.error?': '+m.error:''}`,m.ok?'info':'error');evaluateBrowserSelfTest();return;}
+  if(m.type==='result'||m.type==='model'){
+    latest.model=m.model||latest.model;latest.accepted=m.accepted??latest.accepted;latest.rejected=m.rejected??latest.rejected;latest.keyframes=m.keyframes??latest.keyframes;latest.tracks=m.trackCount??latest.tracks;
+    if(m.analysis){latest.analysis=m.analysis;selfTestResults++;updateReflectionHint(m.analysis);cycleLogs.push({id:m.analysis.id,accepted:m.analysis.accepted,rirValid:m.analysis.rirValid,qualityScore:m.analysis.qualityScore,reflections:m.analysis.reflectionCount,directOnly:!!m.analysis.directOnly,matchSNR:m.analysis.matchSNR,matchCoeff:m.analysis.matchCoeff,reflectionSNR:m.analysis.snr,psfMode:m.analysis.psfMode,ompExplained:m.analysis.ompExplained,ompResidualRatio:m.analysis.ompResidualRatio,energySNR:m.analysis.energySNR,rawSNR:m.analysis.rawSNR,consistency:m.analysis.consistency,clipFrac:m.analysis.clipFrac,echoToDirectDB:m.analysis.echoToDirectDB,firstReflectionDistanceM:m.analysis.firstReflectionDistanceM,calibrationRangeM:m.analysis.calibrationRangeM,reason:m.analysis.reason,keyframes:m.keyframes,tracks:m.trackCount,surfaces:(m.model.primary||[]).length,rank:m.model.rank,rmse:m.model.rmse,baselineM:m.model.baselineM,processingMs:m.analysis.processingMs,guidanceWall:wallGuide.wallIndex,guidancePhase:wallGuide.phase,guidanceCandidateSeen:wallGuide.candidateSeen});addRIRCard(m.analysis);addRawCard(m.analysis);}
+    renderer.setModel(latest.model);updateHUD();ui.detail.disabled=false;ui.export.disabled=false;const a=latest.analysis;if(a){if(wallGuide.active&&calibration.done){if(wallGuide.phase==='lost-wall')setStatus(`Torna alla parete ${wallGuide.wallIndex}`,'Ho perso il picco della parete corrente: torna indietro finché ricompare.','warn');else if(wallGuide.phase==='follow-wall')setStatus(`Segui parete ${wallGuide.wallIndex}`,`Mantieni il suo eco e cerca il picco della parete ${wallGuide.wallIndex+1}.`,a.accepted?'ok':'warn');else setStatus('Aggancia una parete','Avvicinati e mantieni un eco stabile prima di proseguire.','warn');}else if(a.directOnly){const lim=calibration.profile&&calibration.profile.maxReliableWallDistanceM;setStatus('Solo diretto rilevato',Number.isFinite(lim)?`Oltre ≈${lim.toFixed(2)} m non vedo affidabilmente: avvicinati a un muro.`:'Avvicinati a un muro o orienta il telefono verso una superficie riflettente.','warn');}else setStatus(a.accepted?`Chirp ${a.id} accettato`:`Chirp ${a.id} scartato`,a.accepted?`RIR Q ${finiteFmt(100*a.qualityScore,0)}% · ${a.reflectionCount||0} riflessioni · SNR ${finiteFmt(a.snr)} dB`:a.reason,a.accepted?'ok':'warn');}if(m.detailAuto)log('raffinamento dettaglio globale eseguito');evaluateBrowserSelfTest();
+  }
+}
+
+function makeChirp(fs){const n=Math.round(cfg.sweepDurationSec*fs),x=new Float32Array(n),f0=Math.max(100,cfg.f0),f1=Math.min(cfg.f1,.44*fs),L=Math.log(f1/f0),gain=10**(cfg.levelDBFS/20),fade=Math.max(4,Math.round(.015*fs));for(let i=0;i<n;i++){const t=i/fs,ph=2*Math.PI*f0*cfg.sweepDurationSec/L*(Math.exp(L*t/cfg.sweepDurationSec)-1),q=i<fade?.5-.5*Math.cos(Math.PI*i/fade):i>=n-fade?.5-.5*Math.cos(Math.PI*(n-1-i)/fade):1;x[i]=gain*q*Math.sin(ph);}return x;}
+class AudioEngine{
+ constructor(){this.ctx=null;this.stream=null;this.worklet=null;this.timer=null;this.nextTime=0;this.id=0;this.sources=[];this.running=false;this.chunks=[];this.schedules=[];this.captureSamples=0;this.srcNode=null;this.mode='measure';}
+ async start(){
+  if(!window.isSecureContext)throw new Error('Microfono non disponibile: apri la pagina via HTTPS o localhost.');
+  const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw new Error('Web Audio API non disponibile.');this.ctx=new AC({latencyHint:'playback'});await this.ctx.resume();cfg.sampleRate=this.ctx.sampleRate;
+  const supported=navigator.mediaDevices.getSupportedConstraints?navigator.mediaDevices.getSupportedConstraints():{},ac={channelCount:{ideal:1},latency:{ideal:0}};if(cfg.micDeviceId)ac.deviceId={exact:cfg.micDeviceId};if(supported.echoCancellation)ac.echoCancellation=false;if(supported.noiseSuppression)ac.noiseSuppression=false;if(supported.autoGainControl)ac.autoGainControl=false;if(supported.sampleRate)ac.sampleRate={ideal:this.ctx.sampleRate};
+  this.stream=await navigator.mediaDevices.getUserMedia({audio:ac});const track=this.stream.getAudioTracks()[0];try{track.contentHint='music';}catch{}try{await track.applyConstraints({echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:{ideal:1}});}catch(e){log(`vincoli audio non completamente applicabili: ${e.message}`,'warn');}
+  const settings=track.getSettings?track.getSettings():{};cfg.selectedMicrophoneLabel=track.label||'default';cfg.inputSettings={echoCancellation:settings.echoCancellation,noiseSuppression:settings.noiseSuppression,autoGainControl:settings.autoGainControl,sampleRate:settings.sampleRate,channelCount:settings.channelCount,latency:settings.latency};log(`microfono ${track.label||'default'} · AudioContext ${this.ctx.sampleRate} Hz · settings ${JSON.stringify(cfg.inputSettings)}`);if(settings.echoCancellation===true)log('AEC ancora attiva: la qualità RIR verrà penalizzata, non nascosta.','warn');try{await refreshMicrophones(false,settings.deviceId||cfg.micDeviceId);}catch(e){log(`enumerazione microfoni: ${e.message}`,'warn');}
+  const workletCode=$('capture-worklet').textContent,wurl=URL.createObjectURL(new Blob([workletCode],{type:'text/javascript'}));await this.ctx.audioWorklet.addModule(wurl);URL.revokeObjectURL(wurl);this.worklet=new AudioWorkletNode(this.ctx,'ki-capture',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[1]});this.srcNode=this.ctx.createMediaStreamSource(this.stream);const zero=this.ctx.createGain();zero.gain.value=0;this.srcNode.connect(this.worklet).connect(zero).connect(this.ctx.destination);this.worklet.port.onmessage=e=>this.onChunk(e.data.frame,e.data.data);
+  this.chirp=makeChirp(this.ctx.sampleRate);const chirpSend=this.chirp.slice();worker.postMessage({type:'init',sampleRate:this.ctx.sampleRate,chirp:chirpSend,cfg},[chirpSend.buffer]);this.captureSamples=Math.round(cfg.captureWindowSec*this.ctx.sampleRate);if(cfg.effectiveCyclePeriodSec>cfg.cyclePeriodSec+1e-6)log(`periodo aumentato automaticamente a ${cfg.effectiveCyclePeriodSec.toFixed(2)} s per evitare sovrapposizione sweep/RIR`,'warn');this.running=true;this.nextTime=this.ctx.currentTime+.75;this.timer=setInterval(()=>this.scheduleAhead(),60);this.scheduleAhead();await requestWakeLock();
+ }
+ scheduleAhead(){if(!this.running)return;while(this.nextTime<this.ctx.currentTime+1.4&&this.id<cfg.maxCycles){this.id++;const cycleN=Math.round(cfg.effectiveCyclePeriodSec*this.ctx.sampleRate),cycle=new Float32Array(cycleN),off=Math.round(cfg.preSilenceSec*this.ctx.sampleRate);if(off+this.chirp.length>cycle.length){log('chirp+pre-silence più lungo del periodo','error');this.stop();return;}cycle.set(this.chirp,off);const b=this.ctx.createBuffer(1,cycle.length,this.ctx.sampleRate);b.copyToChannel(cycle,0);const src=this.ctx.createBufferSource();src.buffer=b;src.connect(this.ctx.destination);src.start(this.nextTime);this.sources.push(src);const startFrame=Math.round(this.nextTime*this.ctx.sampleRate);this.schedules.push({id:this.id,startFrame,endFrame:startFrame+this.captureSamples,mode:this.mode,calibrationPhase:calibration.phase});this.nextTime+=cfg.effectiveCyclePeriodSec;}this.tryFrames();if(this.id>=cfg.maxCycles&&this.schedules.length===0)this.stop();}
+ onChunk(frame,data){this.chunks.push({frame,data:new Float32Array(data)});if(this.chunks.length>600)this.chunks.shift();this.tryFrames();}
+ extract(start,end){const y=new Float32Array(end-start);let copied=0;for(const ch of this.chunks){const a=Math.max(start,ch.frame),b=Math.min(end,ch.frame+ch.data.length);if(b>a){y.set(ch.data.subarray(a-ch.frame,b-ch.frame),a-start);copied+=b-a;}}return copied>=.985*y.length?y:null;}
+ tryFrames(){if(!this.chunks.length)return;const last=this.chunks[this.chunks.length-1],endAvail=last.frame+last.data.length;while(this.schedules.length&&endAvail>=this.schedules[0].endFrame){const q=this.schedules.shift(),raw=this.extract(q.startFrame,q.endFrame);if(raw)worker.postMessage({type:'cycle',id:q.id,mode:q.mode||this.mode,calibrationPhase:q.calibrationPhase||calibration.phase,raw:raw.buffer},[raw.buffer]);else{const why=`capture incompleta ${q.endFrame-q.startFrame} samples`;log(`ciclo ${q.id}: ${why}`,'warn');addAcquisitionFailureCard(q.id,why);}const oldest=this.schedules.length?this.schedules[0].startFrame:endAvail-this.captureSamples*2;this.chunks=this.chunks.filter(x=>x.frame+x.data.length>=oldest);}}
+ async stop(){this.running=false;if(this.timer)clearInterval(this.timer);for(const s of this.sources)try{s.stop();}catch{}this.sources=[];if(this.worklet)try{this.worklet.disconnect();}catch{}if(this.srcNode)try{this.srcNode.disconnect();}catch{}if(this.stream)for(const t of this.stream.getTracks())t.stop();if(this.ctx)try{await this.ctx.close();}catch{}releaseWakeLock();}
+}
+class DemoEngine{
+ constructor(fast=false){this.running=false;this.id=0;this.timer=null;this.fs=48000;this.fast=fast;this.seed=42;this.mode='calibration';this.calApproachIndex=0;}
+ rnd(){this.seed=(1664525*this.seed+1013904223)>>>0;return this.seed/4294967296;}
+ start(){cfg.sampleRate=this.fs;cfg.inputSettings={echoCancellation:false,noiseSuppression:false,autoGainControl:false};const ch=makeChirp(this.fs),send=ch.slice();worker.postMessage({type:'init',sampleRate:this.fs,chirp:send,cfg},[send.buffer]);this.running=true;this.timer=setInterval(()=>this.step(),this.fast?35:220);this.step();}
+ stop(){this.running=false;if(this.timer)clearInterval(this.timer);}
+ step(){if(!this.running||this.id>=Math.min(cfg.maxCycles,this.fast?24:140)){this.stop();evaluateBrowserSelfTest();return;}this.id++;const N=Math.round(cfg.captureWindowSec*this.fs),raw=new Float32Array(N),ch=makeChirp(this.fs),lat=cfg.preSilenceSec+.085;
+   if(this.mode==='calibration'){
+     const imp=[{d:lat,a:1}];if(calibration.phase==='approach'){const ds=[2.35,2.12,1.92,1.75],dist=ds[Math.min(this.calApproachIndex++,ds.length-1)],tau=2*dist/SOUND_SPEED;imp.push({d:lat+tau,a:.21});}
+     for(const h of imp){const off=Math.round(h.d*this.fs);for(let i=0;i<ch.length&&off+i<N;i++)raw[off+i]+=h.a*ch[i];}for(let i=0;i<N;i++)raw[i]+=.0008*(2*this.rnd()-1);worker.postMessage({type:'cycle',id:this.id,mode:'calibration',calibrationPhase:calibration.phase,raw:raw.buffer},[raw.buffer]);return;
+   }
+   const t=(this.id-1)/35*2*Math.PI,p=[1.35*Math.cos(t),1.0*Math.sin(t),.42*Math.sin(.63*t)],planes=[[[1,0,0],3.1],[[-1,0,0],3.0],[[0,1,0],2.6],[[0,-1,0],2.7],[[0,0,1],1.8],[[0,0,-1],1.5]],imp=[{d:lat,a:1}];for(let k=0;k<planes.length;k++){if(this.rnd()<.10)continue;const n=planes[k][0],d=planes[k][1],dist=Math.abs(n[0]*p[0]+n[1]*p[1]+n[2]*p[2]-d),tau=2*dist/SOUND_SPEED;imp.push({d:lat+tau,a:(k%2?-1:1)*(.28-.018*k)/(1+.10*dist)});}if(this.rnd()<.65)imp.push({d:lat+.055+.06*this.rnd(),a:.022*(this.rnd()<.5?-1:1)});for(const h of imp){const off=Math.round(h.d*this.fs);for(let i=0;i<ch.length&&off+i<N;i++)raw[off+i]+=h.a*ch[i];}const noise=(this.id%29===0)?.025:.0025;for(let i=0;i<N;i++)raw[i]+=noise*(2*this.rnd()-1);worker.postMessage({type:'cycle',id:this.id,mode:'measure',raw:raw.buffer},[raw.buffer]);}
+}
+class Renderer{constructor(canvas){this.c=canvas;this.ctx=canvas.getContext('2d');this.model={path:[[0,0,0]],primary:[],detail:[]};this.yaw=-.65;this.pitch=.48;this.zoom=1;this.drag=null;this.resize();addEventListener('resize',()=>this.resize());canvas.addEventListener('pointerdown',e=>{this.drag=[e.clientX,e.clientY];canvas.setPointerCapture(e.pointerId)});canvas.addEventListener('pointermove',e=>{if(!this.drag)return;this.yaw+=(e.clientX-this.drag[0])*.008;this.pitch=Math.max(-1.25,Math.min(1.25,this.pitch+(e.clientY-this.drag[1])*.008));this.drag=[e.clientX,e.clientY];this.draw();});canvas.addEventListener('pointerup',()=>this.drag=null);canvas.addEventListener('wheel',e=>{e.preventDefault();this.zoom*=Math.exp(-e.deltaY*.001);this.zoom=Math.max(.25,Math.min(6,this.zoom));this.draw()},{passive:false});}
+ resize(){const r=this.c.getBoundingClientRect(),d=devicePixelRatio||1;this.c.width=Math.max(1,Math.round(r.width*d));this.c.height=Math.max(1,Math.round(r.height*d));this.ctx.setTransform(d,0,0,d,0,0);this.w=r.width;this.h=r.height;this.draw();}
+ setModel(m){this.model=m||this.model;this.draw();}
+ project(p,ctr,scale){let x=p[0]-ctr[0],y=p[1]-ctr[1],z=p[2]-ctr[2];const cy=Math.cos(this.yaw),sy=Math.sin(this.yaw),cp=Math.cos(this.pitch),sp=Math.sin(this.pitch),x1=cy*x-sy*y,y1=sy*x+cy*y,z1=z,y2=cp*y1-sp*z1,z2=sp*y1+cp*z1;return[this.w/2+scale*x1,this.h/2-scale*y2,z2];}
+ draw(){if(!this.ctx)return;const g=this.ctx;g.clearRect(0,0,this.w,this.h);const pts=[];for(const p of this.model.path||[])pts.push(p);for(const s of [...(this.model.primary||[]),...(this.model.detail||[])])for(const p of s.vertices||[])pts.push(p);if(!pts.length)pts.push([0,0,0]);const ctr=[0,1,2].map(k=>pts.reduce((s,p)=>s+(p[k]||0),0)/pts.length),span=Math.max(1,...pts.flatMap(p=>p.map((v,k)=>Math.abs(v-ctr[k])))),scale=.36*Math.min(this.w,this.h)/span*this.zoom;const grid=6;g.strokeStyle='rgba(130,165,204,.13)';g.lineWidth=1;for(let i=-grid;i<=grid;i++)for(const a of [[[i,-grid,0],[i,grid,0]],[[-grid,i,0],[grid,i,0]]]){const p=this.project(a[0],ctr,scale),q=this.project(a[1],ctr,scale);g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(q[0],q[1]);g.stroke();}const surfaces=[...(this.model.detail||[]).map(x=>({...x,_detail:true})),...(this.model.primary||[]).map(x=>({...x,_detail:false}))];surfaces.sort((a,b)=>{const za=a.vertices.reduce((s,p)=>s+this.project(p,ctr,scale)[2],0)/a.vertices.length,zb=b.vertices.reduce((s,p)=>s+this.project(p,ctr,scale)[2],0)/b.vertices.length;return za-zb;});for(const s of surfaces){if(!s.vertices||s.vertices.length<3)continue;const q=s.vertices.map(p=>this.project(p,ctr,scale));g.beginPath();g.moveTo(q[0][0],q[0][1]);for(let i=1;i<q.length;i++)g.lineTo(q[i][0],q[i][1]);g.closePath();g.fillStyle=s._detail?'rgba(157,140,255,.13)':'rgba(101,169,255,.24)';g.strokeStyle=s._detail?'rgba(174,162,255,.60)':'rgba(112,188,255,.95)';g.lineWidth=s._detail?1:2;g.setLineDash(s._detail?[6,5]:[]);g.fill();g.stroke();g.setLineDash([]);}const path=this.model.path||[];if(path.length){const q=path.map(p=>this.project(p,ctr,scale));g.beginPath();g.moveTo(q[0][0],q[0][1]);for(let i=1;i<q.length;i++)g.lineTo(q[i][0],q[i][1]);g.strokeStyle='#f7f7ff';g.lineWidth=2.4;g.stroke();for(let i=0;i<q.length;i++){g.beginPath();g.arc(q[i][0],q[i][1],i===q.length-1?5:2.6,0,2*Math.PI);g.fillStyle=i===q.length-1?'#4dd39b':'#fff';g.fill();}}if((this.model.primary||[]).length===0){g.fillStyle='rgba(238,246,255,.72)';g.font='600 15px system-ui';g.textAlign='center';g.fillText('In attesa di superfici first-order persistenti',this.w/2,this.h/2);g.font='12px system-ui';g.fillStyle='rgba(156,176,200,.8)';g.fillText('La RIR viene prima stimata; il grafo decide poi direct / first-order / clutter.',this.w/2,this.h/2+24);}}
+}
+async function refreshMicrophones(requestPermission=false,preferred=''){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.enumerateDevices)throw new Error('enumerateDevices non disponibile');
+  let tmp=null;if(requestPermission){tmp=await navigator.mediaDevices.getUserMedia({audio:true});}
+  try{const dev=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='audioinput'),old=preferred||(ui.micSelect&&ui.micSelect.value)||'';if(!ui.micSelect)return;ui.micSelect.textContent='';const def=document.createElement('option');def.value='';def.textContent='Predefinito';ui.micSelect.appendChild(def);for(let i=0;i<dev.length;i++){const o=document.createElement('option');o.value=dev[i].deviceId||'';o.textContent=dev[i].label||`Microfono ${i+1}`;if(!o.value&&i>0)continue;ui.micSelect.appendChild(o);}if(old&&Array.from(ui.micSelect.options).some(o=>o.value===old))ui.micSelect.value=old;log(`microfoni disponibili: ${dev.length}`);}finally{if(tmp)for(const t of tmp.getTracks())t.stop();}
+}
+async function requestWakeLock(){try{if('wakeLock'in navigator)wakeLock=await navigator.wakeLock.request('screen');}catch(e){log(`wake lock: ${e.message}`,'warn');}}
+async function releaseWakeLock(){try{if(wakeLock)await wakeLock.release();}catch{}wakeLock=null;}
+document.addEventListener('visibilitychange',async()=>{if(document.visibilityState==='visible'&&audio&&audio.running)await requestWakeLock();else if(document.visibilityState!=='visible'&&audio&&audio.running){setStatus('Misura sospesa','Riporta la pagina in primo piano.','warn');await audio.stop();ui.start.disabled=false;ui.stop.disabled=true;}});
+function isMicPermissionError(e){const n=(e&&e.name)||'',m=(e&&e.message)||'';return n==='NotAllowedError'||n==='PermissionDeniedError'||n==='SecurityError'||/permission|permesso|denied|not allowed/i.test(m);}
+function showPermissionGate(e){const detail=e&&e.message?` Dettaglio: ${e.message}`:'';ui.permissionText.textContent=`L'avvio non ha ottenuto il permesso per il microfono.${detail}`;ui.permissionGate.classList.add('show');ui.permissionRetry.disabled=false;}
+function hidePermissionGate(){ui.permissionGate.classList.remove('show');}
+async function cleanupFailedAudio(){if(audio){try{await audio.stop();}catch{}audio=null;}ui.stop.disabled=true;}
+async function startLive(opts={}){const retry=!!opts.retry;try{hidePermissionGate();cfg=readCfg();syncDebugUI();if(!retry){cycleLogs=[];resetRIRStrip();latest={model:{path:[[0,0,0]],primary:[],detail:[]},accepted:0,rejected:0,keyframes:0,tracks:0,analysis:null};}if(audio)await cleanupFailedAudio();makeWorker();wallGuide=freshWallGuide();calibration=freshCalibration();calibration.active=true;calibration.phase='seek-no-echo';calibration.startedAt=performance.now();audio=new AudioEngine();audio.mode='calibration';ui.start.disabled=true;ui.demo.disabled=true;ui.stop.disabled=false;ui.calibrate.disabled=false;setStatus('Richiesta microfono','Concedi il permesso al microfono; subito dopo parte la calibrazione parete.');await audio.start();hidePermissionGate();if(ui.calibrationPanel)ui.calibrationPanel.classList.remove('calDone');setCalibrationPanel('Calibrazione 1/2 · impara il diretto','Punta il telefono verso una parete ampia e dura. Parti abbastanza lontano; se vedo già un eco, allontanati finché resta soltanto il diretto.',.08);setStatus('Calibrazione parete','Prima isolo il percorso diretto speaker→microfono, poi ti chiedo di avvicinarti.','warn');log('misura live avviata in modalità calibrazione');}catch(e){await cleanupFailedAudio();log(e.stack||e.message,'error');ui.start.disabled=false;ui.demo.disabled=false;ui.stop.disabled=true;ui.calibrate.disabled=true;if(isMicPermissionError(e)){setStatus('Permesso microfono necessario','Premi “Richiedi microfono” e autorizza.','warn');showPermissionGate(e);}else{hidePermissionGate();setStatus('Avvio fallito',e.message,'bad');}}}
+function startDemo(fast=false){cfg=readCfg();if(fast){cfg.sweepDurationSec=.25;cfg.preSilenceSec=.07;cfg.maxLatencySearchSec=.25;cfg.maxRirSec=.20;cfg.interSweepGuardSec=.08;cfg.minPostChirpRecordSec=2*cfg.sweepDurationSec;cfg.captureEndGuardSec=.08;cfg.captureWindowSec=cfg.preSilenceSec+cfg.maxLatencySearchSec+cfg.directSearchPaddingSec+cfg.sweepDurationSec+cfg.minPostChirpRecordSec+cfg.captureEndGuardSec;cfg.effectiveCyclePeriodSec=cfg.captureWindowSec+cfg.interSweepGuardSec;cfg.maxCycles=24;cfg.detailEvery=0;cfg.stationaryNoise=.05;cfg.motionThreshold=.13;cfg.motionCusumDecay=.015;cfg.motionCusumThreshold=.20;cfg.motionConfirmCycles=1;cfg.fuseMinSupport=.25;cfg.trackGateSec=.0018;cfg.primaryAddScore=.46;cfg.primaryDropScore=.34;}cycleLogs=[];resetRIRStrip();latest={model:{path:[[0,0,0]],primary:[],detail:[]},accepted:0,rejected:0,keyframes:0,tracks:0,analysis:null};makeWorker();wallGuide=freshWallGuide();calibration=freshCalibration();calibration.active=true;calibration.phase='seek-no-echo';audio=new DemoEngine(fast);audio.mode='calibration';ui.start.disabled=true;ui.demo.disabled=true;ui.stop.disabled=false;ui.calibrate.disabled=false;audio.start();setCalibrationPanel('Demo calibrazione 1/2','Il demo simula prima solo il diretto e poi l’avvicinamento a una parete.',.08);setStatus('Demo · calibrazione','Stesso Worker ESS/Ki/grafo usato dal live.','warn');}
+async function stopAll(){if(audio)await audio.stop();audio=null;ui.start.disabled=false;ui.demo.disabled=false;ui.stop.disabled=true;ui.calibrate.disabled=true;hideCalibrationPanel();setMeasurementHint('','',false);setStatus('Fermato','Puoi raffinare o esportare.');if(worker)worker.postMessage({type:'postprocess'});}
+function exportSession(){const data={build:BUILD,date:new Date().toISOString(),config:cfg,calibration:calibration.profile,wallGuidance:wallGuide,logs:cycleLogs,rirHistory,textLog:logs,model:latest.model,selfTest:workerSelfTest,systemResponse:{count:(latest.analysis&&latest.analysis.systemResponseCount)||calibration.directTemplateCount||0,stability:latest.analysis&&latest.analysis.systemResponseStability},selectedMicrophone:cfg.selectedMicrophoneLabel||''};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`KiSonar_${new Date().toISOString().replace(/[:.]/g,'-')}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);}
+function pathSpan(path){if(!path||path.length<2)return 0;let s=0;for(let k=0;k<3;k++){let lo=Infinity,hi=-Infinity;for(const p of path){lo=Math.min(lo,p[k]);hi=Math.max(hi,p[k]);}s=Math.max(s,hi-lo);}return s;}
+function evaluateBrowserSelfTest(){if(!querySelfTest)return;const cards=ui.rirStrip?ui.rirStrip.querySelectorAll('.rirCard').length:0,rawCards=ui.rawStrip?ui.rawStrip.querySelectorAll('.rawCard').length:0,previewCards=ui.rirStrip?ui.rirStrip.querySelectorAll('.rirCard[data-preview="yes"]').length:0,reflCards=ui.rirStrip?Array.from(ui.rirStrip.querySelectorAll('.rirCard')).filter(x=>+(x.dataset.reflections||0)>0).length:0,m=latest.model||{};if(workerSelfTest&&workerSelfTest.ok&&calibration.done&&selfTestResults>=15){const detail={worker:workerSelfTest.ok,calibrated:calibration.done,range:calibration.profile&&calibration.profile.maxReliableWallDistanceM,results:selfTestResults,cards,rawCards,previewCards,reflCards,accepted:latest.accepted,keyframes:latest.keyframes,tracks:latest.tracks,surfaces:(m.primary||[]).length,rank:m.rank||0,rmse:m.rmse,pathSpan:pathSpan(m.path),uiErrors:uiErrorCount};const ok=detail.calibrated&&detail.range>1&&detail.range<4&&detail.cards>=19&&(!queryDebug||detail.rawCards>=18)&&detail.previewCards>=18&&detail.reflCards>=14&&detail.accepted>=12&&detail.keyframes>=5&&detail.tracks>=4&&detail.surfaces>=3&&detail.surfaces<=6&&detail.rank===3&&detail.pathSpan>.05&&detail.pathSpan<10&&detail.uiErrors===0;document.documentElement.dataset.selftest=ok?'PASS':'FAIL';document.documentElement.dataset.selftestDetail=JSON.stringify(detail);setStatus(`SELFTEST ${ok?'PASS':'FAIL'}`,JSON.stringify(detail),ok?'ok':'bad');console.log('KISONAR_SELFTEST',ok?'PASS':'FAIL',detail);}}
+
+function recalibrateNow(){if(!audio||!audio.running){setStatus('Calibrazione','Avvia prima il microfono.','warn');return;}worker&&worker.postMessage({type:'reset'});latest={model:{path:[[0,0,0]],primary:[],detail:[]},accepted:0,rejected:0,keyframes:0,tracks:0,analysis:null};renderer.setModel(latest.model);beginCalibration();if(audio.schedules)for(const q of audio.schedules){q.mode='calibration';q.calibrationPhase='seek-no-echo';}updateHUD();}
+
+ui.start.onclick=()=>startLive();ui.demo.onclick=()=>startDemo(false);ui.stop.onclick=stopAll;ui.calibrate.onclick=recalibrateNow;ui.detail.onclick=()=>{worker&&worker.postMessage({type:'postprocess'});setStatus('Raffinamento','Rianalisi globale dei candidati deboli…');};ui.export.onclick=exportSession;ui.settings.onclick=()=>ui.panel.style.display='block';ui.close.onclick=()=>ui.panel.style.display='none';ui.apply.onclick=()=>{cfg=readCfg();syncDebugUI();ui.panel.style.display='none';log('impostazioni aggiornate; applicate al prossimo avvio');};ui.refreshMic.onclick=async()=>{try{setStatus('Microfoni','Richiesta/aggiornamento elenco microfoni…');await refreshMicrophones(true);setStatus('Microfoni','Seleziona il microfono e poi avvia la misura.','ok');}catch(e){if(isMicPermissionError(e)){showPermissionGate(e);setStatus('Permesso microfono necessario','Concedi il permesso per vedere i microfoni disponibili.','warn');}else setStatus('Microfoni',e.message,'bad');}};ui.debugRaw.onchange=()=>{cfg=readCfg();syncDebugUI();if(worker)worker.postMessage({type:'setDebugRaw',enabled:cfg.debugRaw});};ui.permissionRetry.onclick=()=>startLive({retry:true});ui.permissionCancel.onclick=()=>{hidePermissionGate();setStatus('Permesso non concesso','Premi Avvia quando vuoi riprovare.','warn');};
+renderer=new Renderer(ui.canvas);if(queryDebug&&ui.debugRaw)ui.debugRaw.checked=true;cfg=readCfg();syncDebugUI();makeWorker();log(`BUILD ${BUILD}`);refreshMicrophones(false).catch(()=>{});if(navigator.mediaDevices&&navigator.mediaDevices.addEventListener)navigator.mediaDevices.addEventListener('devicechange',()=>refreshMicrophones(false).catch(()=>{}));$('secureNotice').textContent=window.isSecureContext?'Contesto sicuro rilevato.':'ATTENZIONE: serve HTTPS o localhost per il microfono.';updateHUD();
+if(querySelfTest){setTimeout(()=>startDemo(true),80);}
+</script>
+</body>
+</html>
