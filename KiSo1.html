@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#07101e">
+<title>KiSonar Tone · tone-burst mapper</title>
+<style>
+:root{color-scheme:dark;--bg:#07101e;--panel:#0e1a2b;--fg:#eef6ff;--muted:#9cb0c8;--ok:#4dd39b;--warn:#ffc857;--bad:#ff6b6b;--accent:#65a9ff;--r:#9d8cff}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+#app{height:100%;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto}
+header{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;padding:.55rem .7rem;background:linear-gradient(180deg,#112039,#0a1424);border-bottom:1px solid #263b57}
+.brand b{font-size:.95rem}.brand span{display:block;font-size:.66rem;color:var(--muted)}
+.btn{border:1px solid #365273;background:#17304c;color:var(--fg);border-radius:.6rem;padding:.55rem .8rem;min-height:40px;font-weight:650;cursor:pointer}
+.btn.primary{background:#155c4a;border-color:#36a582}.btn.danger{background:#6b2931;border-color:#b74b58}.btn.sec{background:#342c62;border-color:#6559a6}.btn:disabled{opacity:.45}
+.grow{flex:1;min-width:180px}#status{font-size:.82rem}.sub{font-size:.72rem;color:var(--muted)}
+.board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.45rem;padding:.45rem .7rem;background:#081523;border-bottom:1px solid #263b57;font-size:.72rem}
+.card{border:1px solid #293f58;border-radius:.5rem;padding:.4rem .5rem;background:#0c1b2d;min-width:0}
+.card small{display:block;color:var(--muted);font-size:.6rem;text-transform:uppercase;letter-spacing:.04em}.card b{font-size:.82rem}
+main{position:relative;min-height:0;overflow:auto;padding:.7rem;display:grid;gap:.7rem;grid-template-columns:1fr}
+@media(min-width:820px){main{grid-template-columns:1.3fr 1fr}}
+.panel{background:var(--panel);border:1px solid #263b57;border-radius:.7rem;padding:.7rem}
+.panel h3{margin:.1rem 0 .5rem;font-size:.82rem;color:#8ec5ff;text-transform:uppercase;letter-spacing:.05em}
+.axis{position:relative;height:38px;border-radius:.6rem;border:1px solid #29445e;background:linear-gradient(90deg,rgba(101,169,255,.28),rgba(20,36,58,.6) 45% 55%,rgba(157,140,255,.28));display:flex;align-items:center;justify-content:space-between;padding:0 .6rem;overflow:hidden}
+.axis .end{font-size:.72rem;font-weight:800}.axis .l{color:#8ec5ff}.axis .r{color:#c3b6ff}
+.axis .tick{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.22)}
+.axis .mk{position:absolute;top:3px;bottom:3px;width:11px;left:50%;transform:translateX(-50%);border-radius:3px;background:var(--ok);box-shadow:0 0 10px rgba(77,211,155,.7);transition:left .1s}
+svg.plot{width:100%;height:150px;background:#07131f;border-radius:.5rem;display:block}
+svg.mini{width:100%;height:80px;background:#050d16;border-radius:.4rem;display:block}
+canvas{width:100%;height:260px;background:radial-gradient(circle at 50% 45%,#13253d,#081320 60%);border-radius:.5rem;display:block;touch-action:none}
+.log{font-family:ui-monospace,Consolas,monospace;font-size:.68rem;white-space:pre-wrap;background:#050b12;border:1px solid #24384f;border-radius:.5rem;padding:.5rem;max-height:150px;overflow:auto}
+.row{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+label{font-size:.72rem;color:var(--muted)}select,input{background:#071220;color:var(--fg);border:1px solid #314966;border-radius:.45rem;padding:.45rem;font:inherit}
+.note{font-size:.72rem;color:var(--muted);line-height:1.4}
+.big{font-size:1.05rem;font-weight:800}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <div class="brand grow"><b>KiSonar Tone</b><span>tone-burst · stereo & mono · qualsiasi lag</span></div>
+  <select id="mode"><option value="stereo">Stereo (2 diffusori L/R)</option><option value="mono">Mono (1 speaker · muovi lo speaker)</option></select>
+  <button id="calBtn" class="btn primary">Calibra</button>
+  <button id="measBtn" class="btn" disabled>Misura</button>
+  <button id="stopBtn" class="btn danger" disabled>Stop</button>
+  <button id="demoBtn" class="btn sec">Demo/Autotest</button>
+</header>
+<div class="board">
+  <div class="card"><small>Stato</small><b id="phase">idle</b></div>
+  <div class="card"><small>Sample rate</small><b id="fs">—</b></div>
+  <div class="card"><small>Baseline L↔R</small><b id="baseline">—</b></div>
+  <div class="card"><small>Coerenza take</small><b id="coh">—</b></div>
+</div>
+<main>
+  <div style="display:grid;gap:.7rem">
+    <div class="panel">
+      <h3>Posizione L↔R (da ΔLR)</h3>
+      <div class="axis"><span class="end l">◀ LEFT</span><span class="end r">RIGHT ▶</span><span class="tick"></span><i id="mk" class="mk"></i></div>
+      <div id="axisLabel" class="note" style="margin-top:.4rem">Muoviti da destra a sinistra passando vicino a ciascun diffusore per massimizzare lo span.</div>
+    </div>
+    <div class="panel"><h3>ΔLR nel tempo</h3><svg id="deltaPlot" class="plot" viewBox="0 0 600 150" preserveAspectRatio="none"></svg></div>
+    <div class="panel"><h3>Combe demodulate (L blu · R viola) + echi</h3><svg id="combPlot" class="mini" viewBox="0 0 600 80" preserveAspectRatio="none"></svg><div id="echoLabel" class="note" style="margin-top:.35rem">—</div></div>
+  </div>
+  <div style="display:grid;gap:.7rem">
+    <div class="panel"><h3>Mappa (path + superfici)</h3><canvas id="scene"></canvas></div>
+    <div class="panel"><h3>Metriche</h3><div id="metrics" class="note">—</div></div>
+    <div class="panel"><h3>Log di servizio</h3><div id="log" class="log">Pronto.</div></div>
+  </div>
+</main>
+</div>
+
+<script id="dsp-code" type="text/plain">
+// ===== Shared DSP core (used by the worker AND by the Node test) =====
+'use strict';
+var DSP = (function(){
+  var C = 343.0;
+  function firLowpass(cut, fs, taps){
+    taps = taps|0; if(taps%2===0) taps++;
+    var h=new Float64Array(taps), m=(taps-1)/2, sum=0, wc=2*Math.PI*cut/fs;
+    for(var i=0;i<taps;i++){var n=i-m, s=(n===0)?wc/Math.PI:Math.sin(wc*n)/(Math.PI*n);
+      var w=0.54-0.46*Math.cos(2*Math.PI*i/(taps-1)); h[i]=s*w; sum+=h[i];}
+    for(var j=0;j<taps;j++)h[j]/=sum; return h;
+  }
+  // complex demodulate rec at freq f, linear-phase FIR lowpass, return |env| (aligned, group delay removed)
+  function demodEnv(rec, f, fs, bw){
+    bw = bw||250; var h=firLowpass(bw, fs, Math.max(21, Math.round(fs/bw)|1)), m=(h.length-1)/2;
+    var n=rec.length, I=new Float64Array(n), Q=new Float64Array(n), w=2*Math.PI*f/fs;
+    for(var i=0;i<n;i++){var c=Math.cos(w*i), s=Math.sin(w*i); I[i]=rec[i]*c; Q[i]=-rec[i]*s;}
+    var env=new Float64Array(n);
+    for(var k=0;k<n;k++){var ai=0,aq=0;
+      for(var t=0;t<h.length;t++){var idx=k+t-m; if(idx<0||idx>=n)continue; ai+=h[t]*I[idx]; aq+=h[t]*Q[idx];}
+      env[k]=Math.hypot(ai,aq);
+    }
+    return env;
+  }
+  function median(a){if(!a.length)return NaN;var b=Array.prototype.slice.call(a).sort(function(x,y){return x-y});var m=b.length>>1;return b.length&1?b[m]:0.5*(b[m-1]+b[m]);}
+  function maxArr(a){var m=-Infinity;for(var i=0;i<a.length;i++)if(a[i]>m)m=a[i];return m;}
+  function minArr(a){var m=Infinity;for(var i=0;i<a.length;i++)if(a[i]<m)m=a[i];return m;}
+  function quantile(sorted,p){ if(!sorted.length)return NaN; var i=Math.max(0,Math.min(sorted.length-1,Math.round(p*(sorted.length-1)))); return sorted[i]; }
+  function findPeaks(e, minDist, hgt){
+    var p=[]; for(var i=1;i<e.length-1;i++){ if(e[i]>=hgt && e[i]>e[i-1] && e[i]>=e[i+1]){
+      if(p.length && i-p[p.length-1] < minDist){ if(e[i]>e[p[p.length-1]]) p[p.length-1]=i; } else p.push(i);
+    }} return p;
+  }
+  function refine(e,i){ if(i>0&&i<e.length-1){var d=e[i-1]-2*e[i]+e[i+1]; if(Math.abs(d)>1e-12) return i+0.5*(e[i-1]-e[i+1])/d;} return i; }
+  // measure comb repetition period (samples) from an envelope autocorrelation near expected
+  function combPeriod(env, expected){
+    var lo=Math.floor(expected*0.6), hi=Math.floor(expected*1.4), best=-1, bestv=-1e9;
+    for(var lag=lo; lag<=hi; lag++){ var s=0; for(var i=0;i+lag<env.length;i++) s+=env[i]*env[i+lag];
+      if(s>bestv){bestv=s;best=lag;} } return best;
+  }
+  // Main analyzer: returns per-burst delta samples, echoes (relative to direct), coherence, effective fs.
+  function analyze(rec, fs, opts){
+    opts=opts||{}; var fL=opts.fL||3000, fR=opts.fR||3600, Trep=opts.Trep||0.045, mono=!!opts.mono;
+    var maxlag=Math.round((opts.maxlagMs||3.0)/1000*fs), maxEchoS=opts.maxEchoSec||0.02;
+    var eL=demodEnv(rec,fL,fs,opts.bw), eR=demodEnv(rec,fR,fs,opts.bw);
+    var mL=median(eL), pkL=maxArr(eL), pkR=maxArr(eR);
+    var dist=Math.round(0.7*Trep*fs);
+    var pL=findPeaks(eL,dist,pkL*0.18), pR=findPeaks(eR,dist,pkR*0.18);
+    // effective sample-rate self-check from L comb period
+    var effFs=fs, per=combPeriod(eL, Trep*fs);
+    if(per>0){ effFs = per/Trep; }              // if comb period != Trep*fs => rate mismatch
+    var out={ts:[],delta:[],conf:[],echoes:[],coherent:false,combPeriod:per,effFs:effFs,nL:pL.length,nR:pR.length,peakSNRdB:20*Math.log10((pkL+1e-12)/(mL+1e-12))};
+    for(var a=0;a<pL.length;a++){
+      var iL=pL[a], j=-1, bd=1e18;
+      for(var b=0;b<pR.length;b++){var dd=Math.abs(pR[b]-iL); if(dd<bd){bd=dd;j=pR[b];}}
+      if(j>=0 && bd<=maxlag){
+        var tL=refine(eL,iL), tR=refine(eR,j);
+        out.ts.push(iL/fs); out.delta.push((tR-tL)/fs*C); out.conf.push(Math.min(eL[iL],eR[j])/(mL+1e-9));
+      }
+      // echoes: secondary L peaks within maxEcho after the direct
+      var w0=iL+Math.round(0.0008*fs), w1=iL+Math.round(maxEchoS*fs), loc=[];
+      for(var q=w0;q<Math.min(w1,eL.length-1);q++){ if(eL[q]>eL[q-1]&&eL[q]>=eL[q+1]&&eL[q]>pkL*0.10){ loc.push({tau:(q-iL)/fs, amp:eL[q]/eL[iL], rangeM:0.5*C*(q-iL)/fs}); } }
+      if(loc.length) out.echoes.push({t:iL/fs, refl:loc.slice(0,4)});
+    }
+    // coherence: regular comb + good SNR + enough bursts
+    out.coherent = (out.nL>=4 && out.peakSNRdB>10 && per>0 && Math.abs(effFs-fs)/fs<0.05);
+    // robust stats (quantiles reject spurious peak mismatches at low-SNR extremes)
+    var dd=out.delta.filter(function(x){return isFinite(x);}).sort(function(a,b){return a-b;});
+    out.deltaMedian = median(dd);
+    out.deltaSpan = dd.length? (quantile(dd,0.97)-quantile(dd,0.03)) : 0;
+    out.baselineM = mono? NaN : 0.5*out.deltaSpan;   // data-driven lower bound
+    out.mono = mono || (dd.length>4 && median(dd.map(Math.abs))*1000 < 25 && out.deltaSpan<0.08);
+    return out;
+  }
+  return {demodEnv:demodEnv, analyze:analyze, median:median, C:C, firLowpass:firLowpass};
+})();
+if(typeof module!=='undefined'&&module.exports) module.exports=DSP;
+</script>
+
+<script id="worker-code" type="text/plain">
+// Worker: receives raw recording chunks + config, runs DSP.analyze, posts results.
+var DSP=null;
+self.onmessage=function(e){
+  var m=e.data;
+  if(m.type==='dsp'){ /* injected */ try{ (0,eval)(m.code); DSP=self.DSP||DSP; }catch(err){ postMessage({type:'log',msg:'dsp load: '+err.message}); } return; }
+  if(m.type==='analyze'){
+    try{
+      var rec=new Float64Array(m.rec);
+      var r=DSP.analyze(rec, m.fs, m.opts);
+      postMessage({type:'result', r:r});
+    }catch(err){ postMessage({type:'log',msg:'analyze: '+(err.stack||err.message)}); }
+  }
+};
+</script>
+
+<script>
+const $=id=>document.getElementById(id);
+const ui={mode:$('mode'),cal:$('calBtn'),meas:$('measBtn'),stop:$('stopBtn'),demo:$('demoBtn'),phase:$('phase'),fs:$('fs'),baseline:$('baseline'),coh:$('coh'),mk:$('mk'),axisLabel:$('axisLabel'),deltaPlot:$('deltaPlot'),combPlot:$('combPlot'),echoLabel:$('echoLabel'),scene:$('scene'),metrics:$('metrics'),log:$('log'),status:$('phase')};
+let logs=[]; function log(s){const t=new Date().toISOString().slice(11,19); logs.push(t+' '+s); if(logs.length>200)logs.shift(); ui.log.textContent=logs.slice(-40).join('\n'); ui.log.scrollTop=1e9;}
+const CFG={fL:3000,fR:3600,Trep:0.045,burst:0.004,bw:250,level:0.30};
+let AC=null, worker=null, capture=null, playSrc=null, running=false, deltaHist=[], axisAbsMax=0, baselineM=NaN;
+
+// ---- DSP code injection (share the same code with worker + local) ----
+const dspCode=$('dsp-code').textContent;
+let DSP=null; (function(){const m={exports:{}}; new Function('module','exports',dspCode)(m,m.exports); DSP=m.exports;})();
+
+function makeWorker(){
+  const src=$('worker-code').textContent, url=URL.createObjectURL(new Blob([src],{type:'text/javascript'}));
+  worker=new Worker(url); URL.revokeObjectURL(url);
+  worker.postMessage({type:'dsp',code:dspCode+';self.DSP=DSP;'});
+  worker.onmessage=e=>{const m=e.data; if(m.type==='log'){log(m.msg);return;} if(m.type==='result'){onResult(m.r);}};
+}
+// ---- tone-burst comb generation ----
+function toneBurst(f,fs){const n=Math.round(CFG.burst*fs),b=new Float32Array(n);for(let i=0;i<n;i++){const w=0.5-0.5*Math.cos(2*Math.PI*i/(n-1));b[i]=w*Math.sin(2*Math.PI*f*i/fs);}return b;}
+function buildComb(fs, durSec, mono){
+  const N=Math.round(durSec*fs), L=new Float32Array(N), R=new Float32Array(N), bL=toneBurst(CFG.fL,fs), bR=toneBurst(CFG.fR,fs), step=Math.round(CFG.Trep*fs);
+  for(let s=0;s+bL.length<N;s+=step){for(let i=0;i<bL.length;i++){L[s+i]+=CFG.level*bL[i];R[s+i]+=CFG.level*bR[i];}}
+  // mono: emit both tones on both channels (system will downmix); detection sees delta~0
+  return {L,R};
+}
+async function pickRate(){
+  // Match the whole system to a common rate: open a probe context, read its rate.
+  const probe=new (window.AudioContext||window.webkitAudioContext)();
+  const r=probe.sampleRate; await probe.close(); return r;
+}
+async function start(measure){
+  try{
+    const rate=await pickRate();
+    AC=new (window.AudioContext||window.webkitAudioContext)({sampleRate:rate});
+    ui.fs.textContent=AC.sampleRate+' Hz'; log('AudioContext @ '+AC.sampleRate+' Hz (sistema uniformato a questo rate)');
+    const mono=ui.mode.value==='mono';
+    // playback: looping comb
+    const {L,R}=buildComb(AC.sampleRate, 2.0, mono);
+    const buf=AC.createBuffer(2,L.length,AC.sampleRate); buf.copyToChannel(L,0); buf.copyToChannel(mono?L:R,1);
+    playSrc=AC.createBufferSource(); playSrc.buffer=buf; playSrc.loop=true; playSrc.connect(AC.destination); playSrc.start();
+    // capture via ScriptProcessor fallback (broad support) -> worker
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    const srcNode=AC.createMediaStreamSource(stream); capture=AC.createScriptProcessor(4096,1,1);
+    let ring=new Float64Array(Math.round(AC.sampleRate*0.6)), rp=0, full=false;
+    capture.onaudioprocess=ev=>{const d=ev.inputBuffer.getChannelData(0); for(let i=0;i<d.length;i++){ring[rp++]=d[i]; if(rp>=ring.length){rp=0;full=true;}}
+      if(full){const rec=new Float64Array(ring.length); const off=rp; for(let i=0;i<ring.length;i++)rec[i]=ring[(off+i)%ring.length];
+        worker.postMessage({type:'analyze',rec:rec.buffer.slice(0),fs:AC.sampleRate,opts:{fL:CFG.fL,fR:CFG.fR,Trep:CFG.Trep,bw:CFG.bw,mono}});}
+    };
+    srcNode.connect(capture); capture.connect(AC.destination); running=true;
+    ui.cal.disabled=true; ui.meas.disabled=true; ui.stop.disabled=false; ui.demo.disabled=true;
+    ui.phase.textContent=measure?'misura':'calibrazione'; deltaHist=[]; axisAbsMax=0;
+    log((measure?'Misura':'Calibrazione')+' avviata ('+(mono?'mono':'stereo')+'). Muoviti '+(mono?'lo speaker':'da destra a sinistra')+'.');
+  }catch(err){ log('start: '+(err.message||err)); ui.phase.textContent='errore'; }
+}
+function stop(){ running=false; try{playSrc&&playSrc.stop();}catch{} try{capture&&capture.disconnect();}catch{} try{AC&&AC.close();}catch{}
+  ui.cal.disabled=false; ui.meas.disabled=isNaN(baselineM); ui.stop.disabled=true; ui.demo.disabled=false; ui.phase.textContent='idle'; log('fermato.'); }
+
+function onResult(r){
+  ui.coh.textContent=r.coherent?('OK · SNR '+r.peakSNRdB.toFixed(0)+' dB'):('bassa · SNR '+(r.peakSNRdB||0).toFixed(0)+' dB');
+  if(Math.abs(r.effFs-AC?.sampleRate||0)/(AC?.sampleRate||1)>0.03) log('ATTENZIONE: rate effettivo dalla comb '+r.effFs.toFixed(0)+' ≠ '+AC.sampleRate+' → riscalo tempo→distanza');
+  if(!r.coherent){ui.axisLabel.textContent='Take incoerente (segnale debole/instabile): avvicinati o riduci il rumore.';return;}
+  // baseline (stereo)
+  if(!r.mono && isFinite(r.baselineM)){ baselineM=Math.max(baselineM||0, r.baselineM); ui.baseline.textContent=baselineM.toFixed(2)+' m (≥)'; }
+  else if(r.mono){ ui.baseline.textContent='MONO'; }
+  // axis marker from median delta
+  const dm=r.deltaMedian; if(isFinite(dm)){ axisAbsMax=Math.max(axisAbsMax,Math.abs(dm)); const Bref=Math.max(0.12,axisAbsMax,baselineM||0), pos=Math.max(0,Math.min(1,0.5-0.5*dm/Bref)); ui.mk.style.left=(100*pos).toFixed(1)+'%';
+    ui.axisLabel.textContent=(r.mono?'MONO (nessun asse L/R): muovi lo speaker. ':'Sei '+(dm>0.06*Bref?'a SINISTRA':dm<-0.06*Bref?'a DESTRA':'al CENTRO')+' · ')+'ΔLR '+dm.toFixed(3)+' m · span ±'+axisAbsMax.toFixed(3)+' m'; }
+  // history + plot
+  for(let i=0;i<r.delta.length;i++)deltaHist.push({t:performance.now()/1000,d:r.delta[i]}); if(deltaHist.length>600)deltaHist=deltaHist.slice(-600);
+  drawDelta(); drawCombFromResult(r);
+  // echoes
+  const echoes=(r.echoes||[]).flatMap(e=>e.refl.map(x=>x.rangeM)).filter(x=>x>0.15&&x<8);
+  ui.echoLabel.textContent=echoes.length?('Echi (range da diretto): '+echoes.slice(0,6).map(x=>x.toFixed(2)+'m').join(' · ')):'nessun eco stabile';
+  ui.metrics.innerHTML='burst L/R: '+r.nL+'/'+r.nR+' · ΔLR mediano '+(isFinite(dm)?dm.toFixed(3)+' m':'—')+' · span '+r.deltaSpan.toFixed(3)+' m · comb period '+r.combPeriod+' samp · eff fs '+r.effFs.toFixed(0);
+  drawScene(echoes);
+}
+function drawDelta(){ if(!deltaHist.length){ui.deltaPlot.innerHTML='';return;} const W=600,H=150,ds=deltaHist.map(x=>x.d),mn=Math.min(-0.05,...ds),mx=Math.max(0.05,...ds),sc=v=>H-8-(v-mn)/(mx-mn+1e-9)*(H-16);
+  let d=''; deltaHist.forEach((x,i)=>{const px=i/(deltaHist.length-1)*W; d+=(i?'L':'M')+px.toFixed(1)+','+sc(x.d).toFixed(1);});
+  ui.deltaPlot.innerHTML='<line x1="0" y1="'+sc(0)+'" x2="600" y2="'+sc(0)+'" stroke="rgba(156,176,200,.25)"/><path d="'+d+'" fill="none" stroke="#4dd39b" stroke-width="1.5"/>'; }
+function drawCombFromResult(r){ // draw a schematic comb from delta points (envelope not shipped); show burst markers
+  const W=600,H=80; let s='<line x1="0" y1="40" x2="600" y2="40" stroke="rgba(156,176,200,.2)"/>';
+  (r.echoes||[]).slice(0,20).forEach((e,i)=>{const x=(i/20)*W; s+='<line x1="'+x.toFixed(1)+'" y1="10" x2="'+x.toFixed(1)+'" y2="70" stroke="#65a9ff" stroke-width="1.5"/>'; e.refl.forEach(rf=>{const y=40+rf.tau*3000; s+='<circle cx="'+x.toFixed(1)+'" cy="'+Math.min(72,y).toFixed(1)+'" r="2" fill="#9d8cff"/>';});});
+  ui.combPlot.innerHTML=s; }
+function drawScene(echoes){ const cv=ui.scene,ctx=cv.getContext('2d'),d=devicePixelRatio||1,r=cv.getBoundingClientRect(); cv.width=r.width*d;cv.height=r.height*d;ctx.setTransform(d,0,0,d,0,0); ctx.clearRect(0,0,r.width,r.height);
+  const cx=r.width/2,cy=r.height*0.6,sc=Math.min(r.width,r.height)/8;
+  // draw baseline L-R
+  ctx.strokeStyle='#446'; for(let g=-4;g<=4;g++){ctx.beginPath();ctx.moveTo(cx+g*sc,0);ctx.lineTo(cx+g*sc,r.height);ctx.strokeStyle='rgba(120,150,190,.10)';ctx.stroke();}
+  ctx.fillStyle='#ffd166'; ctx.beginPath();ctx.arc(cx-(baselineM||0.3)*sc/2,cy,5,0,7);ctx.fill(); ctx.beginPath();ctx.arc(cx+(baselineM||0.3)*sc/2,cy,5,0,7);ctx.fill();
+  ctx.fillStyle='#8ec5ff';ctx.font='11px system-ui';ctx.fillText('L',cx-(baselineM||0.3)*sc/2-4,cy+18);ctx.fillText('R',cx+(baselineM||0.3)*sc/2-4,cy+18);
+  // echo rings (range from mic ~ center)
+  ctx.strokeStyle='rgba(157,140,255,.55)'; echoes.slice(0,6).forEach(rg=>{ctx.beginPath();ctx.arc(cx,cy,rg*sc,0,Math.PI,true);ctx.stroke();});
+  // path from delta (schematic: x from delta)
+  if(deltaHist.length>1){ctx.strokeStyle='#f7f7ff';ctx.lineWidth=2;ctx.beginPath();deltaHist.forEach((p,i)=>{const x=cx-p.d/Math.max(0.2,baselineM||0.4)*sc*1.5,y=cy-1.2*sc-i/deltaHist.length*sc;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();ctx.lineWidth=1;}
+}
+
+// ---- Demo / self-test: synthesize a recording and run the SAME worker DSP ----
+function synthRec(fs,mono){ const dur=4.0,N=Math.round(dur*fs),B=0.4,step=Math.round(CFG.Trep*fs),bL=toneBurst(CFG.fL,fs),bR=toneBurst(CFG.fR,fs),lag=Math.round(0.2*fs),rec=new Float64Array(N+lag+2000);
+  for(let s=0,k=0;s+bL.length<N;s+=step,k++){ const u=k/(N/step), mx=(B+0.9)-(2*0.9+B)*u, mic=[mx,0.55,0.0], Lp=[0,0,0],Rp=mono?[0,0,0]:[B,0,0];
+    const dL=Math.hypot(mic[0]-Lp[0],mic[1],mic[2]),dR=Math.hypot(mic[0]-Rp[0],mic[1],mic[2]);
+    const oL=s+lag+Math.round(dL/343*fs),oR=s+lag+Math.round(dR/343*fs);
+    for(let i=0;i<bL.length;i++){if(oL+i<rec.length)rec[oL+i]+=CFG.level/Math.max(0.2,dL)*bL[i]; if(oR+i<rec.length)rec[oR+i]+=CFG.level/Math.max(0.2,dR)*bR[i];}
+    // one wall echo at x=2.2 (image of L)
+    const V=[4.4,0,0],dV=Math.hypot(mic[0]-V[0],mic[1],mic[2]),oV=s+lag+Math.round(dV/343*fs);
+    for(let i=0;i<bL.length;i++){if(oV+i<rec.length)rec[oV+i]+=0.5*CFG.level/Math.max(0.2,dV)*bL[i];}
+  }
+  for(let i=0;i<rec.length;i++)rec[i]+=0.06*(Math.random()-0.5)*2; return rec;
+}
+function runDemo(){ log('DEMO: sintetizzo registrazione (200ms lag + rumore) e passo dal DSP reale…'); const fs=44100,mono=ui.mode.value==='mono',rec=synthRec(fs,mono);
+  ui.fs.textContent=fs+' Hz (demo)'; const r=DSP.analyze(rec,fs,{fL:CFG.fL,fR:CFG.fR,Trep:CFG.Trep,bw:CFG.bw,mono});
+  log('DEMO risultato: burst L/R '+r.nL+'/'+r.nR+' · coerente '+r.coherent+' · SNR '+r.peakSNRdB.toFixed(0)+'dB · span '+r.deltaSpan.toFixed(3)+'m · baseline '+(isFinite(r.baselineM)?r.baselineM.toFixed(2)+'m':'MONO')+' · mono '+r.mono+' · effFs '+r.effFs.toFixed(0));
+  AC={sampleRate:fs}; baselineM=isFinite(r.baselineM)?r.baselineM:NaN; onResult(r); ui.meas.disabled=isNaN(baselineM); ui.phase.textContent='demo ok';
+}
+
+makeWorker();
+ui.cal.onclick=()=>start(false); ui.meas.onclick=()=>start(true); ui.stop.onclick=stop; ui.demo.onclick=runDemo;
+log('KiSonar Tone pronto. Usa Demo/Autotest per validare senza microfono, o Calibra per una sessione reale.');
+</script>
+</body>
+</html>
