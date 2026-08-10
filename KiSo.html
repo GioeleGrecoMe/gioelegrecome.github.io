@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0b1220">
-<title>Ki Sonar Mapper v12 · Fused RIR Surface Workspace</title>
+<title>Ki Sonar Mapper v12.1 · Single-Chirp Safe-Crop Workspace</title>
 <style>
 :root{color-scheme:dark;--bg:#07101e;--panel:#0e1a2b;--panel2:#14243a;--fg:#eef6ff;--muted:#9cb0c8;--ok:#4dd39b;--warn:#ffc857;--bad:#ff6b6b;--accent:#65a9ff;--detail:#9d8cff}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -203,7 +203,7 @@ header{padding:.42rem .55rem}
   <div id="rirStrip" aria-label="Cronologia RIR stimate"></div>
 </section>
 <section id="rawShelf" class="debugShelf">
-  <div id="rawShelfHead"><span><b>DEBUG · segnale registrato usato per la RIR</b> · blu = inizio chirp programmato · oro = chirp ricevuto · verde = fine chirp ricevuto</span><span id="rawShelfSummary">debug off</span></div>
+  <div id="rawShelfHead"><span><b>DEBUG · segnale single-chirp realmente usato per la RIR</b> · blu = inizio chirp programmato · oro = chirp ricevuto · verde = fine chirp ricevuto</span><span id="rawShelfSummary">debug off</span></div>
   <div id="rawStrip" class="rawStrip" aria-label="Cronologia segnali raw"></div>
 </section>
 <div id="drawer"><div class="metrics" id="metrics"><span>accettati <b>0</b></span><span>rifiutati <b>0</b></span><span>track <b>0</b></span><span>rank <b>0</b></span><span>RMSE <b>—</b></span></div><div style="font-size:.72rem;color:var(--muted)">drag: ruota · pinch/wheel: zoom</div></div>
@@ -407,6 +407,24 @@ function ensureConvCache(nfft){
   }
   convCache={nfft,Xr,Xi,Zr,Zi,Rr,Ri,band,maxPow,energy:Math.max(energy,1e-15)};
   return convCache;
+}
+
+/*
+ * Timing-only correlation used before deconvolution.
+ *
+ * A live capture window can be longer than one chirp period because it must
+ * tolerate a large Bluetooth/output latency.  Consequently a single take may
+ * physically contain the beginning (or more) of the NEXT emitted chirp.  We
+ * first locate the direct arrival with this cheap matched-filter pass, then cut
+ * the take before the predicted next received chirp, and ONLY THEN run ESS
+ * deconvolution.  This guarantees that each RIR estimate is driven by one
+ * excitation event even when raw acquisition windows overlap in time.
+ */
+function estimateTimingCorrelation(raw){
+  const outLen=raw.length+chirp.length-1,nfft=nextPow2(outLen),c=ensureConvCache(nfft);
+  const Yr=new Float64Array(nfft),Yi=new Float64Array(nfft),Cr=new Float64Array(nfft),Ci=new Float64Array(nfft);Yr.set(raw);fft(Yr,Yi);
+  for(let i=0;i<nfft;i++){Cr[i]=Yr[i]*c.Rr[i]-Yi[i]*c.Ri[i];Ci[i]=Yr[i]*c.Ri[i]+Yi[i]*c.Rr[i];}
+  fft(Cr,Ci,true);return Cr.slice(0,outLen);
 }
 
 function estimateESS(raw){
@@ -738,14 +756,41 @@ function rawPreviewWaveform(raw,n=900){
   for(let i=0;i<raw.length;i+=Math.max(1,Math.floor(raw.length/5000)))vals.push(Math.abs(raw[i]));const sc=Math.max(1e-9,quantile(vals,.995)||maxArray(vals));
   for(let b=0;b<bins;b++){const lo=Math.floor(b*step),hi=Math.max(lo+1,Math.floor((b+1)*step));let best=0,ba=-1;for(let i=lo;i<Math.min(hi,raw.length);i++){const a=Math.abs(raw[i]);if(a>ba){ba=a;best=raw[i];}}y[b]=clamp(best/sc,-1,1);}return y;
 }
-function auditRecording(raw,lag){
+/*
+ * Deterministic single-chirp crop.
+ *
+ * Received chirp #2 is expected one effective cycle period after the detected
+ * direct arrival of chirp #1.  We cut GUARD seconds before that instant.  The
+ * guard is deliberately taken from the known inter-sweep silence budget, so
+ * small audio-clock drift / Bluetooth jitter cannot leak the leading edge of
+ * chirp #2 into the ESS inverse filter.  If this crop would leave less than the
+ * required post-chirp tail, the take is kept cropped and auditRecording() marks
+ * it invalid rather than silently allowing a second excitation into the RIR.
+ */
+function detectNextChirpLag(raw,corr,expectedLag,directCoeff){
+  // Reuse the already-computed matched-filter trace around the nominal second
+  // arrival.  If the audio path drifts slightly, an EARLY detected chirp moves
+  // the safe cut earlier; a late detection never delays the nominal safe cut.
+  if(!corr||!Number.isFinite(expectedLag))return{lag:NaN,coeff:0};const N=chirp.length,off=N-1,jit=Math.max(.02,CFG.nextChirpDetectJitterSec||.120),lo=Math.max(0,Math.floor(expectedLag-jit*FS)),hi=Math.min(raw.length-N-1,Math.ceil(expectedLag+jit*FS));if(hi<=lo)return{lag:NaN,coeff:0};const p=prefixEnergy(raw),ex=convCache.energy;let bestLag=-1,best=0;for(let q=lo;q<=hi;q++){const ec=Math.max(1e-20,segmentEnergy(p,q,q+N)),v=Math.abs(corr[q+off])/Math.sqrt(ex*ec);if(v>best){best=v;bestLag=q;}}const thr=Math.max(CFG.nextChirpMinMatchCoeff||.015,.30*Math.max(0,directCoeff||0));return bestLag>=0&&best>=thr?{lag:bestLag,coeff:best}:{lag:NaN,coeff:best};
+}
+function cropTakeBeforeNextChirp(raw,lag,timingCorr=null,directCoeff=0){
+  const N=chirp.length,period=Math.max(0,CFG.effectiveCyclePeriodSec||CFG.cyclePeriodSec||0),guard=Math.max(.005,CFG.nextChirpCutGuardSec||.060),originalSamples=raw.length;
+  if(!Number.isFinite(lag)||lag<0||period<=0)return{raw,applied:false,originalSamples,usedSamples:raw.length,expectedNextStartSample:NaN,detectedNextStartSample:NaN,detectedNextCoeff:0,cutSample:raw.length,guardSec:guard,periodSec:period,tailAfterSweepSec:(raw.length-(Math.max(0,lag)+N))/FS};
+  const expectedNextStartSample=Math.round(lag+period*FS),det=detectNextChirpLag(raw,timingCorr,expectedNextStartSample,directCoeff),boundarySample=Number.isFinite(det.lag)?Math.min(expectedNextStartSample,det.lag):expectedNextStartSample,cutSample=Math.max(lag+N+1,Math.min(raw.length,boundarySample-Math.round(guard*FS))),applied=cutSample<raw.length;
+  const used=applied?raw.slice(0,cutSample):raw;
+  return{raw:used,applied,originalSamples,usedSamples:used.length,expectedNextStartSample,detectedNextStartSample:det.lag,detectedNextCoeff:det.coeff,cutSample,guardSec:guard,periodSec:period,tailAfterSweepSec:(used.length-(lag+N))/FS};
+}
+function auditRecording(raw,lag,cropMeta=null){
   const N=chirp.length,T=N/FS,preSec=lag/FS,sweepEnd=lag+N,postSec=(raw.length-sweepEnd)/FS,requiredPost=Math.max(2*T,CFG.minPostChirpRecordSec||0);
   const minPre=Math.min(.060,Math.max(.020,.35*CFG.preSilenceSec));
   const fullSweep=lag>=0&&sweepEnd<=raw.length,preOK=preSec>=minPre,postOK=postSec+1/FS>=requiredPost;
-  // Batch trains intentionally allow overlapping raw capture windows. What must not overlap is the next emitted/received chirp with the required 2T post-sweep silence.
-  const scheduleSilent=(CFG.effectiveCyclePeriodSec||0)>=(T+requiredPost+Math.max(.04,CFG.interSweepGuardSec||0)-1/FS);
+  // The train must reserve the required RIR tail PLUS enough explicit silence
+  // for the pre-next-chirp safety crop.  Overlapping raw acquisition windows are
+  // fine; overlapping excitation content inside the deconvolution input is not.
+  const cutGuard=Math.max(.005,CFG.nextChirpCutGuardSec||.060),scheduleSilent=(CFG.effectiveCyclePeriodSec||0)>=(T+requiredPost+cutGuard-1/FS);
   const ok=fullSweep&&preOK&&postOK&&scheduleSilent;
-  return{ok,fullSweep,preOK,postOK,scheduleSilent,preSec,postSec,requiredPostSec:requiredPost,rawDurationSec:raw.length/FS,scheduledChirpStartSec:CFG.preSilenceSec,receivedSweepStartSec:lag/FS,receivedSweepEndSec:(lag+N)/FS};
+  const cm=cropMeta||{};
+  return{ok,fullSweep,preOK,postOK,scheduleSilent,preSec,postSec,requiredPostSec:requiredPost,rawDurationSec:raw.length/FS,rawOriginalDurationSec:Number.isFinite(cm.originalSamples)?cm.originalSamples/FS:raw.length/FS,scheduledChirpStartSec:CFG.preSilenceSec,receivedSweepStartSec:lag/FS,receivedSweepEndSec:(lag+N)/FS,nextChirpPeriodSec:cm.periodSec??(CFG.effectiveCyclePeriodSec||NaN),nextChirpExpectedSec:Number.isFinite(cm.expectedNextStartSample)?cm.expectedNextStartSample/FS:NaN,nextChirpDetectedSec:Number.isFinite(cm.detectedNextStartSample)?cm.detectedNextStartSample/FS:NaN,nextChirpDetectedCoeff:cm.detectedNextCoeff||0,nextChirpCutSec:Number.isFinite(cm.cutSample)?cm.cutSample/FS:raw.length/FS,nextChirpCutGuardSec:cm.guardSec??cutGuard,nextChirpCutApplied:!!cm.applied,singleChirpInput:!cm.applied||((cm.cutSample||raw.length)<(cm.expectedNextStartSample||Infinity))};
 }
 
 function pearson(a,b,start=0){
@@ -809,9 +854,18 @@ function analyzeCycle(raw,id,mode='measure'){
   const t0=performance.now();
   if(!(raw instanceof Float32Array||raw instanceof Float64Array))raw=new Float64Array(raw||[]);
   if(raw.length<chirp.length+256)throw new Error(`recording too short (${raw.length} samples)`);
+
+  // v12.1 acquisition contract: detect the FIRST chirp using matched filtering
+  // on the complete capture, derive the next received-chirp time from the known
+  // train period, then remove everything close to/after that boundary BEFORE
+  // Farina/Tikhonov processing.  This is intentionally done before any RIR
+  // statistics, clipping diagnostics, material estimation or peak extraction.
+  const timingCorr=estimateTimingCorrelation(raw),direct=locateDirect(raw,timingCorr),lag=direct.lag,N=chirp.length,cropMeta=cropTakeBeforeNextChirp(raw,lag,timingCorr,direct.coeff);
+  raw=cropMeta.raw;
+  if(raw.length<chirp.length+256)throw new Error(`single-chirp crop too short (${raw.length} samples)`);
   let rawPeak=0,clipN=0,longest=0,run=0;for(const v of raw){const a=Math.abs(v);rawPeak=Math.max(rawPeak,a);if(a>=.995){clipN++;run++;longest=Math.max(longest,run);}else run=0;}
   const clipFrac=clipN/raw.length,longestClipMs=1000*longest/FS;
-  const est=estimateESS(raw),direct=locateDirect(raw,est.corr),lag=direct.lag,N=chirp.length,captureAudit=auditRecording(raw,lag);
+  const est=estimateESS(raw),captureAudit=auditRecording(raw,lag,cropMeta);
   const rawNoiseEnd=Math.max(16,Math.min(raw.length,lag-Math.round(.006*FS))),rawNoise=raw.subarray(0,rawNoiseEnd),rawNoiseRms=Math.max(1e-12,rms(rawNoise));
   const directRawEnd=Math.min(raw.length,lag+N),rawSweepRms=Math.max(1e-12,rms(raw.subarray(Math.max(0,lag),directRawEnd))),rawSNR=20*Math.log10(rawSweepRms/rawNoiseRms);
   const calDist=(calibrationProfile&&calibrationProfile.enabled)?calibrationProfile:null;let directDistanceTimingM=NaN,directDistanceAmplitudeM=NaN,directDistanceProbableM=NaN,directDistanceConfidence=0;
@@ -1275,6 +1329,13 @@ function synthRaw(delaySec,refDelays,refAmps,noise=0,nonlinear=0){
   if(nonlinear>0)for(let i=0;i<n;i++)raw[i]=Math.tanh((1+nonlinear)*raw[i])/(Math.tanh(1+nonlinear)||1);
   let seed=1234567;function rnd(){seed=(1664525*seed+1013904223)>>>0;return seed/4294967296-.5;}for(let i=0;i<n;i++)raw[i]+=noise*2*rnd();return raw;
 }
+function synthRawWithNextChirp(delaySec,refDelays,refAmps,noise=0,nextJitterSec=0){
+  // Regression fixture for the live overlap condition: take #1 contains the
+  // complete first response plus chirp #2 one train period later.  analyzeCycle
+  // must crop #2 before deconvolution while preserving all first-RIR echoes.
+  const raw=synthRaw(delaySec,refDelays,refAmps,noise,0),period=CFG.effectiveCyclePeriodSec||CFG.cyclePeriodSec||0,actualPeriod=period+nextJitterSec,imp=[{d:delaySec+actualPeriod,a:1}];for(let i=0;i<refDelays.length;i++)imp.push({d:delaySec+actualPeriod+refDelays[i],a:refAmps[i]});
+  for(const h of imp){const off=Math.round(h.d*FS);for(let j=0;j<chirp.length&&off+j<raw.length;j++)raw[off+j]+=h.a*chirp[j];}return raw;
+}
 
 function synthRingyRaw(delaySec,refDelays,refAmps,noise=0){
   // Deliberately band-limit every path with a sinc-like phone kernel.  A naive
@@ -1322,6 +1383,10 @@ function runESSSelfTest(full=false){
     const tau=[.0030,.0058,.0086,.0122,.0162],amp=[.30,-.22,.15,-.10,.075],cases=[],d0=CFG.preSilenceSec+.055,dLate=CFG.preSilenceSec+.300;
     cases.push(selfTestCase('clean',synthRaw(d0,tau,amp,.001,0),d0,tau,4,true));
     cases.push(selfTestCase('latency300ms',synthRaw(dLate,tau,amp,.0015,0),dLate,tau,4,true));
+    // v12.1 regression: a raw take intentionally contains chirp #2.  The Worker
+    // must report an applied crop, retain >=2T post-sweep tail and recover the
+    // first chirp's reflections without seeing the second excitation.
+    const saveInput=CFG.inputSettings;CFG.inputSettings={echoCancellation:false,noiseSuppression:false,autoGainControl:false};let multi;try{multi=analyzeCycle(synthRawWithNextChirp(d0,tau,amp,.001,-.025),-31,'selftest');}finally{CFG.inputSettings=saveInput;}const multiFound=multi.primary.filter(e=>!e.isDirect).map(e=>e.tau),multiHits=tau.filter(t=>multiFound.some(x=>Math.abs(x-t)<.0012)).length,ca=multi.captureAudit||{};cases.push({name:'next-chirp-safe-crop',ok:!!ca.nextChirpCutApplied&&!!ca.singleChirpInput&&ca.rawOriginalDurationSec>ca.rawDurationSec&&ca.postSec+1/FS>=ca.requiredPostSec&&multiHits>=4&&multi.accepted,cutSec:ca.nextChirpCutSec,expectedNextSec:ca.nextChirpExpectedSec,guardSec:ca.nextChirpCutGuardSec,detectedNextSec:ca.nextChirpDetectedSec,detectedNextCoeff:ca.nextChirpDetectedCoeff,syntheticNextJitterSec:-.025,usedDurationSec:ca.rawDurationSec,originalDurationSec:ca.rawOriginalDurationSec,postSec:ca.postSec,hits:multiHits,accepted:multi.accepted});
     const noisy=selfTestCase('noise',synthRaw(d0+.010,tau,amp,.20,0),d0+.010,tau,0,false);noisy.ok=noisy.previewOK&&!noisy.accepted;cases.push(noisy);
     const clipped=selfTestCase('nonlinear',synthRaw(d0+.002,tau,amp,.001,2.4),d0+.002,tau,2,false);clipped.ok=clipped.previewOK&&clipped.directErr<.002;cases.push(clipped);
     const only=selfTestCase('direct-only',synthRaw(d0+.006,[],[],.0005,0),d0+.006,[],0,false);only.ok=only.previewOK&&!only.accepted&&only.directOnly&&only.directErr<.0012;cases.push(only);
@@ -1347,7 +1412,7 @@ onmessage=e=>{
   if(m.type==='init'){
     CFG=m.cfg;FS=m.sampleRate;chirp=new Float64Array(m.chirp);measurements=[];prevModel=null;nextTrackId=1;currentSpeakerEpoch=Number(CFG.speakerEpoch||1);globalRoom={schema:'KiGlobalPersistentRoom-v1',nodes:[],anchors:[],shells:[],epochs:[],pending:[],nextNodeId:1,patches:[],paths:[],sources:[]};
     calibrationProfile=null;calibrationDirectAtom=null;calibrationDirectSum=null;calibrationDirectCount=0;calibrationDirectWeight=0;calibrationDirectStability=[];calibrationDirectLowSimilarity=0;calibrationSpectrumFrames=[];calibratedBand={ready:false,f0:NaN,f1:NaN,quality:0};liveRIRFusion=[];lastMeasurementFusionStats={rawAccepted:0,effectiveMeasurements:0,fusedAway:0,largestGroup:0,meanCosine:NaN};
-    buildInverseESS();postLog(`worker v12 fused-measurement + octave-material + persistent Ki graph initialized @ ${FS} Hz`);runESSSelfTest(false);
+    buildInverseESS();postLog(`worker v12.1 single-chirp-safe-crop + fused-measurement + octave-material + persistent Ki graph initialized @ ${FS} Hz`);runESSSelfTest(false);
   }else if(m.type==='reconfigure'){
     CFG={...CFG,...(m.cfg||{})};currentSpeakerEpoch=Number(CFG.speakerEpoch||currentSpeakerEpoch||1);const newFS=m.sampleRate||FS;if(Math.abs(newFS-FS)>1)postLog(`sample rate changed ${FS} -> ${newFS} Hz; signal caches rebuilt while geometry is preserved`,'warn');FS=newFS;chirp=new Float64Array(m.chirp);convCache=null;psfAtomCache=null;liveRIRFusion=[];buildInverseESS();postMessage({type:'reconfigureAck',sampleRate:FS,measurementCount:measurements.length});
   }else if(m.type==='batch'){
@@ -1404,7 +1469,7 @@ onmessage=e=>{
 </script>
 <script>
 'use strict';
-const BUILD='KiSonarPrimaryMapper-v12-fused-rir-responsive-inspector';
+const BUILD='KiSonarPrimaryMapper-v12.1-single-chirp-safe-crop';
 const $=id=>document.getElementById(id);
 const ui={start:$('startBtn'),stop:$('stopBtn'),moveSpeaker:$('moveSpeakerBtn'),calibrate:$('calibrateBtn'),demo:$('demoBtn'),detail:$('detailBtn'),export:$('exportBtn'),diagnostic:$('diagnosticBtn'),rawWav:$('rawWavBtn'),settings:$('settingsBtn'),apply:$('applyBtn'),close:$('closeSettingsBtn'),panel:$('settings'),statusMain:$('statusMain'),statusSub:$('statusSub'),hud1:$('hud1'),hud2:$('hud2'),hud3:$('hud3'),hud4:$('hud4'),metrics:$('metrics'),log:$('log'),canvas:$('scene'),rirStrip:$('rirStrip'),rirShelfSummary:$('rirShelfSummary'),permissionGate:$('permissionGate'),permissionText:$('permissionText'),permissionRetry:$('permissionRetryBtn'),permissionCancel:$('permissionCancelBtn'),reflectionHint:$('reflectionHint'),calibrationPanel:$('calibrationPanel'),calibrationTitle:$('calibrationTitle'),calibrationInstruction:$('calibrationInstruction'),calibrationPhase:$('calibrationPhase'),calibrationDistance:$('calibrationDistance'),calibrationSNR:$('calibrationSNR'),calibrationTemplate:$('calibrationTemplate'),calibrationProgress:$('calibrationProgress'),calibrationAction:$('calibrationActionBtn'),speakerSelect:$('speakerSelect'),refreshSpeaker:$('refreshSpeakerBtn'),micSelect:$('microphoneSelect'),refreshMic:$('refreshMicBtn'),debugRaw:$('debugRaw'),rawShelf:$('rawShelf'),rawStrip:$('rawStrip'),rawShelfSummary:$('rawShelfSummary'),outputMode:$('outputMode'),sourceReferenceDistance:$('sourceReferenceDistance'),maxOutputLatencySearch:$('maxOutputLatencySearch'),batchSize:$('batchSize'),batchPanel:$('batchPanel'),batchTitle:$('batchTitle'),batchText:$('batchText'),batchFill:$('batchFill'),batchCount:$('batchCount'),batchPhase:$('batchPhase'),batchETA:$('batchETA'),speakerStateCard:$('speakerStateCard'),speakerStateText:$('speakerStateText'),calibrationStateCard:$('calibrationStateCard'),calibrationStateText:$('calibrationStateText'),batchStateCard:$('batchStateCard'),batchStateText:$('batchStateText'),mapStateCard:$('mapStateCard'),mapStateText:$('mapStateText'),newSession:$('newSessionBtn'),workspace:$('workspace'),serviceDock:$('serviceDockBtn'),surfaceDock:$('surfaceDockBtn'),rirDock:$('rirDockBtn'),serviceCollapse:$('serviceCollapseBtn'),surfaceCollapse:$('surfaceCollapseBtn'),servicePanel:$('servicePanel'),surfacePanel:$('surfacePanel'),surfaceSelect:$('surfaceSelect'),surfaceInspectorBody:$('surfaceInspectorBody'),rirShelf:$('rirShelf'),collapseSimilar:$('collapseSimilar'),measurementSimilarity:$('measurementSimilarity'),measurementRangeGate:$('measurementRangeGate'),measurementPeakGateMs:$('measurementPeakGateMs'),measurementGroupMax:$('measurementGroupMax')};
 let cfg={},worker=null,audio=null,renderer=null,logs=[],cycleLogs=[],rirHistory=[],diagnosticHistory=[],lastRawCapture=null,lastRawMeta=null,speakerEpoch=1,speakerSegments=[],latest={model:{path:[[0,0,0]],primary:[],detail:[]},accepted:0,rejected:0,keyframes:0,tracks:0,analysis:null},wakeLock=null;
@@ -1429,7 +1494,7 @@ function readCfg(){
     minSNRDB:+$('minSNR').value,minRawSNRDB:6,minMatchSNRDB:9,minMatchCoeff:.030,minRIRQuality:.34,
     maxPrimaryEvents:+$('maxPrimaryEvents').value,maxPrimarySurfaces:+$('maxPrimarySurfaces').value,
     detailEvery:+$('detailEvery').value,maxCycles:+$('maxCycles').value,
-    maxRirSec:.32,maxLatencySearchSec:+(ui.maxOutputLatencySearch&&ui.maxOutputLatencySearch.value||2.00),directSearchPaddingSec:.10,interSweepGuardSec:.22,
+    maxRirSec:.32,maxLatencySearchSec:+(ui.maxOutputLatencySearch&&ui.maxOutputLatencySearch.value||2.00),directSearchPaddingSec:.10,interSweepGuardSec:.32,nextChirpCutGuardSec:.060,nextChirpDetectJitterSec:.120,nextChirpMinMatchCoeff:.015,
     directSearchPreToleranceSec:.03,directMatchEarliestRelative:.40,rirPreDirectSec:.008,directExcludeSec:.00045,
     minGeometryTailSec:.14,minPreviewTailSec:.12,deconvRegularization:3e-4,matchSmoothSec:.00016,eventSmoothSec:.00022,
     eventMinSeparationSec:.00065,minPeakSNRDB:5,detailMinPeakSNRDB:2.5,primaryMAD:4.5,primaryRelative:.020,
@@ -1474,7 +1539,10 @@ function readCfg(){
   };
   q.minPostChirpRecordSec=2*q.sweepDurationSec;q.captureEndGuardSec=.15;
   q.captureWindowSec=q.preSilenceSec+q.maxLatencySearchSec+q.directSearchPaddingSec+q.sweepDurationSec+q.minPostChirpRecordSec+q.captureEndGuardSec;
-  // The long capture window includes the worst-case Bluetooth latency search and may overlap between cycles. The actual chirp train only needs T + 2T silence + guard.
+  // The long capture window still covers worst-case Bluetooth latency and may
+  // overlap the NEXT scheduled cycle.  The Worker now deterministically cuts
+  // each take before that next received chirp.  Keep the train guard larger than
+  // the crop guard so >=2T of clean post-sweep decay always survives the cut.
   q.trainMinPeriodSec=q.sweepDurationSec+q.minPostChirpRecordSec+q.interSweepGuardSec;
   q.effectiveCyclePeriodSec=Math.max(q.cyclePeriodSec,q.trainMinPeriodSec);
   return q;
@@ -1516,7 +1584,7 @@ function updateStateBoard(){
 }
 function pathOf(v,w,h,positive=false){if(!v||v.length<2)return'';let d='';for(let i=0;i<v.length;i++){const x=i/(v.length-1)*w,val=positive?Math.max(0,Math.min(1,v[i])):Math.max(-1,Math.min(1,v[i])),y=positive?h-2-val*(h-5):h*.5-val*h*.42;d+=(i?'L':'M')+x.toFixed(1)+','+y.toFixed(1);}return d;}
 function syncDebugUI(){const on=!!(ui.debugRaw&&ui.debugRaw.checked);if(ui.rawShelf)ui.rawShelf.classList.toggle('show',on);if(!on&&ui.rawShelfSummary)ui.rawShelfSummary.textContent='debug off';}
-function addRawCard(a){if(!cfg.debugRaw||!ui.rawStrip||!a)return;const au=a.captureAudit||{},card=document.createElement('div'),ok=!!au.ok;card.className=`rawCard ${ok?'good':'bad'}`;const W=210,H=65,d=pathOf(a.rawPreview||[],W,H,false),dur=Math.max(1e-6,a.rawDurationSec||au.rawDurationSec||cfg.captureWindowSec),x=t=>Math.max(0,Math.min(W,(Number.isFinite(t)?t:0)/dur*W)),play=x(au.scheduledChirpStartSec),rx=x(au.receivedSweepStartSec),end=x(au.receivedSweepEndSec);card.innerHTML=`<div class="rirTop"><span><b>RAW #${a.id}</b></span><span class="rirState">${ok?'CAPTURE OK':'CAPTURE INVALIDA'}</span></div><svg class="rawSvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" stroke="rgba(156,176,200,.25)"/><path d="${d}" fill="none" stroke="#eef6ff" stroke-width=".9"/><line x1="${play.toFixed(1)}" y1="1" x2="${play.toFixed(1)}" y2="${H-1}" stroke="#65a9ff" stroke-width="1.2"/><line x1="${rx.toFixed(1)}" y1="1" x2="${rx.toFixed(1)}" y2="${H-1}" stroke="#ffd166" stroke-width="1.4"/><line x1="${end.toFixed(1)}" y1="1" x2="${end.toFixed(1)}" y2="${H-1}" stroke="#4dd39b" stroke-width="1.2"/></svg><div class="rawMeta"><b>${ok?'OK':'NO'}</b> · durata ${finiteFmt(dur,2)} s · pre ${finiteFmt(au.preSec,2)} s · post ${finiteFmt(au.postSec,2)}/${finiteFmt(au.requiredPostSec,2)} s · chirp ${au.fullSweep?'intero':'TRONCO'} · silence ${au.scheduleSilent?'OK':'NO'}</div>`;ui.rawStrip.appendChild(card);ui.rawShelfSummary.textContent=`RAW ${a.id} · ${ok?'finestra valida':'ATTENZIONE finestra non valida'}`;requestAnimationFrame(()=>{ui.rawStrip.scrollLeft=ui.rawStrip.scrollWidth;});}
+function addRawCard(a){if(!cfg.debugRaw||!ui.rawStrip||!a)return;const au=a.captureAudit||{},card=document.createElement('div'),ok=!!au.ok;card.className=`rawCard ${ok?'good':'bad'}`;const W=210,H=65,d=pathOf(a.rawPreview||[],W,H,false),dur=Math.max(1e-6,a.rawDurationSec||au.rawDurationSec||cfg.captureWindowSec),x=t=>Math.max(0,Math.min(W,(Number.isFinite(t)?t:0)/dur*W)),play=x(au.scheduledChirpStartSec),rx=x(au.receivedSweepStartSec),end=x(au.receivedSweepEndSec),cut=au.nextChirpCutApplied?x(au.nextChirpCutSec):NaN,cutLine=Number.isFinite(cut)?`<line x1="${Math.min(W-1,cut).toFixed(1)}" y1="1" x2="${Math.min(W-1,cut).toFixed(1)}" y2="${H-1}" stroke="#ff9f43" stroke-width="1.2" stroke-dasharray="3 2"/>`:'';const cropText=au.nextChirpCutApplied?` · SAFE CUT ${finiteFmt(au.nextChirpCutSec,2)} s (${finiteFmt(1000*au.nextChirpCutGuardSec,0)} ms prima di chirp #2)`:'';card.innerHTML=`<div class="rirTop"><span><b>RAW #${a.id}</b></span><span class="rirState">${ok?'CAPTURE OK':'CAPTURE INVALIDA'}</span></div><svg class="rawSvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" stroke="rgba(156,176,200,.25)"/><path d="${d}" fill="none" stroke="#eef6ff" stroke-width=".9"/><line x1="${play.toFixed(1)}" y1="1" x2="${play.toFixed(1)}" y2="${H-1}" stroke="#65a9ff" stroke-width="1.2"/><line x1="${rx.toFixed(1)}" y1="1" x2="${rx.toFixed(1)}" y2="${H-1}" stroke="#ffd166" stroke-width="1.4"/><line x1="${end.toFixed(1)}" y1="1" x2="${end.toFixed(1)}" y2="${H-1}" stroke="#4dd39b" stroke-width="1.2"/>${cutLine}</svg><div class="rawMeta"><b>${ok?'OK':'NO'}</b> · usato ${finiteFmt(dur,2)} s / acquisito ${finiteFmt(au.rawOriginalDurationSec||dur,2)} s · pre ${finiteFmt(au.preSec,2)} s · post ${finiteFmt(au.postSec,2)}/${finiteFmt(au.requiredPostSec,2)} s · chirp ${au.fullSweep?'intero':'TRONCO'} · silence ${au.scheduleSilent?'OK':'NO'}${cropText}</div>`;ui.rawStrip.appendChild(card);ui.rawShelfSummary.textContent=`RAW ${a.id} · ${ok?'single-chirp valido':'ATTENZIONE finestra non valida'}${au.nextChirpCutApplied?' · chirp #2 escluso':''}`;requestAnimationFrame(()=>{ui.rawStrip.scrollLeft=ui.rawStrip.scrollWidth;});}
 function addRIRCard(a){
   if(!a||!ui.rirStrip)return;
   try{
@@ -1786,7 +1854,7 @@ async function startLive(opts={}){
  syncDebugUI();if(audio)await cleanupFailedAudio();if(!worker)makeWorker();audio=new AudioEngine();audio.mode=calibrate?'calibration':'measure';ui.start.disabled=true;ui.demo.disabled=true;ui.stop.disabled=false;ui.moveSpeaker.disabled=true;ui.calibrate.disabled=calibrate;setStatus(calibrate?'Avvio calibrazione':'Avvio acquisizione',calibrate?'Apro i dispositivi senza toccare le misure già acquisite.':`Sessione preservata: raccolgo gruppi da ${cfg.batchSize} misure.`);await audio.start();hidePermissionGate();if(calibrate)beginCalibration();else{wallGuide.active=calibration.done;setBatchUI('acquire',0,cfg.batchSize,0,`Batch da ${cfg.batchSize}: acquisizione prima, processing globale dopo.`);setStatus('Misura attiva',`Batch da ${cfg.batchSize} · speaker epoch ${speakerEpoch} fermo · misure precedenti preservate.`,'ok');}log(`${calibrate?'calibrazione':'misura'} avviata · speaker epoch ${speakerEpoch} · storico preservato`);updateHUD();}
  catch(e){await cleanupFailedAudio();log(e.stack||e.message,'error');ui.start.disabled=false;ui.demo.disabled=false;ui.stop.disabled=true;ui.moveSpeaker.disabled=false;ui.calibrate.disabled=false;if(isMicPermissionError(e)){setStatus('Permesso microfono necessario','Autorizza e riprova.','warn');showPermissionGate(e);}else{hidePermissionGate();setStatus('Avvio fallito',e.message,'bad');}}
 }
-function startDemo(fast=false){cfg=readCfg();cfg.sourceReferenceDistanceM=.30;if(fast){cfg.sweepDurationSec=.22;cfg.preSilenceSec=.08;cfg.maxLatencySearchSec=.35;cfg.directSearchPaddingSec=.05;cfg.interSweepGuardSec=.06;cfg.minPostChirpRecordSec=2*cfg.sweepDurationSec;cfg.captureEndGuardSec=.06;cfg.captureWindowSec=cfg.preSilenceSec+cfg.maxLatencySearchSec+cfg.directSearchPaddingSec+cfg.sweepDurationSec+cfg.minPostChirpRecordSec+cfg.captureEndGuardSec;cfg.trainMinPeriodSec=cfg.sweepDurationSec+cfg.minPostChirpRecordSec+cfg.interSweepGuardSec;cfg.effectiveCyclePeriodSec=Math.max(.75,cfg.trainMinPeriodSec);cfg.maxCycles=46;cfg.detailEvery=0;cfg.motionConfirmCycles=1;cfg.primaryAddScore=.44;}cycleLogs=[];diagnosticHistory=[];lastRawCapture=null;lastRawMeta=null;resetRIRStrip();latest={model:{path:[[0,0,0]],source:[0,0,0],primary:[],detail:[]},accepted:0,rejected:0,keyframes:0,tracks:0,analysis:null};makeWorker();wallGuide=freshWallGuide();calibration=freshCalibration();calibration.active=true;calibration.phase='near-source';audio=new DemoEngine(fast);audio.mode='calibration';ui.start.disabled=true;ui.demo.disabled=true;ui.stop.disabled=false;ui.moveSpeaker.disabled=true;ui.calibrate.disabled=false;audio.start();setCalibrationPanel('Demo · riferimento vicino','Simulo speaker fisso e microfono mobile.',.08);setStatus('Demo fixed-source','Stesso Worker del live.','warn');}
+function startDemo(fast=false){cfg=readCfg();cfg.sourceReferenceDistanceM=.30;if(fast){cfg.sweepDurationSec=.22;cfg.preSilenceSec=.08;cfg.maxLatencySearchSec=.35;cfg.directSearchPaddingSec=.05;cfg.interSweepGuardSec=.06;cfg.nextChirpCutGuardSec=.025;cfg.minPostChirpRecordSec=2*cfg.sweepDurationSec;cfg.captureEndGuardSec=.06;cfg.captureWindowSec=cfg.preSilenceSec+cfg.maxLatencySearchSec+cfg.directSearchPaddingSec+cfg.sweepDurationSec+cfg.minPostChirpRecordSec+cfg.captureEndGuardSec;cfg.trainMinPeriodSec=cfg.sweepDurationSec+cfg.minPostChirpRecordSec+cfg.interSweepGuardSec;cfg.effectiveCyclePeriodSec=Math.max(.75,cfg.trainMinPeriodSec);cfg.maxCycles=46;cfg.detailEvery=0;cfg.motionConfirmCycles=1;cfg.primaryAddScore=.44;}cycleLogs=[];diagnosticHistory=[];lastRawCapture=null;lastRawMeta=null;resetRIRStrip();latest={model:{path:[[0,0,0]],source:[0,0,0],primary:[],detail:[]},accepted:0,rejected:0,keyframes:0,tracks:0,analysis:null};makeWorker();wallGuide=freshWallGuide();calibration=freshCalibration();calibration.active=true;calibration.phase='near-source';audio=new DemoEngine(fast);audio.mode='calibration';ui.start.disabled=true;ui.demo.disabled=true;ui.stop.disabled=false;ui.moveSpeaker.disabled=true;ui.calibrate.disabled=false;audio.start();setCalibrationPanel('Demo · riferimento vicino','Simulo speaker fisso e microfono mobile.',.08);setStatus('Demo fixed-source','Stesso Worker del live.','warn');}
 async function stopAll(){let processing=false;if(audio){await audio.stop();processing=!!audio.processingBatch;}audio=null;ui.start.disabled=false;ui.demo.disabled=false;ui.stop.disabled=true;ui.moveSpeaker.disabled=false;ui.calibrate.disabled=false;hideCalibrationPanel();setMeasurementHint('','',false);if(!processing)setBatchUI('idle',0,cfg.batchSize||5,0,'');else setStatus('Stop · processing finale','Il batch parziale è già stato inviato al Worker; attendo la ricostruzione senza perdere le misure.','warn');if(!processing)setStatus('Acquisizione fermata',`Sessione, calibrazione e grafo sono conservati. Premi Avvia misure per continuare; usa Sposto speaker solo se lo hai mosso fisicamente.`,'ok');if(worker)worker.postMessage({type:'postprocess'});updateHUD();}
 function markSpeakerMoved(){if(audio&&audio.running){setStatus('Prima premi Stop','Lo spostamento dello speaker cambia l’origine geometrica.','warn');return;}speakerSegments.push({epoch:speakerEpoch,calibration:calibration.profile,model:latest.model,logs:cycleLogs.slice(),date:new Date().toISOString(),speaker:cfg.selectedSpeakerLabel||''});const archivedModel=latest.model;speakerEpoch++;calibration=freshCalibration();wallGuide=freshWallGuide();cycleLogs=[];rirHistory=[];diagnosticHistory=[];if(worker)worker.postMessage({type:'newSpeakerEpoch',epoch:speakerEpoch});latest={model:{...archivedModel,path:[],source:archivedModel.source||[0,0,0],mode:'GLOBAL-ARCHIVE-WAITING-NEW-EPOCH'},accepted:0,rejected:0,keyframes:0,tracks:0,analysis:null};selectedSurfaceKey='';renderer.selectedSurfaceKey='';renderer.setModel(latest.model);updateSurfaceInspector();resetRIRStrip();setStatus('Speaker spostato',`Nuovo epoch ${speakerEpoch}. I gusci Ki e lo spazio libero precedenti restano persistenti; dopo ≥3 superfici comuni il nuovo frame viene allineato automaticamente. Rifai solo la calibrazione della sorgente.`,'warn');log(`speaker dichiarato spostato: epoch ${speakerEpoch}; evidenza globale preservata`);updateHUD();}
 function exportSession(){const data={build:BUILD,date:new Date().toISOString(),speakerEpoch,speakerSegments,globalPersistentMap:latest.model&&latest.model.globalPersistentMap||null,config:cfg,calibration:calibration.profile,wallGuidance:wallGuide,logs:cycleLogs,rirHistory,textLog:logs,model:latest.model,selfTest:workerSelfTest,systemResponse:{count:(latest.analysis&&latest.analysis.systemResponseCount)||calibration.directTemplateCount||0,stability:latest.analysis&&latest.analysis.systemResponseStability},selectedSpeaker:cfg.selectedSpeakerLabel||'',speakerDeviceId:cfg.speakerDeviceId||'',selectedMicrophone:cfg.selectedMicrophoneLabel||'',outputMode:cfg.outputMode||'left',diagnostics:diagnosticHistory,lastRawMeta};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`KiSonar_${new Date().toISOString().replace(/[:.]/g,'-')}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);}
@@ -1800,7 +1868,7 @@ function exportDiagnostics(){
   downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),`KiSonar_DIAGNOSTIC_${new Date().toISOString().replace(/[:.]/g,'-')}.json`);
 }
 function wavFloat32Blob(x,fs){const n=x.length,b=new ArrayBuffer(44+4*n),v=new DataView(b);const ws=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i));};ws(0,'RIFF');v.setUint32(4,36+4*n,true);ws(8,'WAVE');ws(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,3,true);v.setUint16(22,1,true);v.setUint32(24,fs,true);v.setUint32(28,4*fs,true);v.setUint16(32,4,true);v.setUint16(34,32,true);ws(36,'data');v.setUint32(40,4*n,true);for(let i=0;i<n;i++)v.setFloat32(44+4*i,Number.isFinite(x[i])?x[i]:0,true);return new Blob([b],{type:'audio/wav'});}
-function exportLastRawWav(){if(!lastRawCapture||!lastRawCapture.length){setStatus('RAW non disponibile','Esegui almeno una misura reale.','warn');return;}const id=lastRawMeta&&lastRawMeta.id||0,fs=lastRawMeta&&lastRawMeta.fs||cfg.sampleRate||48000;downloadBlob(wavFloat32Blob(lastRawCapture,fs),`KiSonar_RAW_FLOAT32_${String(id).padStart(4,'0')}_${fs}Hz.wav`);}
+function exportLastRawWav(){if(!lastRawCapture||!lastRawCapture.length){setStatus('RAW non disponibile','Esegui almeno una misura reale.','warn');return;}const id=lastRawMeta&&lastRawMeta.id||0,fs=lastRawMeta&&lastRawMeta.fs||cfg.sampleRate||48000,au=latest.analysis&&latest.analysis.id===id&&latest.analysis.captureAudit||null;let y=lastRawCapture,tag='CAPTURE';if(au&&au.nextChirpCutApplied&&Number.isFinite(au.nextChirpCutSec)){const n=Math.max(1,Math.min(y.length,Math.round(au.nextChirpCutSec*fs)));y=y.slice(0,n);tag='SINGLE_CHIRP_USED';}downloadBlob(wavFloat32Blob(y,fs),`KiSonar_RAW_${tag}_FLOAT32_${String(id).padStart(4,'0')}_${fs}Hz.wav`);}
 function pathSpan(path){if(!path||path.length<2)return 0;let s=0;for(let k=0;k<3;k++){let lo=Infinity,hi=-Infinity;for(const p of path){lo=Math.min(lo,p[k]);hi=Math.max(hi,p[k]);}s=Math.max(s,hi-lo);}return s;}
 function evaluateBrowserSelfTest(){if(!querySelfTest)return;const cards=ui.rirStrip?ui.rirStrip.querySelectorAll('.rirCard').length:0,rawCards=ui.rawStrip?ui.rawStrip.querySelectorAll('.rawCard').length:0,previewCards=ui.rirStrip?ui.rirStrip.querySelectorAll('.rirCard[data-preview="yes"]').length:0,reflCards=ui.rirStrip?Array.from(ui.rirStrip.querySelectorAll('.rirCard')).filter(x=>+(x.dataset.reflections||0)>0).length:0,m=latest.model||{};if(workerSelfTest&&workerSelfTest.ok&&calibration.done&&selfTestResults>=15){const detail={worker:workerSelfTest.ok,calibrated:calibration.done,range:calibration.profile&&calibration.profile.maxReliableDirectDistanceM,results:selfTestResults,cards,rawCards,previewCards,reflCards,accepted:latest.accepted,keyframes:latest.keyframes,tracks:latest.tracks,surfaces:(m.primary||[]).length,rank:m.rank||0,rmse:m.rmse,pathSpan:pathSpan(m.path),uiErrors:uiErrorCount};const ok=detail.calibrated&&detail.range>1&&detail.range<4&&detail.cards>=19&&(!queryDebug||detail.rawCards>=18)&&detail.previewCards>=18&&detail.reflCards>=14&&detail.accepted>=12&&detail.keyframes>=5&&detail.tracks>=4&&detail.surfaces>=3&&detail.surfaces<=6&&detail.rank===3&&detail.pathSpan>.05&&detail.pathSpan<10&&detail.uiErrors===0;document.documentElement.dataset.selftest=ok?'PASS':'FAIL';document.documentElement.dataset.selftestDetail=JSON.stringify(detail);setStatus(`SELFTEST ${ok?'PASS':'FAIL'}`,JSON.stringify(detail),ok?'ok':'bad');console.log('KISONAR_SELFTEST',ok?'PASS':'FAIL',detail);}}
 
