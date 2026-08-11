@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0b1220">
-<title>Ki Sonar Mapper v13.1 · Robust Stereo Axis + Ki Graph</title>
+<title>Ki Sonar Mapper v15.1 · Robust Stereo Axis + Ki Graph</title>
 <style>
 :root{color-scheme:dark;--bg:#07101e;--panel:#0e1a2b;--panel2:#14243a;--fg:#eef6ff;--muted:#9cb0c8;--ok:#4dd39b;--warn:#ffc857;--bad:#ff6b6b;--accent:#65a9ff;--detail:#9d8cff}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -1895,7 +1895,7 @@ onmessage=e=>{
 </script>
 <script>
 'use strict';
-const BUILD='KiSonarPrimaryMapper-v15.0-ESS-primary+clock-coherence';
+const BUILD='KiSonarPrimaryMapper-v15.1-ESS-primary+clock-coherence+live-tone-cal';
 const $=id=>document.getElementById(id);
 const ui={start:$('startBtn'),stop:$('stopBtn'),moveSpeaker:$('moveSpeakerBtn'),calibrate:$('calibrateBtn'),stereoCalibrate:$('stereoCalibrateBtn'),demo:$('demoBtn'),detail:$('detailBtn'),export:$('exportBtn'),diagnostic:$('diagnosticBtn'),rawWav:$('rawWavBtn'),settings:$('settingsBtn'),apply:$('applyBtn'),close:$('closeSettingsBtn'),panel:$('settings'),statusMain:$('statusMain'),statusSub:$('statusSub'),hud1:$('hud1'),hud2:$('hud2'),hud3:$('hud3'),hud4:$('hud4'),metrics:$('metrics'),log:$('log'),canvas:$('scene'),rirStrip:$('rirStrip'),rirShelfSummary:$('rirShelfSummary'),permissionGate:$('permissionGate'),permissionText:$('permissionText'),permissionRetry:$('permissionRetryBtn'),permissionCancel:$('permissionCancelBtn'),reflectionHint:$('reflectionHint'),calibrationPanel:$('calibrationPanel'),calibrationTitle:$('calibrationTitle'),calibrationInstruction:$('calibrationInstruction'),calibrationPhase:$('calibrationPhase'),calibrationDistance:$('calibrationDistance'),calibrationSNR:$('calibrationSNR'),calibrationTemplate:$('calibrationTemplate'),calibrationProgress:$('calibrationProgress'),calibrationAction:$('calibrationActionBtn'),speakerSelect:$('speakerSelect'),refreshSpeaker:$('refreshSpeakerBtn'),micSelect:$('microphoneSelect'),refreshMic:$('refreshMicBtn'),debugRaw:$('debugRaw'),rawShelf:$('rawShelf'),rawStrip:$('rawStrip'),rawShelfSummary:$('rawShelfSummary'),outputMode:$('outputMode'),sourceReferenceDistance:$('sourceReferenceDistance'),maxOutputLatencySearch:$('maxOutputLatencySearch'),batchSize:$('batchSize'),batchPanel:$('batchPanel'),batchTitle:$('batchTitle'),batchText:$('batchText'),batchFill:$('batchFill'),batchCount:$('batchCount'),batchPhase:$('batchPhase'),batchETA:$('batchETA'),speakerStateCard:$('speakerStateCard'),speakerStateText:$('speakerStateText'),calibrationStateCard:$('calibrationStateCard'),calibrationStateText:$('calibrationStateText'),batchStateCard:$('batchStateCard'),batchStateText:$('batchStateText'),stereoStateCard:$('stereoStateCard'),stereoStateText:$('stereoStateText'),mapStateCard:$('mapStateCard'),mapStateText:$('mapStateText'),pathReviewCard:$('pathReviewCard'),pathReviewTitle:$('pathReviewTitle'),pathReviewText:$('pathReviewText'),pathApprove:$('pathApproveBtn'),stereoWizard:$('stereoWizard'),stereoWizardTitle:$('stereoWizardTitle'),stereoWizardBadge:$('stereoWizardBadge'),stereoWizardInstruction:$('stereoWizardInstruction'),stereoWizardPhase:$('stereoWizardPhase'),stereoWizardCount:$('stereoWizardCount'),stereoWizardDelta:$('stereoWizardDelta'),stereoWizardBaseline:$('stereoWizardBaseline'),stereoWizardMatch:$('stereoWizardMatch'),stereoWizardBias:$('stereoWizardBias'),stereoWizardProgress:$('stereoWizardProgress'),stereoWizardHint:$('stereoWizardHint'),stereoCoverage:$('stereoCoverage'),stereoCoverageMetric:$('stereoCoverageMetric'),stereoCoverageText:$('stereoCoverageText'),stereoCoverageFill:$('stereoCoverageFill'),stereoNext:$('stereoNextBtn'),stereoAbort:$('stereoAbortBtn'),stereoPilotEnabled:$('stereoPilotEnabled'),stereoAnchorDistance:$('stereoAnchorDistance'),stereoAnchorUncertainty:$('stereoAnchorUncertainty'),stereoTakesPerPhase:$('stereoTakesPerPhase'),stereoMinBaseline:$('stereoMinBaseline'),stereoFusionGate:$('stereoFusionGate'),stereoConstraintWeight:$('stereoConstraintWeight'),soundSpeed:$('soundSpeed'),stereoPilotTailGuard:$('stereoPilotTailGuard'),setupTargetPeak:$('setupTargetPeak'),setupGate:$('setupGate'),setupDeviceStage:$('setupDeviceStage'),setupMeasureStage:$('setupMeasureStage'),setupReview:$('setupReview'),setupInstruction:$('setupInstruction'),setupHint:$('setupHint'),setupPeak:$('setupPeak'),setupMatch:$('setupMatch'),setupLag:$('setupLag'),setupSeg:$('setupSeg'),setupPeakMetric:$('setupPeakMetric'),setupMatchMetric:$('setupMatchMetric'),setupLagMetric:$('setupLagMetric'),setupSegMetric:$('setupSegMetric'),setupLevelFill:$('setupLevelFill'),setupRawSvg:$('setupRawSvg'),setupRirSvg:$('setupRirSvg'),setupAxisMarker:$('setupAxisMarker'),setupAxisLabel:$('setupAxisLabel'),setupRawMeta:$('setupRawMeta'),setupRirMeta:$('setupRirMeta'),setupForce:$('setupForceLevelBtn'),setupNext:$('setupNextBtn'),setupAbort:$('setupAbortBtn'),setupConfirm:$('setupConfirmBtn'),setupRepeat:$('setupRepeatBtn'),setupSave:$('setupSaveBtn'),setupLoad:$('setupLoadBtn'),setupFile:$('setupFileInput'),setupBegin:$('setupBeginBtn'),setupRefresh:$('setupRefreshBtn'),setupSpeakerSelect:$('setupSpeakerSelect'),setupMicSelect:$('setupMicSelect'),setupSaved:$('setupSaved'),setupSavedText:$('setupSavedText'),setupUseSaved:$('setupUseSavedBtn'),setupDiscardSaved:$('setupDiscardSavedBtn'),setupReviewBaseline:$('setupReviewBaseline'),setupReviewLower:$('setupReviewLower'),setupReviewBias:$('setupReviewBias'),setupReviewRange:$('setupReviewRange'),setupReviewPSF:$('setupReviewPSF'),setupReviewLag:$('setupReviewLag'),setupReviewTransfer:$('setupReviewTransfer'),setupReviewQuality:$('setupReviewQuality'),setupReviewWarning:$('setupReviewWarning'),setupBandRows:$('setupBandRows'),newSession:$('newSessionBtn'),workspace:$('workspace'),serviceDock:$('serviceDockBtn'),surfaceDock:$('surfaceDockBtn'),rirDock:$('rirDockBtn'),serviceCollapse:$('serviceCollapseBtn'),surfaceCollapse:$('surfaceCollapseBtn'),servicePanel:$('servicePanel'),surfacePanel:$('surfacePanel'),surfaceSelect:$('surfaceSelect'),surfaceInspectorBody:$('surfaceInspectorBody'),rirShelf:$('rirShelf'),collapseSimilar:$('collapseSimilar'),measurementSimilarity:$('measurementSimilarity'),measurementRangeGate:$('measurementRangeGate'),measurementPeakGateMs:$('measurementPeakGateMs'),measurementGroupMax:$('measurementGroupMax')};
 let cfg={},worker=null,audio=null,renderer=null,logs=[],cycleLogs=[],rirHistory=[],diagnosticHistory=[],lastRawCapture=null,lastRawMeta=null,speakerEpoch=1,speakerSegments=[],latest={model:{path:[[0,0,0]],primary:[],detail:[]},accepted:0,rejected:0,keyframes:0,tracks:0,analysis:null},wakeLock=null;
@@ -2406,6 +2406,139 @@ async function newSession(){pathUserApproved=false;
 }
 ui.setupBegin.onclick=beginInitialSetup;ui.setupNext.onclick=advanceInitialSetup;ui.setupAbort.onclick=abortInitialSetup;if(ui.setupForce)ui.setupForce.onclick=()=>{if(stereoSetup.active&&(stereoSetup.phase==='left'||stereoSetup.phase==='right')){stereoSetup.forceNoClip=true;ui.setupHint.textContent='Livello attuale accettato come limite pratico: raccolgo le take stabili.';}};ui.setupConfirm.onclick=confirmInitialSetup;ui.setupRepeat.onclick=abortInitialSetup;ui.setupSave.onclick=saveSetupJSON;ui.setupLoad.onclick=()=>ui.setupFile.click();ui.setupFile.onchange=async()=>{try{const f=ui.setupFile.files&&ui.setupFile.files[0];if(f)loadSetupObject(JSON.parse(await f.text()));}catch(e){ui.setupReviewWarning.textContent=e.message;}};ui.setupRefresh.onclick=async()=>{try{await refreshMicrophones(true);await refreshSpeakers(true);if(ui.setupSpeakerSelect)ui.setupSpeakerSelect.value=ui.speakerSelect.value;if(ui.setupMicSelect)ui.setupMicSelect.value=ui.micSelect.value;}catch(e){ui.setupSavedText.textContent=e.message;}};ui.setupSpeakerSelect.onchange=()=>{if(ui.speakerSelect)ui.speakerSelect.value=ui.setupSpeakerSelect.value;};ui.setupMicSelect.onchange=()=>{if(ui.micSelect)ui.micSelect.value=ui.setupMicSelect.value;};ui.setupUseSaved.onclick=()=>{const p=inspectSavedSetup();if(p)loadSetupObject(p);};ui.setupDiscardSaved.onclick=()=>ui.setupSaved.classList.remove('show');
 ui.pathApprove.onclick=approveCurrentPath;ui.start.onclick=()=>startLive();ui.newSession.onclick=newSession;ui.serviceDock.onclick=toggleServiceDock;ui.surfaceDock.onclick=toggleSurfaceDock;ui.serviceCollapse.onclick=toggleServiceDock;ui.surfaceCollapse.onclick=toggleSurfaceDock;ui.rirDock.onclick=()=>{if(ui.rirShelf)ui.rirShelf.classList.toggle('rirShelfMobileOpen');requestAnimationFrame(()=>renderer&&renderer.resize());};ui.surfaceSelect.onchange=()=>selectSurface(ui.surfaceSelect.value);addEventListener('resize',syncResponsiveWorkspace);ui.moveSpeaker.onclick=markSpeakerMoved;ui.diagnostic.onclick=exportDiagnostics;ui.rawWav.onclick=exportLastRawWav;ui.demo.onclick=()=>startDemo(false);ui.stop.onclick=stopAll;ui.calibrate.onclick=()=>recalibrateNow();ui.stereoCalibrate.onclick=startStereoAxisCalibration;ui.stereoNext.onclick=advanceStereoCalibration;ui.stereoAbort.onclick=abortStereoCalibration;ui.detail.onclick=()=>{worker&&worker.postMessage({type:'postprocess'});setStatus('Espansione secondarie','Uso i candidati già memorizzati senza modificare path e pareti principali…');};ui.export.onclick=exportSession;ui.settings.onclick=()=>ui.panel.style.display='block';ui.close.onclick=()=>ui.panel.style.display='none';ui.apply.onclick=()=>{cfg=readCfg();cfg.selectedSpeakerLabel=(ui.speakerSelect&&ui.speakerSelect.selectedOptions[0]&&ui.speakerSelect.selectedOptions[0].textContent)||'default';syncDebugUI();ui.panel.style.display='none';log('impostazioni aggiornate; applicate al prossimo avvio');};ui.refreshMic.onclick=async()=>{try{setStatus('Microfoni','Richiesta/aggiornamento elenco microfoni…');await refreshMicrophones(true);setStatus('Microfoni','Seleziona il microfono e poi avvia.','ok');}catch(e){if(isMicPermissionError(e)){showPermissionGate(e);setStatus('Permesso microfono necessario','Concedi il permesso per vedere i microfoni.','warn');}else setStatus('Microfoni',e.message,'bad');}};ui.refreshSpeaker.onclick=async()=>{try{cfg=readCfg();setStatus('Speaker','Autorizzazione/aggiornamento uscite audio…');await refreshSpeakers(true);setStatus('Speaker',`Selezionato: ${(ui.speakerSelect&&ui.speakerSelect.selectedOptions[0]&&ui.speakerSelect.selectedOptions[0].textContent)||'default'}.`,'ok');}catch(e){log(`speaker selection: ${e.message}`,'warn');await refreshSpeakers(false).catch(()=>{});setStatus('Speaker','Il browser non ha concesso la selezione diretta: scegli l’uscita Bluetooth/cavo nel sistema operativo.','warn');}};ui.calibrationAction.onclick=()=>{if(calibration.phase==='move-away'){calibration.phase='move-back';calibration.turnRequested=true;setCalibrationAction('',false);setCalibrationPanel('Calibrazione 3/3 · avvicinati gradualmente','Ora torna lentamente verso lo speaker, che deve restare FERMO. Verifico la reversibilità del direct e chiudo la calibrazione.',.62);}};ui.debugRaw.onchange=()=>{cfg=readCfg();syncDebugUI();if(worker)worker.postMessage({type:'setDebugRaw',enabled:cfg.debugRaw});};ui.permissionRetry.onclick=()=>document.body.classList.contains('setupLocked')?beginInitialSetup():startLive({retry:true,calibrate:false});ui.permissionCancel.onclick=()=>{hidePermissionGate();setStatus('Permesso non concesso','Premi Avvia quando vuoi riprovare.','warn');};
+/* ============================================================================
+ * Live tone-burst L/R calibration (v15): continuous two-tone (stereo) or single
+ * tone (mono) with a real-time L↔R position bar (~16 Hz).  Robust to lag/noise
+ * because the L/R delta is a relative timing of the two tone envelopes in the
+ * SAME recording (common lag cancels).  Produces a resolved baseline for the ESS
+ * stereo-axis fit.  Fully self-contained: its own AudioContext + capture, appended
+ * to the DOM by JS so it cannot disturb the measurement pipeline.
+ * ==========================================================================*/
+function makeToneComb(fs,fL,fR,burstSec,TrepSec,durSec,mono){
+  const N=Math.round(durSec*fs),left=new Float32Array(N),right=new Float32Array(N),nb=Math.max(8,Math.round(burstSec*fs)),step=Math.max(nb+8,Math.round(TrepSec*fs));
+  const mk=f=>{const b=new Float32Array(nb);for(let i=0;i<nb;i++)b[i]=(0.5-0.5*Math.cos(2*Math.PI*i/(nb-1)))*Math.sin(2*Math.PI*f*i/fs);return b;};
+  const bL=mk(fL),bR=mk(fR);
+  for(let s=0;s+nb<N;s+=step)for(let i=0;i<nb;i++){left[s+i]+=0.32*bL[i];right[s+i]+=mono?0.32*bL[i]:0.32*bR[i];}
+  return{left,right};
+}
+class LiveToneCalib{
+  constructor(){this.fL=+(cfg.toneFLHz||3000);this.fR=+(cfg.toneFRHz||3600);this.burst=+(cfg.toneBurstSec||0.003);this.Trep=+(cfg.toneTrepSec||0.045);this.running=false;}
+  async start(mono){
+    this.mono=!!mono;this.deltas=[];this.absMax=0;this.ampMin=Infinity;this.ampMax=-Infinity;this.emaDelta=NaN;this.emaAmp=NaN;
+    if(!window.isSecureContext)throw new Error('serve HTTPS o localhost per il microfono');
+    const AC=window.AudioContext||window.webkitAudioContext;this.ctx=new AC({latencyHint:'interactive'});await this.ctx.resume();this.fs=this.ctx.sampleRate;
+    if(cfg.speakerDeviceId&&typeof this.ctx.setSinkId==='function'){try{await this.ctx.setSinkId(cfg.speakerDeviceId);}catch(e){}}
+    const ac={channelCount:{ideal:1}};if(cfg.micDeviceId)ac.deviceId={exact:cfg.micDeviceId};ac.echoCancellation=false;ac.noiseSuppression=false;ac.autoGainControl=false;
+    this.stream=await navigator.mediaDevices.getUserMedia({audio:ac});const track=this.stream.getAudioTracks()[0];try{await track.applyConstraints({echoCancellation:false,noiseSuppression:false,autoGainControl:false});}catch{}
+    const st=track.getSettings?track.getSettings():{};this.micRate=st.sampleRate||this.fs;this.micLabel=track.label||'default';
+    const comb=makeToneComb(this.fs,this.fL,this.fR,this.burst,this.Trep,0.6,this.mono),buf=this.ctx.createBuffer(2,comb.left.length,this.fs);buf.copyToChannel(comb.left,0);buf.copyToChannel(comb.right,1);
+    this.src=this.ctx.createBufferSource();this.src.buffer=buf;this.src.loop=true;
+    const wcode=$('capture-worklet').textContent,wurl=URL.createObjectURL(new Blob([wcode],{type:'text/javascript'}));await this.ctx.audioWorklet.addModule(wurl);URL.revokeObjectURL(wurl);
+    this.worklet=new AudioWorkletNode(this.ctx,'ki-capture',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[1]});this.node=this.ctx.createMediaStreamSource(this.stream);
+    const zero=this.ctx.createGain();zero.gain.value=0;this.node.connect(this.worklet).connect(zero).connect(this.ctx.destination);this.src.connect(this.ctx.destination);
+    this.ringLen=Math.round(0.3*this.fs);this.ring=new Float32Array(this.ringLen);this.rw=0;
+    this.worklet.port.onmessage=e=>{const d=e.data.data;for(let i=0;i<d.length;i++){this.ring[this.rw]=d[i];this.rw=(this.rw+1)%this.ringLen;}};
+    this.src.start();this.running=true;this.timer=setInterval(()=>{try{this.tick();}catch(err){log('toneCal tick: '+err.message,'warn');}},60);
+    if(Math.abs(this.micRate-this.fs)>1)log(`calibrazione: microfono ${this.micRate} Hz vs AudioContext ${this.fs} Hz — il browser ricampiona; la coerenza di clock fine è gestita a misura sull'ESS`,'warn');
+  }
+  win(){const w=new Float32Array(this.ringLen);for(let i=0;i<this.ringLen;i++)w[i]=this.ring[(this.rw+i)%this.ringLen];return w;}
+  demod(x,f){const n=x.length,W=Math.max(2,Math.round(0.6*this.burst*this.fs)),env=new Float32Array(n);let sr=0,si=0;
+    for(let i=0;i<n;i++){const ph=-2*Math.PI*f*i/this.fs;sr+=x[i]*Math.cos(ph);si+=x[i]*Math.sin(ph);if(i>=W){const j=i-W,pj=-2*Math.PI*f*j/this.fs;sr-=x[j]*Math.cos(pj);si-=x[j]*Math.sin(pj);}env[i]=Math.hypot(sr,si)/Math.min(i+1,W);}
+    return env;}
+  strongPeak(e){let mi=0,mv=0;for(let i=1;i<e.length-1;i++)if(e[i]>mv&&e[i]>=e[i-1]&&e[i]>=e[i+1]){mv=e[i];mi=i;}return{idx:mi,val:mv};}
+  // TDOA between the two tone envelopes: the offset that maximizes their overlap.
+  // Uses the whole burst shape across every repetition in the window (robust to
+  // lag and noise since both envelopes share the common lag).  Returns null if
+  // the peak is at the boundary (out of range) or not prominent (noise-dominated).
+  envLag(eL,eR,maxlag){
+    let best=-Infinity,bl=0,sum=0,cnt=0;const vals={};
+    for(let lag=-maxlag;lag<=maxlag;lag++){let s=0;for(let i=Math.max(0,-lag);i<eL.length-Math.max(0,lag);i++)s+=eL[i]*eR[i+lag];vals[lag]=s;sum+=s;cnt++;if(s>best){best=s;bl=lag;}}
+    if(bl<=-maxlag+1||bl>=maxlag-1)return null;
+    const mean=sum/Math.max(1,cnt);if(!(best>mean*1.25))return null;
+    let lag=bl;const d=vals[bl-1]-2*vals[bl]+vals[bl+1];if(Math.abs(d)>1e-12)lag=bl+0.5*(vals[bl-1]-vals[bl+1])/d;
+    return lag;
+  }
+  tick(){
+    if(!this.running)return;const x=this.win(),C=+(cfg.soundSpeedMPS||343),eL=this.demod(x,this.fL),medL=medianNum(Array.from(eL))+1e-9,pL=this.strongPeak(eL),snr=20*Math.log10(pL.val/medL);
+    let deltaM=NaN,posAmp=NaN;
+    if(this.mono){
+      const amp=pL.val;if(snr>6){this.emaAmp=Number.isFinite(this.emaAmp)?0.6*this.emaAmp+0.4*amp:amp;this.ampMin=Math.min(this.ampMin,this.emaAmp);this.ampMax=Math.max(this.ampMax,this.emaAmp);posAmp=this.emaAmp;}
+    }else{
+      const maxlag=Math.max(48,Math.round(0.0045*this.fs)),eR=this.demod(x,this.fR),lag=snr>6?this.envLag(eL,eR,maxlag):null;
+      if(lag!=null){const d=lag/this.fs*C;this.emaDelta=Number.isFinite(this.emaDelta)?0.55*this.emaDelta+0.45*d:d;deltaM=this.emaDelta;this.absMax=Math.max(this.absMax,Math.abs(deltaM));this.deltas.push(deltaM);if(this.deltas.length>600)this.deltas.shift();}
+    }
+    this.render(deltaM,posAmp,snr);
+  }
+  render(deltaM,posAmp,snr){
+    const marker=$('toneCalMarker'),lab=$('toneCalAxisLabel'),dEl=$('toneCalDelta'),spanEl=$('toneCalSpan'),snrEl=$('toneCalSnr'),rateEl=$('toneCalRate'),conf=$('toneCalConfirm');
+    if(snrEl)snrEl.textContent=Number.isFinite(snr)?`${snr.toFixed(0)} dB`:'—';
+    if(rateEl)rateEl.textContent=Math.abs(this.micRate-this.fs)>1?`mic ${(this.micRate/1000).toFixed(1)}k ≠ ctx ${(this.fs/1000).toFixed(1)}k`:`${(this.fs/1000).toFixed(1)} kHz ✓`;
+    if(this.mono){
+      const range=this.ampMax-this.ampMin;let pos=0.5;if(range>1e-9&&Number.isFinite(posAmp))pos=clampNum((posAmp-this.ampMin)/range,0,1);
+      if(marker)marker.style.left=(100*pos).toFixed(1)+'%';
+      if(lab)lab.textContent=`MONO — muovi lo speaker: posizione relativa nel range percorso ${(100*pos).toFixed(0)}%. Il movimento è tracciato dall'ampiezza del tono (∝ 1/distanza).`;
+      if(dEl)dEl.textContent=Number.isFinite(posAmp)?`${(100*(range>1e-9?(posAmp-this.ampMin)/range:0.5)).toFixed(0)}%`:'—';
+      if(spanEl)spanEl.textContent=this.ampMax>0?`${(this.ampMax/Math.max(1e-9,this.ampMin)).toFixed(1)}× ampiezza`:'—';
+      if(conf)conf.disabled=!(this.ampMax/Math.max(1e-9,this.ampMin)>1.4);
+    }else{
+      const Bref=Math.max(0.12,this.absMax);let pos=0.5;if(Number.isFinite(deltaM))pos=clampNum(0.5-0.5*deltaM/Bref,0,1);
+      if(marker)marker.style.left=(100*pos).toFixed(1)+'%';
+      const side=Number.isFinite(deltaM)?(deltaM>0.06*Bref?'a SINISTRA':deltaM<-0.06*Bref?'a DESTRA':'al CENTRO'):'—';
+      if(lab)lab.textContent=Number.isFinite(deltaM)?`Sei ${side} · ΔLR ${deltaM.toFixed(3)} m · span ±${this.absMax.toFixed(3)} m. Muoviti fino agli estremi per massimizzare lo span.`:'Toni non ancora agganciati: avvicinati / alza il volume.';
+      if(dEl)dEl.textContent=Number.isFinite(deltaM)?`${deltaM.toFixed(3)} m`:'—';
+      if(spanEl)spanEl.textContent=`±${this.absMax.toFixed(3)} m`;
+      if(conf)conf.disabled=!(this.absMax>0.08);
+    }
+  }
+  buildProfile(){
+    const now=new Date().toISOString(),spk=cfg.selectedSpeakerLabel||'',mic=this.micLabel||cfg.selectedMicrophoneLabel||'';
+    if(this.mono){
+      return{schema:'KiSonarToneCal-v1',enabled:true,confirmed:true,createdAt:now,speakerDeviceId:cfg.speakerDeviceId||'',speakerLabel:spk,microphoneDeviceId:cfg.micDeviceId||'',microphoneLabel:mic,sampleRate:this.fs,outputMode:'stereo-array',soundSpeedMPS:+(cfg.soundSpeedMPS||343),stereoResolved:false,monoDetected:true,baselineLowerBoundM:0,baselineM:NaN,baselineUncertaintyM:NaN,baselineIntervalM:[0,0],channelBiasM:0,channelBiasUncertaintyM:0.02,baselineDataOnlyLowerBound:true,directPSF:null,directTemplateCount:0,usableF0Hz:cfg.f0,usableF1Hz:cfg.f1,bandQuality:0,reliabilityBands:[],commonLagMedianSec:NaN,setupQuality:clampNum((this.ampMax/Math.max(1e-9,this.ampMin)-1)/2,0,1),calibrationMethod:'tone-burst-live'};
+    }
+    const sorted=this.deltas.slice().sort((a,b)=>a-b),q=p=>sorted.length?sorted[Math.max(0,Math.min(sorted.length-1,Math.round(p*(sorted.length-1))))]:NaN,span=sorted.length?(q(0.98)-q(0.02)):2*this.absMax,B=Math.max(this.absMax,0.5*span),sigma=Math.max(0.03,0.15*B);
+    return{schema:'KiSonarToneCal-v1',enabled:true,confirmed:true,createdAt:now,speakerDeviceId:cfg.speakerDeviceId||'',speakerLabel:spk,microphoneDeviceId:cfg.micDeviceId||'',microphoneLabel:mic,sampleRate:this.fs,outputMode:'stereo-array',soundSpeedMPS:+(cfg.soundSpeedMPS||343),stereoResolved:true,monoDetected:false,baselineLowerBoundM:this.absMax,baselineM:B,baselineUncertaintyM:sigma,baselineIntervalM:[this.absMax,B+2*sigma],channelBiasM:Number.isFinite(medianNum(this.deltas))?medianNum(this.deltas):0,channelBiasUncertaintyM:Math.max(0.005,0.5*sigma),baselineDataOnlyLowerBound:false,directPSF:null,directTemplateCount:0,usableF0Hz:cfg.f0,usableF1Hz:cfg.f1,bandQuality:0,reliabilityBands:[],commonLagMedianSec:NaN,setupQuality:clampNum(Math.min(1,this.deltas.length/120)*Math.min(1,this.absMax/0.15),0,1),calibrationMethod:'tone-burst-live'};
+  }
+  async stop(){this.running=false;if(this.timer)clearInterval(this.timer);try{this.src&&this.src.stop();}catch{}try{this.worklet&&this.worklet.disconnect();}catch{}try{this.node&&this.node.disconnect();}catch{}if(this.stream)for(const t of this.stream.getTracks())t.stop();if(this.ctx)try{await this.ctx.close();}catch{}}
+}
+let toneCal=null;
+function initToneCalUI(){
+  const style=document.createElement('style');
+  style.textContent='.toneCalGate{position:fixed;inset:0;background:rgba(6,10,18,.74);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:80}.toneCalGate.show{display:flex}.toneCalCard{background:#0e1626;border:1px solid rgba(120,150,200,.28);border-radius:16px;padding:22px 22px 18px;max-width:660px;width:92%;box-shadow:0 24px 70px rgba(0,0,0,.55)}.toneCalHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.toneCalHead b{font-size:16px}.toneCalModeRow{display:flex;gap:18px;flex-wrap:wrap;margin:6px 0 14px;font-size:13px;color:#cfe0f5}.toneCalModeRow label{display:flex;gap:6px;align-items:center;cursor:pointer}';
+  document.head.appendChild(style);
+  const div=document.createElement('div');div.id='toneCalGate';div.className='toneCalGate';
+  div.innerHTML=`<div class="toneCalCard">
+    <div class="toneCalHead"><b>Calibrazione L/R dal vivo · toni</b><button id="toneCalClose" class="btn" type="button">✕</button></div>
+    <div class="toneCalModeRow">
+      <label><input type="radio" name="toneCalMode" value="stereo" checked> <b>Stereo</b> (2 canali) — muovi il MICROFONO tra i due speaker</label>
+      <label><input type="radio" name="toneCalMode" value="mono"> <b>Mono</b> (1 speaker BT) — muovi lo SPEAKER, mic fermo</label>
+    </div>
+    <div id="toneCalInstruction" class="setupInstruction">Premi <b>Avvia</b>: emetto due toni distinti (uno da L, uno da R). Muoviti lentamente a sinistra e a destra fino agli estremi: la barra deve seguirti in modo fluido.</div>
+    <div class="setupAxis"><div class="setupAxisTrack"><span class="setupAxisEnd l">◀ SINISTRA</span><span class="setupAxisEnd r">DESTRA ▶</span><span class="setupAxisTick"></span><i id="toneCalMarker" class="setupAxisMarker"></i></div>
+      <div id="toneCalAxisLabel" class="setupNote">Posizione L↔R stimata dal vivo dai due toni (comune lag cancellato).</div></div>
+    <div class="setupLive">
+      <div class="setupMetric"><small>ΔLR / posizione</small><b id="toneCalDelta">—</b></div>
+      <div class="setupMetric"><small>Span raggiunto</small><b id="toneCalSpan">—</b></div>
+      <div class="setupMetric"><small>SNR toni</small><b id="toneCalSnr">—</b></div>
+      <div class="setupMetric"><small>Sample-rate</small><b id="toneCalRate">—</b></div>
+    </div>
+    <div class="setupActions" style="margin-top:12px">
+      <button id="toneCalStart" class="btn primary" type="button">▶ Avvia</button>
+      <button id="toneCalConfirm" class="btn secondary" type="button" disabled>Conferma baseline</button>
+      <button id="toneCalStop" class="btn danger" type="button" style="display:none">■ Stop</button>
+    </div>
+    <div class="setupNote" style="margin-top:8px">Robusta a lag Bluetooth e rumore. La baseline risolta qui rende osservabile la scala metrica nella scansione ESS.</div>
+  </div>`;
+  document.body.appendChild(div);
+  const open=()=>{div.classList.add('show');},close=async()=>{if(toneCal){await toneCal.stop();toneCal=null;}div.classList.remove('show');$('toneCalStart').style.display='';$('toneCalStop').style.display='none';$('toneCalConfirm').disabled=true;};
+  $('toneCalClose').onclick=close;
+  $('toneCalStart').onclick=async()=>{try{const mono=div.querySelector('input[name=toneCalMode]:checked').value==='mono';if(audio&&audio.running)await stopAll();toneCal=new LiveToneCalib();await toneCal.start(mono);$('toneCalStart').style.display='none';$('toneCalStop').style.display='';log(`calibrazione a toni avviata (${mono?'mono':'stereo'})`);}catch(e){log('calibrazione toni: '+(e.message||e),'error');if(isMicPermissionError(e))showPermissionGate(e);}};
+  $('toneCalStop').onclick=async()=>{if(toneCal)await toneCal.stop();$('toneCalStart').style.display='';$('toneCalStop').style.display='none';};
+  $('toneCalConfirm').onclick=async()=>{if(!toneCal)return;const p=toneCal.buildProfile();await toneCal.stop();toneCal=null;applySetupProfile(p,true);div.classList.remove('show');$('toneCalStart').style.display='';$('toneCalStop').style.display='none';setStatus(p.monoDetected?'Calibrazione mono (toni) applicata':'Baseline L/R risolta (toni)',p.monoDetected?'Nessun asse L/R imposto; il mapper procede in mono Ki.':`Baseline ${finiteFmt(p.baselineM,2)} m risolta dai toni: la scansione ESS avrà scala metrica osservabile.`,'ok');};
+  // entry button in the topbar
+  const btn=document.createElement('button');btn.className='btn secondary';btn.type='button';btn.textContent='♪ Calibra L/R (toni)';btn.onclick=open;
+  const anchor=$('stereoCalibrateBtn');if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(btn,anchor.nextSibling);
+}
+try{initToneCalUI();}catch(e){log('initToneCalUI: '+e.message,'warn');}
 renderer=new Renderer(ui.canvas);syncResponsiveWorkspace();updateSurfaceInspector();if(queryDebug&&ui.debugRaw)ui.debugRaw.checked=true;ui.calibrate.disabled=false;cfg=readCfg();syncDebugUI();makeWorker();log(`BUILD ${BUILD}`);refreshMicrophones(false).then(()=>refreshSpeakers(false)).then(()=>inspectSavedSetup()).catch(()=>{inspectSavedSetup();});if(navigator.mediaDevices&&navigator.mediaDevices.addEventListener)navigator.mediaDevices.addEventListener('devicechange',()=>{refreshMicrophones(false).then(()=>refreshSpeakers(false)).then(()=>inspectSavedSetup()).catch(()=>{inspectSavedSetup();});});setBatchUI('idle',0,5,0,'');updateStateBoard();$('secureNotice').textContent=window.isSecureContext?'Contesto sicuro rilevato. In modalità array il browser emette due canali sincroni e il pilot verifica se l’hardware li mantiene separati.':'ATTENZIONE: serve HTTPS o localhost per il microfono.';updateHUD();
 if(querySelfTest){setTimeout(()=>startDemo(true),80);}
 </script>
