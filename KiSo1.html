@@ -570,6 +570,120 @@ function ensureConvCache(nfft){
  * deconvolution.  This guarantees that each RIR estimate is driven by one
  * excitation event even when raw acquisition windows overlap in time.
  */
+/* -------------------------------------------------------------------------
+ * Sample-clock coherence (mic vs speaker).
+ * -------------------------------------------------------------------------
+ * The playback DAC (often a Bluetooth speaker) and the capture ADC run on
+ * INDEPENDENT crystal oscillators.  Even a 0.1-0.4% (1000-4000 ppm) rate
+ * mismatch time-scales the recorded sweep, which SMEARS the Farina/ESS
+ * deconvolution: the direct peak collapses and clustered room echoes vanish
+ * into ringing.  This is the true reason a naive ESS RIR looked "terrible".
+ * The ESS sweep is its OWN clock reference: an early and a late slice of the
+ * emitted chirp are matched-filtered against the take; the spacing between the
+ * two matched-filter peaks, compared to the emitted spacing, gives the clock
+ * ratio eps.  The take is then resampled by (1+eps) onto the emission clock
+ * BEFORE deconvolution.  Emission-free (no timeline change) and an exact no-op
+ * when the clocks are already coherent (eps~0), so every existing test path is
+ * untouched.
+ */
+let clockTplCache=null;
+function clockSubTemplates(){
+  if(!chirp||chirp.length<256)return null;
+  if(clockTplCache&&clockTplCache.n===chirp.length)return clockTplCache;
+  const N=chirp.length,eLo=Math.round(0.02*N),eHi=Math.round(0.40*N),lLo=Math.round(0.60*N),lHi=Math.round(0.98*N);
+  clockTplCache={n:N,early:new Float64Array(chirp.subarray(eLo,eHi)),late:new Float64Array(chirp.subarray(lLo,lHi)),earlyOff:eLo,lateOff:lLo};
+  return clockTplCache;
+}
+function xcorrReal(raw,tpl){
+  // cross-correlation r[l]=sum_n raw[n]*tpl[n-l] via FFT: Raw .* conj(Tpl).
+  const L=raw.length,nfft=nextPow2(L+tpl.length),Ar=new Float64Array(nfft),Ai=new Float64Array(nfft),Br=new Float64Array(nfft),Bi=new Float64Array(nfft);
+  Ar.set(raw);Br.set(tpl);fft(Ar,Ai);fft(Br,Bi);
+  for(let i=0;i<nfft;i++){const r=Ar[i]*Br[i]+Ai[i]*Bi[i],m=Ai[i]*Br[i]-Ar[i]*Bi[i];Ar[i]=r;Ai[i]=m;}
+  fft(Ar,Ai,true);return Ar.subarray(0,L);
+}
+function xcorrPeakIn(corr,lo,hi){
+  lo=Math.max(1,lo|0);hi=Math.min(corr.length-2,hi|0);let mi=lo,mv=-Infinity,e2=0;
+  for(let i=lo;i<=hi;i++){const a=corr[i];e2+=a*a;if(a>mv){mv=a;mi=i;}}
+  const rms=Math.sqrt(e2/Math.max(1,hi-lo+1))+1e-30,d=corr[mi-1]-2*corr[mi]+corr[mi+1];
+  const idx=Math.abs(d)>1e-12?mi+0.5*(corr[mi-1]-corr[mi+1])/d:mi;
+  return{idx,peak:mv,snr:mv/rms};
+}
+function normCorrPeak(seg,tpl,ctr,half){
+  // energy-normalized matched-filter peak in a TIGHT window around the direct
+  // arrival, so echoes/secondary peaks cannot hijack the dilation search.
+  let en=0;for(let i=0;i<tpl.length;i++)en+=tpl[i]*tpl[i];en=Math.sqrt(en)+1e-30;
+  const c=xcorrReal(seg,tpl),lo=Math.max(1,(ctr-half)|0),hi=Math.min(c.length-2,(ctr+half)|0),p=xcorrPeakIn(c,lo,hi);
+  return p.peak/en;
+}
+function decimateBox(x,D){if(D<=1)return x instanceof Float64Array?x:Float64Array.from(x);const m=Math.floor(x.length/D),y=new Float64Array(m);for(let i=0;i<m;i++){let s=0,b=i*D;for(let k=0;k<D;k++)s+=x[b+k];y[i]=s/D;}return y;}
+let clockChirpDecim=null;
+function chirpDecimated(D){if(clockChirpDecim&&clockChirpDecim.D===D&&clockChirpDecim.n===chirp.length)return clockChirpDecim.c;const c=decimateBox(chirp,D);clockChirpDecim={D,n:chirp.length,c};return c;}
+function recoverClockRatio(raw){
+  // The emitted sweep is its own clock reference.  A 1.2 s log-sweep matched
+  // filter is EXTREMELY dilation-sensitive: correlating the take against copies
+  // of the chirp resampled by (1+eps) yields a sharp normalized-peak spike at the
+  // true clock ratio (~300 ppm wide) on a flat floor.  A single fine grid whose
+  // spacing is below the spike width reliably lands the argmax on it; a
+  // median-prominence guard rejects "no clear offset", and a Newton step polishes
+  // to sub-100 ppm.  Peak search is windowed on the DIRECT arrival so echoes
+  // cannot hijack it.  Exact no-op at eps~0.  Runs on a decimated copy (the ratio
+  // is scale-free and the 1.2 s duration that carries the sensitivity survives),
+  // so ~40 correlations cost tens of ms, not seconds.
+  if(!chirp||chirp.length<256)return null;
+  const D=Math.max(1,CFG.clockDecim||6),FSd=FS/D,rawD=decimateBox(raw,D),chirpD=chirpDecimated(D);
+  if(rawD.length<chirpD.length+16)return null;
+  const p0=xcorrPeakIn(xcorrReal(rawD,chirpD),0,rawD.length-1);
+  if(!(p0.snr>(CFG.clockMinCorrSNR||8)))return null;
+  const pad=Math.round(0.02*FSd),lag=Math.max(0,Math.round(p0.idx)-pad),w1=Math.min(rawD.length,Math.round(p0.idx)+chirpD.length+Math.round(0.03*FSd)),seg=rawD.subarray(lag,w1);
+  const ctr=Math.round(p0.idx)-lag,half=Math.round(0.004*FSd),cap=(CFG.clockEpsCapPpm||3000)/1e6,stepPpm=(CFG.clockGridPpm||150)/1e6,steps=2*Math.round(cap/stepPpm)+1;
+  let best=-1,bestGi=0,vals=new Array(steps);
+  for(let gi=0;gi<steps;gi++){const eps=-cap+2*cap*gi/(steps-1);vals[gi]=normCorrPeak(seg,resampleSinc(chirpD,1+eps),ctr,half);if(vals[gi]>best){best=vals[gi];bestGi=gi;}}
+  const st=2*cap/(steps-1),bestEps=-cap+st*bestGi;
+  const sorted=vals.slice().sort((a,b)=>a-b),med=sorted[sorted.length>>1]+1e-30,prom=best/med;
+  let epsHat=bestEps;
+  if(bestGi>0&&bestGi<steps-1){const y0=vals[bestGi-1],y1=vals[bestGi],y2=vals[bestGi+1],d=y0-2*y1+y2;if(Math.abs(d)>1e-12)epsHat=bestEps+0.5*(y0-y2)/d*st;}
+  {const hh=Math.max(30e-6,st/4),sm=normCorrPeak(seg,resampleSinc(chirpD,1+epsHat-hh),ctr,half),s0=normCorrPeak(seg,resampleSinc(chirpD,1+epsHat),ctr,half),sp=normCorrPeak(seg,resampleSinc(chirpD,1+epsHat+hh),ctr,half),d=sm-2*s0+sp;if(d<-1e-15)epsHat+=clamp(0.5*(sm-sp)/d*hh,-hh,hh);}
+  const confident=Math.abs(epsHat)<cap*1.02&&prom>(CFG.clockMinProminence||1.5);
+  return{eps:epsHat,confident,conf:p0.snr,prominence:prom,ppm:epsHat*1e6};
+}
+let sincTab=null;
+function sincKernel(){
+  if(sincTab)return sincTab;
+  const P=512,W=12,T=2*W+1,tab=new Float64Array(P*T);
+  for(let p=0;p<P;p++){const frac=p/P;let sum=0;for(let k=-W;k<=W;k++){const tt=k-frac,si=Math.abs(tt)<1e-9?1:Math.sin(Math.PI*tt)/(Math.PI*tt),wi=0.5+0.5*Math.cos(Math.PI*tt/(W+1)),v=si*wi;tab[p*T+(k+W)]=v;sum+=v;}for(let k=0;k<T;k++)tab[p*T+k]/=sum;}
+  sincTab={P,W,T,tab};return sincTab;
+}
+function resampleSinc(x,ratio){
+  // Polyphase windowed-sinc (phase table, no per-tap trig): fast enough to run on
+  // the full take every cycle.  Exact identity return when ratio==1.
+  if(Math.abs(ratio-1)<1e-9)return x instanceof Float64Array?x:Float64Array.from(x);
+  const K=sincKernel(),P=K.P,W=K.W,T=K.T,tab=K.tab,outN=Math.max(1,Math.round(x.length*ratio)),out=new Float64Array(outN),inv=1/ratio,L=x.length;
+  for(let i=0;i<outN;i++){const pos=i*inv,i0=Math.floor(pos),base=(((pos-i0)*P)|0)*T,st=i0-W;let s=0;
+    if(st>=0&&st+T<=L){for(let k=0;k<T;k++)s+=x[st+k]*tab[base+k];}
+    else{for(let k=0;k<T;k++){const idx=st+k;if(idx>=0&&idx<L)s+=x[idx]*tab[base+k];}}
+    out[i]=s;}
+  return out;
+}
+// The mic/speaker clock offset is STABLE within a session, so search only until
+// it converges (median of the first few confident estimates), then LOCK it and
+// just apply the cheap resample, re-checking every few cycles to follow drift.
+let clockEps=0,clockConfN=0,clockCycle=0,clockRecentEps=[],lastClockPpm=0;
+function resetClockState(){clockEps=0;clockConfN=0;clockCycle=0;clockRecentEps=[];lastClockPpm=0;clockChirpDecim=null;}
+function applyClockCoherence(raw,mode){
+  if(CFG.clockCoherenceEnabled===false)return{raw,ppm:0};
+  clockCycle++;
+  const locked=clockConfN>=(CFG.clockLockCount||3),needSearch=!locked||(clockCycle%(CFG.clockRelockEvery||8)===0);
+  if(needSearch){
+    const cc=recoverClockRatio(raw);
+    if(cc&&cc.confident){const wasLocked=clockConfN>=(CFG.clockLockCount||3);clockRecentEps.push(cc.eps);if(clockRecentEps.length>5)clockRecentEps.shift();const sr=clockRecentEps.slice().sort((a,b)=>a-b);clockEps=sr[sr.length>>1];clockConfN++;
+      if(!wasLocked&&clockConfN>=(CFG.clockLockCount||3))postLog(`coerenza clock mic↔speaker agganciata: offset ${(clockEps*1e6>=0?'+':'')}${(clockEps*1e6).toFixed(0)} ppm; ogni take viene ricampionata sul clock di emissione prima della deconvoluzione ESS`,Math.abs(clockEps*1e6)>50?'warn':'info');}
+  }
+  lastClockPpm=clockEps*1e6;
+  if(Math.abs(clockEps)<((CFG.clockMinPpm||150)/1e6))return{raw,ppm:clockEps*1e6};
+  // recoverClockRatio returns the template dilation that matched the mis-clocked
+  // take; restore to the emission clock by resampling with the INVERSE factor.
+  return{raw:resampleSinc(raw instanceof Float64Array?raw:Float64Array.from(raw),1/(1+clockEps)),ppm:clockEps*1e6};
+}
 function estimateTimingCorrelation(raw){
   const outLen=raw.length+chirp.length-1,nfft=nextPow2(outLen),c=ensureConvCache(nfft);
   const Yr=new Float64Array(nfft),Yi=new Float64Array(nfft),Cr=new Float64Array(nfft),Ci=new Float64Array(nfft);Yr.set(raw);fft(Yr,Yi);
@@ -1000,10 +1114,66 @@ function materialDistance(a,b){
   return Number.isFinite(A)&&Number.isFinite(B)?Math.min(1.5,Math.abs(A-B)/12):0;
 }
 
+// ===================================================================
+// Tone-burst front-end (robust signal layer feeding the SAME Ki/Abeles
+// geometry). Replaces fragile ESS/RIR deconvolution. Produces the exact
+// event structure (a.primary arrivals + a.stereoDeltaM) the pipeline consumes.
+// ===================================================================
+function toneFirLP(cut,taps){taps=taps|0;if(taps%2===0)taps++;const h=new Float64Array(taps),m=(taps-1)/2,wc=2*Math.PI*cut/FS;let s=0;for(let i=0;i<taps;i++){const n=i-m,v=(n===0)?wc/Math.PI:Math.sin(wc*n)/(Math.PI*n),w=0.54-0.46*Math.cos(2*Math.PI*i/(taps-1));h[i]=v*w;s+=h[i];}for(let i=0;i<taps;i++)h[i]/=s;return h;}
+function toneDemodEnv(raw,f,bw){bw=bw||250;const h=toneFirLP(bw,Math.max(21,Math.round(FS/bw)|1)),m=(h.length-1)/2,n=raw.length,I=new Float64Array(n),Q=new Float64Array(n),w=2*Math.PI*f/FS;for(let i=0;i<n;i++){const c=Math.cos(w*i),s=Math.sin(w*i);I[i]=raw[i]*c;Q[i]=-raw[i]*s;}const env=new Float64Array(n);for(let k=0;k<n;k++){let ai=0,aq=0;for(let t=0;t<h.length;t++){const idx=k+t-m;if(idx<0||idx>=n)continue;ai+=h[t]*I[idx];aq+=h[t]*Q[idx];}env[k]=Math.hypot(ai,aq);}return env;}
+function tonePeaks(e,minDist,hgt){const p=[];for(let i=1;i<e.length-1;i++){if(e[i]>=hgt&&e[i]>e[i-1]&&e[i]>=e[i+1]){if(p.length&&i-p[p.length-1]<minDist){if(e[i]>e[p[p.length-1]])p[p.length-1]=i;}else p.push(i);}}return p;}
+function toneRefine(e,i){if(i>0&&i<e.length-1){const d=e[i-1]-2*e[i]+e[i+1];if(Math.abs(d)>1e-12)return i+0.5*(e[i-1]-e[i+1])/d;}return i;}
+function toneMax(a){let m=-Infinity;for(let i=0;i<a.length;i++)if(a[i]>m)m=a[i];return m;}
+function analyzeToneCycle(raw,id,mode='measure'){
+  const t0=performance.now(),fL=CFG.toneFLHz||CFG.stereoPilotF0Hz||3000,fR=CFG.toneFRHz||CFG.stereoPilotF1Hz||3600,Trep=CFG.toneTrepSec||0.045,bw=CFG.toneBwHz||250,mono=CFG.outputMode==='tone-mono'||CFG.toneMono===true;
+  const eL=toneDemodEnv(raw,fL,bw),eR=toneDemodEnv(raw,fR,bw),pkL=toneMax(eL),pkR=toneMax(eR),mL=median(eL)+1e-9;
+  // Echo detection uses a WIDER demod band (better time resolution to separate
+  // room echoes) and a robust between-burst noise floor (low quantile), since
+  // the median-of-first-20ms floor was contaminated by the first burst.
+  const eE=toneDemodEnv(raw,fL,CFG.toneEchoBwHz||600),pkE=toneMax(eE),sE=Array.from(eE).sort((a,b)=>a-b),noise=(sE[Math.floor(sE.length*0.25)]||0)+1e-9;
+  const burstSec=CFG.toneBurstSec||0.002,dist=Math.round(0.7*Trep*FS),maxlag=Math.round((CFG.tdoaMaxMs||3.5)/1000*FS),maxEcho=Math.round((CFG.toneMaxEchoSec||2*(CFG.hardSensingRangeM||3)/C)*FS),guard=Math.round(Math.max(0.0009,1.35*burstSec+1/(CFG.toneEchoBwHz||600))*FS);
+  const pL=tonePeaks(eL,dist,pkL*0.18),pR=tonePeaks(eR,dist,pkR*0.18);
+  const peakSNRdB=20*Math.log10(pkL/mL);
+  // TDOA per burst
+  const del=[];for(const iL of pL){let j=-1,bd=1e18;for(const b of pR){const dd=Math.abs(b-iL);if(dd<bd){bd=dd;j=b;}}if(j>=0&&bd<=maxlag){del.push((toneRefine(eR,j)-toneRefine(eL,iL))/FS*C);}}
+  del.sort((a,b)=>a-b);const q=(p)=>del.length?del[Math.max(0,Math.min(del.length-1,Math.round(p*(del.length-1))))]:NaN;
+  const deltaMed=del.length?median(del):NaN,deltaSpan=del.length?(q(0.9)-q(0.1)):0,deltaSig=del.length?Math.max(CFG.stereoResidualFloorM||.008,1.4826*median(del.map(x=>Math.abs(x-deltaMed)))/Math.sqrt(Math.max(1,del.length))):NaN;
+  const isMono=mono||(del.length>4&&median(del.map(Math.abs))<0.02&&deltaSpan<0.06);
+  // echoes: aggregate secondary L peaks (tau relative to each burst's direct) across bursts
+  const echoThr=Math.max(noise*2.5,pkE*0.05);const echoRaw=[];const directAmps=[];for(const iL of pL){directAmps.push(eE[iL]);const w1=Math.min(eE.length-1,iL+maxEcho);for(let z=iL+guard;z<w1;z++){if(eE[z]>eE[z-1]&&eE[z]>=eE[z+1]&&eE[z]>echoThr){echoRaw.push({tau:(z-iL)/FS,amp:eE[z]/Math.max(1e-9,eE[iL]),snr:20*Math.log10(eE[z]/noise)});}}}
+  // cluster echoes by tau
+  echoRaw.sort((a,b)=>a.tau-b.tau);const clusters=[];for(const e of echoRaw){let c=clusters[clusters.length-1];if(c&&Math.abs(e.tau-c.t)<(CFG.toneEchoGateSec||0.0006)){c.taus.push(e.tau);c.amps.push(e.amp);c.snr.push(e.snr);c.t=median(c.taus);}else clusters.push({t:e.tau,taus:[e.tau],amps:[e.amp],snr:[e.snr]});}
+  const nBurst=Math.max(1,pL.length),minHits=Math.max(2,Math.round(nBurst*(CFG.toneEchoMinFraction||0.35)));
+  const echoes=clusters.filter(c=>c.taus.length>=minHits).map(c=>{const tau=median(c.taus),amp=median(c.amps),snr=median(c.snr),db=20*Math.log10(Math.max(1e-3,amp));return{tau,time:tau,timeAfterDirect:tau,timeLocal:tau,rangeApproxM:0.5*C*tau,amp:Math.min(1.5,amp),prom:Math.min(1.5,amp),snr,fitCorr:clamp01((snr-3)/20),atomGain:amp,importance:0.4*clamp01((snr-3)/20)+0.3*Math.min(1,amp)+0.3*(c.taus.length/nBurst),primary:true,isDirect:false,materialScalarDB:db,materialQuality:clamp01((snr-3)/18),materialBandCount:1,materialBandsHz:[fL],materialBandDB:[db]};}).sort((a,b)=>b.importance-a.importance).slice(0,CFG.maxPrimaryEvents||7);
+  const directEvent={tau:0,time:0,timeAfterDirect:0,timeLocal:0,rangeApproxM:0,amp:1,prom:1,snr:peakSNRdB,importance:1,primary:true,isDirect:true};
+  const primary=[directEvent,...echoes];
+  // representative aligned envelope for measurement-fusion cosine + display
+  const dispTau=2*(CFG.displayRangeM||3)/C,pvN=Math.min(360,Math.round(dispTau*FS)),env=new Array(pvN).fill(0);
+  if(pL.length){const i0=pL[Math.floor(pL.length/2)];for(let k=0;k<pvN;k++){const q2=i0+k;env[k]=q2<eL.length?eL[q2]/Math.max(1e-9,pkL):0;}}
+  const directRMS=median(directAmps)||0,rawPeak=toneMax(raw.map?raw:Array.from(raw)),coherent=(pL.length>=4&&peakSNRdB>10);
+  const stereo={enabled:true,valid:del.length>=3&&!isMono,resolved:!isMono,deltaM:isMono?0:deltaMed,rawDeltaM:deltaMed,deltaUncertaintyM:deltaSig,confidence:coherent?clamp01(del.length/10)*clamp01((peakSNRdB-8)/20):0,segmentSafe:true,ambiguityOK:true,transferShapeOK:true,reason:coherent?'tone-burst OK':'comb debole'};
+  const accepted=coherent&&(echoes.length>=(CFG.minPrimaryReflections||1))&&(isMono||del.length>=3);
+  return{
+    id,accepted,rirValid:coherent,stereoRequired:!isMono,stereoTakeValid:stereo.valid,stereoPhysical:true,directOnly:echoes.length===0,weakEchoOnly:false,systemBootstrap:false,echoEvidenceCount:echoes.length,
+    reason:accepted?'OK':(coherent?(echoes.length?'poche TDOA':'nessun eco stabile'):'comb tono debole (avvicinati/alza volume)'),reliability:accepted?'media':'scartata',qualityScore:clamp01((peakSNRdB-8)/28),
+    matchSNR:peakSNRdB,matchCoeff:clamp01(pkL/(mL*20)),directFound:coherent,directTimeSec:pL.length?pL[0]/FS:NaN,directLocalSec:0,
+    snr:echoes.length?echoes[0].snr:0,energySNR:peakSNRdB,rawSNR:peakSNRdB,consistency:1,noise,noiseRms:noise,clipFrac:0,longestClipMs:0,
+    echoToDirectDB:echoes.length?echoes[0].materialScalarDB:-Infinity,firstReflectionDistanceM:echoes.length?echoes[0].rangeApproxM:NaN,firstReflectionTau:echoes.length?echoes[0].tau:NaN,bestReflectionFitCorr:echoes.length?echoes[0].fitCorr:0,bestReflectionEventSNR:echoes.length?echoes[0].snr:-Infinity,
+    calibrationRangeM:NaN,reflectionCount:echoes.length,primary,candidates:primary,postAvailableSec:raw.length/FS,tailTruncated:false,psfMode:'tone-burst',ompExplained:1,ompResidualRatio:0,earlyEchoEvidence:0,earlyEchoEvidenceTau:NaN,systemEchoGuard:false,
+    rirPreviewSigned:env,rirPreviewEnv:env,rirPreview:env,rirDurationSec:dispTau,rirDisplayRangeM:CFG.displayRangeM||3,rirDisplayTauSec:dispTau,rirDisplaySourceSamples:pvN,rirPreviewStepSamples:1,diagnostic:null,
+    stereo,stereoValid:!!stereo.valid,stereoResolved:!!stereo.resolved,stereoRawDeltaM:deltaMed,stereoRawDeltaUncertaintyM:deltaSig,stereoDeltaM:stereo.deltaM,stereoSigmaM:deltaSig,stereoConfidence:stereo.confidence,stereoHyperbolicU:NaN,stereoBaselineDifferenceCoordinateM:NaN,stereoCartesianXObservableFromSingleTDOA:false,
+    directRMS,directGain:directRMS,directDistanceTimingM:NaN,directDistanceAmplitudeM:NaN,directDistanceProbableM:NaN,directDistanceConfidence:0.2,rawPeakDBFS:20*Math.log10(rawPeak+1e-12),rawPreview:[],rawDurationSec:raw.length/FS,
+    captureAudit:{ok:coherent,fullSweep:true,preOK:true,postOK:true,scheduleSilent:true,preSec:0,postSec:0,requiredPostSec:0,rawDurationSec:raw.length/FS},averageCount:1,averageSimilarity:NaN,usableBandF0Hz:fL,usableBandF1Hz:fR,systemResponseCount:0,systemResponseStability:1,processingMs:performance.now()-t0,inputSettings:CFG.inputSettings||{},toneMono:isMono
+  };
+}
 function analyzeCycle(raw,id,mode='measure'){
   const t0=performance.now();
   if(!(raw instanceof Float32Array||raw instanceof Float64Array))raw=new Float64Array(raw||[]);
   if(raw.length<chirp.length+256)throw new Error(`recording too short (${raw.length} samples)`);
+
+  // Sample-clock coherence FIRST: undo any mic/speaker rate mismatch that would
+  // otherwise smear the ESS deconvolution.  No-op when clocks already coherent.
+  const clock=applyClockCoherence(raw,mode);raw=clock.raw;const clockCoherencePpm=clock.ppm;
 
   // v12.1 acquisition contract: detect the FIRST chirp using matched filtering
   // on the complete capture, derive the next received-chirp time from the known
@@ -1126,7 +1296,7 @@ function analyzeCycle(raw,id,mode='measure'){
     reflectionCount:primaryReflections.length,primary,candidates,postAvailableSec,tailTruncated,psfMode:omp.atomKind,ompExplained:omp.explained,ompResidualRatio:omp.residualRatio,earlyEchoEvidence:omp.earlyEchoEvidence,earlyEchoEvidenceTau:omp.earlyEchoEvidenceTau,systemEchoGuard:sysGuard,
     rirPreviewSigned:pv.signed,rirPreviewEnv:pv.env,rirPreview:pv.signed,rirDurationSec:pv.durationSec,rirDisplayRangeM:CFG.displayRangeM||3,rirDisplayTauSec:displayTauSec,rirDisplaySourceSamples:pv.sourceSamples,rirPreviewStepSamples:pv.stepSamples,diagnostic,
     stereo,stereoValid:!!stereo.valid,stereoResolved:!!stereo.resolved,stereoRawDeltaM:stereo.rawDeltaM,stereoRawDeltaUncertaintyM:stereo.rawDeltaUncertaintyM,stereoDeltaM:stereo.deltaM,stereoSigmaM:stereo.deltaUncertaintyM,stereoConfidence:stereo.confidence,stereoHyperbolicU:stereo.hyperbolicU,stereoBaselineDifferenceCoordinateM:stereo.baselineDifferenceCoordinateM,stereoCartesianXObservableFromSingleTDOA:false,
-    directRMS:rawSweepRms,directGain:Math.abs(direct.gain||0),directDistanceTimingM,directDistanceAmplitudeM,directDistanceProbableM,directDistanceConfidence,rawPeakDBFS:20*Math.log10(rawPeak+1e-12),rawPreview:rawPv,rawDurationSec:raw.length/FS,captureAudit,averageCount:fusion.count,averageSimilarity:fusion.similarity,usableBandF0Hz:calibratedBand.ready?calibratedBand.f0:CFG.f0,usableBandF1Hz:calibratedBand.ready?calibratedBand.f1:CFG.f1,systemResponseCount:calibrationDirectCount,systemResponseStability:systemResponseStability(),processingMs:performance.now()-t0,inputSettings:proc,_calAtom:(()=>{const z=directObservationAtom(rirSingle,directLocal,noiseRms);return{pre:z.pre,post:z.post,v:Array.from(z.v)}})()
+    directRMS:rawSweepRms,directGain:Math.abs(direct.gain||0),directDistanceTimingM,directDistanceAmplitudeM,directDistanceProbableM,directDistanceConfidence,rawPeakDBFS:20*Math.log10(rawPeak+1e-12),rawPreview:rawPv,rawDurationSec:raw.length/FS,captureAudit,averageCount:fusion.count,averageSimilarity:fusion.similarity,usableBandF0Hz:calibratedBand.ready?calibratedBand.f0:CFG.f0,usableBandF1Hz:calibratedBand.ready?calibratedBand.f1:CFG.f1,systemResponseCount:calibrationDirectCount,systemResponseStability:systemResponseStability(),clockCoherencePpm,processingMs:performance.now()-t0,inputSettings:proc,_calAtom:(()=>{const z=directObservationAtom(rirSingle,directLocal,noiseRms);return{pre:z.pre,post:z.post,v:Array.from(z.v)}})()
   };
 }
 
@@ -1655,13 +1825,13 @@ onmessage=e=>{
   if(m.type==='init'){
     CFG=m.cfg;FS=m.sampleRate;C=Number.isFinite(CFG.soundSpeedMPS)?CFG.soundSpeedMPS:343;chirp=new Float64Array(m.chirp);stereoPilotLeft=m.pilotLeft?new Float64Array(m.pilotLeft):null;stereoPilotRight=m.pilotRight?new Float64Array(m.pilotRight):null;stereoCalibrationProfile=(m.stereoCalibration||CFG.stereoCalibrationProfile||null);measurements=[];prevModel=null;nextTrackId=1;currentSpeakerEpoch=Number(CFG.speakerEpoch||1);globalRoom={schema:'KiGlobalPersistentRoom-v1',nodes:[],anchors:[],shells:[],epochs:[],pending:[],nextNodeId:1,patches:[],paths:[],sources:[]};
     calibrationProfile=null;calibrationDirectAtom=null;calibrationDirectSum=null;calibrationDirectCount=0;calibrationDirectWeight=0;calibrationDirectStability=[];calibrationDirectLowSimilarity=0;calibrationSpectrumFrames=[];calibratedBand={ready:false,f0:NaN,f1:NaN,quality:0};liveRIRFusion=[];lastMeasurementFusionStats={rawAccepted:0,effectiveMeasurements:0,fusedAway:0,largestGroup:0,meanCosine:NaN};
-    ensureStereoPilots();buildInverseESS();postLog(`worker v13 synchronized-stereo-axis + single-chirp-safe-crop + fused-measurement + octave-material + persistent Ki graph initialized @ ${FS} Hz`);runESSSelfTest(false);
+    resetClockState();ensureStereoPilots();buildInverseESS();postLog(`worker v13 synchronized-stereo-axis + single-chirp-safe-crop + fused-measurement + octave-material + persistent Ki graph initialized @ ${FS} Hz`);runESSSelfTest(false);
   }else if(m.type==='reconfigure'){
-    CFG={...CFG,...(m.cfg||{})};C=Number.isFinite(CFG.soundSpeedMPS)?CFG.soundSpeedMPS:343;currentSpeakerEpoch=Number(CFG.speakerEpoch||currentSpeakerEpoch||1);const newFS=m.sampleRate||FS;if(Math.abs(newFS-FS)>1)postLog(`sample rate changed ${FS} -> ${newFS} Hz; signal caches rebuilt while geometry is preserved`,'warn');FS=newFS;chirp=new Float64Array(m.chirp);if(m.pilotLeft)stereoPilotLeft=new Float64Array(m.pilotLeft);if(m.pilotRight)stereoPilotRight=new Float64Array(m.pilotRight);if(m.stereoCalibration)stereoCalibrationProfile=m.stereoCalibration;convCache=null;psfAtomCache=null;liveRIRFusion=[];ensureStereoPilots();buildInverseESS();postMessage({type:'reconfigureAck',sampleRate:FS,measurementCount:measurements.length});
+    CFG={...CFG,...(m.cfg||{})};C=Number.isFinite(CFG.soundSpeedMPS)?CFG.soundSpeedMPS:343;currentSpeakerEpoch=Number(CFG.speakerEpoch||currentSpeakerEpoch||1);const newFS=m.sampleRate||FS;if(Math.abs(newFS-FS)>1)postLog(`sample rate changed ${FS} -> ${newFS} Hz; signal caches rebuilt while geometry is preserved`,'warn');FS=newFS;chirp=new Float64Array(m.chirp);if(m.pilotLeft)stereoPilotLeft=new Float64Array(m.pilotLeft);if(m.pilotRight)stereoPilotRight=new Float64Array(m.pilotRight);if(m.stereoCalibration)stereoCalibrationProfile=m.stereoCalibration;convCache=null;psfAtomCache=null;liveRIRFusion=[];resetClockState();ensureStereoPilots();buildInverseESS();postMessage({type:'reconfigureAck',sampleRate:FS,measurementCount:measurements.length});
   }else if(m.type==='batch'){
     const items=m.items||[],analyses=[];let anyAccepted=false;
     for(let bi=0;bi<items.length;bi++){
-      const it=items[bi],raw=new Float32Array(it.raw);let a;try{a=analyzeCycle(raw,it.id,'measure');}catch(err){a=failedAnalysis(it.id,raw,err);postLog(`batch cycle ${it.id}: ${err.stack||err.message}`,'error');}
+      const it=items[bi],raw=new Float32Array(it.raw);let a;try{a=(CFG.outputMode==='tone-array'||CFG.outputMode==='tone-mono'?analyzeToneCycle(raw,it.id,'measure'):analyzeCycle(raw,it.id,'measure'));}catch(err){a=failedAnalysis(it.id,raw,err);postLog(`batch cycle ${it.id}: ${err.stack||err.message}`,'error');}
       const onlineDirectOnly=a.directOnly&&a.directFound&&a.rawSNR>=CFG.minRawSNRDB&&a.matchCoeff>=CFG.minMatchCoeff;
       if(onlineDirectOnly&&a._calAtom){const u=updateOnlineSystemCore(a._calAtom);a.systemBootstrap=false;a.systemResponseUpdated=true;a.systemResponseCount=calibrationDirectCount;a.systemResponseStability=systemResponseStability();a.systemResponseUpdateSimilarity=u.similarity;a.systemResponseUpdateWeight=u.weight;}
       else {a.systemBootstrap=false;a.systemResponseUpdated=false;a.systemResponseCount=calibrationDirectCount;a.systemResponseStability=systemResponseStability();}
@@ -1680,7 +1850,7 @@ onmessage=e=>{
       let pv=null;try{pv=analyzeCycle(raw,m.id,'setup-direct');}catch(e){postLog(`setup preview ${m.id}: ${e.message}`,'warn');}
       if(pv){stereo.rirPreviewSigned=pv.rirPreviewSigned;stereo.rirPreviewEnv=pv.rirPreviewEnv;stereo.rirDisplayTauSec=pv.rirDisplayTauSec;stereo.directLocalSec=pv.directLocalSec;stereo.previewDirectFound=pv.directFound;stereo.previewReflections=pv.reflectionCount;stereo.previewDirectDistanceM=pv.directDistanceProbableM;stereo.previewMatchSNRDB=pv.matchSNR;}
       if(m.setupPhase==='left'&&m.setupMode==='lock'&&stereo.usable&&pv&&pv._calAtom){try{const at=bootstrapSystemAtom(pv._calAtom);accumulateCalibrationAtom(at);finalizeCalibrationAtom();if(Number.isFinite(pv.directTimeSec))accumulateCalibrationSpectrum(raw,Math.round(pv.directTimeSec*FS));stereo.directTemplateLearned=true;stereo.directTemplateCount=calibrationDirectCount;}catch(ee){postLog(`setup direct template ${m.id}: ${ee.message}`,'warn');}}
-    }postMessage({type:mode==='stereo-setup'?'stereoSetupResult':'stereoCalibrationResult',stereo});}catch(err){postMessage({type:mode==='stereo-setup'?'stereoSetupResult':'stereoCalibrationResult',stereo:{id:m.id,valid:false,usable:false,reason:err.message}});postLog(`stereo setup/calibration ${m.id}: ${err.stack||err.message}`,'error');}return;}let a;try{a=analyzeCycle(raw,m.id,mode);}catch(err){a=failedAnalysis(m.id,raw,err);postLog(`cycle ${m.id}: ${err.stack||err.message}`,'error');}
+    }postMessage({type:mode==='stereo-setup'?'stereoSetupResult':'stereoCalibrationResult',stereo});}catch(err){postMessage({type:mode==='stereo-setup'?'stereoSetupResult':'stereoCalibrationResult',stereo:{id:m.id,valid:false,usable:false,reason:err.message}});postLog(`stereo setup/calibration ${m.id}: ${err.stack||err.message}`,'error');}return;}let a;try{a=((CFG.outputMode==='tone-array'||CFG.outputMode==='tone-mono')&&mode==='measure'?analyzeToneCycle(raw,m.id,mode):analyzeCycle(raw,m.id,mode));}catch(err){a=failedAnalysis(m.id,raw,err);postLog(`cycle ${m.id}: ${err.stack||err.message}`,'error');}
     // Fixed-source calibration must not deadlock just because the room already has
     // visible echoes near the reference point.  During the near-source phase we
     // always learn ONLY a protected compact direct-path kernel from every valid
@@ -1725,7 +1895,7 @@ onmessage=e=>{
 </script>
 <script>
 'use strict';
-const BUILD='KiSonarPrimaryMapper-v14.5-intensity-shape-prior';
+const BUILD='KiSonarPrimaryMapper-v15.0-ESS-primary+clock-coherence';
 const $=id=>document.getElementById(id);
 const ui={start:$('startBtn'),stop:$('stopBtn'),moveSpeaker:$('moveSpeakerBtn'),calibrate:$('calibrateBtn'),stereoCalibrate:$('stereoCalibrateBtn'),demo:$('demoBtn'),detail:$('detailBtn'),export:$('exportBtn'),diagnostic:$('diagnosticBtn'),rawWav:$('rawWavBtn'),settings:$('settingsBtn'),apply:$('applyBtn'),close:$('closeSettingsBtn'),panel:$('settings'),statusMain:$('statusMain'),statusSub:$('statusSub'),hud1:$('hud1'),hud2:$('hud2'),hud3:$('hud3'),hud4:$('hud4'),metrics:$('metrics'),log:$('log'),canvas:$('scene'),rirStrip:$('rirStrip'),rirShelfSummary:$('rirShelfSummary'),permissionGate:$('permissionGate'),permissionText:$('permissionText'),permissionRetry:$('permissionRetryBtn'),permissionCancel:$('permissionCancelBtn'),reflectionHint:$('reflectionHint'),calibrationPanel:$('calibrationPanel'),calibrationTitle:$('calibrationTitle'),calibrationInstruction:$('calibrationInstruction'),calibrationPhase:$('calibrationPhase'),calibrationDistance:$('calibrationDistance'),calibrationSNR:$('calibrationSNR'),calibrationTemplate:$('calibrationTemplate'),calibrationProgress:$('calibrationProgress'),calibrationAction:$('calibrationActionBtn'),speakerSelect:$('speakerSelect'),refreshSpeaker:$('refreshSpeakerBtn'),micSelect:$('microphoneSelect'),refreshMic:$('refreshMicBtn'),debugRaw:$('debugRaw'),rawShelf:$('rawShelf'),rawStrip:$('rawStrip'),rawShelfSummary:$('rawShelfSummary'),outputMode:$('outputMode'),sourceReferenceDistance:$('sourceReferenceDistance'),maxOutputLatencySearch:$('maxOutputLatencySearch'),batchSize:$('batchSize'),batchPanel:$('batchPanel'),batchTitle:$('batchTitle'),batchText:$('batchText'),batchFill:$('batchFill'),batchCount:$('batchCount'),batchPhase:$('batchPhase'),batchETA:$('batchETA'),speakerStateCard:$('speakerStateCard'),speakerStateText:$('speakerStateText'),calibrationStateCard:$('calibrationStateCard'),calibrationStateText:$('calibrationStateText'),batchStateCard:$('batchStateCard'),batchStateText:$('batchStateText'),stereoStateCard:$('stereoStateCard'),stereoStateText:$('stereoStateText'),mapStateCard:$('mapStateCard'),mapStateText:$('mapStateText'),pathReviewCard:$('pathReviewCard'),pathReviewTitle:$('pathReviewTitle'),pathReviewText:$('pathReviewText'),pathApprove:$('pathApproveBtn'),stereoWizard:$('stereoWizard'),stereoWizardTitle:$('stereoWizardTitle'),stereoWizardBadge:$('stereoWizardBadge'),stereoWizardInstruction:$('stereoWizardInstruction'),stereoWizardPhase:$('stereoWizardPhase'),stereoWizardCount:$('stereoWizardCount'),stereoWizardDelta:$('stereoWizardDelta'),stereoWizardBaseline:$('stereoWizardBaseline'),stereoWizardMatch:$('stereoWizardMatch'),stereoWizardBias:$('stereoWizardBias'),stereoWizardProgress:$('stereoWizardProgress'),stereoWizardHint:$('stereoWizardHint'),stereoCoverage:$('stereoCoverage'),stereoCoverageMetric:$('stereoCoverageMetric'),stereoCoverageText:$('stereoCoverageText'),stereoCoverageFill:$('stereoCoverageFill'),stereoNext:$('stereoNextBtn'),stereoAbort:$('stereoAbortBtn'),stereoPilotEnabled:$('stereoPilotEnabled'),stereoAnchorDistance:$('stereoAnchorDistance'),stereoAnchorUncertainty:$('stereoAnchorUncertainty'),stereoTakesPerPhase:$('stereoTakesPerPhase'),stereoMinBaseline:$('stereoMinBaseline'),stereoFusionGate:$('stereoFusionGate'),stereoConstraintWeight:$('stereoConstraintWeight'),soundSpeed:$('soundSpeed'),stereoPilotTailGuard:$('stereoPilotTailGuard'),setupTargetPeak:$('setupTargetPeak'),setupGate:$('setupGate'),setupDeviceStage:$('setupDeviceStage'),setupMeasureStage:$('setupMeasureStage'),setupReview:$('setupReview'),setupInstruction:$('setupInstruction'),setupHint:$('setupHint'),setupPeak:$('setupPeak'),setupMatch:$('setupMatch'),setupLag:$('setupLag'),setupSeg:$('setupSeg'),setupPeakMetric:$('setupPeakMetric'),setupMatchMetric:$('setupMatchMetric'),setupLagMetric:$('setupLagMetric'),setupSegMetric:$('setupSegMetric'),setupLevelFill:$('setupLevelFill'),setupRawSvg:$('setupRawSvg'),setupRirSvg:$('setupRirSvg'),setupAxisMarker:$('setupAxisMarker'),setupAxisLabel:$('setupAxisLabel'),setupRawMeta:$('setupRawMeta'),setupRirMeta:$('setupRirMeta'),setupForce:$('setupForceLevelBtn'),setupNext:$('setupNextBtn'),setupAbort:$('setupAbortBtn'),setupConfirm:$('setupConfirmBtn'),setupRepeat:$('setupRepeatBtn'),setupSave:$('setupSaveBtn'),setupLoad:$('setupLoadBtn'),setupFile:$('setupFileInput'),setupBegin:$('setupBeginBtn'),setupRefresh:$('setupRefreshBtn'),setupSpeakerSelect:$('setupSpeakerSelect'),setupMicSelect:$('setupMicSelect'),setupSaved:$('setupSaved'),setupSavedText:$('setupSavedText'),setupUseSaved:$('setupUseSavedBtn'),setupDiscardSaved:$('setupDiscardSavedBtn'),setupReviewBaseline:$('setupReviewBaseline'),setupReviewLower:$('setupReviewLower'),setupReviewBias:$('setupReviewBias'),setupReviewRange:$('setupReviewRange'),setupReviewPSF:$('setupReviewPSF'),setupReviewLag:$('setupReviewLag'),setupReviewTransfer:$('setupReviewTransfer'),setupReviewQuality:$('setupReviewQuality'),setupReviewWarning:$('setupReviewWarning'),setupBandRows:$('setupBandRows'),newSession:$('newSessionBtn'),workspace:$('workspace'),serviceDock:$('serviceDockBtn'),surfaceDock:$('surfaceDockBtn'),rirDock:$('rirDockBtn'),serviceCollapse:$('serviceCollapseBtn'),surfaceCollapse:$('surfaceCollapseBtn'),servicePanel:$('servicePanel'),surfacePanel:$('surfacePanel'),surfaceSelect:$('surfaceSelect'),surfaceInspectorBody:$('surfaceInspectorBody'),rirShelf:$('rirShelf'),collapseSimilar:$('collapseSimilar'),measurementSimilarity:$('measurementSimilarity'),measurementRangeGate:$('measurementRangeGate'),measurementPeakGateMs:$('measurementPeakGateMs'),measurementGroupMax:$('measurementGroupMax')};
 let cfg={},worker=null,audio=null,renderer=null,logs=[],cycleLogs=[],rirHistory=[],diagnosticHistory=[],lastRawCapture=null,lastRawMeta=null,speakerEpoch=1,speakerSegments=[],latest={model:{path:[[0,0,0]],primary:[],detail:[]},accepted:0,rejected:0,keyframes:0,tracks:0,analysis:null},wakeLock=null;
@@ -1769,6 +1939,11 @@ function readCfg(){
     psfPreSec:.0022,psfPostSec:.0080,ompEmpiricalBlend:.82,calibrationDirectBlend:.42,detectionCalibrationBlend:.88,earlyPairMaxSec:.010,earlyPairMinImprove:.0025,earlyPairMinGainRatio:.012,systemEchoGuardBootstrapImprove:.045,systemEchoGuardImprove:.0035,onlineSystemCorePostSec:.00035,systemBootstrapWindowSec:.00140,systemBootstrapFrames:5,ompCandidateSNRDB:1.8,ompCandidateThresholdScale:.52,ompMaxCandidates:120,ompMaxIterations:14,ompMinDistinctSec:.00018,ompRefineSamples:2,ompMinCorrelation:.11,ompPrimaryMinCorrelation:.15,ompPrimaryMergeSec:.00045,ompKeepCloseRatio:.72,ompRidge:2e-5,
     rirAverageCount:3,rirAverageSimilarity:.82,
     maxGrossClipFrac:.18,maxClipRunMs:12,previewBins:2048,displayRangeM:3,hardSensingRangeM:3,diagnosticEnabled:true,diagnosticMaxRecords:30,signatureMaxSec:.09,
+    // Sample-clock coherence (mic vs speaker): the ESS sweep is its own clock
+    // reference; a dilation grid recovers the mic/speaker rate mismatch and the
+    // take is resampled onto the emission clock before deconvolution.  Locks after
+    // a few confident cycles (offset is stable per session) and re-checks drift.
+    clockCoherenceEnabled:true,clockDecim:6,clockEpsCapPpm:3000,clockGridPpm:150,clockMinPpm:150,clockMinCorrSNR:8,clockMinProminence:1.5,clockLockCount:3,clockRelockEvery:8,
     stationaryNoise:.065,motionThreshold:.145,motionCusumDecay:.020,motionCusumThreshold:.26,motionConfirmCycles:2,
     // v12: collapse sequential RIRs that carry no new geometric information.
     // Direct-range and peak gates prevent high envelope similarity from merging
