@@ -4,92 +4,418 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
 <meta name="theme-color" content="#07101b" />
-<title>AI Room Surface Scanner</title>
+<title>WebXR Room Mesh Scanner</title>
 <style>
 :root{color-scheme:dark;--bg:#050910;--panel:#0b1421;--panel2:#101d2e;--fg:#eef7ff;--muted:#92a8c1;--accent:#5bc6ff;--ok:#68e19b;--warn:#ffd16a;--bad:#ff7185;--line:#213149}
 *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}button{font:inherit;border:0;border-radius:12px;padding:11px 13px;background:var(--panel2);color:var(--fg);font-weight:750;cursor:pointer}button.primary{background:var(--accent);color:#04111a}button.danger{background:#35131d;color:#ffd9de}button:disabled{opacity:.42;cursor:not-allowed}
 #app{height:100%;display:grid;grid-template-rows:auto 1fr auto}.top{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#09111ded;border-bottom:1px solid var(--line);z-index:10}.top h1{font-size:15px;margin:0;margin-right:auto}.badge{font-size:11px;border:1px solid var(--line);padding:5px 8px;border-radius:999px;color:var(--muted)}
-.stage{position:relative;min-height:0;background:#000}.stage video,.stage canvas.camera{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.stage:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(#0008,transparent 23%,transparent 72%,#000c)}.hud{position:absolute;left:12px;right:12px;top:12px;z-index:6;display:flex;gap:8px;justify-content:space-between;pointer-events:none}.card{background:#07101dde;border:1px solid #ffffff20;border-radius:13px;padding:9px 10px;backdrop-filter:blur(8px);max-width:72%}.big{font-size:16px;font-weight:800}.muted{font-size:12px;color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.good{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
-.progress{position:absolute;left:12%;right:12%;bottom:23px;height:4px;border-radius:999px;background:#ffffff1f;z-index:6;overflow:hidden}.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}.hint{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);z-index:6;font-size:12px;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap}
-.bottom{padding:9px 10px max(9px,env(safe-area-inset-bottom));background:#0a1220;border-top:1px solid var(--line);z-index:10}.row{display:flex;gap:8px;align-items:center}.row+.row{margin-top:8px}.grow{flex:1}.help{font-size:12px;color:var(--muted);margin-top:8px}.meter{height:5px;background:#ffffff16;border-radius:999px;overflow:hidden;margin-top:7px}.meter i{display:block;height:100%;width:0;background:var(--ok);transition:width .25s}
-#viewer{display:none;position:absolute;inset:0;z-index:4;background:radial-gradient(circle at 50% 32%,#172842,#06101c 70%)}#viewer.active{display:block}#view3d{width:100%;height:100%;touch-action:none}.viewlabel,.legend{position:absolute;z-index:5;background:#07101ddd;border:1px solid #ffffff20;border-radius:11px;padding:8px 10px}.viewlabel{top:12px;left:12px}.legend{left:12px;bottom:12px;font-size:12px;color:var(--muted)}
-.toast{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:25;background:#07101cf4;border:1px solid #ffffff2d;border-radius:11px;padding:10px 12px;max-width:88%;display:none;text-align:center}.toast.show{display:block}.modal{position:absolute;inset:0;display:none;place-items:center;background:#000b;z-index:30;padding:18px}.modal.open{display:grid}.sheet{width:min(680px,100%);max-height:90%;overflow:auto;background:#101a2a;border:1px solid var(--line);border-radius:18px;padding:16px}.sheet h2{margin:0 0 8px;font-size:18px}.sheet p{color:var(--muted)}.statusgrid{display:grid;grid-template-columns:auto 1fr;gap:7px 11px;font-size:12px}.sheet pre{white-space:pre-wrap;background:#070d16;border-radius:10px;padding:10px;font-size:11px;color:#cbd9ed}
+.stage{position:relative;min-height:0;background:radial-gradient(circle at 50% 35%,#182842,#06101c 72%)}#preview{position:absolute;inset:0;width:100%;height:100%;touch-action:none}.hud{position:absolute;left:12px;right:12px;top:12px;z-index:6;display:flex;gap:8px;justify-content:space-between;pointer-events:none}.card{background:#07101dde;border:1px solid #ffffff20;border-radius:13px;padding:9px 10px;backdrop-filter:blur(8px);max-width:72%}.big{font-size:16px;font-weight:800}.muted{font-size:12px;color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.good{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+.guide{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);z-index:6;background:#07101ddd;border:1px solid #ffffff20;border-radius:999px;padding:7px 11px;color:#dcecff;font-size:12px;white-space:nowrap}.progress{position:absolute;left:12%;right:12%;bottom:22px;height:4px;border-radius:999px;background:#ffffff1f;z-index:6;overflow:hidden}.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.bottom{padding:9px 10px max(9px,env(safe-area-inset-bottom));background:#0a1220;border-top:1px solid var(--line);z-index:10}.row{display:flex;gap:8px;align-items:center}.row+.row{margin-top:8px}.grow{flex:1}.help{font-size:12px;color:var(--muted);margin-top:8px}.toast{position:absolute;left:50%;bottom:60px;transform:translateX(-50%);z-index:25;background:#07101cf4;border:1px solid #ffffff2d;border-radius:11px;padding:10px 12px;max-width:88%;display:none;text-align:center}.toast.show{display:block}.modal{position:absolute;inset:0;display:none;place-items:center;background:#000b;z-index:30;padding:18px}.modal.open{display:grid}.sheet{width:min(720px,100%);max-height:90%;overflow:auto;background:#101a2a;border:1px solid var(--line);border-radius:18px;padding:16px}.sheet h2{margin:0 0 8px;font-size:18px}.sheet p{color:var(--muted)}.statusgrid{display:grid;grid-template-columns:auto 1fr;gap:7px 11px;font-size:12px}.sheet pre{white-space:pre-wrap;background:#070d16;border-radius:10px;padding:10px;font-size:11px;color:#cbd9ed}
 @media(min-width:880px){#app{grid-template-columns:330px 1fr;grid-template-rows:auto 1fr}.top{grid-column:1/3}.stage{grid-column:2;grid-row:2}.bottom{grid-column:1;grid-row:2;border-top:0;border-right:1px solid var(--line)}.bottom .row{flex-wrap:wrap}}
 </style>
 </head>
 <body>
 <div id="app">
-<header class="top"><h1>AI Room Surface Scanner</h1><span id="backendBadge" class="badge">AI non caricata</span><button id="infoBtn">Info</button></header>
+<header class="top"><h1>WebXR Room Mesh Scanner</h1><span id="backendBadge" class="badge">controllo AR…</span><button id="infoBtn">Info</button></header>
 <main class="stage">
-<video id="video" autoplay muted playsinline></video><canvas id="overlay" class="camera"></canvas>
-<div id="viewer"><canvas id="view3d"></canvas><div class="viewlabel"><b>Geometria osservata</b><div class="muted">mesh aperta · nessuna chiusura inventata</div></div><div class="legend" id="legend">Nessun piano</div></div>
-<div class="hud"><div class="card"><div id="instruction" class="big">Premi “Avvia scansione AI”</div><div id="sub" class="muted">Ruota lentamente il telefono. Il modello stima profondità e superfici automaticamente.</div></div><div class="card"><div id="quality" class="warn">● attesa</div><div id="stats" class="muted mono">0 piani</div></div></div>
-<div class="hint" id="hint">Nessun tap e nessuna misura manuale</div><div class="progress"><i id="scanProgress"></i></div><div id="toast" class="toast"></div>
+<canvas id="preview"></canvas>
+<div class="hud"><div class="card"><div id="instruction" class="big">Controllo supporto WebXR</div><div id="sub" class="muted">La geometria viene letta direttamente dal sistema AR del dispositivo.</div></div><div class="card"><div id="quality" class="warn">● attesa</div><div id="stats" class="muted mono">0 mesh · 0 piani</div></div></div>
+<div class="guide" id="guide">Scansiona lentamente pareti, pavimento e soffitto</div><div class="progress"><i id="scanProgress"></i></div><div id="toast" class="toast"></div>
 </main>
 <section class="bottom">
-<div class="row"><button id="startBtn" class="primary grow">Avvia scansione AI</button><button id="viewBtn" disabled>Vista 3D</button></div>
-<div class="row"><button id="stopBtn" disabled>Termina</button><button id="xrBtn" disabled>WebXR</button><button id="resetBtn" class="danger">Reset</button></div>
+<div class="row"><button id="startBtn" class="primary grow" disabled>Avvia scansione AR</button><button id="stopBtn" disabled>Termina</button></div>
+<div class="row"><button id="roomBtn" disabled>Superfici stanza</button><button id="rawBtn" disabled>Mesh raw</button><button id="resetBtn" class="danger">Reset</button></div>
 <div class="row"><button id="jsonBtn" disabled>JSON</button><button id="objBtn" disabled>OBJ</button></div>
-<div class="meter"><i id="aiMeter"></i></div>
-<div id="summary" class="help">Alla prima scansione il browser scarica e memorizza il modello. I frame non vengono inviati a un server di inferenza.</div>
+<div id="summary" class="help">Nessuna misura manuale. Mesh/plane detection nativi quando disponibili.</div>
 </section>
 </div>
-<div id="infoModal" class="modal"><div class="sheet"><h2>Pipeline di ricostruzione</h2><p>Questa versione usa un modello reale di depth estimation e fitting geometrico. Non genera pareti dalla sola rotazione del telefono.</p><div class="statusgrid"><b>AI</b><span>Depth Anything V2 Small via Transformers.js. WebGPU quando disponibile, altrimenti WASM.</span><b>3D</b><span>Depth → back-projection → punti 3D → fitting robusto di piani → classificazione per normale → fusione temporale.</span><b>Output</b><span>Patch 2D indipendenti. La mesh può e deve restare aperta se una superficie non è stata osservata bene.</span><b>Scala</b><span>La depth monoculare è relativa: orientamento/topologia sono più affidabili della scala. WebXR, quando disponibile, fornisce piani metrici.</span><b>Privacy</b><span>L'inferenza avviene nel browser. Il download iniziale del modello arriva dal repository pubblico del modello.</span></div><pre id="debugInfo"></pre><button id="closeInfo">Chiudi</button></div></div>
-<script type="module">
+<div id="infoModal" class="modal"><div class="sheet"><h2>Come funziona</h2><p>La modalità principale usa direttamente le API sperimentali WebXR Real World Geometry, seguendo il flusso degli esempi ufficiali immersive-web/webxr-samples.</p><div class="statusgrid"><b>Mesh</b><span><code>XRFrame.detectedMeshes</code>: vertici, triangoli, meshSpace e aggiornamenti <code>lastChangedTime</code>.</span><b>Piani</b><span><code>XRFrame.detectedPlanes</code>: poligoni planari già rilevati dal runtime AR.</span><b>Output</b><span>Prima conserva la geometria metrica nativa; poi estrae grandi superfici verticali/orizzontali senza chiudere artificialmente la stanza.</span><b>Privacy</b><span>Nessun frame viene inviato a server. In questa versione non serve alcun modello AI.</span><b>Compatibilità</b><span>Richiede un browser/device che esponga immersive-ar e almeno mesh-detection o plane-detection. Le API sono ancora sperimentali.</span></div><pre id="debugInfo"></pre><button id="closeInfo">Chiudi</button></div></div>
+<script>
 'use strict';
-const $=s=>document.querySelector(s), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), rad=d=>d*Math.PI/180;
-const video=$('#video'), overlay=$('#overlay'), octx=overlay.getContext('2d'), viewer=$('#viewer'), view3d=$('#view3d'), vctx=view3d.getContext('2d');
-const capture=document.createElement('canvas'); capture.width=384; capture.height=288; const cctx=capture.getContext('2d',{willReadFrequently:true});
-const state={running:false,camera:false,sensors:false,orientation:{alpha:null,beta:null,gamma:null},depthPipe:null,aiBusy:false,aiReady:false,backend:'none',surfaces:[],rawPoints:[],coverage:new Set(),frameNo:0,lastInference:0,lastDepth:null,lastDepthW:0,lastDepthH:0,lastDepthStats:null,xrSession:null,view:{yaw:.72,pitch:.34,zoom:1,drag:false,x:0,y:0}};
-function toast(msg,ms=2800){const e=$('#toast');e.textContent=msg;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),ms)}
-function resize(){for(const c of [overlay,view3d]){const r=c.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);c.width=Math.max(1,Math.round(r.width*d));c.height=Math.max(1,Math.round(r.height*d));c._d=d}drawOverlay();draw3D()} addEventListener('resize',resize);
-function onOri(e){state.orientation.alpha=e.alpha;state.orientation.beta=e.beta;state.orientation.gamma=e.gamma}
-async function requestSensors(){try{if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){if(await DeviceOrientationEvent.requestPermission()!=='granted')throw Error('permesso sensori negato')}addEventListener('deviceorientation',onOri,true);return true}catch(e){console.warn('[imu]',e);return false}}
-async function startCamera(){if(state.camera)return;const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});video.srcObject=stream;await video.play();state.camera=true}
-function yaw(){return state.orientation.alpha==null?0:rad(state.orientation.alpha)} function pitch(){return state.orientation.beta==null?0:rad(state.orientation.beta-90)}
-function rotWorld(p){let {x,y,z}=p;const px=pitch(),cp=Math.cos(px),sp=Math.sin(px);let y1=cp*y-sp*z,z1=sp*y+cp*z;const yy=yaw(),c=Math.cos(yy),s=Math.sin(yy);return{x:c*x+s*z1,y:y1,z:-s*x+c*z1}}
-function dot(a,b){return a.x*b.x+a.y*b.y+a.z*b.z} function norm(a){const l=Math.hypot(a.x,a.y,a.z)||1;return{x:a.x/l,y:a.y/l,z:a.z/l}} function add(a,b){return{x:a.x+b.x,y:a.y+b.y,z:a.z+b.z}} function mul(a,s){return{x:a.x*s,y:a.y*s,z:a.z*s}} function cross(a,b){return{x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x}}
-function solve3(A,b){const m=[...A[0],b[0],...A[1],b[1],...A[2],b[2]];for(let i=0;i<3;i++){let q=i;for(let r=i+1;r<3;r++)if(Math.abs(m[r*4+i])>Math.abs(m[q*4+i]))q=r;if(Math.abs(m[q*4+i])<1e-8)return null;if(q!==i)for(let c=i;c<4;c++){const t=m[i*4+c];m[i*4+c]=m[q*4+c];m[q*4+c]=t}const d=m[i*4+i];for(let c=i;c<4;c++)m[i*4+c]/=d;for(let r=0;r<3;r++)if(r!==i){const f=m[r*4+i];for(let c=i;c<4;c++)m[r*4+c]-=f*m[i*4+c]}}return[m[3],m[7],m[11]]}
-function percentile(a,p){if(!a.length)return 0;const s=Array.from(a).filter(Number.isFinite).sort((x,y)=>x-y);return s[Math.floor(clamp(p,0,1)*(s.length-1))]}
-async function ensureAI(){if(state.depthPipe)return;$('#backendBadge').textContent='caricamento modello…';$('#aiMeter').style.width='15%';const device=navigator.gpu?'webgpu':'wasm';state.backend=device;try{const {pipeline,env}=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');env.allowLocalModels=false;$('#aiMeter').style.width='35%';state.depthPipe=await pipeline('depth-estimation','onnx-community/depth-anything-v2-small-ONNX',{device});state.aiReady=true;$('#backendBadge').textContent='Depth Anything V2 · '+device.toUpperCase();$('#aiMeter').style.width='100%';toast('Modello AI pronto')}catch(e){console.error('[AI load]',e);$('#backendBadge').textContent='AI non caricata';$('#aiMeter').style.width='0%';throw e}}
-function extractDepth(out){let t=out?.predicted_depth||out?.depth;if(t?.data&&t?.dims){const dims=t.dims, h=dims[dims.length-2],w=dims[dims.length-1];return{data:Float32Array.from(t.data),w,h}}if(out?.depth?.data&&out.depth.width){return{data:Float32Array.from(out.depth.data),w:out.depth.width,h:out.depth.height}}return null}
-function pseudoMetricDepth(raw){const p5=percentile(raw,.05),p95=percentile(raw,.95),span=Math.max(1e-6,p95-p5);const mid=raw[Math.floor(raw.length/2)]||p5;const corners=[raw[0],raw[Math.max(0,Math.floor(Math.sqrt(raw.length))-1)],raw[raw.length-1]].filter(Number.isFinite);const cornerAvg=corners.reduce((a,b)=>a+b,0)/(corners.length||1);const largerMeansNear=mid>cornerAvg;const z=new Float32Array(raw.length);for(let i=0;i<raw.length;i++){let n=clamp((raw[i]-p5)/span,0,1);if(largerMeansNear)n=1-n;z[i]=.65+4.85*n}return{z,p5,p95,largerMeansNear}}
-function samplePoints(z,w,h){const pts=[];const f=0.92*w,cx=(w-1)/2,cy=(h-1)/2,step=Math.max(5,Math.round(w/52));for(let v=Math.round(h*.08);v<h*.94;v+=step){for(let u=Math.round(w*.06);u<w*.94;u+=step){const d=z[v*w+u];if(!Number.isFinite(d))continue;const p={x:(u-cx)/f*d,y:-(v-cy)/f*d,z:d,u:u/w,v:v/h};pts.push(rotWorld(p))}}return pts}
-function fitZPlane(points){if(points.length<18)return null;let sx=0,sy=0,sz=0,sxx=0,syy=0,sxy=0,sxz=0,syz=0;for(const p of points){sx+=p.x;sy+=p.y;sz+=p.z;sxx+=p.x*p.x;syy+=p.y*p.y;sxy+=p.x*p.y;sxz+=p.x*p.z;syz+=p.y*p.z}const n=points.length;const sol=solve3([[sxx,sxy,sx],[sxy,syy,sy],[sx,sy,n]],[sxz,syz,sz]);if(!sol)return null;const[a,b,c]=sol;let normal=norm({x:-a,y:-b,z:1}),d=-c/Math.sqrt(a*a+b*b+1);let residuals=points.map(p=>Math.abs(dot(normal,p)+d));const med=percentile(residuals,.5),thr=Math.max(.055,med*2.6),inliers=points.filter((p,i)=>residuals[i]<thr);if(inliers.length<16)return null;const rms=Math.sqrt(inliers.reduce((s,p)=>s+(dot(normal,p)+d)**2,0)/inliers.length);if(dot(normal,{x:0,y:0,z:-1})<0){normal=mul(normal,-1);d=-d}return{normal,d,inliers,inlierRatio:inliers.length/points.length,rms}}
-function fitYPlane(points){if(points.length<18)return null;let sx=0,sz=0,sy=0,sxx=0,szz=0,sxz=0,sxy=0,szy=0;for(const p of points){sx+=p.x;sz+=p.z;sy+=p.y;sxx+=p.x*p.x;szz+=p.z*p.z;sxz+=p.x*p.z;sxy+=p.x*p.y;szy+=p.z*p.y}const n=points.length;const sol=solve3([[sxx,sxz,sx],[sxz,szz,sz],[sx,sz,n]],[sxy,szy,sy]);if(!sol)return null;const[a,b,c]=sol;let normal=norm({x:-a,y:1,z:-b}),d=-c/Math.sqrt(a*a+b*b+1);const res=points.map(p=>Math.abs(dot(normal,p)+d)),med=percentile(res,.5),thr=Math.max(.055,med*2.6),inliers=points.filter((p,i)=>res[i]<thr);if(inliers.length<16)return null;const rms=Math.sqrt(inliers.reduce((s,p)=>s+(dot(normal,p)+d)**2,0)/inliers.length);return{normal,d,inliers,inlierRatio:inliers.length/points.length,rms}}
-function quadFromFit(fit,type){let n=fit.normal;const up={x:0,y:1,z:0};let e1=type==='wall'?norm(cross(up,n)):norm({x:1,y:0,z:0});if(Math.hypot(e1.x,e1.y,e1.z)<.2)e1={x:1,y:0,z:0};let e2=type==='wall'?up:norm(cross(n,e1));const c=mul(fit.inliers.reduce((s,p)=>add(s,p),{x:0,y:0,z:0}),1/fit.inliers.length);const us=fit.inliers.map(p=>dot({x:p.x-c.x,y:p.y-c.y,z:p.z-c.z},e1)),vs=fit.inliers.map(p=>dot({x:p.x-c.x,y:p.y-c.y,z:p.z-c.z},e2));let u0=percentile(us,.05),u1=percentile(us,.95),v0=percentile(vs,.05),v1=percentile(vs,.95);if((u1-u0)<.35||(v1-v0)<.3)return null;const make=(u,v)=>add(c,add(mul(e1,u),mul(e2,v)));return{vertices:[make(u0,v0),make(u1,v0),make(u1,v1),make(u0,v1)],center:c,e1,e2,width:u1-u0,height:v1-v0}}
-function classifyAndExtract(points){const candidates=[];const regions=[
- {name:'wall-left',type:'wall',p:points.filter(q=>q.u<.47&&q.v>.16&&q.v<.88),fit:fitZPlane},
- {name:'wall-center',type:'wall',p:points.filter(q=>q.u>.24&&q.u<.76&&q.v>.13&&q.v<.88),fit:fitZPlane},
- {name:'wall-right',type:'wall',p:points.filter(q=>q.u>.53&&q.v>.16&&q.v<.88),fit:fitZPlane},
- {name:'floor',type:'floor',p:points.filter(q=>q.v>.62),fit:fitYPlane},
- {name:'ceiling',type:'ceiling',p:points.filter(q=>q.v<.34),fit:fitYPlane}
-];
- for(const r of regions){const fit=r.fit(r.p);if(!fit||fit.inlierRatio<.58||fit.rms>.28)continue;const vertical=Math.abs(fit.normal.y)<.48,horiz=Math.abs(fit.normal.y)>.73;if(r.type==='wall'&&!vertical)continue;if(r.type!=='wall'&&!horiz)continue;const quad=quadFromFit(fit,r.type);if(!quad)continue;const confidence=clamp(.45*fit.inlierRatio+.35*(1-clamp(fit.rms/.28,0,1))+.2*clamp((quad.width*quad.height)/4,0,1),0,1);if(confidence<.53)continue;candidates.push({type:r.type,normal:fit.normal,d:fit.d,confidence,vertices:quad.vertices,center:quad.center,width:quad.width,height:quad.height})}return candidates}
-function mergeCandidate(c){const same=state.surfaces.filter(s=>s.type===c.type&&Math.abs(dot(s.normal,c.normal))>.94&&Math.abs(s.d-c.d)<.75);let best=same.sort((a,b)=>Math.abs(a.d-c.d)-Math.abs(b.d-c.d))[0];if(!best){state.surfaces.push({id:`${c.type}-${Date.now()}-${state.surfaces.length}`,type:c.type,source:'depth-anything-v2',normal:c.normal,d:c.d,confidence:c.confidence,observations:1,approximateScale:true,vertices:c.vertices});return}
- const sign=dot(best.normal,c.normal)<0?-1:1;const n=norm(add(mul(best.normal,best.observations),mul(c.normal,sign)));best.normal=n;best.d=(best.d*best.observations+c.d*sign)/(best.observations+1);best.confidence=clamp((best.confidence*best.observations+c.confidence)/(best.observations+1),0,1);best.observations++;const all=[...best.vertices,...c.vertices];const up={x:0,y:1,z:0},e1=best.type==='wall'?norm(cross(up,n)):{x:1,y:0,z:0},e2=best.type==='wall'?up:norm(cross(n,e1));const center=mul(all.reduce((s,p)=>add(s,p),{x:0,y:0,z:0}),1/all.length),us=all.map(p=>dot({x:p.x-center.x,y:p.y-center.y,z:p.z-center.z},e1)),vs=all.map(p=>dot({x:p.x-center.x,y:p.y-center.y,z:p.z-center.z},e2)),u0=percentile(us,.03),u1=percentile(us,.97),v0=percentile(vs,.03),v1=percentile(vs,.97),mk=(u,v)=>add(center,add(mul(e1,u),mul(e2,v)));best.vertices=[mk(u0,v0),mk(u1,v0),mk(u1,v1),mk(u0,v1)]}
-async function inferFrame(){if(!state.running||state.aiBusy||!state.depthPipe||video.readyState<2)return;state.aiBusy=true;try{cctx.drawImage(video,0,0,capture.width,capture.height);const out=await state.depthPipe(capture);const dep=extractDepth(out);if(!dep)throw Error('output depth non riconosciuto');const mapped=pseudoMetricDepth(dep.data);state.lastDepth=mapped.z;state.lastDepthW=dep.w;state.lastDepthH=dep.h;state.lastDepthStats=mapped;const pts=samplePoints(mapped.z,dep.w,dep.h);state.rawPoints=pts;const cand=classifyAndExtract(pts);for(const c of cand)mergeCandidate(c);state.frameNo++;const yy=((state.orientation.alpha??state.frameNo*18)%360+360)%360;state.coverage.add(Math.round(yy/15)%24);afterGeometryChange();drawOverlay()}catch(e){console.warn('[infer]',e);toast('Inferenza fallita: '+e.message,3500)}finally{state.aiBusy=false}}
-function loop(t){if(state.running&&state.depthPipe&&!state.aiBusy&&t-state.lastInference>900){state.lastInference=t;inferFrame()}requestAnimationFrame(loop)}requestAnimationFrame(loop);
-function area(s){const a=s.vertices[0],b=s.vertices[1],d=s.vertices[3],u={x:b.x-a.x,y:b.y-a.y,z:b.z-a.z},v={x:d.x-a.x,y:d.y-a.y,z:d.z-a.z};return Math.hypot(...Object.values(cross(u,v)))}
-function afterGeometryChange(){const n=state.surfaces.length;$('#viewBtn').disabled=!n;$('#jsonBtn').disabled=!n;$('#objBtn').disabled=!n;const ar=state.surfaces.reduce((q,s)=>q+area(s),0),avg=n?state.surfaces.reduce((q,s)=>q+s.confidence,0)/n:0;$('#stats').textContent=`${n} piani · conf ${avg.toFixed(2)}`;$('#legend').textContent=n?`${n} superfici · ${ar.toFixed(1)} unità² · mesh aperta`:'Nessun piano';$('#scanProgress').style.width=`${Math.min(100,state.coverage.size/24*100)}%`;$('#quality').textContent=state.aiBusy?'● inferenza…':n?(avg>.72?'● buona':'● parziale'):'● cerca piani';$('#quality').className=avg>.72?'good':n?'warn':'warn';$('#instruction').textContent=state.running?`${n} superfici stabili`:`${n} superfici ricostruite`;$('#summary').textContent=n?`Depth reale dal modello → ${n} patch fuse. Scala monoculare relativa; nessuna parete viene aggiunta per chiudere artificialmente la stanza.`:'Ruota lentamente mostrando ogni parete per almeno 1–2 secondi.';draw3D();saveLocal()}
-function depthColor(v){const t=clamp((v-.65)/4.85,0,1);return `rgba(${Math.round(80+160*t)},${Math.round(210-100*t)},${Math.round(255-130*t)},.52)`}
-function drawOverlay(){const d=overlay._d||1,W=overlay.width/d,H=overlay.height/d;octx.clearRect(0,0,overlay.width,overlay.height);if(viewer.classList.contains('active'))return;octx.save();octx.scale(d,d);if(state.lastDepth){const dw=state.lastDepthW,dh=state.lastDepthH,sx=W/dw,sy=H/dh;for(let y=0;y<dh;y+=Math.max(3,Math.floor(dh/45)))for(let x=0;x<dw;x+=Math.max(3,Math.floor(dw/55))){octx.fillStyle=depthColor(state.lastDepth[y*dw+x]);octx.fillRect(x*sx,y*sy,Math.ceil(sx*3),Math.ceil(sy*3))}}octx.fillStyle='rgba(4,10,18,.72)';octx.fillRect(12,H-76,220,58);octx.fillStyle='#eef7ff';octx.font='12px system-ui';octx.fillText(`AI ${state.backend.toUpperCase()} · frame ${state.frameNo}`,22,H-51);octx.fillStyle='#9db1c9';octx.fillText(`${state.surfaces.length} planes · IMU ${state.sensors?'on':'off'}`,22,H-30);octx.restore()}
-function draw3D(){const d=view3d._d||1,W=view3d.width,H=view3d.height;vctx.clearRect(0,0,W,H);if(!viewer.classList.contains('active')||!state.surfaces.length)return;vctx.save();vctx.scale(d,d);const w=W/d,h=H/d,all=state.surfaces.flatMap(s=>s.vertices),cx=all.reduce((q,p)=>q+p.x,0)/all.length,cy=all.reduce((q,p)=>q+p.y,0)/all.length,cz=all.reduce((q,p)=>q+p.z,0)/all.length,maxR=Math.max(2,...all.map(p=>Math.hypot(p.x-cx,p.y-cy,p.z-cz))),dist=maxR*3/state.view.zoom+2,yawV=state.view.yaw,pit=state.view.pitch;function proj(P){let x=P.x-cx,y=P.y-cy,z=P.z-cz;const C=Math.cos(yawV),S=Math.sin(yawV),cp=Math.cos(pit),sp=Math.sin(pit),x1=C*x-S*z,z1=S*x+C*z,y1=cp*y-sp*z1,z2=sp*y+cp*z1+dist,f=Math.min(w,h)*1.05;return{x:w/2+x1*f/z2,y:h/2-y1*f/z2,z:z2}}const faces=state.surfaces.map(s=>({s,pts:s.vertices.map(proj)})).filter(f=>f.pts.every(p=>p.z>.1)).sort((a,b)=>b.pts.reduce((q,p)=>q+p.z,0)-a.pts.reduce((q,p)=>q+p.z,0));for(const f of faces){const a=.16+.35*f.s.confidence;vctx.fillStyle=f.s.type==='wall'?`rgba(87,197,255,${a})`:f.s.type==='floor'?`rgba(105,225,154,${a})`:`rgba(255,209,106,${a})`;vctx.strokeStyle='rgba(238,247,255,.85)';vctx.lineWidth=2;vctx.beginPath();f.pts.forEach((p,i)=>i?vctx.lineTo(p.x,p.y):vctx.moveTo(p.x,p.y));vctx.closePath();vctx.fill();vctx.stroke()}vctx.restore()}
-function showViewer(on){viewer.classList.toggle('active',on);video.style.visibility=on?'hidden':'visible';overlay.style.visibility=on?'hidden':'visible';$('#viewBtn').textContent=on?'Camera':'Vista 3D';draw3D()}
-async function start(){if(state.running)return;$('#startBtn').disabled=true;$('#instruction').textContent='Avvio camera e AI…';try{await Promise.all([startCamera(),ensureAI(),requestSensors().then(v=>state.sensors=v)]);state.running=true;$('#stopBtn').disabled=false;$('#xrBtn').disabled=!navigator.xr;$('#startBtn').textContent='Scansione attiva';$('#sub').textContent='Ruota lentamente; fermati circa un secondo davanti a ogni parete.';afterGeometryChange()}catch(e){console.error(e);toast('Impossibile avviare: '+e.message,4500);$('#startBtn').disabled=false;$('#instruction').textContent='Avvio fallito'}}
-function stop(){state.running=false;$('#stopBtn').disabled=true;$('#startBtn').disabled=false;$('#startBtn').textContent='Riprendi scansione AI';afterGeometryChange();if(state.surfaces.length)showViewer(true)}
-function resetAll(){state.surfaces=[];state.rawPoints=[];state.coverage.clear();state.frameNo=0;state.lastDepth=null;afterGeometryChange();showViewer(false);toast('Ricostruzione azzerata')}
-async function tryXR(){if(!navigator.xr)return toast('WebXR non disponibile');let ok=false;try{ok=await navigator.xr.isSessionSupported('immersive-ar')}catch{}if(!ok)return toast('immersive-ar non supportato');try{const session=await navigator.xr.requestSession('immersive-ar',{requiredFeatures:['local-floor'],optionalFeatures:['plane-detection']});state.xrSession=session;const canvas=document.createElement('canvas'),gl=canvas.getContext('webgl',{xrCompatible:true});await gl.makeXRCompatible?.();session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl)});const ref=await session.requestReferenceSpace('local-floor'),seen=new Map();const tp=(p,m)=>({x:m[0]*p.x+m[4]*p.y+m[8]*p.z+m[12],y:m[1]*p.x+m[5]*p.y+m[9]*p.z+m[13],z:m[2]*p.x+m[6]*p.y+m[10]*p.z+m[14]});function fr(t,f){for(const plane of (f.detectedPlanes?[...f.detectedPlanes]:[])){const pose=f.getPose(plane.planeSpace,ref);if(!pose||plane.polygon.length<3)continue;const verts=[...plane.polygon].map(p=>tp(p,pose.transform.matrix));let s=seen.get(plane);if(!s){s={id:'xr-'+Date.now()+'-'+seen.size,type:'xr-plane',source:'webxr',normal:{x:0,y:0,z:0},d:0,confidence:.98,observations:1,approximateScale:false,vertices:verts};seen.set(plane,s);state.surfaces.push(s)}else s.vertices=verts}afterGeometryChange();session.requestAnimationFrame(fr)}session.requestAnimationFrame(fr);toast('WebXR attivo: i piani XR saranno aggiunti alla mesh')}catch(e){toast('WebXR non utilizzabile: '+e.message,4200)}}
-function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},900)}
-function exportJSON(){download('room_surfaces_ai.json',JSON.stringify({format:'room-surfaces-ai-v3',created:new Date().toISOString(),watertight:false,scale:'relative unless source=webxr',model:'onnx-community/depth-anything-v2-small-ONNX',surfaces:state.surfaces},null,2),'application/json')}
-function exportOBJ(){let out='# AI Room Surface Scanner\n# Open mesh, scale is relative except WebXR planes.\n';let base=1;for(const s of state.surfaces){out+=`\no ${s.id}\n`;for(const p of s.vertices)out+=`v ${p.x.toFixed(6)} ${p.y.toFixed(6)} ${p.z.toFixed(6)}\n`;out+='f '+s.vertices.map((_,i)=>base+i).join(' ')+'\n';base+=s.vertices.length}download('room_surfaces_ai_open.obj',out,'text/plain')}
-function saveLocal(){try{localStorage.setItem('room-surfaces-ai-v3',JSON.stringify({surfaces:state.surfaces,coverage:[...state.coverage]}))}catch{}}
-function updateDebug(){const x={secureContext:isSecureContext,webGPU:!!navigator.gpu,webXR:!!navigator.xr,cameraAPI:!!navigator.mediaDevices?.getUserMedia,orientationAPI:typeof DeviceOrientationEvent!=='undefined',backend:state.backend,aiReady:state.aiReady,surfaces:state.surfaces.length,userAgent:navigator.userAgent};$('#debugInfo').textContent=JSON.stringify(x,null,2)}
-$('#startBtn').onclick=start;$('#stopBtn').onclick=stop;$('#viewBtn').onclick=()=>showViewer(!viewer.classList.contains('active'));$('#xrBtn').onclick=tryXR;$('#resetBtn').onclick=resetAll;$('#jsonBtn').onclick=exportJSON;$('#objBtn').onclick=exportOBJ;$('#infoBtn').onclick=()=>{$('#infoModal').classList.add('open');updateDebug()};$('#closeInfo').onclick=()=>$('#infoModal').classList.remove('open');$('#infoModal').onclick=e=>{if(e.target===$('#infoModal'))$('#infoModal').classList.remove('open')};
-view3d.addEventListener('pointerdown',e=>{state.view.drag=true;state.view.x=e.clientX;state.view.y=e.clientY;view3d.setPointerCapture(e.pointerId)});view3d.addEventListener('pointermove',e=>{if(!state.view.drag)return;state.view.yaw+=(e.clientX-state.view.x)*.008;state.view.pitch=clamp(state.view.pitch+(e.clientY-state.view.y)*.006,-.25,1.3);state.view.x=e.clientX;state.view.y=e.clientY;draw3D()});view3d.addEventListener('pointerup',()=>state.view.drag=false);view3d.addEventListener('wheel',e=>{e.preventDefault();state.view.zoom=clamp(state.view.zoom*Math.exp(-e.deltaY*.001),.45,3);draw3D()},{passive:false});
-try{const s=JSON.parse(localStorage.getItem('room-surfaces-ai-v3')||'null');if(s?.surfaces?.length){state.surfaces=s.surfaces;state.coverage=new Set(s.coverage||[]);afterGeometryChange();toast('Ricostruzione precedente ripristinata')}}catch(e){console.warn('[restore]',e)}
-if(!isSecureContext){$('#sub').textContent='Camera e sensori richiedono HTTPS o localhost.';$('#quality').textContent='● HTTPS richiesto';$('#quality').className='bad'}
-resize();updateDebug();
+
+// -----------------------------------------------------------------------------
+// WebXR Room Mesh Scanner
+// Core geometry tracking intentionally mirrors the state-management pattern used
+// by immersive-web/webxr-samples: keep a Map keyed by the native XRMesh/XRPlane,
+// update geometry only when lastChangedTime changes, and update pose every frame.
+// The renderer itself is minimal: the AR runtime does the environment tracking;
+// we only need a transparent XRWebGLLayer to drive XRFrame callbacks.
+// -----------------------------------------------------------------------------
+
+const $ = (s) => document.querySelector(s);
+const state = {
+  session: null,
+  refSpace: null,
+  gl: null,
+  running: false,
+  mode: 'none', // 'mesh' or 'plane'
+  liveMeshes: new Map(),
+  livePlanes: new Map(),
+  meshId: 1,
+  planeId: 1,
+  rawTriangles: [],
+  nativePlanes: [],
+  roomSurfaces: [],
+  scanStart: 0,
+  frameCount: 0,
+  lastUiUpdate: 0,
+  previewMode: 'room',
+  viewYaw: -0.65,
+  viewPitch: 0.45,
+  viewScale: 1,
+  drag: null,
+  capabilities: { immersiveAR:false, mesh:false, plane:false },
+};
+
+function toast(msg, ms=2600){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove('show'),ms); }
+function setStatus(text, cls='warn'){ const q=$('#quality'); q.className=cls; q.textContent='● '+text; }
+function downloadText(name, text, type='text/plain'){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+// Column-major 4x4 transform, matching XRRigidTransform.matrix and WebGL.
+function transformPoint(m, p){
+  return [
+    m[0]*p[0] + m[4]*p[1] + m[8]*p[2] + m[12],
+    m[1]*p[0] + m[5]*p[1] + m[9]*p[2] + m[13],
+    m[2]*p[0] + m[6]*p[1] + m[10]*p[2] + m[14],
+  ];
+}
+function sub(a,b){ return [a[0]-b[0],a[1]-b[1],a[2]-b[2]]; }
+function add(a,b){ return [a[0]+b[0],a[1]+b[1],a[2]+b[2]]; }
+function mul(a,s){ return [a[0]*s,a[1]*s,a[2]*s]; }
+function dot(a,b){ return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+function cross(a,b){ return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]; }
+function len(a){ return Math.hypot(a[0],a[1],a[2]); }
+function norm(a){ const l=len(a)||1; return [a[0]/l,a[1]/l,a[2]/l]; }
+function centroid3(points){ const c=[0,0,0]; for(const p of points){c[0]+=p[0];c[1]+=p[1];c[2]+=p[2];} return points.length?mul(c,1/points.length):c; }
+
+async function detectCapabilities(){
+  if(!navigator.xr){
+    $('#backendBadge').textContent='WebXR non disponibile';
+    $('#instruction').textContent='WebXR non disponibile';
+    $('#sub').textContent='Apri la pagina su un browser AR compatibile via HTTPS.';
+    setStatus('non supportato','bad');
+    return;
+  }
+  try{
+    state.capabilities.immersiveAR = await navigator.xr.isSessionSupported('immersive-ar');
+  }catch(e){ console.warn('isSessionSupported failed',e); }
+  if(!state.capabilities.immersiveAR){
+    $('#backendBadge').textContent='AR non disponibile';
+    $('#instruction').textContent='Immersive AR non supportata';
+    $('#sub').textContent='Questo dispositivo/browser non espone una sessione immersive-ar.';
+    setStatus('AR assente','bad');
+    return;
+  }
+  $('#backendBadge').textContent='WebXR AR disponibile';
+  $('#startBtn').disabled=false;
+  $('#instruction').textContent='Pronto alla scansione';
+  $('#sub').textContent='Proverò prima la mesh 3D nativa, poi i piani nativi.';
+  setStatus('pronto','good');
+}
+
+// Try the richest source first. Requiring the feature is deliberate: a session
+// that starts without the requested geometry source is not useful for scanning.
+async function requestGeometrySession(){
+  const commonOptional=['dom-overlay','local-floor','bounded-floor','hit-test','anchors','plane-detection'];
+  try{
+    const s=await navigator.xr.requestSession('immersive-ar',{
+      requiredFeatures:['mesh-detection'],
+      optionalFeatures:commonOptional,
+      domOverlay:{root:document.body}
+    });
+    state.mode='mesh';
+    state.capabilities.mesh=true;
+    return s;
+  }catch(meshError){
+    console.warn('mesh-detection session unavailable; trying plane-detection',meshError);
+  }
+  try{
+    const s=await navigator.xr.requestSession('immersive-ar',{
+      requiredFeatures:['plane-detection'],
+      optionalFeatures:['dom-overlay','local-floor','bounded-floor','hit-test','anchors'],
+      domOverlay:{root:document.body}
+    });
+    state.mode='plane';
+    state.capabilities.plane=true;
+    return s;
+  }catch(planeError){
+    console.error('Neither mesh-detection nor plane-detection session could start',planeError);
+    throw planeError;
+  }
+}
+
+async function startScan(){
+  if(state.running) return;
+  try{
+    const session=await requestGeometrySession();
+    state.session=session;
+    state.running=true;
+    state.scanStart=performance.now(); state.frameCount=0;
+    state.liveMeshes.clear(); state.livePlanes.clear(); state.rawTriangles=[]; state.nativePlanes=[]; state.roomSurfaces=[];
+
+    const canvas=document.createElement('canvas');
+    const gl=canvas.getContext('webgl',{xrCompatible:true,alpha:true,antialias:false,preserveDrawingBuffer:false}) || canvas.getContext('webgl2',{xrCompatible:true,alpha:true,antialias:false});
+    if(!gl) throw new Error('WebGL non disponibile');
+    state.gl=gl;
+    await gl.makeXRCompatible?.();
+    session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl,{alpha:true,depth:false,stencil:false,antialias:false})});
+    try{ state.refSpace=await session.requestReferenceSpace('local-floor'); }
+    catch{ state.refSpace=await session.requestReferenceSpace('local'); }
+    session.addEventListener('end',onSessionEnded,{once:true});
+
+    $('#startBtn').disabled=true; $('#stopBtn').disabled=false; $('#resetBtn').disabled=true;
+    $('#instruction').textContent=state.mode==='mesh'?'Scansione mesh 3D nativa':'Scansione piani nativi';
+    $('#sub').textContent='Muoviti lentamente lungo il perimetro e inquadra anche pavimento e soffitto.';
+    $('#backendBadge').textContent=state.mode==='mesh'?'XRMesh attivo':'XRPlane attivo';
+    setStatus('scansione','good');
+    session.requestAnimationFrame(onXRFrame);
+  }catch(e){
+    console.error(e); toast('Questo browser non espone mesh-detection o plane-detection WebXR.'); setStatus('feature assente','bad');
+  }
+}
+
+function onXRFrame(t, frame){
+  if(!state.running || !state.session) return;
+  state.session.requestAnimationFrame(onXRFrame);
+  const gl=state.gl, layer=state.session.renderState.baseLayer;
+  if(gl && layer){ gl.bindFramebuffer(gl.FRAMEBUFFER,layer.framebuffer); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); }
+  processMeshes(frame);
+  processPlanes(frame);
+  state.frameCount++;
+  if(t-state.lastUiUpdate>250){ updateScanUI(t); state.lastUiUpdate=t; }
+}
+
+// Direct adaptation of the official sample's lifecycle logic, but instead of
+// building THREE.Mesh objects we cache the native typed arrays and the latest
+// world pose. This makes the scanner dependency-free and export-oriented.
+function processMeshes(frame){
+  if(!frame.detectedMeshes) return;
+  for(const [mesh,ctx] of state.liveMeshes){
+    if(!frame.detectedMeshes.has(mesh)) state.liveMeshes.delete(mesh);
+  }
+  frame.detectedMeshes.forEach(mesh=>{
+    const pose=frame.getPose(mesh.meshSpace,state.refSpace);
+    if(!pose) return;
+    let ctx=state.liveMeshes.get(mesh);
+    if(!ctx){
+      ctx={id:state.meshId++,timestamp:-Infinity,vertices:null,indices:null,matrix:null,semanticLabel:mesh.semanticLabel||''};
+      state.liveMeshes.set(mesh,ctx);
+    }
+    if(ctx.timestamp < mesh.lastChangedTime || !ctx.vertices){
+      ctx.timestamp=mesh.lastChangedTime;
+      ctx.vertices=new Float32Array(mesh.vertices);
+      ctx.indices=new Uint32Array(mesh.indices);
+      ctx.semanticLabel=mesh.semanticLabel||ctx.semanticLabel||'';
+    }
+    ctx.matrix=new Float32Array(pose.transform.matrix);
+  });
+}
+
+function processPlanes(frame){
+  if(!frame.detectedPlanes) return;
+  for(const [plane] of state.livePlanes){ if(!frame.detectedPlanes.has(plane)) state.livePlanes.delete(plane); }
+  frame.detectedPlanes.forEach(plane=>{
+    const pose=frame.getPose(plane.planeSpace,state.refSpace); if(!pose) return;
+    let ctx=state.livePlanes.get(plane);
+    if(!ctx){ ctx={id:state.planeId++,timestamp:-Infinity,polygon:null,matrix:null,semanticLabel:plane.semanticLabel||''}; state.livePlanes.set(plane,ctx); }
+    if(ctx.timestamp < plane.lastChangedTime || !ctx.polygon){
+      ctx.timestamp=plane.lastChangedTime;
+      ctx.polygon=Array.from(plane.polygon,p=>[p.x,p.y,p.z]);
+      ctx.semanticLabel=plane.semanticLabel||ctx.semanticLabel||'';
+    }
+    ctx.matrix=new Float32Array(pose.transform.matrix);
+  });
+}
+
+function updateScanUI(t){
+  let tris=0,verts=0;
+  for(const ctx of state.liveMeshes.values()){ verts+=ctx.vertices?ctx.vertices.length/3:0; tris+=ctx.indices?ctx.indices.length/3:0; }
+  $('#stats').textContent=`${state.liveMeshes.size} mesh · ${state.livePlanes.size} piani · ${tris|0} tri`;
+  const secs=(t-state.scanStart)/1000;
+  $('#scanProgress').style.width=Math.min(100,secs/35*100)+'%';
+  $('#guide').textContent=secs<8?'Inizia da una parete e includi il pavimento':secs<20?'Continua lungo il perimetro, lentamente':'Completa le superfici non ancora osservate';
+}
+
+async function stopScan(){
+  if(!state.running) return;
+  // Snapshot before ending the session because native XR objects are session-bound.
+  snapshotNativeGeometry();
+  state.running=false;
+  try{ await state.session?.end(); }catch{}
+  finishScanUI();
+}
+function onSessionEnded(){ state.running=false; state.session=null; state.refSpace=null; state.gl=null; if(state.rawTriangles.length||state.nativePlanes.length) finishScanUI(); else { $('#startBtn').disabled=false; $('#stopBtn').disabled=true; $('#resetBtn').disabled=false; } }
+
+function snapshotNativeGeometry(){
+  state.rawTriangles=[]; state.nativePlanes=[];
+  for(const ctx of state.liveMeshes.values()){
+    if(!ctx.vertices||!ctx.indices||!ctx.matrix) continue;
+    const world=[];
+    for(let i=0;i<ctx.vertices.length;i+=3) world.push(transformPoint(ctx.matrix,[ctx.vertices[i],ctx.vertices[i+1],ctx.vertices[i+2]]));
+    for(let i=0;i+2<ctx.indices.length;i+=3){
+      const a=world[ctx.indices[i]], b=world[ctx.indices[i+1]], c=world[ctx.indices[i+2]];
+      if(!a||!b||!c) continue;
+      const cr=cross(sub(b,a),sub(c,a)); const area=0.5*len(cr); if(area<1e-5) continue;
+      state.rawTriangles.push({a,b,c,semanticLabel:ctx.semanticLabel||'',sourceId:ctx.id});
+    }
+  }
+  for(const ctx of state.livePlanes.values()){
+    if(!ctx.polygon||!ctx.matrix) continue;
+    const polygon=ctx.polygon.map(p=>transformPoint(ctx.matrix,p));
+    if(polygon.length>=3) state.nativePlanes.push({id:ctx.id,polygon,semanticLabel:ctx.semanticLabel||''});
+  }
+  buildRoomSurfaces();
+}
+
+// Convex hull in 2D, used to turn a cloud of coplanar mesh-triangle vertices
+// into a clean exposed surface polygon. This intentionally leaves gaps/openings.
+function convexHull2(points){
+  const pts=points.map((p,i)=>({x:p[0],y:p[1],i})).sort((a,b)=>a.x-b.x||a.y-b.y);
+  if(pts.length<=2) return pts.map(p=>p.i);
+  const cr=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
+  const lo=[]; for(const p of pts){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p);} const up=[]; for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p);} lo.pop();up.pop(); return lo.concat(up).map(p=>p.i);
+}
+
+function planeFromPolygon(poly){
+  if(poly.length<3) return null;
+  let n=null;
+  for(let i=1;i<poly.length-1;i++){ const c=cross(sub(poly[i],poly[0]),sub(poly[i+1],poly[0])); if(len(c)>1e-5){n=norm(c);break;} }
+  if(!n) return null;
+  const c=centroid3(poly); if(n[1]<-0.001){ n=mul(n,-1); }
+  return {n,d:dot(n,c),c};
+}
+
+function classifyNormal(n,label=''){
+  const s=(label||'').toLowerCase();
+  if(s.includes('wall')) return 'wall'; if(s.includes('floor')) return 'floor'; if(s.includes('ceiling')) return 'ceiling';
+  const ay=Math.abs(n[1]); if(ay>0.86) return n[1]>=0?'floor':'ceiling'; if(ay<0.36) return 'wall'; return 'other';
+}
+
+function polygonArea3(poly){
+  if(poly.length<3)return 0; let a=0; for(let i=1;i<poly.length-1;i++) a+=0.5*len(cross(sub(poly[i],poly[0]),sub(poly[i+1],poly[0]))); return a;
+}
+
+function surfaceFromPointCloud(points,n,type,label,source){
+  const c=centroid3(points);
+  let u;
+  if(type==='wall'){ u=norm(cross([0,1,0],n)); if(len(u)<0.1)u=[1,0,0]; }
+  else { u=norm(cross(n,[0,0,1])); if(len(u)<0.1)u=[1,0,0]; }
+  const v=norm(cross(n,u));
+  const uv=points.map(p=>{const q=sub(p,c);return [dot(q,u),dot(q,v)];});
+  const hi=convexHull2(uv); if(hi.length<3)return null;
+  const poly=hi.map(i=>add(c,add(mul(u,uv[i][0]),mul(v,uv[i][1]))));
+  const area=polygonArea3(poly); if(area<0.18)return null;
+  return {type,label:label||'',source,normal:n,centroid:c,area,polygon:poly};
+}
+
+function buildRoomSurfaces(){
+  const surfaces=[];
+  // Native planes are already the best possible room primitive. Keep each as-is.
+  for(const p of state.nativePlanes){
+    const info=planeFromPolygon(p.polygon); if(!info)continue; const type=classifyNormal(info.n,p.semanticLabel); if(type==='other')continue;
+    const area=polygonArea3(p.polygon); if(area<0.12)continue;
+    surfaces.push({type,label:p.semanticLabel||'',source:'XRPlane',normal:info.n,centroid:info.c,area,polygon:p.polygon});
+  }
+
+  // If mesh detection is available, cluster near-coplanar room-like triangles.
+  const clusters=new Map();
+  for(const tr of state.rawTriangles){
+    const e1=sub(tr.b,tr.a), e2=sub(tr.c,tr.a), cr=cross(e1,e2), twice=len(cr); if(twice<1e-5)continue;
+    let n=mul(cr,1/twice); let c=mul(add(add(tr.a,tr.b),tr.c),1/3); let type=classifyNormal(n,tr.semanticLabel); if(type==='other')continue;
+    // Canonical direction so the same plane does not split merely because winding differs.
+    if(type==='wall'){
+      n=norm([n[0],0,n[2]]); if(n[0]<-0.001 || (Math.abs(n[0])<0.001&&n[2]<0)) n=mul(n,-1);
+    } else { n=[0,n[1]>=0?1:-1,0]; }
+    const d=dot(n,c);
+    const angle=type==='wall'?Math.atan2(n[2],n[0]):0;
+    const angleBin=Math.round(angle/(Math.PI/18));   // ~10 degrees
+    const distBin=Math.round(d/0.18);                // ~18 cm
+    const key=`${type}|${angleBin}|${distBin}|${(tr.semanticLabel||'').toLowerCase()}`;
+    let cl=clusters.get(key); if(!cl){cl={type,n,d,points:[],area:0,label:tr.semanticLabel||''};clusters.set(key,cl);}
+    cl.points.push(tr.a,tr.b,tr.c); cl.area+=twice*0.5;
+  }
+  for(const cl of clusters.values()){
+    if(cl.area<0.22 || cl.points.length<9)continue;
+    const s=surfaceFromPointCloud(cl.points,cl.n,cl.type,cl.label,'XRMesh'); if(s)surfaces.push(s);
+  }
+
+  // Prefer native XRPlane polygons over an almost identical mesh-derived patch.
+  const final=[];
+  for(const s of surfaces.sort((a,b)=>(a.source==='XRPlane'?-1:1)-(b.source==='XRPlane'?-1:1)||b.area-a.area)){
+    const duplicate=final.some(f=>f.type===s.type && Math.abs(dot(f.normal,s.normal))>0.97 && Math.abs(dot(f.normal,sub(s.centroid,f.centroid)))<0.22 && dist3(f.centroid,s.centroid)<4.0);
+    if(!duplicate)final.push(s);
+  }
+  state.roomSurfaces=final;
+}
+function dist3(a,b){return len(sub(a,b));}
+
+function finishScanUI(){
+  $('#startBtn').disabled=false; $('#stopBtn').disabled=true; $('#resetBtn').disabled=false;
+  const has=state.rawTriangles.length||state.nativePlanes.length||state.roomSurfaces.length;
+  $('#roomBtn').disabled=!has; $('#rawBtn').disabled=!state.rawTriangles.length; $('#jsonBtn').disabled=!has; $('#objBtn').disabled=!has;
+  $('#scanProgress').style.width='100%';
+  $('#instruction').textContent='Scansione completata';
+  $('#sub').textContent=`${state.roomSurfaces.length} superfici stanza estratte. La mesh rimane volutamente aperta.`;
+  $('#stats').textContent=`${state.rawTriangles.length} tri · ${state.nativePlanes.length} piani · ${state.roomSurfaces.length} superfici`;
+  $('#summary').textContent=`Output: ${state.roomSurfaces.filter(s=>s.type==='wall').length} pareti, ${state.roomSurfaces.filter(s=>s.type==='floor').length} pavimenti, ${state.roomSurfaces.filter(s=>s.type==='ceiling').length} soffitti.`;
+  setStatus(has?'geometria pronta':'nessuna geometria',has?'good':'bad');
+  state.previewMode='room'; drawPreview();
+}
+
+function reset(){
+  state.rawTriangles=[];state.nativePlanes=[];state.roomSurfaces=[];state.liveMeshes.clear();state.livePlanes.clear();state.meshId=1;state.planeId=1;state.previewMode='room';
+  $('#roomBtn').disabled=true;$('#rawBtn').disabled=true;$('#jsonBtn').disabled=true;$('#objBtn').disabled=true;$('#scanProgress').style.width='0';
+  $('#instruction').textContent='Pronto alla scansione'; $('#sub').textContent='La geometria viene letta direttamente dal sistema AR del dispositivo.'; $('#stats').textContent='0 mesh · 0 piani'; $('#summary').textContent='Nessuna misura manuale. Mesh/plane detection nativi quando disponibili.'; setStatus('pronto','good'); drawPreview();
+}
+
+// Lightweight software preview: enough to inspect the captured surfaces without
+// adding Three.js or another network dependency to the generated HTML file.
+function getPreviewVertices(){
+  const polys=[];
+  if(state.previewMode==='room') for(const s of state.roomSurfaces) polys.push({poly:s.polygon,type:s.type});
+  else for(const tr of state.rawTriangles) polys.push({poly:[tr.a,tr.b,tr.c],type:'raw'});
+  return polys;
+}
+function project(p,c,scale,w,h){
+  let x=p[0]-c[0],y=p[1]-c[1],z=p[2]-c[2];
+  const cy=Math.cos(state.viewYaw),sy=Math.sin(state.viewYaw); let x1=cy*x-sy*z,z1=sy*x+cy*z;
+  const cp=Math.cos(state.viewPitch),sp=Math.sin(state.viewPitch); let y1=cp*y-sp*z1,z2=sp*y+cp*z1;
+  const persp=1/(1+Math.max(-0.75,z2*0.12)); return [w/2+x1*scale*persp,h/2-y1*scale*persp,z2];
+}
+function drawPreview(){
+  const canvas=$('#preview'),dpr=Math.min(devicePixelRatio||1,2),r=canvas.getBoundingClientRect();canvas.width=Math.max(1,r.width*dpr);canvas.height=Math.max(1,r.height*dpr);const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,r.width,r.height);
+  const items=getPreviewVertices(); if(!items.length){ctx.fillStyle='#92a8c1';ctx.textAlign='center';ctx.font='14px system-ui';ctx.fillText('La ricostruzione apparirà qui al termine della scansione',r.width/2,r.height/2);return;}
+  const all=items.flatMap(i=>i.poly),c=centroid3(all);let radius=0;for(const p of all)radius=Math.max(radius,dist3(p,c));const scale=Math.min(r.width,r.height)*0.38/(radius||1)*state.viewScale;
+  const draw=items.map(item=>({item,pts:item.poly.map(p=>project(p,c,scale,r.width,r.height))}));draw.sort((a,b)=>a.pts.reduce((s,p)=>s+p[2],0)/a.pts.length-b.pts.reduce((s,p)=>s+p[2],0)/b.pts.length);
+  for(const d of draw){if(d.pts.length<3)continue;ctx.beginPath();ctx.moveTo(d.pts[0][0],d.pts[0][1]);for(let i=1;i<d.pts.length;i++)ctx.lineTo(d.pts[i][0],d.pts[i][1]);ctx.closePath();ctx.fillStyle=d.item.type==='wall'?'rgba(91,198,255,.22)':d.item.type==='floor'?'rgba(104,225,155,.20)':d.item.type==='ceiling'?'rgba(255,209,106,.18)':'rgba(180,200,225,.08)';ctx.strokeStyle=d.item.type==='raw'?'rgba(185,215,245,.22)':'rgba(220,240,255,.72)';ctx.lineWidth=1;ctx.fill();ctx.stroke();}
+}
+
+function exportJSON(){
+  const out={format:'webxr-room-surfaces-v2',createdAt:new Date().toISOString(),units:'meters',sourceMode:state.mode,coordinateSystem:'WebXR local/local-floor reference space',meshTriangleCount:state.rawTriangles.length,nativePlaneCount:state.nativePlanes.length,surfaces:state.roomSurfaces.map((s,i)=>({id:i+1,type:s.type,semanticLabel:s.label,source:s.source,area_m2:+s.area.toFixed(4),normal:s.normal.map(v=>+v.toFixed(6)),polygon:s.polygon.map(p=>p.map(v=>+v.toFixed(6)))}))};
+  downloadText('room_surfaces_webxr.json',JSON.stringify(out,null,2),'application/json');
+}
+function exportOBJ(){
+  let out='# WebXR Room Mesh Scanner\n# Open/non-watertight room surfaces; units: meters\n';let vi=1;
+  const surfaces=state.roomSurfaces.length?state.roomSurfaces:null;
+  if(surfaces){
+    surfaces.forEach((s,idx)=>{out+=`\no surface_${idx+1}_${s.type}\n`;for(const p of s.polygon)out+=`v ${p[0]} ${p[1]} ${p[2]}\n`;for(let i=1;i<s.polygon.length-1;i++)out+=`f ${vi} ${vi+i} ${vi+i+1}\n`;vi+=s.polygon.length;});
+  }else{
+    state.rawTriangles.forEach((t,idx)=>{out+=`\no tri_${idx+1}\n`;for(const p of [t.a,t.b,t.c])out+=`v ${p[0]} ${p[1]} ${p[2]}\n`;out+=`f ${vi} ${vi+1} ${vi+2}\n`;vi+=3;});
+  }
+  downloadText('room_surfaces_webxr.obj',out,'text/plain');
+}
+
+$('#startBtn').addEventListener('click',startScan); $('#stopBtn').addEventListener('click',stopScan); $('#resetBtn').addEventListener('click',reset);
+$('#roomBtn').addEventListener('click',()=>{state.previewMode='room';drawPreview();toast('Vista: superfici stanza');}); $('#rawBtn').addEventListener('click',()=>{state.previewMode='raw';drawPreview();toast('Vista: triangoli XRMesh raw');});
+$('#jsonBtn').addEventListener('click',exportJSON); $('#objBtn').addEventListener('click',exportOBJ);
+$('#infoBtn').addEventListener('click',()=>{ $('#debugInfo').textContent=`secureContext: ${isSecureContext}\nnavigator.xr: ${!!navigator.xr}\nimmersive-ar: ${state.capabilities.immersiveAR}\nmode: ${state.mode}\nmesh objects: ${state.liveMeshes.size}\nplane objects: ${state.livePlanes.size}\nraw triangles: ${state.rawTriangles.length}\nroom surfaces: ${state.roomSurfaces.length}`; $('#infoModal').classList.add('open'); }); $('#closeInfo').addEventListener('click',()=>$('#infoModal').classList.remove('open'));
+
+const pv=$('#preview'); pv.addEventListener('pointerdown',e=>{state.drag=[e.clientX,e.clientY,state.viewYaw,state.viewPitch];pv.setPointerCapture(e.pointerId);});pv.addEventListener('pointermove',e=>{if(!state.drag)return;state.viewYaw=state.drag[2]+(e.clientX-state.drag[0])*.008;state.viewPitch=clamp(state.drag[3]+(e.clientY-state.drag[1])*.008,-1.2,1.2);drawPreview();});pv.addEventListener('pointerup',()=>state.drag=null);pv.addEventListener('wheel',e=>{e.preventDefault();state.viewScale=clamp(state.viewScale*Math.exp(-e.deltaY*.001),.35,4);drawPreview();},{passive:false});
+window.addEventListener('resize',drawPreview);
+
+drawPreview(); detectCapabilities();
 </script>
 </body>
 </html>
