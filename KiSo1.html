@@ -1,421 +1,322 @@
 <!doctype html>
 <html lang="it">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-<meta name="theme-color" content="#07101b" />
-<title>WebXR Room Mesh Scanner</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#07101b">
+<title>Room Scanner WebXR v3</title>
 <style>
-:root{color-scheme:dark;--bg:#050910;--panel:#0b1421;--panel2:#101d2e;--fg:#eef7ff;--muted:#92a8c1;--accent:#5bc6ff;--ok:#68e19b;--warn:#ffd16a;--bad:#ff7185;--line:#213149}
-*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}button{font:inherit;border:0;border-radius:12px;padding:11px 13px;background:var(--panel2);color:var(--fg);font-weight:750;cursor:pointer}button.primary{background:var(--accent);color:#04111a}button.danger{background:#35131d;color:#ffd9de}button:disabled{opacity:.42;cursor:not-allowed}
+:root{color-scheme:dark;--bg:#050910;--panel:#0a1421;--fg:#eef7ff;--muted:#92a8c1;--accent:#57c7ff;--ok:#69e49e;--warn:#ffd16a;--bad:#ff7185;--line:#22344c}
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}button{font:inherit;border:0;border-radius:12px;padding:11px 13px;background:#122238;color:var(--fg);font-weight:760;cursor:pointer}button.primary{background:var(--accent);color:#04111a}button.danger{background:#35131d;color:#ffd9de}button:disabled{opacity:.42;cursor:not-allowed}
 #app{height:100%;display:grid;grid-template-rows:auto 1fr auto}.top{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#09111ded;border-bottom:1px solid var(--line);z-index:10}.top h1{font-size:15px;margin:0;margin-right:auto}.badge{font-size:11px;border:1px solid var(--line);padding:5px 8px;border-radius:999px;color:var(--muted)}
-.stage{position:relative;min-height:0;background:radial-gradient(circle at 50% 35%,#182842,#06101c 72%)}#preview{position:absolute;inset:0;width:100%;height:100%;touch-action:none}.hud{position:absolute;left:12px;right:12px;top:12px;z-index:6;display:flex;gap:8px;justify-content:space-between;pointer-events:none}.card{background:#07101dde;border:1px solid #ffffff20;border-radius:13px;padding:9px 10px;backdrop-filter:blur(8px);max-width:72%}.big{font-size:16px;font-weight:800}.muted{font-size:12px;color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.good{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
-.guide{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);z-index:6;background:#07101ddd;border:1px solid #ffffff20;border-radius:999px;padding:7px 11px;color:#dcecff;font-size:12px;white-space:nowrap}.progress{position:absolute;left:12%;right:12%;bottom:22px;height:4px;border-radius:999px;background:#ffffff1f;z-index:6;overflow:hidden}.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
-.bottom{padding:9px 10px max(9px,env(safe-area-inset-bottom));background:#0a1220;border-top:1px solid var(--line);z-index:10}.row{display:flex;gap:8px;align-items:center}.row+.row{margin-top:8px}.grow{flex:1}.help{font-size:12px;color:var(--muted);margin-top:8px}.toast{position:absolute;left:50%;bottom:60px;transform:translateX(-50%);z-index:25;background:#07101cf4;border:1px solid #ffffff2d;border-radius:11px;padding:10px 12px;max-width:88%;display:none;text-align:center}.toast.show{display:block}.modal{position:absolute;inset:0;display:none;place-items:center;background:#000b;z-index:30;padding:18px}.modal.open{display:grid}.sheet{width:min(720px,100%);max-height:90%;overflow:auto;background:#101a2a;border:1px solid var(--line);border-radius:18px;padding:16px}.sheet h2{margin:0 0 8px;font-size:18px}.sheet p{color:var(--muted)}.statusgrid{display:grid;grid-template-columns:auto 1fr;gap:7px 11px;font-size:12px}.sheet pre{white-space:pre-wrap;background:#070d16;border-radius:10px;padding:10px;font-size:11px;color:#cbd9ed}
-@media(min-width:880px){#app{grid-template-columns:330px 1fr;grid-template-rows:auto 1fr}.top{grid-column:1/3}.stage{grid-column:2;grid-row:2}.bottom{grid-column:1;grid-row:2;border-top:0;border-right:1px solid var(--line)}.bottom .row{flex-wrap:wrap}}
+.stage{position:relative;min-height:0;background:#02060b;overflow:hidden}#camera,#preview{position:absolute;inset:0;width:100%;height:100%}#camera{object-fit:cover;background:#02060b}#preview{touch-action:none;pointer-events:auto}.hud{position:absolute;left:12px;right:12px;top:12px;z-index:8;display:flex;gap:8px;justify-content:space-between;pointer-events:none}.card{background:#07101ddd;border:1px solid #ffffff20;border-radius:13px;padding:9px 10px;backdrop-filter:blur(8px);max-width:75%}.big{font-size:16px;font-weight:800}.muted{font-size:12px;color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.good{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+.crosshair{position:absolute;left:50%;top:50%;width:34px;height:34px;transform:translate(-50%,-50%);z-index:7;pointer-events:none}.crosshair:before,.crosshair:after{content:"";position:absolute;background:#fff9;box-shadow:0 0 4px #000}.crosshair:before{left:16px;top:3px;width:2px;height:28px}.crosshair:after{top:16px;left:3px;height:2px;width:28px}.guide{position:absolute;left:50%;bottom:34px;transform:translateX(-50%);z-index:8;background:#07101ddd;border:1px solid #ffffff20;border-radius:999px;padding:7px 11px;color:#dcecff;font-size:12px;white-space:nowrap}.progress{position:absolute;left:12%;right:12%;bottom:20px;height:4px;border-radius:999px;background:#ffffff1f;z-index:8;overflow:hidden}.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.bottom{padding:9px 10px max(9px,env(safe-area-inset-bottom));background:#0a1220;border-top:1px solid var(--line);z-index:10}.row{display:flex;gap:8px;align-items:center}.row+.row{margin-top:8px}.grow{flex:1}.help{font-size:12px;color:var(--muted);margin-top:8px}.toast{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);z-index:25;background:#07101cf4;border:1px solid #ffffff2d;border-radius:11px;padding:10px 12px;max-width:88%;display:none;text-align:center}.toast.show{display:block}.modal{position:absolute;inset:0;display:none;place-items:center;background:#000b;z-index:30;padding:18px}.modal.open{display:grid}.sheet{width:min(760px,100%);max-height:90%;overflow:auto;background:#101a2a;border:1px solid var(--line);border-radius:18px;padding:16px}.sheet h2{margin:0 0 8px;font-size:18px}.sheet p{color:var(--muted)}.statusgrid{display:grid;grid-template-columns:auto 1fr;gap:7px 11px;font-size:12px}.sheet pre{white-space:pre-wrap;background:#070d16;border-radius:10px;padding:10px;font-size:11px;color:#cbd9ed}
+@media(min-width:880px){#app{grid-template-columns:340px 1fr;grid-template-rows:auto 1fr}.top{grid-column:1/3}.stage{grid-column:2;grid-row:2}.bottom{grid-column:1;grid-row:2;border-top:0;border-right:1px solid var(--line)}.bottom .row{flex-wrap:wrap}}
 </style>
 </head>
 <body>
 <div id="app">
-<header class="top"><h1>WebXR Room Mesh Scanner</h1><span id="backendBadge" class="badge">controllo AR…</span><button id="infoBtn">Info</button></header>
+<header class="top"><h1>Room Scanner WebXR v3</h1><span id="backendBadge" class="badge">inizializzazione…</span><button id="infoBtn">Info</button></header>
 <main class="stage">
+<video id="camera" playsinline muted autoplay></video>
 <canvas id="preview"></canvas>
-<div class="hud"><div class="card"><div id="instruction" class="big">Controllo supporto WebXR</div><div id="sub" class="muted">La geometria viene letta direttamente dal sistema AR del dispositivo.</div></div><div class="card"><div id="quality" class="warn">● attesa</div><div id="stats" class="muted mono">0 mesh · 0 piani</div></div></div>
-<div class="guide" id="guide">Scansiona lentamente pareti, pavimento e soffitto</div><div class="progress"><i id="scanProgress"></i></div><div id="toast" class="toast"></div>
+<div class="crosshair" id="crosshair"></div>
+<div class="hud"><div class="card"><div id="instruction" class="big">Apertura telecamera</div><div id="sub" class="muted">La preview camera viene aperta prima di WebXR.</div></div><div class="card"><div id="quality" class="warn">● attesa</div><div id="stats" class="muted mono">camera…</div></div></div>
+<div class="guide" id="guide">Inquadra lentamente tutte le superfici della stanza</div><div class="progress"><i id="scanProgress"></i></div><div id="toast" class="toast"></div>
 </main>
 <section class="bottom">
-<div class="row"><button id="startBtn" class="primary grow" disabled>Avvia scansione AR</button><button id="stopBtn" disabled>Termina</button></div>
-<div class="row"><button id="roomBtn" disabled>Superfici stanza</button><button id="rawBtn" disabled>Mesh raw</button><button id="resetBtn" class="danger">Reset</button></div>
+<div class="row"><button id="startBtn" class="primary grow" disabled>Avvia ricostruzione 3D</button><button id="stopBtn" disabled>Termina</button></div>
+<div class="row"><button id="roomBtn" disabled>Superfici</button><button id="pointsBtn" disabled>Punti</button><button id="rawBtn" disabled>Mesh raw</button><button id="resetBtn" class="danger">Reset</button></div>
 <div class="row"><button id="jsonBtn" disabled>JSON</button><button id="objBtn" disabled>OBJ</button></div>
-<div id="summary" class="help">Nessuna misura manuale. Mesh/plane detection nativi quando disponibili.</div>
+<div id="summary" class="help">La camera deve comparire subito. In AR uso XRMesh/XRPlane e, soprattutto, una nuvola di punti da WebXR Hit Test.</div>
 </section>
 </div>
-<div id="infoModal" class="modal"><div class="sheet"><h2>Come funziona</h2><p>La modalità principale usa direttamente le API sperimentali WebXR Real World Geometry, seguendo il flusso degli esempi ufficiali immersive-web/webxr-samples.</p><div class="statusgrid"><b>Mesh</b><span><code>XRFrame.detectedMeshes</code>: vertici, triangoli, meshSpace e aggiornamenti <code>lastChangedTime</code>.</span><b>Piani</b><span><code>XRFrame.detectedPlanes</code>: poligoni planari già rilevati dal runtime AR.</span><b>Output</b><span>Prima conserva la geometria metrica nativa; poi estrae grandi superfici verticali/orizzontali senza chiudere artificialmente la stanza.</span><b>Privacy</b><span>Nessun frame viene inviato a server. In questa versione non serve alcun modello AI.</span><b>Compatibilità</b><span>Richiede un browser/device che esponga immersive-ar e almeno mesh-detection o plane-detection. Le API sono ancora sperimentali.</span></div><pre id="debugInfo"></pre><button id="closeInfo">Chiudi</button></div></div>
+<div id="infoModal" class="modal"><div class="sheet"><h2>Diagnostica</h2><p>Questa versione separa esplicitamente preview camera e sessione WebXR. Quando parte AR, la preview getUserMedia viene rilasciata per evitare la contesa della camera; il passthrough viene poi gestito dal runtime XR.</p><div class="statusgrid"><b>1. Camera</b><span><code>getUserMedia({video:{facingMode:'environment'}})</code></span><b>2. WebXR</b><span><code>immersive-ar</code> con <code>hit-test</code>; mesh/plane detection sono opzionali.</span><b>3. Geometria</b><span>XRMesh/XRPlane se presenti; altrimenti ventaglio di XRRay + hit-test → point cloud → RANSAC → patch planari.</span><b>4. Output</b><span>Mesh aperta, nessuna chiusura artificiale della stanza.</span></div><pre id="debugInfo"></pre><button id="closeInfo">Chiudi</button></div></div>
 <script>
 'use strict';
 
-// -----------------------------------------------------------------------------
-// WebXR Room Mesh Scanner
-// Core geometry tracking intentionally mirrors the state-management pattern used
-// by immersive-web/webxr-samples: keep a Map keyed by the native XRMesh/XRPlane,
-// update geometry only when lastChangedTime changes, and update pose every frame.
-// The renderer itself is minimal: the AR runtime does the environment tracking;
-// we only need a transparent XRWebGLLayer to drive XRFrame callbacks.
-// -----------------------------------------------------------------------------
+// ============================================================================
+// ROOM SCANNER WEBXR v3
+// ----------------------------------------------------------------------------
+// Design goals:
+//   1) The user MUST see a real camera preview before starting AR.
+//   2) Starting WebXR must not depend on experimental mesh-detection.
+//   3) Use the richest geometry source the runtime exposes:
+//        XRMesh -> XRPlane -> multi-ray WebXR Hit Test point cloud.
+//   4) Convert point cloud to exposed 2D planar patches with robust RANSAC.
+//   5) Never invent a closed room when the data does not support one.
+// ============================================================================
 
-const $ = (s) => document.querySelector(s);
-const state = {
-  session: null,
-  refSpace: null,
-  gl: null,
-  running: false,
-  mode: 'none', // 'mesh' or 'plane'
-  liveMeshes: new Map(),
-  livePlanes: new Map(),
-  meshId: 1,
-  planeId: 1,
-  rawTriangles: [],
-  nativePlanes: [],
-  roomSurfaces: [],
-  scanStart: 0,
-  frameCount: 0,
-  lastUiUpdate: 0,
-  previewMode: 'room',
-  viewYaw: -0.65,
-  viewPitch: 0.45,
-  viewScale: 1,
-  drag: null,
-  capabilities: { immersiveAR:false, mesh:false, plane:false },
+const $=s=>document.querySelector(s);
+const state={
+  cameraStream:null,cameraReady:false,
+  session:null,refSpace:null,viewerSpace:null,gl:null,running:false,
+  hitSources:[],hitPoints:[],hitVoxel:new Set(),
+  liveMeshes:new Map(),livePlanes:new Map(),meshId:1,planeId:1,
+  rawTriangles:[],nativePlanes:[],roomSurfaces:[],
+  scanStart:0,lastUi:0,frameCount:0,
+  previewMode:'room',viewYaw:-0.7,viewPitch:0.45,viewScale:1,drag:null,
+  capabilities:{immersiveAR:false,hitTest:false,mesh:false,plane:false},
+  debug:[]
 };
 
-function toast(msg, ms=2600){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove('show'),ms); }
-function setStatus(text, cls='warn'){ const q=$('#quality'); q.className=cls; q.textContent='● '+text; }
-function downloadText(name, text, type='text/plain'){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
-function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function log(...a){console.log(...a);state.debug.push(a.map(x=>x instanceof Error?(x.name+': '+x.message):String(x)).join(' '));if(state.debug.length>80)state.debug.shift();}
+function toast(msg,ms=3000){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._timer);t._timer=setTimeout(()=>t.classList.remove('show'),ms)}
+function setStatus(text,cls='warn'){const q=$('#quality');q.className=cls;q.textContent='● '+text}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function downloadText(name,text,type='text/plain'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1200)}
+function sub(a,b){return[a[0]-b[0],a[1]-b[1],a[2]-b[2]]}function add(a,b){return[a[0]+b[0],a[1]+b[1],a[2]+b[2]]}function mul(a,s){return[a[0]*s,a[1]*s,a[2]*s]}function dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]}function cross(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]}function len(a){return Math.hypot(a[0],a[1],a[2])}function norm(a){const l=len(a)||1;return[a[0]/l,a[1]/l,a[2]/l]}function dist3(a,b){return len(sub(a,b))}
+function centroid3(ps){if(!ps.length)return[0,0,0];let c=[0,0,0];for(const p of ps)c=add(c,p);return mul(c,1/ps.length)}
+function transformPoint(m,p){return[m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12],m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13],m[2]*p[0]+m[6]*p[1]+m[10]*p[2]+m[14]]}
 
-// Column-major 4x4 transform, matching XRRigidTransform.matrix and WebGL.
-function transformPoint(m, p){
-  return [
-    m[0]*p[0] + m[4]*p[1] + m[8]*p[2] + m[12],
-    m[1]*p[0] + m[5]*p[1] + m[9]*p[2] + m[13],
-    m[2]*p[0] + m[6]*p[1] + m[10]*p[2] + m[14],
-  ];
-}
-function sub(a,b){ return [a[0]-b[0],a[1]-b[1],a[2]-b[2]]; }
-function add(a,b){ return [a[0]+b[0],a[1]+b[1],a[2]+b[2]]; }
-function mul(a,s){ return [a[0]*s,a[1]*s,a[2]*s]; }
-function dot(a,b){ return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
-function cross(a,b){ return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]; }
-function len(a){ return Math.hypot(a[0],a[1],a[2]); }
-function norm(a){ const l=len(a)||1; return [a[0]/l,a[1]/l,a[2]/l]; }
-function centroid3(points){ const c=[0,0,0]; for(const p of points){c[0]+=p[0];c[1]+=p[1];c[2]+=p[2];} return points.length?mul(c,1/points.length):c; }
-
-async function detectCapabilities(){
-  if(!navigator.xr){
-    $('#backendBadge').textContent='WebXR non disponibile';
-    $('#instruction').textContent='WebXR non disponibile';
-    $('#sub').textContent='Apri la pagina su un browser AR compatibile via HTTPS.';
-    setStatus('non supportato','bad');
-    return;
+// ----------------------------------------------------------------------------
+// CAMERA: this is deliberately independent from WebXR. It proves camera access
+// works and gives useful permission/debug feedback before entering immersive AR.
+// ----------------------------------------------------------------------------
+async function openCamera(){
+  if(state.cameraStream)return true;
+  if(!navigator.mediaDevices?.getUserMedia){
+    $('#instruction').textContent='API camera non disponibile';setStatus('camera assente','bad');return false;
   }
   try{
-    state.capabilities.immersiveAR = await navigator.xr.isSessionSupported('immersive-ar');
-  }catch(e){ console.warn('isSessionSupported failed',e); }
-  if(!state.capabilities.immersiveAR){
-    $('#backendBadge').textContent='AR non disponibile';
-    $('#instruction').textContent='Immersive AR non supportata';
-    $('#sub').textContent='Questo dispositivo/browser non espone una sessione immersive-ar.';
-    setStatus('AR assente','bad');
-    return;
+    const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}});
+    state.cameraStream=stream;const v=$('#camera');v.srcObject=stream;await v.play();state.cameraReady=true;
+    const tr=stream.getVideoTracks()[0],set=tr?.getSettings?.()||{};
+    $('#instruction').textContent='Telecamera attiva';$('#sub').textContent='Preview reale attiva. Premi “Avvia ricostruzione 3D”.';
+    $('#stats').textContent=`camera ${set.width||'?'}×${set.height||'?'}`;setStatus('camera OK','good');$('#startBtn').disabled=false;
+    log('camera opened',JSON.stringify(set));return true;
+  }catch(e){
+    log('camera failed',e);$('#instruction').textContent='Permesso camera negato/non disponibile';$('#sub').textContent='Servi la pagina via HTTPS e consenti l’uso della fotocamera.';setStatus('camera KO','bad');$('#startBtn').disabled=false;return false;
   }
-  $('#backendBadge').textContent='WebXR AR disponibile';
-  $('#startBtn').disabled=false;
-  $('#instruction').textContent='Pronto alla scansione';
-  $('#sub').textContent='Proverò prima la mesh 3D nativa, poi i piani nativi.';
-  setStatus('pronto','good');
+}
+function closeCamera(){
+  if(state.cameraStream){for(const t of state.cameraStream.getTracks())t.stop();state.cameraStream=null;}
+  $('#camera').srcObject=null;state.cameraReady=false;
 }
 
-// Try the richest source first. Requiring the feature is deliberate: a session
-// that starts without the requested geometry source is not useful for scanning.
-async function requestGeometrySession(){
-  const commonOptional=['dom-overlay','local-floor','bounded-floor','hit-test','anchors','plane-detection'];
+async function detectXR(){
+  if(!navigator.xr){$('#backendBadge').textContent='WebXR assente · camera fallback';log('navigator.xr absent');return;}
+  try{state.capabilities.immersiveAR=await navigator.xr.isSessionSupported('immersive-ar')}catch(e){log('isSessionSupported failed',e)}
+  $('#backendBadge').textContent=state.capabilities.immersiveAR?'WebXR AR disponibile':'WebXR AR non disponibile';
+}
+
+// ----------------------------------------------------------------------------
+// XR SESSION: hit-test is required in the first attempt because it is a broadly
+// useful geometry source. Experimental mesh/plane features are OPTIONAL, so their
+// absence no longer prevents the AR camera/session from starting.
+// ----------------------------------------------------------------------------
+async function requestXRSession(){
+  if(!navigator.xr||!state.capabilities.immersiveAR)throw new Error('immersive-ar non supportato');
+  const opts={requiredFeatures:['hit-test'],optionalFeatures:['local-floor','bounded-floor','dom-overlay','anchors','plane-detection','mesh-detection'],domOverlay:{root:document.body}};
   try{
-    const s=await navigator.xr.requestSession('immersive-ar',{
-      requiredFeatures:['mesh-detection'],
-      optionalFeatures:commonOptional,
-      domOverlay:{root:document.body}
-    });
-    state.mode='mesh';
-    state.capabilities.mesh=true;
-    return s;
-  }catch(meshError){
-    console.warn('mesh-detection session unavailable; trying plane-detection',meshError);
-  }
-  try{
-    const s=await navigator.xr.requestSession('immersive-ar',{
-      requiredFeatures:['plane-detection'],
-      optionalFeatures:['dom-overlay','local-floor','bounded-floor','hit-test','anchors'],
-      domOverlay:{root:document.body}
-    });
-    state.mode='plane';
-    state.capabilities.plane=true;
-    return s;
-  }catch(planeError){
-    console.error('Neither mesh-detection nor plane-detection session could start',planeError);
-    throw planeError;
+    const s=await navigator.xr.requestSession('immersive-ar',opts);state.capabilities.hitTest=true;return s;
+  }catch(e){
+    log('hit-test session failed; trying plain immersive-ar',e);
+    const s=await navigator.xr.requestSession('immersive-ar',{optionalFeatures:['local-floor','bounded-floor','dom-overlay','plane-detection','mesh-detection'],domOverlay:{root:document.body}});return s;
   }
 }
 
 async function startScan(){
-  if(state.running) return;
+  if(state.running)return;
+  $('#startBtn').disabled=true;$('#resetBtn').disabled=true;
   try{
-    const session=await requestGeometrySession();
-    state.session=session;
-    state.running=true;
-    state.scanStart=performance.now(); state.frameCount=0;
-    state.liveMeshes.clear(); state.livePlanes.clear(); state.rawTriangles=[]; state.nativePlanes=[]; state.roomSurfaces=[];
-
-    const canvas=document.createElement('canvas');
-    const gl=canvas.getContext('webgl',{xrCompatible:true,alpha:true,antialias:false,preserveDrawingBuffer:false}) || canvas.getContext('webgl2',{xrCompatible:true,alpha:true,antialias:false});
-    if(!gl) throw new Error('WebGL non disponibile');
-    state.gl=gl;
-    await gl.makeXRCompatible?.();
+    // Release getUserMedia before WebXR because several mobile stacks treat the
+    // physical camera as exclusive. If XR fails we reopen it immediately.
+    closeCamera();
+    const session=await requestXRSession();state.session=session;state.running=true;state.scanStart=performance.now();state.frameCount=0;
+    clearGeometry();
+    const xrCanvas=document.createElement('canvas');
+    const gl=xrCanvas.getContext('webgl2',{xrCompatible:true,alpha:true,antialias:false})||xrCanvas.getContext('webgl',{xrCompatible:true,alpha:true,antialias:false});
+    if(!gl)throw new Error('WebGL non disponibile');state.gl=gl;await gl.makeXRCompatible?.();
     session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl,{alpha:true,depth:false,stencil:false,antialias:false})});
-    try{ state.refSpace=await session.requestReferenceSpace('local-floor'); }
-    catch{ state.refSpace=await session.requestReferenceSpace('local'); }
+    try{state.refSpace=await session.requestReferenceSpace('local-floor')}catch{state.refSpace=await session.requestReferenceSpace('local')}
+    state.viewerSpace=await session.requestReferenceSpace('viewer');
     session.addEventListener('end',onSessionEnded,{once:true});
-
-    $('#startBtn').disabled=true; $('#stopBtn').disabled=false; $('#resetBtn').disabled=true;
-    $('#instruction').textContent=state.mode==='mesh'?'Scansione mesh 3D nativa':'Scansione piani nativi';
-    $('#sub').textContent='Muoviti lentamente lungo il perimetro e inquadra anche pavimento e soffitto.';
-    $('#backendBadge').textContent=state.mode==='mesh'?'XRMesh attivo':'XRPlane attivo';
-    setStatus('scansione','good');
+    await createHitTestFan(session);
+    $('#stopBtn').disabled=false;$('#instruction').textContent='Ricostruzione 3D attiva';$('#sub').textContent='Muovi il telefono lentamente. Copri pareti, pavimento, angoli e soffitto.';$('#backendBadge').textContent='WebXR + hit-test';setStatus('scansione','good');
+    $('#camera').style.display='none';$('#preview').style.display='block';
     session.requestAnimationFrame(onXRFrame);
   }catch(e){
-    console.error(e); toast('Questo browser non espone mesh-detection o plane-detection WebXR.'); setStatus('feature assente','bad');
+    log('XR start failed',e);state.running=false;state.session=null;$('#startBtn').disabled=false;$('#stopBtn').disabled=true;$('#resetBtn').disabled=false;
+    $('#instruction').textContent='WebXR non è partito';$('#sub').textContent='Riapro la camera. Su questo browser non posso ottenere geometria metrica 3D via WebXR.';setStatus('XR non disponibile','bad');
+    $('#camera').style.display='block';await openCamera();toast('La camera funziona, ma questo browser non espone la geometria WebXR necessaria.');
   }
 }
 
-function onXRFrame(t, frame){
-  if(!state.running || !state.session) return;
-  state.session.requestAnimationFrame(onXRFrame);
-  const gl=state.gl, layer=state.session.renderState.baseLayer;
-  if(gl && layer){ gl.bindFramebuffer(gl.FRAMEBUFFER,layer.framebuffer); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); }
-  processMeshes(frame);
-  processPlanes(frame);
-  state.frameCount++;
-  if(t-state.lastUiUpdate>250){ updateScanUI(t); state.lastUiUpdate=t; }
+// 15 rays across the camera field. We intentionally keep the number modest:
+// browsers may reject an unreasonable number of active hit-test sources.
+async function createHitTestFan(session){
+  state.hitSources=[];if(!state.capabilities.hitTest||!session.requestHitTestSource)return;
+  const xs=[-0.55,-0.28,0,0.28,0.55],ys=[-0.38,0,0.38];
+  for(const y of ys)for(const x of xs){
+    try{
+      const d=norm([x,-y,-1]);
+      const ray=new XRRay({x:0,y:0,z:0,w:1},{x:d[0],y:d[1],z:d[2],w:0});
+      const src=await session.requestHitTestSource({space:state.viewerSpace,offsetRay:ray,entityTypes:['plane','point','mesh']});
+      state.hitSources.push(src);
+    }catch(e){
+      // Some implementations accept only a subset of entityTypes. Retry using
+      // the default entity set instead of losing the whole hit-test fallback.
+      try{
+        const d=norm([x,-y,-1]);const ray=new XRRay({x:0,y:0,z:0,w:1},{x:d[0],y:d[1],z:d[2],w:0});
+        const src=await session.requestHitTestSource({space:state.viewerSpace,offsetRay:ray});state.hitSources.push(src);
+      }catch(e2){log('hit source failed',e2)}
+    }
+  }
+  log('hit sources',state.hitSources.length);
 }
 
-// Direct adaptation of the official sample's lifecycle logic, but instead of
-// building THREE.Mesh objects we cache the native typed arrays and the latest
-// world pose. This makes the scanner dependency-free and export-oriented.
+function onXRFrame(t,frame){
+  if(!state.running||!state.session)return;state.session.requestAnimationFrame(onXRFrame);
+  const gl=state.gl,layer=state.session.renderState.baseLayer;if(gl&&layer){gl.bindFramebuffer(gl.FRAMEBUFFER,layer.framebuffer);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT)}
+  processMeshes(frame);processPlanes(frame);processHitTests(frame);state.frameCount++;
+  if(t-state.lastUi>220){updateScanUI(t);state.lastUi=t}
+}
+
+function processHitTests(frame){
+  if(!state.hitSources.length||!frame.getHitTestResults)return;
+  for(const src of state.hitSources){
+    let results;try{results=frame.getHitTestResults(src)}catch{continue}
+    if(!results?.length)continue;const pose=results[0].getPose(state.refSpace);if(!pose)continue;
+    const p=pose.transform.position;addHitPoint([p.x,p.y,p.z]);
+  }
+}
+function addHitPoint(p){
+  // 4 cm voxel grid: removes huge amounts of duplicate jitter while preserving
+  // wall corners and enough density for robust plane fitting.
+  const s=0.04,key=`${Math.round(p[0]/s)},${Math.round(p[1]/s)},${Math.round(p[2]/s)}`;
+  if(state.hitVoxel.has(key))return;state.hitVoxel.add(key);state.hitPoints.push(p);
+  if(state.hitPoints.length>18000){const old=state.hitPoints.shift();state.hitVoxel.delete(`${Math.round(old[0]/s)},${Math.round(old[1]/s)},${Math.round(old[2]/s)}`)}
+}
+
 function processMeshes(frame){
-  if(!frame.detectedMeshes) return;
-  for(const [mesh,ctx] of state.liveMeshes){
-    if(!frame.detectedMeshes.has(mesh)) state.liveMeshes.delete(mesh);
-  }
-  frame.detectedMeshes.forEach(mesh=>{
-    const pose=frame.getPose(mesh.meshSpace,state.refSpace);
-    if(!pose) return;
-    let ctx=state.liveMeshes.get(mesh);
-    if(!ctx){
-      ctx={id:state.meshId++,timestamp:-Infinity,vertices:null,indices:null,matrix:null,semanticLabel:mesh.semanticLabel||''};
-      state.liveMeshes.set(mesh,ctx);
-    }
-    if(ctx.timestamp < mesh.lastChangedTime || !ctx.vertices){
-      ctx.timestamp=mesh.lastChangedTime;
-      ctx.vertices=new Float32Array(mesh.vertices);
-      ctx.indices=new Uint32Array(mesh.indices);
-      ctx.semanticLabel=mesh.semanticLabel||ctx.semanticLabel||'';
-    }
-    ctx.matrix=new Float32Array(pose.transform.matrix);
-  });
+  if(!frame.detectedMeshes)return;state.capabilities.mesh=true;
+  for(const [m] of state.liveMeshes)if(!frame.detectedMeshes.has(m))state.liveMeshes.delete(m);
+  frame.detectedMeshes.forEach(mesh=>{const pose=frame.getPose(mesh.meshSpace,state.refSpace);if(!pose)return;let c=state.liveMeshes.get(mesh);if(!c){c={id:state.meshId++,timestamp:-Infinity,vertices:null,indices:null,matrix:null,label:''};state.liveMeshes.set(mesh,c)}if(c.timestamp<mesh.lastChangedTime||!c.vertices){c.timestamp=mesh.lastChangedTime;c.vertices=new Float32Array(mesh.vertices);c.indices=new Uint32Array(mesh.indices);c.label=mesh.semanticLabel||c.label||''}c.matrix=new Float32Array(pose.transform.matrix)});
 }
-
 function processPlanes(frame){
-  if(!frame.detectedPlanes) return;
-  for(const [plane] of state.livePlanes){ if(!frame.detectedPlanes.has(plane)) state.livePlanes.delete(plane); }
-  frame.detectedPlanes.forEach(plane=>{
-    const pose=frame.getPose(plane.planeSpace,state.refSpace); if(!pose) return;
-    let ctx=state.livePlanes.get(plane);
-    if(!ctx){ ctx={id:state.planeId++,timestamp:-Infinity,polygon:null,matrix:null,semanticLabel:plane.semanticLabel||''}; state.livePlanes.set(plane,ctx); }
-    if(ctx.timestamp < plane.lastChangedTime || !ctx.polygon){
-      ctx.timestamp=plane.lastChangedTime;
-      ctx.polygon=Array.from(plane.polygon,p=>[p.x,p.y,p.z]);
-      ctx.semanticLabel=plane.semanticLabel||ctx.semanticLabel||'';
-    }
-    ctx.matrix=new Float32Array(pose.transform.matrix);
-  });
+  if(!frame.detectedPlanes)return;state.capabilities.plane=true;
+  for(const [p] of state.livePlanes)if(!frame.detectedPlanes.has(p))state.livePlanes.delete(p);
+  frame.detectedPlanes.forEach(plane=>{const pose=frame.getPose(plane.planeSpace,state.refSpace);if(!pose)return;let c=state.livePlanes.get(plane);if(!c){c={id:state.planeId++,timestamp:-Infinity,polygon:null,matrix:null,label:''};state.livePlanes.set(plane,c)}if(c.timestamp<plane.lastChangedTime||!c.polygon){c.timestamp=plane.lastChangedTime;c.polygon=Array.from(plane.polygon,p=>[p.x,p.y,p.z]);c.label=plane.semanticLabel||c.label||''}c.matrix=new Float32Array(pose.transform.matrix)});
 }
 
 function updateScanUI(t){
-  let tris=0,verts=0;
-  for(const ctx of state.liveMeshes.values()){ verts+=ctx.vertices?ctx.vertices.length/3:0; tris+=ctx.indices?ctx.indices.length/3:0; }
-  $('#stats').textContent=`${state.liveMeshes.size} mesh · ${state.livePlanes.size} piani · ${tris|0} tri`;
-  const secs=(t-state.scanStart)/1000;
-  $('#scanProgress').style.width=Math.min(100,secs/35*100)+'%';
-  $('#guide').textContent=secs<8?'Inizia da una parete e includi il pavimento':secs<20?'Continua lungo il perimetro, lentamente':'Completa le superfici non ancora osservate';
+  let tris=0;for(const c of state.liveMeshes.values())tris+=c.indices?c.indices.length/3:0;
+  const sec=(t-state.scanStart)/1000;$('#scanProgress').style.width=Math.min(100,sec/35*100)+'%';
+  $('#stats').textContent=`${state.hitPoints.length} punti · ${state.livePlanes.size} piani · ${tris|0} tri`;
+  $('#guide').textContent=sec<8?'Inquadra prima pavimento + parete':sec<20?'Passa lentamente sugli angoli e sulle pareti':'Completa zone mancanti e soffitto';
 }
 
 async function stopScan(){
-  if(!state.running) return;
-  // Snapshot before ending the session because native XR objects are session-bound.
-  snapshotNativeGeometry();
-  state.running=false;
-  try{ await state.session?.end(); }catch{}
-  finishScanUI();
+  if(!state.running)return;snapshotNativeGeometry();state.running=false;for(const s of state.hitSources){try{s.cancel()}catch{}}state.hitSources=[];
+  try{await state.session?.end()}catch{};finishScanUI();
 }
-function onSessionEnded(){ state.running=false; state.session=null; state.refSpace=null; state.gl=null; if(state.rawTriangles.length||state.nativePlanes.length) finishScanUI(); else { $('#startBtn').disabled=false; $('#stopBtn').disabled=true; $('#resetBtn').disabled=false; } }
+function onSessionEnded(){
+  const had=state.rawTriangles.length||state.nativePlanes.length||state.hitPoints.length;state.running=false;state.session=null;state.refSpace=null;state.viewerSpace=null;state.gl=null;
+  if(had){if(!state.roomSurfaces.length){snapshotNativeGeometry()}finishScanUI()}else{$('#startBtn').disabled=false;$('#stopBtn').disabled=true;$('#resetBtn').disabled=false;$('#camera').style.display='block';openCamera()}
+}
 
 function snapshotNativeGeometry(){
-  state.rawTriangles=[]; state.nativePlanes=[];
-  for(const ctx of state.liveMeshes.values()){
-    if(!ctx.vertices||!ctx.indices||!ctx.matrix) continue;
-    const world=[];
-    for(let i=0;i<ctx.vertices.length;i+=3) world.push(transformPoint(ctx.matrix,[ctx.vertices[i],ctx.vertices[i+1],ctx.vertices[i+2]]));
-    for(let i=0;i+2<ctx.indices.length;i+=3){
-      const a=world[ctx.indices[i]], b=world[ctx.indices[i+1]], c=world[ctx.indices[i+2]];
-      if(!a||!b||!c) continue;
-      const cr=cross(sub(b,a),sub(c,a)); const area=0.5*len(cr); if(area<1e-5) continue;
-      state.rawTriangles.push({a,b,c,semanticLabel:ctx.semanticLabel||'',sourceId:ctx.id});
-    }
+  state.rawTriangles=[];state.nativePlanes=[];
+  for(const c of state.liveMeshes.values()){
+    if(!c.vertices||!c.indices||!c.matrix)continue;const world=[];for(let i=0;i<c.vertices.length;i+=3)world.push(transformPoint(c.matrix,[c.vertices[i],c.vertices[i+1],c.vertices[i+2]]));
+    for(let i=0;i+2<c.indices.length;i+=3){const a=world[c.indices[i]],b=world[c.indices[i+1]],d=world[c.indices[i+2]];if(!a||!b||!d)continue;if(len(cross(sub(b,a),sub(d,a)))<1e-5)continue;state.rawTriangles.push({a,b,c:d,label:c.label||'',sourceId:c.id})}
   }
-  for(const ctx of state.livePlanes.values()){
-    if(!ctx.polygon||!ctx.matrix) continue;
-    const polygon=ctx.polygon.map(p=>transformPoint(ctx.matrix,p));
-    if(polygon.length>=3) state.nativePlanes.push({id:ctx.id,polygon,semanticLabel:ctx.semanticLabel||''});
-  }
+  for(const c of state.livePlanes.values()){if(!c.polygon||!c.matrix)continue;const polygon=c.polygon.map(p=>transformPoint(c.matrix,p));if(polygon.length>=3)state.nativePlanes.push({id:c.id,polygon,label:c.label||''})}
   buildRoomSurfaces();
 }
 
-// Convex hull in 2D, used to turn a cloud of coplanar mesh-triangle vertices
-// into a clean exposed surface polygon. This intentionally leaves gaps/openings.
-function convexHull2(points){
-  const pts=points.map((p,i)=>({x:p[0],y:p[1],i})).sort((a,b)=>a.x-b.x||a.y-b.y);
-  if(pts.length<=2) return pts.map(p=>p.i);
-  const cr=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
-  const lo=[]; for(const p of pts){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p);} const up=[]; for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p);} lo.pop();up.pop(); return lo.concat(up).map(p=>p.i);
-}
-
-function planeFromPolygon(poly){
-  if(poly.length<3) return null;
-  let n=null;
-  for(let i=1;i<poly.length-1;i++){ const c=cross(sub(poly[i],poly[0]),sub(poly[i+1],poly[0])); if(len(c)>1e-5){n=norm(c);break;} }
-  if(!n) return null;
-  const c=centroid3(poly); if(n[1]<-0.001){ n=mul(n,-1); }
-  return {n,d:dot(n,c),c};
-}
-
+// ----------------------------------------------------------------------------
+// PLANAR RECONSTRUCTION FROM HIT-TEST POINT CLOUD
+// Robust RANSAC extracts real planes from accumulated ARCore hit points. This is
+// the key fallback when experimental XRMesh/XRPlane objects are absent.
+// ----------------------------------------------------------------------------
+function fitPlane3(a,b,c){const n0=cross(sub(b,a),sub(c,a)),l=len(n0);if(l<1e-5)return null;let n=mul(n0,1/l);let d=dot(n,a);if(d<0){n=mul(n,-1);d=-d}return{n,d}}
 function classifyNormal(n,label=''){
-  const s=(label||'').toLowerCase();
-  if(s.includes('wall')) return 'wall'; if(s.includes('floor')) return 'floor'; if(s.includes('ceiling')) return 'ceiling';
-  const ay=Math.abs(n[1]); if(ay>0.86) return n[1]>=0?'floor':'ceiling'; if(ay<0.36) return 'wall'; return 'other';
+  const s=label.toLowerCase();if(s.includes('wall'))return'wall';if(s.includes('floor'))return'floor';if(s.includes('ceiling'))return'ceiling';
+  const ay=Math.abs(n[1]);if(ay>0.82)return n[1]>=0?'horizontal':'horizontal';if(ay<0.38)return'wall';return'other';
+}
+function chooseHorizontalType(points){const y=centroid3(points)[1];return y<0.35?'floor':'ceiling'}
+function ransacPlanes(points){
+  let work=points.map((p,i)=>({p,i})),out=[];const maxPlanes=12;
+  for(let planeNo=0;planeNo<maxPlanes&&work.length>=28;planeNo++){
+    let best=null;const trials=Math.min(260,80+Math.floor(work.length/12));
+    for(let it=0;it<trials;it++){
+      const i=(Math.random()*work.length)|0,j=(Math.random()*work.length)|0,k=(Math.random()*work.length)|0;if(i===j||i===k||j===k)continue;
+      const pl=fitPlane3(work[i].p,work[j].p,work[k].p);if(!pl)continue;const kind=classifyNormal(pl.n);if(kind==='other')continue;
+      const thr=kind==='wall'?0.065:0.055;const inl=[];let err=0;
+      for(let q=0;q<work.length;q++){const e=Math.abs(dot(pl.n,work[q].p)-pl.d);if(e<thr){inl.push(q);err+=e*e}}
+      if(inl.length<24)continue;const score=inl.length-Math.sqrt(err/inl.length)*90;if(!best||score>best.score)best={...pl,kind,inl,score,rms:Math.sqrt(err/inl.length)};
+    }
+    if(!best||best.inl.length<24)break;
+    const inlierSet=new Set(best.inl),pts=best.inl.map(i=>work[i].p);let type=best.kind==='horizontal'?chooseHorizontalType(pts):best.kind;
+    // Orient horizontal normals consistently for easier classification/export.
+    let n=best.n;if(type==='floor'&&n[1]<0)n=mul(n,-1);if(type==='ceiling'&&n[1]>0)n=mul(n,-1);
+    const s=surfaceFromPointCloud(pts,n,type,'XRHitTest',best.rms);
+    if(s&&s.area>0.22)out.push(s);
+    work=work.filter((_,idx)=>!inlierSet.has(idx));
+  }
+  return out;
 }
 
-function polygonArea3(poly){
-  if(poly.length<3)return 0; let a=0; for(let i=1;i<poly.length-1;i++) a+=0.5*len(cross(sub(poly[i],poly[0]),sub(poly[i+1],poly[0]))); return a;
-}
-
-function surfaceFromPointCloud(points,n,type,label,source){
-  const c=centroid3(points);
-  let u;
-  if(type==='wall'){ u=norm(cross([0,1,0],n)); if(len(u)<0.1)u=[1,0,0]; }
-  else { u=norm(cross(n,[0,0,1])); if(len(u)<0.1)u=[1,0,0]; }
-  const v=norm(cross(n,u));
-  const uv=points.map(p=>{const q=sub(p,c);return [dot(q,u),dot(q,v)];});
-  const hi=convexHull2(uv); if(hi.length<3)return null;
-  const poly=hi.map(i=>add(c,add(mul(u,uv[i][0]),mul(v,uv[i][1]))));
-  const area=polygonArea3(poly); if(area<0.18)return null;
-  return {type,label:label||'',source,normal:n,centroid:c,area,polygon:poly};
+function convexHull2(points){const pts=points.map((p,i)=>({x:p[0],y:p[1],i})).sort((a,b)=>a.x-b.x||a.y-b.y);if(pts.length<=2)return pts.map(p=>p.i);const cr=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);const lo=[];for(const p of pts){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}const up=[];for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p)}lo.pop();up.pop();return lo.concat(up).map(p=>p.i)}
+function polygonArea3(poly){if(poly.length<3)return 0;let a=0;for(let i=1;i<poly.length-1;i++)a+=0.5*len(cross(sub(poly[i],poly[0]),sub(poly[i+1],poly[0])));return a}
+function planeFromPolygon(poly){if(poly.length<3)return null;let n=null;for(let i=1;i<poly.length-1;i++){const c=cross(sub(poly[i],poly[0]),sub(poly[i+1],poly[0]));if(len(c)>1e-5){n=norm(c);break}}if(!n)return null;const cen=centroid3(poly);return{n,d:dot(n,cen),c:cen}}
+function surfaceFromPointCloud(points,n,type,source,rms=0){
+  if(points.length<3)return null;const c=centroid3(points);let u;if(type==='wall'){u=norm(cross([0,1,0],n));if(len(u)<.1)u=[1,0,0]}else{u=norm(cross(n,[0,0,1]));if(len(u)<.1)u=[1,0,0]}const v=norm(cross(n,u));
+  const uv=points.map(p=>{const q=sub(p,c);return[dot(q,u),dot(q,v)]});const hi=convexHull2(uv);if(hi.length<3)return null;const poly=hi.map(i=>add(c,add(mul(u,uv[i][0]),mul(v,uv[i][1]))));const area=polygonArea3(poly);if(area<.12)return null;
+  return{type,label:'',source,normal:n,centroid:c,area,polygon:poly,rms,pointCount:points.length,confidence:clamp((points.length/100)*(1-rms/.08),0,1)};
 }
 
 function buildRoomSurfaces(){
-  const surfaces=[];
-  // Native planes are already the best possible room primitive. Keep each as-is.
-  for(const p of state.nativePlanes){
-    const info=planeFromPolygon(p.polygon); if(!info)continue; const type=classifyNormal(info.n,p.semanticLabel); if(type==='other')continue;
-    const area=polygonArea3(p.polygon); if(area<0.12)continue;
-    surfaces.push({type,label:p.semanticLabel||'',source:'XRPlane',normal:info.n,centroid:info.c,area,polygon:p.polygon});
-  }
-
-  // If mesh detection is available, cluster near-coplanar room-like triangles.
+  const candidates=[];
+  // 1) Native XRPlane is already a structured planar primitive.
+  for(const p of state.nativePlanes){const inf=planeFromPolygon(p.polygon);if(!inf)continue;let type=classifyNormal(inf.n,p.label);if(type==='horizontal')type=chooseHorizontalType(p.polygon);if(type==='other')continue;const area=polygonArea3(p.polygon);if(area<.12)continue;candidates.push({type,label:p.label,source:'XRPlane',normal:inf.n,centroid:inf.c,area,polygon:p.polygon,confidence:1})}
+  // 2) XRMesh triangles clustered into near-coplanar room surfaces.
   const clusters=new Map();
-  for(const tr of state.rawTriangles){
-    const e1=sub(tr.b,tr.a), e2=sub(tr.c,tr.a), cr=cross(e1,e2), twice=len(cr); if(twice<1e-5)continue;
-    let n=mul(cr,1/twice); let c=mul(add(add(tr.a,tr.b),tr.c),1/3); let type=classifyNormal(n,tr.semanticLabel); if(type==='other')continue;
-    // Canonical direction so the same plane does not split merely because winding differs.
-    if(type==='wall'){
-      n=norm([n[0],0,n[2]]); if(n[0]<-0.001 || (Math.abs(n[0])<0.001&&n[2]<0)) n=mul(n,-1);
-    } else { n=[0,n[1]>=0?1:-1,0]; }
-    const d=dot(n,c);
-    const angle=type==='wall'?Math.atan2(n[2],n[0]):0;
-    const angleBin=Math.round(angle/(Math.PI/18));   // ~10 degrees
-    const distBin=Math.round(d/0.18);                // ~18 cm
-    const key=`${type}|${angleBin}|${distBin}|${(tr.semanticLabel||'').toLowerCase()}`;
-    let cl=clusters.get(key); if(!cl){cl={type,n,d,points:[],area:0,label:tr.semanticLabel||''};clusters.set(key,cl);}
-    cl.points.push(tr.a,tr.b,tr.c); cl.area+=twice*0.5;
-  }
-  for(const cl of clusters.values()){
-    if(cl.area<0.22 || cl.points.length<9)continue;
-    const s=surfaceFromPointCloud(cl.points,cl.n,cl.type,cl.label,'XRMesh'); if(s)surfaces.push(s);
-  }
-
-  // Prefer native XRPlane polygons over an almost identical mesh-derived patch.
-  const final=[];
-  for(const s of surfaces.sort((a,b)=>(a.source==='XRPlane'?-1:1)-(b.source==='XRPlane'?-1:1)||b.area-a.area)){
-    const duplicate=final.some(f=>f.type===s.type && Math.abs(dot(f.normal,s.normal))>0.97 && Math.abs(dot(f.normal,sub(s.centroid,f.centroid)))<0.22 && dist3(f.centroid,s.centroid)<4.0);
-    if(!duplicate)final.push(s);
-  }
-  state.roomSurfaces=final;
+  for(const tr of state.rawTriangles){const cr=cross(sub(tr.b,tr.a),sub(tr.c,tr.a)),l=len(cr);if(l<1e-5)continue;let n=mul(cr,1/l),c=mul(add(add(tr.a,tr.b),tr.c),1/3);let type=classifyNormal(n,tr.label);if(type==='horizontal')type=chooseHorizontalType([tr.a,tr.b,tr.c]);if(type==='other')continue;if(type==='wall'){n=norm([n[0],0,n[2]]);if(n[0]<0)n=mul(n,-1)}else n=[0,type==='floor'?1:-1,0];const d=dot(n,c),ang=type==='wall'?Math.atan2(n[2],n[0]):0,key=`${type}|${Math.round(ang/(Math.PI/24))}|${Math.round(d/.12)}`;let cl=clusters.get(key);if(!cl){cl={type,n,points:[],area:0};clusters.set(key,cl)}cl.points.push(tr.a,tr.b,tr.c);cl.area+=l*.5}
+  for(const cl of clusters.values())if(cl.area>.2&&cl.points.length>=9){const s=surfaceFromPointCloud(cl.points,cl.n,cl.type,'XRMesh',0);if(s)candidates.push(s)}
+  // 3) Hit-test point cloud: the important fallback on standard ARCore WebXR.
+  if(state.hitPoints.length>=28)candidates.push(...ransacPlanes(state.hitPoints));
+  // Deduplicate with priority XRPlane > XRMesh > XRHitTest.
+  const priority={XRPlane:3,XRMesh:2,XRHitTest:1};candidates.sort((a,b)=>(priority[b.source]-priority[a.source])||b.area-a.area);
+  const final=[];for(const s of candidates){const dup=final.some(f=>f.type===s.type&&Math.abs(dot(f.normal,s.normal))>.95&&Math.abs(dot(f.normal,sub(s.centroid,f.centroid)))<.18);if(!dup)final.push(s)}state.roomSurfaces=final;
 }
-function dist3(a,b){return len(sub(a,b));}
 
+function clearGeometry(){state.hitSources=[];state.hitPoints=[];state.hitVoxel.clear();state.liveMeshes.clear();state.livePlanes.clear();state.rawTriangles=[];state.nativePlanes=[];state.roomSurfaces=[];state.meshId=1;state.planeId=1}
 function finishScanUI(){
-  $('#startBtn').disabled=false; $('#stopBtn').disabled=true; $('#resetBtn').disabled=false;
-  const has=state.rawTriangles.length||state.nativePlanes.length||state.roomSurfaces.length;
-  $('#roomBtn').disabled=!has; $('#rawBtn').disabled=!state.rawTriangles.length; $('#jsonBtn').disabled=!has; $('#objBtn').disabled=!has;
-  $('#scanProgress').style.width='100%';
-  $('#instruction').textContent='Scansione completata';
-  $('#sub').textContent=`${state.roomSurfaces.length} superfici stanza estratte. La mesh rimane volutamente aperta.`;
-  $('#stats').textContent=`${state.rawTriangles.length} tri · ${state.nativePlanes.length} piani · ${state.roomSurfaces.length} superfici`;
-  $('#summary').textContent=`Output: ${state.roomSurfaces.filter(s=>s.type==='wall').length} pareti, ${state.roomSurfaces.filter(s=>s.type==='floor').length} pavimenti, ${state.roomSurfaces.filter(s=>s.type==='ceiling').length} soffitti.`;
-  setStatus(has?'geometria pronta':'nessuna geometria',has?'good':'bad');
-  state.previewMode='room'; drawPreview();
+  $('#startBtn').disabled=false;$('#stopBtn').disabled=true;$('#resetBtn').disabled=false;const has=state.roomSurfaces.length||state.rawTriangles.length||state.hitPoints.length;
+  $('#roomBtn').disabled=!state.roomSurfaces.length;$('#pointsBtn').disabled=!state.hitPoints.length;$('#rawBtn').disabled=!state.rawTriangles.length;$('#jsonBtn').disabled=!has;$('#objBtn').disabled=!has;$('#scanProgress').style.width='100%';
+  const w=state.roomSurfaces.filter(s=>s.type==='wall').length,f=state.roomSurfaces.filter(s=>s.type==='floor').length,c=state.roomSurfaces.filter(s=>s.type==='ceiling').length;
+  $('#instruction').textContent='Ricostruzione completata';$('#sub').textContent=`${state.roomSurfaces.length} superfici estratte da ${state.hitPoints.length} punti / ${state.rawTriangles.length} triangoli.`;$('#stats').textContent=`${w} wall · ${f} floor · ${c} ceiling`;$('#summary').textContent=`Output aperto: ${w} pareti, ${f} pavimenti, ${c} soffitti. Nessuna superficie mancante viene inventata.`;setStatus(has?'geometria pronta':'nessuna geometria',has?'good':'bad');
+  $('#camera').style.display='none';state.previewMode='room';drawPreview();
 }
+async function reset(){if(state.running){try{await state.session?.end()}catch{}}clearGeometry();$('#scanProgress').style.width='0';$('#roomBtn').disabled=true;$('#pointsBtn').disabled=true;$('#rawBtn').disabled=true;$('#jsonBtn').disabled=true;$('#objBtn').disabled=true;$('#stopBtn').disabled=true;$('#resetBtn').disabled=false;$('#camera').style.display='block';$('#preview').style.display='block';$('#instruction').textContent='Apertura telecamera';$('#sub').textContent='La preview camera viene aperta prima di WebXR.';setStatus('camera','warn');drawPreview();await openCamera()}
 
-function reset(){
-  state.rawTriangles=[];state.nativePlanes=[];state.roomSurfaces=[];state.liveMeshes.clear();state.livePlanes.clear();state.meshId=1;state.planeId=1;state.previewMode='room';
-  $('#roomBtn').disabled=true;$('#rawBtn').disabled=true;$('#jsonBtn').disabled=true;$('#objBtn').disabled=true;$('#scanProgress').style.width='0';
-  $('#instruction').textContent='Pronto alla scansione'; $('#sub').textContent='La geometria viene letta direttamente dal sistema AR del dispositivo.'; $('#stats').textContent='0 mesh · 0 piani'; $('#summary').textContent='Nessuna misura manuale. Mesh/plane detection nativi quando disponibili.'; setStatus('pronto','good'); drawPreview();
-}
-
-// Lightweight software preview: enough to inspect the captured surfaces without
-// adding Three.js or another network dependency to the generated HTML file.
-function getPreviewVertices(){
-  const polys=[];
-  if(state.previewMode==='room') for(const s of state.roomSurfaces) polys.push({poly:s.polygon,type:s.type});
-  else for(const tr of state.rawTriangles) polys.push({poly:[tr.a,tr.b,tr.c],type:'raw'});
-  return polys;
-}
-function project(p,c,scale,w,h){
-  let x=p[0]-c[0],y=p[1]-c[1],z=p[2]-c[2];
-  const cy=Math.cos(state.viewYaw),sy=Math.sin(state.viewYaw); let x1=cy*x-sy*z,z1=sy*x+cy*z;
-  const cp=Math.cos(state.viewPitch),sp=Math.sin(state.viewPitch); let y1=cp*y-sp*z1,z2=sp*y+cp*z1;
-  const persp=1/(1+Math.max(-0.75,z2*0.12)); return [w/2+x1*scale*persp,h/2-y1*scale*persp,z2];
-}
+// ----------------------------------------------------------------------------
+// SOFTWARE PREVIEW OF THE RECONSTRUCTION
+// ----------------------------------------------------------------------------
+function project(p,c,scale,w,h){let x=p[0]-c[0],y=p[1]-c[1],z=p[2]-c[2];const cy=Math.cos(state.viewYaw),sy=Math.sin(state.viewYaw),x1=cy*x-sy*z,z1=sy*x+cy*z,cp=Math.cos(state.viewPitch),sp=Math.sin(state.viewPitch),y1=cp*y-sp*z1,z2=sp*y+cp*z1,persp=1/(1+Math.max(-.75,z2*.12));return[w/2+x1*scale*persp,h/2-y1*scale*persp,z2]}
 function drawPreview(){
   const canvas=$('#preview'),dpr=Math.min(devicePixelRatio||1,2),r=canvas.getBoundingClientRect();canvas.width=Math.max(1,r.width*dpr);canvas.height=Math.max(1,r.height*dpr);const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,r.width,r.height);
-  const items=getPreviewVertices(); if(!items.length){ctx.fillStyle='#92a8c1';ctx.textAlign='center';ctx.font='14px system-ui';ctx.fillText('La ricostruzione apparirà qui al termine della scansione',r.width/2,r.height/2);return;}
-  const all=items.flatMap(i=>i.poly),c=centroid3(all);let radius=0;for(const p of all)radius=Math.max(radius,dist3(p,c));const scale=Math.min(r.width,r.height)*0.38/(radius||1)*state.viewScale;
-  const draw=items.map(item=>({item,pts:item.poly.map(p=>project(p,c,scale,r.width,r.height))}));draw.sort((a,b)=>a.pts.reduce((s,p)=>s+p[2],0)/a.pts.length-b.pts.reduce((s,p)=>s+p[2],0)/b.pts.length);
-  for(const d of draw){if(d.pts.length<3)continue;ctx.beginPath();ctx.moveTo(d.pts[0][0],d.pts[0][1]);for(let i=1;i<d.pts.length;i++)ctx.lineTo(d.pts[i][0],d.pts[i][1]);ctx.closePath();ctx.fillStyle=d.item.type==='wall'?'rgba(91,198,255,.22)':d.item.type==='floor'?'rgba(104,225,155,.20)':d.item.type==='ceiling'?'rgba(255,209,106,.18)':'rgba(180,200,225,.08)';ctx.strokeStyle=d.item.type==='raw'?'rgba(185,215,245,.22)':'rgba(220,240,255,.72)';ctx.lineWidth=1;ctx.fill();ctx.stroke();}
+  if(state.running)return;let polys=[],ptsOnly=[];
+  if(state.previewMode==='room')for(const s of state.roomSurfaces)polys.push({poly:s.polygon,type:s.type});else if(state.previewMode==='raw')for(const t of state.rawTriangles)polys.push({poly:[t.a,t.b,t.c],type:'raw'});else ptsOnly=state.hitPoints;
+  const all=polys.flatMap(x=>x.poly).concat(ptsOnly);if(!all.length)return;const c=centroid3(all);let radius=0;for(const p of all)radius=Math.max(radius,dist3(p,c));const scale=Math.min(r.width,r.height)*.38/(radius||1)*state.viewScale;
+  if(ptsOnly.length){ctx.fillStyle='rgba(91,198,255,.72)';for(const p of ptsOnly){const q=project(p,c,scale,r.width,r.height);ctx.fillRect(q[0]-1,q[1]-1,2,2)}return}
+  const draw=polys.map(item=>({item,pts:item.poly.map(p=>project(p,c,scale,r.width,r.height))}));draw.sort((a,b)=>a.pts.reduce((s,p)=>s+p[2],0)/a.pts.length-b.pts.reduce((s,p)=>s+p[2],0)/b.pts.length);
+  for(const d of draw){if(d.pts.length<3)continue;ctx.beginPath();ctx.moveTo(d.pts[0][0],d.pts[0][1]);for(let i=1;i<d.pts.length;i++)ctx.lineTo(d.pts[i][0],d.pts[i][1]);ctx.closePath();ctx.fillStyle=d.item.type==='wall'?'rgba(91,198,255,.24)':d.item.type==='floor'?'rgba(104,225,155,.22)':d.item.type==='ceiling'?'rgba(255,209,106,.19)':'rgba(190,210,230,.08)';ctx.strokeStyle='rgba(230,245,255,.76)';ctx.lineWidth=1;ctx.fill();ctx.stroke()}
 }
 
-function exportJSON(){
-  const out={format:'webxr-room-surfaces-v2',createdAt:new Date().toISOString(),units:'meters',sourceMode:state.mode,coordinateSystem:'WebXR local/local-floor reference space',meshTriangleCount:state.rawTriangles.length,nativePlaneCount:state.nativePlanes.length,surfaces:state.roomSurfaces.map((s,i)=>({id:i+1,type:s.type,semanticLabel:s.label,source:s.source,area_m2:+s.area.toFixed(4),normal:s.normal.map(v=>+v.toFixed(6)),polygon:s.polygon.map(p=>p.map(v=>+v.toFixed(6)))}))};
-  downloadText('room_surfaces_webxr.json',JSON.stringify(out,null,2),'application/json');
-}
-function exportOBJ(){
-  let out='# WebXR Room Mesh Scanner\n# Open/non-watertight room surfaces; units: meters\n';let vi=1;
-  const surfaces=state.roomSurfaces.length?state.roomSurfaces:null;
-  if(surfaces){
-    surfaces.forEach((s,idx)=>{out+=`\no surface_${idx+1}_${s.type}\n`;for(const p of s.polygon)out+=`v ${p[0]} ${p[1]} ${p[2]}\n`;for(let i=1;i<s.polygon.length-1;i++)out+=`f ${vi} ${vi+i} ${vi+i+1}\n`;vi+=s.polygon.length;});
-  }else{
-    state.rawTriangles.forEach((t,idx)=>{out+=`\no tri_${idx+1}\n`;for(const p of [t.a,t.b,t.c])out+=`v ${p[0]} ${p[1]} ${p[2]}\n`;out+=`f ${vi} ${vi+1} ${vi+2}\n`;vi+=3;});
-  }
-  downloadText('room_surfaces_webxr.obj',out,'text/plain');
-}
+function exportJSON(){const out={format:'webxr-room-surfaces-v3',createdAt:new Date().toISOString(),units:'meters',sources:{hitTestPoints:state.hitPoints.length,xrMeshTriangles:state.rawTriangles.length,xrPlanes:state.nativePlanes.length},surfaces:state.roomSurfaces.map((s,i)=>({id:i+1,type:s.type,source:s.source,area_m2:+s.area.toFixed(4),confidence:+(s.confidence??1).toFixed(3),rms_m:+(s.rms??0).toFixed(4),normal:s.normal.map(v=>+v.toFixed(6)),polygon:s.polygon.map(p=>p.map(v=>+v.toFixed(6)))}))};downloadText('room_webxr_v3.json',JSON.stringify(out,null,2),'application/json')}
+function exportOBJ(){let out='# Room Scanner WebXR v3\n# Open/non-watertight surfaces; units meters\n',vi=1;const ss=state.roomSurfaces;if(ss.length){ss.forEach((s,k)=>{out+=`\no surface_${k+1}_${s.type}_${s.source}\n`;for(const p of s.polygon)out+=`v ${p[0]} ${p[1]} ${p[2]}\n`;for(let i=1;i<s.polygon.length-1;i++)out+=`f ${vi} ${vi+i} ${vi+i+1}\n`;vi+=s.polygon.length})}else{for(const t of state.rawTriangles){for(const p of [t.a,t.b,t.c])out+=`v ${p[0]} ${p[1]} ${p[2]}\n`;out+=`f ${vi} ${vi+1} ${vi+2}\n`;vi+=3}}downloadText('room_webxr_v3.obj',out)}
 
-$('#startBtn').addEventListener('click',startScan); $('#stopBtn').addEventListener('click',stopScan); $('#resetBtn').addEventListener('click',reset);
-$('#roomBtn').addEventListener('click',()=>{state.previewMode='room';drawPreview();toast('Vista: superfici stanza');}); $('#rawBtn').addEventListener('click',()=>{state.previewMode='raw';drawPreview();toast('Vista: triangoli XRMesh raw');});
-$('#jsonBtn').addEventListener('click',exportJSON); $('#objBtn').addEventListener('click',exportOBJ);
-$('#infoBtn').addEventListener('click',()=>{ $('#debugInfo').textContent=`secureContext: ${isSecureContext}\nnavigator.xr: ${!!navigator.xr}\nimmersive-ar: ${state.capabilities.immersiveAR}\nmode: ${state.mode}\nmesh objects: ${state.liveMeshes.size}\nplane objects: ${state.livePlanes.size}\nraw triangles: ${state.rawTriangles.length}\nroom surfaces: ${state.roomSurfaces.length}`; $('#infoModal').classList.add('open'); }); $('#closeInfo').addEventListener('click',()=>$('#infoModal').classList.remove('open'));
+$('#startBtn').addEventListener('click',startScan);$('#stopBtn').addEventListener('click',stopScan);$('#resetBtn').addEventListener('click',reset);$('#jsonBtn').addEventListener('click',exportJSON);$('#objBtn').addEventListener('click',exportOBJ);
+$('#roomBtn').addEventListener('click',()=>{state.previewMode='room';drawPreview();toast('Vista superfici')});$('#pointsBtn').addEventListener('click',()=>{state.previewMode='points';drawPreview();toast('Vista point cloud hit-test')});$('#rawBtn').addEventListener('click',()=>{state.previewMode='raw';drawPreview();toast('Vista XRMesh raw')});
+$('#infoBtn').addEventListener('click',()=>{$('#debugInfo').textContent=`secureContext: ${isSecureContext}\ncameraReady: ${state.cameraReady}\nnavigator.xr: ${!!navigator.xr}\nimmersive-ar: ${state.capabilities.immersiveAR}\nhit-test: ${state.capabilities.hitTest}\nXRMesh observed: ${state.capabilities.mesh}\nXRPlane observed: ${state.capabilities.plane}\nhit sources: ${state.hitSources.length}\nhit points: ${state.hitPoints.length}\nraw triangles: ${state.rawTriangles.length}\nroom surfaces: ${state.roomSurfaces.length}\n\n${state.debug.slice(-25).join('\n')}`;$('#infoModal').classList.add('open')});$('#closeInfo').addEventListener('click',()=>$('#infoModal').classList.remove('open'));
+const pv=$('#preview');pv.addEventListener('pointerdown',e=>{if(state.running)return;state.drag=[e.clientX,e.clientY,state.viewYaw,state.viewPitch];pv.setPointerCapture(e.pointerId)});pv.addEventListener('pointermove',e=>{if(!state.drag)return;state.viewYaw=state.drag[2]+(e.clientX-state.drag[0])*.008;state.viewPitch=clamp(state.drag[3]+(e.clientY-state.drag[1])*.008,-1.2,1.2);drawPreview()});pv.addEventListener('pointerup',()=>state.drag=null);pv.addEventListener('wheel',e=>{if(state.running)return;e.preventDefault();state.viewScale=clamp(state.viewScale*Math.exp(-e.deltaY*.001),.35,4);drawPreview()},{passive:false});window.addEventListener('resize',drawPreview);
 
-const pv=$('#preview'); pv.addEventListener('pointerdown',e=>{state.drag=[e.clientX,e.clientY,state.viewYaw,state.viewPitch];pv.setPointerCapture(e.pointerId);});pv.addEventListener('pointermove',e=>{if(!state.drag)return;state.viewYaw=state.drag[2]+(e.clientX-state.drag[0])*.008;state.viewPitch=clamp(state.drag[3]+(e.clientY-state.drag[1])*.008,-1.2,1.2);drawPreview();});pv.addEventListener('pointerup',()=>state.drag=null);pv.addEventListener('wheel',e=>{e.preventDefault();state.viewScale=clamp(state.viewScale*Math.exp(-e.deltaY*.001),.35,4);drawPreview();},{passive:false});
-window.addEventListener('resize',drawPreview);
-
-drawPreview(); detectCapabilities();
+(async()=>{drawPreview();await Promise.allSettled([detectXR(),openCamera()]);})();
 </script>
 </body>
 </html>
