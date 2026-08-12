@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#000000">
-<title>Room Scanner · WebXR Surfel Fusion</title>
+<title>Room Scanner · Hybrid Metric Path + Room Fusion</title>
 <style>
 :root{color-scheme:dark;--fg:#f5f8ff;--muted:#a8b4c7;--panel:rgba(5,10,18,.72);--line:rgba(255,255,255,.18);--accent:#63dcff;--ok:#7df2ac;--warn:#ffd166;--bad:#ff788f}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:var(--fg);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -19,37 +19,51 @@
 </head>
 <body>
 <video id="preview" playsinline muted autoplay></video><div id="xrHost"></div>
-<div id="landing"><div class="panel"><div class="head">Room Scanner · Surfel Fusion metrico</div><div id="status">Apro la telecamera…</div><div id="sub" class="small">La ricostruzione usa pose WebXR e, quando disponibile, depth metrica del runtime.</div></div><div class="panel"><div class="actions"><button id="start" class="primary" disabled>Avvia scansione</button><label style="display:inline-flex;align-items:center"><input id="videoInput" type="file" accept="video/*" capture="environment" hidden><span class="fakeBtn">Video → traiettoria</span></label><button id="debugBtn">Diagnostica</button></div><div class="legend small"><span class="dot c1">surfel persistenti</span><span class="dot c2">superfici ricostruite</span><span class="dot c3">XRMesh/XRPlane</span></div><canvas id="voMap" width="420" height="150" style="display:none;width:100%;height:120px;margin-top:10px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.28)"></canvas><div id="voStatus" class="small" style="margin-top:7px"></div><div class="small" style="margin-top:8px">Muoviti lentamente nella stanza. La mesh non viene chiusa inventando muri: vengono aggiunte solo superfici sostenute da depth/mesh/piani e mai attraverso il percorso della camera.</div></div></div>
-<div id="hud"><div class="top"><div class="pill grow"><b id="mode">AR</b><div id="stats" class="mono small">inizializzazione…</div></div><div id="quality" class="pill warn">cerca depth…</div></div><div class="bottom"><button id="surfelToggle">Splat ON</button><button id="rawToggle">Raw OFF</button><button id="build">Ricostruisci</button><button id="export">Esporta</button><button id="end">Termina</button></div></div>
+<div id="landing"><div class="panel"><div class="head">Room Scanner · Hybrid Metric Reconstruction</div><div id="status">Apro la telecamera…</div><div id="sub" class="small">Path metrico WebXR/VIO + depth/mesh/plane fusion + free-space. La visual odometry RGB resta disponibile come fallback e diagnostica.</div></div><div class="panel"><div class="actions"><button id="start" class="primary" disabled>Avvia scansione</button><label style="display:inline-flex;align-items:center"><input id="videoInput" type="file" accept="video/*" capture="environment" hidden><span class="fakeBtn">Video RGB → path</span></label><button id="debugBtn">Diagnostica</button></div><div class="legend small"><span class="dot c1">surfel persistenti</span><span class="dot c2">superfici ricostruite</span><span class="dot c3">XRMesh/XRPlane</span></div><canvas id="voMap" width="420" height="150" style="display:none;width:100%;height:120px;margin-top:10px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.28)"></canvas><div id="voStatus" class="small" style="margin-top:7px"></div><div class="small" style="margin-top:8px">Muoviti lentamente, traslando oltre che ruotando. Il path viene filtrato da salti e drift locali; la mesh completa solo piccoli gap sostenuti dalle osservazioni e non attraversa mai lo spazio percorso dalla camera.</div></div></div>
+<div id="hud"><div class="top"><div class="pill grow"><b id="mode">AR</b><div id="stats" class="mono small">inizializzazione…</div></div><div id="quality" class="pill warn">cerca depth…</div></div><div class="bottom"><button id="surfelToggle">Splat ON</button><button id="rawToggle">Raw OFF</button><button id="build">Ottimizza</button><button id="pathToggle">Path ON</button><button id="export">Esporta</button><button id="end">Termina</button></div></div>
 <pre id="debug"></pre>
 <script type="module">
 import * as THREE from 'three';
 
 // ============================================================================
-// Room Scanner - metric WebXR surfel fusion.
+// Room Scanner - hybrid metric WebXR reconstruction + robust camera path.
 //
 // Pipeline:
-// XR pose + CPU depth -> metric world points -> 7 cm surfel voxels
-//                    -> free-space carving + camera-path exclusion
-//                    -> simple Manhattan-room plane fitting
-//                    -> open / nearly-closed planar mesh.
+// WebXR VIO pose -> robust metric path + keyframes
+// CPU depth / XRMesh / XRPlane -> persistent surfels + free-space carving
+// -> robust wall fitting + Manhattan snapping + conservative corner joins
+// -> open / nearly-closed room envelope that never crosses camera free-space.
 // Native XRMesh/XRPlane, when exposed by the runtime, are fused as extra
 // geometric evidence rather than being trusted blindly.
 // ============================================================================
 
 const $=q=>document.querySelector(q);
 const CFG={
-  surfelVoxel:0.07, freeVoxel:0.12, freeStep:0.14, userClearRadius:0.34,
-  minDepth:0.28, maxDepth:8.0, sampleCols:24, sampleRows:18,
-  depthPeriodMs:180, minMoveM:0.025, minTurnDeg:2.0,
-  minSurfelWeight:2, wallThreshold:0.09, maxWalls:8
+  // Dense geometry map. 6 cm is deliberately conservative on phones: small
+  // enough to preserve walls/door recesses, large enough to average depth noise.
+  surfelVoxel:0.06, freeVoxel:0.10, freeStep:0.10, userClearRadius:0.30,
+  minDepth:0.25, maxDepth:8.0, sampleCols:32, sampleRows:24,
+  depthPeriodMs:190, depthMoveM:0.045, depthTurnDeg:3.0,
+  minSurfelWeight:2.0, strongSurfelWeight:3.2,
+  // Pose stream / robust path filtering.
+  poseMinPeriodMs:16, poseMaxSpeed:4.5, poseHardJumpM:0.75,
+  keyframeMoveM:0.12, keyframeTurnDeg:9.0, keyframeMaxMs:900,
+  pathRebuildMs:450,
+  // Room envelope fitting.
+  wallThreshold:0.075, minWallSupport:55, minWallWidth:0.65,
+  minWallHeight:0.75, maxWalls:12, mergeAngleDeg:7.0, mergeOffsetM:0.11,
+  cornerJoinMaxM:0.34, safetyFreeCount:3, safetySampleStep:0.16
 };
 const S={renderer:null,scene:null,camera:null,session:null,preview:null,ref:null,
-  surfels:new Map(),free:new Map(),cameraPath:[],lastSamplePose:null,lastDepthAt:0,
+  surfels:new Map(),free:new Map(),cameraPath:[],rawPath:[],bestPath:[],keyframes:[],
+  lastPoseAt:0,lastDepthPose:null,lastDepthAt:0,lastPathRebuild:0,poseRejected:0,filterRejected:0,
+  pathLength:0,pathQuality:0,currentPose:null,currentKeyframe:false,
   depthFrames:0,depthPoints:0,rejectedFree:0,rejectedPath:0,
   rawMeshes:new Map(),rawPlanes:new Map(),rawGroup:null,reconGroup:null,splat:null,
+  pathRawLine:null,pathBestLine:null,keyframePts:null,
   voPath:[],voScale:'none',voFrames:0,voInliers:0,voLine:null,
-  splatVisible:true,rawVisible:false,debug:[],lastReconAt:0,profile:'none'};
+  splatVisible:true,rawVisible:false,pathVisible:true,debug:[],lastReconAt:0,
+  profile:'none',floorY:0,ceilingY:null,roomWalls:[],roomClosed:false};
 
 function log(...x){console.log(...x);const s=x.map(v=>v instanceof Error?`${v.name}: ${v.message}`:String(v)).join(' ');S.debug.push(`[${new Date().toLocaleTimeString()}] ${s}`);if(S.debug.length>150)S.debug.shift();$('#debug').textContent=S.debug.join('\n')}
 function setStatus(a,b=''){ $('#status').textContent=a;if(b)$('#sub').textContent=b }
@@ -58,9 +72,79 @@ function stopPreview(){if(S.preview){for(const t of S.preview.getTracks())t.stop
 
 function initThree(){S.scene=new THREE.Scene();S.camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,.02,20);S.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});S.renderer.setPixelRatio(Math.min(devicePixelRatio,2));S.renderer.setSize(innerWidth,innerHeight);S.renderer.setClearColor(0x000000,0);S.renderer.xr.enabled=true;S.renderer.xr.setFoveation?.(0);$('#xrHost').appendChild(S.renderer.domElement);S.rawGroup=new THREE.Group();S.rawGroup.visible=false;S.reconGroup=new THREE.Group();S.scene.add(S.rawGroup,S.reconGroup);window.addEventListener('resize',()=>{S.camera.aspect=innerWidth/innerHeight;S.camera.updateProjectionMatrix();S.renderer.setSize(innerWidth,innerHeight)})}
 
+// ============================================================================
+// METRIC CAMERA PATH
+// WebXR already uses the platform's inside-out visual/inertial tracker. We keep
+// that metric path as the primary source, but explicitly reject impossible pose
+// jumps and compute a smoothed diagnostic path without changing its scale.
+// ============================================================================
+function posePQ(pose){return {
+  p:new THREE.Vector3(pose.transform.position.x,pose.transform.position.y,pose.transform.position.z),
+  q:new THREE.Quaternion(pose.transform.orientation.x,pose.transform.orientation.y,pose.transform.orientation.z,pose.transform.orientation.w)
+}}
+function qAngleDeg(a,b){const d=Math.min(1,Math.abs(a.dot(b)));return 2*Math.acos(d)*180/Math.PI}
+function median(a){if(!a.length)return 0;const b=a.slice().sort((x,y)=>x-y),m=b.length>>1;return b.length%2?b[m]:(b[m-1]+b[m])*.5}
+function percentile(a,p){if(!a.length)return 0;const b=a.slice().sort((x,y)=>x-y),x=(b.length-1)*p,i=Math.floor(x),f=x-i;return b[i]*(1-f)+b[Math.min(i+1,b.length-1)]*f}
+function ingestPose(pose,t){
+  if(!pose||t-S.lastPoseAt<CFG.poseMinPeriodMs)return false;
+  S.lastPoseAt=t;const {p,q}=posePQ(pose);const prev=S.rawPath.at(-1);
+  let accepted=true,speed=0;
+  if(prev){const dt=Math.max(.001,(t-prev.t)/1000),d=p.distanceTo(prev.p);speed=d/dt;
+    // A single-frame teleport is much more damaging to free-space carving than
+    // a missing pose, so reject it aggressively. Slow genuine walking survives.
+    if(d>CFG.poseHardJumpM || (d>.18&&speed>CFG.poseMaxSpeed)){accepted=false;S.poseRejected++}
+  }
+  if(!accepted)return false;
+  const sample={t,p,q,emulated:!!pose.emulatedPosition,speed};S.rawPath.push(sample);
+  S.cameraPath.push(p.clone());
+  if(S.cameraPath.length>5000)S.cameraPath.shift();
+  purgeCameraBubble(p);
+  const k=S.keyframes.at(-1);let isKF=!k;
+  if(k){const dt=t-k.t,move=p.distanceTo(k.p),turn=qAngleDeg(q,k.q);isKF=move>=CFG.keyframeMoveM||turn>=CFG.keyframeTurnDeg||dt>=CFG.keyframeMaxMs}
+  if(isKF)S.keyframes.push({t,p:p.clone(),q:q.clone(),source:'xr'});
+  S.currentKeyframe=isKF;S.currentPose=sample;
+  if(t-S.lastPathRebuild>CFG.pathRebuildMs){refineMetricPath();updatePathGeometry();S.lastPathRebuild=t}
+  return true
+}
+function refineMetricPath(){
+  S.filterRejected=0;const A=S.rawPath;if(A.length<2){S.bestPath=A.map(x=>({t:x.t,p:x.p.clone(),q:x.q.clone(),confidence:1}));return}
+  // Step 1: remove isolated spatial spikes by comparing every sample with the
+  // segment connecting its temporal neighbours.
+  const keep=[];for(let i=0;i<A.length;i++){
+    if(i<2||i>A.length-3){keep.push(A[i]);continue}
+    const mid=A[i-1].p.clone().lerp(A[i+1].p,.5);const dev=A[i].p.distanceTo(mid);
+    const local=[A[i-1].p.distanceTo(A[i-2].p),A[i+1].p.distanceTo(A[i].p),A[i+2].p.distanceTo(A[i+1].p)];
+    const lim=Math.max(.055,5*median(local));if(dev<lim)keep.push(A[i]);else S.filterRejected++
+  }
+  // Step 2: Savitzky-Golay position smoothing (window 5, quadratic). It has
+  // substantially less corner shrinkage than a moving average.
+  const coeff=[-3,12,17,12,-3],den=35,B=[];
+  for(let i=0;i<keep.length;i++){
+    let p=keep[i].p.clone();
+    if(i>=2&&i<keep.length-2){p.set(0,0,0);for(let j=-2;j<=2;j++)p.addScaledVector(keep[i+j].p,coeff[j+2]/den)}
+    B.push({t:keep[i].t,p,q:keep[i].q.clone(),confidence:keep[i].emulated?.55:1})
+  }
+  // Step 3: second robust pass based on speed. Samples that imply implausible
+  // walking speed are kept in raw diagnostics but excluded from the best path.
+  const C=[];for(const s of B){if(!C.length){C.push(s);continue}const a=C.at(-1),dt=Math.max(.001,(s.t-a.t)/1000),v=s.p.distanceTo(a.p)/dt;if(v<=CFG.poseMaxSpeed*1.15||s.p.distanceTo(a.p)<.08)C.push(s)}
+  S.bestPath=C;S.pathLength=0;for(let i=1;i<C.length;i++)S.pathLength+=C[i].p.distanceTo(C[i-1].p);
+  const rejected=S.poseRejected+S.filterRejected;const rejectRate=S.rawPath.length?rejected/(S.rawPath.length+rejected):0;const emu=S.rawPath.filter(x=>x.emulated).length/Math.max(1,S.rawPath.length);
+  S.pathQuality=Math.max(0,Math.min(1,1-rejectRate*3-emu*.6));
+}
+function replaceLine(old,pts,color){if(old){S.scene.remove(old);old.geometry.dispose();old.material.dispose()}if(pts.length<2)return null;const g=new THREE.BufferGeometry().setFromPoints(pts),m=new THREE.LineBasicMaterial({color,transparent:true,opacity:.9});const o=new THREE.Line(g,m);o.frustumCulled=false;S.scene.add(o);return o}
+function updatePathGeometry(){
+  S.pathRawLine=replaceLine(S.pathRawLine,S.rawPath.map(x=>x.p),0xff4f81);
+  S.pathBestLine=replaceLine(S.pathBestLine,S.bestPath.map(x=>x.p),0x63dcff);
+  for(const o of [S.pathRawLine,S.pathBestLine])if(o)o.visible=S.pathVisible;
+  if(S.keyframePts){S.scene.remove(S.keyframePts);S.keyframePts.geometry.dispose();S.keyframePts.material.dispose();S.keyframePts=null}
+  if(S.keyframes.length){const g=new THREE.BufferGeometry().setFromPoints(S.keyframes.map(x=>x.p)),m=new THREE.PointsMaterial({size:.035,sizeAttenuation:true,transparent:true,opacity:.95});S.keyframePts=new THREE.Points(g,m);S.keyframePts.frustumCulled=false;S.keyframePts.visible=S.pathVisible;S.scene.add(S.keyframePts)}
+}
+function bestCameraPath(){return S.bestPath.length?S.bestPath.map(x=>x.p):S.cameraPath}
+
+
 function key3(p,s){return `${Math.round(p.x/s)},${Math.round(p.y/s)},${Math.round(p.z/s)}`}
 function freeCountAt(p){return S.free.get(key3(p,CFG.freeVoxel))||0}
-function nearCameraPath(p,r=CFG.userClearRadius){const r2=r*r;for(let i=Math.max(0,S.cameraPath.length-500);i<S.cameraPath.length;i++){if(S.cameraPath[i].distanceToSquared(p)<r2)return true}return false}
+function nearCameraPath(p,r=CFG.userClearRadius){const P=S.cameraPath,r2=r*r;for(let i=Math.max(0,P.length-2500);i<P.length;i++){if(P[i].distanceToSquared(p)<r2)return true}return false}
 function markFreeRay(origin,end){const d=end.clone().sub(origin);const len=d.length();if(len<CFG.minDepth)return;d.normalize();const stop=Math.max(0,len-CFG.freeStep*1.2);for(let t=CFG.userClearRadius;t<stop;t+=CFG.freeStep){const p=origin.clone().addScaledVector(d,t);const k=key3(p,CFG.freeVoxel);S.free.set(k,Math.min(255,(S.free.get(k)||0)+1))}}
 function purgeCameraBubble(c){const r2=CFG.userClearRadius*CFG.userClearRadius;for(const [k,s] of S.surfels){if(s.p.distanceToSquared(c)<r2){S.surfels.delete(k);S.rejectedPath++}}}
 function addSurfel(p,n,weight=1,carveOrigin=null){if(!Number.isFinite(p.x+p.y+p.z))return false;if(nearCameraPath(p)){S.rejectedPath++;return false}if(freeCountAt(p)>=3){S.rejectedFree++;return false}const k=key3(p,CFG.surfelVoxel);let s=S.surfels.get(k);if(!s){s={p:p.clone(),n:n?.clone()||new THREE.Vector3(),w:0};S.surfels.set(k,s)}const nw=s.w+weight;s.p.multiplyScalar(s.w/nw).addScaledVector(p,weight/nw);if(n&&n.lengthSq()>.1){if(s.n.lengthSq()>.1&&s.n.dot(n)<0)n=n.clone().negate();s.n.multiplyScalar(s.w/nw).addScaledVector(n,weight/nw).normalize()}s.w=nw;if(carveOrigin)markFreeRay(carveOrigin,p);return true}
@@ -69,13 +153,22 @@ function viewPointFromUVDepth(view,u,v,depth){const invP=new THREE.Matrix4().fro
 function worldFromViewPoint(view,p){return p.clone().applyMatrix4(new THREE.Matrix4().fromArray(view.transform.matrix))}
 function worldNormalFromView(view,n){const q=new THREE.Quaternion(view.transform.orientation.x,view.transform.orientation.y,view.transform.orientation.z,view.transform.orientation.w);return n.clone().applyQuaternion(q).normalize()}
 
-function shouldSamplePose(pose){const p=new THREE.Vector3(pose.transform.position.x,pose.transform.position.y,pose.transform.position.z);const q=new THREE.Quaternion(pose.transform.orientation.x,pose.transform.orientation.y,pose.transform.orientation.z,pose.transform.orientation.w);if(!S.lastSamplePose){S.lastSamplePose={p,q};return true}const move=p.distanceTo(S.lastSamplePose.p);const dot=Math.min(1,Math.abs(q.dot(S.lastSamplePose.q)));const deg=2*Math.acos(dot)*180/Math.PI;if(move>=CFG.minMoveM||deg>=CFG.minTurnDeg){S.lastSamplePose={p,q};return true}return false}
+function shouldDepthSample(pose,time){const {p,q}=posePQ(pose);if(!S.lastDepthPose){S.lastDepthPose={p,q,t:time};return true}const move=p.distanceTo(S.lastDepthPose.p),turn=qAngleDeg(q,S.lastDepthPose.q);if(time-S.lastDepthAt>=CFG.depthPeriodMs&&(move>=CFG.depthMoveM||turn>=CFG.depthTurnDeg||S.currentKeyframe)){S.lastDepthPose={p,q,t:time};return true}return false}
 
-function sampleDepth(frame,pose,time){if(time-S.lastDepthAt<CFG.depthPeriodMs||!shouldSamplePose(pose))return;S.lastDepthAt=time;const cam=new THREE.Vector3(pose.transform.position.x,pose.transform.position.y,pose.transform.position.z);S.cameraPath.push(cam.clone());if(S.cameraPath.length>1500)S.cameraPath.shift();purgeCameraBubble(cam);let got=false,added=0;
-  for(const view of pose.views){let di=null;try{di=frame.getDepthInformation?.(view)||null}catch(e){continue}if(!di||typeof di.getDepthInMeters!=='function')continue;got=true;const grid=[];for(let gy=0;gy<CFG.sampleRows;gy++){grid[gy]=[];const v=(gy+.5)/CFG.sampleRows;for(let gx=0;gx<CFG.sampleCols;gx++){const u=(gx+.5)/CFG.sampleCols;let d=0;try{d=di.getDepthInMeters(u,v)}catch{}if(!(d>=CFG.minDepth&&d<=CFG.maxDepth)){grid[gy][gx]=null;continue}const pv=viewPointFromUVDepth(view,u,v,d);grid[gy][gx]=pv}}
-    for(let gy=0;gy<CFG.sampleRows-1;gy++)for(let gx=0;gx<CFG.sampleCols-1;gx++){const p=grid[gy][gx],px=grid[gy][gx+1],py=grid[gy+1][gx];if(!p)continue;let n=null;if(px&&py){n=px.clone().sub(p).cross(py.clone().sub(p));if(n.lengthSq()>.000001){n.normalize();if(n.dot(p)>0)n.negate();n=worldNormalFromView(view,n)}else n=null}const wp=worldFromViewPoint(view,p);if(addSurfel(wp,n,1,((gx+gy)&1)?null:cam))added++}
+function sampleDepth(frame,pose,time){if(!shouldDepthSample(pose,time))return;S.lastDepthAt=time;const cam=posePQ(pose).p;let got=false,added=0;
+  for(const view of pose.views){let di=null;try{di=frame.getDepthInformation?.(view)||null}catch(e){continue}if(!di||typeof di.getDepthInMeters!=='function')continue;got=true;
+    const grid=Array.from({length:CFG.sampleRows},()=>Array(CFG.sampleCols).fill(null));
+    for(let gy=0;gy<CFG.sampleRows;gy++){const v=(gy+.5)/CFG.sampleRows;for(let gx=0;gx<CFG.sampleCols;gx++){const u=(gx+.5)/CFG.sampleCols;let d=0;try{d=di.getDepthInMeters(u,v)}catch{}if(!(d>=CFG.minDepth&&d<=CFG.maxDepth))continue;grid[gy][gx]=viewPointFromUVDepth(view,u,v,d)}}
+    // Estimate a local normal from finite differences. Reject strong depth
+    // discontinuities because they are usually object boundaries/occlusion.
+    for(let gy=1;gy<CFG.sampleRows-1;gy++)for(let gx=1;gx<CFG.sampleCols-1;gx++){
+      const p=grid[gy][gx],px0=grid[gy][gx-1],px1=grid[gy][gx+1],py0=grid[gy-1][gx],py1=grid[gy+1][gx];if(!p)continue;
+      let n=null;if(px0&&px1&&py0&&py1){const dx=px1.clone().sub(px0),dy=py1.clone().sub(py0);if(dx.length()<.55&&dy.length()<.55){n=dx.cross(dy);if(n.lengthSq()>1e-7){n.normalize();if(n.dot(p)>0)n.negate();n=worldNormalFromView(view,n)}else n=null}}
+      const wp=worldFromViewPoint(view,p);const central=gx>2&&gx<CFG.sampleCols-3&&gy>2&&gy<CFG.sampleRows-3;const w=central?1.0:.75;
+      if(addSurfel(wp,n,w,((gx+gy)%3===0)?cam:null))added++
+    }
   }
-  if(got){S.depthFrames++;S.depthPoints+=added;updateSplats();if(time-S.lastReconAt>2200&&S.surfels.size>400){reconstructSurfaces();S.lastReconAt=time}}
+  if(got){S.depthFrames++;S.depthPoints+=added;updateSplats();if(time-S.lastReconAt>2500&&S.surfels.size>500){reconstructSurfaces();S.lastReconAt=time}}
 }
 
 const splatVS=`uniform float pointScale; attribute float aWeight; varying float vW; void main(){vW=aWeight;vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=clamp(pointScale/(-mv.z),2.0,15.0);gl_Position=projectionMatrix*mv;}`;
@@ -85,22 +178,65 @@ function updateSplats(){const arr=[],w=[];for(const s of S.surfels.values()){if(
 function clearGroup(g){while(g.children.length){const o=g.children.pop();o.geometry?.dispose();o.material?.dispose()}}
 function polygonAreaXZ(poly){let a=0;for(let i=0,j=poly.length-1;i<poly.length;j=i++)a+=poly[j].x*poly[i].z-poly[i].x*poly[j].z;return Math.abs(a)*.5}
 function hullXZ(points){if(points.length<3)return[];const pts=points.map(p=>({x:p.x,z:p.z})).sort((a,b)=>a.x-b.x||a.z-b.z);const cr=(o,a,b)=>(a.x-o.x)*(b.z-o.z)-(a.z-o.z)*(b.x-o.x);const lo=[];for(const p of pts){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}const up=[];for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p)}lo.pop();up.pop();return lo.concat(up)}
-function addPatch(vertices,kind,confidence){if(vertices.length<3)return;const g=new THREE.BufferGeometry();const a=[];for(const v of vertices)a.push(v.x,v.y,v.z);const idx=[];for(let i=2;i<vertices.length;i++)idx.push(0,i-1,i);g.setAttribute('position',new THREE.Float32BufferAttribute(a,3));g.setIndex(idx);g.computeVertexNormals();const color=kind==='wall'?0xffcc66:kind==='floor'?0x7dff9e:0xd89cff;const m=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.34+Math.min(.28,confidence*.2),side:THREE.DoubleSide,depthWrite:false});const mesh=new THREE.Mesh(g,m);mesh.userData={kind,confidence};S.reconGroup.add(mesh)}
-function histogramPlaneY(points){const bins=new Map();for(const s of points){if(Math.abs(s.n.y)<.7)continue;const b=Math.round(s.p.y/.08);let a=bins.get(b);if(!a){a=[];bins.set(b,a)}a.push(s)}return [...bins.entries()].sort((a,b)=>b[1].length-a[1].length)}
-function cameraIntersectsWall(a,b,c,tmin,tmax,ymin,ymax){const tx=-b,tz=a;for(const p of S.cameraPath){const dist=Math.abs(a*p.x+b*p.z+c);if(dist>.28)continue;const t=tx*p.x+tz*p.z;if(t>=tmin-.15&&t<=tmax+.15&&p.y>=ymin-.2&&p.y<=ymax+.2)return true}return false}
-function fitWalls(cands){const rem=cands.slice();const walls=[];for(let wi=0;wi<CFG.maxWalls&&rem.length>=50;wi++){let best=null;const iters=Math.min(180,Math.max(70,rem.length));for(let it=0;it<iters;it++){const p1=rem[(Math.random()*rem.length)|0].p,p2=rem[(Math.random()*rem.length)|0].p;let a=p2.z-p1.z,b=p1.x-p2.x;const l=Math.hypot(a,b);if(l<.25)continue;a/=l;b/=l;const c=-(a*p1.x+b*p1.z);const ids=[];for(let i=0;i<rem.length;i++){const s=rem[i];const d=Math.abs(a*s.p.x+b*s.p.z+c);if(d>CFG.wallThreshold)continue;if(s.n.lengthSq()>.2){const align=Math.abs(a*s.n.x+b*s.n.z);if(align<.55)continue}ids.push(i)}if(!best||ids.length>best.ids.length)best={a,b,c,ids}}
-    if(!best||best.ids.length<45)break;const pts=best.ids.map(i=>rem[i].p);const tx=-best.b,tz=best.a;let tmin=Infinity,tmax=-Infinity,ymin=Infinity,ymax=-Infinity;for(const p of pts){const t=tx*p.x+tz*p.z;tmin=Math.min(tmin,t);tmax=Math.max(tmax,t);ymin=Math.min(ymin,p.y);ymax=Math.max(ymax,p.y)}if(tmax-tmin>.65&&ymax-ymin>.7&&!cameraIntersectsWall(best.a,best.b,best.c,tmin,tmax,ymin,ymax)){const pointAt=(t,y)=>new THREE.Vector3(tx*t-best.a*best.c,y,tz*t-best.b*best.c);walls.push({verts:[pointAt(tmin,ymin),pointAt(tmax,ymin),pointAt(tmax,ymax),pointAt(tmin,ymax)],support:best.ids.length})}
-    const kill=new Set(best.ids);for(let i=rem.length-1;i>=0;i--)if(kill.has(i))rem.splice(i,1)}return walls}
-function reconstructSurfaces(){clearGroup(S.reconGroup);const pts=[...S.surfels.values()].filter(s=>s.w>=CFG.minSurfelWeight&&freeCountAt(s.p)<3&&!nearCameraPath(s.p,.22));if(pts.length<80){log('recon: not enough surfels',pts.length);return}const yh=histogramPlaneY(pts);let floorBin=null,ceilBin=null;if(yh.length){const ys=yh.filter(x=>x[1].length>=35).map(x=>x[0]);if(ys.length){floorBin=Math.min(...ys);ceilBin=Math.max(...ys);if(ceilBin-floorBin<10)ceilBin=null}}
-  if(floorBin!==null){const ss=pts.filter(s=>Math.abs(Math.round(s.p.y/.08)-floorBin)<=1&&Math.abs(s.n.y)>.65);const h=hullXZ(ss.map(s=>s.p));if(h.length>=3&&polygonAreaXZ(h.map(q=>new THREE.Vector3(q.x,0,q.z)))>.5){const y=floorBin*.08;addPatch(h.map(q=>new THREE.Vector3(q.x,y,q.z)),'floor',Math.min(1,ss.length/250))}}
-  if(ceilBin!==null){const ss=pts.filter(s=>Math.abs(Math.round(s.p.y/.08)-ceilBin)<=1&&Math.abs(s.n.y)>.65);const h=hullXZ(ss.map(s=>s.p));if(h.length>=3&&polygonAreaXZ(h.map(q=>new THREE.Vector3(q.x,0,q.z)))>.5){const y=ceilBin*.08;addPatch(h.map(q=>new THREE.Vector3(q.x,y,q.z)).reverse(),'ceiling',Math.min(1,ss.length/250))}}
-  const walls=fitWalls(pts.filter(s=>Math.abs(s.n.y)<.55));for(const w of walls)addPatch(w.verts,'wall',Math.min(1,w.support/250));log('recon',pts.length,'surfels ->',walls.length,'walls +',S.reconGroup.children.length-walls.length,'horizontal')}
+function patchSafe(vertices){if(vertices.length<3)return false;let bad=0,total=0;const test=p=>{total++;if(nearCameraPath(p,.24)||freeCountAt(p)>=CFG.safetyFreeCount)bad++};for(let i=0;i<vertices.length;i++){const a=vertices[i],b=vertices[(i+1)%vertices.length],len=a.distanceTo(b),n=Math.max(1,Math.ceil(len/CFG.safetySampleStep));for(let j=0;j<=n;j++)test(a.clone().lerp(b,j/n))}if(vertices.length===4){const uN=Math.max(3,Math.ceil(vertices[0].distanceTo(vertices[1])/.18)),vN=Math.max(3,Math.ceil(vertices[0].distanceTo(vertices[3])/.18));for(let v=1;v<vN;v++)for(let u=1;u<uN;u++){const a=vertices[0].clone().lerp(vertices[1],u/uN),b=vertices[3].clone().lerp(vertices[2],u/uN);test(a.lerp(b,v/vN))}}return bad/Math.max(1,total)<.055}
+function addPatch(vertices,kind,confidence,meta={}){if(vertices.length<3||!patchSafe(vertices))return false;const g=new THREE.BufferGeometry();const a=[];for(const v of vertices)a.push(v.x,v.y,v.z);const idx=[];for(let i=2;i<vertices.length;i++)idx.push(0,i-1,i);g.setAttribute('position',new THREE.Float32BufferAttribute(a,3));g.setIndex(idx);g.computeVertexNormals();const color=kind==='wall'?0xffcc66:kind==='floor'?0x7dff9e:0xd89cff;const m=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.30+Math.min(.32,confidence*.25),side:THREE.DoubleSide,depthWrite:false});const mesh=new THREE.Mesh(g,m);mesh.userData={kind,confidence,...meta};S.reconGroup.add(mesh);return true}
+function weightedMedianY(ss){const a=[];for(const s of ss)for(let k=0;k<Math.max(1,Math.round(Math.min(6,s.w)));k++)a.push(s.p.y);return median(a)}
+function estimateHorizontalLevels(points){
+  // local-floor makes y=0 the strongest prior for the floor. We still verify
+  // whether horizontal support exists near zero rather than fabricating it.
+  const horiz=points.filter(s=>s.n.lengthSq()>.2&&Math.abs(s.n.y)>.72),floorNear=horiz.filter(s=>Math.abs(s.p.y)<.18);
+  const floorY=floorNear.length>=30?weightedMedianY(floorNear):0;
+  const camY=median(bestCameraPath().map(p=>p.y));const bins=new Map();for(const s of horiz){if(s.p.y<camY+.45)continue;const k=Math.round(s.p.y/.07);let a=bins.get(k);if(!a)bins.set(k,a=[]);a.push(s)}
+  let ceil=null;if(bins.size){const best=[...bins.entries()].sort((a,b)=>b[1].length-a[1].length)[0];if(best[1].length>=35)ceil=weightedMedianY(best[1])}
+  return {floorY,ceilY:ceil,floorSupport:floorNear.length,ceilSupport:ceil===null?0:[...bins.values()].reduce((m,a)=>Math.max(m,a.length),0)}
+}
+function fitLinePCA(ss){const xs=ss.map(s=>s.p.x),zs=ss.map(s=>s.p.z),mx=xs.reduce((a,b)=>a+b,0)/xs.length,mz=zs.reduce((a,b)=>a+b,0)/zs.length;let xx=0,xz=0,zz=0;for(const s of ss){const x=s.p.x-mx,z=s.p.z-mz;xx+=x*x;xz+=x*z;zz+=z*z}const tr=xx+zz,det=xx*zz-xz*xz,lam=(tr-Math.sqrt(Math.max(0,tr*tr-4*det)))/2;let nx=xz,nz=lam-xx;if(Math.hypot(nx,nz)<1e-8){nx=1;nz=0}const L=Math.hypot(nx,nz);nx/=L;nz/=L;const c=-(nx*mx+nz*mz);return {a:nx,b:nz,c}}
+function wallFromSupport(ss){const line=fitLinePCA(ss),tx=-line.b,tz=line.a,ts=ss.map(s=>tx*s.p.x+tz*s.p.z),ys=ss.map(s=>s.p.y),t0=percentile(ts,.03),t1=percentile(ts,.97),y0=percentile(ys,.03),y1=percentile(ys,.97);return {...line,tx,tz,t0,t1,y0,y1,support:ss.length,points:ss}}
+function lineDist(w,p){return Math.abs(w.a*p.x+w.b*p.z+w.c)}
+function fitWallsRansac(cands){const rem=cands.slice(),walls=[];for(let wi=0;wi<CFG.maxWalls&&rem.length>=CFG.minWallSupport;wi++){
+  let best=null,iters=Math.min(260,80+rem.length);for(let it=0;it<iters;it++){const s1=rem[(Math.random()*rem.length)|0],s2=rem[(Math.random()*rem.length)|0],p1=s1.p,p2=s2.p;let a=p2.z-p1.z,b=p1.x-p2.x,L=Math.hypot(a,b);if(L<.35)continue;a/=L;b/=L;const c=-(a*p1.x+b*p1.z),ids=[];for(let i=0;i<rem.length;i++){const s=rem[i],d=Math.abs(a*s.p.x+b*s.p.z+c);if(d>CFG.wallThreshold)continue;if(s.n.lengthSq()>.2&&Math.abs(a*s.n.x+b*s.n.z)<.52)continue;ids.push(i)}if(!best||ids.length>best.ids.length)best={ids}}
+  if(!best||best.ids.length<CFG.minWallSupport)break;const ss=best.ids.map(i=>rem[i]),w=wallFromSupport(ss);if(w.t1-w.t0>=CFG.minWallWidth&&w.y1-w.y0>=CFG.minWallHeight)walls.push(w);const kill=new Set(best.ids);for(let i=rem.length-1;i>=0;i--)if(kill.has(i))rem.splice(i,1)
+  }return walls
+}
+function angleDiff(a,b){let d=Math.abs(a-b)%Math.PI;return Math.min(d,Math.PI-d)}
+function mergeWalls(walls){let changed=true,W=walls.slice();while(changed){changed=false;outer:for(let i=0;i<W.length;i++)for(let j=i+1;j<W.length;j++){const A=W[i],B=W[j],ta=Math.atan2(A.tz,A.tx),tb=Math.atan2(B.tz,B.tx);if(angleDiff(ta,tb)>CFG.mergeAngleDeg*Math.PI/180)continue;const off=Math.abs(A.c-B.c);if(off>CFG.mergeOffsetM)continue;const ss=A.points.concat(B.points),M=wallFromSupport(ss);W.splice(j,1);W[i]=M;changed=true;break outer}}return W}
+function manhattanSnap(walls){if(walls.length<2)return {walls,score:0};let X=0,Y=0,W=0;for(const w of walls){const th=Math.atan2(w.tz,w.tx),wt=w.support;X+=wt*Math.cos(4*th);Y+=wt*Math.sin(4*th);W+=wt}const score=Math.hypot(X,Y)/Math.max(1,W);if(score<.42)return {walls,score};const base=Math.atan2(Y,X)/4;for(const w of walls){const th=Math.atan2(w.tz,w.tx),k=Math.round((th-base)/(Math.PI/2)),target=base+k*Math.PI/2;if(angleDiff(th,target)>13*Math.PI/180)continue;w.tx=Math.cos(target);w.tz=Math.sin(target);w.a=w.tz;w.b=-w.tx;const offs=w.points.map(s=>-(w.a*s.p.x+w.b*s.p.z));w.c=median(offs);const ts=w.points.map(s=>w.tx*s.p.x+w.tz*s.p.z);w.t0=percentile(ts,.03);w.t1=percentile(ts,.97)}return {walls,score}}
+function wallPoint(w,t,y){return new THREE.Vector3(w.tx*t-w.a*w.c,y,w.tz*t-w.b*w.c)}
+function wallEndpoint(w,which,y){return wallPoint(w,which? w.t1:w.t0,y)}
+function segmentSafeXZ(a,b,y){const d=a.distanceTo(b),n=Math.max(2,Math.ceil(d/.08));for(let i=0;i<=n;i++){const p=a.clone().lerp(b,i/n);p.y=y;if(nearCameraPath(p,.23)||freeCountAt(p)>=CFG.safetyFreeCount)return false}return true}
+function intersectLines(A,B){const det=A.a*B.b-B.a*A.b;if(Math.abs(det)<.15)return null;const x=(A.b*B.c-B.b*A.c)/det,z=(B.a*A.c-A.a*B.c)/det;return new THREE.Vector3(x,0,z)}
+function conservativeCornerJoin(walls,floorY){for(let i=0;i<walls.length;i++)for(let j=i+1;j<walls.length;j++){const A=walls[i],B=walls[j],thA=Math.atan2(A.tz,A.tx),thB=Math.atan2(B.tz,B.tx);if(Math.abs(angleDiff(thA,thB)-Math.PI/2)>16*Math.PI/180)continue;const x=intersectLines(A,B);if(!x)continue;const ea=[wallEndpoint(A,false,floorY),wallEndpoint(A,true,floorY)],eb=[wallEndpoint(B,false,floorY),wallEndpoint(B,true,floorY)];let ia=ea[0].distanceTo(x)<ea[1].distanceTo(x)?0:1,ib=eb[0].distanceTo(x)<eb[1].distanceTo(x)?0:1;const da=ea[ia].distanceTo(x),db=eb[ib].distanceTo(x);if(da>CFG.cornerJoinMaxM||db>CFG.cornerJoinMaxM)continue;if(!segmentSafeXZ(ea[ia],x,floorY+.25)||!segmentSafeXZ(eb[ib],x,floorY+.25))continue;const ta=A.tx*x.x+A.tz*x.z,tb=B.tx*x.x+B.tz*x.z;if(ia===0)A.t0=ta;else A.t1=ta;if(ib===0)B.t0=tb;else B.t1=tb}}
+function pointInPolyXZ(p,poly){let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j],hit=((a.z>p.z)!==(b.z>p.z))&&(p.x<(b.x-a.x)*(p.z-a.z)/((b.z-a.z)||1e-9)+a.x);if(hit)inside=!inside}return inside}
+function roomPolygonFromWalls(walls,floorY){if(walls.length<3)return null;const P=bestCameraPath();if(P.length<3)return null;const cx=P.reduce((a,p)=>a+p.x,0)/P.length,cz=P.reduce((a,p)=>a+p.z,0)/P.length;const W=walls.slice().sort((A,B)=>{const ca=wallPoint(A,(A.t0+A.t1)/2,floorY),cb=wallPoint(B,(B.t0+B.t1)/2,floorY);return Math.atan2(ca.z-cz,ca.x-cx)-Math.atan2(cb.z-cz,cb.x-cx)});const corners=[];for(let i=0;i<W.length;i++){const A=W[i],B=W[(i+1)%W.length],x=intersectLines(A,B);if(!x)return null;const ta=A.tx*x.x+A.tz*x.z,tb=B.tx*x.x+B.tz*x.z;const outA=Math.max(A.t0-ta,ta-A.t1,0),outB=Math.max(B.t0-tb,tb-B.t1,0);if(outA>CFG.cornerJoinMaxM*1.35||outB>CFG.cornerJoinMaxM*1.35)return null;const ea=Math.abs(ta-A.t0)<Math.abs(ta-A.t1)?wallPoint(A,A.t0,floorY+.25):wallPoint(A,A.t1,floorY+.25),eb=Math.abs(tb-B.t0)<Math.abs(tb-B.t1)?wallPoint(B,B.t0,floorY+.25):wallPoint(B,B.t1,floorY+.25);if(!segmentSafeXZ(ea,x,floorY+.25)||!segmentSafeXZ(eb,x,floorY+.25))return null;corners.push(x)}if(polygonAreaXZ(corners)<1)return null;for(let i=0;i<P.length;i+=Math.max(1,Math.floor(P.length/80))){if(!pointInPolyXZ(P[i],corners))return null}for(let i=0;i<W.length;i++){const prev=corners[(i-1+W.length)%W.length],next=corners[i],t0=W[i].tx*prev.x+W[i].tz*prev.z,t1=W[i].tx*next.x+W[i].tz*next.z;W[i].t0=Math.min(t0,t1);W[i].t1=Math.max(t0,t1)}walls.splice(0,walls.length,...W);return corners}
+function reconstructSurfaces(){
+  clearGroup(S.reconGroup);const pts=[...S.surfels.values()].filter(s=>s.w>=CFG.minSurfelWeight&&freeCountAt(s.p)<CFG.safetyFreeCount&&!nearCameraPath(s.p,.22));
+  if(pts.length<100){log('recon: not enough persistent surfels',pts.length);return}
+  const levels=estimateHorizontalLevels(pts);S.floorY=levels.floorY;S.ceilingY=levels.ceilY;
+  let walls=fitWallsRansac(pts.filter(s=>s.n.lengthSq()<.15||Math.abs(s.n.y)<.58));walls=mergeWalls(walls);const snap=manhattanSnap(walls);walls=snap.walls;conservativeCornerJoin(walls,S.floorY);const roomPoly=roomPolygonFromWalls(walls,S.floorY);S.roomClosed=!!roomPoly;S.roomWalls=walls;
+  const camY=median(bestCameraPath().map(p=>p.y)),fallbackTop=camY+1.15;
+  for(const w of walls){const bottom=(levels.floorSupport>=30&&w.y0<S.floorY+.35)?S.floorY:w.y0,top=(S.ceilingY!==null&&w.y1>S.ceilingY-.45)?S.ceilingY:Math.max(w.y1,fallbackTop);const verts=[wallPoint(w,w.t0,bottom),wallPoint(w,w.t1,bottom),wallPoint(w,w.t1,top),wallPoint(w,w.t0,top)];addPatch(verts,'wall',Math.min(1,w.support/260),{support:w.support,observed:true})}
+  // Prefer observed horizontal hulls. If the structural wall cycle is closed,
+  // the wall polygon may conservatively fill unobserved floor/ceiling gaps.
+  const floorPts=pts.filter(s=>Math.abs(s.p.y-S.floorY)<.12&&(s.n.lengthSq()<.15||Math.abs(s.n.y)>.68));const fh=hullXZ(floorPts.map(s=>s.p));if(roomPoly){addPatch(roomPoly.map(q=>new THREE.Vector3(q.x,S.floorY,q.z)),'floor',Math.min(.92,.55+floorPts.length/900),{observed:floorPts.length>80,inferred:true})}else if(fh.length>=3&&polygonAreaXZ(fh)>.45)addPatch(fh.map(q=>new THREE.Vector3(q.x,S.floorY,q.z)),'floor',Math.min(1,floorPts.length/350),{observed:true});
+  if(S.ceilingY!==null){const cp=pts.filter(s=>Math.abs(s.p.y-S.ceilingY)<.14&&(s.n.lengthSq()<.15||Math.abs(s.n.y)>.68)),ch=hullXZ(cp.map(s=>s.p));if(roomPoly&&cp.length>35)addPatch(roomPoly.map(q=>new THREE.Vector3(q.x,S.ceilingY,q.z)).reverse(),'ceiling',Math.min(.9,.5+cp.length/800),{observed:cp.length>80,inferred:true});else if(ch.length>=3&&polygonAreaXZ(ch)>.45)addPatch(ch.map(q=>new THREE.Vector3(q.x,S.ceilingY,q.z)).reverse(),'ceiling',Math.min(1,cp.length/300),{observed:true})}
+  log('recon',pts.length,'persistent ->',walls.length,'walls; Manhattan',snap.score.toFixed(2),'closed',S.roomClosed,'floor',S.floorY.toFixed(2),'ceil',S.ceilingY?.toFixed(2)??'none')
+}
 
 function geoFromMesh(m){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(m.vertices),3));g.setIndex(new THREE.BufferAttribute(new Uint32Array(m.indices),1));g.computeVertexNormals();return g}
 function geoFromPlane(p){const poly=Array.from(p.polygon||[]),a=[],idx=[];for(const v of poly)a.push(v.x,v.y,v.z);for(let i=2;i<poly.length;i++)idx.push(0,i-1,i);const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(a,3));g.setIndex(idx);g.computeVertexNormals();return g}
 function rawMat(){return new THREE.MeshBasicMaterial({color:0x72ff9c,transparent:true,opacity:.17,side:THREE.DoubleSide,depthWrite:false,wireframe:true})}
-function fuseRaw(frame,ref){if(frame.detectedMeshes){for(const [m,c] of S.rawMeshes)if(!frame.detectedMeshes.has(m)){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose();S.rawMeshes.delete(m)}frame.detectedMeshes.forEach(m=>{const pose=frame.getPose(m.meshSpace,ref);if(!pose)return;let c=S.rawMeshes.get(m);let changed=false;if(!c){const o=new THREE.Mesh(geoFromMesh(m),rawMat());o.matrixAutoUpdate=false;o.frustumCulled=false;S.rawGroup.add(o);c={o,last:m.lastChangedTime??0};S.rawMeshes.set(m,c);changed=true}else if((m.lastChangedTime??0)>c.last){c.last=m.lastChangedTime??0;const old=c.o.geometry;c.o.geometry=geoFromMesh(m);old.dispose();changed=true}c.o.matrix.fromArray(pose.transform.matrix);c.o.matrixWorldNeedsUpdate=true;if(changed&&m.vertices?.length){const M=new THREE.Matrix4().fromArray(pose.transform.matrix);const cam=S.cameraPath.at(-1);for(let i=0;i<m.vertices.length;i+=Math.max(3,Math.floor(m.vertices.length/900/3)*3)){const p=new THREE.Vector3(m.vertices[i],m.vertices[i+1],m.vertices[i+2]).applyMatrix4(M);addSurfel(p,null,.6,cam&&((i/3)%4===0)?cam:null)}}})}
-  if(frame.detectedPlanes){frame.detectedPlanes.forEach(p=>{const pose=frame.getPose(p.planeSpace,ref);if(!pose)return;let c=S.rawPlanes.get(p);if(!c){const o=new THREE.Mesh(geoFromPlane(p),rawMat());o.matrixAutoUpdate=false;o.frustumCulled=false;S.rawGroup.add(o);c={o,last:p.lastChangedTime??0};S.rawPlanes.set(p,c)}else if((p.lastChangedTime??0)>c.last){c.last=p.lastChangedTime??0;const old=c.o.geometry;c.o.geometry=geoFromPlane(p);old.dispose()}c.o.matrix.fromArray(pose.transform.matrix);c.o.matrixWorldNeedsUpdate=true;const M=new THREE.Matrix4().fromArray(pose.transform.matrix);for(const v of Array.from(p.polygon||[]))addSurfel(new THREE.Vector3(v.x,v.y,v.z).applyMatrix4(M),null,1.2,null)})}}
+function fuseRaw(frame,ref){
+  if(frame.detectedMeshes){
+    for(const [m,c] of S.rawMeshes)if(!frame.detectedMeshes.has(m)){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose();S.rawMeshes.delete(m)}
+    frame.detectedMeshes.forEach(m=>{const pose=frame.getPose(m.meshSpace,ref);if(!pose)return;let c=S.rawMeshes.get(m),changed=false;if(!c){const o=new THREE.Mesh(geoFromMesh(m),rawMat());o.matrixAutoUpdate=false;o.frustumCulled=false;S.rawGroup.add(o);c={o,last:m.lastChangedTime??0};S.rawMeshes.set(m,c);changed=true}else if((m.lastChangedTime??0)>c.last){c.last=m.lastChangedTime??0;const old=c.o.geometry;c.o.geometry=geoFromMesh(m);old.dispose();changed=true}c.o.matrix.fromArray(pose.transform.matrix);c.o.matrixWorldNeedsUpdate=true;
+      if(changed&&m.vertices?.length&&m.indices?.length){const M=new THREE.Matrix4().fromArray(pose.transform.matrix),N=new THREE.Matrix3().getNormalMatrix(M),cam=S.cameraPath.at(-1),tri=Math.floor(m.indices.length/3),step=Math.max(1,Math.floor(tri/650));for(let f=0;f<tri;f+=step){const ia=m.indices[f*3]*3,ib=m.indices[f*3+1]*3,ic=m.indices[f*3+2]*3,a=new THREE.Vector3(m.vertices[ia],m.vertices[ia+1],m.vertices[ia+2]),b=new THREE.Vector3(m.vertices[ib],m.vertices[ib+1],m.vertices[ib+2]),cc=new THREE.Vector3(m.vertices[ic],m.vertices[ic+1],m.vertices[ic+2]),n=b.clone().sub(a).cross(cc.clone().sub(a));if(n.lengthSq()<1e-8)continue;n.normalize().applyMatrix3(N).normalize();const p=a.add(b).add(cc).multiplyScalar(1/3).applyMatrix4(M);addSurfel(p,n,1.05,(f%4===0)?cam:null)}}
+    })
+  }
+  if(frame.detectedPlanes){
+    for(const [p,c] of S.rawPlanes)if(!frame.detectedPlanes.has(p)){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose();S.rawPlanes.delete(p)}
+    frame.detectedPlanes.forEach(p=>{const pose=frame.getPose(p.planeSpace,ref);if(!pose)return;let c=S.rawPlanes.get(p),changed=false;if(!c){const o=new THREE.Mesh(geoFromPlane(p),rawMat());o.matrixAutoUpdate=false;o.frustumCulled=false;S.rawGroup.add(o);c={o,last:p.lastChangedTime??0};S.rawPlanes.set(p,c);changed=true}else if((p.lastChangedTime??0)>c.last){c.last=p.lastChangedTime??0;const old=c.o.geometry;c.o.geometry=geoFromPlane(p);old.dispose();changed=true}c.o.matrix.fromArray(pose.transform.matrix);c.o.matrixWorldNeedsUpdate=true;if(changed){const poly=Array.from(p.polygon||[]);if(poly.length>=3){const M=new THREE.Matrix4().fromArray(pose.transform.matrix),N=new THREE.Matrix3().getNormalMatrix(M),n=new THREE.Vector3(0,1,0).applyMatrix3(N).normalize(),center=new THREE.Vector3();for(const v of poly)center.add(new THREE.Vector3(v.x,v.y,v.z));center.multiplyScalar(1/poly.length);for(let i=0;i<poly.length;i++){const v=new THREE.Vector3(poly[i].x,poly[i].y,poly[i].z),v2=new THREE.Vector3(poly[(i+1)%poly.length].x,poly[(i+1)%poly.length].y,poly[(i+1)%poly.length].z);for(let k=0;k<=5;k++){const e=v.clone().lerp(v2,k/5),r=center.clone().lerp(e,.82);addSurfel(r.applyMatrix4(M),n,1.45,null)}}addSurfel(center.applyMatrix4(M),n,2.0,null)}}})
+  }
+}
 
 
 // ============================================================================
@@ -111,16 +247,8 @@ function fuseRaw(frame,ref){if(frame.detectedMeshes){for(const [m,c] of S.rawMes
 // ============================================================================
 let cvReadyPromise=null;
 function ensureOpenCV(){
-  if(window.cv && window.cv.Mat) return Promise.resolve(window.cv);
-  if(cvReadyPromise) return cvReadyPromise;
-  cvReadyPromise=new Promise((resolve,reject)=>{
-    const sc=document.createElement('script');
-    sc.src='https://docs.opencv.org/4.x/opencv.js'; sc.async=true;
-    sc.onload=()=>{const wait=()=>{if(window.cv?.Mat)resolve(window.cv);else setTimeout(wait,80)};wait()};
-    sc.onerror=()=>reject(new Error('Impossibile caricare OpenCV.js'));
-    document.head.appendChild(sc);
-  });
-  return cvReadyPromise;
+  if(window.cv&&window.cv.Mat)return Promise.resolve(window.cv);if(cvReadyPromise)return cvReadyPromise;
+  cvReadyPromise=new Promise((resolve,reject)=>{let triedRemote=false;const load=url=>{const sc=document.createElement('script');sc.src=url;sc.async=true;sc.onload=async()=>{try{if(window.cv instanceof Promise)window.cv=await window.cv;const wait=()=>window.cv?.Mat?resolve(window.cv):setTimeout(wait,80);wait()}catch(e){reject(e)}};sc.onerror=()=>{if(!triedRemote){triedRemote=true;load('https://docs.opencv.org/4.x/opencv.js')}else reject(new Error('OpenCV.js non disponibile'))};document.head.appendChild(sc)};load('./vendor/opencv.js')});return cvReadyPromise
 }
 function drawVOMap(){
   const c=$('#voMap'),ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);
@@ -160,24 +288,24 @@ async function estimateVideoTrajectory(file){
   $('#voStatus').textContent=`Traiettoria RGB pronta: ${S.voPath.length} pose da ${S.voFrames} frame · ${S.voInliers} inlier · scala relativa (monoculare).`;log('VO done',S.voPath.length,'poses',S.voInliers,'inliers')
 }
 
-function render(t,frame){if(frame){const ref=S.renderer.xr.getReferenceSpace();const pose=ref?frame.getViewerPose(ref):null;if(ref){fuseRaw(frame,ref);if(pose)sampleDepth(frame,pose,t)}updateHUD(frame,pose)}S.renderer.render(S.scene,S.camera)}
-function updateHUD(frame,pose){const good=[...S.surfels.values()].filter(s=>s.w>=CFG.minSurfelWeight).length;const rawT=[...S.rawMeshes.values()].reduce((n,c)=>n+(c.o.geometry.index?.count||0)/3,0);$('#stats').textContent=`${good} surfel · ${S.depthFrames} depth frame · ${S.reconGroup.children.length} superfici · ${S.rawMeshes.size} XRMesh · ${Math.round(rawT)} tri`;
-  const hasDepth=S.depthFrames>0,hasRaw=S.rawMeshes.size||S.rawPlanes.size;$('#quality').textContent=hasDepth?'depth metrica':hasRaw?'geometria XR':'nessuna geometria';$('#quality').className='pill '+(hasDepth?'ok':hasRaw?'warn':'bad');$('#mode').textContent=`AR · ${S.profile}${pose?' · tracking':''}`}
+function render(t,frame){if(frame){const ref=S.renderer.xr.getReferenceSpace();const pose=ref?frame.getViewerPose(ref):null;if(ref){fuseRaw(frame,ref);if(pose){ingestPose(pose,t);sampleDepth(frame,pose,t)}}updateHUD(frame,pose)}S.renderer.render(S.scene,S.camera)}
+function updateHUD(frame,pose){const good=[...S.surfels.values()].filter(s=>s.w>=CFG.minSurfelWeight).length,rawT=[...S.rawMeshes.values()].reduce((n,c)=>n+(c.o.geometry.index?.count||0)/3,0),q=Math.round(S.pathQuality*100);$('#stats').textContent=`path ${S.pathLength.toFixed(1)} m · ${S.bestPath.length} pose · ${S.keyframes.length} KF · ${good} surfel · ${S.depthFrames} depth · ${S.reconGroup.children.length} superfici`;
+  const hasDepth=S.depthFrames>0,hasRaw=S.rawMeshes.size||S.rawPlanes.size;$('#quality').textContent=`path ${q}% · ${hasDepth?'depth':hasRaw?'XR geometry':'pose only'}`;$('#quality').className='pill '+(q>75&&(hasDepth||hasRaw)?'ok':q>45?'warn':'bad');$('#mode').textContent=`AR · ${S.profile}${pose?' · tracking':''} · jump ${S.poseRejected} · filtro ${S.filterRejected}`}
 
 async function bestSession(){const overlay=$('#hud');const attempts=[
- {name:'depth+geometry',init:{requiredFeatures:[],optionalFeatures:['depth-sensing','mesh-detection','plane-detection','local-floor','dom-overlay'],depthSensing:{usagePreference:['cpu-optimized'],dataFormatPreference:['float32','unsigned-short','luminance-alpha']},domOverlay:{root:overlay}}},
+ {name:'depth+geometry',init:{requiredFeatures:[],optionalFeatures:['depth-sensing','mesh-detection','plane-detection','local-floor','dom-overlay'],depthSensing:{usagePreference:['cpu-optimized','gpu-optimized'],dataFormatPreference:['float32','unsigned-short','luminance-alpha'],depthTypeRequest:['smooth','raw'],matchDepthView:true},domOverlay:{root:overlay}}},
  {name:'geometry',init:{requiredFeatures:[],optionalFeatures:['mesh-detection','plane-detection','local-floor','dom-overlay'],domOverlay:{root:overlay}}},
  {name:'basic',init:{requiredFeatures:[],optionalFeatures:['local-floor','dom-overlay'],domOverlay:{root:overlay}}}
  ];let last;for(const a of attempts){try{log('request',a.name);const s=await navigator.xr.requestSession('immersive-ar',a.init);S.profile=a.name;return s}catch(e){last=e;log('failed',a.name,e)}}throw last||new Error('immersive-ar non disponibile')}
-async function startAR(){if(!navigator.xr){setStatus('WebXR non disponibile');return}$('#start').disabled=true;stopPreview();try{if(!await navigator.xr.isSessionSupported('immersive-ar'))throw new Error('immersive-ar non supportato');resetMap();const s=await bestSession();S.session=s;s.addEventListener('end',ended,{once:true});S.renderer.xr.setReferenceSpaceType('local-floor');await S.renderer.xr.setSession(s);S.renderer.setAnimationLoop(render);$('#landing').style.display='none';$('#preview').style.display='none';$('#hud').classList.add('active');log('AR started',S.profile,'depthUsage',s.depthUsage||'none','depthFormat',s.depthDataFormat||'none')}catch(e){log('start failed',e);$('#start').disabled=false;$('#landing').style.display='flex';$('#preview').style.display='block';setStatus('AR non avviata',`${e.name}: ${e.message}`);await openPreview()}}
-async function ended(){S.renderer.setAnimationLoop(null);try{await S.renderer.xr.setSession(null)}catch{}S.session=null;reconstructSurfaces();$('#hud').classList.remove('active');$('#landing').style.display='flex';$('#preview').style.display='block';$('#start').disabled=false;setStatus('Scansione terminata',`${S.surfels.size} voxel osservati, ${S.reconGroup.children.length} superfici ricostruite.`);await openPreview()}
-function resetMap(){S.surfels.clear();S.free.clear();S.cameraPath=[];S.lastSamplePose=null;S.lastDepthAt=0;S.depthFrames=0;S.depthPoints=0;S.rejectedFree=0;S.rejectedPath=0;S.lastReconAt=0;clearGroup(S.reconGroup);for(const c of S.rawMeshes.values()){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose()}for(const c of S.rawPlanes.values()){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose()}S.rawMeshes.clear();S.rawPlanes.clear();if(S.splat){S.scene.remove(S.splat);S.splat.geometry.dispose();S.splat.material.dispose();S.splat=null}}
+async function startAR(){if(!navigator.xr){setStatus('WebXR non disponibile');return}$('#start').disabled=true;stopPreview();try{if(!await navigator.xr.isSessionSupported('immersive-ar'))throw new Error('immersive-ar non supportato');resetMap();const s=await bestSession();S.session=s;s.addEventListener('end',ended,{once:true});S.renderer.xr.setReferenceSpaceType('local-floor');await S.renderer.xr.setSession(s);S.renderer.setAnimationLoop(render);$('#landing').style.display='none';$('#preview').style.display='none';$('#hud').classList.add('active');let du='none',df='none',dtp='none';try{du=s.depthUsage||'none';df=s.depthDataFormat||'none';dtp=s.depthType||'none'}catch{}log('AR started',S.profile,'depthUsage',du,'depthFormat',df,'depthType',dtp)}catch(e){log('start failed',e);$('#start').disabled=false;$('#landing').style.display='flex';$('#preview').style.display='block';setStatus('AR non avviata',`${e.name}: ${e.message}`);await openPreview()}}
+async function ended(){S.renderer.setAnimationLoop(null);try{await S.renderer.xr.setSession(null)}catch{}S.session=null;reconstructSurfaces();$('#hud').classList.remove('active');$('#landing').style.display='flex';$('#preview').style.display='block';$('#start').disabled=false;refineMetricPath();updatePathGeometry();setStatus('Scansione terminata',`Path ${S.pathLength.toFixed(1)} m, ${S.keyframes.length} keyframe, ${S.surfels.size} voxel, ${S.reconGroup.children.length} superfici.`);await openPreview()}
+function resetMap(){S.surfels.clear();S.free.clear();S.cameraPath=[];S.rawPath=[];S.bestPath=[];S.keyframes=[];S.lastPoseAt=0;S.lastDepthPose=null;S.lastDepthAt=0;S.lastPathRebuild=0;S.poseRejected=0;S.filterRejected=0;S.pathLength=0;S.pathQuality=0;S.currentPose=null;S.depthFrames=0;S.depthPoints=0;S.rejectedFree=0;S.rejectedPath=0;S.lastReconAt=0;S.roomWalls=[];S.roomClosed=false;S.ceilingY=null;clearGroup(S.reconGroup);for(const c of S.rawMeshes.values()){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose()}for(const c of S.rawPlanes.values()){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose()}S.rawMeshes.clear();S.rawPlanes.clear();if(S.splat){S.scene.remove(S.splat);S.splat.geometry.dispose();S.splat.material.dispose();S.splat=null}for(const k of ['pathRawLine','pathBestLine','keyframePts']){const o=S[k];if(o){S.scene.remove(o);o.geometry.dispose();o.material.dispose();S[k]=null}}}
 
-function meshExport(){const out={format:'room-surfel-webxr-v1',units:'meters',profile:S.profile,generatedAt:new Date().toISOString(),stats:{surfelVoxels:S.surfels.size,depthFrames:S.depthFrames,depthPoints:S.depthPoints,rejectedFree:S.rejectedFree,rejectedPath:S.rejectedPath},cameraPath:S.cameraPath.map(p=>[p.x,p.y,p.z]),visualOdometry:{scale:S.voScale,frames:S.voFrames,inliers:S.voInliers,path:S.voPath},surfaces:[]};for(let si=0;si<S.reconGroup.children.length;si++){const o=S.reconGroup.children[si],pos=o.geometry.getAttribute('position'),verts=[];for(let i=0;i<pos.count;i++){const p=new THREE.Vector3().fromBufferAttribute(pos,i).applyMatrix4(o.matrixWorld);verts.push([p.x,p.y,p.z])}out.surfaces.push({id:si+1,kind:o.userData.kind,confidence:o.userData.confidence,vertices:verts,indices:o.geometry.index?Array.from(o.geometry.index.array):[]})}return out}
+function meshExport(){refineMetricPath();reconstructSurfaces();const out={format:'room-hybrid-webxr-v2',units:'meters',profile:S.profile,generatedAt:new Date().toISOString(),stats:{surfelVoxels:S.surfels.size,freeVoxels:S.free.size,depthFrames:S.depthFrames,depthPoints:S.depthPoints,rejectedFree:S.rejectedFree,rejectedPath:S.rejectedPath,poseRejected:S.poseRejected,filterRejected:S.filterRejected,pathLengthM:S.pathLength,pathQuality:S.pathQuality,keyframes:S.keyframes.length},path:{scale:'metric-webxr',raw:S.rawPath.map(x=>({t:x.t,p:[x.p.x,x.p.y,x.p.z],q:[x.q.x,x.q.y,x.q.z,x.q.w],emulated:x.emulated})),best:S.bestPath.map(x=>({t:x.t,p:[x.p.x,x.p.y,x.p.z],q:[x.q.x,x.q.y,x.q.z,x.q.w],confidence:x.confidence})),keyframes:S.keyframes.map(x=>({t:x.t,p:[x.p.x,x.p.y,x.p.z],q:[x.q.x,x.q.y,x.q.z,x.q.w]}))},visualOdometry:{scale:S.voScale,frames:S.voFrames,inliers:S.voInliers,path:S.voPath},room:{floorY:S.floorY,ceilingY:S.ceilingY,closed:S.roomClosed,walls:S.roomWalls.map((w,i)=>({id:i+1,normal:[w.a,0,w.b],offset:w.c,tRange:[w.t0,w.t1],support:w.support}))},surfaces:[]};for(let si=0;si<S.reconGroup.children.length;si++){const o=S.reconGroup.children[si],pos=o.geometry.getAttribute('position'),verts=[];for(let i=0;i<pos.count;i++){const p=new THREE.Vector3().fromBufferAttribute(pos,i).applyMatrix4(o.matrixWorld);verts.push([p.x,p.y,p.z])}out.surfaces.push({id:si+1,kind:o.userData.kind,confidence:o.userData.confidence,observed:o.userData.observed!==false,support:o.userData.support??null,vertices:verts,indices:o.geometry.index?Array.from(o.geometry.index.array):[]})}return out}
 function download(name,text,type){const u=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1500)}
-function doExport(){reconstructSurfaces();const d=meshExport();download('room_surfel_webxr.json',JSON.stringify(d,null,2),'application/json');let obj='# Room Surfel WebXR\n';let base=1;for(const s of d.surfaces){obj+=`\no ${s.kind}_${s.id}\n`;for(const v of s.vertices)obj+=`v ${v[0].toFixed(6)} ${v[1].toFixed(6)} ${v[2].toFixed(6)}\n`;for(let i=0;i<s.indices.length;i+=3)obj+=`f ${base+s.indices[i]} ${base+s.indices[i+1]} ${base+s.indices[i+2]}\n`;base+=s.vertices.length}download('room_surfel_webxr.obj',obj,'text/plain')}
+function doExport(){reconstructSurfaces();const d=meshExport();download('room_hybrid_scan.json',JSON.stringify(d,null,2),'application/json');let obj='# Room Hybrid WebXR\n';let base=1;for(const s of d.surfaces){obj+=`\no ${s.kind}_${s.id}\n`;for(const v of s.vertices)obj+=`v ${v[0].toFixed(6)} ${v[1].toFixed(6)} ${v[2].toFixed(6)}\n`;for(let i=0;i<s.indices.length;i+=3)obj+=`f ${base+s.indices[i]} ${base+s.indices[i+1]} ${base+s.indices[i+2]}\n`;base+=s.vertices.length}download('room_hybrid_scan.obj',obj,'text/plain');let csv='t_ms,x_m,y_m,z_m,qx,qy,qz,qw,confidence\n';for(const r of d.path.best)csv+=`${r.t.toFixed(3)},${r.p[0].toFixed(6)},${r.p[1].toFixed(6)},${r.p[2].toFixed(6)},${r.q[0].toFixed(8)},${r.q[1].toFixed(8)},${r.q[2].toFixed(8)},${r.q[3].toFixed(8)},${r.confidence.toFixed(3)}\n`;download('camera_path_best.csv',csv,'text/csv')}
 
-$('#videoInput').onchange=e=>{const f=e.target.files?.[0];if(f)estimateVideoTrajectory(f)};$('#start').onclick=startAR;$('#end').onclick=()=>S.session?.end();$('#build').onclick=()=>{reconstructSurfaces();log('manual rebuild')};$('#export').onclick=doExport;$('#debugBtn').onclick=()=>$('#debug').classList.toggle('show');$('#surfelToggle').onclick=()=>{S.splatVisible=!S.splatVisible;if(S.splat)S.splat.visible=S.splatVisible;$('#surfelToggle').textContent=`Splat ${S.splatVisible?'ON':'OFF'}`};$('#rawToggle').onclick=()=>{S.rawVisible=!S.rawVisible;S.rawGroup.visible=S.rawVisible;$('#rawToggle').textContent=`Raw ${S.rawVisible?'ON':'OFF'}`};$('#hud').addEventListener('beforexrselect',e=>e.preventDefault());
-initThree();openPreview();
+$('#videoInput').onchange=e=>{const f=e.target.files?.[0];if(f)estimateVideoTrajectory(f)};$('#start').onclick=startAR;$('#end').onclick=()=>S.session?.end();$('#build').onclick=()=>{refineMetricPath();updatePathGeometry();reconstructSurfaces();log('manual optimize')};$('#export').onclick=doExport;$('#debugBtn').onclick=()=>$('#debug').classList.toggle('show');$('#surfelToggle').onclick=()=>{S.splatVisible=!S.splatVisible;if(S.splat)S.splat.visible=S.splatVisible;$('#surfelToggle').textContent=`Splat ${S.splatVisible?'ON':'OFF'}`};$('#rawToggle').onclick=()=>{S.rawVisible=!S.rawVisible;S.rawGroup.visible=S.rawVisible;$('#rawToggle').textContent=`Raw ${S.rawVisible?'ON':'OFF'}`};$('#pathToggle').onclick=()=>{S.pathVisible=!S.pathVisible;for(const o of [S.pathRawLine,S.pathBestLine,S.keyframePts])if(o)o.visible=S.pathVisible;$('#pathToggle').textContent=`Path ${S.pathVisible?'ON':'OFF'}`};$('#hud').addEventListener('beforexrselect',e=>e.preventDefault());
+if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('./sw.js').catch(()=>{});initThree();openPreview();
 </script>
 </body></html>
