@@ -4,534 +4,121 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#000000">
-<title>Room Scanner - WebXR Direct Geometry</title>
+<title>Room Scanner · WebXR Surfel Fusion</title>
 <style>
-  :root{color-scheme:dark;--fg:#f4f8ff;--muted:#a9b8ca;--panel:rgba(8,14,24,.78);--line:rgba(255,255,255,.18);--accent:#65d8ff;--ok:#7df0a9;--bad:#ff7c8e}
-  *{box-sizing:border-box}
-  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:var(--fg);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-  #cameraPreview,#xrHost{position:fixed;inset:0;width:100%;height:100%}
-  #cameraPreview{object-fit:cover;background:#05070b;z-index:0}
-  #xrHost{z-index:1;pointer-events:none}
-  #xrHost canvas{display:block;width:100%;height:100%;background:transparent!important}
-  #landing{position:fixed;inset:0;z-index:4;display:flex;flex-direction:column;justify-content:space-between;padding:max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom));pointer-events:none}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px;backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);pointer-events:auto}
-  .headline{font-size:18px;font-weight:800;margin:0 0 5px}.small{font-size:12px;color:var(--muted)}
-  .actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{flex:1;min-width:120px}
-  button{appearance:none;border:1px solid var(--line);border-radius:12px;padding:11px 13px;background:#13243a;color:var(--fg);font:inherit;font-weight:750}
-  button.primary{background:var(--accent);color:#03121a;border-color:transparent}button:disabled{opacity:.45}
-  #xr-ui{position:fixed;inset:0;z-index:8;display:none;pointer-events:none;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom))}
-  #xr-ui.active{display:block}.xr-top,.xr-bottom{position:absolute;left:12px;right:12px;display:flex;gap:8px;align-items:center}.xr-top{top:max(12px,env(safe-area-inset-top))}.xr-bottom{bottom:max(12px,env(safe-area-inset-bottom))}
-  .pill{background:rgba(5,11,20,.68);border:1px solid var(--line);border-radius:13px;padding:8px 10px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-  .grow{flex:1}.good{color:var(--ok)}.bad{color:var(--bad)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px}
-  #xr-ui button{pointer-events:auto;min-width:92px;background:rgba(10,20,34,.84)}
-  #debug{position:fixed;left:12px;right:12px;bottom:82px;z-index:9;max-height:28vh;overflow:auto;display:none;white-space:pre-wrap;background:rgba(0,0,0,.78);border:1px solid var(--line);border-radius:12px;padding:9px;font:11px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:auto}
-  #debug.show{display:block}
-  .legend{display:flex;gap:9px;flex-wrap:wrap;margin-top:7px}.dot:before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;background:currentColor}
-  .meshColor{color:#65d8ff}.planeColor{color:#ffcc66}
+:root{color-scheme:dark;--fg:#f5f8ff;--muted:#a8b4c7;--panel:rgba(5,10,18,.72);--line:rgba(255,255,255,.18);--accent:#63dcff;--ok:#7df2ac;--warn:#ffd166;--bad:#ff788f}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:var(--fg);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+#preview,#xrHost{position:fixed;inset:0;width:100%;height:100%}#preview{z-index:0;object-fit:cover;background:#05070a}#xrHost{z-index:1;pointer-events:none}#xrHost canvas{width:100%;height:100%;display:block;background:transparent!important}
+#landing{position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;justify-content:space-between;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));pointer-events:none}.panel{pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.head{font-size:18px;font-weight:800}.small{font-size:12px;color:var(--muted)}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}button{appearance:none;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#13243a;color:var(--fg);font-weight:750;min-width:110px}button.primary{background:var(--accent);color:#04131b;border-color:transparent}button:disabled{opacity:.45}
+#hud{position:fixed;inset:0;z-index:8;display:none;pointer-events:none;padding:max(10px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom))}#hud.active{display:block}.top,.bottom{position:absolute;left:10px;right:10px;display:flex;gap:7px;align-items:center}.top{top:max(10px,env(safe-area-inset-top))}.bottom{bottom:max(10px,env(safe-area-inset-bottom));overflow-x:auto}.pill{background:rgba(4,10,18,.65);border:1px solid var(--line);border-radius:12px;padding:8px 10px;backdrop-filter:blur(7px)}.grow{flex:1}.mono{font:11px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}#hud button{pointer-events:auto;background:rgba(10,20,34,.84);white-space:nowrap}
+#debug{position:fixed;left:10px;right:10px;bottom:72px;z-index:10;display:none;max-height:32vh;overflow:auto;white-space:pre-wrap;background:rgba(0,0,0,.8);border:1px solid var(--line);border-radius:12px;padding:8px;font:11px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace}#debug.show{display:block}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.dot:before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;background:currentColor}.c1{color:#65dcff}.c2{color:#ffd166}.c3{color:#8cff9c}
 </style>
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js"
-  }
-}
-</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js"}}</script>
 </head>
 <body>
-<video id="cameraPreview" playsinline muted autoplay></video>
-<div id="xrHost"></div>
-
-<div id="landing">
-  <div class="panel">
-    <div class="headline">Room Scanner · WebXR geometry diretta</div>
-    <div id="landingStatus">Apro la telecamera…</div>
-    <div class="small" id="landingSub">Durante AR il passthrough della camera viene gestito direttamente dal runtime WebXR.</div>
-  </div>
-  <div class="panel">
-    <div class="actions">
-      <button id="startBtn" class="primary" disabled>Avvia ricostruzione AR</button>
-      <button id="debugBtn">Diagnostica</button>
-    </div>
-    <div class="legend small"><span class="dot meshColor">mesh rilevata</span><span class="dot planeColor">piani rilevati</span></div>
-    <div class="small" style="margin-top:7px">Non viene inventata geometria: vengono visualizzati i triangoli/poligoni che il runtime XR rileva davvero.</div>
-  </div>
-</div>
-
-<div id="xr-ui">
-  <div class="xr-top">
-    <div class="pill grow"><b id="xrState">AR attiva</b><div id="xrStats" class="small mono">0 mesh · 0 piani · 0 triangoli</div></div>
-    <div class="pill" id="trackingState">tracking…</div>
-  </div>
-  <div class="xr-bottom">
-    <button id="toggleMeshBtn">Mesh ON</button>
-    <button id="togglePlaneBtn">Piani ON</button>
-    <button id="exportBtn">Esporta</button>
-    <button id="exitBtn">Termina</button>
-  </div>
-</div>
+<video id="preview" playsinline muted autoplay></video><div id="xrHost"></div>
+<div id="landing"><div class="panel"><div class="head">Room Scanner · Surfel Fusion metrico</div><div id="status">Apro la telecamera…</div><div id="sub" class="small">La ricostruzione usa pose WebXR e, quando disponibile, depth metrica del runtime.</div></div><div class="panel"><div class="actions"><button id="start" class="primary" disabled>Avvia scansione</button><button id="debugBtn">Diagnostica</button></div><div class="legend small"><span class="dot c1">surfel persistenti</span><span class="dot c2">superfici ricostruite</span><span class="dot c3">XRMesh/XRPlane</span></div><div class="small" style="margin-top:8px">Muoviti lentamente nella stanza. La mesh non viene chiusa inventando muri: vengono aggiunte solo superfici sostenute da depth/mesh/piani e mai attraverso il percorso della camera.</div></div></div>
+<div id="hud"><div class="top"><div class="pill grow"><b id="mode">AR</b><div id="stats" class="mono small">inizializzazione…</div></div><div id="quality" class="pill warn">cerca depth…</div></div><div class="bottom"><button id="surfelToggle">Splat ON</button><button id="rawToggle">Raw OFF</button><button id="build">Ricostruisci</button><button id="export">Esporta</button><button id="end">Termina</button></div></div>
 <pre id="debug"></pre>
-
 <script type="module">
 import * as THREE from 'three';
 
 // ============================================================================
-// Room Scanner - direct adaptation of the rendering pattern used by the
-// immersive-web/webxr-samples plane-detection and mesh-detection demos.
+// Room Scanner - metric WebXR surfel fusion.
 //
-// Important design choice: the AR camera is NOT drawn by a <video> element once
-// the XR session starts. WebXR owns the device camera and THREE.WebGLRenderer
-// renders transparent virtual geometry on top of the native AR passthrough.
+// Pipeline:
+// XR pose + CPU depth -> metric world points -> 7 cm surfel voxels
+//                    -> free-space carving + camera-path exclusion
+//                    -> simple Manhattan-room plane fitting
+//                    -> open / nearly-closed planar mesh.
+// Native XRMesh/XRPlane, when exposed by the runtime, are fused as extra
+// geometric evidence rather than being trusted blindly.
 // ============================================================================
 
-const $ = (q) => document.querySelector(q);
-const state = {
-  renderer:null, scene:null, camera:null, session:null,
-  previewStream:null,
-  meshes:new Map(), planes:new Map(),
-  meshSerial:1, planeSerial:1,
-  showMeshes:true, showPlanes:true,
-  lastGeomChange:0, geometryRevision:0,
-  debug:[],
-  sessionProfile:'none'
+const $=q=>document.querySelector(q);
+const CFG={
+  surfelVoxel:0.07, freeVoxel:0.12, freeStep:0.14, userClearRadius:0.34,
+  minDepth:0.28, maxDepth:8.0, sampleCols:24, sampleRows:18,
+  depthPeriodMs:180, minMoveM:0.025, minTurnDeg:2.0,
+  minSurfelWeight:2, wallThreshold:0.09, maxWalls:8
 };
+const S={renderer:null,scene:null,camera:null,session:null,preview:null,ref:null,
+  surfels:new Map(),free:new Map(),cameraPath:[],lastSamplePose:null,lastDepthAt:0,
+  depthFrames:0,depthPoints:0,rejectedFree:0,rejectedPath:0,
+  rawMeshes:new Map(),rawPlanes:new Map(),rawGroup:null,reconGroup:null,splat:null,
+  splatVisible:true,rawVisible:false,debug:[],lastReconAt:0,profile:'none'};
 
-function log(...items){
-  console.log(...items);
-  const line=items.map(v=>v instanceof Error?`${v.name}: ${v.message}`:String(v)).join(' ');
-  state.debug.push(`[${new Date().toLocaleTimeString()}] ${line}`);
-  if(state.debug.length>120) state.debug.shift();
-  $('#debug').textContent=state.debug.join('\n');
-}
+function log(...x){console.log(...x);const s=x.map(v=>v instanceof Error?`${v.name}: ${v.message}`:String(v)).join(' ');S.debug.push(`[${new Date().toLocaleTimeString()}] ${s}`);if(S.debug.length>150)S.debug.shift();$('#debug').textContent=S.debug.join('\n')}
+function setStatus(a,b=''){ $('#status').textContent=a;if(b)$('#sub').textContent=b }
+async function openPreview(){try{stopPreview();const st=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}});S.preview=st;$('#preview').srcObject=st;await $('#preview').play();setStatus('Telecamera pronta','Premi Avvia scansione. In AR vedrai i surfel e le superfici ricostruite sopra la camera.');$('#start').disabled=false}catch(e){log('preview',e);setStatus('Preview non disponibile',`${e.name}: ${e.message}`);$('#start').disabled=false}}
+function stopPreview(){if(S.preview){for(const t of S.preview.getTracks())t.stop();S.preview=null}$('#preview').srcObject=null}
 
-function setLanding(title,sub=''){
-  $('#landingStatus').textContent=title;
-  if(sub) $('#landingSub').textContent=sub;
-}
+function initThree(){S.scene=new THREE.Scene();S.camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,.02,20);S.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});S.renderer.setPixelRatio(Math.min(devicePixelRatio,2));S.renderer.setSize(innerWidth,innerHeight);S.renderer.setClearColor(0x000000,0);S.renderer.xr.enabled=true;S.renderer.xr.setFoveation?.(0);$('#xrHost').appendChild(S.renderer.domElement);S.rawGroup=new THREE.Group();S.rawGroup.visible=false;S.reconGroup=new THREE.Group();S.scene.add(S.rawGroup,S.reconGroup);window.addEventListener('resize',()=>{S.camera.aspect=innerWidth/innerHeight;S.camera.updateProjectionMatrix();S.renderer.setSize(innerWidth,innerHeight)})}
 
-async function openPreviewCamera(){
-  try{
-    stopPreviewCamera();
-    const stream=await navigator.mediaDevices.getUserMedia({
-      audio:false,
-      video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}
-    });
-    state.previewStream=stream;
-    $('#cameraPreview').srcObject=stream;
-    await $('#cameraPreview').play();
-    setLanding('Telecamera pronta','Premi “Avvia ricostruzione AR”. In AR vedrai la camera con mesh/piani sovrapposti.');
-    $('#startBtn').disabled=false;
-    log('getUserMedia preview ready');
-  }catch(err){
-    log('preview camera failed',err);
-    setLanding('Telecamera non disponibile',`${err.name}: ${err.message}`);
-    $('#startBtn').disabled=false; // WebXR may still be allowed independently.
+function key3(p,s){return `${Math.round(p.x/s)},${Math.round(p.y/s)},${Math.round(p.z/s)}`}
+function freeCountAt(p){return S.free.get(key3(p,CFG.freeVoxel))||0}
+function nearCameraPath(p,r=CFG.userClearRadius){const r2=r*r;for(let i=Math.max(0,S.cameraPath.length-500);i<S.cameraPath.length;i++){if(S.cameraPath[i].distanceToSquared(p)<r2)return true}return false}
+function markFreeRay(origin,end){const d=end.clone().sub(origin);const len=d.length();if(len<CFG.minDepth)return;d.normalize();const stop=Math.max(0,len-CFG.freeStep*1.2);for(let t=CFG.userClearRadius;t<stop;t+=CFG.freeStep){const p=origin.clone().addScaledVector(d,t);const k=key3(p,CFG.freeVoxel);S.free.set(k,Math.min(255,(S.free.get(k)||0)+1))}}
+function purgeCameraBubble(c){const r2=CFG.userClearRadius*CFG.userClearRadius;for(const [k,s] of S.surfels){if(s.p.distanceToSquared(c)<r2){S.surfels.delete(k);S.rejectedPath++}}}
+function addSurfel(p,n,weight=1,carveOrigin=null){if(!Number.isFinite(p.x+p.y+p.z))return false;if(nearCameraPath(p)){S.rejectedPath++;return false}if(freeCountAt(p)>=3){S.rejectedFree++;return false}const k=key3(p,CFG.surfelVoxel);let s=S.surfels.get(k);if(!s){s={p:p.clone(),n:n?.clone()||new THREE.Vector3(),w:0};S.surfels.set(k,s)}const nw=s.w+weight;s.p.multiplyScalar(s.w/nw).addScaledVector(p,weight/nw);if(n&&n.lengthSq()>.1){if(s.n.lengthSq()>.1&&s.n.dot(n)<0)n=n.clone().negate();s.n.multiplyScalar(s.w/nw).addScaledVector(n,weight/nw).normalize()}s.w=nw;if(carveOrigin)markFreeRay(carveOrigin,p);return true}
+
+function viewPointFromUVDepth(view,u,v,depth){const invP=new THREE.Matrix4().fromArray(view.projectionMatrix).invert();const ndc=new THREE.Vector4(u*2-1,1-v*2,1,1).applyMatrix4(invP);if(Math.abs(ndc.w)>1e-8)ndc.multiplyScalar(1/ndc.w);const dir=new THREE.Vector3(ndc.x,ndc.y,ndc.z).normalize();const denom=-dir.z;if(denom<.05)return null;return dir.multiplyScalar(depth/denom)}
+function worldFromViewPoint(view,p){return p.clone().applyMatrix4(new THREE.Matrix4().fromArray(view.transform.matrix))}
+function worldNormalFromView(view,n){const q=new THREE.Quaternion(view.transform.orientation.x,view.transform.orientation.y,view.transform.orientation.z,view.transform.orientation.w);return n.clone().applyQuaternion(q).normalize()}
+
+function shouldSamplePose(pose){const p=new THREE.Vector3(pose.transform.position.x,pose.transform.position.y,pose.transform.position.z);const q=new THREE.Quaternion(pose.transform.orientation.x,pose.transform.orientation.y,pose.transform.orientation.z,pose.transform.orientation.w);if(!S.lastSamplePose){S.lastSamplePose={p,q};return true}const move=p.distanceTo(S.lastSamplePose.p);const dot=Math.min(1,Math.abs(q.dot(S.lastSamplePose.q)));const deg=2*Math.acos(dot)*180/Math.PI;if(move>=CFG.minMoveM||deg>=CFG.minTurnDeg){S.lastSamplePose={p,q};return true}return false}
+
+function sampleDepth(frame,pose,time){if(time-S.lastDepthAt<CFG.depthPeriodMs||!shouldSamplePose(pose))return;S.lastDepthAt=time;const cam=new THREE.Vector3(pose.transform.position.x,pose.transform.position.y,pose.transform.position.z);S.cameraPath.push(cam.clone());if(S.cameraPath.length>1500)S.cameraPath.shift();purgeCameraBubble(cam);let got=false,added=0;
+  for(const view of pose.views){let di=null;try{di=frame.getDepthInformation?.(view)||null}catch(e){continue}if(!di||typeof di.getDepthInMeters!=='function')continue;got=true;const grid=[];for(let gy=0;gy<CFG.sampleRows;gy++){grid[gy]=[];const v=(gy+.5)/CFG.sampleRows;for(let gx=0;gx<CFG.sampleCols;gx++){const u=(gx+.5)/CFG.sampleCols;let d=0;try{d=di.getDepthInMeters(u,v)}catch{}if(!(d>=CFG.minDepth&&d<=CFG.maxDepth)){grid[gy][gx]=null;continue}const pv=viewPointFromUVDepth(view,u,v,d);grid[gy][gx]=pv}}
+    for(let gy=0;gy<CFG.sampleRows-1;gy++)for(let gx=0;gx<CFG.sampleCols-1;gx++){const p=grid[gy][gx],px=grid[gy][gx+1],py=grid[gy+1][gx];if(!p)continue;let n=null;if(px&&py){n=px.clone().sub(p).cross(py.clone().sub(p));if(n.lengthSq()>.000001){n.normalize();if(n.dot(p)>0)n.negate();n=worldNormalFromView(view,n)}else n=null}const wp=worldFromViewPoint(view,p);if(addSurfel(wp,n,1,((gx+gy)&1)?null:cam))added++}
   }
+  if(got){S.depthFrames++;S.depthPoints+=added;updateSplats();if(time-S.lastReconAt>2200&&S.surfels.size>400){reconstructSurfaces();S.lastReconAt=time}}
 }
 
-function stopPreviewCamera(){
-  if(state.previewStream){
-    for(const t of state.previewStream.getTracks()) t.stop();
-    state.previewStream=null;
-  }
-  $('#cameraPreview').srcObject=null;
-}
+const splatVS=`uniform float pointScale; attribute float aWeight; varying float vW; void main(){vW=aWeight;vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=clamp(pointScale/(-mv.z),2.0,15.0);gl_Position=projectionMatrix*mv;}`;
+const splatFS=`precision mediump float; varying float vW; void main(){vec2 q=gl_PointCoord-vec2(.5);if(dot(q,q)>.25)discard;float a=.24+.46*clamp(vW/5.0,0.0,1.0);gl_FragColor=vec4(.22,.84,1.0,a);}`;
+function updateSplats(){const arr=[],w=[];for(const s of S.surfels.values()){if(s.w<CFG.minSurfelWeight)continue;if(freeCountAt(s.p)>=3)continue;arr.push(s.p.x,s.p.y,s.p.z);w.push(Math.min(8,s.w))}if(!S.splat){const g=new THREE.BufferGeometry();const m=new THREE.ShaderMaterial({vertexShader:splatVS,fragmentShader:splatFS,transparent:true,depthWrite:false,uniforms:{pointScale:{value:26}}});S.splat=new THREE.Points(g,m);S.splat.frustumCulled=false;S.scene.add(S.splat)}S.splat.geometry.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));S.splat.geometry.setAttribute('aWeight',new THREE.Float32BufferAttribute(w,1));S.splat.visible=S.splatVisible}
 
-function initThree(){
-  state.scene=new THREE.Scene();
-  state.camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.01,30);
+function clearGroup(g){while(g.children.length){const o=g.children.pop();o.geometry?.dispose();o.material?.dispose()}}
+function polygonAreaXZ(poly){let a=0;for(let i=0,j=poly.length-1;i<poly.length;j=i++)a+=poly[j].x*poly[i].z-poly[i].x*poly[j].z;return Math.abs(a)*.5}
+function hullXZ(points){if(points.length<3)return[];const pts=points.map(p=>({x:p.x,z:p.z})).sort((a,b)=>a.x-b.x||a.z-b.z);const cr=(o,a,b)=>(a.x-o.x)*(b.z-o.z)-(a.z-o.z)*(b.x-o.x);const lo=[];for(const p of pts){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}const up=[];for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p)}lo.pop();up.pop();return lo.concat(up)}
+function addPatch(vertices,kind,confidence){if(vertices.length<3)return;const g=new THREE.BufferGeometry();const a=[];for(const v of vertices)a.push(v.x,v.y,v.z);const idx=[];for(let i=2;i<vertices.length;i++)idx.push(0,i-1,i);g.setAttribute('position',new THREE.Float32BufferAttribute(a,3));g.setIndex(idx);g.computeVertexNormals();const color=kind==='wall'?0xffcc66:kind==='floor'?0x7dff9e:0xd89cff;const m=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.34+Math.min(.28,confidence*.2),side:THREE.DoubleSide,depthWrite:false});const mesh=new THREE.Mesh(g,m);mesh.userData={kind,confidence};S.reconGroup.add(mesh)}
+function histogramPlaneY(points){const bins=new Map();for(const s of points){if(Math.abs(s.n.y)<.7)continue;const b=Math.round(s.p.y/.08);let a=bins.get(b);if(!a){a=[];bins.set(b,a)}a.push(s)}return [...bins.entries()].sort((a,b)=>b[1].length-a[1].length)}
+function cameraIntersectsWall(a,b,c,tmin,tmax,ymin,ymax){const tx=-b,tz=a;for(const p of S.cameraPath){const dist=Math.abs(a*p.x+b*p.z+c);if(dist>.28)continue;const t=tx*p.x+tz*p.z;if(t>=tmin-.15&&t<=tmax+.15&&p.y>=ymin-.2&&p.y<=ymax+.2)return true}return false}
+function fitWalls(cands){const rem=cands.slice();const walls=[];for(let wi=0;wi<CFG.maxWalls&&rem.length>=50;wi++){let best=null;const iters=Math.min(180,Math.max(70,rem.length));for(let it=0;it<iters;it++){const p1=rem[(Math.random()*rem.length)|0].p,p2=rem[(Math.random()*rem.length)|0].p;let a=p2.z-p1.z,b=p1.x-p2.x;const l=Math.hypot(a,b);if(l<.25)continue;a/=l;b/=l;const c=-(a*p1.x+b*p1.z);const ids=[];for(let i=0;i<rem.length;i++){const s=rem[i];const d=Math.abs(a*s.p.x+b*s.p.z+c);if(d>CFG.wallThreshold)continue;if(s.n.lengthSq()>.2){const align=Math.abs(a*s.n.x+b*s.n.z);if(align<.55)continue}ids.push(i)}if(!best||ids.length>best.ids.length)best={a,b,c,ids}}
+    if(!best||best.ids.length<45)break;const pts=best.ids.map(i=>rem[i].p);const tx=-best.b,tz=best.a;let tmin=Infinity,tmax=-Infinity,ymin=Infinity,ymax=-Infinity;for(const p of pts){const t=tx*p.x+tz*p.z;tmin=Math.min(tmin,t);tmax=Math.max(tmax,t);ymin=Math.min(ymin,p.y);ymax=Math.max(ymax,p.y)}if(tmax-tmin>.65&&ymax-ymin>.7&&!cameraIntersectsWall(best.a,best.b,best.c,tmin,tmax,ymin,ymax)){const pointAt=(t,y)=>new THREE.Vector3(tx*t-best.a*best.c,y,tz*t-best.b*best.c);walls.push({verts:[pointAt(tmin,ymin),pointAt(tmax,ymin),pointAt(tmax,ymax),pointAt(tmin,ymax)],support:best.ids.length})}
+    const kill=new Set(best.ids);for(let i=rem.length-1;i>=0;i--)if(kill.has(i))rem.splice(i,1)}return walls}
+function reconstructSurfaces(){clearGroup(S.reconGroup);const pts=[...S.surfels.values()].filter(s=>s.w>=CFG.minSurfelWeight&&freeCountAt(s.p)<3&&!nearCameraPath(s.p,.22));if(pts.length<80){log('recon: not enough surfels',pts.length);return}const yh=histogramPlaneY(pts);let floorBin=null,ceilBin=null;if(yh.length){const ys=yh.filter(x=>x[1].length>=35).map(x=>x[0]);if(ys.length){floorBin=Math.min(...ys);ceilBin=Math.max(...ys);if(ceilBin-floorBin<10)ceilBin=null}}
+  if(floorBin!==null){const ss=pts.filter(s=>Math.abs(Math.round(s.p.y/.08)-floorBin)<=1&&Math.abs(s.n.y)>.65);const h=hullXZ(ss.map(s=>s.p));if(h.length>=3&&polygonAreaXZ(h.map(q=>new THREE.Vector3(q.x,0,q.z)))>.5){const y=floorBin*.08;addPatch(h.map(q=>new THREE.Vector3(q.x,y,q.z)),'floor',Math.min(1,ss.length/250))}}
+  if(ceilBin!==null){const ss=pts.filter(s=>Math.abs(Math.round(s.p.y/.08)-ceilBin)<=1&&Math.abs(s.n.y)>.65);const h=hullXZ(ss.map(s=>s.p));if(h.length>=3&&polygonAreaXZ(h.map(q=>new THREE.Vector3(q.x,0,q.z)))>.5){const y=ceilBin*.08;addPatch(h.map(q=>new THREE.Vector3(q.x,y,q.z)).reverse(),'ceiling',Math.min(1,ss.length/250))}}
+  const walls=fitWalls(pts.filter(s=>Math.abs(s.n.y)<.55));for(const w of walls)addPatch(w.verts,'wall',Math.min(1,w.support/250));log('recon',pts.length,'surfels ->',walls.length,'walls +',S.reconGroup.children.length-walls.length,'horizontal')}
 
-  // Transparent renderer is essential: the native XR camera passthrough remains
-  // visible behind the virtual plane/mesh overlays.
-  state.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:false});
-  state.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-  state.renderer.setSize(innerWidth,innerHeight);
-  state.renderer.setClearColor(0x000000,0);
-  state.renderer.xr.enabled=true;
-  state.renderer.xr.setFoveation?.(0);
-  state.renderer.autoClear=true;
-  $('#xrHost').appendChild(state.renderer.domElement);
+function geoFromMesh(m){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(m.vertices),3));g.setIndex(new THREE.BufferAttribute(new Uint32Array(m.indices),1));g.computeVertexNormals();return g}
+function geoFromPlane(p){const poly=Array.from(p.polygon||[]),a=[],idx=[];for(const v of poly)a.push(v.x,v.y,v.z);for(let i=2;i<poly.length;i++)idx.push(0,i-1,i);const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(a,3));g.setIndex(idx);g.computeVertexNormals();return g}
+function rawMat(){return new THREE.MeshBasicMaterial({color:0x72ff9c,transparent:true,opacity:.17,side:THREE.DoubleSide,depthWrite:false,wireframe:true})}
+function fuseRaw(frame,ref){if(frame.detectedMeshes){for(const [m,c] of S.rawMeshes)if(!frame.detectedMeshes.has(m)){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose();S.rawMeshes.delete(m)}frame.detectedMeshes.forEach(m=>{const pose=frame.getPose(m.meshSpace,ref);if(!pose)return;let c=S.rawMeshes.get(m);let changed=false;if(!c){const o=new THREE.Mesh(geoFromMesh(m),rawMat());o.matrixAutoUpdate=false;o.frustumCulled=false;S.rawGroup.add(o);c={o,last:m.lastChangedTime??0};S.rawMeshes.set(m,c);changed=true}else if((m.lastChangedTime??0)>c.last){c.last=m.lastChangedTime??0;const old=c.o.geometry;c.o.geometry=geoFromMesh(m);old.dispose();changed=true}c.o.matrix.fromArray(pose.transform.matrix);c.o.matrixWorldNeedsUpdate=true;if(changed&&m.vertices?.length){const M=new THREE.Matrix4().fromArray(pose.transform.matrix);const cam=S.cameraPath.at(-1);for(let i=0;i<m.vertices.length;i+=Math.max(3,Math.floor(m.vertices.length/900/3)*3)){const p=new THREE.Vector3(m.vertices[i],m.vertices[i+1],m.vertices[i+2]).applyMatrix4(M);addSurfel(p,null,.6,cam&&((i/3)%4===0)?cam:null)}}})}
+  if(frame.detectedPlanes){frame.detectedPlanes.forEach(p=>{const pose=frame.getPose(p.planeSpace,ref);if(!pose)return;let c=S.rawPlanes.get(p);if(!c){const o=new THREE.Mesh(geoFromPlane(p),rawMat());o.matrixAutoUpdate=false;o.frustumCulled=false;S.rawGroup.add(o);c={o,last:p.lastChangedTime??0};S.rawPlanes.set(p,c)}else if((p.lastChangedTime??0)>c.last){c.last=p.lastChangedTime??0;const old=c.o.geometry;c.o.geometry=geoFromPlane(p);old.dispose()}c.o.matrix.fromArray(pose.transform.matrix);c.o.matrixWorldNeedsUpdate=true;const M=new THREE.Matrix4().fromArray(pose.transform.matrix);for(const v of Array.from(p.polygon||[]))addSurfel(new THREE.Vector3(v.x,v.y,v.z).applyMatrix4(M),null,1.2,null)})}}
 
-  const light=new THREE.HemisphereLight(0xffffff,0x777799,1);
-  state.scene.add(light);
-  window.addEventListener('resize',()=>{
-    state.camera.aspect=innerWidth/innerHeight;
-    state.camera.updateProjectionMatrix();
-    state.renderer.setSize(innerWidth,innerHeight);
-  });
-}
+function render(t,frame){if(frame){const ref=S.renderer.xr.getReferenceSpace();const pose=ref?frame.getViewerPose(ref):null;if(ref){fuseRaw(frame,ref);if(pose)sampleDepth(frame,pose,t)}updateHUD(frame,pose)}S.renderer.render(S.scene,S.camera)}
+function updateHUD(frame,pose){const good=[...S.surfels.values()].filter(s=>s.w>=CFG.minSurfelWeight).length;const rawT=[...S.rawMeshes.values()].reduce((n,c)=>n+(c.o.geometry.index?.count||0)/3,0);$('#stats').textContent=`${good} surfel · ${S.depthFrames} depth frame · ${S.reconGroup.children.length} superfici · ${S.rawMeshes.size} XRMesh · ${Math.round(rawT)} tri`;
+  const hasDepth=S.depthFrames>0,hasRaw=S.rawMeshes.size||S.rawPlanes.size;$('#quality').textContent=hasDepth?'depth metrica':hasRaw?'geometria XR':'nessuna geometria';$('#quality').className='pill '+(hasDepth?'ok':hasRaw?'warn':'bad');$('#mode').textContent=`AR · ${S.profile}${pose?' · tracking':''}`}
 
-const meshPalette=[0x42cfff,0x5effa1,0xff65d8,0x9b83ff,0x68a6ff,0x56f0e0];
-const planePalette=[0xffcc66,0xff8f70,0xc6f36b,0xf0a7ff,0xffe07a,0x8be6ff];
+async function bestSession(){const overlay=$('#hud');const attempts=[
+ {name:'depth+geometry',init:{requiredFeatures:[],optionalFeatures:['depth-sensing','mesh-detection','plane-detection','local-floor','dom-overlay'],depthSensing:{usagePreference:['cpu-optimized'],dataFormatPreference:['float32','unsigned-short','luminance-alpha']},domOverlay:{root:overlay}}},
+ {name:'geometry',init:{requiredFeatures:[],optionalFeatures:['mesh-detection','plane-detection','local-floor','dom-overlay'],domOverlay:{root:overlay}}},
+ {name:'basic',init:{requiredFeatures:[],optionalFeatures:['local-floor','dom-overlay'],domOverlay:{root:overlay}}}
+ ];let last;for(const a of attempts){try{log('request',a.name);const s=await navigator.xr.requestSession('immersive-ar',a.init);S.profile=a.name;return s}catch(e){last=e;log('failed',a.name,e)}}throw last||new Error('immersive-ar non disponibile')}
+async function startAR(){if(!navigator.xr){setStatus('WebXR non disponibile');return}$('#start').disabled=true;stopPreview();try{if(!await navigator.xr.isSessionSupported('immersive-ar'))throw new Error('immersive-ar non supportato');resetMap();const s=await bestSession();S.session=s;s.addEventListener('end',ended,{once:true});S.renderer.xr.setReferenceSpaceType('local-floor');await S.renderer.xr.setSession(s);S.renderer.setAnimationLoop(render);$('#landing').style.display='none';$('#preview').style.display='none';$('#hud').classList.add('active');log('AR started',S.profile,'depthUsage',s.depthUsage||'none','depthFormat',s.depthDataFormat||'none')}catch(e){log('start failed',e);$('#start').disabled=false;$('#landing').style.display='flex';$('#preview').style.display='block';setStatus('AR non avviata',`${e.name}: ${e.message}`);await openPreview()}}
+async function ended(){S.renderer.setAnimationLoop(null);try{await S.renderer.xr.setSession(null)}catch{}S.session=null;reconstructSurfaces();$('#hud').classList.remove('active');$('#landing').style.display='flex';$('#preview').style.display='block';$('#start').disabled=false;setStatus('Scansione terminata',`${S.surfels.size} voxel osservati, ${S.reconGroup.children.length} superfici ricostruite.`);await openPreview()}
+function resetMap(){S.surfels.clear();S.free.clear();S.cameraPath=[];S.lastSamplePose=null;S.lastDepthAt=0;S.depthFrames=0;S.depthPoints=0;S.rejectedFree=0;S.rejectedPath=0;S.lastReconAt=0;clearGroup(S.reconGroup);for(const c of S.rawMeshes.values()){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose()}for(const c of S.rawPlanes.values()){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose()}S.rawMeshes.clear();S.rawPlanes.clear();if(S.splat){S.scene.remove(S.splat);S.splat.geometry.dispose();S.splat.material.dispose();S.splat=null}}
 
-function meshMaterial(id){
-  return new THREE.MeshBasicMaterial({
-    color:meshPalette[(id-1)%meshPalette.length],
-    opacity:0.28,
-    transparent:true,
-    side:THREE.DoubleSide,
-    depthWrite:false
-  });
-}
+function meshExport(){const out={format:'room-surfel-webxr-v1',units:'meters',profile:S.profile,generatedAt:new Date().toISOString(),stats:{surfelVoxels:S.surfels.size,depthFrames:S.depthFrames,depthPoints:S.depthPoints,rejectedFree:S.rejectedFree,rejectedPath:S.rejectedPath},cameraPath:S.cameraPath.map(p=>[p.x,p.y,p.z]),surfaces:[]};for(let si=0;si<S.reconGroup.children.length;si++){const o=S.reconGroup.children[si],pos=o.geometry.getAttribute('position'),verts=[];for(let i=0;i<pos.count;i++){const p=new THREE.Vector3().fromBufferAttribute(pos,i).applyMatrix4(o.matrixWorld);verts.push([p.x,p.y,p.z])}out.surfaces.push({id:si+1,kind:o.userData.kind,confidence:o.userData.confidence,vertices:verts,indices:o.geometry.index?Array.from(o.geometry.index.array):[]})}return out}
+function download(name,text,type){const u=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1500)}
+function doExport(){reconstructSurfaces();const d=meshExport();download('room_surfel_webxr.json',JSON.stringify(d,null,2),'application/json');let obj='# Room Surfel WebXR\n';let base=1;for(const s of d.surfaces){obj+=`\no ${s.kind}_${s.id}\n`;for(const v of s.vertices)obj+=`v ${v[0].toFixed(6)} ${v[1].toFixed(6)} ${v[2].toFixed(6)}\n`;for(let i=0;i<s.indices.length;i+=3)obj+=`f ${base+s.indices[i]} ${base+s.indices[i+1]} ${base+s.indices[i+2]}\n`;base+=s.vertices.length}download('room_surfel_webxr.obj',obj,'text/plain')}
 
-function planeMaterial(id){
-  return new THREE.MeshBasicMaterial({
-    color:planePalette[(id-1)%planePalette.length],
-    opacity:0.42,
-    transparent:true,
-    side:THREE.DoubleSide,
-    depthWrite:false,
-    wireframe:false
-  });
-}
-
-function geometryFromXRMesh(xrMesh){
-  // XRMesh arrays are already expressed in mesh.meshSpace. Three.js keeps them
-  // there; the object's matrix is the meshSpace -> XR reference-space pose.
-  const g=new THREE.BufferGeometry();
-  const vertices=xrMesh.vertices instanceof Float32Array ? new Float32Array(xrMesh.vertices) : new Float32Array(xrMesh.vertices);
-  const indices=xrMesh.indices instanceof Uint32Array ? new Uint32Array(xrMesh.indices) : new Uint32Array(xrMesh.indices);
-  g.setAttribute('position',new THREE.BufferAttribute(vertices,3));
-  g.setIndex(new THREE.BufferAttribute(indices,1));
-  g.computeVertexNormals();
-  g.computeBoundingSphere();
-  return g;
-}
-
-function geometryFromXRPlane(xrPlane){
-  // Plane polygons are in planeSpace. As in the official sample, triangulate a
-  // simple polygon fan. Detected room planes are normally convex/simple.
-  const poly=Array.from(xrPlane.polygon||[]);
-  const vertices=[];
-  for(const p of poly) vertices.push(p.x,p.y,p.z);
-  const indices=[];
-  for(let i=2;i<poly.length;i++) indices.push(0,i-1,i);
-  const g=new THREE.BufferGeometry();
-  g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
-  g.setIndex(indices);
-  g.computeVertexNormals();
-  g.computeBoundingSphere();
-  return g;
-}
-
-function processMeshes(frame,referenceSpace){
-  const detected=frame.detectedMeshes;
-  if(!detected) return;
-
-  // Remove geometry that the XR runtime no longer tracks.
-  for(const [xrMesh,ctx] of state.meshes){
-    if(!detected.has(xrMesh)){
-      state.scene.remove(ctx.object);
-      ctx.object.geometry.dispose();
-      ctx.object.material.dispose();
-      state.meshes.delete(xrMesh);
-      state.geometryRevision++;
-    }
-  }
-
-  detected.forEach((xrMesh)=>{
-    const pose=frame.getPose(xrMesh.meshSpace,referenceSpace);
-    if(!pose) return;
-    let ctx=state.meshes.get(xrMesh);
-    if(!ctx){
-      const id=state.meshSerial++;
-      const obj=new THREE.Mesh(geometryFromXRMesh(xrMesh),meshMaterial(id));
-      obj.matrixAutoUpdate=false;
-      obj.frustumCulled=false;
-      obj.visible=state.showMeshes;
-      obj.userData={id,kind:'mesh',semanticLabel:xrMesh.semanticLabel||''};
-      state.scene.add(obj);
-      ctx={id,object:obj,lastChanged:xrMesh.lastChangedTime??0,semanticLabel:xrMesh.semanticLabel||''};
-      state.meshes.set(xrMesh,ctx);
-      state.geometryRevision++;
-      state.lastGeomChange=performance.now();
-      log('new XRMesh',id,'verts',xrMesh.vertices?.length/3,'triangles',xrMesh.indices?.length/3,'label',ctx.semanticLabel||'-');
-    }else if((xrMesh.lastChangedTime??0)>ctx.lastChanged){
-      ctx.lastChanged=xrMesh.lastChangedTime??0;
-      const old=ctx.object.geometry;
-      ctx.object.geometry=geometryFromXRMesh(xrMesh);
-      old.dispose();
-      state.geometryRevision++;
-      state.lastGeomChange=performance.now();
-    }
-    ctx.object.matrix.fromArray(pose.transform.matrix);
-    ctx.object.matrixWorldNeedsUpdate=true;
-  });
-}
-
-function processPlanes(frame,referenceSpace){
-  const detected=frame.detectedPlanes;
-  if(!detected) return;
-
-  for(const [xrPlane,ctx] of state.planes){
-    if(!detected.has(xrPlane)){
-      state.scene.remove(ctx.object);
-      ctx.object.geometry.dispose();
-      ctx.object.material.dispose();
-      state.planes.delete(xrPlane);
-      state.geometryRevision++;
-    }
-  }
-
-  detected.forEach((xrPlane)=>{
-    const pose=frame.getPose(xrPlane.planeSpace,referenceSpace);
-    if(!pose) return;
-    let ctx=state.planes.get(xrPlane);
-    if(!ctx){
-      const id=state.planeSerial++;
-      const obj=new THREE.Mesh(geometryFromXRPlane(xrPlane),planeMaterial(id));
-      obj.matrixAutoUpdate=false;
-      obj.frustumCulled=false;
-      obj.visible=state.showPlanes;
-      obj.userData={id,kind:'plane',semanticLabel:xrPlane.semanticLabel||''};
-      state.scene.add(obj);
-      ctx={id,object:obj,lastChanged:xrPlane.lastChangedTime??0,semanticLabel:xrPlane.semanticLabel||''};
-      state.planes.set(xrPlane,ctx);
-      state.geometryRevision++;
-      state.lastGeomChange=performance.now();
-      log('new XRPlane',id,'points',xrPlane.polygon?.length,'label',ctx.semanticLabel||'-');
-    }else if((xrPlane.lastChangedTime??0)>ctx.lastChanged){
-      ctx.lastChanged=xrPlane.lastChangedTime??0;
-      const old=ctx.object.geometry;
-      ctx.object.geometry=geometryFromXRPlane(xrPlane);
-      old.dispose();
-      state.geometryRevision++;
-      state.lastGeomChange=performance.now();
-    }
-    ctx.object.matrix.fromArray(pose.transform.matrix);
-    ctx.object.matrixWorldNeedsUpdate=true;
-  });
-}
-
-function render(_time,frame){
-  if(frame){
-    const ref=state.renderer.xr.getReferenceSpace();
-    if(ref){
-      processMeshes(frame,ref);
-      processPlanes(frame,ref);
-    }
-    updateHUD(frame);
-  }
-  state.renderer.render(state.scene,state.camera);
-}
-
-function countTriangles(){
-  let n=0;
-  for(const ctx of state.meshes.values()) n+=(ctx.object.geometry.index?.count||0)/3;
-  for(const ctx of state.planes.values()) n+=(ctx.object.geometry.index?.count||0)/3;
-  return Math.round(n);
-}
-
-function updateHUD(frame){
-  const tris=countTriangles();
-  $('#xrStats').textContent=`${state.meshes.size} mesh · ${state.planes.size} piani · ${tris} triangoli · rev ${state.geometryRevision}`;
-  const hasGeom=state.meshes.size>0||state.planes.size>0;
-  $('#trackingState').textContent=hasGeom?'geometria rilevata':'cerca superfici…';
-  $('#trackingState').className='pill '+(hasGeom?'good':'');
-  if(!frame.detectedMeshes && !frame.detectedPlanes){
-    $('#xrState').textContent=`AR attiva · ${state.sessionProfile}`;
-  }else if(frame.detectedMeshes){
-    $('#xrState').textContent='AR attiva · XRMesh';
-  }else{
-    $('#xrState').textContent='AR attiva · XRPlane';
-  }
-}
-
-async function requestBestSession(){
-  // Start with both geometry proposals as OPTIONAL features. This is deliberate:
-  // requiring mesh-detection can make the entire AR session fail on devices that
-  // support AR but expose only planes. The frame properties tell us what was
-  // actually granted.
-  const overlay=$('#xr-ui');
-  const attempts=[
-    {
-      name:'mesh + plane (optional)',
-      init:{requiredFeatures:[],optionalFeatures:['mesh-detection','plane-detection','local-floor','dom-overlay'],domOverlay:{root:overlay}}
-    },
-    {
-      name:'plane required',
-      init:{requiredFeatures:['plane-detection'],optionalFeatures:['local-floor','dom-overlay'],domOverlay:{root:overlay}}
-    },
-    {
-      name:'basic AR',
-      init:{requiredFeatures:[],optionalFeatures:['local-floor','dom-overlay'],domOverlay:{root:overlay}}
-    }
-  ];
-
-  let lastErr=null;
-  for(const attempt of attempts){
-    try{
-      log('requestSession',attempt.name);
-      const s=await navigator.xr.requestSession('immersive-ar',attempt.init);
-      state.sessionProfile=attempt.name;
-      return s;
-    }catch(err){
-      lastErr=err;
-      log('requestSession failed',attempt.name,err);
-    }
-  }
-  throw lastErr||new Error('immersive-ar non disponibile');
-}
-
-async function startAR(){
-  if(!navigator.xr){
-    setLanding('WebXR non disponibile','Questo browser non espone navigator.xr.');
-    return;
-  }
-  $('#startBtn').disabled=true;
-  setLanding('Avvio AR…','La preview normale viene rilasciata; il runtime XR prende il controllo della camera.');
-  stopPreviewCamera();
-
-  try{
-    const supported=await navigator.xr.isSessionSupported('immersive-ar');
-    if(!supported) throw new Error('immersive-ar non supportato su questo dispositivo/browser');
-    const session=await requestBestSession();
-    state.session=session;
-    clearXRGeometry();
-
-    session.addEventListener('end',onSessionEnded,{once:true});
-    state.renderer.xr.setReferenceSpaceType('local-floor');
-    await state.renderer.xr.setSession(session);
-
-    // The official samples drive Three from setAnimationLoop. This is also the
-    // critical part that lets Three render into the XR projection layer while
-    // the real-world camera remains visible underneath.
-    state.renderer.setAnimationLoop(render);
-    $('#landing').style.display='none';
-    $('#cameraPreview').style.display='none';
-    $('#xr-ui').classList.add('active');
-    $('#xrState').textContent=`AR attiva · ${state.sessionProfile}`;
-    log('XR session started',state.sessionProfile,'domOverlay',session.domOverlayState?.type||'none');
-  }catch(err){
-    log('AR start failed',err);
-    state.session=null;
-    $('#startBtn').disabled=false;
-    $('#landing').style.display='flex';
-    $('#cameraPreview').style.display='block';
-    setLanding('AR non avviata',`${err.name||'Error'}: ${err.message}`);
-    await openPreviewCamera();
-  }
-}
-
-async function endAR(){
-  try{await state.session?.end()}catch(err){log('session.end failed',err)}
-}
-
-async function onSessionEnded(){
-  log('XR session ended');
-  state.renderer.setAnimationLoop(null);
-  try{await state.renderer.xr.setSession(null)}catch{}
-  state.session=null;
-  $('#xr-ui').classList.remove('active');
-  $('#landing').style.display='flex';
-  $('#cameraPreview').style.display='block';
-  $('#startBtn').disabled=false;
-  setLanding('Scansione terminata',`${state.meshes.size} mesh e ${state.planes.size} piani conservati per l’export.`);
-  await openPreviewCamera();
-}
-
-function clearXRGeometry(){
-  for(const ctx of state.meshes.values()){
-    state.scene.remove(ctx.object);ctx.object.geometry.dispose();ctx.object.material.dispose();
-  }
-  for(const ctx of state.planes.values()){
-    state.scene.remove(ctx.object);ctx.object.geometry.dispose();ctx.object.material.dispose();
-  }
-  state.meshes.clear();state.planes.clear();state.meshSerial=1;state.planeSerial=1;state.geometryRevision=0;
-}
-
-function objectWorldVertices(obj){
-  obj.updateMatrixWorld(true);
-  const pos=obj.geometry.getAttribute('position');
-  const out=[];
-  const v=new THREE.Vector3();
-  for(let i=0;i<pos.count;i++){
-    v.fromBufferAttribute(pos,i).applyMatrix4(obj.matrixWorld);
-    out.push([v.x,v.y,v.z]);
-  }
-  return out;
-}
-
-function buildExport(){
-  const out={
-    format:'room-scanner-webxr-direct-v1',
-    units:'meters',
-    generatedAt:new Date().toISOString(),
-    sessionProfile:state.sessionProfile,
-    meshes:[],planes:[]
-  };
-  for(const ctx of state.meshes.values()){
-    const idx=ctx.object.geometry.index;
-    out.meshes.push({
-      id:ctx.id,semanticLabel:ctx.semanticLabel||null,
-      vertices:objectWorldVertices(ctx.object),
-      indices:idx?Array.from(idx.array):[]
-    });
-  }
-  for(const ctx of state.planes.values()){
-    const idx=ctx.object.geometry.index;
-    out.planes.push({
-      id:ctx.id,semanticLabel:ctx.semanticLabel||null,
-      vertices:objectWorldVertices(ctx.object),
-      indices:idx?Array.from(idx.array):[]
-    });
-  }
-  return out;
-}
-
-function download(name,text,type){
-  const url=URL.createObjectURL(new Blob([text],{type}));
-  const a=document.createElement('a');a.href=url;a.download=name;a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),1500);
-}
-
-function exportGeometry(){
-  const data=buildExport();
-  download('room_webxr_geometry.json',JSON.stringify(data,null,2),'application/json');
-  // Also produce an OBJ using exactly the currently tracked open meshes/polygons.
-  let obj='# Room Scanner WebXR direct geometry\n';let base=1;
-  const append=(kind,item)=>{
-    obj+=`\no ${kind}_${item.id}\n`;
-    for(const v of item.vertices)obj+=`v ${v[0].toFixed(6)} ${v[1].toFixed(6)} ${v[2].toFixed(6)}\n`;
-    for(let i=0;i+2<item.indices.length;i+=3)obj+=`f ${base+item.indices[i]} ${base+item.indices[i+1]} ${base+item.indices[i+2]}\n`;
-    base+=item.vertices.length;
-  };
-  data.meshes.forEach(m=>append('mesh',m));
-  data.planes.forEach(p=>append('plane',p));
-  download('room_webxr_geometry.obj',obj,'text/plain');
-  log('exported',data.meshes.length,'meshes',data.planes.length,'planes');
-}
-
-$('#startBtn').addEventListener('click',startAR);
-$('#exitBtn').addEventListener('click',endAR);
-$('#exportBtn').addEventListener('click',exportGeometry);
-$('#toggleMeshBtn').addEventListener('click',()=>{
-  state.showMeshes=!state.showMeshes;
-  for(const ctx of state.meshes.values())ctx.object.visible=state.showMeshes;
-  $('#toggleMeshBtn').textContent=`Mesh ${state.showMeshes?'ON':'OFF'}`;
-});
-$('#togglePlaneBtn').addEventListener('click',()=>{
-  state.showPlanes=!state.showPlanes;
-  for(const ctx of state.planes.values())ctx.object.visible=state.showPlanes;
-  $('#togglePlaneBtn').textContent=`Piani ${state.showPlanes?'ON':'OFF'}`;
-});
-$('#debugBtn').addEventListener('click',()=>$('#debug').classList.toggle('show'));
-$('#xr-ui').addEventListener('beforexrselect',(ev)=>ev.preventDefault());
-
-document.addEventListener('visibilitychange',()=>log('visibility',document.visibilityState));
-window.addEventListener('error',(e)=>log('window error',e.message));
-window.addEventListener('unhandledrejection',(e)=>log('unhandled rejection',e.reason));
-
-initThree();
-openPreviewCamera();
-
-if(navigator.xr){
-  navigator.xr.isSessionSupported('immersive-ar').then(ok=>{
-    log('immersive-ar supported',ok);
-    if(!ok)setLanding('Telecamera pronta, ma AR non supportata','La preview funziona; questo browser però non espone immersive-ar.');
-  }).catch(err=>log('isSessionSupported failed',err));
-}else{
-  log('navigator.xr missing');
-}
+$('#start').onclick=startAR;$('#end').onclick=()=>S.session?.end();$('#build').onclick=()=>{reconstructSurfaces();log('manual rebuild')};$('#export').onclick=doExport;$('#debugBtn').onclick=()=>$('#debug').classList.toggle('show');$('#surfelToggle').onclick=()=>{S.splatVisible=!S.splatVisible;if(S.splat)S.splat.visible=S.splatVisible;$('#surfelToggle').textContent=`Splat ${S.splatVisible?'ON':'OFF'}`};$('#rawToggle').onclick=()=>{S.rawVisible=!S.rawVisible;S.rawGroup.visible=S.rawVisible;$('#rawToggle').textContent=`Raw ${S.rawVisible?'ON':'OFF'}`};$('#hud').addEventListener('beforexrselect',e=>e.preventDefault());
+initThree();openPreview();
 </script>
-</body>
-</html>
+</body></html>
