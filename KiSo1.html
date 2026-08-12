@@ -10,7 +10,7 @@
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:var(--fg);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 #preview,#xrHost{position:fixed;inset:0;width:100%;height:100%}#preview{z-index:0;object-fit:cover;background:#05070a}#xrHost{z-index:1;pointer-events:none}#xrHost canvas{width:100%;height:100%;display:block;background:transparent!important}
 #landing{position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;justify-content:space-between;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));pointer-events:none}.panel{pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-.head{font-size:18px;font-weight:800}.small{font-size:12px;color:var(--muted)}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}button{appearance:none;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#13243a;color:var(--fg);font-weight:750;min-width:110px}button.primary{background:var(--accent);color:#04131b;border-color:transparent}button:disabled{opacity:.45}
+.head{font-size:18px;font-weight:800}.small{font-size:12px;color:var(--muted)}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}button{appearance:none;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#13243a;color:var(--fg);font-weight:750;min-width:110px}button.primary{background:var(--accent);color:#04131b;border-color:transparent}.fakeBtn{display:inline-block;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#13243a;color:var(--fg);font-weight:750;min-width:110px;text-align:center}button:disabled{opacity:.45}
 #hud{position:fixed;inset:0;z-index:8;display:none;pointer-events:none;padding:max(10px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom))}#hud.active{display:block}.top,.bottom{position:absolute;left:10px;right:10px;display:flex;gap:7px;align-items:center}.top{top:max(10px,env(safe-area-inset-top))}.bottom{bottom:max(10px,env(safe-area-inset-bottom));overflow-x:auto}.pill{background:rgba(4,10,18,.65);border:1px solid var(--line);border-radius:12px;padding:8px 10px;backdrop-filter:blur(7px)}.grow{flex:1}.mono{font:11px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}#hud button{pointer-events:auto;background:rgba(10,20,34,.84);white-space:nowrap}
 #debug{position:fixed;left:10px;right:10px;bottom:72px;z-index:10;display:none;max-height:32vh;overflow:auto;white-space:pre-wrap;background:rgba(0,0,0,.8);border:1px solid var(--line);border-radius:12px;padding:8px;font:11px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace}#debug.show{display:block}
 .legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.dot:before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;background:currentColor}.c1{color:#65dcff}.c2{color:#ffd166}.c3{color:#8cff9c}
@@ -19,7 +19,7 @@
 </head>
 <body>
 <video id="preview" playsinline muted autoplay></video><div id="xrHost"></div>
-<div id="landing"><div class="panel"><div class="head">Room Scanner · Surfel Fusion metrico</div><div id="status">Apro la telecamera…</div><div id="sub" class="small">La ricostruzione usa pose WebXR e, quando disponibile, depth metrica del runtime.</div></div><div class="panel"><div class="actions"><button id="start" class="primary" disabled>Avvia scansione</button><button id="debugBtn">Diagnostica</button></div><div class="legend small"><span class="dot c1">surfel persistenti</span><span class="dot c2">superfici ricostruite</span><span class="dot c3">XRMesh/XRPlane</span></div><div class="small" style="margin-top:8px">Muoviti lentamente nella stanza. La mesh non viene chiusa inventando muri: vengono aggiunte solo superfici sostenute da depth/mesh/piani e mai attraverso il percorso della camera.</div></div></div>
+<div id="landing"><div class="panel"><div class="head">Room Scanner · Surfel Fusion metrico</div><div id="status">Apro la telecamera…</div><div id="sub" class="small">La ricostruzione usa pose WebXR e, quando disponibile, depth metrica del runtime.</div></div><div class="panel"><div class="actions"><button id="start" class="primary" disabled>Avvia scansione</button><label style="display:inline-flex;align-items:center"><input id="videoInput" type="file" accept="video/*" capture="environment" hidden><span class="fakeBtn">Video → traiettoria</span></label><button id="debugBtn">Diagnostica</button></div><div class="legend small"><span class="dot c1">surfel persistenti</span><span class="dot c2">superfici ricostruite</span><span class="dot c3">XRMesh/XRPlane</span></div><canvas id="voMap" width="420" height="150" style="display:none;width:100%;height:120px;margin-top:10px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.28)"></canvas><div id="voStatus" class="small" style="margin-top:7px"></div><div class="small" style="margin-top:8px">Muoviti lentamente nella stanza. La mesh non viene chiusa inventando muri: vengono aggiunte solo superfici sostenute da depth/mesh/piani e mai attraverso il percorso della camera.</div></div></div>
 <div id="hud"><div class="top"><div class="pill grow"><b id="mode">AR</b><div id="stats" class="mono small">inizializzazione…</div></div><div id="quality" class="pill warn">cerca depth…</div></div><div class="bottom"><button id="surfelToggle">Splat ON</button><button id="rawToggle">Raw OFF</button><button id="build">Ricostruisci</button><button id="export">Esporta</button><button id="end">Termina</button></div></div>
 <pre id="debug"></pre>
 <script type="module">
@@ -48,6 +48,7 @@ const S={renderer:null,scene:null,camera:null,session:null,preview:null,ref:null
   surfels:new Map(),free:new Map(),cameraPath:[],lastSamplePose:null,lastDepthAt:0,
   depthFrames:0,depthPoints:0,rejectedFree:0,rejectedPath:0,
   rawMeshes:new Map(),rawPlanes:new Map(),rawGroup:null,reconGroup:null,splat:null,
+  voPath:[],voScale:'none',voFrames:0,voInliers:0,voLine:null,
   splatVisible:true,rawVisible:false,debug:[],lastReconAt:0,profile:'none'};
 
 function log(...x){console.log(...x);const s=x.map(v=>v instanceof Error?`${v.name}: ${v.message}`:String(v)).join(' ');S.debug.push(`[${new Date().toLocaleTimeString()}] ${s}`);if(S.debug.length>150)S.debug.shift();$('#debug').textContent=S.debug.join('\n')}
@@ -101,6 +102,64 @@ function rawMat(){return new THREE.MeshBasicMaterial({color:0x72ff9c,transparent
 function fuseRaw(frame,ref){if(frame.detectedMeshes){for(const [m,c] of S.rawMeshes)if(!frame.detectedMeshes.has(m)){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose();S.rawMeshes.delete(m)}frame.detectedMeshes.forEach(m=>{const pose=frame.getPose(m.meshSpace,ref);if(!pose)return;let c=S.rawMeshes.get(m);let changed=false;if(!c){const o=new THREE.Mesh(geoFromMesh(m),rawMat());o.matrixAutoUpdate=false;o.frustumCulled=false;S.rawGroup.add(o);c={o,last:m.lastChangedTime??0};S.rawMeshes.set(m,c);changed=true}else if((m.lastChangedTime??0)>c.last){c.last=m.lastChangedTime??0;const old=c.o.geometry;c.o.geometry=geoFromMesh(m);old.dispose();changed=true}c.o.matrix.fromArray(pose.transform.matrix);c.o.matrixWorldNeedsUpdate=true;if(changed&&m.vertices?.length){const M=new THREE.Matrix4().fromArray(pose.transform.matrix);const cam=S.cameraPath.at(-1);for(let i=0;i<m.vertices.length;i+=Math.max(3,Math.floor(m.vertices.length/900/3)*3)){const p=new THREE.Vector3(m.vertices[i],m.vertices[i+1],m.vertices[i+2]).applyMatrix4(M);addSurfel(p,null,.6,cam&&((i/3)%4===0)?cam:null)}}})}
   if(frame.detectedPlanes){frame.detectedPlanes.forEach(p=>{const pose=frame.getPose(p.planeSpace,ref);if(!pose)return;let c=S.rawPlanes.get(p);if(!c){const o=new THREE.Mesh(geoFromPlane(p),rawMat());o.matrixAutoUpdate=false;o.frustumCulled=false;S.rawGroup.add(o);c={o,last:p.lastChangedTime??0};S.rawPlanes.set(p,c)}else if((p.lastChangedTime??0)>c.last){c.last=p.lastChangedTime??0;const old=c.o.geometry;c.o.geometry=geoFromPlane(p);old.dispose()}c.o.matrix.fromArray(pose.transform.matrix);c.o.matrixWorldNeedsUpdate=true;const M=new THREE.Matrix4().fromArray(pose.transform.matrix);for(const v of Array.from(p.polygon||[]))addSurfel(new THREE.Vector3(v.x,v.y,v.z).applyMatrix4(M),null,1.2,null)})}}
 
+
+// ============================================================================
+// RGB-only visual odometry (optional video feature)
+// ORB features -> descriptor matching -> Essential matrix -> recoverPose.
+// Monocular translation is intrinsically scale-ambiguous: this path is marked
+// relative-scale unless it can be aligned to a metric XR trajectory.
+// ============================================================================
+let cvReadyPromise=null;
+function ensureOpenCV(){
+  if(window.cv && window.cv.Mat) return Promise.resolve(window.cv);
+  if(cvReadyPromise) return cvReadyPromise;
+  cvReadyPromise=new Promise((resolve,reject)=>{
+    const sc=document.createElement('script');
+    sc.src='https://docs.opencv.org/4.x/opencv.js'; sc.async=true;
+    sc.onload=()=>{const wait=()=>{if(window.cv?.Mat)resolve(window.cv);else setTimeout(wait,80)};wait()};
+    sc.onerror=()=>reject(new Error('Impossibile caricare OpenCV.js'));
+    document.head.appendChild(sc);
+  });
+  return cvReadyPromise;
+}
+function drawVOMap(){
+  const c=$('#voMap'),ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);
+  const P=S.voPath;if(P.length<2){c.style.display='none';return}c.style.display='block';
+  let minx=Infinity,maxx=-Infinity,minz=Infinity,maxz=-Infinity;
+  for(const p of P){minx=Math.min(minx,p[0]);maxx=Math.max(maxx,p[0]);minz=Math.min(minz,p[2]);maxz=Math.max(maxz,p[2])}
+  const sx=Math.max(.001,maxx-minx),sz=Math.max(.001,maxz-minz),pad=14,sc=Math.min((c.width-2*pad)/sx,(c.height-2*pad)/sz);
+  ctx.lineWidth=3;ctx.strokeStyle='#63dcff';ctx.beginPath();P.forEach((p,i)=>{const x=pad+(p[0]-minx)*sc,y=c.height-pad-(p[2]-minz)*sc;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();
+  ctx.fillStyle='#7df2ac';const a=P[0],b=P[P.length-1];for(const p of [a,b]){const x=pad+(p[0]-minx)*sc,y=c.height-pad-(p[2]-minz)*sc;ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill()}
+}
+function updateVOLine(){
+  if(S.voLine){S.scene.remove(S.voLine);S.voLine.geometry.dispose();S.voLine.material.dispose();S.voLine=null}
+  if(S.voPath.length<2)return;const pts=S.voPath.map(p=>new THREE.Vector3(p[0],p[1],p[2]));
+  const g=new THREE.BufferGeometry().setFromPoints(pts);const m=new THREE.LineBasicMaterial({color:0xff55dd});S.voLine=new THREE.Line(g,m);S.scene.add(S.voLine)
+}
+async function frameMat(video,canvas,ctx,w,h){ctx.drawImage(video,0,0,w,h);const img=ctx.getImageData(0,0,w,h);const mat=cv.matFromImageData(img);const gray=new cv.Mat();cv.cvtColor(mat,gray,cv.COLOR_RGBA2GRAY);mat.delete();return gray}
+async function estimateVideoTrajectory(file){
+  $('#voStatus').textContent='Carico OpenCV.js e preparo il video…';
+  try{await ensureOpenCV()}catch(e){$('#voStatus').textContent=e.message;log(e);return}
+  const video=document.createElement('video');video.muted=true;video.playsInline=true;video.src=URL.createObjectURL(file);await new Promise((res,rej)=>{video.onloadedmetadata=res;video.onerror=rej});
+  const W=320,H=Math.max(180,Math.round(320*video.videoHeight/video.videoWidth));const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  const fx=.5*W/Math.tan(70*Math.PI/360),fy=fx,cx=W/2,cy=H/2;const K=cv.matFromArray(3,3,cv.CV_64F,[fx,0,cx,0,fy,cy,0,0,1]);
+  const orb=new cv.ORB(1200);const matcher=new cv.BFMatcher(cv.NORM_HAMMING,true);let prevGray=null,prevKP=null,prevDesc=null;
+  let Rw=cv.Mat.eye(3,3,cv.CV_64F),tw=cv.Mat.zeros(3,1,cv.CV_64F);S.voPath=[[0,0,0]];S.voFrames=0;S.voInliers=0;S.voScale='relative-scale';
+  const step=Math.max(.10,Math.min(.22,video.duration/180));let frameIndex=0;
+  for(let t=0;t<video.duration;t+=step){
+    video.currentTime=t;await new Promise(res=>{video.onseeked=()=>res()});const gray=await frameMat(video,canvas,ctx,W,H);const kp=new cv.KeyPointVector(),desc=new cv.Mat(),mask=new cv.Mat();orb.detectAndCompute(gray,mask,kp,desc);mask.delete();
+    if(prevGray && !prevDesc.empty() && !desc.empty()){
+      const matches=new cv.DMatchVector();matcher.match(prevDesc,desc,matches);const arr=[];for(let i=0;i<matches.size();i++){const m=matches.get(i);if(m.distance<55)arr.push(m)}arr.sort((a,b)=>a.distance-b.distance);const use=arr.slice(0,Math.min(500,arr.length));
+      if(use.length>=24){const a=[],b=[];for(const m of use){const p1=prevKP.get(m.queryIdx).pt,p2=kp.get(m.trainIdx).pt;a.push(p1.x,p1.y);b.push(p2.x,p2.y)}const p1=cv.matFromArray(use.length,1,cv.CV_32FC2,a),p2=cv.matFromArray(use.length,1,cv.CV_32FC2,b),emask=new cv.Mat();
+        let E=null,R=new cv.Mat(),tt=new cv.Mat();try{E=cv.findEssentialMat(p1,p2,K,cv.RANSAC,.999,1.2,emask);const inl=cv.recoverPose(E,p1,p2,K,R,tt,emask);if(inl>=18){S.voInliers+=inl;const Rt=new cv.Mat();cv.transpose(R,Rt);const stepT=new cv.Mat();cv.gemm(Rt,tt,-1,new cv.Mat(),0,stepT);const newT=new cv.Mat();cv.gemm(Rt,tw,1,stepT,1,newT);const newR=new cv.Mat();cv.gemm(Rt,Rw,1,new cv.Mat(),0,newR);Rw.delete();tw.delete();Rw=newR;tw=newT;Rt.delete();stepT.delete();S.voPath.push([tw.doubleAt(0,0),tw.doubleAt(1,0),tw.doubleAt(2,0)])}}catch(e){log('VO frame',frameIndex,e)}finally{E?.delete?.();R.delete();tt.delete();emask.delete();p1.delete();p2.delete()}}
+      matches.delete();
+    }
+    prevGray?.delete();prevKP?.delete();prevDesc?.delete();prevGray=gray;prevKP=kp;prevDesc=desc;S.voFrames++;frameIndex++;if(frameIndex%8===0){$('#voStatus').textContent=`Visual odometry: ${frameIndex} frame · ${S.voPath.length} pose · scala relativa`;drawVOMap();await new Promise(r=>setTimeout(r,0))}
+  }
+  prevGray?.delete();prevKP?.delete();prevDesc?.delete();orb.delete();matcher.delete();K.delete();Rw.delete();tw.delete();URL.revokeObjectURL(video.src);drawVOMap();updateVOLine();
+  $('#voStatus').textContent=`Traiettoria RGB pronta: ${S.voPath.length} pose da ${S.voFrames} frame · ${S.voInliers} inlier · scala relativa (monoculare).`;log('VO done',S.voPath.length,'poses',S.voInliers,'inliers')
+}
+
 function render(t,frame){if(frame){const ref=S.renderer.xr.getReferenceSpace();const pose=ref?frame.getViewerPose(ref):null;if(ref){fuseRaw(frame,ref);if(pose)sampleDepth(frame,pose,t)}updateHUD(frame,pose)}S.renderer.render(S.scene,S.camera)}
 function updateHUD(frame,pose){const good=[...S.surfels.values()].filter(s=>s.w>=CFG.minSurfelWeight).length;const rawT=[...S.rawMeshes.values()].reduce((n,c)=>n+(c.o.geometry.index?.count||0)/3,0);$('#stats').textContent=`${good} surfel · ${S.depthFrames} depth frame · ${S.reconGroup.children.length} superfici · ${S.rawMeshes.size} XRMesh · ${Math.round(rawT)} tri`;
   const hasDepth=S.depthFrames>0,hasRaw=S.rawMeshes.size||S.rawPlanes.size;$('#quality').textContent=hasDepth?'depth metrica':hasRaw?'geometria XR':'nessuna geometria';$('#quality').className='pill '+(hasDepth?'ok':hasRaw?'warn':'bad');$('#mode').textContent=`AR · ${S.profile}${pose?' · tracking':''}`}
@@ -114,11 +173,11 @@ async function startAR(){if(!navigator.xr){setStatus('WebXR non disponibile');re
 async function ended(){S.renderer.setAnimationLoop(null);try{await S.renderer.xr.setSession(null)}catch{}S.session=null;reconstructSurfaces();$('#hud').classList.remove('active');$('#landing').style.display='flex';$('#preview').style.display='block';$('#start').disabled=false;setStatus('Scansione terminata',`${S.surfels.size} voxel osservati, ${S.reconGroup.children.length} superfici ricostruite.`);await openPreview()}
 function resetMap(){S.surfels.clear();S.free.clear();S.cameraPath=[];S.lastSamplePose=null;S.lastDepthAt=0;S.depthFrames=0;S.depthPoints=0;S.rejectedFree=0;S.rejectedPath=0;S.lastReconAt=0;clearGroup(S.reconGroup);for(const c of S.rawMeshes.values()){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose()}for(const c of S.rawPlanes.values()){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose()}S.rawMeshes.clear();S.rawPlanes.clear();if(S.splat){S.scene.remove(S.splat);S.splat.geometry.dispose();S.splat.material.dispose();S.splat=null}}
 
-function meshExport(){const out={format:'room-surfel-webxr-v1',units:'meters',profile:S.profile,generatedAt:new Date().toISOString(),stats:{surfelVoxels:S.surfels.size,depthFrames:S.depthFrames,depthPoints:S.depthPoints,rejectedFree:S.rejectedFree,rejectedPath:S.rejectedPath},cameraPath:S.cameraPath.map(p=>[p.x,p.y,p.z]),surfaces:[]};for(let si=0;si<S.reconGroup.children.length;si++){const o=S.reconGroup.children[si],pos=o.geometry.getAttribute('position'),verts=[];for(let i=0;i<pos.count;i++){const p=new THREE.Vector3().fromBufferAttribute(pos,i).applyMatrix4(o.matrixWorld);verts.push([p.x,p.y,p.z])}out.surfaces.push({id:si+1,kind:o.userData.kind,confidence:o.userData.confidence,vertices:verts,indices:o.geometry.index?Array.from(o.geometry.index.array):[]})}return out}
+function meshExport(){const out={format:'room-surfel-webxr-v1',units:'meters',profile:S.profile,generatedAt:new Date().toISOString(),stats:{surfelVoxels:S.surfels.size,depthFrames:S.depthFrames,depthPoints:S.depthPoints,rejectedFree:S.rejectedFree,rejectedPath:S.rejectedPath},cameraPath:S.cameraPath.map(p=>[p.x,p.y,p.z]),visualOdometry:{scale:S.voScale,frames:S.voFrames,inliers:S.voInliers,path:S.voPath},surfaces:[]};for(let si=0;si<S.reconGroup.children.length;si++){const o=S.reconGroup.children[si],pos=o.geometry.getAttribute('position'),verts=[];for(let i=0;i<pos.count;i++){const p=new THREE.Vector3().fromBufferAttribute(pos,i).applyMatrix4(o.matrixWorld);verts.push([p.x,p.y,p.z])}out.surfaces.push({id:si+1,kind:o.userData.kind,confidence:o.userData.confidence,vertices:verts,indices:o.geometry.index?Array.from(o.geometry.index.array):[]})}return out}
 function download(name,text,type){const u=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1500)}
 function doExport(){reconstructSurfaces();const d=meshExport();download('room_surfel_webxr.json',JSON.stringify(d,null,2),'application/json');let obj='# Room Surfel WebXR\n';let base=1;for(const s of d.surfaces){obj+=`\no ${s.kind}_${s.id}\n`;for(const v of s.vertices)obj+=`v ${v[0].toFixed(6)} ${v[1].toFixed(6)} ${v[2].toFixed(6)}\n`;for(let i=0;i<s.indices.length;i+=3)obj+=`f ${base+s.indices[i]} ${base+s.indices[i+1]} ${base+s.indices[i+2]}\n`;base+=s.vertices.length}download('room_surfel_webxr.obj',obj,'text/plain')}
 
-$('#start').onclick=startAR;$('#end').onclick=()=>S.session?.end();$('#build').onclick=()=>{reconstructSurfaces();log('manual rebuild')};$('#export').onclick=doExport;$('#debugBtn').onclick=()=>$('#debug').classList.toggle('show');$('#surfelToggle').onclick=()=>{S.splatVisible=!S.splatVisible;if(S.splat)S.splat.visible=S.splatVisible;$('#surfelToggle').textContent=`Splat ${S.splatVisible?'ON':'OFF'}`};$('#rawToggle').onclick=()=>{S.rawVisible=!S.rawVisible;S.rawGroup.visible=S.rawVisible;$('#rawToggle').textContent=`Raw ${S.rawVisible?'ON':'OFF'}`};$('#hud').addEventListener('beforexrselect',e=>e.preventDefault());
+$('#videoInput').onchange=e=>{const f=e.target.files?.[0];if(f)estimateVideoTrajectory(f)};$('#start').onclick=startAR;$('#end').onclick=()=>S.session?.end();$('#build').onclick=()=>{reconstructSurfaces();log('manual rebuild')};$('#export').onclick=doExport;$('#debugBtn').onclick=()=>$('#debug').classList.toggle('show');$('#surfelToggle').onclick=()=>{S.splatVisible=!S.splatVisible;if(S.splat)S.splat.visible=S.splatVisible;$('#surfelToggle').textContent=`Splat ${S.splatVisible?'ON':'OFF'}`};$('#rawToggle').onclick=()=>{S.rawVisible=!S.rawVisible;S.rawGroup.visible=S.rawVisible;$('#rawToggle').textContent=`Raw ${S.rawVisible?'ON':'OFF'}`};$('#hud').addEventListener('beforexrselect',e=>e.preventDefault());
 initThree();openPreview();
 </script>
 </body></html>
