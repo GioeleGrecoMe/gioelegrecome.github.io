@@ -1,130 +1,138 @@
-<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>KiSonar Live</title>
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+<meta name="theme-color" content="#0b1020" />
+<title>Room Reconstructor — browser-only</title>
 <style>
-:root{--bg:#0a0f18;--pan:#0e1626;--ln:rgba(120,150,200,.22);--tx:#dfe8f5;--mut:#8fa6c4;--acc:#65a9ff;--ok:#4dd39b;--warn:#ffd08a;--bad:#ff6b6b}
-*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overscroll-behavior:none}
-#app{display:flex;flex-direction:column;height:100%}
-header{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--ln);flex-wrap:wrap}
-.brand{font-weight:800;letter-spacing:.2px}.brand small{font-weight:500;color:var(--mut);margin-left:8px}
-.btn{background:#16233a;color:var(--tx);border:1px solid var(--ln);border-radius:10px;padding:9px 14px;font-weight:600;cursor:pointer}
-.btn.primary{background:#1f6feb;border-color:#2f7bf0}.btn.danger{background:#5a1e26;border-color:#7a2a33}.btn:disabled{opacity:.5}
-.spacer{flex:1}
-.stat{display:flex;gap:14px;align-items:center;color:var(--mut);font-size:12.5px;flex-wrap:wrap}
-.stat b{color:var(--tx)}
-main{flex:1;display:grid;grid-template-rows:auto 1fr;gap:10px;padding:12px;min-height:0}
-.card{background:var(--pan);border:1px solid var(--ln);border-radius:14px;padding:10px 12px;min-height:0;display:flex;flex-direction:column}
-.card h3{margin:0 0 6px;font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
-#profileWrap{height:180px}#profile{width:100%;height:100%;display:block}
-#fallWrap{min-height:0}#fall{width:100%;height:100%;display:block;image-rendering:pixelated;border-radius:8px}
-.controls{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:8px 14px;border-top:1px solid var(--ln);color:var(--mut);font-size:12.5px}
-.controls label{display:flex;gap:8px;align-items:center}
-input[type=range]{width:120px}
-.pill{padding:2px 9px;border-radius:20px;background:rgba(101,169,255,.16);color:#a9cbff;font-weight:700;font-size:12px}
-.surf{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
-.surf .s{background:#12203a;border:1px solid var(--ln);border-radius:8px;padding:4px 9px;font-size:12.5px}
-.hint{color:var(--mut);font-size:12px;padding:0 14px 10px}
-@media(max-width:640px){#profileWrap{height:130px}}
-</style></head>
-<body><div id="app">
-<header>
-  <div class="brand">KiSonar <small>Live · sonar acustico continuo</small></div>
-  <button id="start" class="btn primary">▶ Avvia</button>
-  <button id="stop" class="btn danger" disabled>■ Stop</button>
-  <span id="phase" class="pill">fermo</span>
-  <div class="spacer"></div>
-  <div class="stat"><span>diretto <b id="snr">—</b></span><span>fs <b id="fs">—</b></span><span>fps <b id="fps">—</b></span></div>
-</header>
-<main>
-  <div class="card" id="profileWrap"><h3>Profilo di range (eco vs distanza)</h3><canvas id="profile"></canvas>
-    <div class="surf" id="surf"></div></div>
-  <div class="card" id="fallWrap"><h3>Waterfall — le superfici persistenti sono linee verticali; muovi il dispositivo</h3><canvas id="fall"></canvas></div>
-</main>
-<div class="controls">
-  <label>Range max <input id="rng" type="range" min="1.5" max="8" step="0.5" value="5"><b id="rngv">5.0 m</b></label>
-  <label>Banda <select id="band" class="btn"><option value="600,8000">600–8000 Hz</option><option value="300,6000">300–6000 Hz</option><option value="1000,12000">1–12 kHz</option><option value="200,4000">200–4000 Hz (BT)</option></select></label>
-  <label>Volume <input id="vol" type="range" min="0.05" max="0.6" step="0.05" value="0.25"></label>
-  <label>Persistenza <input id="smooth" type="range" min="0" max="0.9" step="0.1" value="0.5"></label>
+:root{color-scheme:dark;--bg:#070b16;--panel:#10172a;--panel2:#151e34;--fg:#eef4ff;--muted:#9aabc7;--accent:#58c4ff;--ok:#6ee7a8;--warn:#ffd166;--bad:#ff6b7a;--line:#26344f}
+*{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
+button,input{font:inherit} button{border:0;border-radius:12px;padding:11px 14px;background:var(--panel2);color:var(--fg);font-weight:650;cursor:pointer} button.primary{background:var(--accent);color:#03111a} button.danger{background:#3a1820;color:#ffd8de} button:disabled{opacity:.45;cursor:not-allowed}
+#app{height:100%;display:grid;grid-template-rows:auto 1fr auto}.top{display:flex;gap:8px;align-items:center;padding:10px 12px;background:linear-gradient(#11182aee,#0c1220e8);backdrop-filter:blur(10px);z-index:5}.top h1{font-size:15px;margin:0;margin-right:auto}.badge{font-size:12px;border:1px solid var(--line);padding:5px 8px;border-radius:999px;color:var(--muted)}
+.stage{position:relative;min-height:0;background:#000}.stage video,.stage canvas.camera{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.stage video{background:#000}.stage canvas.camera{pointer-events:none}.stage::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,#0006 0,transparent 20%,transparent 75%,#0009);pointer-events:none}.reticle{position:absolute;left:50%;top:50%;width:26px;height:26px;transform:translate(-50%,-50%);border:2px solid #fff;border-radius:50%;z-index:3;box-shadow:0 0 0 1px #0008}.reticle:before,.reticle:after{content:"";position:absolute;background:#fff}.reticle:before{width:2px;height:38px;left:10px;top:-8px}.reticle:after{height:2px;width:38px;left:-8px;top:10px}
+.hud{position:absolute;left:12px;right:12px;top:12px;display:flex;justify-content:space-between;gap:10px;z-index:4;pointer-events:none}.card{background:#08101bd9;border:1px solid #ffffff1c;border-radius:12px;padding:9px 10px;backdrop-filter:blur(8px);max-width:70%}.big{font-size:18px;font-weight:760}.muted{color:var(--muted);font-size:12px}.quality.good{color:var(--ok)}.quality.warn{color:var(--warn)}.quality.bad{color:var(--bad)}
+.bottom{background:linear-gradient(#0d1423,#0b1020);padding:9px 10px max(9px,env(safe-area-inset-bottom));border-top:1px solid var(--line);z-index:6}.row{display:flex;gap:8px;align-items:center;overflow:auto;padding-bottom:1px}.row+.row{margin-top:8px}.grow{flex:1}.compact{padding:8px 10px;white-space:nowrap}.field{display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 9px;white-space:nowrap}.field input{width:58px;background:transparent;border:0;color:var(--fg);outline:none;text-align:right}.help{font-size:12px;color:var(--muted);white-space:normal}
+#viewer{display:none;position:absolute;inset:0;z-index:2;background:radial-gradient(circle at 50% 40%,#17233d,#080d18 65%)}#viewer.active{display:block}#view3d{width:100%;height:100%;touch-action:none}.viewlabel{position:absolute;top:12px;left:12px;z-index:3;background:#08101bd9;border:1px solid #ffffff1c;border-radius:10px;padding:8px 10px}
+.toast{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:10;background:#07101cf2;border:1px solid #ffffff2c;padding:10px 12px;border-radius:10px;max-width:86%;text-align:center;display:none}.toast.show{display:block}.modal{position:absolute;inset:0;z-index:20;display:none;place-items:center;background:#000a;padding:18px}.modal.open{display:grid}.sheet{width:min(600px,100%);max-height:90%;overflow:auto;background:#11192b;border:1px solid var(--line);border-radius:18px;padding:16px}.sheet h2{font-size:18px;margin:0 0 8px}.sheet p{color:var(--muted)}.sheet pre{white-space:pre-wrap;background:#080d17;padding:10px;border-radius:10px;color:#c9d7f1;font-size:11px}.statusgrid{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;font-size:12px}.statusgrid b{font-weight:650}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+@media(min-width:850px){#app{grid-template-columns:330px 1fr;grid-template-rows:auto 1fr}.top{grid-column:1/3}.stage{grid-column:2;grid-row:2}.bottom{grid-column:1;grid-row:2;border-top:0;border-right:1px solid var(--line);overflow:auto}.bottom .row{flex-wrap:wrap;overflow:visible}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top"><h1>Room Reconstructor</h1><span id="modeBadge" class="badge">non avviato</span><button id="infoBtn" class="compact">Info</button></header>
+  <main class="stage" id="stage">
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="overlay" class="camera"></canvas>
+    <div id="viewer"><canvas id="view3d"></canvas><div class="viewlabel"><b>Ricostruzione 3D</b><div class="muted">Trascina per ruotare · pizzica/rotella per zoom</div></div></div>
+    <div class="hud"><div class="card"><div id="instruction" class="big">Premi “Avvia scansione”</div><div id="subInstruction" class="muted">Camera e sensori restano sul dispositivo.</div></div><div class="card"><div id="quality" class="quality warn">● qualità —</div><div id="angles" class="muted mono">yaw — · pitch —</div></div></div>
+    <div class="reticle" id="reticle"></div><div id="toast" class="toast"></div>
+  </main>
+  <section class="bottom">
+    <div class="row"><button id="startBtn" class="primary grow">Avvia scansione</button><button id="viewBtn" disabled>Vista 3D</button></div>
+    <div class="row"><button id="captureBtn" class="primary grow" disabled>+ Registra angolo</button><button id="undoBtn" disabled>↶</button><button id="closeBtn" disabled>Chiudi stanza</button></div>
+    <div class="row">
+      <label class="field">Camera <input id="camHeight" type="number" min="0.5" max="2.5" step="0.01" value="1.50"> m</label>
+      <label class="field">Soffitto <input id="roomHeight" type="number" min="1.8" max="6" step="0.01" value="2.70"> m</label>
+    </div>
+    <div class="row"><button id="calibrateBtn" disabled>Calibra direzione</button><button id="xrBtn" disabled>Prova WebXR</button><button id="resetBtn" class="danger">Reset</button></div>
+    <div class="row"><button id="jsonBtn" disabled>Esporta JSON</button><button id="objBtn" disabled>Esporta OBJ</button></div>
+    <div id="summary" class="help">Il fallback universale usa orientamento del telefono + intersezione del raggio con il pavimento. Per migliorare la precisione, resta più o meno fermo mentre punti gli angoli del pavimento.</div>
+  </section>
 </div>
-<div class="hint" id="hint">Consenti il microfono. Il sonar emette un chirp ripetuto e mostra gli echi (superfici) in tempo reale. Aggancia il diretto da solo: funziona con qualsiasi lag Bluetooth. Ruota/sposta il dispositivo per vedere la stanza nel waterfall.</div>
-</div>
-<script id="worklet" type="text/plain">
-class Cap extends AudioWorkletProcessor{constructor(){super();this.b=new Float32Array(2048);this.u=0;}
- process(inp){const x=inp[0]&&inp[0][0];if(x&&x.length){let o=0;while(o<x.length){const n=Math.min(x.length-o,this.b.length-this.u);this.b.set(x.subarray(o,o+n),this.u);this.u+=n;o+=n;if(this.u===this.b.length){this.port.postMessage(this.b,[this.b.buffer]);this.b=new Float32Array(2048);this.u=0;}}}return true;}}
-registerProcessor('cap',Cap);
-</script>
+
+<div id="infoModal" class="modal"><div class="sheet"><h2>Come funziona</h2><p>La pagina usa una strategia progressiva e non invia immagini a server.</p><div class="statusgrid"><b>1. WebXR</b><span>Se il browser espone <span class="mono">immersive-ar</span> e plane detection, prova a raccogliere piani reali.</span><b>2. Sensori</b><span>Altrimenti usa camera + orientamento. Ogni tap crea un raggio e lo interseca con il pavimento assumendo l’altezza della camera.</span><b>3. Manuale</b><span>Se i sensori non sono disponibili, la camera resta comunque utilizzabile ma la geometria metrica non è affidabile.</span></div><p><b>Consiglio:</b> imposta bene “Camera” (altezza della lente da terra), calibra la direzione guardando una parete, quindi registra gli angoli del pavimento in ordine lungo il perimetro.</p><pre id="debugInfo"></pre><button id="closeInfo">Chiudi</button></div></div>
+
 <script>
-const $=id=>document.getElementById(id), C=343;
-// ---------- FFT ----------
-function fft(re,im,inv){const n=re.length;for(let i=1,j=0;i<n;i++){let b=n>>1;for(;j&b;b>>=1)j^=b;j^=b;if(i<j){const tr=re[i];re[i]=re[j];re[j]=tr;const ti=im[i];im[i]=im[j];im[j]=ti;}}
- for(let len=2;len<=n;len<<=1){const a=(inv?2:-2)*Math.PI/len,wr=Math.cos(a),wi=Math.sin(a);for(let i=0;i<n;i+=len){let cr=1,ci=0;for(let k=0;k<len/2;k++){const u=i+k,v=u+len/2,vr=re[v]*cr-im[v]*ci,vi=re[v]*ci+im[v]*cr;re[v]=re[u]-vr;im[v]=im[u]-vi;re[u]+=vr;im[u]+=vi;const ncr=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=ncr;}}}
- if(inv)for(let i=0;i<n;i++){re[i]/=n;im[i]/=n;}}
-const np2=x=>{let p=1;while(p<x)p<<=1;return p;};
-function makeChirp(fs,dur,f0,f1){const n=Math.round(dur*fs),x=new Float32Array(n),L=Math.log(f1/f0);for(let i=0;i<n;i++){const t=i/fs,ph=2*Math.PI*f0*dur/L*(Math.exp(L*t/dur)-1),w=0.5-0.5*Math.cos(2*Math.PI*i/(n-1));x[i]=w*Math.sin(ph);}return x;}
-// ---------- engine ----------
-let ctx,stream,worklet,srcNode,loopSrc,out,ring,rw,ringLen,mf,nfft,chirp,fs,running=false,procTimer=null,frames=0,lastFpsT=0,profEMA=null;
-let CHIRP_DUR=0.04, GAP=0.05, MAXR=5, F0=600, F1=8000, VOL=0.25, SMOOTH=0.5;
-function buildMF(){const cr=new Float64Array(nfft),ci=new Float64Array(nfft);cr.set(chirp);fft(cr,ci,false);const kr=new Float64Array(nfft),ki=new Float64Array(nfft);for(let i=0;i<nfft;i++){kr[i]=cr[i];ki[i]=-ci[i];}mf={kr,ki};}
+'use strict';
+// Room Reconstructor: intentionally dependency-free so the file can run offline after being served once.
+// Camera/sensor APIs require a secure context (HTTPS or localhost on most browsers).
+const $=s=>document.querySelector(s);
+const video=$('#video'), overlay=$('#overlay'), octx=overlay.getContext('2d'), viewer=$('#viewer'), view3d=$('#view3d'), vctx=view3d.getContext('2d');
+const state={camera:false,sensors:false,mode:'idle',points:[],closed:false,orientation:{alpha:null,beta:null,gamma:null,absolute:false},yawOffset:0,lastRay:null,xrSession:null,xrPlanes:[],view:{yaw:.65,pitch:.42,zoom:1,drag:false,x:0,y:0}};
+function toast(msg,ms=2200){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._tm);t._tm=setTimeout(()=>t.classList.remove('show'),ms)}
+function setMode(m){state.mode=m;$('#modeBadge').textContent=m==='sensor'?'camera + sensori':m==='xr'?'WebXR AR':m==='camera'?'solo camera':m;}
+function resize(){for(const c of [overlay,view3d]){const r=c.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);c.width=Math.max(1,Math.round(r.width*d));c.height=Math.max(1,Math.round(r.height*d));c._d=d;}drawOverlay();draw3D();}
+addEventListener('resize',resize);screen.orientation?.addEventListener?.('change',resize);
+function rad(d){return d*Math.PI/180} function deg(r){return r*180/Math.PI}
+// Approximate camera forward vector from DeviceOrientation Euler angles.
+// This is sufficient for tap-to-point reconstruction; WebXR, when available, is preferred for metric tracking.
+function orientationForward(){
+  const {alpha,beta,gamma}=state.orientation;if(alpha==null||beta==null||gamma==null)return null;
+  // W3C device orientation Z-X'-Y'' rotation. Camera looks along device -Z axis.
+  const a=rad(alpha-state.yawOffset), b=rad(beta), g=rad(gamma);
+  const ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b),cg=Math.cos(g),sg=Math.sin(g);
+  // Rz(a) Rx(b) Ry(g) * [0,0,-1]
+  let x=-(ca*sg + sa*sb*cg), y=-(sa*sg - ca*sb*cg), z=-(cb*cg);
+  // Browser/device axes are awkward for world geometry. Use world Y up and map compass horizontal plane to X/Z.
+  // The following normalization/axis remap is empirically stable for portrait/landscape aiming.
+  const angle=(screen.orientation?.angle||window.orientation||0); const q=rad(angle);
+  const sx=x*Math.cos(q)-y*Math.sin(q), sy=x*Math.sin(q)+y*Math.cos(q); x=sx;y=sy;
+  // Re-map: vertical component derives mainly from device-forward world z. Horizontal heading from x/y.
+  const heading=rad((alpha-state.yawOffset + angle)%360); const pitch=rad(clamp(90-Math.abs(beta),-89,89)) * (beta>=0?1:-1);
+  // More predictable ray: heading from alpha, elevation from beta; negative elevation points toward floor.
+  const elev=rad(clamp(beta-90,-89,89));
+  return norm3({x:Math.sin(heading)*Math.cos(elev),y:Math.sin(elev),z:-Math.cos(heading)*Math.cos(elev)});
+}
+function norm3(v){const n=Math.hypot(v.x,v.y,v.z)||1;return{x:v.x/n,y:v.y/n,z:v.z/n}} function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function floorIntersection(){const r=orientationForward();if(!r)return null;const h=parseFloat($('#camHeight').value)||1.5;if(r.y>=-0.025)return null;const t=-h/r.y;if(t<=0||t>30)return null;return{x:r.x*t,z:r.z*t,d:t};}
+function onOrientation(e){state.orientation={alpha:e.alpha,beta:e.beta,gamma:e.gamma,absolute:e.absolute};state.sensors=e.alpha!=null&&e.beta!=null;state.lastRay=floorIntersection();updateHud();drawOverlay();}
+async function requestSensors(){
+  try{if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){const p=await DeviceOrientationEvent.requestPermission();if(p!=='granted')throw Error('permesso sensori negato');}
+    addEventListener('deviceorientation',onOrientation,true);return true;
+  }catch(err){console.warn('[sensors]',err);return false}
+}
+async function startCamera(){
+  if(!navigator.mediaDevices?.getUserMedia)throw Error('getUserMedia non disponibile');
+  const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=stream;await video.play();state.camera=true;
+}
 async function start(){
- if(!window.isSecureContext){setHint('Serve HTTPS o localhost per il microfono.');return;}
- const AC=window.AudioContext||window.webkitAudioContext;ctx=new AC({latencyHint:'interactive'});await ctx.resume();fs=ctx.sampleRate;$('fs').textContent=(fs/1000).toFixed(1)+' kHz';
- const ac={channelCount:{ideal:1}};ac.echoCancellation=false;ac.noiseSuppression=false;ac.autoGainControl=false;
- stream=await navigator.mediaDevices.getUserMedia({audio:ac});const tr=stream.getAudioTracks()[0];try{await tr.applyConstraints({echoCancellation:false,noiseSuppression:false,autoGainControl:false});}catch(e){}
- chirp=makeChirp(fs,CHIRP_DUR,F0,F1);nfft=np2(Math.round(1.7*(CHIRP_DUR+GAP)*fs)+chirp.length);buildMF();
- // looping excitation: chirp + gap on both channels
- const P=Math.round((CHIRP_DUR+GAP)*fs),buf=ctx.createBuffer(2,P,fs),cd=new Float32Array(P);for(let i=0;i<chirp.length;i++)cd[i]=chirp[i];buf.copyToChannel(cd,0);buf.copyToChannel(cd,1);
- loopSrc=ctx.createBufferSource();loopSrc.buffer=buf;loopSrc.loop=true;out=ctx.createGain();out.gain.value=VOL;out.connect(ctx.destination);loopSrc.connect(out);
- // capture via ScriptProcessorNode: universally supported, works under file:// with no module loading
- ringLen=Math.round(1.7*(CHIRP_DUR+GAP)*fs);ring=new Float32Array(ringLen);rw=0;
- srcNode=ctx.createMediaStreamSource(stream);const sp=ctx.createScriptProcessor(2048,1,1);worklet=sp;
- sp.onaudioprocess=e=>{const d=e.inputBuffer.getChannelData(0);for(let i=0;i<d.length;i++){ring[rw]=d[i];rw=(rw+1)%ringLen;}};
- const z=ctx.createGain();z.gain.value=0;srcNode.connect(sp);sp.connect(z);z.connect(ctx.destination);
- loopSrc.start();running=true;profEMA=null;frames=0;lastFpsT=performance.now();
- $('start').disabled=true;$('stop').disabled=false;$('phase').textContent='scansione';$('phase').style.background='rgba(77,211,155,.18)';
- setHint('Sonar attivo. Avvicinati/allontanati da una parete: la linea nel waterfall si muove.');
- procTimer=setInterval(processFrame,70);
+  $('#startBtn').disabled=true; $('#instruction').textContent='Richiesta permessi…';
+  const sensorPromise=requestSensors();
+  try{await startCamera();}catch(e){console.error('[camera]',e);toast('Camera non disponibile: '+e.message,3500)}
+  const sensorOK=await sensorPromise; setMode(sensorOK?'sensor':state.camera?'camera':'manual');
+  $('#captureBtn').disabled=!sensorOK;$('#calibrateBtn').disabled=!sensorOK;$('#startBtn').textContent='Scansione attiva';
+  $('#xrBtn').disabled=!(navigator.xr); $('#instruction').textContent=sensorOK?'Punta il mirino su un angolo del pavimento':'Sensori non disponibili';
+  $('#subInstruction').textContent=sensorOK?'Registra gli angoli in ordine lungo il perimetro.':'La camera funziona, ma il raycasting metrico richiede orientamento.'; updateDebug();resize();
 }
-async function stop(){running=false;if(procTimer)clearInterval(procTimer);try{loopSrc&&loopSrc.stop();}catch(e){}try{worklet&&(worklet.onaudioprocess=null,worklet.disconnect());}catch(e){}try{srcNode&&srcNode.disconnect();}catch(e){}if(stream)for(const t of stream.getTracks())t.stop();if(ctx)try{await ctx.close();}catch(e){}
- $('start').disabled=false;$('stop').disabled=true;$('phase').textContent='fermo';$('phase').style.background='rgba(101,169,255,.16)';}
-function window16(){const w=new Float64Array(ringLen);for(let i=0;i<ringLen;i++)w[i]=ring[(rw+i)%ringLen];return w;}
-function compress(rx){const xr=new Float64Array(nfft),xi=new Float64Array(nfft);xr.set(rx.subarray(0,Math.min(rx.length,nfft)));fft(xr,xi,false);for(let i=0;i<nfft;i++){const r=xr[i]*mf.kr[i]-xi[i]*mf.ki[i],m=xr[i]*mf.ki[i]+xi[i]*mf.kr[i];xr[i]=r;xi[i]=m;}fft(xr,xi,true);const mag=new Float64Array(nfft);for(let i=0;i<nfft;i++)mag[i]=Math.hypot(xr[i],xi[i]);return mag;}
-function processFrame(){if(!running)return;const now=performance.now();
- const rx=window16(),mag=compress(rx);
- // direct = strongest peak in first period window
- const lim=Math.round((CHIRP_DUR+GAP)*fs);let mi=0,mv=0;for(let i=0;i<lim&&i<mag.length;i++)if(mag[i]>mv){mv=mag[i];mi=i;}
- if(mv<1e-6){return;}
- const NB=360, prof=new Float64Array(NB), sMax=Math.round(2*MAXR/C*fs);
- for(let b=0;b<NB;b++){const s=mi+Math.round(b/(NB-1)*sMax);prof[b]=(s<mag.length?mag[s]:0)/mv;}
- if(!profEMA||profEMA.length!==NB)profEMA=prof.slice();else for(let b=0;b<NB;b++)profEMA[b]=SMOOTH*profEMA[b]+(1-SMOOTH)*prof[b];
- // noise floor (median) + SNR
- const sorted=Array.from(profEMA).sort((a,b)=>a-b),med=sorted[sorted.length>>1]+1e-9,snr=20*Math.log10(1/med);
- $('snr').textContent=snr.toFixed(0)+' dB';
- drawProfile(profEMA,med);drawFall(profEMA);listSurfaces(profEMA,med);
- frames++;if(now-lastFpsT>500){$('fps').textContent=(frames*1000/(now-lastFpsT)).toFixed(0);frames=0;lastFpsT=now;}
+function updateHud(){const o=state.orientation;$('#angles').textContent=o.alpha==null?'yaw — · pitch —':`yaw ${((o.alpha-state.yawOffset+360)%360).toFixed(0)}° · pitch ${(o.beta??0).toFixed(0)}°`;const p=state.lastRay;let q='bad',txt='● qualità bassa';if(state.mode==='xr'){q='good';txt='● qualità XR'}else if(p&&p.d<7){q='good';txt='● qualità buona'}else if(p){q='warn';txt='● qualità media'}$('#quality').className='quality '+q;$('#quality').textContent=txt;}
+function capture(){if(state.closed)return toast('La stanza è già chiusa.');const p=floorIntersection();if(!p)return toast('Inclina il telefono verso il pavimento: il raggio non lo interseca.');const pt={x:p.x,z:p.z};if(state.points.length){const last=state.points.at(-1);if(Math.hypot(pt.x-last.x,pt.z-last.z)<.12)return toast('Punto troppo vicino al precedente.');}state.points.push(pt);afterGeometryChange();toast(`Angolo ${state.points.length} registrato · distanza ${p.d.toFixed(2)} m`);}
+function afterGeometryChange(){const n=state.points.length;$('#undoBtn').disabled=!n;$('#closeBtn').disabled=n<3;$('#viewBtn').disabled=n<2;$('#jsonBtn').disabled=n<2;$('#objBtn').disabled=!state.closed;$('#instruction').textContent=state.closed?`Stanza chiusa · ${n} angoli`:`${n} angol${n===1?'o':'i'} registrat${n===1?'o':'i'}`;$('#summary').textContent=geometrySummary();drawOverlay();draw3D();}
+function polygonArea(ps){let a=0;for(let i=0;i<ps.length;i++){const p=ps[i],q=ps[(i+1)%ps.length];a+=p.x*q.z-q.x*p.z}return Math.abs(a)/2}
+function perimeter(ps){let s=0;for(let i=1;i<ps.length;i++)s+=Math.hypot(ps[i].x-ps[i-1].x,ps[i].z-ps[i-1].z);if(state.closed&&ps.length>2)s+=Math.hypot(ps[0].x-ps.at(-1).x,ps[0].z-ps.at(-1).z);return s}
+function geometrySummary(){const ps=state.points;if(ps.length<2)return 'Registra almeno due angoli per iniziare a vedere la geometria.';let s=`${ps.length} vertici · perimetro ${perimeter(ps).toFixed(2)} m`;if(state.closed)s+=` · area ${polygonArea(ps).toFixed(2)} m² · volume ${(polygonArea(ps)*(parseFloat($('#roomHeight').value)||2.7)).toFixed(2)} m³`;return s}
+function closeRoom(){if(state.points.length<3)return;state.closed=true;afterGeometryChange();showViewer(true);}
+function undo(){if(!state.points.length)return;state.closed=false;state.points.pop();afterGeometryChange()}
+function resetAll(){state.points=[];state.closed=false;state.yawOffset=0;afterGeometryChange();showViewer(false);toast('Geometria azzerata')}
+function calibrate(){const a=state.orientation.alpha;if(a==null)return toast('Nessun dato di orientamento.');state.yawOffset=a;toast('Direzione impostata come asse frontale della stanza.');updateHud();}
+function drawOverlay(){const d=overlay._d||1,w=overlay.width,h=overlay.height;octx.clearRect(0,0,w,h);if(!state.points.length)return;octx.save();octx.scale(d,d);const W=w/d,H=h/d;octx.font='12px system-ui';octx.textAlign='center';octx.textBaseline='middle';// We cannot project historic world points onto camera without full 6DoF tracking, so display a compact top-down inset.
+  const box={x:12,y:H-156,w:142,h:142};octx.fillStyle='#07101ddd';roundRect(octx,box.x,box.y,box.w,box.h,12);octx.fill();octx.strokeStyle='#ffffff22';octx.stroke();const ps=state.points;let minx=Math.min(...ps.map(p=>p.x)),maxx=Math.max(...ps.map(p=>p.x)),minz=Math.min(...ps.map(p=>p.z)),maxz=Math.max(...ps.map(p=>p.z));let span=Math.max(maxx-minx,maxz-minz,2),sc=(box.w-28)/span,cx=box.x+box.w/2-(minx+maxx)/2*sc,cy=box.y+box.h/2+(minz+maxz)/2*sc;octx.beginPath();ps.forEach((p,i)=>{const x=cx+p.x*sc,y=cy-p.z*sc;i?octx.lineTo(x,y):octx.moveTo(x,y)});if(state.closed)octx.closePath();octx.lineWidth=2;octx.strokeStyle='#58c4ff';octx.stroke();ps.forEach((p,i)=>{const x=cx+p.x*sc,y=cy-p.z*sc;octx.fillStyle='#fff';octx.beginPath();octx.arc(x,y,7,0,7);octx.fill();octx.fillStyle='#07101d';octx.fillText(String(i+1),x,y+.5)});octx.restore();}
+function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,h,r):(ctx.rect(x,y,w,h));}
+// Small dependency-free 3D wireframe renderer. Geometry is true metric coordinates; rendering is only visualization.
+function draw3D(){const d=view3d._d||1,W=view3d.width,H=view3d.height;vctx.clearRect(0,0,W,H);if(!viewer.classList.contains('active')||state.points.length<2)return;vctx.save();vctx.scale(d,d);const w=W/d,h=H/d,ps=state.points,RH=parseFloat($('#roomHeight').value)||2.7;let cx=ps.reduce((s,p)=>s+p.x,0)/ps.length,cz=ps.reduce((s,p)=>s+p.z,0)/ps.length;const maxR=Math.max(2,...ps.map(p=>Math.hypot(p.x-cx,p.z-cz)));const camDist=maxR*3.2/state.view.zoom+3, yaw=state.view.yaw,pitch=state.view.pitch;function proj(P){let x=P.x-cx,y=P.y-RH*.45,z=P.z-cz;const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);let x1=cy*x-sy*z,z1=sy*x+cy*z;let y1=cp*y-sp*z1,z2=sp*y+cp*z1+camDist;const f=Math.min(w,h)*1.05;return{x:w/2+x1*f/z2,y:h/2-y1*f/z2,z:z2}}function line(a,b,alpha=1,lw=2){const A=proj(a),B=proj(b);if(A.z<=.1||B.z<=.1)return;vctx.globalAlpha=alpha;vctx.lineWidth=lw;vctx.strokeStyle='#dbeafe';vctx.beginPath();vctx.moveTo(A.x,A.y);vctx.lineTo(B.x,B.y);vctx.stroke()}
+  // ground grid
+  vctx.strokeStyle='#ffffff14';vctx.lineWidth=1;for(let k=-6;k<=6;k++){line({x:cx+k,y:0,z:cz-6},{x:cx+k,y:0,z:cz+6},.18,1);line({x:cx-6,y:0,z:cz+k},{x:cx+6,y:0,z:cz+k},.18,1)}
+  for(let i=0;i<ps.length;i++){const p=ps[i],q=ps[(i+1)%ps.length];line({x:p.x,y:0,z:p.z},{x:p.x,y:RH,z:p.z},.95,2.3);if(i<ps.length-1||state.closed){line({x:p.x,y:0,z:p.z},{x:q.x,y:0,z:q.z},1,2.5);line({x:p.x,y:RH,z:p.z},{x:q.x,y:RH,z:q.z},.75,2)}}vctx.restore();}
+function showViewer(on){viewer.classList.toggle('active',on);video.style.visibility=on?'hidden':'visible';overlay.style.visibility=on?'hidden':'visible';$('#reticle').style.display=on?'none':'block';$('#viewBtn').textContent=on?'Camera':'Vista 3D';draw3D()}
+function dl(name,text,type='application/json'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
+function exportJSON(){const obj={format:'room-reconstructor-v1',created:new Date().toISOString(),units:'meters',method:state.mode,cameraHeight:+$('#camHeight').value,roomHeight:+$('#roomHeight').value,closed:state.closed,floorPolygon:state.points,metrics:{perimeter:perimeter(state.points),area:state.closed?polygonArea(state.points):null,volume:state.closed?polygonArea(state.points)*(+$('#roomHeight').value):null}};dl('room.json',JSON.stringify(obj,null,2))}
+function exportOBJ(){if(!state.closed)return;const ps=state.points,h=+$('#roomHeight').value;let s='# Room Reconstructor OBJ\n';ps.forEach(p=>s+=`v ${p.x.toFixed(5)} 0 ${p.z.toFixed(5)}\n`);ps.forEach(p=>s+=`v ${p.x.toFixed(5)} ${h.toFixed(5)} ${p.z.toFixed(5)}\n`);s+='\n';const n=ps.length;s+='f '+ps.map((_,i)=>i+1).reverse().join(' ')+'\n';s+='f '+ps.map((_,i)=>n+i+1).join(' ')+'\n';for(let i=0;i<n;i++){let j=(i+1)%n;s+=`f ${i+1} ${j+1} ${n+j+1} ${n+i+1}\n`}dl('room.obj',s,'text/plain')}
+async function tryXR(){
+  if(!navigator.xr)return toast('WebXR non disponibile in questo browser.');let supported=false;try{supported=await navigator.xr.isSessionSupported('immersive-ar')}catch{}if(!supported)return toast('immersive-ar non supportato su questo dispositivo/browser.',3200);
+  try{const session=await navigator.xr.requestSession('immersive-ar',{requiredFeatures:['local-floor'],optionalFeatures:['plane-detection']});state.xrSession=session;setMode('xr');$('#modeBadge').textContent='WebXR AR attivo';toast('WebXR avviato. Muovi lentamente il telefono per rilevare superfici.',3000);const gl=document.createElement('canvas').getContext('webgl',{xrCompatible:true});await gl.makeXRCompatible?.();session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl)});const ref=await session.requestReferenceSpace('local-floor');function frame(t,f){const planes=f.detectedPlanes;if(planes){state.xrPlanes=[...planes];$('#subInstruction').textContent=`WebXR: ${state.xrPlanes.length} piani rilevati. Il browser espone i piani, ma la conversione automatica in stanza dipende dall'implementazione del modulo.`;updateDebug()}session.requestAnimationFrame(frame)}session.requestAnimationFrame(frame);session.addEventListener('end',()=>{state.xrSession=null;setMode(state.sensors?'sensor':'camera');toast('Sessione WebXR terminata.')});}
+  catch(e){console.warn('[xr]',e);toast('WebXR presente, ma plane detection/sessione AR non utilizzabile: '+e.message,4200)}
 }
-// ---------- rendering ----------
-let pc,pctx,fc,fctx,dpr=devicePixelRatio||1;
-function fitCanvas(cv){const r=cv.getBoundingClientRect();cv.width=Math.max(1,r.width*dpr|0);cv.height=Math.max(1,r.height*dpr|0);return cv.getContext('2d');}
-function setupCanvases(){pc=$('profile');pctx=fitCanvas(pc);fc=$('fall');fctx=fitCanvas(fc);fctx.fillStyle='#060b14';fctx.fillRect(0,0,fc.width,fc.height);}
-function drawProfile(p,med){const w=pc.width,h=pc.height,g=pctx;g.clearRect(0,0,w,h);
- g.strokeStyle='rgba(120,150,200,.16)';g.lineWidth=1;g.fillStyle='rgba(143,166,196,.8)';g.font=(11*dpr)+'px system-ui';g.textAlign='center';
- for(let m=0;m<=MAXR;m++){const x=m/MAXR*w;g.beginPath();g.moveTo(x,0);g.lineTo(x,h-14*dpr);g.stroke();g.fillText(m+'m',x,h-2*dpr);}
- g.beginPath();for(let b=0;b<p.length;b++){const x=b/(p.length-1)*w,y=(h-16*dpr)*(1-Math.min(1,p[b]/1.0));if(b===0)g.moveTo(x,y);else g.lineTo(x,y);}
- g.strokeStyle='#65a9ff';g.lineWidth=1.6*dpr;g.stroke();
- g.strokeStyle='rgba(255,208,138,.5)';g.setLineDash([4,4]);g.beginPath();const ty=(h-16*dpr)*(1-Math.min(1,3*med));g.moveTo(0,ty);g.lineTo(w,ty);g.stroke();g.setLineDash([]);}
-function heat(v){v=Math.max(0,Math.min(1,v));const r=Math.min(255,v*3*255),gg=Math.min(255,Math.max(0,(v-0.33)*3*255)),b=Math.min(255,Math.max(0,(v-0.66)*3*255));return `rgb(${r|0},${gg|0},${b|0})`;}
-function drawFall(p){const w=fc.width,h=fc.height,g=fctx;g.drawImage(fc,0,1);const row=2*dpr|0;
- for(let x=0;x<w;x++){const b=Math.min(p.length-1,x/w*p.length|0);g.fillStyle=heat(p[b]*1.2);g.fillRect(x,0,1,row);}}
-function listSurfaces(p,med){const thr=Math.max(3*med,0.1);const peaks=[];for(let b=6;b<p.length-1;b++)if(p[b]>p[b-1]&&p[b]>=p[b+1]&&p[b]>thr)peaks.push({r:b/(p.length-1)*MAXR,v:p[b]});
- peaks.sort((a,b)=>b.v-a.v);const el=$('surf');el.innerHTML=peaks.slice(0,6).sort((a,b)=>a.r-b.r).map(pk=>`<span class="s">${pk.r.toFixed(2)} m</span>`).join('')||'<span class="s" style="opacity:.5">nessuna superficie sopra soglia</span>';}
-function setHint(t){$('hint').textContent=t;}
-// ---------- controls ----------
-$('start').onclick=()=>start().catch(e=>{setHint('Avvio fallito: '+(e.message||e));stop();});
-$('stop').onclick=stop;
-$('rng').oninput=e=>{MAXR=+e.target.value;$('rngv').textContent=MAXR.toFixed(1)+' m';};
-$('vol').oninput=e=>{VOL=+e.target.value;if(out)out.gain.value=VOL;};
-$('smooth').oninput=e=>{SMOOTH=+e.target.value;};
-$('band').onchange=e=>{const [a,b]=e.target.value.split(',').map(Number);F0=a;F1=b;if(running){stop().then(()=>start());}};
-addEventListener('resize',()=>{if(pc)setupCanvases();});
-setupCanvases();
+function updateDebug(){const info={secureContext:isSecureContext,userAgent:navigator.userAgent,webXR:!!navigator.xr,webGPU:!!navigator.gpu,getUserMedia:!!navigator.mediaDevices?.getUserMedia,deviceOrientation:typeof DeviceOrientationEvent!=='undefined',sensorPermissionAPI:typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function',xrPlanes:state.xrPlanes.length};$('#debugInfo').textContent=JSON.stringify(info,null,2)}
+// UI wiring
+$('#startBtn').onclick=start;$('#captureBtn').onclick=capture;$('#undoBtn').onclick=undo;$('#closeBtn').onclick=closeRoom;$('#resetBtn').onclick=resetAll;$('#calibrateBtn').onclick=calibrate;$('#xrBtn').onclick=tryXR;$('#viewBtn').onclick=()=>showViewer(!viewer.classList.contains('active'));$('#jsonBtn').onclick=exportJSON;$('#objBtn').onclick=exportOBJ;$('#infoBtn').onclick=()=>{$('#infoModal').classList.add('open');updateDebug()};$('#closeInfo').onclick=()=>$('#infoModal').classList.remove('open');$('#infoModal').onclick=e=>{if(e.target===$('#infoModal'))$('#infoModal').classList.remove('open')};$('#roomHeight').oninput=afterGeometryChange;$('#camHeight').oninput=()=>{state.lastRay=floorIntersection();updateHud()};
+// Viewer orbit controls
+view3d.addEventListener('pointerdown',e=>{state.view.drag=true;state.view.x=e.clientX;state.view.y=e.clientY;view3d.setPointerCapture(e.pointerId)});view3d.addEventListener('pointermove',e=>{if(!state.view.drag)return;state.view.yaw+=(e.clientX-state.view.x)*.008;state.view.pitch=clamp(state.view.pitch+(e.clientY-state.view.y)*.006,-.2,1.25);state.view.x=e.clientX;state.view.y=e.clientY;draw3D()});view3d.addEventListener('pointerup',()=>state.view.drag=false);view3d.addEventListener('wheel',e=>{e.preventDefault();state.view.zoom=clamp(state.view.zoom*Math.exp(-e.deltaY*.001),.45,3);draw3D()},{passive:false});
+// Save ongoing floor polygon locally; nothing leaves the browser.
+function saveLocal(){try{localStorage.setItem('room-reconstructor',JSON.stringify({points:state.points,closed:state.closed,cam:$('#camHeight').value,rh:$('#roomHeight').value}))}catch{}}
+const originalAfter=afterGeometryChange;afterGeometryChange=function(){originalAfter();saveLocal()};
+try{const s=JSON.parse(localStorage.getItem('room-reconstructor')||'null');if(s?.points?.length){state.points=s.points;state.closed=!!s.closed;$('#camHeight').value=s.cam||'1.50';$('#roomHeight').value=s.rh||'2.70';originalAfter();toast('Geometria precedente ripristinata.')}}catch{}
+if(!isSecureContext){$('#subInstruction').textContent='Apri questa pagina via HTTPS o localhost: camera/sensori richiedono un contesto sicuro.';$('#quality').textContent='● HTTPS richiesto';$('#quality').className='quality bad'}
+updateDebug();resize();
 </script>
-</body></html>
+</body>
+</html>
