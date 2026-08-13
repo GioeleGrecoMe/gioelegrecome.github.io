@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#000000">
-<title>Room Scanner · 8.2 Continuous Multi-Sweep Acoustic Digital Twin</title>
+<title>Room Scanner · Continuous Multi-Sweep Acoustic Digital Twin</title>
 <style>
 :root{color-scheme:dark;--fg:#f5f8ff;--muted:#a8b4c7;--panel:rgba(5,10,18,.72);--line:rgba(255,255,255,.18);--accent:#63dcff;--ok:#7df2ac;--warn:#ffd166;--bad:#ff788f}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:var(--fg);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -231,7 +231,7 @@ body.manual-hit #manualAim{border-color:#7df2ac;box-shadow:0 0 0 2px rgba(125,24
     <div class="workflowStep" id="wfReview"><b>3 · Modello</b>RIR + export</div>
   </div>
 
-  <div class="panel"><div class="head">Room Scanner · Acoustic Digital Twin · acoustic-geometry fusion v8.2 · LIGHT-GUARD <span id="buildBadge">v8</span></div><div id="status">Pronto per la calibrazione</div><div id="sub" class="small">Tre stadi indipendenti: calibrazione acustica e spaziale, misura continua, quindi digital twin e confronto RIR.</div></div>
+  <div class="panel"><div class="head">Room Scanner · Acoustic Digital Twin · acoustic-geometry fusion v8.2.1 · LIGHT-GUARD <span id="buildBadge">v8</span></div><div id="status">Pronto per la calibrazione</div><div id="sub" class="small">Tre stadi indipendenti: calibrazione acustica e spaziale, misura continua, quindi digital twin e confronto RIR.</div></div>
 
   <section class="stageCard" id="stageAcousticCard">
     <div class="stageEyebrow">Stadio 1A · calibrazione acustica</div>
@@ -393,7 +393,7 @@ import * as THREE from 'three';
 // ============================================================================
 
 const $=q=>document.querySelector(q);
-const APP_BUILD='v8.2.0-xr-startfix';
+const APP_BUILD='v8.2.1-xr-reference-fix';
 const CFG={
   // Dense geometry map. 6 cm is deliberately conservative on phones: small
   // enough to preserve walls/door recesses, large enough to average depth noise.
@@ -1727,7 +1727,7 @@ async function estimateVideoTrajectory(file){
   $('#voStatus').textContent=`Traiettoria RGB pronta: ${S.voPath.length} pose da ${S.voFrames} frame · ${S.voInliers} inlier · scala relativa (monoculare).`;log('VO done',S.voPath.length,'poses',S.voInliers,'inliers')
 }
 
-function render(t,frame){if(frame){S.lastXrTimestamp=t;const ref=S.renderer.xr.getReferenceSpace();if(ref&&!S.referenceResetHandler);const pose=ref?frame.getViewerPose(ref):null,manualSpatial=S.workflowStage==='spatial'&&S.spatialCalibrationMode==='manual';if(pose&&S.xrStartupResolve){const done=S.xrStartupResolve;S.xrStartupResolve=null;done({t,pose});}if(ref){updateHitTest(frame,ref);updateSourceAnchors(frame,ref,t);if(manualSpatial)updateManualPerimeterAnchors(frame,ref);else monitorFrozenPerimeterAnchors(frame,ref);document.body.classList.toggle('manual-hit',manualSpatial&&!!S.reticleHit);if(pose){captureRawCamera(t,pose);const allowed=geometryAcquisitionAllowed(pose);if(allowed){if(!manualSpatial)fuseRaw(frame,ref);ingestPose(pose,t);if(!manualSpatial)sampleDepth(frame,pose,t);sampleClockSync(t)}else if(S.recording&&S.photometric.bad){S.autoSweepPaused=true;S.autoSweepToken++;setSweepPhase('pausa · luce instabile',0)}if(manualSpatial){if(!S.lastManualUIAt||t-S.lastManualUIAt>180){S.lastManualUIAt=t;updateSpatialCalibrationProgress();updateManualCaptureUI()}}else{updateHUD(frame,pose);updateQualityHUD();if(S.workflowStage==='spatial')updateSpatialCalibrationProgress();else updateScanPreview();updateGeometryHUD()}}} }S.renderer.render(S.scene,S.camera)}
+function render(t,frame){if(frame){S.lastXrTimestamp=t;const ref=S.renderer.xr.getReferenceSpace();if(ref&&!S.referenceResetHandler)attachReferenceResetGuard();const pose=ref?frame.getViewerPose(ref):null,manualSpatial=S.workflowStage==='spatial'&&S.spatialCalibrationMode==='manual';if(pose&&S.xrStartupResolve){const done=S.xrStartupResolve;S.xrStartupResolve=null;done({t,pose});}if(ref){updateHitTest(frame,ref);updateSourceAnchors(frame,ref,t);if(manualSpatial)updateManualPerimeterAnchors(frame,ref);else monitorFrozenPerimeterAnchors(frame,ref);document.body.classList.toggle('manual-hit',manualSpatial&&!!S.reticleHit);if(pose){captureRawCamera(t,pose);const allowed=geometryAcquisitionAllowed(pose);if(allowed){if(!manualSpatial)fuseRaw(frame,ref);ingestPose(pose,t);if(!manualSpatial)sampleDepth(frame,pose,t);sampleClockSync(t)}else if(S.recording&&S.photometric.bad){S.autoSweepPaused=true;S.autoSweepToken++;setSweepPhase('pausa · luce instabile',0)}if(manualSpatial){if(!S.lastManualUIAt||t-S.lastManualUIAt>180){S.lastManualUIAt=t;updateSpatialCalibrationProgress();updateManualCaptureUI()}}else{updateHUD(frame,pose);updateQualityHUD();if(S.workflowStage==='spatial')updateSpatialCalibrationProgress();else updateScanPreview();updateGeometryHUD()}}} }S.renderer.render(S.scene,S.camera)}
 function updateHUD(frame,pose){const now=performance.now();if(now-S.lastHudUpdateAt<CFG.hudUpdatePeriodMs)return;S.lastHudUpdateAt=now;const good=[...S.surfels.values()].filter(s=>s.w>=CFG.minSurfelWeight).length,rawT=[...S.rawMeshes.values()].reduce((n,c)=>n+(c.o.geometry.index?.count||0)/3,0),q=Math.round(S.pathQuality*100);$('#stats').textContent=`path ${S.pathLength.toFixed(1)} m · ${S.bestPath.length} pose · ${S.keyframes.length} KF · ${good} surfel · ${S.depthFrames} depth · ${S.reconGroup.children.length} superfici`;
   const hasDepth=S.depthFrames>0,hasRaw=S.rawMeshes.size||S.rawPlanes.size,modelQ=S.liveQuality?.score;$('#quality').textContent=modelQ!=null?`modello ${modelQ}% · path ${q}%`:`path ${q}% · ${hasDepth?'depth':hasRaw?'XR geometry':'pose only'}`;const qq=modelQ??q;$('#quality').className='pill '+(qq>75&&(hasDepth||hasRaw)?'ok':qq>45?'warn':'bad');$('#mode').textContent=`${S.workflowStage==='spatial'?'CALIBRAZIONE CAMERA':'MISURA'} · ${S.profile}${pose?' · tracking':''} · jump ${S.poseRejected} · filtro ${S.filterRejected}`;const acq=S.recording?'REC':'STOP',aud=S.audioPrepared?`${S.audioSettings?.channelCount||'?'}ch/${S.audioCtx?.sampleRate||'?'}Hz`:'no audio',vid=S.videoMode==='raw-camera-webm'?`${S.videoFrames.length} RGB`:S.videoMode,pcmMB=(S.audioChunks.length*CFG.pcmBlockFrames*Math.max(1,S.audioSettings?.channelCount||1)*4/1048576).toFixed(1),rt1k=S.globalRoomAcoustics?.bands?.find(b=>b.fc===1000)?.rt60,ac=`${S.surfaceAcoustics.size} sf${rt1k?` · T60@1k ${rt1k.toFixed(2)}s`:''}`;$('#avStats').innerHTML=`<span class="${S.recording?'rec':''}">${acq}</span> · ${aud} · PCM ${pcmMB} MB · ${vid} · sorg ${S.rirMarkers.length} · sweep raw ${S.autoSweepEvents.length} · RIR ${S.rirResults.length} · ac ${ac}` }
 
@@ -1741,6 +1741,58 @@ function waitForFirstXrPose(timeoutMs=9000){return new Promise((resolve,reject)=
 // can synthesize a delayed click after the DOM overlay has changed underneath the
 // finger. Suppress every secondary UI action during that short transaction.
 document.addEventListener('click',e=>{if(!xrTransitionLocked())return;const t=e.target?.closest?.('button,a,.fakeBtn');if(!t)return;if(t.id==='start'||t.id==='startManual')return;e.preventDefault();e.stopImmediatePropagation();log('UI_GHOST_CLICK_BLOCKED',t.id||t.textContent?.trim()?.slice(0,40)||t.tagName)},true);
+
+// XR REFERENCE-SPACE STARTUP FIX (v8.2.1)
+// The previous build called attachReferenceResetGuard() during phase 3/4 but the
+// function did not exist. That ReferenceError was caught by startSpatialCalibration(),
+// whose recovery path intentionally called session.end(); on Android this looked
+// exactly like AR opening for a moment and immediately returning to the landing UI.
+//
+// Preflight the metric reference space as a second line of defence. local-floor is
+// preferred because the acoustic geometry assumes y-up metres referenced to the
+// floor. Some WebXR runtimes grant immersive-ar but not local-floor; in that case
+// falling back to local keeps the AR session alive instead of aborting at setSession().
+async function chooseXrReferenceSpaceType(session){
+  let last=null;
+  for(const type of ['local-floor','local']){
+    try{
+      const ref=await session.requestReferenceSpace(type);
+      log('XR_REFERENCE_SPACE_OK',type);
+      return {type,ref};
+    }catch(e){last=e;log('XR_REFERENCE_SPACE_FAILED',type,e?.name||'',e?.message||e)}
+  }
+  const e=new Error(`Nessun reference space metrico disponibile${last?.message?`: ${last.message}`:''}`);
+  e.code='XR_REFERENCE_SPACE_UNAVAILABLE';
+  throw e;
+}
+
+// Install the reset guard only when Three.js has actually exposed its active
+// XRReferenceSpace. This helper is deliberately non-throwing: a diagnostic guard
+// must never be able to terminate an otherwise valid immersive session.
+function attachReferenceResetGuard(){
+  try{
+    const ref=S.renderer?.xr?.getReferenceSpace?.();
+    if(!ref){log('XR_REFERENCE_RESET_GUARD_DEFERRED','reference space not ready');return false}
+    if(S.ref===ref&&S.referenceResetHandler)return true;
+    try{if(S.ref&&S.referenceResetHandler)S.ref.removeEventListener?.('reset',S.referenceResetHandler)}catch(e){log('XR_REFERENCE_RESET_GUARD_REMOVE_FAILED',e)}
+    const handler=ev=>{
+      S.trackingGuard.referenceReset=true;
+      S.trackingGuard.reason='XR_REFERENCE_SPACE_RESET';
+      S.autoSweepPaused=true;
+      S.autoSweepToken++;
+      log('XR_REFERENCE_SPACE_RESET',ev?.transform||ev||'reset');
+      // A reset changes the spatial coordinate frame. Continuing to mix old and
+      // new geometry/RIR poses would corrupt the digital twin, so freeze capture
+      // and make the condition visible without forcibly closing WebXR.
+      const g=$('#lightingGuard');
+      if(g){g.classList.add('show','bad');$('#lightingGuardTitle').textContent='TRACKING XR RESETTATO';$('#lightingGuardText').textContent='Il sistema di riferimento WebXR e cambiato. Interrompi e ripeti la calibrazione spaziale prima di continuare.';if($('#lightingRestart'))$('#lightingRestart').style.display='inline-block'}
+    };
+    ref.addEventListener?.('reset',handler);
+    S.ref=ref;S.referenceResetHandler=handler;
+    log('XR_REFERENCE_RESET_GUARD_READY');
+    return true;
+  }catch(e){log('XR_REFERENCE_RESET_GUARD_FAILED',e);return false}
+}
 
 async function bestSession(){const overlay=$('#hud');const attempts=[
  {name:'depth+geometry',init:{requiredFeatures:[],optionalFeatures:['depth-sensing','mesh-detection','plane-detection','hit-test','anchors','camera-access','local-floor','dom-overlay'],depthSensing:{usagePreference:['cpu-optimized','gpu-optimized'],dataFormatPreference:['float32','unsigned-short','luminance-alpha'],depthTypeRequest:['smooth','raw'],matchDepthView:true},domOverlay:{root:overlay}}},
@@ -1759,9 +1811,9 @@ async function startSpatialCalibration(mode='auto',ev=null){
     resetMap();S.spatialCalibrationMode=mode==='manual'?'manual':'auto';document.body.dataset.spatialMode=S.spatialCalibrationMode;resetManualGeometry();if(S.manualGroup)S.manualGroup.visible=S.spatialCalibrationMode==='manual';S.spatialCalibrationActive=true;S.spatialCalibrationDone=false;setWorkflowStage('spatial');
     setXrStartupStatus('Autorizza la telecamera AR…','Il sistema sta aprendo la sessione immersiva. Se compare una richiesta del browser, accettala.','fase 2/4 · requestSession');
     ss=await bestSession();S.session=ss;ss.addEventListener('end',ended,{once:true});
-    S.renderer.xr.setReferenceSpaceType('local-floor');
-    setXrStartupStatus('Sessione AR concessa','Collego Three.js al framebuffer XR e preparo tracking / hit-test.','fase 3/4 · renderer XR');
-    await S.renderer.xr.setSession(ss);setupCameraRecorder(ss);await setupHitTest(ss);
+    const xrRef=await chooseXrReferenceSpaceType(ss);S.xrReferenceSpaceType=xrRef.type;S.renderer.xr.setReferenceSpaceType(xrRef.type);
+    setXrStartupStatus('Sessione AR concessa',`Reference space ${xrRef.type} OK. Collego Three.js al framebuffer XR e preparo tracking / hit-test.`,'fase 3/4 · renderer XR');
+    await S.renderer.xr.setSession(ss);setupCameraRecorder(ss);attachReferenceResetGuard();await setupHitTest(ss);
     if(S.spatialCalibrationMode==='manual'&&!S.hitTestSource)log('manual calibration unavailable: hit-test missing');
     S.renderer.setAnimationLoop(render);
     setXrStartupStatus('Telecamera aperta','Attendo il primo frame con una posa XR valida prima di cambiare interfaccia.','fase 4/4 · primo frame XR');
@@ -1795,7 +1847,7 @@ async function beginMeasurementFromSpatial(){
 }
 async function ended(){
   const wasStarting=!!S.xrStartupInProgress;
-  document.body.classList.remove('manual-hit');S.renderer.setAnimationLoop(null);try{if(S.ref&&S.referenceResetHandler)S.ref.removeEventListener?.('reset',S.referenceResetHandler)}catch{}S.referenceResetHandler=null;try{S.hitTestSource?.cancel?.()}catch{}S.hitTestSource=null;S.viewerSpace=null;try{await S.renderer.xr.setSession(null)}catch{}S.session=null;$('#hud').classList.remove('active');$('#landing').style.display='flex';$('#preview').style.display='none';
+  document.body.classList.remove('manual-hit');S.renderer.setAnimationLoop(null);try{if(S.ref&&S.referenceResetHandler)S.ref.removeEventListener?.('reset',S.referenceResetHandler)}catch{}S.referenceResetHandler=null;S.ref=null;try{S.hitTestSource?.cancel?.()}catch{}S.hitTestSource=null;S.viewerSpace=null;try{await S.renderer.xr.setSession(null)}catch{}S.session=null;$('#hud').classList.remove('active');$('#landing').style.display='flex';$('#preview').style.display='none';
   // Startup aborts and exits during spatial calibration must never fall through
   // into the measurement post-processing/export path.
   if(wasStarting){finishXrStartupTransaction(false);S.spatialCalibrationActive=false;setWorkflowStage('acoustic');$('#start').disabled=!S.calibration?.valid;$('#startManual').disabled=!S.calibration?.valid;setStatus('Avvio AR interrotto','La sessione XR si è chiusa prima del primo frame valido. Riprova.');return}
@@ -1807,7 +1859,7 @@ async function ended(){
   try{showProcessing('Fine misura','1/6 · congelo i dati e libero microfono/camera.',.015,.15,`${S.autoSweepEvents.length} sweep · ${S.measurementPackets.length} pacchetti`);await releaseAudioForBatch();showProcessing('Fine misura','2/6 · validazione + deconvoluzione RIR.',.03,.25,`${S.rejectedMeasurements.length} già esclusi`);await processPendingAutoSweeps();showProcessing('Fine misura','3/6 · traiettoria e free-space.',.82,.30,'path');await delay(0);refineMetricPath();showProcessing('Fine misura','4/6 · superfici strutturali.',.87,.45,'geometria');await delay(0);reconstructSurfaces();showProcessing('Fine misura','5/6 · EDC/T60 + matching geometrico.',.92,.35,'acustica');await delay(0);try{optimizeSurfaceAcoustics()}catch(e){log('final acoustic optimize',e)}showProcessing('Fine misura','6/6 · quality report.',.985,.88,'quality');S.liveQuality=computeQualityReport();showProcessing('Fine misura',`Completato · ${S.rirResults.length} RIR valide · modello ${S.liveQuality.score}/100`,1,1,`${S.measurementPackets.length} pacchetti`);await delay(120)}catch(e){log('post scan processing',e);showProcessing('Processing incompleto',e.message,1,1,'errore');await delay(350)}finally{hideProcessing();$('#processBtn').disabled=false;setWorkflowStage('review');updateWorkflowCards()}
   setStatus('Misura terminata',`Path ${S.pathLength.toFixed(1)} m · ${S.rirResults.length} RIR valide · ${S.rejectedMeasurements.length} scartate. Apri il modello 3D per revisione e confronto.`)
 }
-function resetMap(){S.photometric={available:false,baseline:null,warm:[],current:null,bad:false,badCount:0,goodCount:0,badSince:null,events:[],lastAt:0,normalizedFrames:0,referenceViews:[],lastStats:null,lastPose:null,requiresResume:false,unstableReason:null};S.trackingGuard={referenceReset:false,emulated:false,lastRealPose:null,reason:null};S.referenceResetHandler=null;S.surfels.clear();S.spatialCalibrationScore=0;S.spatialCalibrationPath=[];S.manualGeometry={perimeter:[],perimeterAnchors:[],perimeterClosed:false,frozen:false,frozenAt:null,surfaces:[],draft:[],tool:'perimeter',surfaceKind:'auto',nextSurfaceId:1,actions:[]};if(S.manualGroup)clearGroup(S.manualGroup);S.free.clear();S.cameraFree.clear();S.cameraPath=[];S.rawPath=[];S.bestPath=[];S.keyframes=[];S.lastPoseAt=0;S.lastDepthPose=null;S.lastDepthAt=0;S.lastPathRebuild=0;S.poseRejected=0;S.filterRejected=0;S.pathLength=0;S.pathQuality=0;S.currentPose=null;S.depthFrames=0;S.depthPoints=0;S.rejectedFree=0;S.rejectedPath=0;S.lastReconAt=0;S.roomWalls=[];S.roomClosed=false;S.topologyClosed=false;S.wallCoverage=0;S.ceilingY=null;S.audioChunks=[];S.audioOpusChunks=[];S.videoChunks=[];S.videoChunkTimes=[];S.videoFrames=[];S.videoMode='none';S.videoRecorder=null;S.videoStartPerfMs=null;S.events=[];S.clockSync=[];S.lastClockSyncAt=0;for(const A of S.sourceAnchors.values())try{A.anchor?.delete?.()}catch{}S.sourceAnchors.clear();S.rirMarkers=[];S.rirResults=[];S.measurementCounter=0;S.autoSweepPaused=false;S.autoSweepRunning=false;S.autoSweepToken++;S.autoSweepSeq=0;S.autoSweepEvents=[];S.measurementPackets=[];S.rejectedMeasurements=[];S.acousticCacheSignature=null;S.acousticCacheRirCount=0;S.measureSweepSignal=null;cleanupAutoSweepURLs();S.sourceByOutputChannel=[null,null];S.nextStereoMarkerChannel=0;S.autoSweepChannelCursor=0;S.surfaceAcoustics.clear();S.surfaceAcousticObservations=[];S.globalRoomAcoustics=null;S.acousticSamples=[];S.acousticVirtualSources=[];S.acousticRecoveredSurfaces=[];S.acousticFusionSignature=null;S.acousticVirtualSignature=null;S.acousticHistory=[];S.lastAcousticUpdateAt=0;S.acousticBusy=false;S.roomPolygon=null;S.activeSourceId=null;S.runStartPerfMs=null;S.runStartAudioContextTime=null;S.liveQuality=null;S.finalModel=null;S.finalQuality=null;S.lastSyntheticRIR=null;S.lastSplatPreviewAt=0;S.lastScanPreviewAt=0;S.lastHudUpdateAt=0;S.lastCameraBubblePos=null;if($('#scanPreviewFill')){$('#scanPreviewFill').style.width='0%';$('#scanPreviewPercent').textContent='0%'};clearGroup(S.reconGroup);for(const c of S.rawMeshes.values()){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose()}for(const c of S.rawPlanes.values()){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose()}S.rawMeshes.clear();S.rawPlanes.clear();if(S.splat){S.scene.remove(S.splat);S.splat.geometry.dispose();S.splat.material.dispose();S.splat=null}if(S.markerGroup)clearGroup(S.markerGroup);for(const k of ['pathRawLine','pathBestLine','keyframePts']){const o=S[k];if(o){S.scene.remove(o);o.geometry.dispose();o.material.dispose();S[k]=null}}}
+function resetMap(){S.photometric={available:false,baseline:null,warm:[],current:null,bad:false,badCount:0,goodCount:0,badSince:null,events:[],lastAt:0,normalizedFrames:0,referenceViews:[],lastStats:null,lastPose:null,requiresResume:false,unstableReason:null};S.trackingGuard={referenceReset:false,emulated:false,lastRealPose:null,reason:null};S.referenceResetHandler=null;S.ref=null;S.xrReferenceSpaceType=null;S.surfels.clear();S.spatialCalibrationScore=0;S.spatialCalibrationPath=[];S.manualGeometry={perimeter:[],perimeterAnchors:[],perimeterClosed:false,frozen:false,frozenAt:null,surfaces:[],draft:[],tool:'perimeter',surfaceKind:'auto',nextSurfaceId:1,actions:[]};if(S.manualGroup)clearGroup(S.manualGroup);S.free.clear();S.cameraFree.clear();S.cameraPath=[];S.rawPath=[];S.bestPath=[];S.keyframes=[];S.lastPoseAt=0;S.lastDepthPose=null;S.lastDepthAt=0;S.lastPathRebuild=0;S.poseRejected=0;S.filterRejected=0;S.pathLength=0;S.pathQuality=0;S.currentPose=null;S.depthFrames=0;S.depthPoints=0;S.rejectedFree=0;S.rejectedPath=0;S.lastReconAt=0;S.roomWalls=[];S.roomClosed=false;S.topologyClosed=false;S.wallCoverage=0;S.ceilingY=null;S.audioChunks=[];S.audioOpusChunks=[];S.videoChunks=[];S.videoChunkTimes=[];S.videoFrames=[];S.videoMode='none';S.videoRecorder=null;S.videoStartPerfMs=null;S.events=[];S.clockSync=[];S.lastClockSyncAt=0;for(const A of S.sourceAnchors.values())try{A.anchor?.delete?.()}catch{}S.sourceAnchors.clear();S.rirMarkers=[];S.rirResults=[];S.measurementCounter=0;S.autoSweepPaused=false;S.autoSweepRunning=false;S.autoSweepToken++;S.autoSweepSeq=0;S.autoSweepEvents=[];S.measurementPackets=[];S.rejectedMeasurements=[];S.acousticCacheSignature=null;S.acousticCacheRirCount=0;S.measureSweepSignal=null;cleanupAutoSweepURLs();S.sourceByOutputChannel=[null,null];S.nextStereoMarkerChannel=0;S.autoSweepChannelCursor=0;S.surfaceAcoustics.clear();S.surfaceAcousticObservations=[];S.globalRoomAcoustics=null;S.acousticSamples=[];S.acousticVirtualSources=[];S.acousticRecoveredSurfaces=[];S.acousticFusionSignature=null;S.acousticVirtualSignature=null;S.acousticHistory=[];S.lastAcousticUpdateAt=0;S.acousticBusy=false;S.roomPolygon=null;S.activeSourceId=null;S.runStartPerfMs=null;S.runStartAudioContextTime=null;S.liveQuality=null;S.finalModel=null;S.finalQuality=null;S.lastSyntheticRIR=null;S.lastSplatPreviewAt=0;S.lastScanPreviewAt=0;S.lastHudUpdateAt=0;S.lastCameraBubblePos=null;if($('#scanPreviewFill')){$('#scanPreviewFill').style.width='0%';$('#scanPreviewPercent').textContent='0%'};clearGroup(S.reconGroup);for(const c of S.rawMeshes.values()){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose()}for(const c of S.rawPlanes.values()){S.rawGroup.remove(c.o);c.o.geometry.dispose();c.o.material.dispose()}S.rawMeshes.clear();S.rawPlanes.clear();if(S.splat){S.scene.remove(S.splat);S.splat.geometry.dispose();S.splat.material.dispose();S.splat=null}if(S.markerGroup)clearGroup(S.markerGroup);for(const k of ['pathRawLine','pathBestLine','keyframePts']){const o=S[k];if(o){S.scene.remove(o);o.geometry.dispose();o.material.dispose();S[k]=null}}}
 
 
 // ============================================================================
