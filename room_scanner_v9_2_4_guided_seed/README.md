@@ -1,5 +1,17 @@
 # Room Scanner v9.5.1 — Hotfix5W4 object selection + fullscreen Twin
 
+## Hotfix5W5 cooperative XR + AI
+
+The current build is `v9.5.1-hotfix5w5-cooperative-xr-ai`. WebXR is always the
+metric backbone. Heavy geometry fusion is capped at 10 Hz while XR rendering/pose
+continues at the device rate. MobileSAM segments one frozen RGB snapshot selected
+by the user and projects the mask back through synchronized XR depth. Depth Anything
+V2 Small Q4F16 runs periodically in its worker on motion-gated keyframes and may add
+only metric-gated low-weight detail surfels. Persistent primary XR surfaces are shown
+live during mapping/object selection/measurement. See `COOPERATIVE_PIPELINE_V951.md`
+and `PATCH_NOTES_V951_HOTFIX5W5.md`.
+
+
 Hotfix5W4 is a general UI/flow recovery built on H5W3. It restores tap-driven
 MobileSAM object selection, separates first-mask readiness from later multi-view
 metric validation, fixes 3D boundary-point targeting, and makes Stage 5 an
