@@ -1,0 +1,23 @@
+{
+  "build": "v9.2.5-clean-guided-preflight",
+  "dom_ids": 249,
+  "simple_id_refs": 231,
+  "missing_simple_refs": [],
+  "handler_targets": 90,
+  "handler_missing": [],
+  "named_functions": 561,
+  "duplicate_functions": [],
+  "semantic_preflight": {
+    "before_guided_ui": true,
+    "real_encoder_run": true,
+    "real_decoder_run": true,
+    "fail_open": true,
+    "sessions_released_before_measurement": true
+  },
+  "clean_guided_ui": {
+    "hides_hud": true,
+    "hides_splat": true,
+    "hides_debug": true,
+    "hides_semantic_panel": true
+  }
+}

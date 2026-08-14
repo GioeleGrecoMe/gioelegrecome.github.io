@@ -1,5 +1,5 @@
-const CACHE='room-acoustic-v924';
-const SEMANTIC_CACHE='room-acoustic-semantic-v924';
+const CACHE='room-acoustic-v925';
+const SEMANTIC_CACHE='room-acoustic-semantic-v925';
 const CORE=['./room_scanner_v9.html','./README.md','./ARCHITECTURE_V9.md'];
 self.addEventListener('install',event=>{
   // Deliberately do NOT pre-cache the ~41 MB EfficientSAM weights. They ship with

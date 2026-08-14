@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "semantic_preflight": "encoder+decoder end-to-end before guided UI",
+  "fail_open": "measurement starts if unavailable",
+  "clean_camera_mode": true,
+  "dom_ids": 249,
+  "functions": 561
+}

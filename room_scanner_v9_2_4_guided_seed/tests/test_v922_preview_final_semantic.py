@@ -2,7 +2,7 @@ from pathlib import Path
 import re,json,subprocess,random,math
 ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text()
-assert 'v9.2.4-guided-object-seeding' in s
+assert 'v9.2.5-clean-guided-preflight' in s
 assert 'finalizeSurfelMapCooperative' in s
 assert 'FINAL_SURFEL_VALIDATION' in s
 assert 'pruneLowProbabilitySurfels(performance.now(),true)' not in s

@@ -1,6 +1,6 @@
-# Room Scanner v9.2.4 — Guided EfficientSAM Object Seeding
+# Room Scanner v9.2.5 — Guided EfficientSAM Object Seeding
 
-**Build:** `v9.2.4-guided-object-seeding`
+**Build:** `v9.2.5-clean-guided-preflight`
 
 This build keeps the realtime-budgeted Gaussian mapping from v9.2.2 and changes semantic inference to an explicitly guided workflow.
 
@@ -8,11 +8,12 @@ This build keeps the realtime-budgeted Gaussian mapping from v9.2.2 and changes 
 
 1. Load or run acoustic calibration.
 2. Enter WebXR. Pose + depth begin immediately, but scientific microphone capture and chirps are still OFF.
-3. **Guided object seeding:** point the centre reticle at an object and press **Segmenta oggetto**.
-4. EfficientSAM-Ti is loaded lazily on the first explicit segmentation request and runs only on that selected frame. If the neural runtime is unavailable, the app can propose a lower-confidence RGB-D/depth connected region instead.
-5. Review the green mask and 3-D box estimate. Press **Conferma** only if the mask is correct, otherwise reposition and retry.
-6. Repeat for useful furniture/objects, then press **Inizia misura**. No automatic SAM inference runs during the scientific measurement unless the user explicitly requests another manual object segmentation.
-7. WebXR/depth/multi-view evidence refines the visible geometry attached to each confirmed object. Unseen parts remain a conservative box prior with lower `closureConfidence`; this prior is only visualized in the final **Oggetti** map mode and is never treated as measured geometry.
+3. Before the object UI is shown, the app runs a **semantic preflight**: ONNX Runtime is loaded, the bundled encoder and decoder sessions are created, and one real encoder→decoder smoke inference is executed.
+4. If that preflight fails, the object phase is **skipped automatically** and scientific measurement starts normally with an explicit warning in the HUD/diagnostic snapshot. There is no fake RGB-D substitute presented as SAM.
+5. If preflight succeeds, the app enters a dedicated **camera-first object mode**: camera + centre reticle + a compact bottom control bar only. The normal XR HUD, splat preview, debug, lighting, semantic manager and processing overlays are hidden.
+6. Point at an object and press **Segmenta al mirino**. Review the green mask and press **Conferma** only if it is correct; otherwise reposition and retry.
+7. Repeat for useful objects, then press **Inizia misura**. EfficientSAM sessions are released before scientific acquisition to free CPU/GPU memory; the model can be reloaded later only if an explicit semantic action requires it.
+8. WebXR/depth/multi-view evidence refines the visible geometry attached to each confirmed object. Unseen parts remain a conservative box prior with lower `closureConfidence`; this prior is never treated as measured geometry.
 
 This workflow deliberately separates *semantic identity* from *metric truth*: a SAM mask can label visible depth, but only WebXR/depth/multi-view support can make geometry reliable.
 
@@ -87,14 +88,15 @@ The full scientific Gaussian field is built after acquisition or during explicit
 
 Low-cost depth/RGB boundaries are computed only on selected RGB-D keyframes. RGB edge work is skipped at elevated load; depth discontinuities remain available because they are cheap and geometrically useful.
 
-EfficientSAM-Ti remains optional and asynchronous:
+EfficientSAM-Ti remains optional and explicitly bounded:
 
-- readable keyframes only;
+- a complete encoder→decoder preflight runs before guided object mode is exposed;
+- if preflight fails, guided object mode is skipped rather than emulated;
 - split encoder/decoder ONNX;
 - WebGPU first, WASM fallback;
-- encoder once per selected frame, decoder reused for a few prompts;
-- during recording frames are queued, not executed immediately;
-- at most one neural job is permitted in the safe gap after an acoustic packet, and only when the realtime governor allows it.
+- during guided seeding, encoder runs only for an explicit user segmentation;
+- confirmed identity is then propagated by WebXR/depth/multi-view geometry rather than continuous SAM inference;
+- neural sessions are released before scientific measurement to reduce memory/GPU pressure.
 
 Semantic masks are priors only. They cannot create metric depth.
 
@@ -161,7 +163,7 @@ This build addresses three regressions observed in a real v9.2.1 Diagnostic Snap
 2. **Final reconstruction stuck at phase 3.** Full multi-view validation is cooperative and progress-aware; it no longer scans ~50k surfels synchronously on the main thread.
 3. **No persistent objects.** Readable semantic keyframes survive realtime governor L1/L2 and wait for a packet-safe inference window. At L3 they remain queued. A lightweight RGB-D persistent-region tracker provides low-confidence object priors if neural inference is unavailable.
 
-The bundled `models/` directory intentionally contains no neural weights. See `models/README.md` for the current EfficientSAM-Ti filenames and local deployment option.
+The bundled `models/` directory contains the exact EfficientSAM-Ti encoder/decoder weights supplied by the user; remote model-weight downloads are disabled.
 
 Use **Diagnostica ZIP** again if the revised final processing stalls or if the visible splat count remains far below the `verified/stable` counters; the v9.2.2 snapshot preserves the same performance timeline and subsystem counters.
 
@@ -169,11 +171,15 @@ Use **Diagnostica ZIP** again if the revised final processing stalls or if the v
 
 The EfficientSAM-Ti split ONNX encoder/decoder from the user-provided upstream
 archive are now included under `models/`. Runtime model-weight downloads from
-Hugging Face/GitHub are disabled. Semantic inference remains lazy and bounded to
-safe windows between acoustic packets.
+Hugging Face/GitHub are disabled. Semantic inference is preflighted before guided object selection and is otherwise explicitly user-driven; no continuous SAM loop runs during scientific acquisition.
 
 ONNX Runtime Web is a separate Microsoft dependency and is not included in the
 EfficientSAM repository. Run `python tools/fetch_onnxruntime_web.py` once before
 deployment for a fully local semantic stack. Without those vendor files the app
 tries the pinned official runtime CDN and otherwise falls back to RGB-D semantic
 priors without stopping the scan.
+
+
+## v9.2.5 - Clean semantic preflight
+
+Guided object selection is now a dedicated XR mode with an unobstructed camera. Before it appears, the app validates the complete semantic path by creating the local EfficientSAM encoder/decoder sessions and running an end-to-end smoke inference. Failure is fail-open: the app reports the reason and starts measurement without object seeding. Successful sessions are unloaded when object selection ends so they do not consume resources during the acoustic/geometry scan. The diagnostic ZIP records preflight result, provider, runtime, duration and error.

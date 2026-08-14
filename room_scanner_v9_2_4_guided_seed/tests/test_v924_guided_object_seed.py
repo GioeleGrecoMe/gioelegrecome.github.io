@@ -3,7 +3,7 @@ import re, json, subprocess, hashlib
 ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text()
 req=[
- 'v9.2.4-guided-object-seeding','objectSeedUI','segmentObjectSeed','confirmObjectSeed',
+ 'v9.2.5-clean-guided-preflight','objectSeedUI','segmentObjectSeed','confirmObjectSeed',
  'assignSeedCandidateToVisibleSurfels','enterObjectSeeding','startMeasurementAfterObjectSeeding',
  'refineSeededObjectBounds','semanticObjectClosure','invalidateSyntheticRIR',
  'RIR: non calcolata','RIR realmente calcolata','efficient_sam_vitt_encoder.onnx',
@@ -19,7 +19,7 @@ body=start.group(0)
 assert 'enterObjectSeeding()' in body
 assert body.index('enterObjectSeeding()') < body.rfind('catch')
 # Measurement start is isolated after confirmation/skip.
-meas=re.search(r"async function startMeasurementAfterObjectSeeding\(\)\{[^\n]*",s)
+meas=re.search(r"async function startMeasurementAfterObjectSeeding\([^)]*\)\{[^\n]*",s)
 assert meas and 'startAcquisition' in meas.group(0) and 'runAutoSweepLoop' in meas.group(0)
 # No automatic synthetic RIR on viewer open.
 prime=re.search(r"function primeValidationComparison\(\)\{[^\n]*",s)

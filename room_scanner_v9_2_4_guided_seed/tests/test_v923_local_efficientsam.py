@@ -19,7 +19,7 @@ checks['remote_weight_urls_disabled']='semanticModelRemoteEncoder:null' in HTML 
 checks['no_huggingface_weight_url']='huggingface.co/yunyangx/EfficientSAM' not in HTML
 checks['local_runtime_preferred']="semanticOrtLocal:'./vendor/ort.webgpu.bundle.min.mjs'" in HTML
 checks['runtime_fallback_pinned']='onnxruntime-web@1.27.0' in HTML
-checks['semantic_cache_separate']='room-acoustic-semantic-v924' in (ROOT/'sw.js').read_text()
+checks['semantic_cache_separate']='room-acoustic-semantic-v925' in (ROOT/'sw.js').read_text()
 checks['license_retained']=(ROOT/'third_party/EfficientSAM/LICENSE').exists()
 # Simple protobuf string presence check without requiring the Python onnx package.
 for p,need in [(enc,[b'batched_images',b'image_embeddings']), (dec,[b'image_embeddings',b'batched_point_coords',b'batched_point_labels',b'orig_im_size',b'output_masks',b'iou_predictions'])]:

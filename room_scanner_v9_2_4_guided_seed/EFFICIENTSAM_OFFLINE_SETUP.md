@@ -2,7 +2,7 @@
 
 The EfficientSAM model itself is already integrated and bundled. No model-weight request to GitHub or Hugging Face is made by Room Scanner.
 
-The browser still needs an ONNX executor. Room Scanner v9.2.4 is pinned to `onnxruntime-web 1.27.0` and first attempts:
+The browser still needs an ONNX executor. Room Scanner v9.2.5 is pinned to `onnxruntime-web 1.27.0` and first attempts:
 
 - `vendor/ort.webgpu.bundle.min.mjs`
 - `vendor/ort-wasm-simd-threaded.jsep.mjs`
