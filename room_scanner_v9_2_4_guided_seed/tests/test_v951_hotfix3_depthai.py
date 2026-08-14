@@ -5,7 +5,7 @@ s=(ROOT/'room_scanner_v9.html').read_text()
 w=(ROOT/'depth_ai_worker.js').read_text()
 sw=(ROOT/'sw.js').read_text()
 
-assert "APP_BUILD='v9.5.1-hotfix5w2-ort-metadata'" in s
+assert "APP_BUILD='v9.5.1-hotfix5w3-decoder-input-contract'" in s
 assert "depthAIModelLocal:'./models/depth_anything_v2_small_q4f16.onnx'" in s
 assert 'onnx-community/depth-anything-v2-small/resolve/main/onnx/model_q4f16.onnx' in s
 assert 'depthAIInputSize:518' in s and 'depthAIKeyframeMax:6' in s
@@ -20,7 +20,7 @@ assert "solve('inverse')" in s and "solve('depth')" in s
 assert 'depthAIMaxMedianRelError:0.16' in s and 'depthAIMaxP90RelError:0.32' in s
 assert 'depthAIReprojectionExtraM:0.065' in s
 assert 'id="depthAIToggle"' in s
-assert "depthAIModelCache:'room-acoustic-depthai-v951h5w2'" in s
+assert "depthAIModelCache:'room-acoustic-depthai-v951h5w3'" in s
 
 # The expensive network is Stage-5-only: acquisition captures keyframes but may
 # not initialize/infer the model from the WebXR depth sampling function.
@@ -41,9 +41,9 @@ assert 'modelInputShapeHint' in w and 'session.inputMetadata' in w and "'aspect-
 assert 'self.crossOriginIsolated' in w
 
 # Cache/deployment paths.
-assert "const CACHE='room-acoustic-v951h5w2'" in sw
-assert "const SEMANTIC_CACHE='room-acoustic-semantic-v951h5w2'" in sw
-assert "const DEPTH_CACHE='room-acoustic-depthai-v951h5w2'" in sw
+assert "const CACHE='room-acoustic-v951h5w3'" in sw
+assert "const SEMANTIC_CACHE='room-acoustic-semantic-v951h5w3'" in sw
+assert "const DEPTH_CACHE='room-acoustic-depthai-v951h5w3'" in sw
 assert "'./depth_ai_worker.js'" in sw
 assert '.onnx' in sw and 'neuralNetworkFirst' in sw
 assert 'onnxruntime-web@' in sw or 'neuralNetworkFirst' in sw
@@ -58,6 +58,6 @@ with tempfile.TemporaryDirectory() as td:
         r=subprocess.run(['node','--check',str(f)],capture_output=True,text=True)
         assert r.returncode==0,r.stderr
 
-res={'status':'PASS','depth_model':'Depth Anything V2 Small Q4F16','model_size_mb':19.1,'stage5_only':True,'metric_authority':'WebXR','adaptive_keyframes':'2-6','worker_isolated':True,'webgpu_then_wasm':True,'cache':'v951h5w2'}
+res={'status':'PASS','depth_model':'Depth Anything V2 Small Q4F16','model_size_mb':19.1,'stage5_only':True,'metric_authority':'WebXR','adaptive_keyframes':'2-6','worker_isolated':True,'webgpu_then_wasm':True,'cache':'v951h5w3'}
 (ROOT/'tests/result_v951_hotfix3_depthai.json').write_text(json.dumps(res,indent=2))
 print(json.dumps(res,indent=2))

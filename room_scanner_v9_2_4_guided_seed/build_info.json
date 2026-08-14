@@ -1,6 +1,6 @@
 {
-  "appBuild": "v9.5.1-hotfix5w2-ort-metadata",
-  "deployRev": "951h5w2",
+  "appBuild": "v9.5.1-hotfix5w3-decoder-input-contract",
+  "deployRev": "951h5w3",
   "mobileSamBundle": "MobileSAM-in-the-Browser coherent split ONNX",
   "requiredLocal": [
     "models/mobilesam.encoder.onnx",

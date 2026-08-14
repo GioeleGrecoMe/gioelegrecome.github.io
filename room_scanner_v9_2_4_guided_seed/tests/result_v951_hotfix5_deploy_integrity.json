@@ -1,7 +1,7 @@
 {
   "status": "PASS",
-  "build": "v9.5.1-hotfix5w2-ort-metadata",
-  "revision": "951h5w2",
+  "build": "v9.5.1-hotfix5w3-decoder-input-contract",
+  "revision": "951h5w3",
   "navigation": "network-first",
   "model_error_visible": true,
   "hotfix4_features_preserved": true
