@@ -1,5 +1,5 @@
 {
-  "build": "v9.5.1-hotfix5w4-object-ui-fullscreen-viewer",
+  "build": "v9.5.1-hotfix5w6-verified-model-contracts",
   "hasMaskBeforeMask": true,
   "centralizedBuilderUses": 2,
   "decoderContract": {

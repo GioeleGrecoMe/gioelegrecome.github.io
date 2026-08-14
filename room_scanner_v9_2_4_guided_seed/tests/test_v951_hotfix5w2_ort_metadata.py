@@ -2,8 +2,8 @@ from pathlib import Path
 import json, subprocess, tempfile
 ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text()
-assert "APP_BUILD='v9.5.1-hotfix5w4-object-ui-fullscreen-viewer'" in s
-assert "DEPLOY_REV='951h5w4'" in s
+assert "APP_BUILD='v9.5.1-hotfix5w6-verified-model-contracts'" in s
+assert "DEPLOY_REV='951h5w6'" in s
 # Regression root cause: ORT JS metadata is array-based and current metadata uses `shape`.
 for tok in ["function ortSessionMeta", "Array.isArray(all)", "m?.name===name", "meta?.shape", "function ortMetaShape"]:
     assert tok in s, tok
@@ -32,6 +32,6 @@ with tempfile.TemporaryDirectory() as td:
     assert r.returncode==0,r.stderr
     data=json.loads(r.stdout.strip())
 assert data['browser']['h']==684 and data['browser']['w']==1024
-res={'status':'PASS','root_cause':'ORT inputMetadata array/shape was read as name-keyed map','browser_encoder_shape':[684,1024,3],'old_wrong_smoke_height':683,'diagnostics':['ENCODER OrtRun','DECODER OrtRun'],'deploy_rev':'951h5w4'}
+res={'status':'PASS','root_cause':'ORT inputMetadata array/shape was read as name-keyed map','browser_encoder_shape':[684,1024,3],'old_wrong_smoke_height':683,'diagnostics':['ENCODER OrtRun','DECODER OrtRun'],'deploy_rev':'951h5w6'}
 (ROOT/'tests/result_v951_hotfix5w2_ort_metadata.json').write_text(json.dumps(res,indent=2)+'\n')
 print(json.dumps(res,indent=2))

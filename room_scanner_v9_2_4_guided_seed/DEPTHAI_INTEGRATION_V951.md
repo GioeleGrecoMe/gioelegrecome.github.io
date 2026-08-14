@@ -2,7 +2,7 @@
 
 Build: `v9.5.1-hotfix3-depthai-keyframes`
 
-## Why it is deferred
+## Cooperative live refinement + deferred remainder
 
 Depth Anything is **not** run in the WebXR render loop. During scanning the app
 keeps at most six spatially separated RGB-D keyframes (384x216 RGB plus the
@@ -70,3 +70,12 @@ before measurement. A bounding-box-only detector such as COCO-SSD is lighter,
 but it does not provide the object mask needed to keep removable object geometry
 separate. Therefore Hotfix3 does not replace MobileSAM; it lets the user disable
 it and still obtain a WebXR + DepthAI room reconstruction.
+
+
+## Hotfix5W5 live scheduler
+
+DepthAI is no longer restricted to Stage 5. Motion-gated RGB-D keyframes are captured
+while WebXR runs; every configurable keyframe interval a worker inference may run if
+realtime load, SAM state and acoustic sweep state permit it. The prediction must pass
+XR metric alignment before any low-weight `depthai` surfels are fused. Stage 5 retains
+the same pipeline for keyframes that were deferred during acquisition.

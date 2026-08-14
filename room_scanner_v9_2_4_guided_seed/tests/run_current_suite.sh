@@ -30,3 +30,7 @@ node tests/test_depthai_worker_shape.js
 python3 tests/test_v951_hotfix5w3_decoder_contract.py
 
 python3 tests/test_v951_hotfix5w4_object_viewer.py
+
+python3 tests/test_v951_hotfix5w5_cooperative_ai.py
+
+python3 tests/test_v951_hotfix5w6_verified_models.py

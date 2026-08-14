@@ -4,9 +4,9 @@ ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text()
 sw=(ROOT/'sw.js').read_text()
 
-assert "APP_BUILD='v9.5.1-hotfix5w4-object-ui-fullscreen-viewer'" in s
-assert "DEPLOY_REV='951h5w4'" in s
-assert "const CACHE='room-acoustic-v951h5w4'" in sw
+assert "APP_BUILD='v9.5.1-hotfix5w6-verified-model-contracts'" in s
+assert "DEPLOY_REV='951h5w6'" in s
+assert "const CACHE='room-acoustic-v951h5w6'" in sw
 
 # Guided selection is tap-first, not strict multi-view-first.
 assert '#objectSeedMask{position:absolute;z-index:1;' in s
@@ -45,7 +45,7 @@ assert 'align-items:flex-end' in s
 
 res={
   'status':'PASS',
-  'build':'v9.5.1-hotfix5w4-object-ui-fullscreen-viewer',
+  'build':'v9.5.1-hotfix5w6-verified-model-contracts',
   'tap_first_object_selection':True,
   'metric_readiness_deferred':True,
   'selected_uv_drives_sam_and_3d':True,

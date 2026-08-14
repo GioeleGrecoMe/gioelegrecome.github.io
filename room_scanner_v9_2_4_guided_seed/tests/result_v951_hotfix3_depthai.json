@@ -2,10 +2,10 @@
   "status": "PASS",
   "depth_model": "Depth Anything V2 Small Q4F16",
   "model_size_mb": 19.1,
-  "stage5_only": true,
+  "stage5_only": false,
   "metric_authority": "WebXR",
   "adaptive_keyframes": "2-6",
   "worker_isolated": true,
   "webgpu_then_wasm": true,
-  "cache": "v951h5w4"
+  "cache": "v951h5w6"
 }

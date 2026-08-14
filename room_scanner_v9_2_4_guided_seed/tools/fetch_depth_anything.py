@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch Depth Anything V2 Small Q4F16 for the deferred Stage-5 detail pass.
+"""Fetch Depth Anything V2 Small Q4F16 for cooperative keyframe detail refinement.
 
 The scanner uses the single-file ONNX Community conversion requested by the
 project.  The checksum is pinned so GitHub Pages deployments cannot silently
@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'models' / 'depth_anything_v2_small_q4f16.onnx'
 URL = 'https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model_q4f16.onnx?download=true'
 EXPECTED_SHA256 = 'eca72971aea64216d767c70c534160de53b5435b588d362bac6dbd5a73f9bf1e'
-MIN_BYTES = 18_000_000
+EXPECTED_BYTES = 19_126_267
 
 def digest(path: Path) -> str:
     h = hashlib.sha256()
@@ -34,9 +34,9 @@ def main() -> None:
             if not chunk:
                 break
             f.write(chunk)
-    if tmp.stat().st_size < MIN_BYTES:
-        tmp.unlink(missing_ok=True)
-        raise SystemExit('Depth Anything download is too small; likely a pointer/error response.')
+    if tmp.stat().st_size != EXPECTED_BYTES:
+        got_size=tmp.stat().st_size;tmp.unlink(missing_ok=True)
+        raise SystemExit(f'Depth Anything size mismatch: {got_size} != {EXPECTED_BYTES}')
     got = digest(tmp)
     if got != EXPECTED_SHA256:
         tmp.unlink(missing_ok=True)

@@ -1,6 +1,6 @@
 {
-  "appBuild": "v9.5.1-hotfix5w4-object-ui-fullscreen-viewer",
-  "deployRev": "951h5w4",
+  "appBuild": "v9.5.1-hotfix5w6-verified-model-contracts",
+  "deployRev": "951h5w6",
   "mobileSamBundle": "MobileSAM-in-the-Browser coherent split ONNX",
   "requiredLocal": [
     "models/mobilesam.encoder.onnx",
@@ -12,5 +12,9 @@
   ],
   "recommendedLocal": [
     "models/depth_anything_v2_small_q4f16.onnx"
-  ]
+  ],
+  "app_build": "v9.5.1-hotfix5w6-verified-model-contracts",
+  "deploy_rev": "951h5w6",
+  "architecture": "WebXR always-on + verified snapshot MobileSAM + periodic metric-gated DepthAI worker + live primary planes",
+  "patch": "H5W6 verified model bytes/contracts + absolute WASM paths; cooperative XR retained"
 }
