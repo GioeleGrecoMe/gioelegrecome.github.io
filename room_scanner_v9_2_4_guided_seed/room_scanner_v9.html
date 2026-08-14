@@ -1309,7 +1309,7 @@ async function runAutoSweepLoop(){
   finally{S.autoSweepRunning=false;updateMeasureToggle();updateScanPreview(true)}
 }
 function updateMeasureToggle(){const b=$('#toggleMeasure');if(!b)return;b.textContent=S.autoSweepPaused?'Riprendi misura':'Pausa misura';b.classList.toggle('primary',S.autoSweepPaused)}
-function toggleAutoMeasurement(){if(!S.recording)return;if(S.autoSweepPaused){S.autoSweepPaused=false;S.photometric.requiresResume=false;addEvent('measurement_resume',{rawSweeps:S.autoSweepEvents.length});setSweepPhase('ripresa',0);updateLightingGuardUI();runAutoSweepLoop()}else{S.autoSweepPaused=true;S.autoSweepToken++;setSweepPhase('pausa',0);pumpSemanticQueue(1);addEvent('measurement_pause',{rawSweeps:S.autoSweepEvents.length});$('#avStats').textContent='MISURA IN PAUSA · path/geometria continuano, nessun nuovo sweep'}updateMeasureToggle();updateScanPreview(true)}
+function toggleAutoMeasurement(){if(!S.recording)return;if(S.autoSweepPaused){S.autoSweepPaused=false;S.photometric.requiresResume=false;addEvent('measurement_resume',{rawSweeps:S.autoSweepEvents.length});setSweepPhase('ripresa',0);updateLightingGuardUI();runAutoSweepLoop()}else{S.autoSweepPaused=true;S.autoSweepToken++;setSweepPhase('pausa',0);addEvent('measurement_pause',{rawSweeps:S.autoSweepEvents.length});$('#avStats').textContent='MISURA IN PAUSA · path/geometria continuano, nessun nuovo sweep'}updateMeasureToggle();updateScanPreview(true)}
 function stopAutoSweepLoop(){S.autoSweepPaused=true;S.autoSweepToken++;S.autoSweepRunning=false;setSweepPhase('stopped',0);updateMeasureToggle()}
 function ensureMeasurementPacket(ev){const id=ev.packetId||Math.floor((ev.seq-1)/CFG.measurementPacketSize)+1;ev.packetId=id;let p=S.measurementPackets.find(x=>x.id===id);if(!p){p={id,created_t_ms:ev.emitted_t_ms,seq:[],acceptedRirIds:[],rejectedSeq:[],status:'collecting'};S.measurementPackets.push(p)}if(!p.seq.includes(ev.seq))p.seq.push(ev.seq);if(p.seq.length>=CFG.measurementPacketSize&&p.status==='collecting')p.status='sealed_raw';return p}
 function updatePacketOutcome(ev,accepted,rirId=null,reason=null){const p=ensureMeasurementPacket(ev);if(accepted&&rirId!=null&&!p.acceptedRirIds.includes(rirId))p.acceptedRirIds.push(rirId);if(!accepted&&!p.rejectedSeq.includes(ev.seq))p.rejectedSeq.push(ev.seq);if(reason)ev.rejection=reason;const pending=p.seq.some(seq=>{const x=S.autoSweepEvents.find(e=>e.seq===seq);return x&&['raw','preflight_ok','preflight_deferred_pcm'].includes(x.status)});if(!pending&&p.seq.length){p.status='processed';p.processedAt=new Date().toISOString();p.validFraction=p.seq.length?p.acceptedRirIds.length/p.seq.length:0}return p}
@@ -3065,7 +3065,6 @@ diagnosticSnapshot=function(){v95EnsureState();const d=v94DiagnosticSnapshot();d
 // boundaries remain active as geometric priors, but no neural background queue is
 // allowed to consume CPU/GPU while chirps, tracking or splatting are active.
 S.semantic.autoDiscover=false;
-pumpSemanticQueue=async function(){return 0};
 async function packetBoundaryGeometryMaintenance(){
   // The silence after a closed chirp packet is the safest place to move work out
   // of final processing. Spend only a bounded cooperative budget: validate a few
