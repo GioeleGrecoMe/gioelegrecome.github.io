@@ -5,9 +5,10 @@
 The browser looks for:
 
 - `mobilesam.encoder.onnx`
-- `mobilesam.decoder.quant.onnx`
+- `mobilesam.decoder.onnx` (FP32 preferred)
+- `mobilesam.decoder.quant.onnx` (quantized fallback)
 
-The split pair follows the same browser-oriented layout used by the public `MobileSAM-in-the-Browser` integration.
+The coherent split bundle follows the same browser-oriented layout used by the public `MobileSAM-in-the-Browser` integration.
 
 Install with:
 
