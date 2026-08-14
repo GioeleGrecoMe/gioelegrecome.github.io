@@ -53,3 +53,15 @@ The application is local-first and accepts either:
 - an encoder+decoder ZIP/ONNX upload in the browser.
 
 The target device must pass an actual encoder-to-decoder smoke inference before the optional object stage is enabled.
+
+## Hotfix2 regression audit
+
+- JavaScript module syntax: PASS (`node --check`).
+- Service worker syntax: PASS.
+- Step 3 failed-preflight state remains visible: PASS.
+- MobileSAM retry and local ZIP/ONNX upload path from Step 3: PASS (static integration audit).
+- Final viewer single-WebGL-context policy: PASS.
+- Final viewer error rollback instead of black overlay: PASS.
+- Service-worker/cache namespace bumped to `v951h2`: PASS.
+- Full current suite: PASS; see `tests/hotfix2_suite_output.txt`.
+- Local deployment audit intentionally reports `MOBILESAM_LOCAL_READY=no` in this archive because binary ONNX/ORT payloads are not embedded. Run the fetch helpers before GitHub Pages deployment for a deterministic local-first site.

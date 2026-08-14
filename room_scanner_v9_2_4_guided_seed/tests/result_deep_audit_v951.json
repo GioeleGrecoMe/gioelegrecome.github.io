@@ -1,8 +1,8 @@
 {
   "status": "PASS",
-  "dom_ids": 273,
-  "simple_dom_refs": 248,
-  "handler_targets": 98,
-  "named_functions": 593,
+  "dom_ids": 274,
+  "simple_dom_refs": 249,
+  "handler_targets": 99,
+  "named_functions": 597,
   "duplicate_functions": 0
 }

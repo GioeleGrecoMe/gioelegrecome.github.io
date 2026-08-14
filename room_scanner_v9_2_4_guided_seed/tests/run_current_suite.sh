@@ -8,6 +8,8 @@ for t in \
   tests/test_v924_seed_geometry_logic.py \
   tests/test_v951_geometry_pruning.py \
   tests/test_v951_mobilesam_browser.py \
+  tests/test_v951_bootstrap_regression.py \
+  tests/test_v951_hotfix2_step3_finalviewer.py \
   tests/test_v951_compact_object_material.py \
   tests/test_v951_model_metadata.py \
   tests/test_deep_audit_v951.py

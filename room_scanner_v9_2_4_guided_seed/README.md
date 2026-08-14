@@ -1,5 +1,7 @@
 # Room Scanner v9.5.1 - MobileSAM compact object twin
 
+> Hotfix2 keeps the Hotfix1 bootstrap fix and also fixes two mobile regressions: Step 3 no longer disappears when MobileSAM preflight fails, and Stage 5 reuses the primary WebGL renderer instead of allocating a second context. See `PATCH_NOTES_V951_HOTFIX2.md`.
+
 Primary changes:
 
 - Progressive evidence-based surfel pruning during acquisition and chirp-packet safe windows.
@@ -30,8 +32,18 @@ For fully local semantic inference, vendor ONNX Runtime Web 1.14 with:
 
     python3 tools/fetch_onnxruntime_web.py
 
-If the runtime or model preflight fails on the device, the optional object stage is skipped and metric/acoustic acquisition remains available.
+If the runtime or model preflight fails on the device, Step 3 now stays visible with the exact error and offers retry, local model upload, or an explicit skip. It never silently jumps to measurement.
 
 ## Important runtime note
 
 WebXR camera/depth/plane/mesh support is browser/device dependent. Test the diagnostic ZIP on the target phone after meaningful changes.
+
+## GitHub Pages deployment check
+
+For deterministic MobileSAM behavior on the public site, run these **before committing/publishing** the Pages folder:
+
+    python3 tools/fetch_mobilesam_models.py
+    python3 tools/fetch_onnxruntime_web.py
+    python3 tools/check_deploy_bundle.py
+
+The two ONNX files are small enough for normal repository deployment but are intentionally not embedded in this generated archive. The browser retains a remote fallback, but same-origin files are preferred for reliability and offline use. Hotfix2 also bumps the service-worker/cache namespace to `v951h2`; after deployment, reload once so the new worker activates.

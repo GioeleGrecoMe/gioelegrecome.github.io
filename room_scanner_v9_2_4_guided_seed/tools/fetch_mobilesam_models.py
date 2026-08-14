@@ -12,8 +12,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MODELS = ROOT / "models"
 FILES = {
-    "mobilesam.encoder.onnx": "https://huggingface.co/spaces/Akbartus/projects/resolve/main/mobilesam.encoder.onnx",
-    "mobilesam.decoder.quant.onnx": "https://raw.githubusercontent.com/akbartus/MobileSAM-in-the-Browser/main/models/mobilesam.decoder.quant.onnx",
+    "mobilesam.encoder.onnx": "https://huggingface.co/PulpCut/mobilesam-onnx/resolve/main/mobilesam.encoder.onnx",
+    "mobilesam.decoder.quant.onnx": "https://huggingface.co/PulpCut/mobilesam-onnx/resolve/main/mobilesam.decoder.quant.onnx",
 }
 
 def sha256(path: Path) -> str:

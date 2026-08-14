@@ -3,7 +3,7 @@ import json, re, importlib.util, zipfile, tempfile
 ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text()
 sw=(ROOT/'sw.js').read_text()
-assert "APP_BUILD='v9.5.1-engineered-mobilesam-object-twin'" in s
+assert "APP_BUILD='v9.5.1-hotfix2-step3-finalviewer'" in s
 assert 'PicoSAM' not in s and 'EfficientSAM' not in s
 assert s.count("$('#semanticModelInput').onchange=") == 1
 for token in [
@@ -13,11 +13,11 @@ for token in [
     "onnxruntime-web@1.14.0/dist/ort.min.js",
     'async function ensureMobileSamSemantic','async function mobileSamSemanticSelfTest',
     'async function mobileSamEncodeBitmap','async function mobileSamDecode',
-    'async function releaseSemanticSessions','pumpSemanticQueue=async function(){return 0}',
+    'async function releaseSemanticSessions','async function pumpSemanticQueue(){',
     'captureSemanticFrameImage(F,force=false)'
 ]:
     assert token in s, token
-assert 'room-acoustic-v951' in sw and 'room-acoustic-semantic-v951' in sw
+assert 'room-acoustic-v951h2' in sw and 'room-acoustic-semantic-v951h2' in sw
 assert 'onnxruntime-web@1\\.14\\.0' in sw
 assert not list((ROOT/'models').glob('*.onnx')), 'release archive must not pretend the blocked remote model binary is bundled'
 assert (ROOT/'tools/install_mobilesam_zip.py').exists()

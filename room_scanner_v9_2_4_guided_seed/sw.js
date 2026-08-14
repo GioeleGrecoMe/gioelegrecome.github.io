@@ -1,5 +1,5 @@
-const CACHE='room-acoustic-v951';
-const SEMANTIC_CACHE='room-acoustic-semantic-v951';
+const CACHE='room-acoustic-v951h2';
+const SEMANTIC_CACHE='room-acoustic-semantic-v951h2';
 const CORE=['./room_scanner_v9.html','./README.md','./ARCHITECTURE_V951.md','./MOBILESAM_INTEGRATION_V951.md'];
 
 self.addEventListener('install',event=>{
@@ -20,7 +20,7 @@ self.addEventListener('fetch',event=>{
     if(resp&&resp.ok){
       const u=new URL(event.request.url),same=u.origin===self.location.origin;
       const semanticModel=(same&&/\/models\/.*mobile[_-]?sam.*\.onnx$/i.test(u.pathname))||
-        (u.hostname==='huggingface.co'&&/mobile[_-]?sam.*encoder.*\.onnx/i.test(u.pathname))||
+        (u.hostname==='huggingface.co'&&/mobile[_-]?sam.*(?:encoder|decoder).*\.onnx/i.test(u.pathname))||
         (u.hostname==='raw.githubusercontent.com'&&/MobileSAM-in-the-Browser.*decoder.*\.onnx/i.test(u.pathname));
       const runtime=(same&&/\/vendor\/ort(?:-|\.).*/i.test(u.pathname))||
         (u.hostname==='cdn.jsdelivr.net'&&/onnxruntime-web@1\.14\.0/.test(u.pathname));

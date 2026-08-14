@@ -26,7 +26,7 @@ The deployment helper tools/fetch_onnxruntime_web.py installs those assets. A pi
 - tools/fetch_mobilesam_models.py downloads the browser-reference MobileSAM encoder and quantized decoder pair used by the deployment contract.
 - tools/install_mobilesam_zip.py installs a previously downloaded compatible ZIP without network access.
 
-The build sandbox used to assemble this release could verify the model source metadata but could not materialize the remote binary payload. Therefore the MobileSAM ONNX weight files are not falsely embedded in this archive. Deploy them with the helper, or upload a compatible ZIP in the browser.
+The generated archive does not embed the ONNX weight payloads. Hotfix2 uses the current PulpCut split MobileSAM ONNX repository as the pinned remote fallback, but deterministic GitHub Pages deployments should still vendor the same files under `models/` with `tools/fetch_mobilesam_models.py`. If preflight fails, Step 3 remains visible and reports the error instead of silently skipping.
 
 ## Execution policy
 
