@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "best_candidate": [
+    0.0,
+    1.05,
+    1.25
+  ],
+  "localization_error_m": 0.0,
+  "support_receivers": 12,
+  "best_score": 0.7002,
+  "max_wrong_score": 0.0029,
+  "receivers": 14,
+  "injected_large_outliers": 2
+}

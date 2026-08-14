@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "semantic_depth_split_rows_detected": 24,
+  "semantic_interior_false_edges": 0,
+  "manhattan_error_deg": 0.039,
+  "primitive_components": 1,
+  "primitive_support_cells": 80
+}
