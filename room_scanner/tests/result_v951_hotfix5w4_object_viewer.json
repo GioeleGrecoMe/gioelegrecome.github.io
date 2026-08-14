@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "build": "v9.5.1-hotfix5w6-verified-model-contracts",
+  "tap_first_object_selection": true,
+  "metric_readiness_deferred": true,
+  "selected_uv_drives_sam_and_3d": true,
+  "fullscreen_stage5": true,
+  "automatic_raw_gaussian_preview": true,
+  "webxr_display_fallback": true
+}

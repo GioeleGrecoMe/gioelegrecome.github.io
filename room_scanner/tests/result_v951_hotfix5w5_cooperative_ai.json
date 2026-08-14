@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "build": "v9.5.1-hotfix5w6-verified-model-contracts",
+  "xr_backbone": "continuous",
+  "heavy_geometry_hz": 10,
+  "mobilesam": "single frozen RGB-D snapshot per explicit tap; verified main-thread ORT path",
+  "depthai": "periodic worker keyframes with XR metric gate",
+  "primary_surfaces_live": true,
+  "ai_mutex": true,
+  "xr_never_awaits_ai": true,
+  "deploy_rev": "951h5w6"
+}

@@ -1,0 +1,7 @@
+{
+  "status": "PASS",
+  "pump_declared": true,
+  "unsafe_assignment_absent": true,
+  "audio_handler_present": true,
+  "output_handler_present": true
+}

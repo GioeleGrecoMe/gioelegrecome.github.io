@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "seed_mask_cells": 25,
+  "assigned_visible": 25,
+  "background_outliers": 20,
+  "geometry_probability_promoted_by_SAM": false,
+  "background_excluded_from_refine": true
+}

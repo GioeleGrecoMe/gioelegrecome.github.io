@@ -1,0 +1,148 @@
+=== tests/test_v9_mapping.py
+{
+  "status": "PASS",
+  "true_surface_probability_by_views": [
+    0.3165,
+    0.7468,
+    0.9495,
+    0.9917,
+    0.9987,
+    0.9996
+  ],
+  "ghost_probability": 0.0026,
+  "occluded_stable_probability": 0.9925,
+  "normal_buckets": [
+    "px",
+    "py",
+    "pz"
+  ]
+}
+=== tests/test_v9_semantic_structural.py
+{
+  "status": "PASS",
+  "semantic_depth_split_rows_detected": 24,
+  "semantic_interior_false_edges": 0,
+  "manhattan_error_deg": 0.039,
+  "primitive_components": 1,
+  "primitive_support_cells": 80
+}
+=== tests/test_v9_virtual_array.py
+{
+  "status": "PASS",
+  "best_candidate": [
+    0.0,
+    1.05,
+    1.25
+  ],
+  "localization_error_m": 0.0,
+  "support_receivers": 12,
+  "best_score": 0.7002,
+  "max_wrong_score": 0.0029,
+  "receivers": 14,
+  "injected_large_outliers": 2
+}
+=== tests/test_v924_seed_geometry_logic.py
+{
+  "status": "PASS",
+  "seed_mask_cells": 25,
+  "assigned_visible": 25,
+  "background_outliers": 20,
+  "geometry_probability_promoted_by_SAM": false,
+  "background_excluded_from_refine": true
+}
+=== tests/test_v951_geometry_pruning.py
+{
+  "status": "PASS",
+  "one_view_max": 0.28,
+  "two_view_max": 0.62,
+  "three_view_probability": 0.8306,
+  "young_mono_survives": true,
+  "stale_mono_pruned_online": true,
+  "packet_safe_window_maintenance": true
+}
+=== tests/test_v951_mobilesam_browser.py
+{
+  "status": "PASS",
+  "active_backend": "MobileSAM split ONNX",
+  "ort_web": "1.14.0 WASM",
+  "model_binary_bundled": false,
+  "single_upload_handler": true
+}
+=== tests/test_v951_bootstrap_regression.py
+{
+  "status": "PASS",
+  "pump_declared": true,
+  "unsafe_assignment_absent": true,
+  "audio_handler_present": true,
+  "output_handler_present": true
+}
+=== tests/test_v951_hotfix2_step3_finalviewer.py
+{
+  "status": "PASS",
+  "step3_failure_is_visible": true,
+  "mobile_sam_remote_pair": "PulpCut split ONNX",
+  "single_webgl_context_for_stage5": true,
+  "viewer_failure_rolls_back_ui": true,
+  "service_worker_cache": "v951h4"
+}
+=== tests/test_v951_hotfix3_depthai.py
+{
+  "status": "PASS",
+  "depth_model": "Depth Anything V2 Small Q4F16",
+  "model_size_mb": 19.1,
+  "stage5_only": true,
+  "metric_authority": "WebXR",
+  "adaptive_keyframes": "2-6",
+  "worker_isolated": true,
+  "webgpu_then_wasm": true,
+  "cache": "v951h4"
+}
+=== tests/test_v951_hotfix4_model_gaussian.py
+{
+  "status": "PASS",
+  "model_cache_network_first": true,
+  "fp32_decoder_preferred": true,
+  "quant_fallback": true,
+  "webxr_display_fallback": true,
+  "strict_geometry_preserved_for_solver": true,
+  "viewer_first_render_probe": true
+}
+=== tests/test_v951_compact_object_material.py
+{
+  "status": "PASS",
+  "minimum_views": 3,
+  "oriented_proxy": true,
+  "raw_masks_retained": false,
+  "material_prior_max_confidence": 0.28,
+  "metric_readiness_local": true
+}
+=== tests/test_v951_model_metadata.py
+{
+  "status": "PASS",
+  "browser_reference_pair_documented": true,
+  "obsolete_model_artifacts": 0
+}
+=== tests/test_deep_audit_v951.py
+{
+  "status": "PASS",
+  "dom_ids": 276,
+  "simple_dom_refs": 251,
+  "handler_targets": 100,
+  "named_functions": 623,
+  "duplicate_functions": 0
+}
+=== tests/test_depthai_metric_alignment.js
+{"status":"PASS","inverseMedian":0.0003482974351987255,"directMedian":0.0003471877529549419,"badRejected":true}
+=== tests/test_depthai_worker_shape.js
+{
+  "status": "PASS",
+  "dynamicLandscape": {
+    "width": 518,
+    "height": 294
+  },
+  "staticShape": [
+    518,
+    518
+  ],
+  "symbolicDynamic": true
+}

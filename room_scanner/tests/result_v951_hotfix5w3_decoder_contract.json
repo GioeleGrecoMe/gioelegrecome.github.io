@@ -1,0 +1,13 @@
+{
+  "build": "v9.5.1-hotfix5w6-verified-model-contracts",
+  "hasMaskBeforeMask": true,
+  "centralizedBuilderUses": 2,
+  "decoderContract": {
+    "image_embeddings": "encoder output",
+    "point_coords": "[1,N,2]",
+    "point_labels": "[1,N]",
+    "mask_input": "[1,1,256,256]",
+    "has_mask_input": "[1]",
+    "orig_im_size": "[2]"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "build": "v9.5.1-hotfix5w6-verified-model-contracts",
+  "revision": "951h5w6",
+  "navigation": "network-first",
+  "model_error_visible": true,
+  "hotfix4_features_preserved": true
+}
