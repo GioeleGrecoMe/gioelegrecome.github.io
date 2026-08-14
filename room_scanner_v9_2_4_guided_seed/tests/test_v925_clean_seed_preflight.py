@@ -2,7 +2,7 @@ from pathlib import Path
 import re, json, subprocess, hashlib
 ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text()
-assert "v9.2.5-clean-guided-preflight" in s
+assert "v9.2.6-sam-provider-fallback" in s
 # Preflight must happen before entering guided seeding and must fail-open to measurement.
 start=re.search(r"async function startSpatialCalibration\([^)]*\)\{[\s\S]*?\n}\nfunction",s)
 assert start, 'startup function missing'
@@ -22,7 +22,7 @@ for token in [
     'if(S.splat)S.splat.visible=false'
 ]: assert token in s, token
 # No RGB-D fake SAM fallback inside explicit guided segmentation.
-seg=re.search(r"async function segmentObjectSeed\(\)\{[^\n]*",s)
+seg=re.search(r"async function segmentObjectSeed\(\)\{[\s\S]*?\n\}",s)
 assert seg
 assert 'objectSeedFallbackCenter' not in seg.group(0)
 assert "c.source='EfficientSAM-Ti-seed'" in seg.group(0)

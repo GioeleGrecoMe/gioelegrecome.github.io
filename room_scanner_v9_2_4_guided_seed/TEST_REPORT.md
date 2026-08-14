@@ -1,4 +1,4 @@
-# Room Scanner v9.2.5 — validation report
+# Room Scanner v9.2.4 — validation report
 
 Build: `v9.2.5-clean-guided-preflight`
 
@@ -16,15 +16,15 @@ All packaged Python regression tests pass:
 - v9.2.1 realtime governor hot-path audit
 - v9.2.2 preview/final-processing regression
 - v9.2.3 bundled EfficientSAM model integrity
-- v9.2.5 guided object-seeding workflow
-- v9.2.5 guided seed geometry regression
+- v9.2.4 guided object-seeding workflow
+- v9.2.4 guided seed geometry regression
 
 `node --check` passes for both the extracted module script and `sw.js`.
 
 ## Deep static audit
 
 - DOM IDs: 249, all unique.
-- Named functions: 561, no duplicate definitions.
+- Named functions: 558, no duplicate definitions.
 - Simple `$()` ID references: all resolve to real DOM IDs.
 - Direct click/change/input handler targets: all resolve.
 - No automatic `setTimeout(...runSyntheticRIR...)` path remains.
@@ -59,16 +59,3 @@ A synthetic mask test verifies that:
 ## Browser-runtime note
 
 The EfficientSAM ONNX model weights are bundled. ONNX Runtime Web itself is a separate dependency and is not present in the uploaded EfficientSAM repository. The app prefers the three matching runtime artifacts in `vendor/`; see `vendor/README.md` and `tools/fetch_onnxruntime_web.py` for full-offline deployment.
-
-
-## v9.2.5 semantic preflight regression
-
-Static and control-flow tests verify that:
-
-- `preflightGuidedObjectSeeding()` executes before `enterObjectSeeding()`;
-- the preflight runs both the real encoder and decoder, not only file-existence checks;
-- guided mode refuses to open without a successful preflight;
-- failure starts scientific measurement directly and records the error;
-- guided mode hides the normal HUD, splat, debug, lighting, semantic-manager and processing overlays;
-- guided segmentation does not silently replace a failed SAM call with an RGB-D region;
-- EfficientSAM sessions are released before scientific measurement.

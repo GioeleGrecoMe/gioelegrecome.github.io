@@ -3,7 +3,7 @@ import re, json, subprocess, hashlib
 ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text()
 req=[
- 'v9.2.5-clean-guided-preflight','objectSeedUI','segmentObjectSeed','confirmObjectSeed',
+ 'v9.2.6-sam-provider-fallback','objectSeedUI','segmentObjectSeed','confirmObjectSeed',
  'assignSeedCandidateToVisibleSurfels','enterObjectSeeding','startMeasurementAfterObjectSeeding',
  'refineSeededObjectBounds','semanticObjectClosure','invalidateSyntheticRIR',
  'RIR: non calcolata','RIR realmente calcolata','efficient_sam_vitt_encoder.onnx',

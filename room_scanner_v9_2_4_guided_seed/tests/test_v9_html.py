@@ -6,7 +6,7 @@ s=p.read_text()
 ids=re.findall(r'\bid="([^"]+)"',s)
 dups=sorted({x for x in ids if ids.count(x)>1})
 required=[
-    'v9.2.5-clean-guided-preflight',
+    'v9.2.6-sam-provider-fallback',
     'reprojectSurfelEvidence','stableSurfelMinViews','fallbackSemanticGrid',
     'semanticFrameMetrics','captureSemanticFrameImage','ensureSemanticNeural',
     'semanticPacketBoundaryMaintenance','updateSemanticObjectTrack',

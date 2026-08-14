@@ -4,5 +4,5 @@
   "fail_open": "measurement starts if unavailable",
   "clean_camera_mode": true,
   "dom_ids": 249,
-  "functions": 561
+  "functions": 566
 }
