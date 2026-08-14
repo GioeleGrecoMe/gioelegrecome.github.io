@@ -1,3 +1,13 @@
+# Room Scanner v9.5.1 — Hotfix5W4 object selection + fullscreen Twin
+
+Hotfix5W4 is a general UI/flow recovery built on H5W3. It restores tap-driven
+MobileSAM object selection, separates first-mask readiness from later multi-view
+metric validation, fixes 3D boundary-point targeting, and makes Stage 5 an
+exclusive full-screen Gaussian preview again. The final viewer now opens
+automatically after measurement and has a viewer-only raw WebXR surfel fallback
+so strict scientific pruning cannot leave the visual Twin empty. See
+`PATCH_NOTES_V951_HOTFIX5W4.md`.
+
 # Room Scanner v9.5.1 — Hotfix5 deploy integrity
 
 Hotfix5 prevents mixed HTML/service-worker deployments, exposes the exact MobileSAM preflight error, keeps Hotfix4 decoder fallback and WebXR Gaussian visual fallback, and makes page navigation network-first. See `PATCH_NOTES_V951_HOTFIX5.md`.

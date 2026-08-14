@@ -1,5 +1,5 @@
 {
-  "build": "v9.5.1-hotfix5w3-decoder-input-contract",
+  "build": "v9.5.1-hotfix5w4-object-ui-fullscreen-viewer",
   "hasMaskBeforeMask": true,
   "centralizedBuilderUses": 2,
   "decoderContract": {

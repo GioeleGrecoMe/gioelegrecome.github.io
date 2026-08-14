@@ -28,3 +28,5 @@ echo "=== tests/test_depthai_worker_shape.js"
 node tests/test_depthai_worker_shape.js
 
 python3 tests/test_v951_hotfix5w3_decoder_contract.py
+
+python3 tests/test_v951_hotfix5w4_object_viewer.py
