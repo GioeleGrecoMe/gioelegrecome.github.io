@@ -3,7 +3,7 @@ import json, re, importlib.util, zipfile, tempfile
 ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text()
 sw=(ROOT/'sw.js').read_text()
-assert "APP_BUILD='v9.5.1-hotfix2-step3-finalviewer'" in s
+assert "APP_BUILD='v9.5.1-hotfix3-depthai-keyframes'" in s
 assert 'PicoSAM' not in s and 'EfficientSAM' not in s
 assert s.count("$('#semanticModelInput').onchange=") == 1
 for token in [
@@ -17,9 +17,9 @@ for token in [
     'captureSemanticFrameImage(F,force=false)'
 ]:
     assert token in s, token
-assert 'room-acoustic-v951h2' in sw and 'room-acoustic-semantic-v951h2' in sw
+assert 'room-acoustic-v951h3' in sw and 'room-acoustic-semantic-v951h3' in sw
 assert 'onnxruntime-web@1\\.14\\.0' in sw
-assert not list((ROOT/'models').glob('*.onnx')), 'release archive must not pretend the blocked remote model binary is bundled'
+assert not list((ROOT/'models').glob('*mobilesam*.onnx')), 'release archive must not pretend MobileSAM weights are bundled when they are absent'
 assert (ROOT/'tools/install_mobilesam_zip.py').exists()
 assert (ROOT/'tools/fetch_mobilesam_models.py').exists()
 assert (ROOT/'tools/fetch_onnxruntime_web.py').exists()

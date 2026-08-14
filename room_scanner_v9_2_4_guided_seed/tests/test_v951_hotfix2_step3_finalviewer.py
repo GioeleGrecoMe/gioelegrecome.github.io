@@ -34,10 +34,10 @@ assert 'restorePrimaryRendererHost()' in open_body.group(0)
 assert 'if(!openFinalViewer())throw new Error' in s
 
 # Deployment cache must be a new namespace so phones cannot keep a mixed h1/h2 build.
-assert "sw.js?v=951h2" in s
-assert "room-acoustic-v951h2" in s and "room-acoustic-semantic-v951h2" in s
-assert "const CACHE='room-acoustic-v951h2'" in sw
-assert "const SEMANTIC_CACHE='room-acoustic-semantic-v951h2'" in sw
+assert "sw.js?v=951h3" in s
+assert "room-acoustic-v951h3" in s and "room-acoustic-semantic-v951h3" in s
+assert "const CACHE='room-acoustic-v951h3'" in sw
+assert "const SEMANTIC_CACHE='room-acoustic-semantic-v951h3'" in sw
 assert '(?:encoder|decoder)' in sw
 
 res={
@@ -46,7 +46,7 @@ res={
   'mobile_sam_remote_pair':'PulpCut split ONNX',
   'single_webgl_context_for_stage5':True,
   'viewer_failure_rolls_back_ui':True,
-  'service_worker_cache':'v951h2'
+  'service_worker_cache':'v951h3'
 }
 (ROOT/'tests/result_v951_hotfix2_step3_finalviewer.json').write_text(json.dumps(res,indent=2))
 print(json.dumps(res,indent=2))

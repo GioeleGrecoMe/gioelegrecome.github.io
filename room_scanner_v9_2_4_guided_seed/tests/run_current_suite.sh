@@ -10,6 +10,7 @@ for t in \
   tests/test_v951_mobilesam_browser.py \
   tests/test_v951_bootstrap_regression.py \
   tests/test_v951_hotfix2_step3_finalviewer.py \
+  tests/test_v951_hotfix3_depthai.py \
   tests/test_v951_compact_object_material.py \
   tests/test_v951_model_metadata.py \
   tests/test_deep_audit_v951.py
@@ -17,3 +18,7 @@ do
   echo "=== $t"
   python3 "$t"
 done
+echo "=== tests/test_depthai_metric_alignment.js"
+node tests/test_depthai_metric_alignment.js
+echo "=== tests/test_depthai_worker_shape.js"
+node tests/test_depthai_worker_shape.js

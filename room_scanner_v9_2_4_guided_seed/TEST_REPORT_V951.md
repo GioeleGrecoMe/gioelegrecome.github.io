@@ -1,67 +1,31 @@
-# Test report - Room Scanner v9.5.1
+# Room Scanner v9.5.1 Hotfix3 — Verification report
 
-## Result
+Build: `v9.5.1-hotfix3-depthai-keyframes`
 
-All current regression tests pass.
+## Scope verified
 
-## Geometry
+- Hotfix1 bootstrap regression: `pumpSemanticQueue` declared and audio/output handlers reachable.
+- Hotfix2 Step 3: MobileSAM failure remains visible with retry/upload/explicit skip; no silent stage bypass.
+- Hotfix2 Stage 5: final Digital Twin reuses the scanner WebGL renderer; failed viewer open rolls back instead of leaving a black screen.
+- Hotfix3 Depth Anything V2 Small Q4F16: deferred Stage-5 keyframes only; no neural depth inference in the WebXR live loop.
+- Metric safety: DepthAI is relative-depth only; direct-depth and inverse-depth calibration are tested against synchronized XR depth and bad maps are rejected.
+- Mobile compute policy: 2–6 adaptive keyframes, lower fusion grids on WASM/low-memory devices, WebGPU attempted only when available.
+- Worker isolation: DepthAI uses its own ONNX Runtime 1.24.1 worker; MobileSAM's pinned runtime is not mutated.
+- ONNX shape safety: static model input dimensions are honored from `session.inputMetadata`; dynamic inputs use aspect-preserving DPT preprocessing and multiples of 14.
+- Service worker/cache version: `v951h3`, with separate lazy DepthAI and MobileSAM caches.
 
-- Independent-view probability cap: PASS.
-- One-view repeated hit evidence cannot exceed the one-view cap.
-- Three independent supported views produce stable-level probability in the synthetic regression.
-- Young mono-view surfels survive until they have a fair revisit opportunity.
-- Stale unsupported mono-view surfels are removable online.
-- Online maintenance runs at keyframe boundaries, in bounded realtime slices, and in chirp-packet safe windows.
-- Final processing is cooperative residual validation rather than the first full cleanup.
+## Important artifact limitation
 
-## Semantic/object pipeline
+The executable environment used to assemble this package can inspect the Hugging Face model metadata but blocks exporting `application/octet-stream` downloads into the sandbox. Therefore the 19.1 MB ONNX binary itself is **not embedded in this generated archive**. The application has a pinned Hugging Face remote fallback for online testing, and `tools/fetch_depth_anything.py` downloads the exact Q4F16 file and verifies SHA-256 before deployment in a normal networked shell.
 
-- Active semantic backend: MobileSAM split encoder/decoder ONNX.
-- No PicoSAM or EfficientSAM production path remains.
-- One model-upload handler only.
-- Metric reticle readiness uses local voxel evidence and does not scan the whole surfel map.
-- Minimum multi-view object capture: 3 independent views for ordinary objects.
-- Compact oriented proxy is generated and rendered in place of dense object surfels.
-- Temporary RGB/mask/point buffers are explicitly released after proxy finalization.
-- Raw object images/masks are not retained in the compact export.
-- Manual boundaries and continuous floor/ceiling plane workflows are present.
+Expected model:
 
-## Acoustic/material prior
+- file: `models/depth_anything_v2_small_q4f16.onnx`
+- size: 19,126,267 bytes
+- SHA-256: `eca72971aea64216d767c70c534160de53b5435b588d362bac6dbd5a73f9bf1e`
 
-- Material prior confidence is capped at 0.28 for automatic visual inference.
-- Manual material labels remain priors, not measurements.
-- Acoustic prior provenance explicitly states that reliable measured RIR evidence overrides it.
-- Compact oriented proxy faces are exported as simulator surfaces.
+For a deterministic/offline deployment, run all fetch helpers and then `tools/check_deploy_bundle.py` until it reports `FULL_LOCAL_READY=yes`.
 
-## Static audit
+## Runtime measurement
 
-- DOM ids: 273 unique.
-- Simple DOM references: 248, no missing targets.
-- Event-handler targets: 98, no missing targets.
-- Named functions: 593, no duplicate declarations.
-- HTML module syntax: PASS with node --check.
-- Service worker syntax: PASS with node --check.
-- Button/fake-button dark background + white label rule: PASS.
-
-## MobileSAM binary limitation in this build environment
-
-The build environment can reach the remote MobileSAM ONNX URL and received an HTTP 200 response for the compact bundle, but the artifact-download policy prevents binary ZIP/ONNX payloads from being materialized into the build filesystem. Therefore this release does not claim to bundle a model binary it could not verify locally.
-
-The application is local-first and accepts either:
-
-- models/mobilesam.encoder.onnx + models/mobilesam.decoder.quant.onnx on the host, or
-- an encoder+decoder ZIP/ONNX upload in the browser.
-
-The target device must pass an actual encoder-to-decoder smoke inference before the optional object stage is enabled.
-
-## Hotfix2 regression audit
-
-- JavaScript module syntax: PASS (`node --check`).
-- Service worker syntax: PASS.
-- Step 3 failed-preflight state remains visible: PASS.
-- MobileSAM retry and local ZIP/ONNX upload path from Step 3: PASS (static integration audit).
-- Final viewer single-WebGL-context policy: PASS.
-- Final viewer error rollback instead of black overlay: PASS.
-- Service-worker/cache namespace bumped to `v951h2`: PASS.
-- Full current suite: PASS; see `tests/hotfix2_suite_output.txt`.
-- Local deployment audit intentionally reports `MOBILESAM_LOCAL_READY=no` in this archive because binary ONNX/ORT payloads are not embedded. Run the fetch helpers before GitHub Pages deployment for a deterministic local-first site.
+A desktop static/headless test cannot reproduce phone thermals or WebXR camera/depth APIs. The build therefore records the quantities that matter on the real device: provider (`webgpu`/`wasm`), model input shape, inference milliseconds per keyframe, selected compute tier, metric median/p90 error, accepted/rejected frames, and fused DepthAI points. The UI toggle permits A/B comparison of WebXR-only versus WebXR+DepthAI on the same scan/device.

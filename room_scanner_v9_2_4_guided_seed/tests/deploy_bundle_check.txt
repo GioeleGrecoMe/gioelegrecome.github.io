@@ -1,9 +1,0 @@
-Run tools/fetch_mobilesam_models.py and tools/fetch_onnxruntime_web.py before deploying.
-OK  application shell        room_scanner_v9.html  683117 bytes
-OK  service worker           sw.js  1925 bytes
-MISSING  MobileSAM encoder        models/mobilesam.encoder.onnx
-MISSING  MobileSAM decoder        models/mobilesam.decoder.quant.onnx
-MISSING  ONNX Runtime Web JS      vendor/ort.min.js
-MISSING  ORT WASM binary          vendor/ort-wasm*.wasm
-
-MOBILESAM_LOCAL_READY=no

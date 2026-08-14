@@ -1,15 +1,24 @@
-# ONNX Runtime Web runtime
+# ONNX Runtime Web runtimes
 
-MobileSAM uses the WASM path of ONNX Runtime Web 1.14.0 because the existing
-MobileSAM browser implementation reports that version as the most compatible
-with its converted encoder/decoder pair.
+Two isolated runtimes are intentional.
 
-To make inference fully same-origin/offline on the deployment host, run:
+## MobileSAM
+
+MobileSAM keeps its existing pinned ONNX Runtime Web 1.14.0 assets directly in
+`vendor/` for compatibility with its split encoder/decoder conversion:
 
 ```bash
-python tools/fetch_onnxruntime_web.py
+python3 tools/fetch_onnxruntime_web.py
 ```
 
-The application tries `./vendor/ort.min.js` first. If it is not present, it can
-fall back to the pinned CDN runtime. The neural runtime is released before the
-scientific measurement phase.
+## Depth Anything
+
+The deferred DepthAI worker uses ONNX Runtime Web 1.24.1 under
+`vendor/depthai/`. It can attempt WebGPU and fall back to WASM without changing
+MobileSAM's global runtime (`vendor/ort.min.js` plus WASM binaries):
+
+```bash
+python3 tools/fetch_depthai_runtime.py
+```
+
+The remote CDN remains a fallback when local runtime assets are absent.

@@ -1,28 +1,37 @@
-# MobileSAM model files
+# Local neural model files
 
-The browser looks for these files first:
+## MobileSAM (optional object isolation)
+
+The browser looks for:
 
 - `mobilesam.encoder.onnx`
 - `mobilesam.decoder.quant.onnx`
 
-The reference deployment pair is the same split encoder + quantized decoder used
-by the public `MobileSAM-in-the-Browser` implementation. Install that pair on the
-hosting machine with:
+The split pair follows the same browser-oriented layout used by the public `MobileSAM-in-the-Browser` integration.
+
+Install with:
 
 ```bash
 python3 tools/fetch_mobilesam_models.py
 ```
 
-If you already have a compatible encoder+decoder ZIP, normalize it with:
+The UI can also load a ZIP/ONNX pair into browser memory. MobileSAM is used only
+for the guided object step and released before the acoustic measurement.
+
+## Depth Anything V2 Small Q4F16 (optional Stage-5 detail prior)
+
+The browser looks for:
+
+- `depth_anything_v2_small_q4f16.onnx`
+
+Install the pinned ~19.1 MB single-file ONNX model with:
 
 ```bash
-python3 tools/install_mobilesam_zip.py /path/to/mobile_sam_bundle.zip
+python3 tools/fetch_depth_anything.py
 ```
 
-The web UI can also load a ZIP containing encoder+decoder ONNX directly into
-browser memory. Every model path is validated by an actual encoder-to-decoder
-smoke test on the target device before the guided object stage can start.
+Expected SHA-256:
+`eca72971aea64216d767c70c534160de53b5435b588d362bac6dbd5a73f9bf1e`
 
-A compact third-party quantized MobileSAM ONNX bundle also exists, but ONNX
-conversions may differ in preprocessing/layout. Use the browser smoke test as the
-source of truth instead of assuming that any file named MobileSAM is compatible.
+The app can fall back to the Hugging Face model URL, but same-origin deployment
+is preferred for repeatability and offline use.
