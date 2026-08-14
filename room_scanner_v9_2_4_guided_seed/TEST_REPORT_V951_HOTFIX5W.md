@@ -1,7 +1,7 @@
 # Room Scanner v9.5.1 Hotfix5W — verification report
 
-Build: `v9.5.1-hotfix5-mobile-ai-warm`  
-Deploy revision: `951h5w`
+Build: `v9.5.1-hotfix5w2-ort-metadata`  
+Deploy revision: `951h5w2`
 
 ## Root causes addressed
 
@@ -31,7 +31,7 @@ Deploy revision: `951h5w`
 - Semantic sessions are released before scientific measurement.
 - Stage-5 WebXR visual Gaussian fallback remains isolated from strict solver
   geometry.
-- Service worker and HTML use revision `951h5w`, network-first/no-store for
+- Service worker and HTML use revision `951h5w2`, network-first/no-store for
   navigation and neural assets.
 
 ## Automated suite

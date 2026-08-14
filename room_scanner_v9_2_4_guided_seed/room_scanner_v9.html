@@ -577,8 +577,8 @@ import * as THREE from 'three';
 // ============================================================================
 
 const $=q=>document.querySelector(q);
-const APP_BUILD='v9.5.1-hotfix5-mobile-ai-warm';
-const DEPLOY_REV='951h5w';
+const APP_BUILD='v9.5.1-hotfix5w2-ort-metadata';
+const DEPLOY_REV='951h5w2';
 const CFG={
   // Dense geometry map. 6 cm is deliberately conservative on phones: small
   // enough to preserve walls/door recesses, large enough to average depth noise.
@@ -713,7 +713,7 @@ const CFG={
   objectSeedMinStableSurfelsReady:2, objectSeedMinIndependentViews:2,
   objectSeedMaxDepthSpreadM:0.72, objectSeedMinSpanM:0.055,
   objectSeedMinNormalSurfels:4, objectSeedMinOrientationConfidence:0.25,
-  semanticModelCache:'room-acoustic-semantic-v951h5w', depthAIModelCache:'room-acoustic-depthai-v951h5w',
+  semanticModelCache:'room-acoustic-semantic-v951h5w2', depthAIModelCache:'room-acoustic-depthai-v951h5w2',
   // MobileSAM is the guided semantic backend. The split model is deliberate:
   // the image encoder runs once for each accepted view, while the much cheaper
   // decoder is reused for point/box prompts. Local files are preferred; the
@@ -3072,8 +3072,29 @@ finalizeSurfelMapCooperative=async function(options={}){
 // has a proven CPU path and this stage is user-driven rather than realtime.
 updateSemanticStatus=function(){const e=$('#semanticStatus');if(e)e.textContent=`${S.semantic.backend} · ${S.semantic.status} · MobileSAM guidato · runtime ${S.semantic.runtimeSource||'lazy'}`;renderSemanticObjectPanel()};
 
+// H5W2: ONNX Runtime JS exposes inputMetadata/outputMetadata as arrays of
+// ValueMetadata objects in current releases. Older builds/export wrappers may
+// expose map-like objects instead. H5W incorrectly indexed inputMetadata by the
+// input name, so static shapes such as [684,1024,3] were never seen and the
+// encoder received a near-but-invalid [683,1024,3] tensor during the smoke test.
+function ortSessionMeta(session,kind,name){
+  const names=kind==='output'?(session?.outputNames||[]):(session?.inputNames||[]),all=kind==='output'?session?.outputMetadata:session?.inputMetadata;
+  if(!all)return null;
+  if(Array.isArray(all)){
+    const byName=all.find(m=>m?.name===name);if(byName)return byName;
+    const i=names.indexOf(name);if(i>=0&&all[i])return all[i];
+    return all[0]||null;
+  }
+  if(typeof all==='object')return all[name]||null;
+  return null
+}
+function ortMetaShape(meta){const d=meta?.shape||meta?.dimensions||meta?.dims||[];return Array.isArray(d)?d:Array.from(d||[])}
+function ortMetaSummary(session,kind='input'){
+  const names=kind==='output'?(session?.outputNames||[]):(session?.inputNames||[]);
+  return names.map(n=>{const m=ortSessionMeta(session,kind,n);return {name:n,type:m?.type||m?.dataType||null,shape:ortMetaShape(m)}})
+}
 function mobileSamInputLayout(session){
-  try{const n=session?.inputNames?.[0],m=session?.inputMetadata?.[n],d=m?.dimensions||m?.dims||[];if(d.length===3&&Number(d[2])===3)return 'hwc';if(d.length===4&&Number(d[3])===3)return 'nhwc';if(d.length===4&&Number(d[1])===3)return 'nchw'}catch{}return 'hwc'
+  try{const n=session?.inputNames?.[0],m=ortSessionMeta(session,'input',n),d=ortMetaShape(m);if(d.length===3&&Number(d[2])===3)return 'hwc';if(d.length===4&&Number(d[3])===3)return 'nhwc';if(d.length===4&&Number(d[1])===3)return 'nchw'}catch{}return 'hwc'
 }
 function mobileSamEncoderProfile(session){
   // Two MobileSAM ONNX export families are common in browsers. The Akbartus
@@ -3082,7 +3103,7 @@ function mobileSamEncoderProfile(session){
   // RGB. Detect the contract from metadata instead of coupling preprocessing to a
   // filename, so a locally fetched model cannot be silently paired with the wrong
   // input convention.
-  const layout=mobileSamInputLayout(session);let dims=[],name='';try{name=session?.inputNames?.[0]||'';const m=session?.inputMetadata?.[name];dims=m?.dimensions||m?.dims||[]}catch{}
+  const layout=mobileSamInputLayout(session);let dims=[],name='';try{name=session?.inputNames?.[0]||'';const m=ortSessionMeta(session,'input',name);dims=ortMetaShape(m)}catch{}
   const preprocess=(layout==='hwc'&&dims.length===3&&!/pixel[_-]?values/i.test(name))?'raw255':'imagenet';
   return {layout,dims,name,preprocess}
 }
@@ -3166,7 +3187,7 @@ function mobileSamEncoderTensor(ort,rgba,w,h,layout,preprocess='raw255'){
   const a=new Float32Array(n*3);for(let i=0;i<n;i++){a[3*i]=val(i,0);a[3*i+1]=val(i,1);a[3*i+2]=val(i,2)}return new ort.Tensor('float32',a,layout==='nhwc'?[1,h,w,3]:[h,w,3])
 }
 async function mobileSamEncodeBitmap(bmp){
-  const ort=S.semantic.ort,sz=mobileSamResize(bmp.width,bmp.height),cv=S.semantic.mobileCanvas||(S.semantic.mobileCanvas=document.createElement('canvas'));cv.width=sz.w;cv.height=sz.h;const cx=S.semantic.mobileCtx||(S.semantic.mobileCtx=cv.getContext('2d',{willReadFrequently:true}));cx.clearRect(0,0,sz.w,sz.h);cx.drawImage(bmp,0,0,sz.w,sz.h);const rgba=cx.getImageData(0,0,sz.w,sz.h).data,layout=sz.layout||mobileSamInputLayout(S.semantic.encoder),preprocess=sz.preprocess||mobileSamEncoderProfile(S.semantic.encoder).preprocess,input=mobileSamEncoderTensor(ort,rgba,sz.w,sz.h,layout,preprocess),name=S.semantic.encoder.inputNames[0],t0=performance.now();S.semantic.encoderPreprocess=preprocess;S.semantic.encoderLayout=layout;let out=null;try{out=await S.semantic.encoder.run({[name]:input});const tensor=out.image_embeddings||out[S.semantic.encoder.outputNames[0]]||Object.values(out)[0];if(!tensor?.data?.length)throw new Error('MobileSAM encoder: embedding assente');S.semantic.mobileInputW=sz.w;S.semantic.mobileInputH=sz.h;return {tensor,w:sz.w,h:sz.h,scale:sz.scale,ms:performance.now()-t0}}catch(e){if(out)for(const [k,t] of Object.entries(out))if(t!==S.semantic.embeddingCache?.tensor)try{t?.dispose?.()}catch{}throw e}
+  const ort=S.semantic.ort,sz=mobileSamResize(bmp.width,bmp.height),cv=S.semantic.mobileCanvas||(S.semantic.mobileCanvas=document.createElement('canvas'));cv.width=sz.w;cv.height=sz.h;const cx=S.semantic.mobileCtx||(S.semantic.mobileCtx=cv.getContext('2d',{willReadFrequently:true}));cx.clearRect(0,0,sz.w,sz.h);cx.drawImage(bmp,0,0,sz.w,sz.h);const rgba=cx.getImageData(0,0,sz.w,sz.h).data,layout=sz.layout||mobileSamInputLayout(S.semantic.encoder),preprocess=sz.preprocess||mobileSamEncoderProfile(S.semantic.encoder).preprocess,input=mobileSamEncoderTensor(ort,rgba,sz.w,sz.h,layout,preprocess),name=S.semantic.encoder.inputNames[0],t0=performance.now();S.semantic.encoderPreprocess=preprocess;S.semantic.encoderLayout=layout;let out=null;try{out=await S.semantic.encoder.run({[name]:input});const tensor=out.image_embeddings||out[S.semantic.encoder.outputNames[0]]||Object.values(out)[0];if(!tensor?.data?.length)throw new Error('MobileSAM encoder: embedding assente');S.semantic.mobileInputW=sz.w;S.semantic.mobileInputH=sz.h;return {tensor,w:sz.w,h:sz.h,scale:sz.scale,ms:performance.now()-t0}}catch(e){if(out)for(const [k,t] of Object.entries(out))if(t!==S.semantic.embeddingCache?.tensor)try{t?.dispose?.()}catch{}const expected=ortSessionMeta(S.semantic.encoder,'input',name),exp=ortMetaShape(expected),actual=input?.dims||[];throw new Error(`ENCODER OrtRun · ${e.message||e} · input=${name} · expected=${JSON.stringify(exp)} · actual=${JSON.stringify(actual)} · layout=${layout} · preprocess=${preprocess}`)}
 }
 function mobileSamPrompt(F,E){
   const kind=v95CurrentKind(),B=S.objectSeeding.manualBoundary||[],pts=[];
@@ -3179,7 +3200,7 @@ async function mobileSamDecode(F,E){
 }
 async function runMobileSamSeedFrame(F){const bmp=await getSemanticBitmap(F);if(!bmp)throw new Error('MobileSAM: frame RGB non disponibile');if(!S.semantic.encoder||!S.semantic.decoder)throw new Error('MobileSAM non inizializzato');releaseSemanticEmbedding();const E=await mobileSamEncodeBitmap(bmp);S.semantic.embeddingCache={frameId:F.id,tensor:E.tensor,inputW:E.w,inputH:E.h};try{return await mobileSamDecode(F,E)}finally{releaseSemanticEmbedding()}}
 async function mobileSamSemanticSelfTest(){
-  if(!S.semantic.encoder||!S.semantic.decoder||!S.semantic.ort)throw new Error('MobileSAM: sessioni assenti');const cv=document.createElement('canvas');cv.width=96;cv.height=64;const cx=cv.getContext('2d');cx.fillStyle='#777';cx.fillRect(0,0,96,64);cx.fillStyle='#bbb';cx.fillRect(26,14,44,36);const bmp=await createImageBitmap(cv),t0=performance.now();let E=null;try{E=await mobileSamEncodeBitmap(bmp);const ort=S.semantic.ort,pts=[{x:.5*E.w,y:.5*E.h,label:1},{x:0,y:0,label:-1}],coords=new Float32Array(pts.flatMap(p=>[p.x,p.y])),labels=new Float32Array(pts.map(p=>p.label)),feeds={};for(const name of S.semantic.decoder.inputNames){const l=name.toLowerCase();if(l.includes('image_embedding'))feeds[name]=E.tensor;else if(l.includes('point_coord'))feeds[name]=new ort.Tensor('float32',coords,[1,2,2]);else if(l.includes('point_label'))feeds[name]=new ort.Tensor('float32',labels,[1,2]);else if(l.includes('mask_input'))feeds[name]=new ort.Tensor('float32',new Float32Array(256*256),[1,1,256,256]);else if(l.includes('has_mask_input'))feeds[name]=new ort.Tensor('float32',new Float32Array([0]),[1]);else if(l.includes('orig_im_size'))feeds[name]=new ort.Tensor('float32',new Float32Array([E.h,E.w]),[2])}const out=await S.semantic.decoder.run(feeds),m=out.masks||Object.values(out).find(t=>t?.dims?.length>=4);if(!m?.data?.length)throw new Error('MobileSAM smoke: decoder output assente');for(const t of Object.values(out))if(t!==E.tensor)try{t?.dispose?.()}catch{}return {ok:true,ms:performance.now()-t0,provider:'wasm',runtime:S.semantic.runtimeSource,encoderVariant:S.semantic.encoderVariant,decoderVariant:S.semantic.decoderVariant,encoderLayout:S.semantic.encoderLayout,encoderPreprocess:S.semantic.encoderPreprocess,encoderInputs:[...S.semantic.encoder.inputNames],encoderOutputs:[...S.semantic.encoder.outputNames],decoderInputs:[...S.semantic.decoder.inputNames],decoderOutputs:[...S.semantic.decoder.outputNames]}}finally{try{bmp.close?.()}catch{}try{E?.tensor?.dispose?.()}catch{}}
+  if(!S.semantic.encoder||!S.semantic.decoder||!S.semantic.ort)throw new Error('MobileSAM: sessioni assenti');const cv=document.createElement('canvas');cv.width=96;cv.height=64;const cx=cv.getContext('2d');cx.fillStyle='#777';cx.fillRect(0,0,96,64);cx.fillStyle='#bbb';cx.fillRect(26,14,44,36);const bmp=await createImageBitmap(cv),t0=performance.now();let E=null;try{E=await mobileSamEncodeBitmap(bmp);const ort=S.semantic.ort,pts=[{x:.5*E.w,y:.5*E.h,label:1},{x:0,y:0,label:-1}],coords=new Float32Array(pts.flatMap(p=>[p.x,p.y])),labels=new Float32Array(pts.map(p=>p.label)),feeds={};for(const name of S.semantic.decoder.inputNames){const l=name.toLowerCase();if(l.includes('image_embedding'))feeds[name]=E.tensor;else if(l.includes('point_coord'))feeds[name]=new ort.Tensor('float32',coords,[1,2,2]);else if(l.includes('point_label'))feeds[name]=new ort.Tensor('float32',labels,[1,2]);else if(l.includes('mask_input'))feeds[name]=new ort.Tensor('float32',new Float32Array(256*256),[1,1,256,256]);else if(l.includes('has_mask_input'))feeds[name]=new ort.Tensor('float32',new Float32Array([0]),[1]);else if(l.includes('orig_im_size'))feeds[name]=new ort.Tensor('float32',new Float32Array([E.h,E.w]),[2])}let out;try{out=await S.semantic.decoder.run(feeds)}catch(e){throw new Error(`DECODER OrtRun · ${e.message||e} · inputs=${JSON.stringify(ortMetaSummary(S.semantic.decoder,'input'))} · embedding=${JSON.stringify(E.tensor?.dims||[])}`)}const m=out.masks||Object.values(out).find(t=>t?.dims?.length>=4);if(!m?.data?.length)throw new Error('MobileSAM smoke: decoder output assente');for(const t of Object.values(out))if(t!==E.tensor)try{t?.dispose?.()}catch{}return {ok:true,ms:performance.now()-t0,provider:'wasm',runtime:S.semantic.runtimeSource,encoderVariant:S.semantic.encoderVariant,decoderVariant:S.semantic.decoderVariant,encoderLayout:S.semantic.encoderLayout,encoderPreprocess:S.semantic.encoderPreprocess,encoderInputs:[...S.semantic.encoder.inputNames],encoderOutputs:[...S.semantic.encoder.outputNames],decoderInputs:[...S.semantic.decoder.inputNames],decoderOutputs:[...S.semantic.decoder.outputNames]}}finally{try{bmp.close?.()}catch{}try{E?.tensor?.dispose?.()}catch{}}
 }
 async function preflightGuidedObjectSeeding({force=false,reason='flow'}={}){
   const t0=performance.now(),mode=semanticModeNow();S.semantic.providerAttempts=[];

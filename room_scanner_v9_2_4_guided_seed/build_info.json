@@ -1,6 +1,6 @@
 {
-  "appBuild": "v9.5.1-hotfix5-mobile-ai-warm",
-  "deployRev": "951h5w",
+  "appBuild": "v9.5.1-hotfix5w2-ort-metadata",
+  "deployRev": "951h5w2",
   "mobileSamBundle": "MobileSAM-in-the-Browser coherent split ONNX",
   "requiredLocal": [
     "models/mobilesam.encoder.onnx",

@@ -103,7 +103,7 @@ Before publishing a self-contained build run:
     python3 tools/fetch_depthai_runtime.py
     python3 tools/check_deploy_bundle.py
 
-The current service-worker namespace is `v951h5w`, with separate semantic and DepthAI caches. Navigation and neural assets are network-first/no-store, with cache retained only as an offline fallback.
+The current service-worker namespace is `v951h5w2`, with separate semantic and DepthAI caches. Navigation and neural assets are network-first/no-store, with cache retained only as an offline fallback.
 
 ## Verification
 
@@ -148,7 +148,7 @@ context is surfaced as an error instead of leaving an empty screen.
 
 ## Hotfix5W — Mobile AI warm sessions / no camera-blocking reload
 
-Build: `v9.5.1-hotfix5-mobile-ai-warm` — deploy revision `951h5w`.
+Build: `v9.5.1-hotfix5w2-ort-metadata` — deploy revision `951h5w2`.
 
 This revision fixes the semantic preload regression found on the mobile build:
 `preflightGuidedObjectSeeding()` used to call `ensureMobileSamSemantic(true)`,
@@ -188,7 +188,7 @@ individually if the full pair does not execute.
 ### Deployment/cache rule
 
 `room_scanner_v9.html`, `sw.js` and `build_info.json` must all be uploaded from
-this same release. Revision `951h5w` uses network-first/no-store navigation and
+this same release. Revision `951h5w2` uses network-first/no-store navigation and
 neural assets, with cache only as offline fallback. This prevents a phone from
 running cached Hotfix4 HTML while the server exposes Hotfix3 (or vice versa).
 
@@ -204,4 +204,4 @@ Then run:
 
     sh tests/run_current_suite.sh
 
-The expected app badge is `v9.5.1-hotfix5-mobile-ai-warm`.
+The expected app badge is `v9.5.1-hotfix5w2-ort-metadata`.

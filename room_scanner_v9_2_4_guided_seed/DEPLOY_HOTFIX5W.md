@@ -31,7 +31,7 @@ your existing `models/` or `vendor/` folders before extracting it.
 
 6. On the phone the badge must read:
 
-       v9.5.1-hotfix5-mobile-ai-warm
+       v9.5.1-hotfix5w2-ort-metadata
 
 ## Expected MobileSAM behavior
 

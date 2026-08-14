@@ -31,14 +31,14 @@ def sha256(path: Path) -> str:
   for c in iter(lambda:f.read(1024*1024),b''): h.update(c)
  return h.hexdigest()
 def fetch(url: str, out: Path) -> None:
- req=urllib.request.Request(url,headers={'User-Agent':'room-scanner-model-fetch/951h5w'})
+ req=urllib.request.Request(url,headers={'User-Agent':'room-scanner-model-fetch/951h5w2'})
  with urllib.request.urlopen(req,timeout=120) as r, out.open('wb') as f:
   while True:
    block=r.read(1024*1024)
    if not block: break
    f.write(block)
 def main():
- MODELS.mkdir(parents=True,exist_ok=True);manifest={'bundle':'MobileSAM-in-the-Browser coherent split','deployRev':'951h5w','files':{}}
+ MODELS.mkdir(parents=True,exist_ok=True);manifest={'bundle':'MobileSAM-in-the-Browser coherent split','deployRev':'951h5w2','files':{}}
  for name,url in FILES.items():
   out=MODELS/name;tmp=out.with_suffix(out.suffix+'.part');tmp.unlink(missing_ok=True)
   print('Downloading',name,'...')

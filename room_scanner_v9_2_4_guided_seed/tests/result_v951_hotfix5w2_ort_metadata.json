@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "root_cause": "ORT inputMetadata array/shape was read as name-keyed map",
+  "browser_encoder_shape": [
+    684,
+    1024,
+    3
+  ],
+  "old_wrong_smoke_height": 683,
+  "diagnostics": [
+    "ENCODER OrtRun",
+    "DECODER OrtRun"
+  ],
+  "deploy_rev": "951h5w2"
+}

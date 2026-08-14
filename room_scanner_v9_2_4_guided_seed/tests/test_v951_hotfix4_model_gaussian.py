@@ -2,7 +2,7 @@ from pathlib import Path
 import re, json, subprocess, tempfile
 ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text(); sw=(ROOT/'sw.js').read_text()
-assert "APP_BUILD='v9.5.1-hotfix5-mobile-ai-warm'" in s
+assert "APP_BUILD='v9.5.1-hotfix5w2-ort-metadata'" in s
 # Model deployment/runtime diagnostics.
 for tok in [
  "semanticModelLocalDecoderFP32:'./models/mobilesam.decoder.onnx'",
@@ -21,7 +21,7 @@ assert "buildAcousticGaussianFieldFromVirtualArray" in s
 assert 'function finalRendererHealth' in s and 'function renderFinalFrameOnce' in s
 op=re.search(r'function openFinalViewer\(\).*?\nfunction closeFinalViewer',s,re.S); assert op and 'renderFinalFrameOnce()' in op.group(0)
 # Service worker neural assets are network-first, old h2/h3 cannot shadow deploy.
-assert "const CACHE='room-acoustic-v951h5w'" in sw
+assert "const CACHE='room-acoustic-v951h5w2'" in sw
 assert "fetch(req,{cache:'no-store'})" in sw and 'neuralNetworkFirst' in sw
 # Updated fetcher downloads both decoder variants.
 f=(ROOT/'tools/fetch_mobilesam_models.py').read_text(); assert "mobilesam.decoder.onnx" in f and "mobilesam.decoder.quant.onnx" in f

@@ -16,6 +16,7 @@ for t in \
   tests/test_v951_hotfix5_warm_ai.py \
   tests/test_v951_compact_object_material.py \
   tests/test_v951_model_metadata.py \
+  tests/test_v951_hotfix5w2_ort_metadata.py \
   tests/test_deep_audit_v951.py
 do
   echo "=== $t"

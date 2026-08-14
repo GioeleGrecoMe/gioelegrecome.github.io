@@ -12,7 +12,7 @@
    encoder/decoder pairs.
 3. **Camera-obscuring AI startup.** MobileSAM cold start uses a small fixed
    pointer-transparent progress strip. No full-screen processing overlay is used.
-4. **Mixed GitHub Pages builds.** Revision `951h5w` keeps documents and neural
+4. **Mixed GitHub Pages builds.** Revision `951h5w2` keeps documents and neural
    assets network-first/no-store, with versioned cache only as offline fallback.
 5. **WebXR-only Stage 5 preserved.** The Hotfix4 pre-final WebXR Gaussian snapshot
    remains the visual fallback when strict pruning leaves too little display

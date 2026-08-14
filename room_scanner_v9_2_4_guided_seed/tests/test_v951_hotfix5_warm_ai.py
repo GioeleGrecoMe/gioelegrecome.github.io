@@ -2,8 +2,8 @@ from pathlib import Path
 import json, re, subprocess, tempfile
 ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text(); sw=(ROOT/'sw.js').read_text(); fetcher=(ROOT/'tools/fetch_mobilesam_models.py').read_text()
-assert "APP_BUILD='v9.5.1-hotfix5-mobile-ai-warm'" in s
-assert "DEPLOY_REV='951h5w'" in s
+assert "APP_BUILD='v9.5.1-hotfix5w2-ort-metadata'" in s
+assert "DEPLOY_REV='951h5w2'" in s
 # Warm preload: advancing through the normal flow must never force a session reset.
 assert 'function semanticWarmReady()' in s and 'function syncSemanticPrefetchButton()' in s
 assert 'MOBILESAM_WARM_REUSE' in s
@@ -31,12 +31,12 @@ for name in ['resumeScientificMeasurement','startMeasurementAfterObjectSeeding']
 assert "snapshotWebXRVisualGaussians('pre-final-prune')" in s
 assert 'function buildDisplayGeometryGaussianField' in s and 'displayFallback:true' in s
 # H5W service worker makes navigation/models network-first to defeat mixed deploy/cache builds.
-for tok in ["const CACHE='room-acoustic-v951h5w'","const BUILD_REV='951h5w'",'documentNetworkFirst','neuralNetworkFirst',"fetch(req,{cache:'no-store'})"]: assert tok in sw,tok
+for tok in ["const CACHE='room-acoustic-v951h5w2'","const BUILD_REV='951h5w2'",'documentNetworkFirst','neuralNetworkFirst',"fetch(req,{cache:'no-store'})"]: assert tok in sw,tok
 # JS syntax.
 m=re.search(r'<script type="module">(.*?)</script>',s,re.S); assert m
 with tempfile.TemporaryDirectory() as td:
  q=Path(td)/'app.mjs';q.write_text(m.group(1))
  for js in [q,ROOT/'depth_ai_worker.js',ROOT/'sw.js']:
   r=subprocess.run(['node','--check',str(js)],capture_output=True,text=True); assert r.returncode==0,r.stderr
-res={'status':'PASS','warm_preload_reused':True,'forced_reset_only_on_retry':True,'progress_ui':'non-blocking mini bar','encoder_contracts':['HWC/raw255','4D/ImageNet'],'preferred_bundle':'MobileSAM-in-the-Browser','measurement_releases_ai':True,'webxr_only_stage5_fallback':True,'deploy_rev':'951h5w'}
+res={'status':'PASS','warm_preload_reused':True,'forced_reset_only_on_retry':True,'progress_ui':'non-blocking mini bar','encoder_contracts':['HWC/raw255','4D/ImageNet'],'preferred_bundle':'MobileSAM-in-the-Browser','measurement_releases_ai':True,'webxr_only_stage5_fallback':True,'deploy_rev':'951h5w2'}
 (ROOT/'tests/result_v951_hotfix5_warm_ai.json').write_text(json.dumps(res,indent=2)+'\n');print(json.dumps(res,indent=2))
