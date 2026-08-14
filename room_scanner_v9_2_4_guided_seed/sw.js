@@ -1,5 +1,5 @@
-const CACHE='room-acoustic-v930';
-const SEMANTIC_CACHE='room-acoustic-semantic-v930';
+const CACHE='room-acoustic-v940';
+const SEMANTIC_CACHE='room-acoustic-semantic-v940';
 const CORE=['./room_scanner_v9.html','./README.md','./ARCHITECTURE_V9.md'];
 self.addEventListener('install',event=>{
   // Deliberately do NOT pre-cache the ~41 MB EfficientSAM weights. They ship with
@@ -14,7 +14,7 @@ self.addEventListener('fetch',event=>{
   event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(resp=>{
     if(resp&&resp.ok){
       const u=new URL(event.request.url),same=u.origin===self.location.origin,
-        semanticModel=same&&/\/models\/efficient_sam_vitt_(encoder|decoder)\.onnx$/i.test(u.pathname),
+        semanticModel=same&&/\/models\/(?:efficient_sam_vitt_(?:encoder|decoder)|PicoSAM2_student_quantized)\.onnx$/i.test(u.pathname),
         runtime=(u.hostname==='cdn.jsdelivr.net'&&(/onnxruntime-web|three/.test(u.pathname)));
       if(semanticModel){const copy=resp.clone();caches.open(SEMANTIC_CACHE).then(c=>c.put(event.request,copy)).catch(()=>{});}
       else if(same||runtime){const copy=resp.clone();caches.open(CACHE).then(c=>c.put(event.request,copy)).catch(()=>{});}

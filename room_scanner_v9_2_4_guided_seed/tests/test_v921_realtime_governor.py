@@ -9,7 +9,7 @@ s=HTML.read_text(encoding='utf-8')
 ids=re.findall(r'\bid=["\']([^"\']+)["\']',s)
 assert len(ids)==len(set(ids)), 'duplicate DOM IDs'
 required=[
-    "v9.3-engineered-workflow",
+    "v9.4-picosam-readiness-gate",
     "rtFrameSoftMs:15.5", "rtValidationBudgetMs:1.35",
     "rtPreviewCaps:[7000,4800,2800,1600]",
     "rtSurfelSoftCaps:[140000,110000,85000,65000]",
@@ -23,7 +23,7 @@ required=[
     "diagnosticBtn", "diagnosticHudBtn", "exportDiagnosticSnapshot",
     "runtime_performance.csv", "surfel_sample.csv", "map_frame_summary.csv",
     "semanticPacketBoundaryMaintenance", "semanticProviderSmoke", "activeProvider",
-    "sw.js?v=930", "room-acoustic-v930",
+    "sw.js?v=940", "room-acoustic-v940",
 ]
 missing=[x for x in required if x not in s]
 assert not missing, missing

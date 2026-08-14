@@ -2,7 +2,7 @@ from pathlib import Path
 import re, json, subprocess, hashlib
 ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text()
-assert "v9.3-engineered-workflow" in s
+assert "v9.4-picosam-readiness-gate" in s
 # v9.3: startup enters a light geometry warm-up first. Preflight happens only
 # when the user advances to the optional object step, and still fails open.
 start=re.search(r"async function startSpatialCalibration\([^)]*\)\{[\s\S]*?\n}\nfunction",s)

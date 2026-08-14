@@ -2,7 +2,7 @@ from pathlib import Path
 import re, json, subprocess
 ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text()
-assert 'v9.3-engineered-workflow' in s
+assert 'v9.4-picosam-readiness-gate' in s
 # Five explicit product steps, old spatial card disabled.
 for x in ['wfCal','wfMap','wfObjects','wfMeasure','wfReview','xrMapUI','mapBack','mapContinue','seedBack','measureBack']:
     assert f'id="{x}"' in s, x

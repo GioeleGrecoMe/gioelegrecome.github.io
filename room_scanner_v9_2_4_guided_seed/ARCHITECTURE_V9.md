@@ -217,3 +217,16 @@ The diagnostic snapshot is a bounded observability artifact separate from RAW da
 ## v9.3 workflow engineering
 
 The acquisition controller is now an explicit five-state UI machine (`calibration`, `map`, `objects`, `measurement`, `review`). The map and object screens live inside the WebXR DOM-overlay root and never share the normal measurement toolbar. Object segmentation is performed only after a metric warm-up and only after an encoder+decoder preflight. Back-navigation pauses excitation rather than discarding captured PCM. See `ENGINEERING_WORKFLOW_V93.md` for transition semantics.
+
+## v9.4 lightweight semantic gate
+
+The object stage is now gated by local metric observability. The reticle stays
+white until a central RGB-D patch has enough verified/stable surfels from
+independent views and enough local normal evidence for a coarse 3-D orientation.
+Only then does it become green and enable segmentation. The readiness query uses
+neighboring surfel voxels rather than scanning the complete map.
+
+Semantic inference is user-driven and prefers a single-network PicoSAM2 ONNX
+when deployed. EfficientSAM-Ti remains a compatibility fallback. The semantic
+network proposes a mask only after the metric gate; it never promotes a surfel's
+geometric probability on its own.

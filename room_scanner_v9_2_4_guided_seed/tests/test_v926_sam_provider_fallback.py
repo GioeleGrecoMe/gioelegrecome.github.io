@@ -2,20 +2,20 @@ from pathlib import Path
 import re, json, hashlib, zipfile, os, subprocess
 ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text()
-assert "v9.3-engineered-workflow" in s
+assert "v9.4-picosam-readiness-gate" in s
 assert 'Carica SAM ZIP / ONNX' in s
 assert "accept=\".onnx,.zip,application/zip,application/octet-stream\"" in s
 assert "providers=navigator.gpu&&!quarantined?['webgpu','wasm']:['wasm']" in s
 assert "semanticProviderSmoke(provider)" in s
-assert "provider==='webgpu'" in s and "provo WASM" in s
+assert "provider==='webgpu'" in s and "provo EfficientSAM WASM" in s
 assert "S.semantic.customEncoderBytes=encBytes" in s and "S.semantic.customDecoderBytes=decBytes" in s
 assert "source instanceof Uint8Array" in s
 assert "InferenceSession.create(bytes,opts)" in s
-assert "await releaseSemanticSessions();if(S.semantic.customEncoderBytes||S.semantic.customDecoderBytes)" in s
+assert "await releaseSemanticSessions();if(S.semantic.customEncoderBytes||S.semantic.customDecoderBytes||S.semantic.customPicoBytes)" in s
 assert "preflight:{ok:S.semantic.preflightOk" in s and "attempts:S.semantic.providerAttempts" in s
 assert 'semanticWebgpuQuarantine' in s and 'markSemanticWebgpuBad' in s
 assert 'customEncoderBytes=null;S.semantic.customDecoderBytes=null' in s
-sw=(ROOT/'sw.js').read_text(); assert "room-acoustic-v930" in sw and "room-acoustic-semantic-v930" in sw
+sw=(ROOT/'sw.js').read_text(); assert "room-acoustic-v940" in sw and "room-acoustic-semantic-v940" in sw
 # Bundled model hashes unchanged.
 exp={
  'efficient_sam_vitt_encoder.onnx':'84ed466ffcc5c1f8d08409bc34a23bb364ab2c15e402cb12d4335a42be0e0951',

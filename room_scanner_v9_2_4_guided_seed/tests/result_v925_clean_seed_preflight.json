@@ -4,5 +4,5 @@
   "fail_open": "object stage skipped if unavailable",
   "clean_camera_mode": true,
   "dom_ids": 269,
-  "functions": 577
+  "functions": 586
 }

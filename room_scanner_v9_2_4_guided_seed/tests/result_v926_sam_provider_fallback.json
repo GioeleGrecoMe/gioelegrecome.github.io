@@ -9,6 +9,6 @@
     "decoder": "EfficientSAM-main/weights/efficient_sam_vitt_decoder.onnx"
   },
   "dom_ids": 269,
-  "functions": 577,
+  "functions": 586,
   "model_hashes": "PASS"
 }

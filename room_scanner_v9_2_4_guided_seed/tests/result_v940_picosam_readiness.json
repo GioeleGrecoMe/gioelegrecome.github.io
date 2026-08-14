@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "backend_priority": [
+    "PicoSAM2/WASM",
+    "EfficientSAM WebGPU/WASM"
+  ],
+  "readiness_gate": [
+    "local depth",
+    "verified surfels",
+    "independent views",
+    "stable surfels",
+    "metric span",
+    "depth compactness",
+    "orientation normals"
+  ],
+  "green_gate_positive_case": true,
+  "full_map_scan_in_readiness": false
+}
