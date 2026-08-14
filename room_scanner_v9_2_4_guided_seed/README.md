@@ -1,6 +1,6 @@
-# Room Scanner v9.5.1 — Hotfix3 DepthAI keyframe twin
+# Room Scanner v9.5.1 — Hotfix4 model/runtime + WebXR Gaussian recovery
 
-Hotfix3 keeps the Hotfix1 bootstrap fix and Hotfix2 mobile fixes (explicit
+Hotfix4 keeps the Hotfix1 bootstrap fix, Hotfix2 mobile fixes (explicit
 MobileSAM Step 3 failure UI + single WebGL renderer for Stage 5), then adds a
 **deferred Depth Anything V2 Small Q4F16 detail pass**. See
 `PATCH_NOTES_V951_HOTFIX3.md` and `DEPTHAI_INTEGRATION_V951.md`.
@@ -82,7 +82,7 @@ MobileSAM retains its own compatible ONNX Runtime Web 1.14 assets:
 
 DepthAI uses a separate worker/runtime so it cannot mutate this environment.
 
-## Why COCO-SSD is not used in Hotfix3
+## Why COCO-SSD is not used in this build
 
 A box detector is cheaper and useful for labels, but a bounding box does not
 separate the object's geometry from nearby walls/furniture. Because the twin
@@ -111,3 +111,34 @@ Run:
 The suite checks DOM/bootstrap integrity, WebGL viewer regression, MobileSAM
 flow, the Stage-5-only DepthAI architecture, JavaScript syntax, and synthetic
 metric alignment for both direct-depth and inverse-depth conventions.
+
+## Hotfix4 deployment note — MobileSAM decoder
+
+A successful HTTP fetch is **not** enough to declare MobileSAM usable. Hotfix4
+runs a real encoder -> decoder smoke inference. Decoder candidates are tried in
+this order:
+
+1. `models/mobilesam.decoder.onnx` (FP32, local)
+2. `models/mobilesam.decoder.quant.onnx` (quantized, local)
+3. FP32 remote fallback
+4. quantized remote fallback
+
+`tools/fetch_mobilesam_models.py` now downloads **encoder + FP32 decoder +
+quantized decoder** and writes a manifest. Run it again even if an older deploy
+already contains the encoder and quantized decoder.
+
+Same-origin neural assets are fetched network-first with a build query parameter
+and the service worker uses a new `951h4` cache namespace. This prevents an old
+ONNX/WASM response from surviving a GitHub Pages redeploy.
+
+## Hotfix4 Stage 5 Gaussian fallback
+
+Strict multi-view validation is still used for acoustic/structural inference.
+Separately, the measured WebXR Gaussian field is snapshotted before final
+pruning. If strict validation leaves too little geometry, Stage 5 can display
+that measured provisional snapshot without promoting it to trusted acoustic
+geometry. This restores the old WebXR-only visual path even when all AI models
+are disabled.
+
+The final viewer also performs an immediate first WebGL render; a lost/invalid
+context is surfaced as an error instead of leaving an empty screen.

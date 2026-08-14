@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check deterministic/offline deployment readiness for Room Scanner v9.5.1 h3.
+"""Check deterministic/offline deployment readiness for Room Scanner v9.5.1 h4.
 
 The application can fall back to remote model/runtime URLs, so a missing neural
 asset never blocks WebXR. This script is deliberately stricter: it reports when
@@ -24,7 +24,8 @@ shell &= report(ROOT/'sw.js', 500, 'service worker')
 shell &= report(ROOT/'depth_ai_worker.js', 2_000, 'DepthAI worker')
 
 mobile = report(ROOT/'models/mobilesam.encoder.onnx', 10_000_000, 'MobileSAM encoder')
-mobile &= report(ROOT/'models/mobilesam.decoder.quant.onnx', 2_000_000, 'MobileSAM decoder')
+mobile &= report(ROOT/'models/mobilesam.decoder.onnx', 10_000_000, 'MobileSAM decoder FP32')
+mobile &= report(ROOT/'models/mobilesam.decoder.quant.onnx', 2_000_000, 'MobileSAM decoder quant fallback')
 mobile &= report(ROOT/'vendor/ort.min.js', 100_000, 'MobileSAM ORT JS')
 mobile_wasm = any(good(p, 100_000) for p in [
     ROOT/'vendor/ort-wasm-simd-threaded.wasm', ROOT/'vendor/ort-wasm-simd.wasm',

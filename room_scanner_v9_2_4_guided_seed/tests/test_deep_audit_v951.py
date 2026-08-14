@@ -12,11 +12,11 @@ assert not handlers-ids_set, sorted(handlers-ids_set)
 funcs=re.findall(r'(?<![\w$])(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(',s)
 dups=[k for k,v in collections.Counter(funcs).items() if v>1]
 assert not dups, dups
-assert "APP_BUILD='v9.5.1-hotfix3-depthai-keyframes'" in s
+assert "APP_BUILD='v9.5.1-hotfix4-model-runtime-gaussian-debug'" in s
 assert 'PicoSAM' not in s and 'EfficientSAM' not in s
 assert 'button,.fakeBtn{background:#102238!important;color:#fff!important' in s
 assert s.count('semanticInputSize:1024') == 1
-assert s.count("semanticModelCache:'room-acoustic-semantic-v951h3'") == 1
+assert s.count("semanticModelCache:'room-acoustic-semantic-v951h4'") == 1
 assert s.count("$('#semanticModelInput').onchange=") == 1
 m=re.search(r'<script type="module">(.*?)</script>',s,re.S); assert m
 js=ROOT/'tests'/'_audit_module_v951.mjs'; js.write_text(m.group(1))

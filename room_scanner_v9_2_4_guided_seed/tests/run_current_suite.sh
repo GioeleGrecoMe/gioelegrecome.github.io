@@ -11,6 +11,7 @@ for t in \
   tests/test_v951_bootstrap_regression.py \
   tests/test_v951_hotfix2_step3_finalviewer.py \
   tests/test_v951_hotfix3_depthai.py \
+  tests/test_v951_hotfix4_model_gaussian.py \
   tests/test_v951_compact_object_material.py \
   tests/test_v951_model_metadata.py \
   tests/test_deep_audit_v951.py

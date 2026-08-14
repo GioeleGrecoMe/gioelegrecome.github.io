@@ -1,0 +1,25 @@
+
+For a self-contained deployment run:
+  python3 tools/fetch_mobilesam_models.py
+  python3 tools/fetch_onnxruntime_web.py
+  python3 tools/fetch_depth_anything.py
+  python3 tools/fetch_depthai_runtime.py
+OK  application shell              room_scanner_v9.html  705896 bytes
+OK  service worker                 sw.js  2260 bytes
+OK  DepthAI worker                 depth_ai_worker.js  9731 bytes
+MISSING  MobileSAM encoder              models/mobilesam.encoder.onnx
+MISSING  MobileSAM decoder FP32         models/mobilesam.decoder.onnx
+MISSING  MobileSAM decoder quant fallback models/mobilesam.decoder.quant.onnx
+MISSING  MobileSAM ORT JS               vendor/ort.min.js
+MISSING  MobileSAM ORT WASM             vendor/ort-wasm*.wasm
+MISSING  Depth Anything Q4F16           models/depth_anything_v2_small_q4f16.onnx
+MISSING  DepthAI ORT WASM JS            vendor/depthai/ort.min.js
+MISSING  DepthAI WASM binary            vendor/depthai/ort-wasm-simd-threaded.wasm
+MISSING  DepthAI ORT WebGPU JS          vendor/depthai/ort.webgpu.min.js
+MISSING  DepthAI WebGPU/JSEP WASM       vendor/depthai/ort-wasm-simd-threaded.jsep.wasm
+
+SHELL_READY=yes
+MOBILESAM_LOCAL_READY=no
+DEPTHAI_LOCAL_WASM_READY=no
+DEPTHAI_LOCAL_WEBGPU_READY=no
+FULL_LOCAL_READY=no
