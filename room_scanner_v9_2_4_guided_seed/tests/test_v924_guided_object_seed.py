@@ -3,7 +3,7 @@ import re, json, subprocess, hashlib
 ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text()
 req=[
- 'v9.2.6-sam-provider-fallback','objectSeedUI','segmentObjectSeed','confirmObjectSeed',
+ 'v9.3-engineered-workflow','objectSeedUI','segmentObjectSeed','confirmObjectSeed',
  'assignSeedCandidateToVisibleSurfels','enterObjectSeeding','startMeasurementAfterObjectSeeding',
  'refineSeededObjectBounds','semanticObjectClosure','invalidateSyntheticRIR',
  'RIR: non calcolata','RIR realmente calcolata','efficient_sam_vitt_encoder.onnx',
@@ -16,8 +16,10 @@ assert not missing, missing
 start=re.search(r"async function startSpatialCalibration\([^)]*\)\{[\s\S]*?\n}\nfunction",s)
 assert start
 body=start.group(0)
-assert 'enterObjectSeeding()' in body
-assert body.index('enterObjectSeeding()') < body.rfind('catch')
+assert 'enterMapWarmup()' in body
+assert 'preflightGuidedObjectSeeding' not in body
+assert body.index('enterMapWarmup()') < body.rfind('catch')
+flow=re.search(r"async function continueFromMap\(\)\{[^\n]*",s); assert flow and 'preflightGuidedObjectSeeding' in flow.group(0) and 'enterObjectSeeding' in flow.group(0)
 # Measurement start is isolated after confirmation/skip.
 meas=re.search(r"async function startMeasurementAfterObjectSeeding\([^)]*\)\{[^\n]*",s)
 assert meas and 'startAcquisition' in meas.group(0) and 'runAutoSweepLoop' in meas.group(0)
@@ -31,7 +33,7 @@ assert run and "classList.add('has-rir')" in run.group(0) and 'synthesizeRIRAt' 
 assert "invalidateSyntheticRIR('altezza sorgente cambiata" in s
 assert "invalidateSyntheticRIR('ricevitore virtuale mosso" in s
 # Seed-confirmed visible surfels do not require pre-existing stable probability.
-seed=re.search(r"async function assignSeedCandidateToVisibleSurfels\([\s\S]*?\n}\nasync function confirmObjectSeed",s)
+seed=re.search(r"async function assignSeedCandidateToVisibleSurfels\([\s\S]*?\n}\nfunction renderSeedObjectList",s)
 assert seed
 assert 'multiviewSoftProbability' not in seed.group(0)
 assert 'Math.abs(pr.z-d)' in seed.group(0)

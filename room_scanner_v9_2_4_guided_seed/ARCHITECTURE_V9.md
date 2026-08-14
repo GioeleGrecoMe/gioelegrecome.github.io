@@ -212,3 +212,8 @@ It cannot invent depth or override contradictory multi-view metric evidence.
 ## 11. Diagnostics and reproducibility
 
 The diagnostic snapshot is a bounded observability artifact separate from RAW data. It records runtime timing, active governor budgets and subsystem states so device-specific stalls can be diagnosed without transferring the full audio/video project.
+
+
+## v9.3 workflow engineering
+
+The acquisition controller is now an explicit five-state UI machine (`calibration`, `map`, `objects`, `measurement`, `review`). The map and object screens live inside the WebXR DOM-overlay root and never share the normal measurement toolbar. Object segmentation is performed only after a metric warm-up and only after an encoder+decoder preflight. Back-navigation pauses excitation rather than discarding captured PCM. See `ENGINEERING_WORKFLOW_V93.md` for transition semantics.

@@ -9,7 +9,7 @@ s=HTML.read_text()
 ids=re.findall(r'\bid="([^"]+)"',s)
 dups=sorted({x for x in ids if ids.count(x)>1})
 required=[
-    "v9.2.6-sam-provider-fallback",
+    "v9.3-engineered-workflow",
     "semanticPeriodMs:4200",
     "semanticInputSize:512",
     "semanticFrameMetrics",
@@ -40,7 +40,7 @@ assert "semanticPacketBoundaryMaintenance" in s
 assert "p.includes('silenzio')" not in s[s.index('function semanticSafeWindow'):s.index('function enqueueSemanticFrame')]
 assert "F.semanticRgb=rgbGrid" in s  # color belongs to selected keyframe, not later camera frame
 assert "q:[camQ.q.x,camQ.q.y,camQ.q.z,camQ.q.w]" in s
-assert "sw.js?v=926" in s
+assert "sw.js?v=930" in s
 
 # JS syntax check
 m=re.search(r'<script type="module">(.*?)</script>',s,re.S); assert m

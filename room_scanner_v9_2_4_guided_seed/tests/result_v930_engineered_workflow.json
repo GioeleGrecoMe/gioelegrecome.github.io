@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "steps": [
+    "calibration",
+    "map",
+    "objects",
+    "measurement",
+    "review"
+  ],
+  "dom_ids": 269,
+  "functions": 577,
+  "semantic_after_map": true,
+  "measurement_back_pauses": true
+}

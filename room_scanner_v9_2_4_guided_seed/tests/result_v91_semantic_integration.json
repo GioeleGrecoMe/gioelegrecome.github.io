@@ -1,6 +1,6 @@
 {
   "status": "PASS",
-  "dom_ids": 249,
+  "dom_ids": 269,
   "node_check": "PASS",
   "service_worker_check": "PASS",
   "readable_frame_score": 0.954,

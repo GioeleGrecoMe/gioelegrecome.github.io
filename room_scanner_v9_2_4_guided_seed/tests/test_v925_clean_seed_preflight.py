@@ -2,15 +2,19 @@ from pathlib import Path
 import re, json, subprocess, hashlib
 ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text()
-assert "v9.2.6-sam-provider-fallback" in s
-# Preflight must happen before entering guided seeding and must fail-open to measurement.
+assert "v9.3-engineered-workflow" in s
+# v9.3: startup enters a light geometry warm-up first. Preflight happens only
+# when the user advances to the optional object step, and still fails open.
 start=re.search(r"async function startSpatialCalibration\([^)]*\)\{[\s\S]*?\n}\nfunction",s)
 assert start, 'startup function missing'
 b=start.group(0)
-for token in ['await preflightGuidedObjectSeeding()','if(semanticReady.ok)','enterObjectSeeding()','startMeasurementAfterObjectSeeding(why)']:
-    assert token in b, token
-assert b.index('await preflightGuidedObjectSeeding()') < b.index('enterObjectSeeding()')
-assert b.index('await preflightGuidedObjectSeeding()') < b.index('startMeasurementAfterObjectSeeding(why)')
+assert 'enterMapWarmup()' in b and 'preflightGuidedObjectSeeding' not in b
+cont=re.search(r"async function continueFromMap\(\)\{[^\n]*",s)
+assert cont, 'continueFromMap missing'
+c=cont.group(0)
+for token in ['await preflightGuidedObjectSeeding()','enterObjectSeeding','startMeasurementAfterObjectSeeding']:
+    assert token in c, token
+assert c.index('await preflightGuidedObjectSeeding()') < c.index('enterObjectSeeding')
 # Real encoder+decoder smoke test before UI.
 for token in ['semanticEndToEndSelfTest','S.semantic.encoder.run','S.semantic.decoder.run','preflightOk=true','semantic_preflight_failed']:
     assert token in s, token
@@ -39,5 +43,5 @@ m=re.search(r'<script type="module">(.*?)</script>',s,re.S); assert m
 mod=Path('/tmp/v925_clean_seed.mjs'); mod.write_text(m.group(1))
 r=subprocess.run(['node','--check',str(mod)],capture_output=True,text=True); assert r.returncode==0,r.stderr
 r=subprocess.run(['node','--check',str(ROOT/'sw.js')],capture_output=True,text=True); assert r.returncode==0,r.stderr
-res={'status':'PASS','semantic_preflight':'encoder+decoder end-to-end before guided UI','fail_open':'measurement starts if unavailable','clean_camera_mode':True,'dom_ids':len(ids),'functions':len(fns)}
+res={'status':'PASS','semantic_preflight':'encoder+decoder end-to-end before guided UI','fail_open':'object stage skipped if unavailable','clean_camera_mode':True,'dom_ids':len(ids),'functions':len(fns)}
 (ROOT/'tests/result_v925_clean_seed_preflight.json').write_text(json.dumps(res,indent=2)); print(json.dumps(res,indent=2))
