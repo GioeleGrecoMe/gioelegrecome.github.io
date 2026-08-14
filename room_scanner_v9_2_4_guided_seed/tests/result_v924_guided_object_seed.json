@@ -1,8 +1,0 @@
-{
-  "status": "PASS",
-  "guided_seeding": true,
-  "explicit_rir": true,
-  "bundled_models": true,
-  "background_sam_disabled": true,
-  "dom_ids": 269
-}

@@ -1,0 +1,7 @@
+{
+  "status": "PASS",
+  "active_backend": "MobileSAM split ONNX",
+  "ort_web": "1.14.0 WASM",
+  "model_binary_bundled": false,
+  "single_upload_handler": true
+}

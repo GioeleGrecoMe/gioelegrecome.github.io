@@ -1,8 +1,0 @@
-{
-  "status": "PASS",
-  "dom_ids": 269,
-  "duplicates": [],
-  "required_features": 20,
-  "node_check": "PASS",
-  "service_worker_check": "PASS"
-}

@@ -1,5 +1,0 @@
-# Local HTTP smoke test
-room_scanner_v9.html 200
-sw.js 200
-models/efficient_sam_vitt_encoder.onnx 200
-models/efficient_sam_vitt_decoder.onnx 200

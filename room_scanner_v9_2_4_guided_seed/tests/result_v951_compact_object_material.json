@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "minimum_views": 3,
+  "oriented_proxy": true,
+  "raw_masks_retained": false,
+  "material_prior_max_confidence": 0.28,
+  "metric_readiness_local": true
+}

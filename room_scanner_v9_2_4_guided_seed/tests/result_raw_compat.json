@@ -1,8 +1,0 @@
-{
-  "status": "PASS",
-  "fixture": "Test_v8.zip",
-  "legacy_surfels": 31872,
-  "legacy_path_poses": 2535,
-  "audio_bytes": 36334636,
-  "inferred_views_median": 2
-}
