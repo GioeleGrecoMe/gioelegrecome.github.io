@@ -1,3 +1,7 @@
+# Room Scanner v9.5.1 — Hotfix5 deploy integrity
+
+Hotfix5 prevents mixed HTML/service-worker deployments, exposes the exact MobileSAM preflight error, keeps Hotfix4 decoder fallback and WebXR Gaussian visual fallback, and makes page navigation network-first. See `PATCH_NOTES_V951_HOTFIX5.md`.
+
 # Room Scanner v9.5.1 — Hotfix4 model/runtime + WebXR Gaussian recovery
 
 Hotfix4 keeps the Hotfix1 bootstrap fix, Hotfix2 mobile fixes (explicit
@@ -99,8 +103,7 @@ Before publishing a self-contained build run:
     python3 tools/fetch_depthai_runtime.py
     python3 tools/check_deploy_bundle.py
 
-The service-worker namespaces are `v951h3`, including a separate lazy DepthAI
-cache. Reload once after deployment so the new worker takes control.
+The current service-worker namespace is `v951h5w`, with separate semantic and DepthAI caches. Navigation and neural assets are network-first/no-store, with cache retained only as an offline fallback.
 
 ## Verification
 
@@ -142,3 +145,63 @@ are disabled.
 
 The final viewer also performs an immediate first WebGL render; a lost/invalid
 context is surfaced as an error instead of leaving an empty screen.
+
+## Hotfix5W — Mobile AI warm sessions / no camera-blocking reload
+
+Build: `v9.5.1-hotfix5-mobile-ai-warm` — deploy revision `951h5w`.
+
+This revision fixes the semantic preload regression found on the mobile build:
+`preflightGuidedObjectSeeding()` used to call `ensureMobileSamSemantic(true)`,
+which released and recreated encoder/decoder sessions even immediately after the
+user had pressed **Precarica AI**. The preload is now a real in-memory warm-up:
+normal Map -> Objects navigation reuses the already smoke-tested sessions with no
+network I/O and no `InferenceSession.create()` call. Only an explicit **Riprova
+MobileSAM** forces a cold reset.
+
+MobileSAM loading no longer uses the full-screen processing overlay. A compact,
+pointer-transparent progress strip appears at the top only when a cold load is
+actually necessary. The camera remains visible. Neural sessions are still
+released before scientific acoustic measurement so WebXR/camera/audio do not
+compete with MobileSAM for memory.
+
+### Coherent MobileSAM bundle
+
+Run:
+
+    python3 tools/fetch_mobilesam_models.py
+
+Hotfix5W deliberately fetches the coherent split model used by
+`MobileSAM-in-the-Browser`: the Akbartus encoder plus its matching FP32 and
+quantized decoders. Earlier builds fetched the PulpCut encoder under the same
+local filename while applying the browser-demo HWC/raw-RGB preprocessing. That
+mix is no longer assumed to be valid.
+
+At runtime the app inspects the encoder input metadata and supports both:
+
+- 3-D HWC browser export -> raw RGB values in 0..255;
+- 4-D/NCHW/NHWC Hugging-Face-style export -> RGB rescale + ImageNet mean/std.
+
+Complete encoder+decoder pairs are tested with a real smoke inference. Local,
+browser-reference and PulpCut-compatibility candidates are isolated and rejected
+individually if the full pair does not execute.
+
+### Deployment/cache rule
+
+`room_scanner_v9.html`, `sw.js` and `build_info.json` must all be uploaded from
+this same release. Revision `951h5w` uses network-first/no-store navigation and
+neural assets, with cache only as offline fallback. This prevents a phone from
+running cached Hotfix4 HTML while the server exposes Hotfix3 (or vice versa).
+
+Before publishing a fully local copy:
+
+    python3 tools/fetch_mobilesam_models.py
+    python3 tools/fetch_onnxruntime_web.py
+    python3 tools/fetch_depth_anything.py
+    python3 tools/fetch_depthai_runtime.py
+    python3 tools/check_deploy_bundle.py
+
+Then run:
+
+    sh tests/run_current_suite.sh
+
+The expected app badge is `v9.5.1-hotfix5-mobile-ai-warm`.

@@ -1,0 +1,16 @@
+{
+  "appBuild": "v9.5.1-hotfix5-mobile-ai-warm",
+  "deployRev": "951h5w",
+  "mobileSamBundle": "MobileSAM-in-the-Browser coherent split ONNX",
+  "requiredLocal": [
+    "models/mobilesam.encoder.onnx",
+    "models/mobilesam.decoder.quant.onnx",
+    "models/mobilesam.decoder.onnx",
+    "vendor/ort.min.js",
+    "vendor/ort-wasm.wasm",
+    "vendor/ort-wasm-simd.wasm"
+  ],
+  "recommendedLocal": [
+    "models/depth_anything_v2_small_q4f16.onnx"
+  ]
+}

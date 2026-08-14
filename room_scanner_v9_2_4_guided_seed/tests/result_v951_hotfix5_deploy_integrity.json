@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "build": "v9.5.1-hotfix5-mobile-ai-warm",
+  "revision": "951h5w",
+  "navigation": "network-first",
+  "model_error_visible": true,
+  "hotfix4_features_preserved": true
+}

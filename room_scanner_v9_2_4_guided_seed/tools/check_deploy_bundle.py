@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check deterministic/offline deployment readiness for Room Scanner v9.5.1 h4.
+"""Check deterministic/offline deployment readiness for Room Scanner v9.5.1 Hotfix5W.
 
 The application can fall back to remote model/runtime URLs, so a missing neural
 asset never blocks WebXR. This script is deliberately stricter: it reports when

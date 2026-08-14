@@ -34,19 +34,19 @@ assert 'restorePrimaryRendererHost()' in open_body.group(0)
 assert 'if(!openFinalViewer())throw new Error' in s
 
 # Deployment cache must be a new namespace so phones cannot keep a mixed h1/h2 build.
-assert "sw.js?v=951h4" in s
-assert "room-acoustic-v951h4" in s and "room-acoustic-semantic-v951h4" in s
-assert "const CACHE='room-acoustic-v951h4'" in sw
-assert "const SEMANTIC_CACHE='room-acoustic-semantic-v951h4'" in sw
+assert "sw.js?v=${DEPLOY_REV}" in s
+assert "DEPLOY_REV='951h5w'" in s and "room-acoustic-semantic-v951h5w" in s
+assert "const CACHE='room-acoustic-v951h5w'" in sw
+assert "const SEMANTIC_CACHE='room-acoustic-semantic-v951h5w'" in sw
 assert 'neuralNetworkFirst' in sw
 
 res={
   'status':'PASS',
   'step3_failure_is_visible':True,
-  'mobile_sam_remote_pair':'PulpCut split ONNX',
+  'mobile_sam_remote_pair':'browser-tested Akbartus split + PulpCut compatibility fallback',
   'single_webgl_context_for_stage5':True,
   'viewer_failure_rolls_back_ui':True,
-  'service_worker_cache':'v951h4'
+  'service_worker_cache':'v951h5w'
 }
 (ROOT/'tests/result_v951_hotfix2_step3_finalviewer.json').write_text(json.dumps(res,indent=2))
 print(json.dumps(res,indent=2))

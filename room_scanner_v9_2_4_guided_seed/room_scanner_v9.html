@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#000000">
-<title>Room Scanner · v9.6 Continuous Multi-Sweep Acoustic Digital Twin</title>
+<title>Room Scanner · Continuous Multi-Sweep Acoustic Digital Twin</title>
 <style>
 :root{color-scheme:dark;--fg:#f5f8ff;--muted:#a8b4c7;--panel:rgba(5,10,18,.72);--line:rgba(255,255,255,.18);--accent:#63dcff;--ok:#7df2ac;--warn:#ffd166;--bad:#ff788f}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:var(--fg);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -18,6 +18,10 @@
 .calInsights{margin-top:8px;border:1px solid rgba(99,220,255,.22);border-radius:12px;background:rgba(3,10,17,.28);overflow:hidden}.calInsights summary{cursor:pointer;padding:9px 10px;font-weight:800;color:#d9f6ff;list-style:none}.calInsights summary::-webkit-details-marker{display:none}.calInsights summary:after{content:'▾';float:right;color:var(--muted)}.calInsights[open] summary:after{content:'▴'}.calInsightsBody{padding:0 9px 9px}.calInsightGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.calInsightCanvas{width:100%;height:145px;border:1px solid rgba(255,255,255,.11);border-radius:9px;background:#02060a;display:block}.calBandTable{width:100%;border-collapse:collapse;margin-top:7px;font:10px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace}.calBandTable th,.calBandTable td{padding:5px 6px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left}.calBandTable th{color:#cfe8ff}.calBandTable .good{color:var(--ok)}.calBandTable .marginal{color:var(--warn)}.calBandTable .reject{color:var(--bad)}.calInsightSelect{background:#101d2c;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px;margin-bottom:6px}
 .scanPreview{margin-top:6px}.scanPreviewHead{display:flex;gap:7px;align-items:center;font:10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}.scanPreviewHead b{color:var(--fg)}.scanPreviewHead span{margin-left:auto;color:var(--muted)}.scanProgress{height:8px;margin-top:4px;border-radius:999px;background:rgba(255,255,255,.11);overflow:hidden;border:1px solid rgba(255,255,255,.08)}.scanProgress>i{display:block;width:0;height:100%;background:linear-gradient(90deg,#63dcff,#7df2ac,#ffd166);transition:width .25s ease}.scanPreviewDetail{margin-top:3px;color:var(--muted);font:9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #processingOverlay{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(2,6,11,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}#processingOverlay.show{display:flex}#processingOverlay .box{width:min(520px,100%);background:#0b1522;border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 18px 60px rgba(0,0,0,.45)}#processingOverlay .title{font-size:17px;font-weight:850}.processProgress{height:12px;margin:12px 0 8px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden}.processProgress>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#63dcff,#7df2ac);transition:width .12s linear}.processSubProgress{height:5px;margin:-3px 0 8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}.processSubProgress>i{display:block;height:100%;width:0;background:#ffd166;transition:width .08s linear}#processingMeta{font:10px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;color:#cbd7e7;margin-bottom:5px}#processingDetail{font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);white-space:pre-wrap}
+/* HOTFIX5W: semantic model preparation must never replace or obscure the camera.
+   This slim, pointer-events-none progress pill stays over the live view and is
+   used only when a cold MobileSAM load is unavoidable. Warm preloads skip it. */
+#aiMiniProgress{position:fixed;z-index:89;left:50%;top:max(9px,env(safe-area-inset-top));transform:translateX(-50%) translateY(-18px);width:min(440px,calc(100vw - 24px));padding:7px 9px;border:1px solid rgba(255,255,255,.17);border-radius:12px;background:rgba(5,10,18,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .16s ease,transform .16s ease,visibility .16s;font:10px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 6px 20px rgba(0,0,0,.24)}#aiMiniProgress.show{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0)}#aiMiniProgressHead{display:flex;gap:7px;align-items:center}#aiMiniProgressLabel{font-weight:800;color:#e9f7ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#aiMiniProgressDetail{margin-left:auto;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48%}#aiMiniTrack{height:4px;margin-top:5px;border-radius:999px;background:rgba(255,255,255,.10);overflow:hidden}#aiMiniFill{display:block;height:100%;width:0;background:linear-gradient(90deg,#63dcff,#7df2ac);transition:width .15s ease}#aiMiniProgress.indeterminate #aiMiniFill{width:42%;animation:aiMiniSlide 1.05s ease-in-out infinite}@keyframes aiMiniSlide{0%{transform:translateX(-110%)}50%{transform:translateX(95%)}100%{transform:translateX(245%)}}
 
 /* -------------------------------------------------------------------------
    FINAL DIGITAL-TWIN VIEWER
@@ -550,6 +554,7 @@ body.seed-boundary-mode #objectSeedAim{box-shadow:0 0 0 2px rgba(255,255,255,.42
 </div>
 
 <div id="processingOverlay"><div class="box"><div class="title" id="processingTitle">Processing misure</div><div class="processProgress"><i id="processingFill"></i></div><div class="processSubProgress"><i id="processingSubFill"></i></div><div id="processingMeta">fase 0/0 · pacchetto —</div><div id="processingDetail">Preparazione…</div></div></div>
+<div id="aiMiniProgress" aria-live="polite"><div id="aiMiniProgressHead"><span id="aiMiniProgressLabel">AI pronta</span><span id="aiMiniProgressDetail"></span></div><div id="aiMiniTrack"><i id="aiMiniFill"></i></div></div>
 <pre id="debug"></pre><audio id="sweepOutput" playsinline></audio>
 <script type="module">
 import * as THREE from 'three';
@@ -572,7 +577,8 @@ import * as THREE from 'three';
 // ============================================================================
 
 const $=q=>document.querySelector(q);
-const APP_BUILD='v9.5.1-hotfix4-model-runtime-gaussian-debug';
+const APP_BUILD='v9.5.1-hotfix5-mobile-ai-warm';
+const DEPLOY_REV='951h5w';
 const CFG={
   // Dense geometry map. 6 cm is deliberately conservative on phones: small
   // enough to preserve walls/door recesses, large enough to average depth noise.
@@ -707,7 +713,7 @@ const CFG={
   objectSeedMinStableSurfelsReady:2, objectSeedMinIndependentViews:2,
   objectSeedMaxDepthSpreadM:0.72, objectSeedMinSpanM:0.055,
   objectSeedMinNormalSurfels:4, objectSeedMinOrientationConfidence:0.25,
-  semanticModelCache:'room-acoustic-semantic-v951h4', depthAIModelCache:'room-acoustic-depthai-v951h4',
+  semanticModelCache:'room-acoustic-semantic-v951h5w', depthAIModelCache:'room-acoustic-depthai-v951h5w',
   // MobileSAM is the guided semantic backend. The split model is deliberate:
   // the image encoder runs once for each accepted view, while the much cheaper
   // decoder is reused for point/box prompts. Local files are preferred; the
@@ -716,9 +722,17 @@ const CFG={
   semanticModelLocalEncoder:'./models/mobilesam.encoder.onnx',
   semanticModelLocalDecoder:'./models/mobilesam.decoder.quant.onnx',
   semanticModelLocalDecoderFP32:'./models/mobilesam.decoder.onnx',
-  semanticModelRemoteEncoder:'https://huggingface.co/PulpCut/mobilesam-onnx/resolve/main/mobilesam.encoder.onnx',
-  semanticModelRemoteDecoder:'https://huggingface.co/PulpCut/mobilesam-onnx/resolve/main/mobilesam.decoder.quant.onnx',
-  semanticModelRemoteDecoderFP32:'https://huggingface.co/PulpCut/mobilesam-onnx/resolve/main/mobilesam.decoder.onnx',
+  // Remote fallback intentionally mirrors the browser-tested MobileSAM demo.
+  // Do not mix this encoder with unrelated exports: its preprocessing is HWC,
+  // 0..255, and ORT Web 1.14 is the proven execution path.
+  semanticModelRemoteEncoder:'https://huggingface.co/spaces/Akbartus/projects/resolve/main/mobilesam.encoder.onnx',
+  semanticModelRemoteDecoder:'https://raw.githubusercontent.com/akbartus/MobileSAM-in-the-Browser/main/models/mobilesam.decoder.quant.onnx',
+  semanticModelRemoteDecoderFP32:'https://raw.githubusercontent.com/akbartus/MobileSAM-in-the-Browser/main/models/mobilesam.decoder.onnx',
+  // Compatibility fallback for users who already fetched the previous PulpCut
+  // bundle. Its 4-D encoder requires rescale + ImageNet normalization.
+  semanticModelCompatEncoder:'https://huggingface.co/PulpCut/mobilesam-onnx/resolve/main/mobilesam.encoder.onnx',
+  semanticModelCompatDecoder:'https://huggingface.co/PulpCut/mobilesam-onnx/resolve/main/mobilesam.decoder.quant.onnx',
+  semanticModelCompatDecoderFP32:'https://huggingface.co/PulpCut/mobilesam-onnx/resolve/main/mobilesam.decoder.onnx',
   semanticMobileLongSide:1024, semanticMobileMaskThreshold:0.0,
   // MobileSAM-in-the-Browser is known to behave reliably with ORT Web 1.14.0.
   // We use its WASM path only in the finite guided-object stage; scientific XR
@@ -810,7 +824,7 @@ const S={renderer:null,scene:null,camera:null,session:null,preview:null,ref:null
   // reprojection tests; they are intentionally bounded so memory cannot grow
   // with acquisition duration. Semantic masks/boundaries are priors only.
   mapFrames:[],mapFrameSeq:0,lastMapFramePose:null,lastMapFrameAt:0,
-  semantic:{mode:'auto',status:'idle',backend:'fallback',family:null,busy:false,lastAt:0,lastPose:null,ort:null,runtimeSource:null,modelSource:'MobileSAM-browser-split',encoder:null,decoder:null,mobileInputW:0,mobileInputH:0,activeProvider:null,providerAttempts:[],modelError:null,customEncoderUrl:null,customDecoderUrl:null,customEncoderBytes:null,customDecoderBytes:null,customModelName:null,frames:0,neuralFrames:0,fallbackFrames:0,queue:[],queueBusy:false,packetWindow:false,forceNext:false,manualPrompt:null,autoDiscover:false,objects:[],nextObjectId:1,lastInferenceMs:0,nextAllowedAt:0,lastSelectedFrame:null,embeddingCache:null,downloadedBytes:0,modelCached:false,frameRejected:0,objectUpdates:0,preflightOk:false,preflightAt:0,preflightError:null,preflightMs:0,preflightProvider:null},
+  semantic:{mode:'auto',status:'idle',backend:'fallback',family:null,busy:false,lastAt:0,lastPose:null,ort:null,runtimeSource:null,modelSource:'MobileSAM-browser-split',encoder:null,decoder:null,mobileInputW:0,mobileInputH:0,activeProvider:null,providerAttempts:[],modelError:null,customEncoderUrl:null,customDecoderUrl:null,customEncoderBytes:null,customDecoderBytes:null,customModelName:null,frames:0,neuralFrames:0,fallbackFrames:0,queue:[],queueBusy:false,packetWindow:false,forceNext:false,manualPrompt:null,autoDiscover:false,objects:[],nextObjectId:1,lastInferenceMs:0,nextAllowedAt:0,lastSelectedFrame:null,embeddingCache:null,downloadedBytes:0,modelCached:false,frameRejected:0,objectUpdates:0,preflightOk:false,preflightAt:0,preflightError:null,preflightMs:0,preflightProvider:null,lastSelfTest:null,decoderVariant:null,encoderVariant:null,preloaded:false,preloadAt:0,warmReuseCount:0},
   objectSeeding:{active:false,pending:null,confirmedIds:[],startedAt:0,busy:false,lastFrameId:null,previousAutoDiscover:false,readiness:null,lastReadyAt:0,lastReadyFrameId:null,lastReadinessAt:0},
   // Depth-AI is isolated from MobileSAM and from the XR frame loop. The worker
   // owns its ORT runtime/session, so a newer Q4-capable ORT cannot destabilize
@@ -918,7 +932,7 @@ function updateWorkflowCards(){
 function mapWarmupMetrics(){const q=geometryCoverageMetrics(),path=S.pathLength||0,frames=S.mapFrames.length,verified=q.verified||0;const pathQ=clamp01(path/1.15),frameQ=clamp01(frames/7),verifyQ=clamp01(verified/260),depthQ=clamp01(S.depthFrames/8),score=Math.round(100*(.34*pathQ+.24*frameQ+.28*verifyQ+.14*depthQ));return {score,path,frames,verified,ready:(path>.55&&frames>=3&&(verified>=80||S.rawPlanes.size||S.rawMeshes.size))||score>=48}}
 function updateMapWarmupUI(force=false){if(S.flow.step!=='map'&&!force)return;const m=mapWarmupMetrics(),elapsed=(performance.now()-(S.flow.mapEnteredAt||performance.now()))/1000,softReady=elapsed>10&&m.frames>=2&&(S.depthFrames>=2||S.rawPlanes.size||S.rawMeshes.size);S.flow.mapReady=m.ready;$('#mapFlowPercent').textContent=`${m.score}%`;$('#mapFlowFill').style.width=`${m.score}%`;$('#mapFlowPath').textContent=`${m.path.toFixed(1)} m`;$('#mapFlowVerified').textContent=String(m.verified);$('#mapFlowFrames').textContent=String(m.frames);const paused=S.flow.measurementPaused,go=$('#mapContinue');$('#mapFlowTitle').textContent=paused?'2/5 · Setup · misura in pausa':'2/5 · Mappa iniziale';$('#mapFlowHint').textContent=paused?'I chirp sono in pausa. Puoi migliorare la mappa o tornare agli oggetti; il PCM già acquisito resta valido.':m.ready?'Base geometrica sufficiente. Continua per verificare il backend SAM leggero e, se disponibile, selezionare gli oggetti.':softReady?'Il runtime fornisce evidenza limitata, ma puoi continuare: la mappa verrà raffinata durante la misura.':'Muoviti lentamente di circa un metro, includendo un angolo o un cambio di profondità. Nessun chirp viene emesso.';go.disabled=!(paused||m.ready||softReady);go.textContent=paused?'Continua · oggetti / riprendi':m.ready?'Continua · verifica oggetti':softReady?'Continua comunque':'Costruisco la mappa…';return {...m,softReady}}
 function enterMapWarmup({resume=false}={}){S.objectSeeding.active=false;document.body.classList.remove('object-seeding','seed-candidate','seed-ready');clearObjectSeedMask?.();setFlowStep('map');S.flow.mapEnteredAt=performance.now();S.flow.measurementPaused=!!resume||S.flow.measurementPaused;if(S.splat)S.splat.visible=S.splatVisible;if(S.rawGroup)S.rawGroup.visible=false;if(S.reconGroup)S.reconGroup.visible=false;updateMapWarmupUI(true);updateSplats(true);setSweepPhase(resume?'misura in pausa · setup':'mappa iniziale',0);log('FLOW map warmup',resume?'resume':'fresh')}
-async function continueFromMap(){if(S.flow.step!=='map')return;const b=$('#mapContinue');b.disabled=true;const old=b.textContent;b.textContent='Verifico MobileSAM…';try{const r=await preflightGuidedObjectSeeding();S.flow.semanticAvailable=!!r.ok;S.flow.semanticSkipReason=r.ok?null:(r.error||'MobileSAM non disponibile');if(r.ok){enterObjectSeeding({preserve:true,returnToMeasurement:S.flow.measurementPaused});}else{const why=S.flow.semanticSkipReason;log('FLOW MobileSAM preflight failed; keep step 3 visible',why);enterObjectSeedingUnavailable(why,{returnToMeasurement:S.flow.measurementPaused});}}catch(e){log('FLOW continue map failed',e);const why=e.message||String(e);S.flow.semanticAvailable=false;S.flow.semanticSkipReason=why;enterObjectSeedingUnavailable(why,{returnToMeasurement:S.flow.measurementPaused});}finally{b.disabled=false;b.textContent=old}}
+async function continueFromMap(){if(S.flow.step!=='map')return;const b=$('#mapContinue');b.disabled=true;const old=b.textContent;b.textContent=semanticWarmReady()?'Apro oggetti…':'Verifico MobileSAM…';try{const r=await preflightGuidedObjectSeeding();S.flow.semanticAvailable=!!r.ok;S.flow.semanticSkipReason=r.ok?null:(r.error||'MobileSAM non disponibile');if(r.ok){enterObjectSeeding({preserve:true,returnToMeasurement:S.flow.measurementPaused});}else{const why=S.flow.semanticSkipReason;log('FLOW MobileSAM preflight failed; keep step 3 visible',why);enterObjectSeedingUnavailable(why,{returnToMeasurement:S.flow.measurementPaused});}}catch(e){log('FLOW continue map failed',e);const why=e.message||String(e);S.flow.semanticAvailable=false;S.flow.semanticSkipReason=why;enterObjectSeedingUnavailable(why,{returnToMeasurement:S.flow.measurementPaused});}finally{b.disabled=false;b.textContent=old}}
 async function backFromMap(){if(S.recording){const ok=confirm('La misura è già iniziata. Tornare alla calibrazione interrompe la sessione corrente. I dati raccolti restano disponibili in memoria per il RAW. Continuare?');if(!ok)return;S.flow.abortToCalibration=true;S.autoSweepPaused=true;S.autoSweepToken++;try{await stopAcquisition()}catch(e){log('stop before calibration back',e)}S.session?.end?.();return}S.flow.abortToCalibration=true;S.session?.end?.()}
 async function backFromObjects(){if(S.objectSeeding.busy)return;S.objectSeeding.pending=null;clearObjectSeedMask();S.objectSeeding.active=false;document.body.classList.remove('object-seeding','seed-candidate','seed-ready');enterMapWarmup({resume:S.flow.measurementPaused})}
 async function pauseMeasurementForBack(){if(!S.recording||S.flow.step!=='measurement')return;S.autoSweepPaused=true;S.autoSweepToken++;S.flow.measurementPaused=true;setSweepPhase('pausa · ritorno al setup',0);updateMeasureToggle();$('#avStats').textContent='MISURA IN PAUSA · nessun nuovo chirp; dati già acquisiti conservati.';if(S.flow.semanticAvailable){try{const r=await preflightGuidedObjectSeeding();if(r.ok){enterObjectSeeding({preserve:true,returnToMeasurement:true});return}S.flow.semanticAvailable=false;S.flow.semanticSkipReason=r.error||'SAM non disponibile'}catch(e){S.flow.semanticAvailable=false;S.flow.semanticSkipReason=e.message||String(e)}}enterMapWarmup({resume:true})}
@@ -1368,6 +1382,10 @@ function extractPCMRange(startFrame,frameCount){if(!S.audioChunks.length||frameC
 function audioContextToPerf(ctxTime){const A=S.clockSync.filter(x=>Number.isFinite(x.audioContextTime_s)&&Number.isFinite(x.xr_t_ms)).slice(-80);if(A.length>=3){let sx=0,sy=0,sxx=0,sxy=0;for(const x of A){sx+=x.audioContextTime_s;sy+=x.xr_t_ms;sxx+=x.audioContextTime_s*x.audioContextTime_s;sxy+=x.audioContextTime_s*x.xr_t_ms}const n=A.length,den=n*sxx-sx*sx;if(Math.abs(den)>1e-9){const a=(n*sxy-sx*sy)/den,b=(sy-a*sx)/n;if(a>970&&a<1030)return a*ctxTime+b}}return S.runStartPerfMs+(ctxTime-(S.runStartAudioContextTime||0))*1000}
 function showProcessing(title,detail,progress=0,sub=0,meta=''){const p=clampNum(progress,0,1),q=clampNum(sub,0,1);$('#processingOverlay').classList.add('show');$('#processingTitle').textContent=title;$('#processingDetail').textContent=detail;$('#processingFill').style.width=`${(p*100).toFixed(1)}%`;$('#processingSubFill').style.width=`${(q*100).toFixed(1)}%`;$('#processingMeta').textContent=meta||`totale ${(p*100).toFixed(1)}% · sottofase ${(q*100).toFixed(0)}%`;S.processingTelemetry={phase:title,detail,progress:p,sub:q,meta}}
 function hideProcessing(){$('#processingOverlay').classList.remove('show')}
+function setAIMiniProgress(label='',progress=null,detail=''){const box=$('#aiMiniProgress');if(!box)return;if(!label){box.classList.remove('show','indeterminate');return}$('#aiMiniProgressLabel').textContent=label;$('#aiMiniProgressDetail').textContent=detail||'';box.classList.add('show');const finite=Number.isFinite(progress);box.classList.toggle('indeterminate',!finite);if(finite)$('#aiMiniFill').style.width=`${(clampNum(progress,0,1)*100).toFixed(0)}%`;S.semantic.aiProgress={label,progress:finite?progress:null,detail,t:performance.now()}}
+function hideAIMiniProgress(delayMs=0){if(delayMs){setTimeout(()=>setAIMiniProgress('',0,''),delayMs);return}setAIMiniProgress('',0,'')}
+function semanticWarmReady(){return !!(S.semantic.preflightOk&&S.semantic.lastSelfTest?.ok&&S.semantic.encoder&&S.semantic.decoder&&S.semantic.family==='mobile')}
+function syncSemanticPrefetchButton(){const b=$('#semanticPrefetchBtn');if(!b)return;if(semanticWarmReady()){b.disabled=false;b.textContent='AI pronta ✓';b.title=`${S.semantic.encoderVariant||'encoder'}/${S.semantic.decoderVariant||'decoder'} · ${S.semantic.encoderPreprocess||'?'} · runtime ${S.semantic.runtimeSource||'?'}`}else if(!b.disabled){b.textContent='Precarica AI';b.title=S.semantic.modelError||''}}
 async function releaseAudioForBatch(){try{S.audioSource?.disconnect?.()}catch{}S.audioSource=null;if(S.audioStream){for(const t of S.audioStream.getTracks())try{t.stop()}catch{}S.audioStream=null}S.audioPrepared=false;try{if(S.audioCtx?.state==='running')await S.audioCtx.suspend()}catch(e){log('batch audio suspend',e)}await delay(80)}
 async function reopenAudioAfterBatch(){if(!S.audioCtx||!S.audioNode)return prepareAudio(true);try{S.audioStream=await navigator.mediaDevices.getUserMedia(audioConstraints());const tr=S.audioStream.getAudioTracks()[0];S.audioSettings=tr?.getSettings?.()||S.audioSettings||{};await S.audioCtx.resume();S.audioSource=S.audioCtx.createMediaStreamSource(S.audioStream);S.audioSource.connect(S.audioNode);S.audioPrepared=true;await verifyMicrophonePCM();return true}catch(e){S.audioPrepared=false;log('reopen after batch',e);return false}}
 async function processPendingAutoSweeps(options={}){
@@ -2267,7 +2285,7 @@ function modelByteSanity(bytes,label,url=''){
   return bytes
 }
 function versionedLocalAsset(url){
-  try{const u=new URL(url,location.href);if(u.origin===location.origin){u.searchParams.set('rsbuild','951h4');return u.href}}catch{}return url
+  try{const u=new URL(url,location.href);if(u.origin===location.origin){u.searchParams.set('rsbuild',DEPLOY_REV);return u.href}}catch{}return url
 }
 async function cachedModelBytes(source,label){
   if(!source)throw new Error(`${label}: sorgente modello mancante`);
@@ -2289,7 +2307,7 @@ async function cachedModelBytes(source,label){
 async function releaseSemanticSessions(){
   releaseSemanticEmbedding();
   for(const k of ['encoder','decoder']){try{await S.semantic[k]?.release?.()}catch{}S.semantic[k]=null}
-  S.semantic.family=null;S.semantic.activeProvider=null
+  S.semantic.family=null;S.semantic.activeProvider=null;S.semantic.preloaded=false;S.semantic.preflightOk=false;S.semantic.lastSelfTest=null;syncSemanticPrefetchButton()
 }
 async function createOrtSession(ort,source,remote,kind,provider){
   let err=null;
@@ -2356,7 +2374,7 @@ function enterObjectSeedingUnavailable(error,{returnToMeasurement=false}={}){
   $('#seedSegment').disabled=true;$('#seedSegment').textContent='MobileSAM non disponibile';$('#seedConfirm').disabled=true;$('#seedFinalizeObject').disabled=true;$('#seedRetry').disabled=false;$('#seedRetry').textContent='↻ Riprova MobileSAM';$('#seedDone').textContent=returnToMeasurement?'Riprendi senza oggetti':'Continua senza oggetti';
   $('#seedHint').textContent='Step 3 non viene saltato: il preflight MobileSAM è fallito. Riprova oppure carica encoder+decoder locali.';$('#seedMeta').textContent=`MobileSAM non disponibile: ${error||'errore sconosciuto'}`;renderSeedObjectList();log('guided object step unavailable',error||'unknown');return true
 }
-async function retryUnavailableObjectSeeding(){if(!S.objectSeeding.active||!S.objectSeeding.unavailable)return false;const b=$('#seedRetry');b.disabled=true;b.textContent='Test MobileSAM…';try{const r=await preflightGuidedObjectSeeding();if(!r.ok){S.flow.semanticAvailable=false;S.flow.semanticSkipReason=r.error||'MobileSAM non disponibile';$('#seedMeta').textContent=`MobileSAM ancora non disponibile: ${S.flow.semanticSkipReason}`;return false}S.flow.semanticAvailable=true;S.flow.semanticSkipReason=null;S.objectSeeding.unavailable=false;enterObjectSeeding({preserve:true,returnToMeasurement:S.flow.returnFromObjects});return true}catch(e){S.flow.semanticAvailable=false;S.flow.semanticSkipReason=e.message||String(e);$('#seedMeta').textContent=`Retry MobileSAM fallito: ${S.flow.semanticSkipReason}`;log('MobileSAM retry failed',e);return false}finally{if(S.objectSeeding.unavailable){b.disabled=false;b.textContent='↻ Riprova MobileSAM'}}}
+async function retryUnavailableObjectSeeding(){if(!S.objectSeeding.active||!S.objectSeeding.unavailable)return false;const b=$('#seedRetry');b.disabled=true;b.textContent='Test MobileSAM…';try{const r=await preflightGuidedObjectSeeding({force:true,reason:'explicit-retry'});if(!r.ok){S.flow.semanticAvailable=false;S.flow.semanticSkipReason=r.error||'MobileSAM non disponibile';$('#seedMeta').textContent=`MobileSAM ancora non disponibile: ${S.flow.semanticSkipReason}`;return false}S.flow.semanticAvailable=true;S.flow.semanticSkipReason=null;S.objectSeeding.unavailable=false;enterObjectSeeding({preserve:true,returnToMeasurement:S.flow.returnFromObjects});return true}catch(e){S.flow.semanticAvailable=false;S.flow.semanticSkipReason=e.message||String(e);$('#seedMeta').textContent=`Retry MobileSAM fallito: ${S.flow.semanticSkipReason}`;log('MobileSAM retry failed',e);return false}finally{if(S.objectSeeding.unavailable){b.disabled=false;b.textContent='↻ Riprova MobileSAM'}}}
 function enterObjectSeeding({preserve=true,returnToMeasurement=false}={}){if(!S.semantic.preflightOk||S.semantic.family!=='mobile'||!(S.semantic.encoder&&S.semantic.decoder)){log('guided object seeding refused: semantic preflight not valid');return false}S.objectSeeding.active=true;S.objectSeeding.unavailable=false;S.objectSeeding.pending=null;$('#seedSegment').textContent='Segmenta vista';$('#seedRetry').textContent='↻ Riprova';$('#seedLoadModel').style.display='';if(!preserve)S.objectSeeding.confirmedIds=[];S.objectSeeding.startedAt=performance.now();S.objectSeeding.previousAutoDiscover=S.semantic.autoDiscover;S.semantic.autoDiscover=false;S.flow.returnFromObjects=!!returnToMeasurement;setFlowStep('objects');document.body.classList.add('object-seeding');clearObjectSeedMask();if(S.splat)S.splat.visible=false;if(S.rawGroup)S.rawGroup.visible=false;if(S.reconGroup)S.reconGroup.visible=false;$('#semanticObjectsPanel')?.classList.remove('show');$('#seedListPanel')?.classList.remove('show');$('#debug')?.classList.remove('show');renderSeedObjectList();$('#seedCount').textContent=`${S.objectSeeding.confirmedIds.length} confermati`;if($('#seedManageCount'))$('#seedManageCount').textContent=String(S.objectSeeding.confirmedIds.length);$('#seedConfirm').disabled=true;$('#seedRetry').disabled=true;$('#seedDone').textContent=returnToMeasurement?'Riprendi misura':'Continua · misura';$('#seedMeta').textContent=`${S.semantic.backend} verificato · attendo geometria locale al mirino.`;$('#seedHint').textContent='Bianco = non abbastanza 3D. Verde = posizione/assetto localmente osservabili: allora puoi segmentare.';S.objectSeeding.readiness=null;S.objectSeeding.lastReadinessAt=0;updateObjectSeedReadiness(true);setSweepPhase('selezione oggetti guidata',0);log('guided object seeding started',returnToMeasurement?'from measurement':'from map');return true}
 async function refineSeededObjectBounds(){for(const o of S.semantic.objects){if(o.deleted||!o.seeded||!o.min||!o.max)continue;const A=[];for(const sf of S.surfels.values()){if(sf.objectId!==o.id||(sf.existenceProbability||0)<CFG.multiviewSoftProbability)continue;A.push(sf)}if(A.length<CFG.objectSeedMinStableSurfels)continue;const val=(k)=>A.map(sf=>sf.p[k]).sort((a,b)=>a-b),q=(a,t)=>a[Math.max(0,Math.min(a.length-1,Math.floor((a.length-1)*t)))],xs=val('x'),ys=val('y'),zs=val('z');const nmin=[q(xs,.04),q(ys,.04),q(zs,.04)],nmax=[q(xs,.96),q(ys,.96),q(zs,.96)];o.min=o.min.map((v,i)=>.52*v+.48*nmin[i]);o.max=o.max.map((v,i)=>.52*v+.48*nmax[i]);o.center=o.min.map((v,i)=>(v+o.max[i])*.5);o.observedSurfels=A.length;const views=A.length?Math.max(...A.map(sf=>Math.max(sf.viewCount||0,popcount32(sf.viewMask||0),sf.reprojectionSupport||0))):0;o.closureConfidence=clamp01(.28+.10*Math.log1p(A.length)+.055*Math.min(6,views));for(const sf of A)sf.objectConfidence=Math.max(sf.objectConfidence||0,.40*o.closureConfidence)}S.geometryGaussianSignature=null}
 async function startMeasurementAfterObjectSeeding(skipReason=''){if(S.recording){await resumeScientificMeasurement(skipReason);return}if(!S.session)return;S.objectSeeding.active=false;document.body.classList.remove('object-seeding','seed-candidate','seed-ready');clearObjectSeedMask();S.semantic.autoDiscover=false;await refineSeededObjectBounds();if(S.splat)S.splat.visible=S.splatVisible;$('#avStats').textContent=skipReason?`Oggetti saltati: ${skipReason} · avvio misura…`:'Setup completato · libero SAM e avvio PCM…';await releaseSemanticSessions();if(S.semantic.customEncoderBytes||S.semantic.customDecoderBytes){S.semantic.customEncoderBytes=null;S.semantic.customDecoderBytes=null;S.semantic.status='unloaded · misura scientifica · modelli caricati liberati'}else S.semantic.status='unloaded · misura scientifica';updateSemanticStatus();await reopenMicrophoneAfterCalibration();if(!S.cameraBinding)setupCameraRecorder(S.session);await startAcquisition({preserveSources:true});S.measurementStartedFromSpatial=false;setWorkflowStage('measurement');setFlowStep('measurement');S.flow.measurementPaused=false;const sem=skipReason?`SAM saltato (${skipReason})`:`${S.objectSeeding.confirmedIds.length} oggetti guida`;$('#avStats').textContent=`MISURA ATTIVA · ${sem} · chirp ${Math.round(S.calibration.band.fLow)}–${Math.round(S.calibration.band.fHigh)} Hz in batch da ${CFG.measurementPacketSize} · marca lo speaker per iniziare`;updateGeometryHUD();updateScanPreview(true);runAutoSweepLoop();log('measurement started',skipReason||'after guided object seeding')}
@@ -3057,40 +3075,98 @@ updateSemanticStatus=function(){const e=$('#semanticStatus');if(e)e.textContent=
 function mobileSamInputLayout(session){
   try{const n=session?.inputNames?.[0],m=session?.inputMetadata?.[n],d=m?.dimensions||m?.dims||[];if(d.length===3&&Number(d[2])===3)return 'hwc';if(d.length===4&&Number(d[3])===3)return 'nhwc';if(d.length===4&&Number(d[1])===3)return 'nchw'}catch{}return 'hwc'
 }
-function mobileSamEncoderPlan(session,w,h){
-  const layout=mobileSamInputLayout(session);let dims=[];try{const n=session?.inputNames?.[0],m=session?.inputMetadata?.[n];dims=m?.dimensions||m?.dims||[]}catch{}
-  const pos=layout==='nchw'?[2,3]:layout==='nhwc'?[1,2]:[0,1],dh=Number(dims[pos[0]]),dw=Number(dims[pos[1]]);
-  if(Number.isFinite(dh)&&dh>0&&Number.isFinite(dw)&&dw>0)return {layout,w:dw,h:dh,scaleX:dw/w,scaleY:dh/h,staticShape:true};
-  const L=CFG.semanticMobileLongSide||1024,sc=L/Math.max(1,w,h);return {layout,w:Math.max(1,Math.round(w*sc)),h:Math.max(1,Math.round(h*sc)),scaleX:sc,scaleY:sc,staticShape:false}
+function mobileSamEncoderProfile(session){
+  // Two MobileSAM ONNX export families are common in browsers. The Akbartus
+  // browser export accepts an HWC float tensor in raw 0..255 RGB. Hugging Face
+  // style 4-D exports generally expose pixel_values and expect ImageNet-normalized
+  // RGB. Detect the contract from metadata instead of coupling preprocessing to a
+  // filename, so a locally fetched model cannot be silently paired with the wrong
+  // input convention.
+  const layout=mobileSamInputLayout(session);let dims=[],name='';try{name=session?.inputNames?.[0]||'';const m=session?.inputMetadata?.[name];dims=m?.dimensions||m?.dims||[]}catch{}
+  const preprocess=(layout==='hwc'&&dims.length===3&&!/pixel[_-]?values/i.test(name))?'raw255':'imagenet';
+  return {layout,dims,name,preprocess}
 }
-function mobileSamResize(w,h){const p=mobileSamEncoderPlan(S.semantic.encoder,w,h);return {w:p.w,h:p.h,scale:Math.min(p.scaleX,p.scaleY),layout:p.layout,staticShape:p.staticShape}}
-function mobileSamDecoderCandidates(){
+function mobileSamEncoderPlan(session,w,h){
+  const prof=mobileSamEncoderProfile(session),layout=prof.layout,dims=prof.dims||[],pos=layout==='nchw'?[2,3]:layout==='nhwc'?[1,2]:[0,1],dh=Number(dims[pos[0]]),dw=Number(dims[pos[1]]);
+  if(Number.isFinite(dh)&&dh>0&&Number.isFinite(dw)&&dw>0)return {...prof,w:dw,h:dh,scaleX:dw/w,scaleY:dh/h,staticShape:true};
+  const L=CFG.semanticMobileLongSide||1024,sc=L/Math.max(1,w,h);return {...prof,w:Math.max(1,Math.round(w*sc)),h:Math.max(1,Math.round(h*sc)),scaleX:sc,scaleY:sc,staticShape:false}
+}
+function mobileSamResize(w,h){const p=mobileSamEncoderPlan(S.semantic.encoder,w,h);return {w:p.w,h:p.h,scale:Math.min(p.scaleX,p.scaleY),layout:p.layout,preprocess:p.preprocess,staticShape:p.staticShape}}
+function mobileSamEncoderCandidates(){
+  if(S.semantic.customEncoderBytes||S.semantic.customEncoderUrl)return [{source:S.semantic.customEncoderBytes||S.semantic.customEncoderUrl,label:'custom'}];
+  const all=[
+    {source:CFG.semanticModelLocalEncoder,label:'local'},
+    {source:CFG.semanticModelRemoteEncoder,label:'browser-remote'},
+    {source:CFG.semanticModelCompatEncoder,label:'compat-pulpcut'}
+  ],seen=new Set();return all.filter(x=>{const k=String(x.source||'');if(!k||seen.has(k))return false;seen.add(k);return true})
+}
+function mobileSamDecoderCandidates(encoderLabel='local'){
   if(S.semantic.customDecoderBytes||S.semantic.customDecoderUrl)return [{source:S.semantic.customDecoderBytes||S.semantic.customDecoderUrl,label:'custom'}];
-  // The published browser reference uses the FP32 decoder with ORT 1.14. Keep
-  // quantized as a local/mobile fallback, but do not let a loadable-yet-broken
-  // quantized graph make the whole guided stage unavailable.
-  return [
+  let all=[];
+  if(encoderLabel==='compat-pulpcut')all=[
+    {source:CFG.semanticModelCompatDecoderFP32,label:'compat-fp32'},
+    {source:CFG.semanticModelCompatDecoder,label:'compat-quant'}
+  ];
+  else if(encoderLabel==='browser-remote')all=[
+    {source:CFG.semanticModelRemoteDecoderFP32,label:'browser-fp32'},
+    {source:CFG.semanticModelRemoteDecoder,label:'browser-quant'}
+  ];
+  else all=[
     {source:CFG.semanticModelLocalDecoderFP32,label:'local-fp32'},
     {source:CFG.semanticModelLocalDecoder,label:'local-quant'},
-    {source:CFG.semanticModelRemoteDecoderFP32,label:'remote-fp32'},
-    {source:CFG.semanticModelRemoteDecoder,label:'remote-quant'}
-  ].filter(x=>x.source)
+    // A local encoder may have been fetched by an older script. If its graph is
+    // actually the browser export, these are compatible fallbacks; the smoke-test
+    // below is the authority and rejects a mixed pair before Step 3 is entered.
+    {source:CFG.semanticModelRemoteDecoderFP32,label:'browser-fp32'},
+    {source:CFG.semanticModelRemoteDecoder,label:'browser-quant'}
+  ];
+  const seen=new Set();return all.filter(x=>{const k=String(x.source||'');if(!k||seen.has(k))return false;seen.add(k);return true})
 }
 async function releaseMobileSamDecoder(){try{await S.semantic.decoder?.release?.()}catch{}S.semantic.decoder=null}
+async function releaseMobileSamEncoder(){try{await S.semantic.encoder?.release?.()}catch{}S.semantic.encoder=null}
 async function ensureMobileSamSemantic(forceReset=false){
-  if(forceReset)await releaseSemanticSessions();if(S.semantic.encoder&&S.semantic.decoder&&S.semantic.family==='mobile')return true;if(S.semantic.busy){for(let i=0;i<200&&S.semantic.busy;i++)await delay(40);return !!(S.semantic.encoder&&S.semantic.decoder)}S.semantic.busy=true;S.semantic.status='carico MobileSAM';updateSemanticStatus();
-  try{const ort=await importOrtRuntime();ort.env.wasm.numThreads=(crossOriginIsolated?Math.min(2,navigator.hardwareConcurrency||2):1);ort.env.wasm.wasmPaths=S.semantic.runtimeSource==='local'?'./vendor/':CFG.semanticOrtWasmRemoteBase;
-    S.semantic.modelLoadSources={};const encSrc=S.semantic.customEncoderBytes||S.semantic.customEncoderUrl||CFG.semanticModelLocalEncoder;
-    S.semantic.encoder=await createOrtSession(ort,encSrc,CFG.semanticModelRemoteEncoder,'MobileSAM encoder','wasm');S.semantic.ort=ort;S.semantic.family='mobile';S.semantic.activeProvider='wasm';
-    const failures=[];for(const cand of mobileSamDecoderCandidates()){
-      try{await releaseMobileSamDecoder();S.semantic.status=`test decoder ${cand.label}`;updateSemanticStatus();S.semantic.decoder=await createOrtSession(ort,cand.source,null,`MobileSAM decoder ${cand.label}`,'wasm');const test=await mobileSamSemanticSelfTest();S.semantic.lastSelfTest=test;S.semantic.decoderVariant=cand.label;S.semantic.backend=`MobileSAM/WASM ${cand.label}`;S.semantic.status=`ready · MobileSAM ${cand.label}`;S.semantic.modelError=null;S.semantic.modelCached=true;const loaded=Object.values(S.semantic.modelLoadSources||{});S.semantic.modelSource=loaded.every(x=>x==='bundled-local')?'bundled-local':loaded.some(x=>x==='uploaded-browser-memory')?'uploaded-browser-memory':'mixed-local/remote';log('MOBILESAM_PREFLIGHT_OK',cand.label,test);return true}catch(e){failures.push(`${cand.label}: ${e.message||e}`);log('MOBILESAM_DECODER_REJECTED',cand.label,e);await releaseMobileSamDecoder()}
+  // Warm path: a successful preload is an in-memory session cache. Never tear it
+  // down merely because the user advanced from Map to Objects. This was the H4
+  // regression that made "Precarica AI" useless and caused a visible camera stall.
+  if(!forceReset&&semanticWarmReady()){S.semantic.warmReuseCount=(S.semantic.warmReuseCount||0)+1;return true}
+  if(forceReset)await releaseSemanticSessions();
+  if(S.semantic.busy){for(let i=0;i<250&&S.semantic.busy;i++)await delay(40);return semanticWarmReady()||!!(S.semantic.encoder&&S.semantic.decoder)}
+  S.semantic.busy=true;S.semantic.status='preparo MobileSAM';updateSemanticStatus();setAIMiniProgress('MobileSAM',null,'inizializzo runtime');await delay(0);
+  try{
+    const ort=await importOrtRuntime();ort.env.wasm.numThreads=(crossOriginIsolated?Math.min(2,navigator.hardwareConcurrency||2):1);ort.env.wasm.wasmPaths=S.semantic.runtimeSource==='local'?'./vendor/':CFG.semanticOrtWasmRemoteBase;
+    S.semantic.ort=ort;S.semantic.family='mobile';S.semantic.activeProvider='wasm';S.semantic.modelLoadSources={};
+    const failures=[],encoders=mobileSamEncoderCandidates();
+    for(let ei=0;ei<encoders.length;ei++){
+      const enc=encoders[ei];
+      try{
+        await releaseMobileSamDecoder();await releaseMobileSamEncoder();
+        S.semantic.status=`encoder ${enc.label}`;updateSemanticStatus();setAIMiniProgress('MobileSAM',0.12+0.34*(ei/Math.max(1,encoders.length)),`encoder ${enc.label}`);await delay(0);
+        S.semantic.encoder=await createOrtSession(ort,enc.source,null,`MobileSAM encoder ${enc.label}`,'wasm');S.semantic.encoderVariant=enc.label;
+        const prof=mobileSamEncoderProfile(S.semantic.encoder);S.semantic.encoderPreprocess=prof.preprocess;S.semantic.encoderLayout=prof.layout;
+        const decoders=mobileSamDecoderCandidates(enc.label);
+        for(let di=0;di<decoders.length;di++){
+          const cand=decoders[di];
+          try{
+            await releaseMobileSamDecoder();S.semantic.status=`test ${enc.label} + ${cand.label}`;updateSemanticStatus();setAIMiniProgress('MobileSAM',0.50+0.38*((di+1)/Math.max(1,decoders.length)),`${enc.label} + ${cand.label}`);await delay(0);
+            S.semantic.decoder=await createOrtSession(ort,cand.source,null,`MobileSAM decoder ${cand.label}`,'wasm');
+            const test=await mobileSamSemanticSelfTest();S.semantic.lastSelfTest=test;S.semantic.decoderVariant=cand.label;S.semantic.backend=`MobileSAM/WASM ${enc.label}/${cand.label}`;S.semantic.status=`ready · ${enc.label}/${cand.label}`;S.semantic.modelError=null;S.semantic.modelCached=true;S.semantic.preloaded=true;S.semantic.preloadAt=performance.now();
+            const loaded=Object.values(S.semantic.modelLoadSources||{});S.semantic.modelSource=loaded.length&&loaded.every(x=>x==='bundled-local')?'bundled-local':loaded.some(x=>x==='uploaded-browser-memory')?'uploaded-browser-memory':'mixed-local/remote';
+            setAIMiniProgress('MobileSAM pronto',1,`${enc.label}/${cand.label} · ${Math.round(test.ms||0)} ms`);hideAIMiniProgress(900);syncSemanticPrefetchButton();log('MOBILESAM_PREFLIGHT_OK',enc.label,cand.label,test);return true
+          }catch(e){const msg=`${enc.label}/${cand.label}: ${e.message||e}`;failures.push(msg);log('MOBILESAM_PAIR_REJECTED',msg);await releaseMobileSamDecoder()}
+        }
+      }catch(e){const msg=`${enc.label}: ${e.message||e}`;failures.push(msg);log('MOBILESAM_ENCODER_REJECTED',msg);await releaseMobileSamDecoder();await releaseMobileSamEncoder()}
     }
-    throw new Error(`Nessun decoder MobileSAM utilizzabile · ${failures.join(' | ')}`)
-  }catch(e){await releaseSemanticSessions();S.semantic.modelError=e.message||String(e);S.semantic.status='MobileSAM non disponibile';S.semantic.backend='fallback';log('MobileSAM unavailable',e);return false}finally{S.semantic.busy=false;updateSemanticStatus()}
+    throw new Error(`Nessuna coppia MobileSAM utilizzabile · ${failures.join(' | ')}`)
+  }catch(e){await releaseSemanticSessions();S.semantic.modelError=e.message||String(e);S.semantic.status='MobileSAM non disponibile';S.semantic.backend='fallback';setAIMiniProgress('MobileSAM non disponibile',1,'tocca Riprova per dettagli');hideAIMiniProgress(1800);log('MobileSAM unavailable',e);return false}
+  finally{S.semantic.busy=false;updateSemanticStatus()}
 }
-function mobileSamEncoderTensor(ort,rgba,w,h,layout){const n=w*h;if(layout==='nchw'){const a=new Float32Array(3*n);for(let i=0;i<n;i++){a[i]=rgba[4*i];a[n+i]=rgba[4*i+1];a[2*n+i]=rgba[4*i+2]}return new ort.Tensor('float32',a,[1,3,h,w])}const a=new Float32Array(n*3);for(let i=0;i<n;i++){a[3*i]=rgba[4*i];a[3*i+1]=rgba[4*i+1];a[3*i+2]=rgba[4*i+2]}return new ort.Tensor('float32',a,layout==='nhwc'?[1,h,w,3]:[h,w,3])}
+function mobileSamEncoderTensor(ort,rgba,w,h,layout,preprocess='raw255'){
+  const n=w*h,mean=[.485,.456,.406],std=[.229,.224,.225],val=(i,c)=>preprocess==='imagenet'?((rgba[4*i+c]/255-mean[c])/std[c]):rgba[4*i+c];
+  if(layout==='nchw'){const a=new Float32Array(3*n);for(let i=0;i<n;i++){a[i]=val(i,0);a[n+i]=val(i,1);a[2*n+i]=val(i,2)}return new ort.Tensor('float32',a,[1,3,h,w])}
+  const a=new Float32Array(n*3);for(let i=0;i<n;i++){a[3*i]=val(i,0);a[3*i+1]=val(i,1);a[3*i+2]=val(i,2)}return new ort.Tensor('float32',a,layout==='nhwc'?[1,h,w,3]:[h,w,3])
+}
 async function mobileSamEncodeBitmap(bmp){
-  const ort=S.semantic.ort,sz=mobileSamResize(bmp.width,bmp.height),cv=S.semantic.mobileCanvas||(S.semantic.mobileCanvas=document.createElement('canvas'));cv.width=sz.w;cv.height=sz.h;const cx=S.semantic.mobileCtx||(S.semantic.mobileCtx=cv.getContext('2d',{willReadFrequently:true}));cx.clearRect(0,0,sz.w,sz.h);cx.drawImage(bmp,0,0,sz.w,sz.h);const rgba=cx.getImageData(0,0,sz.w,sz.h).data,layout=sz.layout||mobileSamInputLayout(S.semantic.encoder),input=mobileSamEncoderTensor(ort,rgba,sz.w,sz.h,layout),name=S.semantic.encoder.inputNames[0],t0=performance.now();let out=null;try{out=await S.semantic.encoder.run({[name]:input});const tensor=out.image_embeddings||out[S.semantic.encoder.outputNames[0]]||Object.values(out)[0];if(!tensor?.data?.length)throw new Error('MobileSAM encoder: embedding assente');S.semantic.mobileInputW=sz.w;S.semantic.mobileInputH=sz.h;return {tensor,w:sz.w,h:sz.h,scale:sz.scale,ms:performance.now()-t0}}catch(e){if(out)for(const [k,t] of Object.entries(out))if(t!==S.semantic.embeddingCache?.tensor)try{t?.dispose?.()}catch{}throw e}
+  const ort=S.semantic.ort,sz=mobileSamResize(bmp.width,bmp.height),cv=S.semantic.mobileCanvas||(S.semantic.mobileCanvas=document.createElement('canvas'));cv.width=sz.w;cv.height=sz.h;const cx=S.semantic.mobileCtx||(S.semantic.mobileCtx=cv.getContext('2d',{willReadFrequently:true}));cx.clearRect(0,0,sz.w,sz.h);cx.drawImage(bmp,0,0,sz.w,sz.h);const rgba=cx.getImageData(0,0,sz.w,sz.h).data,layout=sz.layout||mobileSamInputLayout(S.semantic.encoder),preprocess=sz.preprocess||mobileSamEncoderProfile(S.semantic.encoder).preprocess,input=mobileSamEncoderTensor(ort,rgba,sz.w,sz.h,layout,preprocess),name=S.semantic.encoder.inputNames[0],t0=performance.now();S.semantic.encoderPreprocess=preprocess;S.semantic.encoderLayout=layout;let out=null;try{out=await S.semantic.encoder.run({[name]:input});const tensor=out.image_embeddings||out[S.semantic.encoder.outputNames[0]]||Object.values(out)[0];if(!tensor?.data?.length)throw new Error('MobileSAM encoder: embedding assente');S.semantic.mobileInputW=sz.w;S.semantic.mobileInputH=sz.h;return {tensor,w:sz.w,h:sz.h,scale:sz.scale,ms:performance.now()-t0}}catch(e){if(out)for(const [k,t] of Object.entries(out))if(t!==S.semantic.embeddingCache?.tensor)try{t?.dispose?.()}catch{}throw e}
 }
 function mobileSamPrompt(F,E){
   const kind=v95CurrentKind(),B=S.objectSeeding.manualBoundary||[],pts=[];
@@ -3103,12 +3179,20 @@ async function mobileSamDecode(F,E){
 }
 async function runMobileSamSeedFrame(F){const bmp=await getSemanticBitmap(F);if(!bmp)throw new Error('MobileSAM: frame RGB non disponibile');if(!S.semantic.encoder||!S.semantic.decoder)throw new Error('MobileSAM non inizializzato');releaseSemanticEmbedding();const E=await mobileSamEncodeBitmap(bmp);S.semantic.embeddingCache={frameId:F.id,tensor:E.tensor,inputW:E.w,inputH:E.h};try{return await mobileSamDecode(F,E)}finally{releaseSemanticEmbedding()}}
 async function mobileSamSemanticSelfTest(){
-  if(!S.semantic.encoder||!S.semantic.decoder||!S.semantic.ort)throw new Error('MobileSAM: sessioni assenti');const cv=document.createElement('canvas');cv.width=96;cv.height=64;const cx=cv.getContext('2d');cx.fillStyle='#777';cx.fillRect(0,0,96,64);cx.fillStyle='#bbb';cx.fillRect(26,14,44,36);const bmp=await createImageBitmap(cv),t0=performance.now();let E=null;try{E=await mobileSamEncodeBitmap(bmp);const ort=S.semantic.ort,pts=[{x:.5*E.w,y:.5*E.h,label:1},{x:0,y:0,label:-1}],coords=new Float32Array(pts.flatMap(p=>[p.x,p.y])),labels=new Float32Array(pts.map(p=>p.label)),feeds={};for(const name of S.semantic.decoder.inputNames){const l=name.toLowerCase();if(l.includes('image_embedding'))feeds[name]=E.tensor;else if(l.includes('point_coord'))feeds[name]=new ort.Tensor('float32',coords,[1,2,2]);else if(l.includes('point_label'))feeds[name]=new ort.Tensor('float32',labels,[1,2]);else if(l.includes('mask_input'))feeds[name]=new ort.Tensor('float32',new Float32Array(256*256),[1,1,256,256]);else if(l.includes('has_mask_input'))feeds[name]=new ort.Tensor('float32',new Float32Array([0]),[1]);else if(l.includes('orig_im_size'))feeds[name]=new ort.Tensor('float32',new Float32Array([E.h,E.w]),[2])}const out=await S.semantic.decoder.run(feeds),m=out.masks||Object.values(out).find(t=>t?.dims?.length>=4);if(!m?.data?.length)throw new Error('MobileSAM smoke: decoder output assente');for(const t of Object.values(out))if(t!==E.tensor)try{t?.dispose?.()}catch{}return {ok:true,ms:performance.now()-t0,provider:'wasm',runtime:S.semantic.runtimeSource,encoderInputs:[...S.semantic.encoder.inputNames],encoderOutputs:[...S.semantic.encoder.outputNames],decoderInputs:[...S.semantic.decoder.inputNames],decoderOutputs:[...S.semantic.decoder.outputNames]}}finally{try{bmp.close?.()}catch{}try{E?.tensor?.dispose?.()}catch{}}
+  if(!S.semantic.encoder||!S.semantic.decoder||!S.semantic.ort)throw new Error('MobileSAM: sessioni assenti');const cv=document.createElement('canvas');cv.width=96;cv.height=64;const cx=cv.getContext('2d');cx.fillStyle='#777';cx.fillRect(0,0,96,64);cx.fillStyle='#bbb';cx.fillRect(26,14,44,36);const bmp=await createImageBitmap(cv),t0=performance.now();let E=null;try{E=await mobileSamEncodeBitmap(bmp);const ort=S.semantic.ort,pts=[{x:.5*E.w,y:.5*E.h,label:1},{x:0,y:0,label:-1}],coords=new Float32Array(pts.flatMap(p=>[p.x,p.y])),labels=new Float32Array(pts.map(p=>p.label)),feeds={};for(const name of S.semantic.decoder.inputNames){const l=name.toLowerCase();if(l.includes('image_embedding'))feeds[name]=E.tensor;else if(l.includes('point_coord'))feeds[name]=new ort.Tensor('float32',coords,[1,2,2]);else if(l.includes('point_label'))feeds[name]=new ort.Tensor('float32',labels,[1,2]);else if(l.includes('mask_input'))feeds[name]=new ort.Tensor('float32',new Float32Array(256*256),[1,1,256,256]);else if(l.includes('has_mask_input'))feeds[name]=new ort.Tensor('float32',new Float32Array([0]),[1]);else if(l.includes('orig_im_size'))feeds[name]=new ort.Tensor('float32',new Float32Array([E.h,E.w]),[2])}const out=await S.semantic.decoder.run(feeds),m=out.masks||Object.values(out).find(t=>t?.dims?.length>=4);if(!m?.data?.length)throw new Error('MobileSAM smoke: decoder output assente');for(const t of Object.values(out))if(t!==E.tensor)try{t?.dispose?.()}catch{}return {ok:true,ms:performance.now()-t0,provider:'wasm',runtime:S.semantic.runtimeSource,encoderVariant:S.semantic.encoderVariant,decoderVariant:S.semantic.decoderVariant,encoderLayout:S.semantic.encoderLayout,encoderPreprocess:S.semantic.encoderPreprocess,encoderInputs:[...S.semantic.encoder.inputNames],encoderOutputs:[...S.semantic.encoder.outputNames],decoderInputs:[...S.semantic.decoder.inputNames],decoderOutputs:[...S.semantic.decoder.outputNames]}}finally{try{bmp.close?.()}catch{}try{E?.tensor?.dispose?.()}catch{}}
 }
-async function preflightGuidedObjectSeeding(){
-  const t0=performance.now(),mode=semanticModeNow();S.semantic.providerAttempts=[];S.semantic.preflightOk=false;if(mode==='off'||mode==='fallback'){const error='MobileSAM disattivato';S.semantic.preflightError=error;S.semantic.status=`${error} · fase oggetti saltata`;updateSemanticStatus();return {ok:false,error}}
-  try{if(!await ensureMobileSamSemantic(true))throw new Error(S.semantic.modelError||'MobileSAM assente');const test=S.semantic.lastSelfTest||{ok:true,ms:0,provider:'wasm'};S.semantic.providerAttempts.push({provider:'wasm',family:'MobileSAM',variant:S.semantic.decoderVariant,phase:'encoder-decoder-smoke',ok:true,ms:test.ms});S.semantic.preflightOk=true;S.semantic.preflightAt=performance.now();S.semantic.preflightMs=performance.now()-t0;S.semantic.preflightProvider=`MobileSAM/WASM ${S.semantic.decoderVariant||''}`.trim();S.semantic.preflightError=null;S.semantic.status=`ready · MobileSAM ${S.semantic.decoderVariant||''}`.trim();updateSemanticStatus();return {ok:true,...test,decoderVariant:S.semantic.decoderVariant,totalMs:S.semantic.preflightMs,attempts:S.semantic.providerAttempts}}
-  catch(e){S.semantic.preflightAt=performance.now();S.semantic.preflightMs=performance.now()-t0;S.semantic.preflightError=e.message||String(e);S.semantic.providerAttempts.push({provider:'wasm',family:'MobileSAM',phase:'encoder-decoder-smoke',ok:false,error:S.semantic.preflightError});S.semantic.status='MobileSAM non disponibile · fase oggetti saltata';updateSemanticStatus();return {ok:false,error:S.semantic.preflightError,totalMs:S.semantic.preflightMs,attempts:S.semantic.providerAttempts}}
+async function preflightGuidedObjectSeeding({force=false,reason='flow'}={}){
+  const t0=performance.now(),mode=semanticModeNow();S.semantic.providerAttempts=[];
+  if(mode==='off'||mode==='fallback'){const error='MobileSAM disattivato';S.semantic.preflightOk=false;S.semantic.preflightError=error;S.semantic.status=`${error} · Step 3 disponibile per retry/upload`;updateSemanticStatus();return {ok:false,error}}
+  // If preload already completed, entering Step 3 must be instant: no fetch, no
+  // InferenceSession.create(), no camera-covering processing overlay.
+  if(!force&&semanticWarmReady()){
+    S.semantic.warmReuseCount=(S.semantic.warmReuseCount||0)+1;const test=S.semantic.lastSelfTest;S.semantic.preflightAt=performance.now();S.semantic.preflightMs=performance.now()-t0;S.semantic.preflightProvider=`MobileSAM/WASM ${S.semantic.encoderVariant||''}/${S.semantic.decoderVariant||''}`;S.semantic.preflightError=null;S.semantic.status=`ready · sessione già calda · ${S.semantic.encoderVariant||''}/${S.semantic.decoderVariant||''}`;updateSemanticStatus();log('MOBILESAM_WARM_REUSE',reason,S.semantic.warmReuseCount);return {ok:true,warm:true,...test,encoderVariant:S.semantic.encoderVariant,decoderVariant:S.semantic.decoderVariant,totalMs:S.semantic.preflightMs,attempts:[]}
+  }
+  S.semantic.preflightOk=false;setAIMiniProgress('MobileSAM',null,force?'retry completo':'preparo Step 3');await delay(0);
+  try{
+    if(!await ensureMobileSamSemantic(force))throw new Error(S.semantic.modelError||'MobileSAM assente');const test=S.semantic.lastSelfTest||{ok:true,ms:0,provider:'wasm'};S.semantic.providerAttempts.push({provider:'wasm',family:'MobileSAM',encoder:S.semantic.encoderVariant,variant:S.semantic.decoderVariant,phase:'encoder-decoder-smoke',ok:true,ms:test.ms});S.semantic.preflightOk=true;S.semantic.preflightAt=performance.now();S.semantic.preflightMs=performance.now()-t0;S.semantic.preflightProvider=`MobileSAM/WASM ${S.semantic.encoderVariant||''}/${S.semantic.decoderVariant||''}`;S.semantic.preflightError=null;S.semantic.status=`ready · MobileSAM ${S.semantic.encoderVariant||''}/${S.semantic.decoderVariant||''}`;S.semantic.preloaded=true;S.semantic.preloadAt=performance.now();updateSemanticStatus();return {ok:true,...test,encoderVariant:S.semantic.encoderVariant,decoderVariant:S.semantic.decoderVariant,totalMs:S.semantic.preflightMs,attempts:S.semantic.providerAttempts}
+  }catch(e){S.semantic.preflightAt=performance.now();S.semantic.preflightMs=performance.now()-t0;S.semantic.preflightError=e.message||String(e);S.semantic.providerAttempts.push({provider:'wasm',family:'MobileSAM',phase:'encoder-decoder-smoke',ok:false,error:S.semantic.preflightError});S.semantic.status='MobileSAM non disponibile · Step 3 disponibile per retry/upload';updateSemanticStatus();setAIMiniProgress('MobileSAM non disponibile',1,'usa Riprova o carica ONNX');hideAIMiniProgress(1800);return {ok:false,error:S.semantic.preflightError,totalMs:S.semantic.preflightMs,attempts:S.semantic.providerAttempts}}
 }
 
 function v95ReticleWorldPoint(F=objectSeedLatestFrame()){if(!F)return null;const cx=Math.floor(F.cols/2),cy=Math.floor(F.rows/2),vals=[];for(let y=Math.max(0,cy-1);y<=Math.min(F.rows-1,cy+1);y++)for(let x=Math.max(0,cx-1);x<=Math.min(F.cols-1,cx+1);x++){const d=F.depth[y*F.cols+x];if(d>0){const p=worldPointFromMapDepth(F,x,y,d);if(p)vals.push(p)}}if(!vals.length)return null;const p=new THREE.Vector3();for(const q of vals)p.add(q);return p.multiplyScalar(1/vals.length)}
@@ -3228,7 +3312,7 @@ makeSimulationSurfaceModel=function(){const A=v94MakeSimulationSurfaceModel(),se
 
 semanticObjectsForExport=function(){return S.semantic.objects.filter(o=>!o.deleted).map(o=>({id:o.id,name:o.name,kind:o.kind||'object',enabled:o.enabled!==false,userPinned:!!o.userPinned,seeded:!!o.seeded,persistent:!!o.persistent,confidence:o.confidence||0,observedSurfels:o.observedSurfels||0,center:o.center||null,min:o.min||null,max:o.max||null,yaw:o.yaw||0,color:o.color||semanticObjectColor(o.id),meanRgb:o.meanRgb||null,source:o.source||'MobileSAM',proxy:o.proxy||null,semanticEncoding:o.semanticEncoding||null,captureSummary:o.captureSummary||null,materialPrior:o.materialPrior||null,materialPriorAuto:o.materialPriorAuto||null,materialOverride:o.materialOverride||null,acousticPrior:o.acousticPrior||null,manualBoundary:o.manualBoundary||null}))}
 const v94DiagnosticSnapshot=diagnosticSnapshot;
-diagnosticSnapshot=function(){v95EnsureState();const d=v94DiagnosticSnapshot();d.format='room-scanner-diagnostic-v9.5.1';d.geometry.onlinePruning={passes:S.realtime.onlinePrunePasses||0,removed:S.realtime.onlinePruned||0,validated:S.realtime.onlineValidated||0,promoted:S.realtime.geometryPromotions||0,packetPasses:S.realtime.packetMaintenancePasses||0,packetRemoved:S.realtime.packetPruned||0,packetValidated:S.realtime.packetValidated||0};d.geometry.finalPruning={removed:S.realtime.finalPruned||0,fullValidated:S.realtime.finalFullValidated||0,cheapValidated:S.realtime.finalCheapValidated||0};const hist={v0:0,v1:0,v2:0,v3:0,v4plus:0};for(const sf of S.surfels.values()){const v=surfelIndependentViews(sf);hist[v<=0?'v0':v===1?'v1':v===2?'v2':v===3?'v3':'v4plus']++}d.geometry.independentViewHistogram=hist;d.semantic.objects=semanticObjectsForExport();d.semantic.compactObjectCapture=S.objectSeeding.currentCapture?{kind:S.objectSeeding.currentCapture.kind,views:S.objectSeeding.currentCapture.views.length,boundaryPoints:S.objectSeeding.manualBoundary?.length||0}:null;d.semantic.modelBinaryBundled=!!(S.semantic.modelSource==='bundled-local');d.semantic.preferredModel='MobileSAM split ONNX; FP32 decoder preferred, quantized fallback';d.semantic.decoderVariant=S.semantic.decoderVariant||null;d.semantic.modelLocalExpected=[CFG.semanticModelLocalEncoder,CFG.semanticModelLocalDecoderFP32,CFG.semanticModelLocalDecoder];d.semantic.materialEstimator='multi-view visual prior, capped confidence';return d};
+diagnosticSnapshot=function(){v95EnsureState();const d=v94DiagnosticSnapshot();d.format='room-scanner-diagnostic-v9.5.1';d.geometry.onlinePruning={passes:S.realtime.onlinePrunePasses||0,removed:S.realtime.onlinePruned||0,validated:S.realtime.onlineValidated||0,promoted:S.realtime.geometryPromotions||0,packetPasses:S.realtime.packetMaintenancePasses||0,packetRemoved:S.realtime.packetPruned||0,packetValidated:S.realtime.packetValidated||0};d.geometry.finalPruning={removed:S.realtime.finalPruned||0,fullValidated:S.realtime.finalFullValidated||0,cheapValidated:S.realtime.finalCheapValidated||0};const hist={v0:0,v1:0,v2:0,v3:0,v4plus:0};for(const sf of S.surfels.values()){const v=surfelIndependentViews(sf);hist[v<=0?'v0':v===1?'v1':v===2?'v2':v===3?'v3':'v4plus']++}d.geometry.independentViewHistogram=hist;d.semantic.objects=semanticObjectsForExport();d.semantic.compactObjectCapture=S.objectSeeding.currentCapture?{kind:S.objectSeeding.currentCapture.kind,views:S.objectSeeding.currentCapture.views.length,boundaryPoints:S.objectSeeding.manualBoundary?.length||0}:null;d.semantic.modelBinaryBundled=!!(S.semantic.modelSource==='bundled-local');d.semantic.preferredModel='MobileSAM split ONNX; FP32 decoder preferred, quantized fallback';d.semantic.decoderVariant=S.semantic.decoderVariant||null;d.semantic.encoderVariant=S.semantic.encoderVariant||null;d.semantic.encoderLayout=S.semantic.encoderLayout||null;d.semantic.encoderPreprocess=S.semantic.encoderPreprocess||null;d.semantic.preloaded=semanticWarmReady();d.semantic.warmReuseCount=S.semantic.warmReuseCount||0;d.semantic.modelLocalExpected=[CFG.semanticModelLocalEncoder,CFG.semanticModelLocalDecoderFP32,CFG.semanticModelLocalDecoder];d.semantic.materialEstimator='multi-view visual prior, capped confidence';return d};
 
 // Do not create unguided RGB-D pseudo-objects in v9.5. Cheap RGB/depth edges stay
 // useful as geometry priors, but semantic objects are explicitly user-confirmed.
@@ -3293,7 +3377,7 @@ if(finalMenuBtn)finalMenuBtn.onclick=()=>$('#finalView').classList.toggle('menu-
 const qualityCard=$('#qualityCard');
 if(qualityCard){const hint=document.createElement('span');hint.className='qualityHint';hint.textContent='tocca per dettagli';qualityCard.firstElementChild?.appendChild(hint);qualityCard.addEventListener('click',()=>qualityCard.classList.toggle('expanded'))}
 
-$('#semanticPrefetchBtn').onclick=async()=>{const b=$('#semanticPrefetchBtn');b.disabled=true;b.textContent='Test MobileSAM…';S.semantic.modelError=null;const r=await preflightGuidedObjectSeeding();b.textContent=r.ok?'MobileSAM pronto':'MobileSAM non disponibile';setTimeout(()=>{b.disabled=false;b.textContent='Precarica AI'},1800)};
+$('#semanticPrefetchBtn').onclick=async()=>{const b=$('#semanticPrefetchBtn');if(semanticWarmReady()){b.textContent='AI già pronta ✓';b.title=`${S.semantic.encoderVariant||'encoder'}/${S.semantic.decoderVariant||'decoder'} · runtime ${S.semantic.runtimeSource||'?'}`;return}b.disabled=true;b.textContent='Preparo MobileSAM…';b.title='';S.semantic.modelError=null;const r=await preflightGuidedObjectSeeding({reason:'manual-preload'});if(r.ok){b.textContent='AI pronta ✓';b.title=`${S.semantic.encoderVariant||'encoder'}/${S.semantic.decoderVariant||'decoder'} · ${S.semantic.encoderPreprocess||'?'} · runtime ${S.semantic.runtimeSource||'?'}`;}else{const why=r.error||S.semantic.preflightError||S.semantic.modelError||'errore sconosciuto';b.textContent='MobileSAM non disponibile';b.title=why;const e=$('#semanticStatus');if(e)e.textContent=`ERRORE MobileSAM · ${why}`;setStatus?.('Preflight MobileSAM fallito',why);setTimeout(()=>{if(!semanticWarmReady())b.textContent='Riprova preload AI'},2400)}b.disabled=false};
 $('#semanticMode').onchange=()=>{S.semantic.mode=$('#semanticMode').value;S.semantic.status=S.semantic.mode==='off'?'off':'ready';S.semantic.modelError=null;updateSemanticStatus()};
 $('#depthAIToggle').onchange=()=>{S.depthAI.enabled=!!$('#depthAIToggle').checked;S.depthAI.status=S.depthAI.enabled?`${S.depthAI.keyframes.length} keyframe RGB-D`:'off';const e=$('#depthAIStatus');if(e)e.textContent=S.depthAI.enabled?'Stage 5 · keyframe differiti · XR metric gate':'Depth Anything disattivato · WebXR-only'};
 const toggleSemanticObjects=()=>$('#semanticObjectsPanel').classList.toggle('show');
@@ -3311,6 +3395,35 @@ setSourceMode('mono');
 // global so a PC can open a scan immediately after loading the HTML.
 if(!navigator.xr||!/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)){document.body.classList.add('desktop-project-mode');const hint=$('#desktopDropHint');if(hint)hint.style.display='block'}
 for(const ev of ['dragenter','dragover'])document.addEventListener(ev,e=>{e.preventDefault();document.body.classList.add('project-drag')});for(const ev of ['dragleave','drop'])document.addEventListener(ev,e=>{e.preventDefault();if(ev==='drop'){const f=e.dataTransfer?.files?.[0];if(f)loadProjectFile(f)}document.body.classList.remove('project-drag')});
-async function activateBuildCache(){if(location.protocol==='file:'||!('serviceWorker' in navigator))return;try{const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs){const u=r.active?.scriptURL||r.installing?.scriptURL||'';if(u&&!u.includes('sw.js?v=951h4'))await r.unregister()}if('caches' in window){for(const k of await caches.keys())if(k.startsWith('room-acoustic-')&&k!=='room-acoustic-v951h4'&&k!==CFG.semanticModelCache&&k!==CFG.depthAIModelCache)await caches.delete(k)}const reg=await navigator.serviceWorker.register('./sw.js?v=951h4',{updateViaCache:'none'});await reg.update()}catch(e){console.warn('service worker update',e)}}activateBuildCache();rtResetState();document.querySelectorAll('button').forEach(b=>b.type='button');$('#buildBadge').textContent=APP_BUILD;initThree();updateMarkSourceLabel();updateMeasureToggle();setWorkflowStage('acoustic');setFlowStep('calibration',{push:false});$('#preview').style.display='none';if(document.body.classList.contains('desktop-project-mode'))setStatus('Modalità desktop / offline','Apri o trascina un progetto già misurato. Per una nuova misura usa un dispositivo WebXR compatibile.');else setStatus('Stadio 1 · calibrazione acustica','Resta in silenzio vicino allo speaker (circa un metro) finché il sistema non sarà calibrato.');updateWorkflowCards();
+async function verifyDeployRevision(){
+  if(location.protocol==='file:')return {ok:true,mode:'file'};
+  try{
+    const probe=`./sw.js?deploy_probe=${encodeURIComponent(DEPLOY_REV)}&t=${Date.now()}`;
+    const r=await fetch(probe,{cache:'no-store'});
+    const text=await r.text();
+    const ok=r.ok&&text.includes(`room-acoustic-v${DEPLOY_REV}`);
+    const info={ok,http:r.status,expected:DEPLOY_REV,swMatches:ok};
+    S.deployHealth=info;
+    if(!ok){
+      const why=`Deploy incoerente: HTML ${DEPLOY_REV}, service worker server non corrispondente (HTTP ${r.status}).`;
+      console.error(why,info);addEvent?.('deploy_revision_mismatch',info);
+      const e=$('#semanticStatus');if(e)e.textContent=why;
+    }else addEvent?.('deploy_revision_ok',info);
+    return info;
+  }catch(e){
+    const info={ok:false,expected:DEPLOY_REV,error:e.message||String(e)};S.deployHealth=info;console.warn('deploy revision probe',e);return info;
+  }
+}
+async function activateBuildCache(){
+  if(location.protocol==='file:'||!('serviceWorker' in navigator))return;
+  try{
+    await verifyDeployRevision();
+    const regs=await navigator.serviceWorker.getRegistrations();
+    for(const r of regs){const u=r.active?.scriptURL||r.installing?.scriptURL||'';if(u&&!u.includes(`sw.js?v=${DEPLOY_REV}`))await r.unregister()}
+    if('caches' in window){for(const k of await caches.keys())if(k.startsWith('room-acoustic-')&&k!==`room-acoustic-v${DEPLOY_REV}`&&k!==CFG.semanticModelCache&&k!==CFG.depthAIModelCache)await caches.delete(k)}
+    const reg=await navigator.serviceWorker.register(`./sw.js?v=${DEPLOY_REV}`,{updateViaCache:'none'});await reg.update();
+  }catch(e){console.warn('service worker update',e)}
+}
+activateBuildCache();rtResetState();document.querySelectorAll('button').forEach(b=>b.type='button');$('#buildBadge').textContent=APP_BUILD;initThree();updateMarkSourceLabel();updateMeasureToggle();setWorkflowStage('acoustic');setFlowStep('calibration',{push:false});$('#preview').style.display='none';if(document.body.classList.contains('desktop-project-mode'))setStatus('Modalità desktop / offline','Apri o trascina un progetto già misurato. Per una nuova misura usa un dispositivo WebXR compatibile.');else setStatus('Stadio 1 · calibrazione acustica','Resta in silenzio vicino allo speaker (circa un metro) finché il sistema non sarà calibrato.');updateWorkflowCards();
 </script>
 </body></html>
