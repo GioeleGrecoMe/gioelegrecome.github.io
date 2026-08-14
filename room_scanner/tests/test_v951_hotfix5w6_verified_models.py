@@ -2,8 +2,8 @@ from pathlib import Path
 import re, json, subprocess, tempfile
 ROOT=Path(__file__).resolve().parents[1]
 html=(ROOT/'room_scanner_v9.html').read_text(); worker=(ROOT/'depth_ai_worker.js').read_text(); sw=(ROOT/'sw.js').read_text(); fetch=(ROOT/'tools/fetch_mobilesam_models.py').read_text(); check=(ROOT/'tools/check_deploy_bundle.py').read_text()
-assert "APP_BUILD='v9.5.1-hotfix5w6-verified-model-contracts'" in html
-assert "DEPLOY_REV='951h5w6'" in html
+assert "APP_BUILD='v9.5.1-hotfix5w7-stable-object-picking'" in html
+assert "DEPLOY_REV='951h5w7'" in html
 # Exact public browser bundle identity.
 pins={
  'mobilesam.encoder.onnx':(28195125,'4125037c5e24d6ea58e201b20e8d8fbbbd1135c0b881e34a8074b8c4f07e6918'),
@@ -35,7 +35,7 @@ assert "S.depthAI.contract=r.contract||null" in html and "S.depthAI.modelIntegri
 assert "msg.type === 'smoke'" in worker and 'async function preflightDepthAI()' in html
 assert "await preflightDepthAI()" in html and "DepthAI verificata ✓" in html
 # Cache revision is coherent.
-for tok in ["const CACHE='room-acoustic-v951h5w6'","const SEMANTIC_CACHE='room-acoustic-semantic-v951h5w6'","const DEPTH_CACHE='room-acoustic-depthai-v951h5w6'","const BUILD_REV='951h5w6'"]:
+for tok in ["const CACHE='room-acoustic-v951h5w7'","const SEMANTIC_CACHE='room-acoustic-semantic-v951h5w7'","const DEPTH_CACHE='room-acoustic-depthai-v951h5w7'","const BUILD_REV='951h5w7'"]:
     assert tok in sw,tok
 # Execute exact contract functions from production using realistic ORT metadata.
 def extract_func(src,name):
@@ -59,5 +59,5 @@ with tempfile.TemporaryDirectory() as td:
     js=Path(td)/'probe.js';js.write_text(probe);r=subprocess.run(['node',str(js)],capture_output=True,text=True);assert r.returncode==0,r.stderr;contract=json.loads(r.stdout)
 assert contract['encoder']['inputs'][0]['shape']==[684,1024,3]
 assert contract['decoder']['inputs'][0]['shape']==[1,256,64,64]
-res={'status':'PASS','build':'v9.5.1-hotfix5w6-verified-model-contracts','mobileSamPinned':pins,'mobileSamEncoderInput':[684,1024,3],'mobileSamEmbedding':[1,256,64,64],'mobileSamDecoderInputs':6,'depthAnythingPinnedBytes':19126267,'mobileSamProxy':False,'absoluteWasmPaths':True,'badEncoderRejected':True}
+res={'status':'PASS','build':'v9.5.1-hotfix5w7-stable-object-picking','mobileSamPinned':pins,'mobileSamEncoderInput':[684,1024,3],'mobileSamEmbedding':[1,256,64,64],'mobileSamDecoderInputs':6,'depthAnythingPinnedBytes':19126267,'mobileSamProxy':False,'absoluteWasmPaths':True,'badEncoderRejected':True}
 (ROOT/'tests/result_v951_hotfix5w6_verified_models.json').write_text(json.dumps(res,indent=2)+'\n');print(json.dumps(res,indent=2))

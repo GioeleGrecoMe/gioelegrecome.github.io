@@ -2,7 +2,11 @@
 
 ## Hotfix5W5 cooperative XR + AI
 
+<<<<<<< HEAD
 The current build is `v9.5.1-hotfix5w6-verified-model-contracts`. WebXR is always the
+=======
+The current build is `v9.5.1-hotfix5w5-cooperative-xr-ai`. WebXR is always the
+>>>>>>> 77d609d5fb3c5aac43d943e380c8c55dc904b1dd
 metric backbone. Heavy geometry fusion is capped at 10 Hz while XR rendering/pose
 continues at the device rate. MobileSAM segments one frozen RGB snapshot selected
 by the user and projects the mask back through synchronized XR depth. Depth Anything

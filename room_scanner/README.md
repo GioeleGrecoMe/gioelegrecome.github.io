@@ -2,7 +2,7 @@
 
 ## Hotfix5W5 cooperative XR + AI
 
-The current build is `v9.5.1-hotfix5w6-verified-model-contracts`. WebXR is always the
+The current build is `v9.5.1-hotfix5w7-stable-object-picking`. WebXR is always the
 metric backbone. Heavy geometry fusion is capped at 10 Hz while XR rendering/pose
 continues at the device rate. MobileSAM segments one frozen RGB snapshot selected
 by the user and projects the mask back through synchronized XR depth. Depth Anything
@@ -234,3 +234,7 @@ See `MODEL_CONTRACT_H5W6.md` for the pinned ONNX identities and verified input/o
 ## Hotfix5W6 - verified model contracts
 
 H5W6 fixes the H5W5 model-runtime regression and makes AI preload deterministic. MobileSAM uses the normal browser-tested ORT WASM path with an absolute local WASM base; Depth Anything keeps its dedicated worker with an absolute local WASM base. Pinned model bytes/hashes, session contracts and real smoke inference are verified before acquisition. See `MODEL_CONTRACT_H5W6.md`, `PATCH_NOTES_V951_HOTFIX5W6.md` and `TEST_REPORT_V951_HOTFIX5W6.md`.
+
+## H5W7 object picking
+
+Object selection is RGB-first: a user tap freezes the current camera frame and synchronized pose for MobileSAM. XR depth is optional at prompt time; after the 2D mask is produced, metric support is recovered from synchronized depth and/or the continuously maintained WebXR surfel map. Primary live planes render at 4.5% opacity so the camera remains readable.

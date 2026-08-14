@@ -10,5 +10,5 @@
   "preferred_bundle": "MobileSAM-in-the-Browser",
   "measurement_releases_ai": false,
   "webxr_only_stage5_fallback": true,
-  "deploy_rev": "951h5w6"
+  "deploy_rev": "951h5w7"
 }

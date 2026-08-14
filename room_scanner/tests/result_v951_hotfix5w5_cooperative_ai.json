@@ -1,6 +1,6 @@
 {
   "status": "PASS",
-  "build": "v9.5.1-hotfix5w6-verified-model-contracts",
+  "build": "v9.5.1-hotfix5w7-stable-object-picking",
   "xr_backbone": "continuous",
   "heavy_geometry_hz": 10,
   "mobilesam": "single frozen RGB-D snapshot per explicit tap; verified main-thread ORT path",
@@ -8,5 +8,5 @@
   "primary_surfaces_live": true,
   "ai_mutex": true,
   "xr_never_awaits_ai": true,
-  "deploy_rev": "951h5w6"
+  "deploy_rev": "951h5w7"
 }

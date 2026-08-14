@@ -583,8 +583,13 @@ import * as THREE from 'three';
 // ============================================================================
 
 const $=q=>document.querySelector(q);
+<<<<<<< HEAD
 const APP_BUILD='v9.5.1-hotfix5w6-verified-model-contracts';
 const DEPLOY_REV='951h5w6';
+=======
+const APP_BUILD='v9.5.1-hotfix5w5-cooperative-xr-ai';
+const DEPLOY_REV='951h5w5';
+>>>>>>> 77d609d5fb3c5aac43d943e380c8c55dc904b1dd
 const CFG={
   // Dense geometry map. 6 cm is deliberately conservative on phones: small
   // enough to preserve walls/door recesses, large enough to average depth noise.
@@ -719,7 +724,11 @@ const CFG={
   objectSeedMinStableSurfelsReady:2, objectSeedMinIndependentViews:2,
   objectSeedMaxDepthSpreadM:0.72, objectSeedMinSpanM:0.055,
   objectSeedMinNormalSurfels:4, objectSeedMinOrientationConfidence:0.25,
+<<<<<<< HEAD
   semanticModelCache:'room-acoustic-semantic-v951h5w6', depthAIModelCache:'room-acoustic-depthai-v951h5w6',
+=======
+  semanticModelCache:'room-acoustic-semantic-v951h5w5', depthAIModelCache:'room-acoustic-depthai-v951h5w5',
+>>>>>>> 77d609d5fb3c5aac43d943e380c8c55dc904b1dd
   // MobileSAM is the guided semantic backend. The split model is deliberate:
   // the image encoder runs once for each accepted view, while the much cheaper
   // decoder is reused for point/box prompts. Local files are preferred; the
@@ -3255,6 +3264,7 @@ async function ensureMobileSamSemantic(forceReset=false){
   if(S.semantic.busy){for(let i=0;i<250&&S.semantic.busy;i++)await delay(40);return semanticWarmReady()||!!(S.semantic.encoder&&S.semantic.decoder)}
   S.semantic.busy=true;S.semantic.status='preparo MobileSAM';updateSemanticStatus();setAIMiniProgress('MobileSAM',null,'inizializzo runtime');await delay(0);
   try{
+<<<<<<< HEAD
     const ort=await importOrtRuntime();
     // H5W6 reliability rule: do not enable ORT's implicit proxy worker here.
     // H5W5 combined proxy=true with a relative wasmPaths override; that moves
@@ -3262,6 +3272,9 @@ async function ensureMobileSamSemantic(forceReset=false){
     // fail at runtime. The browser-tested MobileSAM demo uses the normal WASM
     // path. Depth Anything remains isolated in its own explicit worker.
     const proxySam=false;ort.env.wasm.proxy=false;ort.env.wasm.numThreads=crossOriginIsolated?Math.min(2,navigator.hardwareConcurrency||2):1;ort.env.wasm.wasmPaths=S.semantic.runtimeSource==='local'?localAssetAbsoluteBase('./vendor/'):CFG.semanticOrtWasmRemoteBase;log('MOBILESAM_WASM_EXECUTION','main-thread-verified',`threads=${ort.env.wasm.numThreads}`,`wasm=${ort.env.wasm.wasmPaths}`);
+=======
+    const ort=await importOrtRuntime();const proxySam=typeof Worker==='function';ort.env.wasm.proxy=proxySam;ort.env.wasm.numThreads=proxySam?1:(crossOriginIsolated?Math.min(2,navigator.hardwareConcurrency||2):1);ort.env.wasm.wasmPaths=S.semantic.runtimeSource==='local'?'./vendor/':CFG.semanticOrtWasmRemoteBase;log('MOBILESAM_WASM_EXECUTION',proxySam?'proxy-worker':'main-thread',`threads=${ort.env.wasm.numThreads}`);
+>>>>>>> 77d609d5fb3c5aac43d943e380c8c55dc904b1dd
     S.semantic.ort=ort;S.semantic.family='mobile';S.semantic.activeProvider='wasm';S.semantic.modelLoadSources={};
     const failures=[],encoders=mobileSamEncoderCandidates();
     for(let ei=0;ei<encoders.length;ei++){
@@ -3605,7 +3618,11 @@ render=function(t,frame){
 
 // H5W5 diagnostics make cooperation measurable on the real phone.
 const h5w4DiagnosticSnapshotCoop=diagnosticSnapshot;
+<<<<<<< HEAD
 diagnosticSnapshot=function(){const d=h5w4DiagnosticSnapshotCoop();d.cooperativeAI={active:S.aiCoordinator?.active||null,geometryPeriodMs:CFG.cooperativeGeometryPeriodMs,primarySurfaces:S.cooperative?.primarySurfaceCount||0,mobileSamWarm:semanticWarmReady(),mobileSamWasmProxy:!!S.semantic?.ort?.env?.wasm?.proxy,mobileSamEncoderContract:S.semantic?.encoderContract||null,mobileSamDecoderContract:S.semantic?.decoderContract||null,mobileSamIntegrity:S.semantic?.integrity||null,mobileSamSnapshotFrameId:S.objectSeeding?.snapshotFrameId??null,depthAILiveRuns:S.depthAI?.liveRuns||0,depthAILiveCaptured:S.depthAI?.liveCaptureCount||0,depthAILiveQueue:S.depthAI?.liveQueue?.length||0,depthAILastMs:S.depthAI?.lastInferenceMs||0,depthAIFusedPoints:S.depthAI?.fusedPoints||0};return d};
+=======
+diagnosticSnapshot=function(){const d=h5w4DiagnosticSnapshotCoop();d.cooperativeAI={active:S.aiCoordinator?.active||null,geometryPeriodMs:CFG.cooperativeGeometryPeriodMs,primarySurfaces:S.cooperative?.primarySurfaceCount||0,mobileSamWarm:semanticWarmReady(),mobileSamWasmProxy:!!S.semantic?.ort?.env?.wasm?.proxy,mobileSamSnapshotFrameId:S.objectSeeding?.snapshotFrameId??null,depthAILiveRuns:S.depthAI?.liveRuns||0,depthAILiveCaptured:S.depthAI?.liveCaptureCount||0,depthAILiveQueue:S.depthAI?.liveQueue?.length||0,depthAILastMs:S.depthAI?.lastInferenceMs||0,depthAIFusedPoints:S.depthAI?.fusedPoints||0};return d};
+>>>>>>> 77d609d5fb3c5aac43d943e380c8c55dc904b1dd
 
 v95EnsureState();v95RefreshCaptureUI();
 

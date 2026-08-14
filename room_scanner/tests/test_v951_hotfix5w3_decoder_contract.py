@@ -2,8 +2,8 @@ from pathlib import Path
 import json,re
 root=Path(__file__).resolve().parents[1]
 html=(root/'room_scanner_v9.html').read_text()
-assert "v9.5.1-hotfix5w6-verified-model-contracts" in html
-assert "const DEPLOY_REV='951h5w6'" in html
+assert "v9.5.1-hotfix5w7-stable-object-picking" in html
+assert "const DEPLOY_REV='951h5w7'" in html
 m=re.search(r"function buildMobileSamDecoderFeeds\(E,pts\)\{(.*?)\n\}",html,re.S)
 assert m, 'decoder feed helper missing'
 b=m.group(1)
@@ -19,7 +19,7 @@ assert html.count('buildMobileSamDecoderFeeds(E,pts)') == 3
 # Old duplicated dangerous pattern must be gone.
 assert "else if(l.includes('mask_input'))feeds[name]" not in html
 result={
- 'build':'v9.5.1-hotfix5w6-verified-model-contracts',
+ 'build':'v9.5.1-hotfix5w7-stable-object-picking',
  'hasMaskBeforeMask':True,
  'centralizedBuilderUses':html.count('buildMobileSamDecoderFeeds(E,pts)')-1,
  'decoderContract':{

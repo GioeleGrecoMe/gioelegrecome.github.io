@@ -1,6 +1,6 @@
 {
-  "appBuild": "v9.5.1-hotfix5w6-verified-model-contracts",
-  "deployRev": "951h5w6",
+  "appBuild": "v9.5.1-hotfix5w7-stable-object-picking",
+  "deployRev": "951h5w7",
   "mobileSamBundle": "MobileSAM-in-the-Browser coherent split ONNX",
   "requiredLocal": [
     "models/mobilesam.encoder.onnx",
@@ -13,8 +13,8 @@
   "recommendedLocal": [
     "models/depth_anything_v2_small_q4f16.onnx"
   ],
-  "app_build": "v9.5.1-hotfix5w6-verified-model-contracts",
-  "deploy_rev": "951h5w6",
+  "app_build": "v9.5.1-hotfix5w7-stable-object-picking",
+  "deploy_rev": "951h5w7",
   "architecture": "WebXR always-on + verified snapshot MobileSAM + periodic metric-gated DepthAI worker + live primary planes",
-  "patch": "H5W6 verified model bytes/contracts + absolute WASM paths; cooperative XR retained"
+  "patch": "H5W7: RGB-first object picking, current-camera synchronized SAM snapshots, post-mask surfel/depth anchoring, touch-safe DOM overlay, 4.5% primary-plane opacity"
 }

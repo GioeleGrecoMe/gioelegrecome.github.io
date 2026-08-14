@@ -3,8 +3,8 @@ import re, json, subprocess, tempfile
 ROOT=Path(__file__).resolve().parents[1]
 s=(ROOT/'room_scanner_v9.html').read_text(); sw=(ROOT/'sw.js').read_text()
 
-assert "APP_BUILD='v9.5.1-hotfix5w6-verified-model-contracts'" in s
-assert "DEPLOY_REV='951h5w6'" in s
+assert "APP_BUILD='v9.5.1-hotfix5w7-stable-object-picking'" in s
+assert "DEPLOY_REV='951h5w7'" in s
 for tok in [
     'cooperativeGeometryPeriodMs:100', 'primarySurfacePreviewPeriodMs:1250',
     'depthAILiveEveryKeyframes:5', 'depthAILiveMinIntervalMs:8500',
@@ -28,7 +28,7 @@ assert 'prevId!==frozenId' in cap.group(0)
 push=re.search(r'function pushMapFrame\(.*?\n\n',s,re.S); assert push
 assert 'x.id!==frozenId' in push.group(0)
 freeze=re.search(r'function freezeObjectSeedSnapshot\(\).*?\n}',s,re.S); assert freeze
-assert '!F.semanticBitmap&&!F.semanticBitmapPromise' in freeze.group(0)
+assert 'h5w7CurrentObjectSnapshotFrame()' in freeze.group(0) and '!F.semanticBitmap&&!F.semanticBitmapPromise' in freeze.group(0)
 
 # MobileSAM is invoked only on explicit segmentation; it shares a mutex with
 # DepthAI, but the XR render function never awaits either model.
@@ -61,7 +61,7 @@ assert 'mesh.userData.primarySurface=true' in s
 assert 'buildStructuralGraph(false)' in s
 
 # Cooperative cache revision.
-for tok in ["const CACHE='room-acoustic-v951h5w6'","const SEMANTIC_CACHE='room-acoustic-semantic-v951h5w6'","const DEPTH_CACHE='room-acoustic-depthai-v951h5w6'","const BUILD_REV='951h5w6'"]:
+for tok in ["const CACHE='room-acoustic-v951h5w7'","const SEMANTIC_CACHE='room-acoustic-semantic-v951h5w7'","const DEPTH_CACHE='room-acoustic-depthai-v951h5w7'","const BUILD_REV='951h5w7'"]:
     assert tok in sw,tok
 
 # Syntax checks for all browser JS contexts.
@@ -73,12 +73,12 @@ with tempfile.TemporaryDirectory() as td:
         assert r.returncode==0,r.stderr
 
 res={
-  'status':'PASS','build':'v9.5.1-hotfix5w6-verified-model-contracts',
+  'status':'PASS','build':'v9.5.1-hotfix5w7-stable-object-picking',
   'xr_backbone':'continuous','heavy_geometry_hz':10,
   'mobilesam':'single frozen RGB-D snapshot per explicit tap; verified main-thread ORT path',
   'depthai':'periodic worker keyframes with XR metric gate',
   'primary_surfaces_live':True,'ai_mutex':True,'xr_never_awaits_ai':True,
-  'deploy_rev':'951h5w6'
+  'deploy_rev':'951h5w7'
 }
 (ROOT/'tests/result_v951_hotfix5w5_cooperative_ai.json').write_text(json.dumps(res,indent=2)+'\n')
 print(json.dumps(res,indent=2))

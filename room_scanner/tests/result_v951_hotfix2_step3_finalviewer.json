@@ -4,5 +4,5 @@
   "mobile_sam_remote_pair": "browser-tested Akbartus split + PulpCut compatibility fallback",
   "single_webgl_context_for_stage5": true,
   "viewer_failure_rolls_back_ui": true,
-  "service_worker_cache": "v951h5w6"
+  "service_worker_cache": "v951h5w7"
 }
