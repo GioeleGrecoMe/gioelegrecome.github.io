@@ -5,7 +5,7 @@ from pathlib import Path
 html = Path(__file__).resolve().parents[1].joinpath("room_scanner_v10.html").read_text()
 
 required = [
-    "APP_BUILD='v10.0.3-sam-viewer-flow'",
+    "APP_BUILD='v10.0.4-photo-ai-fusion'",
     "$('#hud').append($('#v10Live'));$('#hud').append($('#objectSeedUI'))",
     "id=\"v10Save\"",
     "id=\"v10Objects\"",
@@ -59,6 +59,17 @@ assert "preflightGuidedObjectSeeding" in sam
 assert "S.v10.samEnabled=true" in sam
 assert "S.v10.samEnabled=false" in sam
 assert "semanticWarmReady()" in sam
+
+# Explicit DepthAI on a reviewed user photo must fuse a new RGB-colored metric
+# surfel field into the global map, then attach the same verified depth to the
+# still-reviewable SAM proposal.
+assert "function v10DepthInferenceFrameForReview(" in html
+assert "async function v10FuseReviewDepthIntoMap(" in html
+assert "v10FuseReviewDepthIntoMap(F)" in html
+assert "rgbSource:'foto RGB selezionata'" in html
+assert "color:depthAIRgbAt(F,u,v)" in html
+assert "vertexColors:true" in html
+assert "Auto SAM foto: ON" in html
 
 # A manual screenshot must be a review-only operation; it must not invoke SAM.
 manual = html[html.index("async function h5w15CaptureManualReviewFrame"):html.index("const h5w15ContinueFromMapBase")]

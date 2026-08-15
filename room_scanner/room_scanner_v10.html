@@ -598,7 +598,7 @@ import * as THREE from 'three';
 // ============================================================================
 
 const $=q=>document.querySelector(q);
-const APP_BUILD='v10.0.3-sam-viewer-flow';
+const APP_BUILD='v10.0.4-photo-ai-fusion';
 const DEPLOY_REV='952h5w15';
 const CFG={
   // Dense geometry map. 6 cm is deliberately conservative on phones: small
@@ -4283,7 +4283,7 @@ body.v10-mode #landing{display:none!important}body.v10-mode #xrMapUI,body.v10-mo
 </style>`);
 document.body.insertAdjacentHTML('beforeend',`<section id="v10Welcome" aria-label="Room Scanner v10.0.3"><div class="v10WelcomeCard"><div class="v10Kicker">ROOM SCANNER V10.0.3 · GEOMETRIA</div><h1>Scansiona, controlla, costruisci.</h1><p>La mappa metrica viene costruita continuamente da WebXR e rifinita da Depth Anything soltanto sui frame migliori. L’audio non fa parte di questo percorso.</p><div class="v10Steps"><div class="v10Step"><b>1 · Muoviti</b> — inquadra pareti, pavimento e angoli da più distanze.</div><div class="v10Step"><b>2 · Rivedi</b> — conserva foto, scegli i frame utili e usa SAM solo per gli oggetti che vuoi.</div><div class="v10Step"><b>3 · Esplora</b> — apri il modello 3D quando vuoi; continua poi la scansione oppure rimuovi/aggiungi oggetti.</div></div><button type="button" id="v10Start" class="primary">Apri scansione 3D</button></div></section><section id="v10Live" aria-label="Controlli rapidi v10.0.3"><div class="v10LiveCard"><div class="v10LiveHead"><b>V10.0.3 · Scansione geometrica</b><span id="v10State">attendo tracking</span></div><div id="v10Hint" class="v10LiveHint">Muoviti lentamente lungo pareti e angoli. Depth Anything lavora in automatico sui frame abbastanza buoni.</div><div class="v10LiveMetrics"><div class="v10Metric">superfici<b id="v10Surfels">0</b></div><div class="v10Metric">frame AI<b id="v10Frames">0</b></div><div class="v10Metric">punti raffinati<b id="v10Points">0</b></div></div><div class="v10Actions"><button type="button" id="v10Save">＋ Salva foto</button><button type="button" id="v10Objects">Oggetti / frame</button><button type="button" id="v10Model" class="primary">Crea modello 3D</button></div><div id="v10ObjectsList" class="v10ObjectList"></div></div></section>`);
 document.body.classList.add('v10-mode');
-document.title='Room Scanner V10.0.3 · Geometry Audit';
+document.title='Room Scanner V10.0.4 · Photo AI Fusion';
 // WebXR DOM Overlay only guarantees visibility and touch delivery for children
 // of its declared root (#hud). Keep every live control there, including the
 // object reviewer, instead of relying on regular page compositing behind AR.
@@ -4292,25 +4292,27 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 body.object-seeding #v10Live{display:none!important}#v10Live{z-index:108!important}.v10LiveCard{max-width:min(540px,100%)}.v10LiveHead{gap:6px}.v10LiveHead button{margin-left:auto;min-width:34px;min-height:30px;padding:4px 7px}.v10Next{margin-top:5px;padding:5px 7px;border-left:2px solid #7df2ac;border-radius:6px;background:rgba(125,242,172,.08);font-size:10px;color:#e5fff0}.v10Trace{margin-top:6px;max-height:42px;overflow:hidden;border-radius:7px;background:rgba(0,0,0,.26);padding:5px 7px;color:#b9d0e2;font:8.5px/1.3 ui-monospace,SFMono-Regular,monospace}.v10Trace .err{color:#ffb5c0}.v10Details{display:none;margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.12)}#v10Live.details .v10Details{display:block}.v10Details button{min-height:33px;padding:5px 8px;font-size:9px}.v10DetailsLog{max-height:128px;overflow:auto;margin-top:6px;white-space:pre-wrap;font:8.5px/1.35 ui-monospace,SFMono-Regular,monospace;color:#c9dbea}.v10Actions{grid-template-columns:1fr 1fr 1.16fr}@media(max-width:420px){.v10LiveMetrics{display:none}.v10Trace{max-height:31px}.v10LiveCard{padding:8px}.v10Actions button{min-height:38px}}
 </style>`);
 $('#v10Live').innerHTML=`<div class="v10LiveCard"><div class="v10LiveHead"><b>V10.0.3 · SCANSIONE 3D</b><span id="v10State">attendo tracking</span><button type="button" id="v10Settings" aria-expanded="false" title="Dettagli e log">⚙</button></div><div id="v10Hint" class="v10LiveHint">Muoviti lentamente lungo pareti e angoli. Depth Anything lavora in automatico sui frame abbastanza buoni.</div><div id="v10Next" class="v10Next">Prossimo: inquadra un angolo o attraversa la stanza senza ruotare troppo velocemente.</div><div class="v10LiveMetrics"><div class="v10Metric">superfici<b id="v10Surfels">0</b></div><div class="v10Metric">frame AI<b id="v10Frames">0</b></div><div class="v10Metric">punti raffinati<b id="v10Points">0</b></div></div><div class="v10Actions"><button type="button" id="v10Save">＋ Foto</button><button type="button" id="v10Objects">Oggetti</button><button type="button" id="v10Model" class="primary">Crea modello 3D</button></div><div id="v10Trace" class="v10Trace" aria-live="polite">[avvio] in attesa del tracking WebXR…</div><div class="v10Details"><div><button type="button" id="v10TogglePoints">Punti DepthAI: ON</button> <button type="button" id="v10SamToggle">SAM: OFF</button> <button type="button" id="v10ExportDiag">Diagnostica</button></div><div id="v10DetailsLog" class="v10DetailsLog"></div><div id="v10ObjectsList" class="v10ObjectList"></div></div></div>`;
+$('#v10Live').innerHTML=`<div class="v10LiveCard"><div class="v10LiveHead"><b>V10.0.4 · SCANSIONE 3D</b><span id="v10State">attendo tracking</span><button type="button" id="v10Settings" aria-expanded="false" title="Dettagli e log">⚙</button></div><div id="v10Hint" class="v10LiveHint">Muoviti lentamente lungo pareti e angoli. Depth Anything lavora in automatico sui frame abbastanza buoni.</div><div id="v10Next" class="v10Next">Prossimo: inquadra un angolo o attraversa la stanza senza ruotare troppo velocemente.</div><div class="v10LiveMetrics"><div class="v10Metric">superfici<b id="v10Surfels">0</b></div><div class="v10Metric">frame AI<b id="v10Frames">0</b></div><div class="v10Metric">punti raffinati<b id="v10Points">0</b></div></div><div class="v10Actions"><button type="button" id="v10Save">＋ Foto</button><button type="button" id="v10Objects">Oggetti</button><button type="button" id="v10Model" class="primary">Crea modello 3D</button></div><div id="v10Trace" class="v10Trace" aria-live="polite">[avvio] in attesa del tracking WebXR…</div><div class="v10Details"><div><button type="button" id="v10TogglePoints">Punti DepthAI: ON</button> <button type="button" id="v10SamToggle">SAM: OFF</button> <button type="button" id="v10ExportDiag">Diagnostica</button></div><div id="v10DetailsLog" class="v10DetailsLog"></div><div id="v10ObjectsList" class="v10ObjectList"></div></div></div>`;
+$('#v10Welcome .v10Kicker').textContent='ROOM SCANNER V10.0.4 · GEOMETRIA';
 S.v10Log=[];
 function v10Log(message,level='info',data=null){const e={t:new Date().toLocaleTimeString(),level,message,data};S.v10Log.unshift(e);S.v10Log.length=Math.min(S.v10Log.length,36);const trace=$('#v10Trace'),full=$('#v10DetailsLog');if(trace){const A=S.v10Log.slice(0,2);trace.innerHTML=A.map(x=>`<div class="${x.level==='error'?'err':''}">[${x.t}] ${x.message}</div>`).join('')}if(full)full.textContent=S.v10Log.map(x=>`[${x.t}] ${x.level.toUpperCase()} ${x.message}${x.data?` · ${JSON.stringify(x.data)}`:''}`).join('\n')}
 window.addEventListener('error',e=>v10Log(`${e.error?.name||'Errore'}: ${e.message}`,'error'));window.addEventListener('unhandledrejection',e=>v10Log(`Promise: ${e.reason?.message||e.reason||'errore sconosciuto'}`,'error'));
 v10Log('Interfaccia XR pronta: mappa automatica, foto e oggetti opzionali.');
-document.head.insertAdjacentHTML('beforeend',`<style>.v10ObjectTrace{margin-top:5px;padding:4px 6px;border-radius:6px;background:rgba(0,0,0,.24);font:8.5px/1.25 ui-monospace,SFMono-Regular,monospace;color:#cce9f5}.v10ObjectTrace .err{color:#ffb5c0}.v10SamControl{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:9px;color:#cce9f5}.v10SamControl button{min-height:27px;padding:4px 7px;font-size:9px}</style>`);
-$('.objectSeedCard')?.insertAdjacentHTML('beforeend','<div id="v10ObjectTrace" class="v10ObjectTrace">SAM è spento: puoi attivarlo solo se vuoi trasformare un frame in oggetto 3D.</div><div class="v10SamControl"><button type="button" id="v10SamObjectToggle">Attiva SAM</button><span>opzionale · mai automatico</span></div>');
+document.head.insertAdjacentHTML('beforeend',`<style>.v10ObjectTrace{margin-top:5px;padding:4px 6px;border-radius:6px;background:rgba(0,0,0,.24);font:8.5px/1.25 ui-monospace,SFMono-Regular,monospace;color:#cce9f5}.v10ObjectTrace .err{color:#ffb5c0}.v10SamControl{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:9px;color:#cce9f5}.v10SamControl button{min-height:27px;padding:4px 7px;font-size:9px}</style>`);
+$('.objectSeedCard')?.insertAdjacentHTML('beforeend','<div id="v10ObjectTrace" class="v10ObjectTrace">SAM è spento: puoi attivarlo solo se vuoi trasformare un frame in oggetto 3D.</div><div class="v10SamControl"><button type="button" id="v10SamObjectToggle">Attiva SAM</button><button type="button" id="v10AutoSamToggle">Auto SAM foto: ON</button><button type="button" id="v10ObjectDepth">Applica DepthAI</button><span>proposte da rivedere prima del salvataggio</span></div>');
 const v10LogBase=v10Log;v10Log=function(message,level='info',data=null){v10LogBase(message,level,data);const target=$('#v10ObjectTrace');if(target&&S.objectSeeding?.active)target.innerHTML=`<span class="${level==='error'?'err':''}">[${new Date().toLocaleTimeString()}] ${message}</span>`};
 const v10DiagnosticSnapshotBase=diagnosticSnapshot;
-diagnosticSnapshot=function(){const d=v10DiagnosticSnapshotBase();d.v10={appBuild:APP_BUILD,depthAnythingLastMetricCheck:S.depthAI?.lastMetricCheck||null,reconstructionPruning:{active:!!S.v10PrunePass,lastCompleted:S.v10PruneLastCompleted||null},recentAILog:(S.v10Log||[]).slice(0,20)};return d};
+diagnosticSnapshot=function(){const d=v10DiagnosticSnapshotBase();d.v10={appBuild:APP_BUILD,depthAnythingLastMetricCheck:S.depthAI?.lastMetricCheck||null,manualDepthFusion:S.v10?.lastManualDepthFusion||null,reconstructionPruning:{active:!!S.v10PrunePass,lastCompleted:S.v10PruneLastCompleted||null},recentAILog:(S.v10Log||[]).slice(0,20)};return d};
 
 // SAM is an explicit opt-in. Opening the object workflow is sufficient to ask
 // for it, but no model is loaded or inference run during normal room mapping.
-S.v10=S.v10||{};S.v10.samEnabled=!!S.v10.samEnabled;
+S.v10=S.v10||{};S.v10.samEnabled=!!S.v10.samEnabled;S.v10.autoSamPhotos=S.v10.autoSamPhotos!==false;S.v10.objectDepthRequests=S.v10.objectDepthRequests||new Set();
 const v10RefreshSAMActionBase=h5w15RefreshSAMAction;
 h5w15RefreshSAMAction=function(){
   v10RefreshSAMActionBase();const b=$('#seedSegment');
   if(b&&!S.v10.samEnabled){b.disabled=true;b.textContent='Attiva SAM per segmentare'}
 };
-function v10RefreshSamControls(){const on=!!S.v10?.samEnabled;for(const b of [$('#v10SamToggle'),$('#v10SamObjectToggle')])if(b){b.textContent=on?'Disattiva SAM':'Attiva SAM';b.classList.toggle('primary',!on)}const h=$('#v10SamToggle');if(h)h.textContent=`SAM: ${on?'ON':'OFF'}`;h5w15RefreshSAMAction()}
+function v10RefreshSamControls(){const on=!!S.v10?.samEnabled;for(const b of [$('#v10SamObjectToggle')])if(b){b.textContent=on?'Disattiva SAM':'Attiva SAM';b.classList.toggle('primary',!on)}const h=$('#v10SamToggle');if(h)h.textContent=`SAM: ${on?'ON':'OFF'}`;const a=$('#v10AutoSamToggle');if(a)a.textContent=`Auto SAM foto: ${S.v10.autoSamPhotos?'ON':'OFF'}`;const d=$('#v10ObjectDepth');if(d)d.disabled=!on;h5w15RefreshSAMAction()}
 async function v10SetSamEnabled(want){
   if(!want){S.v10.samEnabled=false;v10RefreshSamControls();v10Log('MobileSAM disattivata: i frame e la mappa WebXR restano disponibili.');return false}
   if(S.v10.samEnabled&&semanticWarmReady()){v10RefreshSamControls();return true}
@@ -4326,11 +4328,71 @@ async function v10OpenObjects(){
   v10Log('Apro i frame raccolti: scegli una foto, disegna un’area 2D, poi applica SAM.');
   if(S.flow.step==='map')await continueFromMap();else if(!S.objectSeeding.active)enterObjectSeeding({preserve:true});
   if(!S.objectSeeding.active)v10Log('Galleria oggetti non disponibile: la sessione WebXR non è attiva oppure SAM non è pronta.','warn');
-  v10RefreshSamControls();
+  else await v10AutoAnalyzePendingManualPhotos();v10RefreshSamControls();
 }
 $('#v10SamToggle').onclick=()=>v10SetSamEnabled(!S.v10.samEnabled);
 $('#v10SamObjectToggle').onclick=()=>v10SetSamEnabled(!S.v10.samEnabled);
+$('#v10AutoSamToggle').onclick=()=>{S.v10.autoSamPhotos=!S.v10.autoSamPhotos;v10RefreshSamControls();v10Log(`Auto SAM sulle foto manuali: ${S.v10.autoSamPhotos?'attiva':'disattiva'}.`) };
 v10RefreshSamControls();
+
+// A user photo is normally framed around a single intended object. Queue an
+// automatic central proposal for review; it never creates a persistent object
+// until the user explicitly confirms the resulting mask.
+async function v10AutoAnalyzePendingManualPhotos(){
+  if(!S.v10.samEnabled||!S.v10.autoSamPhotos||!S.objectSeeding?.active)return;
+  const R=(S.depthAI.reviewFrames||[]).filter(x=>x.manual&&!x.autoSamHandled).sort((a,b)=>a.createdAt-b.createdAt)[0];if(!R)return;
+  await h5w15SelectReviewFrame(R.id);
+}
+const v10SelectReviewFrameBase=h5w15SelectReviewFrame;
+h5w15SelectReviewFrame=async function(id){
+  const r=await v10SelectReviewFrameBase(id),R=(S.depthAI.reviewFrames||[]).find(x=>x.id===id);
+  if(!R?.manual||R.autoSamHandled||!S.v10?.autoSamPhotos||!S.v10?.samEnabled||S.v10.autoSamSelecting)return r;
+  S.v10.autoSamSelecting=true;R.autoSamHandled=true;v10Log(`Foto #${R.id}: creo una proposta SAM automatica; potrai correggerla o scartarla.`);
+  try{h5w13SetSeedROI({x:.18,y:.18,w:.64,h:.64});setObjectSeedPromptUV(.5,.5);h5w15RefreshSAMAction();await segmentObjectSeed();R.autoSamApplied=!!S.objectSeeding?.pending?.candidate;if(!R.autoSamApplied)v10Log(`Foto #${R.id}: nessuna proposta SAM utilizzabile; disegna un’altra area 2D.`,'warn')}
+  finally{S.v10.autoSamSelecting=false}
+  return r
+};
+const v10ManualReviewCaptureBase=h5w15CaptureManualReviewFrame;
+h5w15CaptureManualReviewFrame=async function(){
+  const beforeManual=new Set((S.depthAI.reviewFrames||[]).filter(x=>x.manual).map(x=>x.id));await v10ManualReviewCaptureBase();const R=(S.depthAI.reviewFrames||[]).find(x=>x.manual&&!beforeManual.has(x.id));
+  if(R){R.autoSamHandled=false;v10Log(`Foto #${R.id} salvata: ${S.v10.autoSamPhotos?'proposta SAM automatica pronta nella revisione':'SAM automatica disattivata per questa raccolta'}.`)}
+  return R||null
+};
+
+// Depth Anything is deliberately on-demand for an object proposal. This avoids
+// expensive monocular inference for every photograph while preserving the same
+// WebXR metric gate when the user asks for the extra detail.
+const v10ObjectDepthBase=h5w10DepthAnythingOnFrozenCandidate;
+h5w10DepthAnythingOnFrozenCandidate=async function(F,c){
+  if(!S.v10?.objectDepthRequests?.has(F?.id)){
+    c.depthAnything={model:'Depth Anything V2 Small Q4F16',frameId:F?.id,aligned:false,skipped:'richiesta utente'};
+    h5w13SetSeedInference('Depth Anything su richiesta','la maschera SAM usa il supporto WebXR; premi Applica DepthAI se vuoi rifinirla.');
+    return {ok:false,skipped:'user-request'}
+  }
+  S.v10.objectDepthRequests.delete(F.id);return await v10ObjectDepthBase(F,c)
+};
+function v10DepthInferenceFrameForReview(F){
+  const R=(S.depthAI.reviewFrames||[]).find(x=>x.id===F?.id),K=R?.kf;if(!K?.rgba?.length||!K.width||!K.height)throw new Error('RGB della foto non disponibile');
+  S.v10.reviewDepthSeq=(S.v10.reviewDepthSeq||0)+1;return {id:`review-depth-${K.id}-${S.v10.reviewDepthSeq}`,t:K.t,width:K.width,height:K.height,rgba:new Uint8ClampedArray(K.rgba),cols:K.cols,rows:K.rows,depth:Float32Array.from(K.depth),worldToView:Array.from(K.worldToView),projection:Array.from(K.projection),cam:[...K.cam],q:[...K.q],quality:{...(K.quality||{}),manual:true},manualReviewFrameId:K.id}
+}
+async function v10FuseReviewDepthIntoMap(F){
+  const D=v10DepthInferenceFrameForReview(F),r=await runCooperativeDepthAIFrame(D),R=(S.depthAI.reviewFrames||[]).find(x=>x.id===F.id);
+  if(R){R.manualDepthState=r?.ok?'fused':r?.rejected?'rejected':r?.error?'error':'queued';R.manualDepthPoints=r?.points||0;R.manualDepthAt=new Date().toISOString()}
+  if(r?.ok){S.v10.lastManualDepthFusion={reviewFrameId:F.id,points:r.points||0,at:new Date().toISOString(),rgbSource:'foto RGB selezionata'};v10RenderDepthPoints();updateSplats(true)}
+  return r
+}
+async function v10ApplyDepthToCurrentObject(){
+  const P=S.objectSeeding?.pending,F=P?.F,c=P?.candidate;
+  if(!F||!c){v10Log('Depth Anything non avviata: applica o ottieni prima una proposta SAM sulla foto selezionata.','warn');return}
+  S.v10.objectDepthRequests.add(F.id);v10Log(`Depth Anything: elaboro su richiesta la foto #${F.id}, fondo i punti metrici RGB nella mappa e rifinisco la proposta.`);
+  try{
+    const map=await v10FuseReviewDepthIntoMap(F);if(map?.ok)v10Log(`Depth Anything → mappa 3D OK · foto #${F.id}: +${map.points||0} surfel metrici colorati dall’immagine.`);else v10Log(`Depth Anything → mappa 3D non integrata · foto #${F.id}: ${map?.error||map?.skipped||'gate metrico WebXR non superato'}.`,'warn');
+    const r=await h5w10DepthAnythingOnFrozenCandidate(F,c);if(S.objectSeeding?.pending?.candidate===c)showObjectSeedCandidate(c,F,c.depthAnything?.aligned?'MobileSAM + Depth Anything + WebXR':'MobileSAM + WebXR');
+    if(c.depthAnything?.aligned)v10Log(`Depth Anything OK · foto #${F.id}: +${c.depthAnythingPoints||0} punti metrici associati alla proposta oggetto.`);
+    else v10Log(`Depth Anything non integrata · foto #${F.id}: ${c.depthAnything?.error||c.depthAnything?.skipped||r?.error||'allineamento metrico WebXR insufficiente'}. La proposta SAM resta rivedibile.`,'warn');
+  }catch(e){v10Log(`Depth Anything errore · foto #${F.id}: ${e.message||e}. La proposta SAM resta rivedibile.`,'error')}
+}
+$('#v10ObjectDepth').onclick=v10ApplyDepthToCurrentObject;
 
 // Record why metric alignment passed or failed. Depth Anything is a relative
 // depth prior: only an affine fit against current WebXR depth may promote it.
@@ -4352,10 +4414,10 @@ function v10PruneUnexplainedSlice(limit=1400){
 }
 async function v10PruneUnexplainedForPreview(){let r;do{r=v10PruneUnexplainedSlice(2600);if(!r.done)await delay(0)}while(!r.done);if(!r.removed)v10Log(`Pulizia mappa OK: ${r.checked} punti controllati, nessun outlier inequivocabile rimosso.`);return r}
 function v10RenderDepthPoints(){
-  const A=[...S.surfels.values()].filter(s=>(s.sources?.depthai||0)>.001&&!s._rtDead),stride=Math.max(1,Math.ceil(A.length/1800)),pos=[];
-  for(let i=0;i<A.length;i+=stride){const p=A[i].p;pos.push(p.x,p.y,p.z)}
-  let G=S.v10DepthPoints;if(!G){const geo=new THREE.BufferGeometry(),mat=new THREE.PointsMaterial({color:0x63dcff,size:.022,sizeAttenuation:true,transparent:true,opacity:.88,depthWrite:false});G=new THREE.Points(geo,mat);G.name='v10-depthai-metric-points';S.v10DepthPoints=G;S.scene?.add(G)}
-  G.geometry.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));G.geometry.computeBoundingSphere();G.visible=!!S.session;
+  const A=[...S.surfels.values()].filter(s=>(s.sources?.depthai||0)>.001&&!s._rtDead),stride=Math.max(1,Math.ceil(A.length/1800)),pos=[],col=[];
+  for(let i=0;i<A.length;i+=stride){const s=A[i],p=s.p,rgb=s.rgb||[.39,.86,1];pos.push(p.x,p.y,p.z);col.push(rgb[0],rgb[1],rgb[2])}
+  let G=S.v10DepthPoints;if(!G){const geo=new THREE.BufferGeometry(),mat=new THREE.PointsMaterial({size:.022,sizeAttenuation:true,vertexColors:true,transparent:true,opacity:.88,depthWrite:false});G=new THREE.Points(geo,mat);G.name='v10-depthai-metric-points';S.v10DepthPoints=G;S.scene?.add(G)}
+  G.geometry.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));G.geometry.setAttribute('color',new THREE.Float32BufferAttribute(col,3));G.geometry.computeBoundingSphere();G.visible=!!S.session;
 }
 const v10DepthRunBase=runCooperativeDepthAIFrame;
 runCooperativeDepthAIFrame=async function(F){
