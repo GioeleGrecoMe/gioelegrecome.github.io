@@ -590,8 +590,8 @@ import * as THREE from 'three';
 // ============================================================================
 
 const $=q=>document.querySelector(q);
-const APP_BUILD='v9.5.1-hotfix5w10-freeze-depth-twin-parallel';
-const DEPLOY_REV='951h5w10';
+const APP_BUILD='v9.5.1-hotfix5w13-depthai-runtime-compat';
+const DEPLOY_REV='951h5w13';
 const CFG={
   // Dense geometry map. 6 cm is deliberately conservative on phones: small
   // enough to preserve walls/door recesses, large enough to average depth noise.
@@ -726,7 +726,7 @@ const CFG={
   objectSeedMinStableSurfelsReady:2, objectSeedMinIndependentViews:2,
   objectSeedMaxDepthSpreadM:0.72, objectSeedMinSpanM:0.055,
   objectSeedMinNormalSurfels:4, objectSeedMinOrientationConfidence:0.25,
-  semanticModelCache:'room-acoustic-semantic-v951h5w10', depthAIModelCache:'room-acoustic-depthai-v951h5w10',
+  semanticModelCache:'room-acoustic-semantic-v951h5w13', depthAIModelCache:'room-acoustic-depthai-v951h5w13',
   // MobileSAM is the guided semantic backend. The split model is deliberate:
   // the image encoder runs once for each accepted view, while the much cheaper
   // decoder is reused for point/box prompts. Local files are preferred; the
@@ -774,7 +774,7 @@ const CFG={
   depthAIFusionCols:88, depthAIFusionRows:50, depthAIFusionWeight:0.34,
   depthAIModelLocal:'./models/depth_anything_v2_small_q4f16.onnx',
   depthAIModelRemote:'https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model_q4f16.onnx',
-  depthAIWorker:'./depth_ai_worker.js', depthAIRuntimeVersion:'1.24.1',
+  depthAIWorker:'./depth_ai_worker.js', depthAIRuntimeVersion:'1.23.2',
   // Structural graph is secondary evidence.  It runs sparsely and is never
   // rendered during acquisition.  Persistent XRPlane nodes are first-class;
   // plane/box inference from stable surfels is delayed to background/processing.
@@ -2148,6 +2148,26 @@ function multiviewBit(origin){if(!origin)return 0;const c=CFG.multiviewCellM,k=`
 function surfelNormalBucket(n){if(!n||n.lengthSq?.()<.08)return'u';const a=n.clone().normalize(),ax=Math.abs(a.x),ay=Math.abs(a.y),az=Math.abs(a.z);if(ax>=ay&&ax>=az)return a.x>=0?'px':'nx';if(ay>=az)return a.y>=0?'py':'ny';return a.z>=0?'pz':'nz'}
 function surfelStorageKey(p,n,fine=false){const cell=fine?CFG.surfelFineVoxel:CFG.surfelVoxel;return `${fine?'f':'c'}:${key3(p,cell)}:${surfelNormalBucket(n)}`}
 function surfelCandidateKeys(p,n,fine=false){const base=surfelStorageKey(p,n,fine),prefix=base.slice(0,base.lastIndexOf(':')+1),b=surfelNormalBucket(n);return [base,...['px','nx','py','ny','pz','nz','u'].filter(x=>x!==b).map(x=>prefix+x)]}
+// Local, bounded lookup used by the guided-object reticle. The v9.4 gate
+// called this helper but it was omitted from the deployed bundle, which made
+// every object/wall/floor selection throw before a frozen photo could be made.
+// Search only neighbouring surfel voxels (never the complete room map).
+function objectSeedNearbySurfels(p,radius=CFG.localManifoldRadiusM*1.55,maxResults=32){
+  if(!p||!S?.surfels?.size)return [];
+  const buckets=['px','nx','py','ny','pz','nz','u'],out=[],seen=new Set(),r2=radius*radius;
+  for(const fine of [false,true]){
+    const cell=fine?CFG.surfelFineVoxel:CFG.surfelVoxel,ix=Math.round(p.x/cell),iy=Math.round(p.y/cell),iz=Math.round(p.z/cell),nr=Math.max(1,Math.ceil(radius/cell));
+    for(let dx=-nr;dx<=nr;dx++)for(let dy=-nr;dy<=nr;dy++)for(let dz=-nr;dz<=nr;dz++){
+      if(dx*dx+dy*dy+dz*dz>nr*nr)continue;
+      for(const bucket of buckets){
+        const sf=S.surfels.get(`${fine?'f':'c'}:${ix+dx},${iy+dy},${iz+dz}:${bucket}`);
+        if(!sf||sf._rtDead||seen.has(sf)||sf.p.distanceToSquared(p)>r2)continue;
+        seen.add(sf);out.push(sf);if(out.length>=maxResults)return out;
+      }
+    }
+  }
+  return out
+}
 function mapFrameBit(id){return (1<<(Math.abs(id||0)%30))>>>0}
 function projectWorldToMapFrame(p,F){const q=new THREE.Vector4(p.x,p.y,p.z,1).applyMatrix4(F.worldToView);const z=-q.z;if(!(z>CFG.minDepth&&z<CFG.maxDepth))return null;const clip=q.clone().applyMatrix4(F.projection);if(Math.abs(clip.w)<1e-8)return null;const nx=clip.x/clip.w,ny=clip.y/clip.w;if(nx<=-1||nx>=1||ny<=-1||ny>=1)return null;const x=Math.max(0,Math.min(F.cols-1,Math.floor((nx*.5+.5)*F.cols))),y=Math.max(0,Math.min(F.rows-1,Math.floor((.5-ny*.5)*F.rows)));return {x,y,i:y*F.cols+x,z}}
 function reprojectSurfelEvidence(s,maxFrames=CFG.reprojectionMaxFrames){if(!s||!S.mapFrames.length)return;if(s.reprojectionEpochStart==null)s.reprojectionEpochStart=Math.max(0,S.mapFrames[0]?.id||0);if(S.mapFrameSeq-s.reprojectionEpochStart>=29){s.reprojectionSupportMask=0;s.reprojectionContradictionMask=0;s.reprojectionEpochStart=S.mapFrameSeq+1}let supportMask=s.reprojectionSupportMask||0,contraMask=s.reprojectionContradictionMask||0,resSum=0,resN=0;const f0=Math.max(0,S.mapFrames.length-maxFrames);for(let fi=f0;fi<S.mapFrames.length;fi++){const F=S.mapFrames[fi];if(F.id<s.reprojectionEpochStart)continue;const bit=mapFrameBit(F.id);if((supportMask|contraMask)&bit)continue;const pr=projectWorldToMapFrame(s.p,F);if(!pr)continue;const od=F.depth[pr.i];if(!(od>0))continue;const aiTol=(s.sources?.depthai||0)>0?CFG.depthAIReprojectionExtraM:0,tol=CFG.reprojectionDepthBaseM+CFG.reprojectionDepthScale*pr.z+aiTol,d=od-pr.z;if(Math.abs(d)<=tol){supportMask=(supportMask|bit)>>>0;s.reprojectionSupportTotal=(s.reprojectionSupportTotal||0)+1;resSum+=Math.abs(d);resN++}else if(d>Math.max(CFG.reprojectionContradictionM,tol*1.8)){contraMask=(contraMask|bit)>>>0;s.reprojectionContradictionTotal=(s.reprojectionContradictionTotal||0)+1}else{/* foreground occlusion: neutral */}}
@@ -2248,19 +2268,26 @@ function captureDepthAIKeyframe(F){
 function depthAIWorkerRequest(type,payload={},transfer=[]){
   return new Promise((resolve,reject)=>{const W=S.depthAI.worker;if(!W)return reject(new Error('DepthAI worker assente'));const id=++S.depthAI.workerSeq,t=setTimeout(()=>{S.depthAI.pending.delete(id);reject(new Error(`DepthAI worker timeout: ${type}`))},type==='infer'?90000:30000);S.depthAI.pending.set(id,{resolve:v=>{clearTimeout(t);resolve(v)},reject:e=>{clearTimeout(t);reject(e)}});W.postMessage({id,type,...payload},transfer)})
 }
-async function ensureDepthAIWorker(){
-  if(!CFG.depthAIEnabled||S.depthAI.enabled===false)return false;if(S.depthAI.workerReady&&S.depthAI.worker)return true;
-  releaseDepthAIWorker();const W=new Worker(versionedLocalAsset(CFG.depthAIWorker));S.depthAI.worker=W;W.onmessage=e=>{const m=e.data||{},p=S.depthAI.pending.get(m.id);if(!p)return;S.depthAI.pending.delete(m.id);if(m.ok)p.resolve(m);else p.reject(new Error(m.error||'DepthAI worker error'))};W.onerror=e=>{S.depthAI.lastError=e.message||'DepthAI worker crash';for(const p of S.depthAI.pending.values())p.reject(new Error(S.depthAI.lastError));S.depthAI.pending.clear()};
-  try{const r=await depthAIWorkerRequest('init',{inputSize:CFG.depthAIInputSize,modelLocal:CFG.depthAIModelLocal,modelRemote:CFG.depthAIModelRemote,runtimeVersion:CFG.depthAIRuntimeVersion,deployRev:DEPLOY_REV});S.depthAI.workerReady=true;S.depthAI.modelSource=r.modelSource;S.depthAI.runtimeSource=r.runtimeSource;S.depthAI.provider=r.provider;S.depthAI.inputShape=r.inputShape||null;S.depthAI.contract=r.contract||null;S.depthAI.modelIntegrity=r.modelIntegrity||null;S.depthAI.wasmPaths=r.wasmPaths||null;S.depthAI.status=`ready · ${r.provider} · contratto verificato`;return true}catch(e){S.depthAI.lastError=e.message||String(e);S.depthAI.status='non disponibile';releaseDepthAIWorker();throw e}
+async function ensureDepthAIWorker(forceWasm=false){
+  if(!CFG.depthAIEnabled||S.depthAI.enabled===false)return false;if(S.depthAI.workerReady&&S.depthAI.worker&&!!S.depthAI.forceWasm===!!forceWasm)return true;
+  releaseDepthAIWorker();S.depthAI.forceWasm=!!forceWasm;const W=new Worker(versionedLocalAsset(CFG.depthAIWorker));S.depthAI.worker=W;W.onmessage=e=>{const m=e.data||{},p=S.depthAI.pending.get(m.id);if(!p)return;S.depthAI.pending.delete(m.id);if(m.ok)p.resolve(m);else p.reject(new Error(m.error||'DepthAI worker error'))};W.onerror=e=>{S.depthAI.lastError=e.message||'DepthAI worker crash';for(const p of S.depthAI.pending.values())p.reject(new Error(S.depthAI.lastError));S.depthAI.pending.clear()};
+  try{const r=await depthAIWorkerRequest('init',{inputSize:CFG.depthAIInputSize,modelLocal:CFG.depthAIModelLocal,modelRemote:CFG.depthAIModelRemote,runtimeVersion:CFG.depthAIRuntimeVersion,deployRev:DEPLOY_REV,forceWasm:!!forceWasm});S.depthAI.workerReady=true;S.depthAI.modelSource=r.modelSource;S.depthAI.runtimeSource=r.runtimeSource;S.depthAI.provider=r.provider;S.depthAI.inputShape=r.inputShape||null;S.depthAI.contract=r.contract||null;S.depthAI.modelIntegrity=r.modelIntegrity||null;S.depthAI.wasmPaths=r.wasmPaths||null;S.depthAI.status=`ready · ${r.provider} · contratto verificato`;return true}catch(e){S.depthAI.lastError=e.message||String(e);S.depthAI.status='non disponibile';releaseDepthAIWorker();throw e}
 }
-async function preflightDepthAI(){
+async function preflightDepthAI(forceWasm=false){
   if(!CFG.depthAIEnabled||S.depthAI?.enabled===false)return {ok:false,skipped:'disabled'};
-  if(S.depthAI?.smokeOk&&S.depthAI?.workerReady)return {ok:true,warm:true,smoke:S.depthAI.lastSmoke};
-  setAIMiniProgress('DepthAI',null,'verifico runtime + modello Q4F16');await delay(0);await ensureDepthAIWorker();
-  const r=await depthAIWorkerRequest('smoke');if(!r?.ok||!(r.outputWidth>0&&r.outputHeight>0))throw new Error('DepthAI smoke inference non valida');
-  S.depthAI.smokeOk=true;S.depthAI.lastSmoke={provider:r.provider,input:[r.inputWidth,r.inputHeight],output:[r.outputWidth,r.outputHeight],outputName:r.outputName,inferenceMs:r.inferenceMs,contract:r.contract,modelIntegrity:r.modelIntegrity,wasmPaths:r.wasmPaths};
-  S.depthAI.status=`ready ✓ ${r.provider} · input ${r.inputWidth}×${r.inputHeight} · output ${r.outputWidth}×${r.outputHeight}`;const ui=$('#depthAIStatus');if(ui)ui.textContent=`DepthAI pronta ✓ · ${r.provider} · ${Math.round(r.inferenceMs||0)} ms`;
-  return {ok:true,smoke:S.depthAI.lastSmoke}
+  if(S.depthAI?.smokeOk&&S.depthAI?.workerReady&&!!S.depthAI.forceWasm===!!forceWasm)return {ok:true,warm:true,smoke:S.depthAI.lastSmoke};
+  setAIMiniProgress('DepthAI',null,forceWasm?'WebGPU incompatibile · riavvio WASM verificato':'verifico runtime + modello Q4F16');await delay(0);
+  try{await ensureDepthAIWorker(forceWasm);const r=await depthAIWorkerRequest('smoke');if(!r?.ok||!(r.outputWidth>0&&r.outputHeight>0))throw new Error('DepthAI smoke inference non valida');
+    S.depthAI.smokeOk=true;S.depthAI.lastSmoke={provider:r.provider,input:[r.inputWidth,r.inputHeight],output:[r.outputWidth,r.outputHeight],outputName:r.outputName,inferenceMs:r.inferenceMs,contract:r.contract,modelIntegrity:r.modelIntegrity,wasmPaths:r.wasmPaths,forceWasm:!!forceWasm};
+    S.depthAI.status=`ready ✓ ${r.provider} · input ${r.inputWidth}×${r.inputHeight} · output ${r.outputWidth}×${r.outputHeight}`;const ui=$('#depthAIStatus');if(ui)ui.textContent=`DepthAI pronta ✓ · ${r.provider} · ${Math.round(r.inferenceMs||0)} ms`;
+    return {ok:true,smoke:S.depthAI.lastSmoke}
+  }catch(e){
+    // A WebGPU session can initialize but fail only on its first command-buffer
+    // submit.  Do not reuse that runtime: start a new worker with plain ORT
+    // WASM, then repeat the same verified smoke inference once.
+    if(!forceWasm&&S.depthAI?.provider==='webgpu'){const reason=e.message||String(e);log('DEPTHAI_WEBGPU_SMOKE_FAILED_RETRY_WASM',reason);releaseDepthAIWorker();S.depthAI.smokeOk=false;return await preflightDepthAI(true)}
+    throw e
+  }
 }
 function releaseDepthAIWorker(){if(S.depthAI?.worker)try{S.depthAI.worker.terminate()}catch{}if(S.depthAI){S.depthAI.worker=null;S.depthAI.workerReady=false;S.depthAI.smokeOk=false;for(const p of S.depthAI.pending.values())p.reject?.(new Error('DepthAI worker released'));S.depthAI.pending.clear()}}
 function depthAISample(A,w,h,u,v){const x=Math.max(0,Math.min(w-1,Math.round(u*(w-1)))),y=Math.max(0,Math.min(h-1,Math.round(v*(h-1))));return Number(A[y*w+x])}
@@ -3557,6 +3584,10 @@ function objectProxySimulationSurfaces(){
   }
   return out
 }
+// Preserve the base structural-surface builder before extending it with the
+// user-confirmed semantic proxies. The historic deployment referenced this
+// alias without declaring it, aborting the final processing pipeline.
+const v94MakeSimulationSurfaceModel=makeSimulationSurfaceModel;
 makeSimulationSurfaceModel=function(){const A=v94MakeSimulationSurfaceModel(),seen=new Set(A.map(x=>x.surfaceKey));for(const s of objectProxySimulationSurfaces())if(!seen.has(s.surfaceKey))A.push(s);return A};
 
 semanticObjectsForExport=function(){return S.semantic.objects.filter(o=>!o.deleted).map(o=>({id:o.id,name:o.name,kind:o.kind||'object',enabled:o.enabled!==false,userPinned:!!o.userPinned,seeded:!!o.seeded,persistent:!!o.persistent,confidence:o.confidence||0,observedSurfels:o.observedSurfels||0,center:o.center||null,min:o.min||null,max:o.max||null,yaw:o.yaw||0,color:o.color||semanticObjectColor(o.id),meanRgb:o.meanRgb||null,source:o.source||'MobileSAM',proxy:o.proxy||null,semanticEncoding:o.semanticEncoding||null,captureSummary:o.captureSummary||null,materialPrior:o.materialPrior||null,materialPriorAuto:o.materialPriorAuto||null,materialOverride:o.materialOverride||null,acousticPrior:o.acousticPrior||null,manualBoundary:o.manualBoundary||null}))}
@@ -4083,7 +4114,7 @@ $('#semanticPrefetchBtn').onclick=async()=>{
     b.textContent=wantDepth?'AI pronta ✓':'SAM pronta ✓';b.title=`SAM ${S.semantic.encoderVariant||'encoder'}/${S.semantic.decoderVariant||'decoder'} · ${S.semantic.encoderPreprocess||'?'} · runtime ${S.semantic.runtimeSource||'?'}${wantDepth&&depth.ok?` · Depth ${S.depthAI.provider} ${Math.round(S.depthAI.lastSmoke?.inferenceMs||0)}ms`:''}`;
     const e=$('#semanticStatus');if(e)e.textContent=`MobileSAM verificata ✓ · ${S.semantic.encoderVariant}/${S.semantic.decoderVariant} · embedding ${JSON.stringify(S.semantic.lastSelfTest?.embeddingShape||[])}${wantDepth&&depth.ok?' · DepthAI verificata ✓':''}`;
     setAIMiniProgress('AI verificata',1,wantDepth?'MobileSAM + Depth Anything':'MobileSAM');hideAIMiniProgress(1000)
-  }catch(err){const why=err.message||String(err);b.textContent='AI non disponibile';b.title=why;const e=$('#semanticStatus');if(e)e.textContent=`ERRORE AI · ${why}`;setStatus?.('Preflight AI fallito',why);setAIMiniProgress('AI non disponibile',1,'apri diagnostica / riprova');hideAIMiniProgress(1800);setTimeout(()=>{if(!semanticWarmReady()||(wantDepth&&!S.depthAI?.smokeOk))b.textContent='Riprova preload AI'},2400)}
+  }catch(err){const why=err.message||String(err),samStillReady=semanticWarmReady();b.textContent=samStillReady?'SAM pronta ✓ · DepthAI non disponibile':'AI non disponibile';b.title=why;const e=$('#semanticStatus');if(e)e.textContent=samStillReady?`MobileSAM verificata ✓ · DepthAI non disponibile: ${why}`:`ERRORE AI · ${why}`;const d=$('#depthAIStatus');if(samStillReady&&d)d.textContent=`DepthAI non disponibile · WebXR + MobileSAM restano attivi`;if(!samStillReady)setStatus?.('Preflight AI fallito',why);setAIMiniProgress(samStillReady?'MobileSAM pronta':'AI non disponibile',1,samStillReady?'DepthAI verrà ritentata in WASM':'apri diagnostica / riprova');hideAIMiniProgress(1800);setTimeout(()=>{if(!semanticWarmReady()||(wantDepth&&!S.depthAI?.smokeOk))b.textContent=samStillReady?'Riprova DepthAI':'Riprova preload AI'},2400)}
   finally{b.disabled=false}
 };
 $('#semanticMode').onchange=()=>{S.semantic.mode=$('#semanticMode').value;S.semantic.status=S.semantic.mode==='off'?'off':'ready';S.semantic.modelError=null;updateSemanticStatus()};

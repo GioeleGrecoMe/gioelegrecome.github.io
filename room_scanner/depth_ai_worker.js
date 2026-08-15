@@ -23,8 +23,9 @@ let session = null;
 let modelSource = null;
 let runtimeSource = null;
 let activeProvider = null;
+let forceWasmRuntime = false;
 let inputSize = 518;
-let runtimeVersion = '1.24.1';
+let runtimeVersion = '1.23.2';
 let deployRev = 'dev';
 
 const MEAN = [0.485, 0.456, 0.406];
@@ -45,16 +46,17 @@ function importRuntime(url) {
 
 async function initRuntime() {
   if (ortApi) return;
-  const wantsWebGPU = !!(self.navigator && self.navigator.gpu);
+  const localRuntimeDir = './vendor/depthai-123/';
+  const wantsWebGPU = !forceWasmRuntime && !!(self.navigator && self.navigator.gpu);
   const candidates = wantsWebGPU
     ? [
-        versionedWorkerAsset('./vendor/depthai/ort.webgpu.min.js'),
+        versionedWorkerAsset(`${localRuntimeDir}ort.webgpu.min.js`),
         `https://cdn.jsdelivr.net/npm/onnxruntime-web@${runtimeVersion}/dist/ort.webgpu.min.js`,
-        versionedWorkerAsset('./vendor/depthai/ort.min.js'),
+        versionedWorkerAsset(`${localRuntimeDir}ort.min.js`),
         `https://cdn.jsdelivr.net/npm/onnxruntime-web@${runtimeVersion}/dist/ort.min.js`,
       ]
     : [
-        versionedWorkerAsset('./vendor/depthai/ort.min.js'),
+        versionedWorkerAsset(`${localRuntimeDir}ort.min.js`),
         `https://cdn.jsdelivr.net/npm/onnxruntime-web@${runtimeVersion}/dist/ort.min.js`,
       ];
   let last = null;
@@ -77,7 +79,7 @@ async function initRuntime() {
   // location or on service-worker rewriting.
   ortApi.env.wasm.wasmPaths = remote
     ? `https://cdn.jsdelivr.net/npm/onnxruntime-web@${runtimeVersion}/dist/`
-    : new URL('./vendor/depthai/', self.location.href).href;
+    : new URL(localRuntimeDir, self.location.href).href;
   ortApi.env.wasm.numThreads = self.crossOriginIsolated ? Math.max(1, Math.min(4, (self.navigator && self.navigator.hardwareConcurrency) || 2)) : 1;
   ortApi.env.wasm.simd = true;
 }
@@ -109,12 +111,22 @@ async function initModel(modelLocal, modelRemote) {
   let last = null;
   for (const url of modelCandidates) {
     let loaded=null;try{loaded=await fetchVerifiedModel(url)}catch(e){last=e;continue}
-    if (self.navigator && self.navigator.gpu && /webgpu/i.test(runtimeSource || '')) {
+    if (!forceWasmRuntime && self.navigator && self.navigator.gpu && /webgpu/i.test(runtimeSource || '')) {
       try {session=await createSessionFrom(loaded.buffer.slice(0), ['webgpu', 'wasm']);modelSource=loaded.absolute;activeProvider='webgpu';validateDepthContract(session);return} catch(e){last=e;session=null}
     }
     try {session=await createSessionFrom(loaded.buffer, ['wasm']);modelSource=loaded.absolute;activeProvider='wasm';validateDepthContract(session);return} catch(e){last=e;session=null}
   }
   throw new Error(`Depth Anything Q4F16 non caricabile: ${errText(last)}`);
+}
+
+async function runDepthSession(prep) {
+  const inputName = session.inputNames[0];
+  const tensor = new ortApi.Tensor('float32', prep.data, [1, 3, prep.height, prep.width]);
+  try {
+    return await session.run({ [inputName]: tensor });
+  } finally {
+    try { tensor.dispose && tensor.dispose(); } catch (_) {}
+  }
 }
 
 function constrainMultiple(value, multiple=14) {
@@ -179,9 +191,7 @@ async function infer(msg) {
   if (!session) throw new Error('DepthAI sessione non inizializzata');
   const shapeHint = modelInputShapeHint();
   const prep = preprocessRGBA(msg.rgba, Number(msg.width), Number(msg.height), shapeHint);
-  const inputName = session.inputNames[0];
-  const tensor = new ortApi.Tensor('float32', prep.data, [1, 3, prep.height, prep.width]);
-  const out = await session.run({ [inputName]: tensor });
+  const out = await runDepthSession(prep);
   const outputName = session.outputNames.find(n => /predicted_depth/i.test(n)) || session.outputNames[0];
   const t = out[outputName] || Object.values(out)[0];
   if (!t || !t.data || !t.data.length) throw new Error('Depth Anything: predicted_depth assente');
@@ -194,7 +204,6 @@ async function infer(msg) {
   for (const value of Object.values(out)) {
     try { value && value.dispose && value.dispose(); } catch (_) {}
   }
-  try { tensor.dispose && tensor.dispose(); } catch (_) {}
   return { depth, outputWidth: w, outputHeight: h, outputName, inputWidth: prep.width, inputHeight: prep.height, inputShapeMode: shapeHint.static ? 'static' : 'aspect-dynamic' };
 }
 
@@ -206,6 +215,7 @@ self.onmessage = async (event) => {
       inputSize = Number(msg.inputSize || 518);
       runtimeVersion = String(msg.runtimeVersion || '1.24.1');
       deployRev = String(msg.deployRev || 'dev');
+      forceWasmRuntime = !!msg.forceWasm;
       await initModel(msg.modelLocal, msg.modelRemote);
       self.postMessage({
         id, ok: true, provider: activeProvider, modelSource, runtimeSource,

@@ -1,7 +1,7 @@
-const CACHE='room-acoustic-v951h5w10';
-const SEMANTIC_CACHE='room-acoustic-semantic-v951h5w10';
-const DEPTH_CACHE='room-acoustic-depthai-v951h5w10';
-const BUILD_REV='951h5w10';
+const CACHE='room-acoustic-v951h5w13';
+const SEMANTIC_CACHE='room-acoustic-semantic-v951h5w13';
+const DEPTH_CACHE='room-acoustic-depthai-v951h5w13';
+const BUILD_REV='951h5w13';
 const CORE=['./room_scanner_v9.html','./build_info.json','./depth_ai_worker.js','./README.md','./ARCHITECTURE_V951.md','./MOBILESAM_INTEGRATION_V951.md','./DEPTHAI_INTEGRATION_V951.md'];
 
 self.addEventListener('install',event=>{
@@ -14,10 +14,10 @@ self.addEventListener('activate',event=>{
 function classify(req){
   const u=new URL(req.url),same=u.origin===self.location.origin;
   const model=same&&/\/models\/.*\.onnx$/i.test(u.pathname);
-  const ort=same&&/\/vendor\/(?:depthai\/)?ort(?:-|\.).*/i.test(u.pathname);
+  const ort=same&&/\/vendor\/(?:depthai(?:-\d+)?\/)?ort(?:-|\.).*/i.test(u.pathname);
   const remoteModel=u.hostname==='huggingface.co'&&/\.onnx(?:$|\?)/i.test(u.pathname+u.search);
   const remoteOrt=u.hostname==='cdn.jsdelivr.net'&&/onnxruntime-web@/.test(u.pathname);
-  return {u,same,neural:model||ort||remoteModel||remoteOrt,depth:/depth_anything|\/depthai\//i.test(u.pathname)};
+  return {u,same,neural:model||ort||remoteModel||remoteOrt,depth:/depth_anything|\/depthai(?:-\d+)?\//i.test(u.pathname)};
 }
 async function neuralNetworkFirst(req,depth){
   const cache=await caches.open(depth?DEPTH_CACHE:SEMANTIC_CACHE);

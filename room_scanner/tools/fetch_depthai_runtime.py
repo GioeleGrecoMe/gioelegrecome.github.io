@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Vendor ONNX Runtime Web 1.24.1 assets for the Depth Anything worker.
+"""Vendor ONNX Runtime Web 1.23.2 assets for the Depth Anything worker.
 
 The DepthAI worker is intentionally isolated from MobileSAM's pinned ORT 1.14
 runtime. Both WebGPU/JSEP and universal WASM assets are downloaded so a deployed
@@ -9,8 +9,8 @@ from pathlib import Path
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'vendor' / 'depthai'
-BASE = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.1/dist/'
+OUT = ROOT / 'vendor' / 'depthai-123'
+BASE = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/'
 FILES = [
     'ort.min.js',
     'ort.webgpu.min.js',

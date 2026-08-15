@@ -1,6 +1,14 @@
-# Room Scanner v9.5.1 — Hotfix5W8 flow/state recovery
+# Room Scanner v9.5.1 — Hotfix5W13 verified WebXR object twin
 
-Current build: `v9.5.1-hotfix5w8-flow-state-machine` (`951h5w8`).
+Current build: `v9.5.1-hotfix5w13-depthai-runtime-compat` (`951h5w13`).
+
+H5W13 fixes the deployed object-selection and final-processing exceptions,
+instruments the classic inline app in the diagnostic page, and pins the Depth
+Anything worker to local ONNX Runtime Web 1.23.2. The verified Q4F16 graph and
+its smoke inference run with this runtime; ORT 1.24.1 rejected the graph in
+WASM on the tested Chromium build.
+
+# Hotfix5W8 flow/state recovery
 
 H5W8 keeps the verified H5W6 model/runtime contracts and the cooperative H5W7
 WebXR+AI architecture, but fixes the interactive state machine: a tap is now the

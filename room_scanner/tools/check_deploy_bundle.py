@@ -57,12 +57,13 @@ print(f"{'OK' if mobile_wasm else 'MISSING'}  {'MobileSAM ORT WASM':30s} vendor/
 mobile &= mobile_wasm
 
 depth_model = exact(ROOT/'models/depth_anything_v2_small_q4f16.onnx',19126267,'eca72971aea64216d767c70c534160de53b5435b588d362bac6dbd5a73f9bf1e','Depth Anything Q4F16')
-depth_js = report(ROOT/'vendor/depthai/ort.min.js', 100_000, 'DepthAI ORT WASM JS')
-depth_wasm = report(ROOT/'vendor/depthai/ort-wasm-simd-threaded.wasm', 1_000_000, 'DepthAI WASM binary')
+depth_runtime = ROOT/'vendor/depthai-123'
+depth_js = report(depth_runtime/'ort.min.js', 100_000, 'DepthAI ORT 1.23 WASM JS')
+depth_wasm = report(depth_runtime/'ort-wasm-simd-threaded.wasm', 1_000_000, 'DepthAI 1.23 WASM binary')
 depth_wasm_ready = depth_model and depth_js and depth_wasm
 
-depth_webgpu_js = report(ROOT/'vendor/depthai/ort.webgpu.min.js', 20_000, 'DepthAI ORT WebGPU JS')
-depth_jsep = report(ROOT/'vendor/depthai/ort-wasm-simd-threaded.jsep.wasm', 1_000_000, 'DepthAI WebGPU/JSEP WASM')
+depth_webgpu_js = report(depth_runtime/'ort.webgpu.min.js', 20_000, 'DepthAI ORT 1.23 WebGPU JS')
+depth_jsep = report(depth_runtime/'ort-wasm-simd-threaded.jsep.wasm', 1_000_000, 'DepthAI 1.23 WebGPU/JSEP WASM')
 depth_webgpu_ready = depth_model and depth_webgpu_js and depth_jsep
 
 print('\nSHELL_READY=' + ('yes' if shell else 'no'))

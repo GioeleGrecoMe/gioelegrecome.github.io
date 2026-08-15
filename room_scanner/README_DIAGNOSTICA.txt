@@ -86,3 +86,10 @@ COSA REGISTRA LA TIMELINE
 
 EXIT
 Premi EXIT per disinstallare il Service Worker diagnostico e ricaricare la pagina normale.
+
+
+V2 IMPORTANT:
+- SELF TEST is mutex-protected; do not run concurrent model initializations.
+- Use MARK exactly when preview/segmentation/Stage5 fails; V2 saves immediate screenshots.
+- Complete a real WebXR scan before ZIP LOG.
+- ZIP now includes deployed_room_scanner_v9.html, the exact uninstrumented HTML fetched from the live site.

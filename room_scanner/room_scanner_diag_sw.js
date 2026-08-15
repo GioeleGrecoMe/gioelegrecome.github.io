@@ -3,7 +3,9 @@
  * recorder and an internal module bridge into the CURRENT published HTML.
  */
 'use strict';
-const DIAG_BUILD='rsdiag-20260815-1';
+const DIAG_BUILD='rsdiag-20260815-3';
+const SOURCE_CACHE='room-scanner-diag-source-v2';
+const SOURCE_KEY=new URL('./__rsdiag_original_source.html',self.location.href).href;
 const diagClients=new Set();
 self.addEventListener('install',e=>e.waitUntil(self.skipWaiting()));
 self.addEventListener('activate',e=>e.waitUntil((async()=>{
@@ -17,7 +19,7 @@ function bridgeCode(){return String.raw`
   const D=globalThis.RoomScannerDiagnostics;
   const safe=(f,d=null)=>{try{return f()}catch(e){D?.event?.('bridge.read.error',{error:e});return d}};
   const vec=v=>v?{x:v.x,y:v.y,z:v.z}:null;
-  const bridge={version:'rsdiag-bridge-20260815-1',snapshot:()=>({
+  const bridge={version:'rsdiag-bridge-20260815-2',snapshot:()=>({
     appBuild:safe(()=>typeof APP_BUILD!=='undefined'?APP_BUILD:null),deployRev:safe(()=>typeof DEPLOY_REV!=='undefined'?DEPLOY_REV:null),
     workflow:{stage:safe(()=>S.workflowStage),flowStep:safe(()=>S.flow?.step),flowHistory:safe(()=>S.flow?.history?.slice(-24),[]),recording:safe(()=>S.recording),session:safe(()=>!!S.session),profile:safe(()=>S.profile),measurementPaused:safe(()=>S.flow?.measurementPaused),xrStartup:safe(()=>({inProgress:S.xrStartupInProgress,error:S.xrStartupError,firstPose:S.xrFirstPoseSeenAt}))},
     calibration:{valid:safe(()=>!!S.calibration?.valid),done:safe(()=>!!S.calibration?.done),audioPrepared:safe(()=>!!S.audioPrepared),band:safe(()=>S.calibration?.band||null)},
@@ -47,6 +49,15 @@ function bridgeCode(){return String.raw`
   D?.event?.('bridge.ready',{version:bridge.version,snapshot:bridge.snapshot()});
   const wrap=(name,fn)=>function(...args){const id=name+'-'+Math.random().toString(36).slice(2,7),t=performance.now();D?.event?.('app.fn.start',{name,id,args:D?.sanitize?.(args)});try{const r=fn.apply(this,args);if(r&&typeof r.then==='function')return r.then(v=>{D?.event?.('app.fn.end',{name,id,duration_ms:performance.now()-t,result:D?.sanitize?.(v),state:bridge.snapshot()});return v},e=>{D?.event?.('app.fn.error',{name,id,duration_ms:performance.now()-t,error:e,state:bridge.snapshot()},'error');throw e});D?.event?.('app.fn.end',{name,id,duration_ms:performance.now()-t,result:D?.sanitize?.(r),state:bridge.snapshot()});return r}catch(e){D?.event?.('app.fn.error',{name,id,duration_ms:performance.now()-t,error:e,state:bridge.snapshot()},'error');throw e}};
   try{if(typeof openPreview==='function')openPreview=wrap('openPreview',openPreview)}catch{}
+  try{if(typeof bestSession==='function'){const base=bestSession;bestSession=wrap('bestSession',async function(...args){const ss=await base.apply(this,args);D?.event?.('xr.session.granted',{visibilityState:ss?.visibilityState,environmentBlendMode:ss?.environmentBlendMode,interactionMode:ss?.interactionMode,enabledFeatures:ss?.enabledFeatures?[...ss.enabledFeatures]:null});for(const n of ['end','visibilitychange','inputsourceschange','select','selectstart','selectend'])ss?.addEventListener?.(n,e=>D?.event?.('xr.session.'+n,{visibilityState:ss.visibilityState,inputSources:ss.inputSources?.length||0,event:e}));return ss})}}catch(e){D?.event?.('xr.bestSession.patch.error',{error:e},'error')}
+  try{if(typeof setupCameraRecorder==='function')setupCameraRecorder=wrap('setupCameraRecorder',setupCameraRecorder)}catch{}
+  try{if(typeof waitForFirstXrPose==='function')waitForFirstXrPose=wrap('waitForFirstXrPose',waitForFirstXrPose)}catch{}
+  try{if(typeof enterMapWarmup==='function')enterMapWarmup=wrap('enterMapWarmup',enterMapWarmup)}catch{}
+  try{if(typeof continueFromMap==='function')continueFromMap=wrap('continueFromMap',continueFromMap)}catch{}
+  try{if(typeof startMeasurementAfterObjectSeeding==='function')startMeasurementAfterObjectSeeding=wrap('startMeasurementAfterObjectSeeding',startMeasurementAfterObjectSeeding)}catch{}
+  try{if(typeof h5w10ShowFrozenFrame==='function')h5w10ShowFrozenFrame=wrap('h5w10ShowFrozenFrame',h5w10ShowFrozenFrame)}catch{}
+  try{if(typeof h5w10ReleaseFrozenFrame==='function')h5w10ReleaseFrozenFrame=wrap('h5w10ReleaseFrozenFrame',h5w10ReleaseFrozenFrame)}catch{}
+  try{if(typeof h5w10DepthAnythingOnFrozenCandidate==='function')h5w10DepthAnythingOnFrozenCandidate=wrap('h5w10DepthAnythingOnFrozenCandidate',h5w10DepthAnythingOnFrozenCandidate)}catch{}
   try{if(typeof captureRawCamera==='function'){const base=captureRawCamera;let last=0;captureRawCamera=function(t,pose){const r=base.apply(this,arguments);if(performance.now()-last>850){last=performance.now();D?.event?.('camera.xr.sample',{binding:!!S.cameraBinding,readbackFailed:S.cameraReadbackFailed,videoMode:S.videoMode,cameraCanvas:!!S.cameraCanvas,canvasSize:S.cameraCanvas?[S.cameraCanvas.width,S.cameraCanvas.height]:null,latestRGB:!!S.latestCameraRGB,latestView:!!S.latestCameraView,poseViews:pose?.views?.length||0,cameraViews:pose?.views?.filter?.(v=>!!v.camera)?.length||0,viewCameraSizes:pose?.views?.filter?.(v=>v.camera)?.map?.(v=>[v.camera.width,v.camera.height])||[]});}return r}}}catch(e){D?.event?.('camera.xr.patch.error',{error:e},'error')}
   try{if(typeof updateScanPreview==='function')updateScanPreview=wrap('updateScanPreview',updateScanPreview)}catch{}
   try{if(typeof updatePrimarySurfacePreview==='function')updatePrimarySurfacePreview=wrap('updatePrimarySurfacePreview',updatePrimarySurfacePreview)}catch{}
@@ -89,12 +100,20 @@ function bridgeCode(){return String.raw`
 `}
 function injectIntoCurrentHtml(html){
   const diagTag=`<script src="./room_scanner_diagnostics.js?v=${DIAG_BUILD}"></script>`;
-  const moduleRe=/<script\b([^>]*\btype\s*=\s*["']module["'][^>]*)>/i, m=moduleRe.exec(html);
-  if(!m)return {html:html.replace(/<\/head>/i,diagTag+'\n</head>'),bridge:false,reason:'module tag not found'};
-  let out=html.slice(0,m.index)+diagTag+'\n'+html.slice(m.index);
-  const shifted=m.index+diagTag.length+1, open=moduleRe.exec(out), bodyStart=open.index+open[0].length, close=out.indexOf('</script>',bodyStart);
-  if(close<0)return {html:out,bridge:false,reason:'module closing tag not found'};
-  let body=out.slice(bodyStart,close), bridge=bridgeCode(), injectedAt='module-end';
+  // The production app is a single classic inline script, while older builds
+  // used a module.  Instrument either form; otherwise the diagnostic panel is
+  // visible but SELF TEST has no internal bridge.
+  const scriptRe=/<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+  let chosen=null, match;
+  while((match=scriptRe.exec(html))){
+    const attrs=match[1]||'', body=match[2]||'';
+    if(/\bsrc\s*=/i.test(attrs))continue;
+    if(/\btype\s*=\s*["']module["']/i.test(attrs)||/const\s+APP_BUILD|activateBuildCache\(\)/.test(body))chosen={index:match.index,openEnd:match.index+match[0].indexOf('>')+1,close:match.index+match[0].lastIndexOf('</script>')};
+  }
+  if(!chosen)return {html:html.replace(/<\/head>/i,diagTag+'\n</head>'),bridge:false,reason:'inline application script not found'};
+  let out=html.slice(0,chosen.index)+diagTag+'\n'+html.slice(chosen.index);
+  const shift=diagTag.length+1, bodyStart=chosen.openEnd+shift, close=chosen.close+shift;
+  let body=out.slice(bodyStart,close), bridge=bridgeCode(), injectedAt='script-end';
   const markers=["$('#objectSeedMask').addEventListener",'document.querySelector(\'#objectSeedMask\')'];let pos=-1;for(const k of markers){pos=body.indexOf(k);if(pos>=0){injectedAt=k;break}}
   if(pos<0)pos=body.length;
   body=body.slice(0,pos)+'\n'+bridge+'\n'+body.slice(pos);
@@ -103,6 +122,7 @@ function injectIntoCurrentHtml(html){
 }
 self.addEventListener('fetch',event=>{
   const u=new URL(event.request.url), isNav=event.request.mode==='navigate'&&/room_scanner_v9\.html$/i.test(u.pathname), requestedDiag=u.searchParams.has('rsdiag');
-  if(isNav&&requestedDiag){const cid=event.resultingClientId||event.clientId;if(cid)diagClients.add(cid);event.respondWith((async()=>{const t=Date.now();try{const r=await fetch(event.request,{cache:'no-store'}),txt=await r.text(),x=injectIntoCurrentHtml(txt),h=new Headers(r.headers);h.set('cache-control','no-store, max-age=0');h.delete('content-length');post(cid,'navigation',{url:u.href,status:r.status,duration_ms:Date.now()-t,bytes:txt.length,bridge:x.bridge,injectedAt:x.injectedAt,reason:x.reason||null});return new Response(x.html,{status:r.status,statusText:r.statusText,headers:h})}catch(e){post(cid,'navigation_error',{url:u.href,error:e.message,duration_ms:Date.now()-t});return new Response(`<h1>Diagnostic navigation failed</h1><pre>${String(e.stack||e)}</pre>`,{status:502,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}})}})());return}
+  if(u.pathname.endsWith('/__rsdiag_original_source.html')){event.respondWith((async()=>{try{const c=await caches.open(SOURCE_CACHE),r=await c.match(SOURCE_KEY);return r||new Response('source snapshot unavailable',{status:404,headers:{'content-type':'text/plain','cache-control':'no-store'}})}catch(e){return new Response(String(e),{status:500})}})());return}
+  if(isNav&&requestedDiag){const cid=event.resultingClientId||event.clientId;if(cid)diagClients.add(cid);event.respondWith((async()=>{const t=Date.now();try{const r=await fetch(event.request,{cache:'no-store'}),txt=await r.text();try{const c=await caches.open(SOURCE_CACHE);await c.put(SOURCE_KEY,new Response(txt,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}}))}catch(_){}const x=injectIntoCurrentHtml(txt),h=new Headers(r.headers);h.set('cache-control','no-store, max-age=0');h.delete('content-length');post(cid,'navigation',{url:u.href,status:r.status,duration_ms:Date.now()-t,bytes:txt.length,bridge:x.bridge,injectedAt:x.injectedAt,reason:x.reason||null});return new Response(x.html,{status:r.status,statusText:r.statusText,headers:h})}catch(e){post(cid,'navigation_error',{url:u.href,error:e.message,duration_ms:Date.now()-t});return new Response(`<h1>Diagnostic navigation failed</h1><pre>${String(e.stack||e)}</pre>`,{status:502,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}})}})());return}
   const cid=event.clientId||event.resultingClientId;if(cid&&diagClients.has(cid)){event.respondWith((async()=>{const t=Date.now();try{const r=await fetch(event.request,{cache:'no-store'});post(cid,'asset',{url:u.href,method:event.request.method,status:r.status,ok:r.ok,type:r.type,duration_ms:Date.now()-t,contentType:r.headers.get('content-type'),contentLength:r.headers.get('content-length'),cacheControl:r.headers.get('cache-control')});return r}catch(e){post(cid,'asset_error',{url:u.href,method:event.request.method,duration_ms:Date.now()-t,error:e.message});throw e}})())}
 });
