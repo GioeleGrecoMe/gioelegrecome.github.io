@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Room Scanner v9 · hotfix loader</title>
+  <script src="./room_scanner_source_transformer.js"></script>
+  <style>
+    html,body{height:100%;margin:0;background:#080b11;color:#f4f7fb;font-family:system-ui,sans-serif}
+    main{max-width:780px;margin:auto;padding:28px}code{word-break:break-all}pre{white-space:pre-wrap;background:#111722;padding:12px;border-radius:10px}
+  </style>
+</head>
+<body>
+<main>
+  <h1>Room Scanner v9 · hotfix loader</h1>
+  <p id="status">Caricamento del file originale e applicazione hotfix…</p>
+  <pre id="detail"></pre>
+</main>
+<script>
+(async function bootstrapPatchedRoomScanner(){
+  'use strict';
+  const TARGET = new URL('./room_scanner_v9.html', location.href).href;
+  const status = document.getElementById('status');
+  const detail = document.getElementById('detail');
+
+  function setStatus(text, extra=''){ status.textContent=text; detail.textContent=extra; }
+
+  try {
+    // Same-origin fetch is the normal deployment path when this loader is copied
+    // beside room_scanner_v9.html on GitHub Pages. It also keeps relative assets
+    // and WebXR permissions on the same HTTPS origin.
+    let response = await fetch(TARGET, { cache:'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status} su ${TARGET}`);
+    let html = await response.text();
+
+    const transformed = window.RoomScannerSourceTransformer.transformHtml(html);
+    html = transformed.html;
+
+    // Early boot flag must exist before the original application scripts run.
+    const earlyBoot = `<script>\ntry{window.__RS_HOTFIX_SOURCE_PATCHED__=true;window.__RS_ALLOW_UNCALIBRATED__=localStorage.getItem('roomScanner.hotfix.allowUncalibrated')==='1';}catch(e){window.__RS_HOTFIX_SOURCE_PATCHED__=true;window.__RS_ALLOW_UNCALIBRATED__=false;}\n<\\/script>`;
+    if (/<head[^>]*>/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1>${earlyBoot}`);
+    else html = earlyBoot + html;
+
+    // Fetch runtime text and inline it so the patched document remains a single
+    // execution unit after document.write. The loader itself still stays small.
+    const runtimeResponse = await fetch(new URL('./room_scanner_hotfix.js', location.href), { cache:'no-store' });
+    if (!runtimeResponse.ok) throw new Error(`Hotfix runtime HTTP ${runtimeResponse.status}`);
+    const runtime = await runtimeResponse.text();
+    const safeRuntime = runtime.split('<' + '/script').join('<\\/script');
+    const runtimeTag = `<script>\n${safeRuntime}\n<\\/script>`;
+    html = /<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${runtimeTag}</body>`) : html + runtimeTag;
+
+    setStatus('Hotfix applicato. Avvio Room Scanner…', `Gate calibrazione riscritti: ${transformed.patchedGuards}`);
+
+    // Replace the loader document with the patched original. Because the loader
+    // is served from the same directory/origin, relative URLs continue to work.
+    document.open();
+    document.write(html);
+    document.close();
+  } catch (error) {
+    console.error(error);
+    setStatus('Impossibile avviare il loader hotfix.', `${error.stack || error}\n\nVerifica che questo file, room_scanner_hotfix.js, room_scanner_source_transformer.js e room_scanner_v9.html siano nella stessa cartella HTTPS.`);
+  }
+})();
+</script>
+</body>
+</html>
