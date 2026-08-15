@@ -1,7 +1,7 @@
-const CACHE='room-acoustic-v951h5w9';
-const SEMANTIC_CACHE='room-acoustic-semantic-v951h5w9';
-const DEPTH_CACHE='room-acoustic-depthai-v951h5w9';
-const BUILD_REV='951h5w9';
+const CACHE='room-acoustic-v951h5w10';
+const SEMANTIC_CACHE='room-acoustic-semantic-v951h5w10';
+const DEPTH_CACHE='room-acoustic-depthai-v951h5w10';
+const BUILD_REV='951h5w10';
 const CORE=['./room_scanner_v9.html','./build_info.json','./depth_ai_worker.js','./README.md','./ARCHITECTURE_V951.md','./MOBILESAM_INTEGRATION_V951.md','./DEPTHAI_INTEGRATION_V951.md'];
 
 self.addEventListener('install',event=>{
