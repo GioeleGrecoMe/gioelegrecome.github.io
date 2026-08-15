@@ -328,13 +328,16 @@ body:not(.seed-candidate) #seedConfirm,body:not(.seed-candidate) #seedRetry{disp
 .flowTop{position:absolute;left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));display:flex;justify-content:center}.flowCard{width:min(470px,94vw);padding:9px 10px;border-radius:14px;background:rgba(3,9,16,.63);border:1px solid rgba(99,220,255,.25);backdrop-filter:blur(7px);box-shadow:0 6px 22px rgba(0,0,0,.22)}
 .flowStepLine{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:7px}.flowStepChip{padding:5px;border-radius:8px;background:rgba(255,255,255,.06);font:9px/1.1 ui-monospace,SFMono-Regular,Menlo,monospace;text-align:center;color:var(--muted)}.flowStepChip.active{background:rgba(99,220,255,.16);color:#e9fbff;border:1px solid rgba(99,220,255,.28)}.flowStepChip.done{color:var(--ok)}
 .flowTitleRow{display:flex;align-items:center;gap:8px}.flowTitleRow span{margin-left:auto;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted)}.flowHint{margin-top:4px;font-size:10px;line-height:1.3;color:#e0e9f4}.flowMetrics{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:7px}.flowMetric{padding:5px 6px;border-radius:8px;background:rgba(0,0,0,.25);font:9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted)}.flowMetric b{display:block;color:var(--fg);font-size:11px}.flowBar{height:5px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:7px}.flowBar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#63dcff,#7df2ac);transition:width .2s ease}
-.flowDock{position:absolute;left:50%;bottom:max(8px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(560px,calc(100vw - 16px));display:grid;grid-template-columns:1fr 1.5fr;gap:6px;pointer-events:auto;padding:6px;border:1px solid rgba(255,255,255,.14);border-radius:14px;background:rgba(3,9,16,.76);backdrop-filter:blur(8px)}.flowDock button{min-width:0;min-height:48px;padding:8px;font-size:11px}.flowDock .primary{font-size:12px}
+.flowDock{position:absolute;left:50%;bottom:max(8px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(560px,calc(100vw - 16px));display:grid;grid-template-columns:1fr 1.5fr;gap:6px;pointer-events:auto;padding:6px;border:1px solid rgba(255,255,255,.14);border-radius:14px;background:rgba(3,9,16,.76);backdrop-filter:blur(8px)}#xrMapUI .flowDock{grid-template-columns:1fr 1fr 1.35fr}.flowDock button{min-width:0;min-height:48px;padding:8px;font-size:11px}.flowDock .primary{font-size:12px}
 body[data-flow-step="map"] #hud>.top,body[data-flow-step="map"] #hud>.bottom,body[data-flow-step="map"] #lightingGuard,body[data-flow-step="map"] #manualCaptureUI{display:none!important}
 body.object-seeding #hud>.top,body.object-seeding #hud>.bottom,body.object-seeding #lightingGuard,body.object-seeding #manualCaptureUI{display:none!important}
 body.object-seeding #objectSeedUI{background:transparent}
 .objectSeedCard{width:min(470px,94vw)}.objectSeedDock{grid-template-columns:1fr 1.35fr 1fr}.objectSeedDock .seedBack{grid-column:1}.objectSeedDock .seedPrimary{grid-column:2}.objectSeedDock .seedNext{grid-column:3}.objectSeedDock .seedManage{grid-column:1}.objectSeedDock .seedUndo{grid-column:2}.objectSeedDock .seedSkip{grid-column:3}
 body:not(.seed-candidate) #seedConfirm,body:not(.seed-candidate) #seedRetry{display:none}.objectSeedDock input{grid-column:1/-1}.seedCandidateActions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:6px}.seedCandidateActions button{min-height:46px}
 #seedListPanel{display:none;position:absolute;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));bottom:calc(max(8px,env(safe-area-inset-bottom)) + 178px);max-height:34dvh;overflow:auto;padding:8px;border-radius:13px;background:rgba(3,9,16,.92);border:1px solid rgba(255,255,255,.16);pointer-events:auto;backdrop-filter:blur(9px)}#seedListPanel.show{display:block}.seedListHead{display:flex;align-items:center;gap:8px}.seedListHead button{margin-left:auto;min-width:0;min-height:34px;padding:5px 9px}.seedListRow{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;margin-top:6px;padding:6px;border-radius:9px;background:rgba(255,255,255,.05);font-size:10px}.seedListRow button{min-width:0;min-height:34px;padding:5px 8px}.seedListEmpty{padding:8px;color:var(--muted);font-size:10px}
+/* H5W15: Depth Anything first. Frames are collected automatically only after
+   photometric + WebXR quality gates; SAM remains an explicit review action. */
+#depthReviewPanel{position:absolute;z-index:4;left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));top:calc(max(8px,env(safe-area-inset-top)) + 64px);max-width:620px;margin:auto;padding:8px;border:1px solid rgba(99,220,255,.30);border-radius:13px;background:rgba(3,9,16,.82);backdrop-filter:blur(8px);pointer-events:auto}.depthReviewHead{display:flex;gap:7px;align-items:center;font:10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}.depthReviewHead span{margin-left:auto;color:#a8edff}.depthReviewHint{margin-top:4px;color:#dbe8f4;font-size:9.5px;line-height:1.25}.depthReviewList{display:flex;gap:7px;overflow:auto;margin-top:7px;padding-bottom:2px;scroll-snap-type:x proximity}.depthReviewItem{flex:0 0 124px;min-height:92px;padding:4px!important;text-align:left;background:#0d1d30!important;border-color:#294f69!important;scroll-snap-align:start}.depthReviewItem.selected{outline:2px solid #63dcff;background:#15354e!important}.depthReviewItem img{display:block;width:100%;height:61px;object-fit:cover;border-radius:5px;background:#07101a}.depthReviewItem b,.depthReviewItem small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.depthReviewItem b{margin-top:3px;font-size:9px}.depthReviewItem small{margin-top:1px;font-size:8px;color:#c8d9e7}.depthReviewEmpty{padding:7px;color:var(--muted);font-size:10px}.depthReviewState-good{color:#7df2ac}.depthReviewState-wait{color:#ffd36b}.depthReviewState-bad{color:#ff9cac}@media(max-width:600px){#depthReviewPanel{top:calc(max(8px,env(safe-area-inset-top)) + 72px)}.depthReviewItem{flex-basis:112px}.depthReviewItem img{height:54px}}
 #measureBack{display:none}body[data-flow-step="measurement"] #measureBack{display:block}
 @media(max-width:700px){body[data-flow-step="measurement"] #hud .bottom{grid-template-columns:58px 1fr 1fr 64px}body[data-flow-step="measurement"] #measureBack{font-size:9px;padding:6px}}
 @media(max-width:600px){.workflowRail{grid-template-columns:repeat(5,88px)}.flowMetrics{grid-template-columns:repeat(3,1fr)}.flowDock{grid-template-columns:1fr 1.4fr}.objectSeedDock{grid-template-columns:1fr 1.25fr 1fr}.objectSeedTop{top:max(8px,env(safe-area-inset-top))}.objectSeedHint{white-space:normal;max-height:2.8em}.objectSeedDock button{font-size:10px}}
@@ -447,7 +450,7 @@ body.seed-boundary-mode #objectSeedAim{box-shadow:0 0 0 2px rgba(255,255,255,.42
     <div class="flowMetrics"><div class="flowMetric">path<b id="mapFlowPath">0.0 m</b></div><div class="flowMetric">surfel validi<b id="mapFlowVerified">0</b></div><div class="flowMetric">keyframe<b id="mapFlowFrames">0</b></div></div>
     <div class="flowBar"><i id="mapFlowFill"></i></div>
   </div></div>
-  <div class="flowDock"><button type="button" id="mapBack">← Indietro</button><button type="button" id="mapContinue" class="primary">Continua · verifica oggetti</button></div>
+  <div class="flowDock"><button type="button" id="mapBack">← Indietro</button><button type="button" id="mapSnapshot">＋ Salva foto</button><button type="button" id="mapContinue" class="primary">Continua · rivedi frame AI</button></div>
 </div>
 
 <div id="objectSeedUI" aria-label="Selezione guidata oggetti prima della misura">
@@ -460,6 +463,7 @@ body.seed-boundary-mode #objectSeedAim{box-shadow:0 0 0 2px rgba(255,255,255,.42
     <div id="seedInferenceStatus" class="objectSeedInference">Pronto · area 2D → MobileSAM → validazione WebXR</div>
   </div></div>
   <div id="objectSeedAim" aria-hidden="true"></div>
+  <div id="depthReviewPanel"><div class="depthReviewHead"><b>Frame Depth Anything</b><span id="depthReviewSummary">raccolta in attesa</span></div><div class="depthReviewHint">I frame migliori vengono salvati automaticamente. Selezionane uno, disegna l’area e avvia SAM solo se vuoi trasformarlo in un oggetto 3D.</div><div id="depthReviewList" class="depthReviewList"></div></div>
   <div id="seedListPanel"><div class="seedListHead"><b>Oggetti confermati</b><span id="seedListCount" class="small">0</span><button type="button" id="seedListClose">×</button></div><div id="seedList"></div></div>
   <div class="objectSeedDock">
     <button type="button" id="seedBack" class="seedSecondary seedBack">← Mappa</button>
@@ -594,8 +598,8 @@ import * as THREE from 'three';
 // ============================================================================
 
 const $=q=>document.querySelector(q);
-const APP_BUILD='v9.5.1-hotfix5w14-roi-segmentation-feedback';
-const DEPLOY_REV='951h5w14';
+const APP_BUILD='v9.5.2-depth-first-frame-review';
+const DEPLOY_REV='952h5w15';
 const CFG={
   // Dense geometry map. 6 cm is deliberately conservative on phones: small
   // enough to preserve walls/door recesses, large enough to average depth noise.
@@ -730,7 +734,7 @@ const CFG={
   objectSeedMinStableSurfelsReady:2, objectSeedMinIndependentViews:2,
   objectSeedMaxDepthSpreadM:0.72, objectSeedMinSpanM:0.055,
   objectSeedMinNormalSurfels:4, objectSeedMinOrientationConfidence:0.25,
-  semanticModelCache:'room-acoustic-semantic-v951h5w14', depthAIModelCache:'room-acoustic-depthai-v951h5w14',
+  semanticModelCache:'room-acoustic-semantic-v952h5w15', depthAIModelCache:'room-acoustic-depthai-v952h5w15',
   // MobileSAM is the guided semantic backend. The split model is deliberate:
   // the image encoder runs once for each accepted view, while the much cheaper
   // decoder is reused for point/box prompts. Local files are preferred; the
@@ -771,8 +775,8 @@ const CFG={
   // Relative depth is never trusted as
   // metric by itself: a robust affine fit against XR inverse-depth anchors is
   // mandatory before any AI detail can enter the surfel map.
-  depthAIEnabled:true, depthAIInputSize:518, depthAIKeyframeMax:6,
-  depthAIKeyframeMinMoveM:0.32, depthAIKeyframeMinTurnDeg:16, depthAIMinFrameScore:0.66,
+  depthAIEnabled:true, depthAIInputSize:518, depthAIKeyframeMax:12,
+  depthAIKeyframeMinMoveM:0.22, depthAIKeyframeMinTurnDeg:12, depthAIMinFrameScore:0.70,
   depthAIMinDepthCoverage:0.32, depthAIMinAnchors:18, depthAIMaxMedianRelError:0.16,
   depthAIMaxP90RelError:0.32, depthAIMetricGateRel:0.30, depthAIReprojectionExtraM:0.065,
   depthAIFusionCols:88, depthAIFusionRows:50, depthAIFusionWeight:0.34,
@@ -786,7 +790,7 @@ const CFG={
   // H5W5 cooperative scheduler: WebXR pose/render remains native-rate, while
   // expensive fusion/plane-preview/model work is capped to a phone-safe cadence.
   cooperativeGeometryPeriodMs:100, primarySurfacePreviewPeriodMs:1250, primarySurfacePreviewMax:18,
-  depthAILiveEveryKeyframes:5, depthAILiveMinIntervalMs:8500, depthAILiveMaxPerScan:12,
+  depthAILiveEveryKeyframes:3, depthAILiveMinIntervalMs:6500, depthAILiveMaxPerScan:18, depthAIReviewMax:10,
   depthAILiveGridCols:56, depthAILiveGridRows:32, depthAILiveSamCooldownMs:1400,
   structuralPlaneMergeOffsetM:0.10, structuralPrimitiveMinSurfels:18, structuralBoxCellM:0.16,
   // Acoustic observations are splatted onto the geometry field. Each octave
@@ -4139,6 +4143,99 @@ $('#calInspectChannel').onchange=drawCalibrationInsights;$('#calInsights').addEv
 // decoder anywhere in its directory tree. Models are kept in memory only for the
 // guided object stage and are released before acoustic measurement.
 $('#semanticModelInput').onchange=async e=>{const fs=[...(e.target.files||[])];if(!fs.length)return;try{let encBytes=null,decBytes=null,label='';const zip=fs.find(f=>/\.zip$/i.test(f.name)||f.type==='application/zip');if(zip){S.semantic.status='leggo ZIP MobileSAM…';updateSemanticStatus();const Z=await unzipProjectFile(zip),names=[...Z.keys()],encName=names.find(n=>/(mobilesam|mobile_sam).*encoder.*\.onnx$/i.test(n))||names.find(n=>/encoder.*\.onnx$/i.test(n)),decName=names.find(n=>/(mobilesam|mobile_sam).*decoder.*\.onnx$/i.test(n))||names.find(n=>/decoder.*\.onnx$/i.test(n));if(!encName||!decName)throw new Error('ZIP MobileSAM: encoder e decoder ONNX non trovati.');encBytes=Z.get(encName)?.slice?.()||new Uint8Array(Z.get(encName));decBytes=Z.get(decName)?.slice?.()||new Uint8Array(Z.get(decName));label=`ZIP ${zip.name} · ${encName.split('/').pop()} + ${decName.split('/').pop()}`}else{const enc=fs.find(f=>/encoder/i.test(f.name)&&/\.onnx$/i.test(f.name)),dec=fs.find(f=>/decoder/i.test(f.name)&&/\.onnx$/i.test(f.name));if(!enc||!dec)throw new Error('Seleziona insieme encoder e decoder MobileSAM ONNX.');encBytes=new Uint8Array(await enc.arrayBuffer());decBytes=new Uint8Array(await dec.arrayBuffer());label=`file locali · ${enc.name} + ${dec.name}`}if(encBytes.byteLength<2_000_000||decBytes.byteLength<2_000_000)throw new Error('MobileSAM ONNX sembra incompleto.');await releaseSemanticSessions();S.semantic.customEncoderBytes=encBytes;S.semantic.customDecoderBytes=decBytes;S.semantic.customModelName=label;S.semantic.modelSource='uploaded-browser-memory';S.semantic.modelError=null;S.semantic.mode='neural';$('#semanticMode').value='neural';const r=await preflightGuidedObjectSeeding();if(!r.ok)throw new Error(r.error||'preflight MobileSAM fallito');S.semantic.status=`ready · MobileSAM · ${label}`;updateSemanticStatus();if(S.objectSeeding.active&&S.objectSeeding.unavailable){S.flow.semanticAvailable=true;S.flow.semanticSkipReason=null;S.objectSeeding.unavailable=false;enterObjectSeeding({preserve:true,returnToMeasurement:S.flow.returnFromObjects})}}catch(err){S.semantic.modelError=err.message||String(err);S.semantic.status='MobileSAM locale non valido';updateSemanticStatus();log('MobileSAM local model load failed',err)}finally{e.target.value=''}};
+
+// ============================================================================
+// H5W15 — DEPTH-ANYTHING-FIRST CAPTURE AND EXPLICIT SAM REVIEW
+//
+// A good RGB-D frame is collected automatically only after the existing camera
+// quality and WebXR-depth gates. The user can also retain a manual photo. SAM is
+// never invoked by either collection path: it runs only after a review-frame,
+// an ROI and the explicit "Applica SAM" action.
+// ============================================================================
+function h5w15EnsureReviewState(){
+  S.depthAI.reviewFrames=S.depthAI.reviewFrames||[];
+  S.depthAI.reviewSelectedId=S.depthAI.reviewSelectedId??null;
+}
+function h5w15FrameThumb(F){
+  try{if(!F?.rgba||!F.width||!F.height)return '';const c=document.createElement('canvas'),w=144,h=Math.max(48,Math.round(w*F.height/F.width));c.width=w;c.height=h;const x=c.getContext('2d',{alpha:false}),src=document.createElement('canvas');src.width=F.width;src.height=F.height;src.getContext('2d',{alpha:false}).putImageData(new ImageData(new Uint8ClampedArray(F.rgba),F.width,F.height),0,0);x.drawImage(src,0,0,w,h);return c.toDataURL('image/jpeg',.78)}catch(e){log('DEPTH_REVIEW_THUMB',e);return ''}
+}
+function h5w15ReviewStateLabel(R){
+  if(R.state==='fused')return `integrato +${R.points||0}`;
+  if(R.state==='rejected')return 'scartato dal gate XR';
+  if(R.state==='error')return 'DepthAI rinviato';
+  if(R.state==='running')return 'DepthAI in corso…';
+  return R.manual?'foto manuale · in attesa':'frame qualificato · in coda';
+}
+function h5w15RegisterReviewFrame(F,{manual=false}={}){
+  h5w15EnsureReviewState();if(!F?.rgba||!F?.width||!F?.height)return null;
+  let R=S.depthAI.reviewFrames.find(x=>x.id===F.id);
+  if(R){R.manual=R.manual||manual;R.kf=F;return R}
+  const max=CFG.depthAIReviewMax||10,score=F.quality?.score??F.semanticQuality?.score??0;
+  // Do not encode thumbnails for every passing keyframe on a long walk. Once
+  // the bounded gallery is full, retain only a genuinely better automatic view;
+  // manual photos always win over this pruning policy.
+  if(!manual&&S.depthAI.reviewFrames.length>=max){const weakest=S.depthAI.reviewFrames.filter(x=>!x.manual&&x.id!==S.depthAI.reviewSelectedId).sort((a,b)=>(a.quality?.score||0)-(b.quality?.score||0))[0];if(weakest&&score<=(weakest.quality?.score||0))return null}
+  R={id:F.id,kf:F,manual,quality:{...(F.quality||F.semanticQuality||{})},thumb:h5w15FrameThumb(F),state:'queued',points:0,createdAt:performance.now()};
+  S.depthAI.reviewFrames.push(R);
+  while(S.depthAI.reviewFrames.length>max){const candidates=S.depthAI.reviewFrames.filter(x=>x.id!==S.depthAI.reviewSelectedId&&!x.manual).sort((a,b)=>(a.quality?.score||0)-(b.quality?.score||0));const cut=candidates[0]||S.depthAI.reviewFrames[0];S.depthAI.reviewFrames.splice(S.depthAI.reviewFrames.indexOf(cut),1)}
+  addEvent?.('depth_review_frame_saved',{frameId:F.id,manual,score:R.quality.score||null,depthCoverage:R.quality.depthCoverage||null});
+  h5w15RenderReviewFrames();return R
+}
+function h5w15MarkReviewFrame(id,patch={}){h5w15EnsureReviewState();const R=S.depthAI.reviewFrames.find(x=>x.id===id);if(R)Object.assign(R,patch);h5w15RenderReviewFrames();return R}
+function h5w15RenderReviewFrames(){
+  const list=$('#depthReviewList'),summary=$('#depthReviewSummary');if(!list||!summary)return;h5w15EnsureReviewState();const A=S.depthAI.reviewFrames;
+  const fused=A.filter(x=>x.state==='fused').length,queued=A.filter(x=>x.state==='queued'||x.state==='running').length;
+  summary.textContent=A.length?`${A.length} frame · ${fused} integrati${queued?` · ${queued} in attesa`:''}`:'raccolta in attesa';
+  list.innerHTML='';if(!A.length){list.innerHTML='<div class="depthReviewEmpty">Continua a muoverti: salvo automaticamente le viste nitide con depth WebXR. Puoi anche usare “Salva foto”.</div>';return}
+  for(const R of A.slice().sort((a,b)=>b.createdAt-a.createdAt)){
+    const b=document.createElement('button');b.type='button';b.className=`depthReviewItem${R.id===S.depthAI.reviewSelectedId?' selected':''}`;b.dataset.depthFrame=String(R.id);const state=R.state==='fused'?'good':R.state==='rejected'||R.state==='error'?'bad':'wait';
+    const score=Math.round(100*(R.quality?.score||0));b.innerHTML=`${R.thumb?`<img alt="Frame ${R.id}" src="${R.thumb}">`:'<div class="depthReviewEmpty">RGB</div>'}<b>Frame #${R.id}${R.manual?' · foto':''}</b><small class="depthReviewState-${state}">${h5w15ReviewStateLabel(R)} · Q ${score}%</small>`;
+    b.onclick=()=>h5w15SelectReviewFrame(R.id);list.appendChild(b);
+  }
+}
+async function h5w15ReviewBitmap(F){
+  if(F?.semanticBitmap)return F.semanticBitmap;if(!F?.reviewRGBA?.length)return null;
+  const c=document.createElement('canvas');c.width=F.reviewWidth;c.height=F.reviewHeight;c.getContext('2d',{alpha:false}).putImageData(new ImageData(new Uint8ClampedArray(F.reviewRGBA),c.width,c.height),0,0);F.semanticBitmap=await createImageBitmap(c);return F.semanticBitmap;
+}
+const h5w15GetSemanticBitmapBase=getSemanticBitmap;
+getSemanticBitmap=async function(F){if(F?.reviewRGBA?.length)return await h5w15ReviewBitmap(F);return await h5w15GetSemanticBitmapBase(F)};
+function h5w15MaterializeReviewFrame(R){
+  const K=R?.kf;if(!K)return null;let F=S.mapFrames.find(x=>x.id===K.id)||null;
+  if(!F){F={id:K.id,t:K.t,cols:K.cols,rows:K.rows,depth:Float32Array.from(K.depth),worldToView:new THREE.Matrix4().fromArray(K.worldToView),projection:new THREE.Matrix4().fromArray(K.projection),cam:[...K.cam],q:[...K.q],semanticBoundary:new Uint8Array(K.cols*K.rows),semanticRegions:new Uint16Array(K.cols*K.rows),semanticBackend:'DepthAI-review-frame',deltaMove:0,deltaTurn:0,deltaT:0,objectSnapshot:true};S.mapFrames.push(F)}
+  F.semanticQuality={...(K.quality||F.semanticQuality||{}),readable:true};F.reviewRGBA=K.rgba;F.reviewWidth=K.width;F.reviewHeight=K.height;F.reviewFrame=true;return F;
+}
+async function h5w15SelectReviewFrame(id){
+  h5w15EnsureReviewState();const R=S.depthAI.reviewFrames.find(x=>x.id===id),F=h5w15MaterializeReviewFrame(R);if(!R||!F)return;
+  S.depthAI.reviewSelectedId=id;S.objectSeeding.snapshotFrameId=F.id;S.objectSeeding.snapshotAt=performance.now();S.objectSeeding.reviewFrameId=F.id;S.objectSeeding.pending=null;clearObjectSeedMask();h5w13SetSeedROI(null);setObjectSeedPromptUV(.5,.5,{clearCandidate:false});await h5w10ShowFrozenFrame(F);h5w13SetSeedInference('Frame scelto','disegna l’area 2D; SAM resterà fermo finché non premi Applica SAM');$('#seedHint').textContent=`Frame #${F.id} selezionato (${h5w15ReviewStateLabel(R)}). Trascina il riquadro giallo sull’oggetto, poi scegli se applicare SAM.`;$('#seedMeta').textContent='Nessuna segmentazione automatica · la foto è pronta per la revisione.';h5w15RefreshSAMAction();h5w15RenderReviewFrames();addEvent?.('depth_review_frame_selected',{frameId:F.id,state:R.state,manual:!!R.manual});
+}
+function h5w15RefreshSAMAction(){const b=$('#seedSegment');if(!b)return;const hasFrame=!!S.objectSeeding.reviewFrameId,roi=S.objectSeeding.roiUV;const ready=hasFrame&&!!roi&&roi.w>=.035&&roi.h>=.035&&!S.objectSeeding.busy&&!S.objectSeeding.pending;b.disabled=!ready;b.textContent=!hasFrame?'Scegli un frame':!roi?'Disegna area 2D':'Applica SAM al frame';}
+const h5w15CaptureDepthAIBase=captureDepthAIKeyframe;
+captureDepthAIKeyframe=function(F){const ok=h5w15CaptureDepthAIBase(F);if(ok){const K=S.depthAI.keyframes.at(-1);if(K)h5w15RegisterReviewFrame(K)}return ok};
+const h5w15RunDepthAIBase=runCooperativeDepthAIFrame;
+runCooperativeDepthAIFrame=async function(F){h5w15MarkReviewFrame(F?.id,{state:'running'});const r=await h5w15RunDepthAIBase(F);h5w15MarkReviewFrame(F?.id,r?.ok?{state:'fused',points:r.points||0,inferenceMs:r.ms||0}:r?.rejected?{state:'rejected'}:{state:r?.error?'error':'queued'});return r};
+const h5w15LatestObjectFrameBase=objectSeedLatestFrame;
+objectSeedLatestFrame=function(){const id=S.objectSeeding?.reviewFrameId;if(id!=null){const F=S.mapFrames.find(x=>x.id===id);if(F)return F}return h5w15LatestObjectFrameBase()};
+const h5w15EnterObjectBase=enterObjectSeeding;
+enterObjectSeeding=function(opts={}){const ok=h5w15EnterObjectBase(opts);if(ok){h5w10ReleaseFrozenFrame();S.objectSeeding.reviewFrameId=null;S.depthAI.reviewSelectedId=null;$('#seedHint').textContent='Rivedi i frame raccolti da Depth Anything. Selezionane uno, disegna il riquadro 2D e applica SAM solo se vuoi creare un oggetto 3D.';$('#seedMeta').textContent='La mappa è già stata raffinata automaticamente dai frame compatibili con WebXR.';h5w13SetSeedInference('Raccolta Depth Anything','scegli un frame nella galleria; MobileSAM è opzionale');h5w15RefreshSAMAction();h5w15RenderReviewFrames()}return ok};
+const h5w15ReadinessBase=updateObjectSeedReadiness;
+updateObjectSeedReadiness=function(force=false){const r=h5w15ReadinessBase(force);if(S.objectSeeding?.active)h5w15RefreshSAMAction();return r};
+const h5w15StartROIBase=h5w13StartROI;
+h5w13StartROI=async function(e){if(!S.objectSeeding?.reviewFrameId){e.preventDefault?.();$('#seedMeta').textContent='Scegli prima una foto dalla galleria Depth Anything.';h5w13SetSeedInference('Frame richiesto','la segmentazione resta opzionale: seleziona una foto prima di disegnare l’area');return}return await h5w15StartROIBase(e)};
+const h5w15EndROIBase=h5w13EndROI;
+h5w13EndROI=async function(e){const s=S.objectSeeding.roiPointer;if(!s||!S.objectSeeding.active)return;const p=h5w13PointerUV(e)||{u:s.u,v:s.v};e.preventDefault?.();S.objectSeeding.roiPointer=null;let roi=h5w13SetSeedROI({x:s.u,y:s.v,w:p.u-s.u,h:p.v-s.v});if(!s.moved||roi.w<.035||roi.h<.035)roi=h5w13ROIFromPoint(p.u,p.v);setObjectSeedPromptUV(roi.x+roi.w*.5,roi.y+roi.h*.5);const F=objectSeedLatestFrame();addEvent?.('object_roi_selected',{frameId:F?.id||null,roiUV:{...roi},tapFallback:!s.moved,ready:true,manualSAM:true});h5w13SetSeedInference('Area 2D pronta',`${Math.round(100*roi.w)}×${Math.round(100*roi.h)}% · controlla il frame e premi Applica SAM solo se vuoi segmentarlo`);$('#seedMeta').textContent='Area selezionata · SAM non è ancora stato eseguito.';h5w15RefreshSAMAction();};
+const h5w15SegmentBase=segmentObjectSeed;
+segmentObjectSeed=async function(){if(!S.objectSeeding.reviewFrameId){$('#seedMeta').textContent='Scegli prima un frame Depth Anything dalla galleria.';return}if(!S.objectSeeding.roiUV){$('#seedMeta').textContent='Disegna prima l’area 2D dell’oggetto sul frame scelto.';return}if(!semanticWarmReady()){h5w13SetSeedInference('Preparo MobileSAM','lo carico solo perché hai scelto di segmentare questo frame');const r=await preflightGuidedObjectSeeding({reason:'explicit-review-frame'});if(!r.ok){$('#seedMeta').textContent=`MobileSAM non disponibile: ${r.error||'riprova'}`;return}}return await h5w15SegmentBase()};
+const h5w15MapUIBase=updateMapWarmupUI;
+updateMapWarmupUI=function(force=false){const r=h5w15MapUIBase(force);if(S.flow.step==='map'){h5w15EnsureReviewState();const A=S.depthAI.reviewFrames,f=A.filter(x=>x.state==='fused').length;const h=$('#mapFlowHint');if(h)h.textContent+=` · Depth Anything: ${A.length} frame selezionati, ${f} integrati con WebXR.`}return r};
+async function h5w15CaptureManualReviewFrame(){
+  const F=h5w5LatestSelectableFrame();if(!F||!S.latestCameraRGB||!S.latestCameraView){$('#mapFlowHint').textContent='Foto non ancora disponibile: mantieni la stanza inquadrata e aspetta un frame RGB-D.';return}
+  const V=S.latestCameraView,K={id:F.id,t:F.t,width:V.width,height:V.height,rgba:new Uint8ClampedArray(S.latestCameraRGB),cols:F.cols,rows:F.rows,depth:Float32Array.from(F.depth),worldToView:F.worldToView.toArray(),projection:F.projection.toArray(),cam:[...F.cam],q:[...F.q],quality:{...(F.semanticQuality||{}),manual:true}};const R=h5w15RegisterReviewFrame(K,{manual:true});if(R){R.manual=true;$('#mapFlowHint').textContent=`Foto #${F.id} salvata per la revisione successiva. Depth Anything la elaborerà se supera il gate metrico XR.`;addEvent?.('depth_review_manual_photo',{frameId:F.id,score:R.quality?.score||null})}
+}
+const h5w15ContinueFromMapBase=continueFromMap;
+continueFromMap=async function(){if(S.flow.step!=='map')return;const b=$('#mapContinue');b.disabled=true;const old=b.textContent;b.textContent='Apro la galleria…';try{S.flow.semanticAvailable=semanticWarmReady();S.flow.semanticSkipReason=null;enterObjectSeeding({preserve:true,returnToMeasurement:S.flow.measurementPaused})}finally{b.disabled=false;b.textContent=old}};
+const h5w15DiagBase=diagnosticSnapshot;
+diagnosticSnapshot=function(){const d=h5w15DiagBase();h5w15EnsureReviewState();d.depthAI.reviewFrames=S.depthAI.reviewFrames.map(R=>({frameId:R.id,manual:!!R.manual,state:R.state,points:R.points||0,quality:R.quality||null,inferenceMs:R.inferenceMs||null}));d.depthAI.reviewSelectedId=S.depthAI.reviewSelectedId;return d};
+const h5w15Mask=$('#objectSeedMask');h5w15Mask.removeEventListener('pointerdown',h5w15StartROIBase);h5w15Mask.removeEventListener('pointerup',h5w15EndROIBase);h5w15Mask.removeEventListener('pointercancel',h5w15EndROIBase);h5w15Mask.addEventListener('pointerdown',h5w13StartROI,{passive:false});h5w15Mask.addEventListener('pointerup',h5w13EndROI,{passive:false});h5w15Mask.addEventListener('pointercancel',h5w13EndROI,{passive:false});$('#seedSegment').onclick=segmentObjectSeed;$('#mapContinue').onclick=continueFromMap;$('#mapSnapshot').onclick=h5w15CaptureManualReviewFrame;
 
 setSourceMode('mono');
 // Desktop/offline project mode. Loading a measured project never calls WebXR,

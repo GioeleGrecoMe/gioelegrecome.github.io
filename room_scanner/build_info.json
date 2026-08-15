@@ -1,6 +1,6 @@
 {
-  "appBuild": "v9.5.1-hotfix5w14-roi-segmentation-feedback",
-  "deployRev": "951h5w14",
+  "appBuild": "v9.5.2-depth-first-frame-review",
+  "deployRev": "952h5w15",
   "mobileSamBundle": "MobileSAM-in-the-Browser coherent split ONNX",
   "requiredLocal": [
     "models/mobilesam.encoder.onnx",
@@ -13,8 +13,8 @@
   "recommendedLocal": [
     "models/depth_anything_v2_small_q4f16.onnx"
   ],
-  "app_build": "v9.5.1-hotfix5w14-roi-segmentation-feedback",
-  "deploy_rev": "951h5w14",
-  "architecture": "WebXR live mapping + explicit frozen RGB reference views + MobileSAM masks + Depth Anything V2 metric alignment to WebXR + independent optional audio + dedicated Stage-5 renderer",
-  "patch": "H5W14: object capture starts with a visible user-drawn 2D ROI that is passed as a MobileSAM box prompt; the frozen-frame UI reports MobileSAM mask, hidden Depth Anything inference, WebXR metric anchors and accepted refinement points; DepthAI init is allowed longer on busy mobile devices while remaining non-blocking for the WebXR map."
+  "app_build": "v9.5.2-depth-first-frame-review",
+  "deploy_rev": "952h5w15",
+  "architecture": "WebXR live mapping + automatic high-quality Depth Anything RGB-D frame collection and metric alignment to WebXR + explicit user frame review + optional MobileSAM ROI/object creation + independent optional audio + dedicated Stage-5 renderer",
+  "patch": "H5W15: Depth Anything captures more frequent, quality-gated and pose-diverse frames automatically, exposes their fusion/rejection result in a review gallery, and accepts user-saved photos during mapping. MobileSAM no longer runs after an ROI gesture: it is loaded and invoked only when the user explicitly selects a reviewed frame, draws an ROI and presses Applica SAM."
 }
