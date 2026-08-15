@@ -584,8 +584,8 @@ import * as THREE from 'three';
 // ============================================================================
 
 const $=q=>document.querySelector(q);
-const APP_BUILD='v9.5.1-hotfix5w7-stable-object-picking';
-const DEPLOY_REV='951h5w7';
+const APP_BUILD='v9.5.1-hotfix5w8-flow-state-machine';
+const DEPLOY_REV='951h5w8';
 const CFG={
   // Dense geometry map. 6 cm is deliberately conservative on phones: small
   // enough to preserve walls/door recesses, large enough to average depth noise.
@@ -720,7 +720,7 @@ const CFG={
   objectSeedMinStableSurfelsReady:2, objectSeedMinIndependentViews:2,
   objectSeedMaxDepthSpreadM:0.72, objectSeedMinSpanM:0.055,
   objectSeedMinNormalSurfels:4, objectSeedMinOrientationConfidence:0.25,
-  semanticModelCache:'room-acoustic-semantic-v951h5w7', depthAIModelCache:'room-acoustic-depthai-v951h5w7',
+  semanticModelCache:'room-acoustic-semantic-v951h5w8', depthAIModelCache:'room-acoustic-depthai-v951h5w8',
   // MobileSAM is the guided semantic backend. The split model is deliberate:
   // the image encoder runs once for each accepted view, while the much cheaper
   // decoder is reused for point/box prompts. Local files are preferred; the
@@ -3576,7 +3576,7 @@ function updatePrimarySurfacePreview(force=false){
   h5w5EnsureCooperativeState();const G=S.primarySurfaceGroup;if(!G)return 0;const now=performance.now();if(!force&&now-(S.cooperative.lastPrimaryPreviewAt||0)<CFG.primarySurfacePreviewPeriodMs)return S.cooperative.primarySurfaceCount||0;S.cooperative.lastPrimaryPreviewAt=now;
   let graph=null;try{graph=buildStructuralGraph(false)}catch(e){log('primary surface graph',e);return S.cooperative.primarySurfaceCount||0}
   clearGroup(G);let n=0;for(const P of (graph?.planes||[]).slice(0,CFG.primarySurfacePreviewMax)){
-    const poly=(P.polygon||[]).map(v=>new THREE.Vector3(...v));if(poly.length<3)continue;const pos=[],idx=[];for(const v of poly)pos.push(v.x,v.y,v.z);for(let i=2;i<poly.length;i++)idx.push(0,i-1,i);const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setIndex(idx);geo.computeVertexNormals();const mat=new THREE.MeshBasicMaterial({color:h5w5PlaneColor(P.kind),transparent:true,opacity:.045,side:THREE.DoubleSide,depthWrite:false});const mesh=new THREE.Mesh(geo,mat);mesh.userData.primarySurface=true;mesh.userData.source=P.source||'XRPlane';G.add(mesh);n++
+    const poly=(P.polygon||[]).map(v=>new THREE.Vector3(...v));if(poly.length<3)continue;const pos=[],idx=[];for(const v of poly)pos.push(v.x,v.y,v.z);for(let i=2;i<poly.length;i++)idx.push(0,i-1,i);const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setIndex(idx);geo.computeVertexNormals();const mat=new THREE.MeshBasicMaterial({color:h5w5PlaneColor(P.kind),transparent:true,opacity:.016,side:THREE.DoubleSide,depthWrite:false});const mesh=new THREE.Mesh(geo,mat);mesh.userData.primarySurface=true;mesh.userData.source=P.source||'XRPlane';G.add(mesh);n++
   }
   S.cooperative.primarySurfaceCount=n;G.visible=!!S.session;return n
 }
@@ -3658,9 +3658,202 @@ render=function(t,frame){
 const h5w4DiagnosticSnapshotCoop=diagnosticSnapshot;
 diagnosticSnapshot=function(){const d=h5w4DiagnosticSnapshotCoop();d.cooperativeAI={active:S.aiCoordinator?.active||null,geometryPeriodMs:CFG.cooperativeGeometryPeriodMs,primarySurfaces:S.cooperative?.primarySurfaceCount||0,mobileSamWarm:semanticWarmReady(),mobileSamWasmProxy:!!S.semantic?.ort?.env?.wasm?.proxy,mobileSamEncoderContract:S.semantic?.encoderContract||null,mobileSamDecoderContract:S.semantic?.decoderContract||null,mobileSamIntegrity:S.semantic?.integrity||null,mobileSamSnapshotFrameId:S.objectSeeding?.snapshotFrameId??null,depthAILiveRuns:S.depthAI?.liveRuns||0,depthAILiveCaptured:S.depthAI?.liveCaptureCount||0,depthAILiveQueue:S.depthAI?.liveQueue?.length||0,depthAILastMs:S.depthAI?.lastInferenceMs||0,depthAIFusedPoints:S.depthAI?.fusedPoints||0};return d};
 
+// ============================================================================
+// H5W8 FLOW / SEGMENTATION STATE MACHINE HARDENING
+//
+// Three invariants:
+//  1) A MobileSAM mask is a valid 2D result even when the selected XR depth cell
+//     is sparse. Metric support is attached afterwards and must never block the
+//     mask from being displayed.
+//  2) Back/Skip are navigation operations, not AI operations. They invalidate a
+//     running segmentation result logically and always leave Step 3.
+//  3) A measurement resumed immediately after a pause must restart the sweep
+//     loop even if the old loop is still unwinding from its cancellation token.
+// ============================================================================
+function h5w8EnsureObjectFlowState(){
+  S.objectSeeding=S.objectSeeding||{};
+  S.objectSeeding.opSeq=S.objectSeeding.opSeq||0;
+  S.objectSeeding.activeOp=S.objectSeeding.activeOp||0;
+  S.objectSeeding.navBusy=!!S.objectSeeding.navBusy;
+  S.objectSeeding.exitReason=S.objectSeeding.exitReason||null;
+}
+function h5w8InvalidateObjectOperation(reason='navigation'){
+  h5w8EnsureObjectFlowState();
+  S.objectSeeding.opSeq++;
+  S.objectSeeding.activeOp=0;
+  S.objectSeeding.busy=false;
+  S.objectSeeding.exitReason=reason;
+  S.objectSeeding.pending=null;
+  document.body.classList.remove('seed-candidate','seed-ready','seed-metric-ready');
+  $('#seedSegment').disabled=false;
+  $('#seedConfirm').disabled=true;
+  $('#seedRetry').disabled=true;
+  hideAIMiniProgress(0);
+  return S.objectSeeding.opSeq;
+}
+function h5w8MetricizeCandidate(c,pts,directDepthPoints=0){
+  pts=(pts||[]).filter(p=>p&&Number.isFinite(p.x+p.y+p.z));
+  c.pts=pts;c.directDepthPoints=directDepthPoints;c.projectedSurfelPoints=Math.max(0,pts.length-directDepthPoints);
+  c.metricReady=pts.length>=CFG.semanticObjectMinDepthCells;
+  if(!c.metricReady){c.min=c.max=c.center=null;c.yaw=0;return c}
+  const axes=['x','y','z'].map(k=>pts.map(p=>p[k]).sort((a,b)=>a-b)),q=(a,t)=>a[Math.max(0,Math.min(a.length-1,Math.floor(t*(a.length-1))))];
+  c.min=[q(axes[0],.08),q(axes[1],.08),q(axes[2],.08)];c.max=[q(axes[0],.92),q(axes[1],.92),q(axes[2],.92)];c.center=c.min.map((v,i)=>(v+c.max[i])*.5);
+  let mx=0,mz=0;for(const p of pts){mx+=p.x;mz+=p.z}mx/=pts.length;mz/=pts.length;let cxx=0,czz=0,cxz=0;for(const p of pts){const x=p.x-mx,z=p.z-mz;cxx+=x*x;czz+=z*z;cxz+=x*z}c.yaw=.5*Math.atan2(2*cxz,cxx-czz);
+  const depthQ=clamp01(pts.length/20),frameQ=c._frameQ??.5,modelQ=Number.isFinite(c.iou)?c.iou:.62;c.confidence=clamp01(.15+.48*modelQ+.27*depthQ+.10*frameQ);return c
+}
+// Replace the old candidate constructor. The old implementation synchronously
+// scanned every surfel whenever direct depth was sparse, which could stall the
+// XR main thread for long enough to make Step 3 look as if it had closed.
+semanticMaskCandidate=function(mask,F,iou,manual=false){
+  let count=0,grid=new Uint8Array(F.cols*F.rows),pts=[],rgb=[0,0,0],rgbN=0;
+  for(let gy=0;gy<F.rows;gy++)for(let gx=0;gx<F.cols;gx++){
+    const i=gy*F.cols+gx;if(!mask[i])continue;grid[i]=1;count++;
+    const d=F.depth?.[i];if(d>0){const p=worldPointFromMapDepth(F,gx,gy,d);if(p)pts.push(p)}
+    const ci=3*i,c=F.semanticRgb?[F.semanticRgb[ci],F.semanticRgb[ci+1],F.semanticRgb[ci+2]]:null;if(c){rgb[0]+=c[0];rgb[1]+=c[1];rgb[2]+=c[2];rgbN++}
+  }
+  const area=count/Math.max(1,grid.length);if(count<2)return null;if(!manual&&(area<CFG.semanticMaskMinArea||area>CFG.semanticMaskMaxArea))return null;
+  const frameQ=F.semanticQuality?.score||.5,modelQ=Number.isFinite(iou)?iou:.62,c={grid,area,pts:[],min:null,max:null,center:null,yaw:0,iou:Number.isFinite(iou)?iou:null,confidence:clamp01((manual ? .15 : 0)+.48*modelQ+.10*frameQ),manual,metricReady:false,directDepthPoints:pts.length,projectedSurfelPoints:0,meanRgb:rgbN?rgb.map(x=>x/rgbN):null,_frameQ:frameQ};
+  return h5w8MetricizeCandidate(c,pts,pts.length)
+};
+async function h5w8AttachProjectedSurfelSupport(c,F,op){
+  if(!c||c.metricReady||!c.grid||!S.surfels?.size)return c;h5w8EnsureObjectFlowState();
+  const target=Math.max(800,Math.min(6000,CFG.objectSeedAsyncSurfelScanMax||4200)),stride=Math.max(1,Math.floor(S.surfels.size/target)),front=new Map();let seen=0,used=0;
+  for(const sf of S.surfels.values()){
+    if(!S.objectSeeding.active||S.objectSeeding.activeOp!==op||S.objectSeeding.pending?.candidate!==c)return c;
+    seen++;if((seen-1)%stride)continue;if(sf?._rtDead||!sf?.p)continue;used++;
+    const pr=projectWorldToMapFrame(sf.p,F);if(pr&&c.grid[pr.i]){const old=front.get(pr.i);if(!old||pr.z<old.z)front.set(pr.i,{z:pr.z,p:sf.p.clone()})}
+    if((used%240)===0)await delay(0);
+  }
+  const extra=[...front.values()].map(x=>x.p),maxExtra=Math.max(0,700-(c.pts?.length||0));if(extra.length>maxExtra&&maxExtra>0){const sampled=[],step=extra.length/maxExtra;for(let i=0;i<maxExtra;i++)sampled.push(extra[Math.floor(i*step)]);extra.length=0;extra.push(...sampled)}
+  if(extra.length){const direct=(c.pts||[]).slice(0,c.directDepthPoints||0);h5w8MetricizeCandidate(c,direct.concat(extra),direct.length)}
+  if(S.objectSeeding.active&&S.objectSeeding.activeOp===op&&S.objectSeeding.pending?.candidate===c){showObjectSeedCandidate(c,F,c.metricReady?'MobileSAM + WebXR':'MobileSAM');if(!c.metricReady)$('#seedHint').textContent='Mask 2D valida. WebXR continua a mappare: spostati leggermente e segmenta un’altra vista per ottenere il supporto 3D.'}
+  return c
+}
+const h5w7SegmentObjectSeed=segmentObjectSeed;
+segmentObjectSeed=async function(){
+  h5w8EnsureObjectFlowState();
+  if(!S.objectSeeding.active||S.objectSeeding.navBusy||S.objectSeeding.busy)return;
+  const R=updateObjectSeedReadiness(true);
+  if(!R?.ready){$('#seedMeta').textContent=`Selezione non pronta: ${R?.reason||'frame RGB non disponibile'}.`;return}
+  if(!S.semantic.preflightOk||S.semantic.family!=='mobile'||!S.semantic.encoder||!S.semantic.decoder){$('#seedMeta').textContent='MobileSAM non disponibile. Puoi riprovare, tornare alla mappa o saltare gli oggetti.';$('#seedRetry').disabled=false;return}
+  const F=R.F;if(!F){$('#seedMeta').textContent='Foto selezionata non disponibile: tocca nuovamente l’oggetto.';return}
+  const op=++S.objectSeeding.opSeq;
+  S.objectSeeding.activeOp=op;S.objectSeeding.exitReason=null;S.objectSeeding.busy=true;S.objectSeeding.pending=null;
+  clearObjectSeedMask();document.body.classList.remove('seed-ready');$('#seedSegment').disabled=true;$('#seedConfirm').disabled=true;$('#seedRetry').disabled=true;S.objectSeeding.lastSegmentAt=performance.now();
+  let acquired=false;
+  try{
+    // SAM has priority over periodic DepthAI, but never stops WebXR. If a DepthAI
+    // keyframe is finishing, wait cooperatively and keep Back/Skip logically live.
+    const wait0=performance.now();
+    while(S.aiCoordinator?.active&&S.aiCoordinator.active!=='sam'){
+      if(!S.objectSeeding.active||S.objectSeeding.activeOp!==op)return;
+      $('#seedMeta').textContent='MobileSAM · attendo il keyframe DepthAI in corso…';
+      if(performance.now()-wait0>4500)throw new Error('AI occupata troppo a lungo da DepthAI; riprova il punto.');
+      await delay(45);
+    }
+    acquired=h5w5AcquireAI('sam');
+    if(!acquired)throw new Error('AI occupata; riprova tra un istante.');
+    $('#seedMeta').textContent='MobileSAM · segmento la foto selezionata…';setAIMiniProgress('MobileSAM',null,'mask 2D · WebXR continua');await delay(0);
+    const c=await runMobileSamSeedFrame(F);
+    if(!S.objectSeeding.active||S.objectSeeding.activeOp!==op)return;
+    c.seedOrientationNormal=R.orientationNormal;c.seedOrientationConfidence=R.orientationConfidence;c.seedReadinessScore=R.score;
+    showObjectSeedCandidate(c,F,'MobileSAM');
+    if(c.truncated)$('#seedHint').textContent='La mask tocca il bordo. Puoi acquisire un’altra vista o usare i limiti 3D.';
+    S.objectSeeding.lastFrameId=F.id;S.semantic.neuralFrames++;S.semantic.lastInferenceMs=performance.now()-S.objectSeeding.lastSegmentAt;
+    addEvent('object_seed_segmented',{frameId:F.id,backend:'MobileSAM',confidence:c.confidence,truncated:!!c.truncated,metricReady:!!c.metricReady});
+    if(!c.metricReady)h5w8AttachProjectedSurfelSupport(c,F,op).catch(e=>log('async object metric support',e));
+  }catch(e){
+    if(S.objectSeeding.active&&S.objectSeeding.activeOp===op){S.semantic.modelError=e.message||String(e);$('#seedMeta').textContent=`MobileSAM fallito: ${e.message}`;$('#seedHint').textContent='Riprova da un’altra vista, torna alla mappa oppure salta gli oggetti.';$('#seedRetry').disabled=false}
+    log('MobileSAM guided segmentation failed',e)
+  }finally{
+    if(acquired){S.aiCoordinator.lastSamAt=performance.now();h5w5ReleaseAI('sam');pumpCooperativeDepthAI?.()}
+    hideAIMiniProgress(250);
+    if(S.objectSeeding.activeOp===op){S.objectSeeding.busy=false;if(!S.objectSeeding.pending)updateObjectSeedReadiness(true);$('#seedRetry').disabled=!S.objectSeeding.pending}
+  }
+}
+// No pointer capture: on some Android/WebXR implementations pointer capture on
+// a DOM-overlay canvas can interfere with the XR select stream. The tap itself
+// is enough; the selected RGB frame is frozen immediately.
+objectSeedPointerSelect=function(e){
+  h5w8EnsureObjectFlowState();if(!S.objectSeeding.active||S.objectSeeding.navBusy)return;
+  const now=performance.now();
+  // pointerdown is primary; click/touchend are fallbacks for Android WebXR DOM
+  // overlays. Ignore the synthetic click that usually follows the pointer event.
+  if(e.type==='click'&&now-(S.objectSeeding.lastPointerInputAt||0)<420)return;
+  if(e.type!=='click')S.objectSeeding.lastPointerInputAt=now;
+  e.preventDefault?.();e.stopPropagation?.();e.stopImmediatePropagation?.();
+  const c=$('#objectSeedMask'),r=c?.getBoundingClientRect?.();if(!r||!r.width||!r.height)return;
+  const touch=e.changedTouches?.[0]||e.touches?.[0]||null,cx=Number.isFinite(e.clientX)?e.clientX:touch?.clientX,cy=Number.isFinite(e.clientY)?e.clientY:touch?.clientY;
+  if(!Number.isFinite(cx)||!Number.isFinite(cy))return;
+  setObjectSeedPromptUV((cx-r.left)/r.width,(cy-r.top)/r.height);
+  const F=freezeObjectSeedSnapshot(),R=updateObjectSeedReadiness(true);
+  $('#seedMeta').textContent=F?(R?.ready?`Foto #${F.id} selezionata · MobileSAM parte sul punto indicato${R.metricReady?' · supporto 3D già disponibile':''}.`:`Foto #${F.id} selezionata · ${R?.reason||'attendo RGB'}.`):'Attendo un frame camera valido.';
+  // A tap is the SAM prompt: no second tap/button is required. Keep the button
+  // as an explicit retry path for accessibility and diagnostics.
+  if(F&&R?.ready&&semanticWarmReady()&&!S.objectSeeding.busy){const seq=S.objectSeeding.opSeq;setTimeout(()=>{if(S.objectSeeding.active&&!S.objectSeeding.navBusy&&!S.objectSeeding.busy&&S.objectSeeding.opSeq===seq)segmentObjectSeed().catch(err=>log('auto SAM tap',err))},55)}
+}
+backFromObjects=async function(){
+  h5w8EnsureObjectFlowState();if(!S.objectSeeding.active||S.objectSeeding.navBusy)return;S.objectSeeding.navBusy=true;try{h5w8InvalidateObjectOperation('back-to-map');v95ResetCapture(true);S.objectSeeding.active=false;S.objectSeeding.unavailable=false;document.body.classList.remove('object-seeding','seed-candidate','seed-ready','seed-metric-ready','seed-has-capture','seed-boundary-mode');clearObjectSeedMask();enterMapWarmup({resume:S.flow.measurementPaused});$('#avStats').textContent=S.flow.measurementPaused?'MISURA IN PAUSA · mappa attiva; continua agli oggetti o riprendi saltandoli.':'MAPPA · continua a esplorare o torna agli oggetti.';log('FLOW objects -> map',S.flow.measurementPaused?'paused measurement':'setup')}
+  finally{S.objectSeeding.navBusy=false}
+};
+const h5w7StartMeasurementAfterObjects=startMeasurementAfterObjectSeeding;
+startMeasurementAfterObjectSeeding=async function(skipReason=''){
+  if(!S.session)throw new Error('Sessione WebXR non attiva. Torna alla schermata principale e riapri la scansione.');
+  S.flow=S.flow||{};if(S.flow.measurementTransitionPromise)return await S.flow.measurementTransitionPromise;
+  const p=(async()=>{hideProcessing();hideAIMiniProgress(0);setAIMiniProgress('Misura',null,S.recording?'riprendo il loop chirp…':'riattivo microfono e PCM…');try{return await h5w7StartMeasurementAfterObjects(skipReason)}finally{hideAIMiniProgress(300)}})();
+  S.flow.measurementTransitionPromise=p;try{return await p}finally{if(S.flow.measurementTransitionPromise===p)S.flow.measurementTransitionPromise=null}
+};
+const h5w7ResumeScientificMeasurement=resumeScientificMeasurement;
+async function h5w8WaitSweepIdle(maxMs=14000){
+  const t0=performance.now();
+  while(S.autoSweepRunning){
+    if(performance.now()-t0>maxMs)return false;
+    setAIMiniProgress('Misura',null,'chiudo in sicurezza il chirp precedente…');
+    await delay(50);
+  }
+  return true
+}
+async function h5w8EnsureSweepLoopAfterUnwind(){
+  S.flow.sweepRestartRequested=true;
+  const idle=await h5w8WaitSweepIdle(16000);
+  if(!idle){$('#avStats').textContent='MISURA · il loop precedente sta ancora chiudendo il packet. Premi Riprendi tra un istante.';return false}
+  if(S.recording&&!S.autoSweepPaused&&S.flow.step==='measurement'&&!S.autoSweepRunning){S.flow.sweepRestartRequested=false;log('H5W8_SWEEP_RESTART_AFTER_UNWIND',S.autoSweepToken);runAutoSweepLoop();return true}
+  return false
+}
+resumeScientificMeasurement=async function(reason=''){
+  // Pause/cancel the old generation first and WAIT for its finally{} to release
+  // autoSweepRunning. Starting a new loop before that point was the source of
+  // the "loading forever after going back" race.
+  if(S.recording&&S.autoSweepRunning){S.autoSweepPaused=true;S.autoSweepToken++;await h5w8WaitSweepIdle(16000)}
+  await h5w7ResumeScientificMeasurement(reason);
+  hideAIMiniProgress(250);
+  if(S.recording&&!S.autoSweepPaused&&!S.autoSweepRunning)runAutoSweepLoop();
+  else if(S.recording&&!S.autoSweepPaused)h5w8EnsureSweepLoopAfterUnwind().catch(e=>log('sweep resume guard',e));
+  return true
+};
+finishObjectSeeding=async function(skip=false){
+  h5w8EnsureObjectFlowState();if(!S.objectSeeding.active||S.objectSeeding.navBusy)return;
+  if(!skip&&S.objectSeeding.currentCapture?.views?.length){$('#seedMeta').textContent='Hai un oggetto incompleto: crea il proxy 3D oppure usa Salta oggetti per scartarlo.';return}
+  S.objectSeeding.navBusy=true;try{
+    h5w8InvalidateObjectOperation(skip?'skip-objects':'finish-objects');if(skip)v95ResetCapture(false);S.objectSeeding.active=false;document.body.classList.remove('object-seeding','seed-candidate','seed-ready','seed-metric-ready','seed-has-capture','seed-boundary-mode');clearObjectSeedMask();
+    $('#avStats').textContent=skip?'Oggetti saltati · preparo la misura…':'Oggetti completati · preparo la misura…';await delay(0);
+    if(S.recording&&S.flow.measurementPaused)await resumeScientificMeasurement(skip?'oggetti saltati':'oggetti aggiornati');else await startMeasurementAfterObjectSeeding(skip?'utente ha saltato la selezione oggetti':'');
+  }catch(e){log('measurement after seeding failed',e);S.objectSeeding.active=!!S.session;if(S.objectSeeding.active){document.body.classList.add('object-seeding');$('#seedMeta').textContent=`Avvio/ripresa misura fallito: ${e.message}`;$('#seedHint').textContent='La sessione XR è ancora attiva. Puoi riprovare, tornare alla mappa o terminare la sessione.'}else{setWorkflowStage('acoustic');setFlowStep('calibration',{push:false});$('#landing').style.display='flex';setStatus('Sessione XR chiusa',e.message||String(e))}}
+  finally{S.objectSeeding.navBusy=false}
+};
+const h5w7PauseMeasurementForBack=pauseMeasurementForBack;
+pauseMeasurementForBack=async function(){
+  if(!S.recording||S.flow.step!=='measurement'||S.objectSeeding.navBusy)return;S.autoSweepPaused=true;S.autoSweepToken++;S.flow.measurementPaused=true;setSweepPhase('pausa · ritorno alla mappa',0);updateMeasureToggle();$('#avStats').textContent='MISURA IN PAUSA · WebXR/geometria continuano; nessun nuovo chirp.';enterMapWarmup({resume:true});h5w8EnsureSweepLoopAfterUnwind().catch(()=>{});log('FLOW measurement -> map (paused)')
+};
+// Keep the manual pause/resume button robust against the same unwind race.
+toggleAutoMeasurement=function(){
+  if(!S.recording)return;if(S.autoSweepPaused){S.autoSweepPaused=false;S.photometric.requiresResume=false;addEvent('measurement_resume',{rawSweeps:S.autoSweepEvents.length});setSweepPhase('ripresa',0);updateLightingGuardUI();h5w8EnsureSweepLoopAfterUnwind().catch(e=>log('manual sweep resume guard',e))}else{S.autoSweepPaused=true;S.autoSweepToken++;setSweepPhase('pausa',0);pumpSemanticQueue(1);addEvent('measurement_pause',{rawSweeps:S.autoSweepEvents.length});$('#avStats').textContent='MISURA IN PAUSA · path/geometria continuano, nessun nuovo sweep'}updateMeasureToggle();updateScanPreview(true)
+};
+
+
 v95EnsureState();v95RefreshCaptureUI();
 
-$('#objectSeedMask').addEventListener('pointerdown',objectSeedPointerSelect,{passive:false});$('#objectSeedMask').addEventListener('click',e=>{e.preventDefault();e.stopPropagation()},{passive:false});$('#objectSeedMask').addEventListener('contextmenu',e=>e.preventDefault());$('#objectSeedUI').addEventListener('beforexrselect',e=>e.preventDefault());$('#mapBack').onclick=backFromMap;$('#mapContinue').onclick=continueFromMap;$('#measureBack').onclick=pauseMeasurementForBack;$('#seedBack').onclick=backFromObjects;$('#seedManage').onclick=()=>{$('#seedListPanel').classList.toggle('show');renderSeedObjectList()};$('#seedListClose').onclick=()=>$('#seedListPanel').classList.remove('show');$('#seedSegment').onclick=segmentObjectSeed;$('#seedConfirm').onclick=confirmObjectSeed;$('#seedRetry').onclick=()=>S.objectSeeding.unavailable?retryUnavailableObjectSeeding():segmentObjectSeed();$('#seedLoadModel').onclick=()=>$('#semanticModelInput').click();$('#seedUndo').onclick=undoObjectSeed;$('#seedSkip').onclick=()=>finishObjectSeeding(true);$('#seedDone').onclick=()=>finishObjectSeeding(false);$('#rirCompareToggle').onclick=()=>{const c=$('#rirCompareCard');if(!c.classList.contains('has-rir'))return;c.classList.toggle('expanded');const b=$('#rirComputedBadge');if(b)b.textContent=c.classList.contains('expanded')?'chiudi grafico ▴':'apri grafico ▾'};$('#processBtn').onclick=processFinalModel;$('#guideBtn').onclick=()=>{try{if(S.recording||S.session){const q=computeLiveQualityFast();S.liveQuality=q;$('#avStats').textContent=`LIVE ${q.score}/100 · geo ${(q.geometryConfidence*100).toFixed(0)}% · RIR ${q.validRIR}`;return}reconstructSurfaces();if(S.rirResults.length)optimizeSurfaceAcoustics();const q=computeQualityReport();S.liveQuality=q;$('#avStats').textContent=`MODELLO ${q.score}/100 · ${q.recommendations[0]}`;log('quality guidance',JSON.stringify(q))}catch(e){log('guidance',e)}};$('#navMode').onchange=()=>{S.finalNavMode=$('#navMode').value;if(S.finalNavMode==='walk'&&S.finalReceiver)S.finalWalkPos=S.finalReceiver.position.clone();showRIRStatus(S.finalNavMode==='walk'?'Modalità interno: trascina per guardare, usa le frecce per muoverti.':'Modalità orbita: trascina per ruotare, pinch/rotella per zoom.')};$('#walkForward').onclick=()=>moveFinalWalk(1,0);$('#walkBack').onclick=()=>moveFinalWalk(-1,0);$('#walkLeft').onclick=()=>moveFinalWalk(0,-1);$('#walkRight').onclick=()=>moveFinalWalk(0,1);$('#bandSelect').onchange=()=>{updateFinalSurfaceColors();if(S.finalModel)showRIRStatus(`Banda visualizzata: ${$('#bandSelect').value} Hz`)};$('#mapQuantity').onchange=updateFinalSurfaceColors;$('#liveMapQuantity').onchange=updateLiveAcousticOverlay;$('#liveBandSelect').onchange=updateLiveAcousticOverlay;$('#pickSource').onclick=()=>{if($('#measuredSourceSelect'))$('#measuredSourceSelect').value='virtual';S.finalPickMode='source';$('#pickSource').classList.add('pickActive');$('#pickReceiver').classList.remove('pickActive');showRIRStatus('Tocca il pavimento dove vuoi porre la sorgente.')};$('#pickReceiver').onclick=()=>{S.finalPickMode='receiver';$('#pickReceiver').classList.add('pickActive');$('#pickSource').classList.remove('pickActive');showRIRStatus('Tocca il pavimento dove vuoi porre il ricevitore.')};$('#sourceHeight').onchange=()=>{if(S.finalSource){S.finalSource.position.y=S.floorY+parseFloat($('#sourceHeight').value);invalidateSyntheticRIR('altezza sorgente cambiata · ricalcola')}};$('#receiverHeight').onchange=()=>{if(S.finalReceiver){S.finalReceiver.position.y=S.floorY+parseFloat($('#receiverHeight').value);invalidateSyntheticRIR('altezza ricevitore cambiata · ricalcola')}};$('#measuredSourceSelect').onchange=()=>{if($('#measuredSourceSelect').value!=='virtual')useSelectedMeasuredSource()};$('#useMeasuredSource').onclick=useSelectedMeasuredSource;$('#simulateRIR').onclick=runSyntheticRIR;$('#finalReprocess').onclick=processFinalModel;$('#playSyntheticCompare').onclick=()=>playComparisonPCM('synthetic');$('#playMeasuredCompare').onclick=()=>playComparisonPCM('measured');$('#playDirectCompare').onclick=()=>playComparisonPCM('direct');$('#saveRIR').onclick=saveSyntheticRIR;$('#saveTwin').onclick=downloadDigitalTwin;$('#saveTwinDocs').onclick=downloadTwinDocs;$('#exportAll').onclick=doExport;$('#exportRawFinal').onclick=exportRawDataset;$('#exportRawBtn').onclick=exportRawDataset;$('#closeFinal').onclick=closeFinalViewer;
+$('#objectSeedMask').addEventListener('pointerdown',objectSeedPointerSelect,{passive:false});$('#objectSeedMask').addEventListener('click',objectSeedPointerSelect,{passive:false});$('#objectSeedMask').addEventListener('touchend',objectSeedPointerSelect,{passive:false});$('#objectSeedMask').addEventListener('contextmenu',e=>e.preventDefault());$('#objectSeedUI').addEventListener('beforexrselect',e=>e.preventDefault());$('#mapBack').onclick=backFromMap;$('#mapContinue').onclick=continueFromMap;$('#measureBack').onclick=pauseMeasurementForBack;$('#seedBack').onclick=backFromObjects;$('#seedManage').onclick=()=>{$('#seedListPanel').classList.toggle('show');renderSeedObjectList()};$('#seedListClose').onclick=()=>$('#seedListPanel').classList.remove('show');$('#seedSegment').onclick=segmentObjectSeed;$('#seedConfirm').onclick=confirmObjectSeed;$('#seedRetry').onclick=()=>S.objectSeeding.unavailable?retryUnavailableObjectSeeding():segmentObjectSeed();$('#seedLoadModel').onclick=()=>$('#semanticModelInput').click();$('#seedUndo').onclick=undoObjectSeed;$('#seedSkip').onclick=()=>finishObjectSeeding(true);$('#seedDone').onclick=()=>finishObjectSeeding(false);$('#rirCompareToggle').onclick=()=>{const c=$('#rirCompareCard');if(!c.classList.contains('has-rir'))return;c.classList.toggle('expanded');const b=$('#rirComputedBadge');if(b)b.textContent=c.classList.contains('expanded')?'chiudi grafico ▴':'apri grafico ▾'};$('#processBtn').onclick=processFinalModel;$('#guideBtn').onclick=()=>{try{if(S.recording||S.session){const q=computeLiveQualityFast();S.liveQuality=q;$('#avStats').textContent=`LIVE ${q.score}/100 · geo ${(q.geometryConfidence*100).toFixed(0)}% · RIR ${q.validRIR}`;return}reconstructSurfaces();if(S.rirResults.length)optimizeSurfaceAcoustics();const q=computeQualityReport();S.liveQuality=q;$('#avStats').textContent=`MODELLO ${q.score}/100 · ${q.recommendations[0]}`;log('quality guidance',JSON.stringify(q))}catch(e){log('guidance',e)}};$('#navMode').onchange=()=>{S.finalNavMode=$('#navMode').value;if(S.finalNavMode==='walk'&&S.finalReceiver)S.finalWalkPos=S.finalReceiver.position.clone();showRIRStatus(S.finalNavMode==='walk'?'Modalità interno: trascina per guardare, usa le frecce per muoverti.':'Modalità orbita: trascina per ruotare, pinch/rotella per zoom.')};$('#walkForward').onclick=()=>moveFinalWalk(1,0);$('#walkBack').onclick=()=>moveFinalWalk(-1,0);$('#walkLeft').onclick=()=>moveFinalWalk(0,-1);$('#walkRight').onclick=()=>moveFinalWalk(0,1);$('#bandSelect').onchange=()=>{updateFinalSurfaceColors();if(S.finalModel)showRIRStatus(`Banda visualizzata: ${$('#bandSelect').value} Hz`)};$('#mapQuantity').onchange=updateFinalSurfaceColors;$('#liveMapQuantity').onchange=updateLiveAcousticOverlay;$('#liveBandSelect').onchange=updateLiveAcousticOverlay;$('#pickSource').onclick=()=>{if($('#measuredSourceSelect'))$('#measuredSourceSelect').value='virtual';S.finalPickMode='source';$('#pickSource').classList.add('pickActive');$('#pickReceiver').classList.remove('pickActive');showRIRStatus('Tocca il pavimento dove vuoi porre la sorgente.')};$('#pickReceiver').onclick=()=>{S.finalPickMode='receiver';$('#pickReceiver').classList.add('pickActive');$('#pickSource').classList.remove('pickActive');showRIRStatus('Tocca il pavimento dove vuoi porre il ricevitore.')};$('#sourceHeight').onchange=()=>{if(S.finalSource){S.finalSource.position.y=S.floorY+parseFloat($('#sourceHeight').value);invalidateSyntheticRIR('altezza sorgente cambiata · ricalcola')}};$('#receiverHeight').onchange=()=>{if(S.finalReceiver){S.finalReceiver.position.y=S.floorY+parseFloat($('#receiverHeight').value);invalidateSyntheticRIR('altezza ricevitore cambiata · ricalcola')}};$('#measuredSourceSelect').onchange=()=>{if($('#measuredSourceSelect').value!=='virtual')useSelectedMeasuredSource()};$('#useMeasuredSource').onclick=useSelectedMeasuredSource;$('#simulateRIR').onclick=runSyntheticRIR;$('#finalReprocess').onclick=processFinalModel;$('#playSyntheticCompare').onclick=()=>playComparisonPCM('synthetic');$('#playMeasuredCompare').onclick=()=>playComparisonPCM('measured');$('#playDirectCompare').onclick=()=>playComparisonPCM('direct');$('#saveRIR').onclick=saveSyntheticRIR;$('#saveTwin').onclick=downloadDigitalTwin;$('#saveTwinDocs').onclick=downloadTwinDocs;$('#exportAll').onclick=doExport;$('#exportRawFinal').onclick=exportRawDataset;$('#exportRawBtn').onclick=exportRawDataset;$('#closeFinal').onclick=closeFinalViewer;
 
 /* Mobile UI helpers: do not touch acquisition or DSP state. */
 const hudMore=$('#hudMore');

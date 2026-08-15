@@ -1,3 +1,16 @@
+# Room Scanner v9.5.1 — Hotfix5W8 flow/state recovery
+
+Current build: `v9.5.1-hotfix5w8-flow-state-machine` (`951h5w8`).
+
+H5W8 keeps the verified H5W6 model/runtime contracts and the cooperative H5W7
+WebXR+AI architecture, but fixes the interactive state machine: a tap is now the
+MobileSAM prompt and starts segmentation automatically, RGB masks are valid before
+metric depth support, projected WebXR support is attached asynchronously, Back and
+Skip cancel stale segmentation logically, and measurement resume waits for the old
+chirp loop to unwind before starting exactly one replacement loop. Live primary
+surfaces are reduced to 1.6% opacity. See `PATCH_NOTES_V951_HOTFIX5W8.md` and
+`TEST_REPORT_V951_HOTFIX5W8.md`.
+
 # Room Scanner v9.5.1 — Hotfix5W4 object selection + fullscreen Twin
 
 ## Hotfix5W5 cooperative XR + AI
