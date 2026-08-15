@@ -14,6 +14,9 @@ required = [
     "id=\"v10Trace\"",
     "function v10Log(",
     "function v10RenderDepthPoints(",
+    "function v10MetricPath()",
+    "function v10BuildMetricPreviewModel()",
+    "S.finalModel=v10BuildMetricPreviewModel()",
     "sources?.depthai",
     "h5w15CaptureManualReviewFrame",
     "segmentObjectSeed=async function(){if(!S.objectSeeding.reviewFrameId)",
@@ -29,6 +32,12 @@ for token in required:
 assert "body.v10-mode #hud>.top,body.v10-mode #hud>.bottom" in html
 assert "body.object-seeding #v10Live{display:none!important}" in html
 assert "#v10Live{z-index:108!important}" in html
+
+# v9's generic preview builder serializes a different path representation.
+# The v10 viewer must use its own vector-safe geometry-only export.
+v10_open = html[html.index("async function v10OpenModel"):html.index("const v10CloseViewerBase")]
+assert "buildRawPreviewModel()" not in v10_open
+assert "v10BuildMetricPreviewModel()" in v10_open
 
 # A manual screenshot must be a review-only operation; it must not invoke SAM.
 manual = html[html.index("async function h5w15CaptureManualReviewFrame"):html.index("const h5w15ContinueFromMapBase")]
