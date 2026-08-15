@@ -5,7 +5,7 @@ from pathlib import Path
 html = Path(__file__).resolve().parents[1].joinpath("room_scanner_v10.html").read_text()
 
 required = [
-    "APP_BUILD='v10.0.2-geometry-audit'",
+    "APP_BUILD='v10.0.3-sam-viewer-flow'",
     "$('#hud').append($('#v10Live'));$('#hud').append($('#objectSeedUI'))",
     "id=\"v10Save\"",
     "id=\"v10Objects\"",
@@ -25,9 +25,13 @@ required = [
     "function v10PruneUnexplainedSlice(",
     "S.depthAI.lastMetricCheck",
     "await v10PruneUnexplainedForPreview()",
+    "function v10SetSamEnabled(want)",
+    "id=\"v10SamToggle\"",
+    "async function v10EndSessionForViewer()",
+    "await v10EndSessionForViewer()",
     "finishObjectSeeding=async function(skip=false)",
     "S.renderer.setAnimationLoop(render)",
-    "Viewer chiuso: scansione WebXR e controlli ripristinati.",
+    "Viewer chiuso. La sessione WebXR era stata terminata per il viewer",
 ]
 for token in required:
     assert token in html, token
@@ -43,6 +47,18 @@ assert "#v10Live{z-index:108!important}" in html
 v10_open = html[html.index("async function v10OpenModel"):html.index("const v10CloseViewerBase")]
 assert "buildRawPreviewModel()" not in v10_open
 assert "v10BuildMetricPreviewModel()" in v10_open
+assert "await v10EndSessionForViewer()" in v10_open
+assert v10_open.index("await v10EndSessionForViewer()") < v10_open.index("openFinalViewer()")
+assert "finalizeSurfelMapCooperative" in v10_open
+assert "showProcessing('Modello 3D'" in v10_open
+
+# SAM must be opt-in but the Objects action must be able to prepare the local
+# models and expose the explicit Review -> ROI -> Apply SAM route.
+sam = html[html.index("async function v10SetSamEnabled"):html.index("// Record why metric alignment")]
+assert "preflightGuidedObjectSeeding" in sam
+assert "S.v10.samEnabled=true" in sam
+assert "S.v10.samEnabled=false" in sam
+assert "semanticWarmReady()" in sam
 
 # A manual screenshot must be a review-only operation; it must not invoke SAM.
 manual = html[html.index("async function h5w15CaptureManualReviewFrame"):html.index("const h5w15ContinueFromMapBase")]
