@@ -21,7 +21,7 @@
   if (window.__RS_HOTFIX_RUNTIME_LOADED__) return;
   window.__RS_HOTFIX_RUNTIME_LOADED__ = true;
 
-  const HOTFIX_VERSION = '2026-08-15.1';
+  const HOTFIX_VERSION = '2026-08-15.3';
   const STORAGE_KEY = 'roomScanner.hotfix.allowUncalibrated';
   const LOG_LIMIT = 600;
   const logs = [];
@@ -96,32 +96,49 @@
   }
 
   function findTwinHeading() {
-    const candidates = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6,div,span,strong'));
-    return candidates.find((el) => normalizeText(el.textContent).includes('5/5 · digital twin acustico')) ||
-      candidates.find((el) => normalizeText(el.textContent).includes('digital twin acustico')) || null;
+    const headings = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6'));
+    const exact = headings.find((el) => normalizeText(el.textContent).includes('5/5 · digital twin acustico'));
+    if (exact) return exact;
+    const generic = headings.find((el) => normalizeText(el.textContent).includes('digital twin acustico'));
+    if (generic) return generic;
+
+    // Fallback only to small/leaf-ish text elements. Broad div roots are
+    // deliberately excluded because reparenting an application root can break
+    // the whole UI.
+    const leaves = Array.from(document.querySelectorAll('span,strong,p,label,div')).filter((el) => el.children.length <= 3);
+    return leaves.find((el) => normalizeText(el.textContent).includes('5/5 · digital twin acustico')) ||
+      leaves.find((el) => normalizeText(el.textContent).includes('digital twin acustico')) || null;
+  }
+
+  function twinControlScore(node) {
+    const text = normalizeText(node && node.textContent);
+    return [
+      'genera rir',
+      'salva twin json',
+      'riprocessa modello 3d',
+      'usa sorgente misurata',
+      'ricevitore'
+    ].reduce((acc, token) => acc + (text.includes(token) ? 1 : 0), 0);
   }
 
   function findTwinPanel() {
     const heading = findTwinHeading();
     if (!heading) return null;
 
-    // Prefer an ancestor that contains the characteristic Stage-5 controls.
-    // Requiring more than one control prevents accidentally selecting <body>.
+    // Prefer semantic/local panel containers. We accept a candidate only if it
+    // contains several Stage-5 controls AND is not an enormous app root.
     let node = heading;
-    for (let depth = 0; node && node !== document.body && depth < 10; depth += 1, node = node.parentElement) {
-      const text = normalizeText(node.textContent);
-      const score = [
-        'genera rir',
-        'salva twin json',
-        'riprocessa modello 3d',
-        'usa sorgente misurata',
-        'ricevitore'
-      ].reduce((acc, token) => acc + (text.includes(token) ? 1 : 0), 0);
-      if (score >= 3) return node;
+    for (let depth = 0; node && node !== document.body && node !== document.documentElement && depth < 9; depth += 1, node = node.parentElement) {
+      const score = twinControlScore(node);
+      if (score < 3) continue;
+      const buttons = node.querySelectorAll ? node.querySelectorAll('button').length : 0;
+      const stageHeadings = node.querySelectorAll ? Array.from(node.querySelectorAll('h1,h2,h3,h4,h5,h6')).filter((h) => /[1-5]\s*\/\s*5/.test(normalizeText(h.textContent))).length : 0;
+      if (buttons <= 32 && stageHeadings <= 2) return node;
     }
 
-    // Conservative fallback: do not move a broad application root.
-    return heading.parentElement && heading.parentElement !== document.body ? heading.parentElement : null;
+    // Fail safely instead of moving an uncertain parent. The floating button
+    // remains available and diagnostics will state that the panel was not found.
+    return null;
   }
 
   function ensureTwinRecoveryHost() {
