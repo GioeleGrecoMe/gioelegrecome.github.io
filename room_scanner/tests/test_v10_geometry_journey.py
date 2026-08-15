@@ -5,7 +5,7 @@ from pathlib import Path
 html = Path(__file__).resolve().parents[1].joinpath("room_scanner_v10.html").read_text()
 
 required = [
-    "APP_BUILD='v10.0.1-guided-xr-hud'",
+    "APP_BUILD='v10.0.2-geometry-audit'",
     "$('#hud').append($('#v10Live'));$('#hud').append($('#objectSeedUI'))",
     "id=\"v10Save\"",
     "id=\"v10Objects\"",
@@ -19,7 +19,12 @@ required = [
     "S.finalModel=v10BuildMetricPreviewModel()",
     "sources?.depthai",
     "h5w15CaptureManualReviewFrame",
-    "segmentObjectSeed=async function(){if(!S.objectSeeding.reviewFrameId)",
+    "const v10SegmentObjectBase=segmentObjectSeed;",
+    "MobileSAM OK · frame #",
+    "Depth Anything NON integrata · frame #",
+    "function v10PruneUnexplainedSlice(",
+    "S.depthAI.lastMetricCheck",
+    "await v10PruneUnexplainedForPreview()",
     "finishObjectSeeding=async function(skip=false)",
     "S.renderer.setAnimationLoop(render)",
     "Viewer chiuso: scansione WebXR e controlli ripristinati.",
