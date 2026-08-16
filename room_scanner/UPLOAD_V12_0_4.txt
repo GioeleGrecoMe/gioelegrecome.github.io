@@ -1,0 +1,16 @@
+ROOM SCANNER V12.0.4 - INSTALLAZIONE
+
+File da sostituire nel repository:
+  room_scanner/room_scanner_v12.html
+
+Il file V12.0.4 continua a usare gli asset locali gia presenti nel progetto, incluso:
+  room_scanner/depth_ai_worker.js
+  room_scanner/models/depth_anything_v2_small_q4.onnx
+  eventuali asset vendor locali gia richiesti dal worker
+
+Prima della scansione:
+  1. Aprire la pagina in HTTPS.
+  2. Premere "Prepara camera 0.5x".
+  3. Poi premere "Avvia scansione AR".
+
+Se la camera 0.5x non puo restare aperta contemporaneamente a WebXR, la scansione XR continua ma Deep non riceve frame dalla raw-camera XR. Controllare i log UWA_*.
