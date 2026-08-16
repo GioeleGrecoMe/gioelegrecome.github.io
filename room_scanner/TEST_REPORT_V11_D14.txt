@@ -1,0 +1,58 @@
+ROOM SCANNER V11-D14 - TEST REPORT
+Build 2026-08-16
+
+CAUSE ISOLATE
+1. D12/D13 hanno dimostrato che CFG, S e ensureDepthAIWorker sono binding lessicali della V10 e non sono controllabili in modo affidabile da uno script esterno.
+2. D12 perdeva la user activation perche' requestSession arrivava dopo il precheck Depth.
+3. D13 ha corretto l'ingresso XR, ma "CFG.depthAIEnabled=true" non era una prova che worker/modello/sessione ORT fossero realmente pronti quando l'utente premeva Foto.
+4. D13 inoltre inseriva return all'inizio di v10RenderPhotoReview per evitare ReferenceError: rgb is not defined. Questo eliminava il crash ma poteva saltare logica foto utile.
+
+CORREZIONI D14
+A) XR-first invariato dalla D13 stabile.
+B) Bridge motore nello scope lessicale V10:
+   __ROOM_SCANNER_D14_ENSURE_DEPTH_READY__
+   __ROOM_SCANNER_D14_GET_DEPTH_STATUS__
+   __ROOM_SCANNER_D14_RESTART_DEPTH__
+C) Stato separato READY/INIT/ERRORE. READY diventa true solo dopo await ensureDepthAIWorker().
+D) Il pulsante originale "Punti DepthAI" viene solo osservato e NON viene usato da D14 come controllo worker.
+E) Photo preflight sul bottone v10Save / "+ Foto":
+   - se READY, il click passa subito;
+   - se non READY, preventDefault + stopImmediatePropagation;
+   - attende ensureDepthAIWorker() con timeout 45 s;
+   - dopo READY esegue esattamente un button.click() di replay;
+   - se fallisce, non crea una nuova foto falsamente bloccata in "Depth calcola...".
+F) v10RenderPhotoReview non e' piu' bypassata interamente. Il body originale e' avvolto in try/catch e viene soppresso soltanto il ReferenceError con messaggio "rgb is not defined"; gli altri errori vengono rilanciati.
+
+TEST SINTETICO XR + FOTO
+Scenario:
+- user activation scade dopo 100 ms;
+- precheck Depth originale simulato = 150 ms;
+- ensureDepthAIWorker simulato = 20 ms.
+Risultati:
+- requestSession raggiunta in ~2 ms;
+- XR result preservato;
+- restore post-XR: depth=true, ready=true, worker=true, ensureCalls=1;
+- click "Punti DepthAI" non modifica il motore D14;
+- Foto con READY passa immediatamente una volta;
+- worker perso + Foto: 0 catture prima di READY;
+- il bottone mostra "Depth prepara...";
+- dopo ensure: una sola cattura replay, ready=true, ensureCalls=2;
+- RIAVVIA DEPTH: worker stale terminato, nuovo ensure, ready=true, ensureCalls=3;
+- v10RenderPhotoReview: il codice originale prima del ReferenceError viene eseguito (photoReviewWork=1), poi solo l'errore rgb viene soppresso.
+
+TEST XR TRACE
+PASS una sola chiamata al vero requestSession
+PASS una sola richiesta di restore Depth
+PASS XR session end tracing
+
+SINTASSI
+PASS node --check room_scanner_v11_d14_loader.js
+PASS node --check room_scanner_v11_d14_diag.js
+PASS node --check room_scanner_v11_d14_xrtrace.js
+PASS node --check depth_ai_worker_v11_d14.js
+
+REGRESSIONE WORKER
+Il worker D14, normalizzando esclusivamente D13/D14 nei nomi build/callback, e' identico al worker D13. Quindi modello, preprocessing, ORT e inferenza non sono stati modificati da questo intervento.
+
+LIMITI
+Il container non puo' sostituire una sessione WebXR reale sul telefono. Il test garantisce ordine degli eventi, stato engine e gating Foto; la prova finale di WebXR + ORT simultanei resta sul dispositivo reale.
