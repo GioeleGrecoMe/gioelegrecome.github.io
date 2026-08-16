@@ -1,0 +1,40 @@
+ROOM SCANNER V11-D6 - SAFE EXTERNAL LOADER
+==========================================
+
+OBIETTIVO
+- Lasciare room_scanner_v10.html invariato.
+- Deviare solo il worker Depth Anything verso depth_ai_worker_v11_d6.js.
+- Rendere versione e log immediatamente visibili.
+- Evitare definitivamente il problema D4/D5 causato da JavaScript diagnostico inline troncato dal parser HTML.
+
+FILE DA CARICARE NELLA STESSA DIRECTORY DI room_scanner_v10.html
+1. room_scanner_v11_d6.html
+2. room_scanner_v11_d6_loader.js
+3. room_scanner_v11_d6_diag.js
+4. depth_ai_worker_v11_d6.js
+
+NESSUNA CARTELLA NUOVA.
+NON MODIFICARE:
+- room_scanner_v10.html
+- depth_ai_worker.js
+- sw.js
+- vendor/
+- models/
+
+URL DA APRIRE
+https://gioelegrecome.github.io/room_scanner/room_scanner_v11_d6.html?v=d6-20260816-a
+
+VERIFICA IMMEDIATA
+Prima del caricamento V10 compare:
+ROOM SCANNER V11-D6 • SAFE EXTERNAL LOADER • BUILD 2026-08-16
+
+Dopo il caricamento V10 deve comparire permanentemente:
+ROOM SCANNER V11-D6 • DEPTH TRACE ACTIVE • BUILD 2026-08-16-A
+
+e il titolo dell'app deve diventare:
+ROOM SCANNER V11-D6 · DEPTH TRACE + RAW
+
+Il pannello diagnostico deve mostrare:
+V11-D6 · LIVE DEPTH TRACE
+
+Se la V10 non supera i controlli sugli anchor, D6 si ferma in sicurezza e mostra il log del loader invece di modificare alla cieca l'app.
