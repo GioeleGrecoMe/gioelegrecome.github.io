@@ -1,0 +1,39 @@
+ROOM SCANNER V11-D15 - TEST REPORT
+Build: 2026-08-16
+
+TEST STATICI
+PASS node --check room_scanner_v11_d15_loader.js
+PASS node --check room_scanner_v11_d15_diag.js
+PASS node --check room_scanner_v11_d15_xrtrace.js
+PASS node --check depth_ai_worker_v11_d15.js
+PASS nessun riferimento D14/d14 nel codice runtime (le note possono citare versioni precedenti)
+PASS pacchetto piatto, nessuna cartella
+
+TEST LOADER / SOURCE PATCH
+PASS V10 sintetica >100 kB trasformata
+PASS worker V10 -> depth_ai_worker_v11_d15.js
+PASS gate XR-first preservato
+PASS D15_NATIVE_RGB_REPAIR inserito dentro v10RenderPhotoReview
+PASS resolver trova foto manuale RGBA live per id visibile
+PASS verifica width*height*4 del candidato RGB
+PASS renderer V10 riceve rgb reale e completa il corpo originale
+PASS modalita buffer RGBA diretto
+PASS modalita ImageData/putImageData
+
+TEST PHOTO REVIEW
+Fixture: manual-test-1, RGBA 32x32, 4096 byte.
+PASS source scelto: S.manualPhotos.0.rgba
+PASS id scelto: manual-test-1
+PASS width=32, height=32, bytes=4096
+PASS v10RenderPhotoReview restituisce il valore atteso dal buffer (7)
+PASS nessun early-return D13/D14 prima della logica nativa
+
+TEST MODEL GATE
+PASS click "Elabora e apri modello" bloccato con pending > 0
+PASS nessun click originale mentre la coda e' occupata
+PASS pending eliminato -> gate READY
+PASS replay del click originale esattamente una volta
+PASS motore Depth non riavviato inutilmente se gia READY
+
+LIMITI DEL TEST INTERNO
+Non e' stata eseguita una sessione WebXR reale nel container e non e' stato possibile scaricare il V10 pubblico dall'ambiente interno. Il test del source patch usa una fixture che riproduce gli anchor e il bug `rgb` osservato sul telefono. La verifica finale della UI nativa Frame/qualita e del model viewer va eseguita sul telefono.
