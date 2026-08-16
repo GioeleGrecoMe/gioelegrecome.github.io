@@ -599,7 +599,7 @@ import * as THREE from 'three';
 
 const $=q=>document.querySelector(q);
 const APP_BUILD='v10.0.6-metric-fusion';
-const DEPLOY_REV='1006m1';
+const DEPLOY_REV='1006m2';
 const CFG={
   // Dense geometry map. 6 cm is deliberately conservative on phones: small
   // enough to preserve walls/door recesses, large enough to average depth noise.
@@ -4317,6 +4317,16 @@ diagnosticSnapshot=function(){const d=v10DiagnosticSnapshotBase();d.v10={appBuil
 // its UI and every V10 call path so it cannot load or compete for the AI worker.
 S.v10=S.v10||{};S.v10.pipeline='WebXR + Depth Anything';S.v10.samEnabled=false;S.semantic.autoDiscover=false;S.semantic.mode='off';S.semantic.queue.length=0;
 $('#objectSeedUI')?.remove();
+// A single worker initialization is shared by automatic keyframes and manual
+// photo previews.  Without this guard two near-simultaneous requests could
+// each recreate the worker, cancelling the other request with "worker released".
+const v10EnsureDepthAIWorkerBase=ensureDepthAIWorker;
+ensureDepthAIWorker=async function(forceWasm=false){
+  if(S.depthAI?.workerReady&&S.depthAI?.worker&&!!S.depthAI.forceWasm===!!forceWasm)return true;
+  const same=S.depthAI?.v10WorkerInitPromise&&!!S.depthAI.v10WorkerInitForce===!!forceWasm;if(same)return await S.depthAI.v10WorkerInitPromise;
+  const p=v10EnsureDepthAIWorkerBase(forceWasm);S.depthAI.v10WorkerInitForce=!!forceWasm;S.depthAI.v10WorkerInitPromise=p;
+  try{return await p}finally{if(S.depthAI?.v10WorkerInitPromise===p){S.depthAI.v10WorkerInitPromise=null;S.depthAI.v10WorkerInitForce=null}}
+};
 function v10SetPhase(which){for(const [name,b] of Object.entries({scan:$('#v10PhaseScan'),model:$('#v10PhaseModel'),photos:$('#v10PhasePhotos')}))b?.classList.toggle('active',name===which)}
 function v10PhotoStatus(R){if(R.manualDepthState==='fused')return {label:`integrata · +${R.manualDepthPoints||0} punti RGB metrici`,ok:true};if(R.manualDepthState==='awaiting-confirmation')return {label:`pronta · ${R.manualDepthFit?.inliers||0}/${R.manualDepthFit?.anchors||0} ancore · conferma per applicare`,ok:false};if(R.manualDepthState==='declined')return {label:'non applicata su tua scelta',ok:false};if(R.manualDepthState==='rejected')return {label:'non applicabile · ancore WebXR o fit metrico insufficienti',ok:false};if(R.manualDepthState==='error')return {label:'errore inferenza · la mappa WebXR resta invariata',ok:false};return {label:'analisi Depth Anything in coda',ok:false}}
 function v10DepthHeatmap(pred,w,h){const A=Array.from(pred).filter(Number.isFinite).sort((a,b)=>a-b);if(!A.length)return '';const lo=A[Math.floor(A.length*.03)],hi=A[Math.floor(A.length*.97)],span=Math.max(1e-6,hi-lo),scale=Math.min(360/w,220/h,1),cw=Math.max(1,Math.round(w*scale)),ch=Math.max(1,Math.round(h*scale)),src=document.createElement('canvas'),dst=document.createElement('canvas');src.width=w;src.height=h;dst.width=cw;dst.height=ch;const I=new ImageData(w,h);for(let i=0;i<pred.length;i++){const t=clamp01((pred[i]-lo)/span),j=4*i;I.data[j]=Math.round(255*Math.max(0,1.5-Math.abs(4*t-3)));I.data[j+1]=Math.round(255*Math.max(0,1.5-Math.abs(4*t-2)));I.data[j+2]=Math.round(255*Math.max(0,1.5-Math.abs(4*t-1)));I.data[j+3]=255}src.getContext('2d',{alpha:false}).putImageData(I,0,0);dst.getContext('2d',{alpha:false}).drawImage(src,0,0,cw,ch);return dst.toDataURL('image/png')}
@@ -4347,7 +4357,7 @@ async function v10AnalyzeManualReview(R){
   S.depthAI.liveBusy=true;
   try{if(!await ensureDepthAIWorker())throw new Error('worker Depth Anything non disponibile');const D=v10DepthInferenceFrameForReview(R),rgbaCopy=new Uint8ClampedArray(D.rgba),t0=performance.now(),out=await depthAIWorkerRequest('infer',{width:D.width,height:D.height,rgba:rgbaCopy.buffer},[rgbaCopy.buffer]),pred=new Float32Array(out.depth),fit=depthAIFitMetric(D,pred,out.outputWidth,out.outputHeight),ms=Number(out.inferenceMs||performance.now()-t0);S.depthAI.lastInferenceMs=ms;S.depthAI.totalInferenceMs+=ms;R.depthPreview=v10DepthHeatmap(pred,out.outputWidth,out.outputHeight);R.manualDepthPrediction=pred;R.manualDepthWidth=out.outputWidth;R.manualDepthHeight=out.outputHeight;R.manualDepthInferenceMs=ms;R.manualDepthFit=fit||null;R.manualDepthAt=new Date().toISOString();if(!fit){R.manualDepthState='rejected';S.depthAI.rejectedFrames++;v10Log(`Foto #${R.id}: profondità visualizzata ma NON applicabile · ${S.depthAI.lastMetricCheck?.reason||'fit metrico WebXR insufficiente'}.`,'warn');return {ok:false,rejected:true}}
   R.manualDepthState='awaiting-confirmation';v10Log(`Foto #${R.id}: mappa Depth Anything pronta · ${fit.inliers}/${fit.anchors} ancore, errore ${Math.round(100*fit.medianRel)}%. Conferma dalla fase Frame per applicarla.`);return {ok:true,fit}
-  }catch(e){R.manualDepthState='error';R.manualDepthError=e.message||String(e);v10Log(`Foto #${R.id}: Depth Anything non disponibile · ${R.manualDepthError}.`,'error');return {ok:false,error:R.manualDepthError}}
+  }catch(e){R.manualDepthError=e.message||String(e);const retryable=/worker released|worker timeout|worker crash/i.test(R.manualDepthError),attempt=R.manualDepthRetryCount||0;if(retryable&&attempt<2){R.manualDepthRetryCount=attempt+1;R.manualDepthState='queued';v10Log(`Foto #${R.id}: worker riavviato, ritento la preview Depth Anything (${attempt+1}/2).`,'warn');setTimeout(()=>v10AnalyzeManualReview(R),550);return {ok:false,queued:true}}R.manualDepthState='error';v10Log(`Foto #${R.id}: Depth Anything non disponibile · ${R.manualDepthError}.`,'error');return {ok:false,error:R.manualDepthError}}
   finally{R.manualDepthAnalysisStarted=false;S.depthAI.liveBusy=false;h5w5ReleaseAI('depthai');v10RenderPhotoReview();v10Refresh()}
 }
 

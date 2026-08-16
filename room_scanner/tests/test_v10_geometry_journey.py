@@ -18,6 +18,7 @@ required = [
     "Viewer chiuso. La sessione WebXR era stata terminata per il viewer",
     "function v10PhotoStatus(", "function v10RenderPhotoReview(",
     "async function v10AnalyzeManualReview(", "function v10DepthHeatmap(",
+    "const v10EnsureDepthAIWorkerBase=ensureDepthAIWorker;",
     "rgbSource:'foto RGB selezionata'", "color:depthAIRgbAt(F,u,v)",
     "vertexColors:true",
 ]
@@ -47,6 +48,7 @@ assert "$('#objectSeedUI')?.remove()" in v10_tail
 assert "R.manualDepthState='awaiting-confirmation'" in v10_tail
 assert "✓ Applica alla mappa" in v10_tail
 assert "v10AutoFuseManualReview" not in v10_tail
+assert "worker riavviato, ritento la preview Depth Anything" in v10_tail
 
 for token in [
     "id=\"v10PhaseScan\"", "id=\"v10PhaseModel\"", "id=\"v10PhasePhotos\"",

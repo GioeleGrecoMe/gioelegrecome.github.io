@@ -1,6 +1,6 @@
 {
   "appBuild": "v10.0.6-metric-fusion",
-  "deployRev": "1006m1",
+  "deployRev": "1006m2",
   "semanticModels": "not used by V10; retained only for the legacy V9 page",
   "requiredLocal": [
     "vendor/ort.min.js",
@@ -11,7 +11,7 @@
     "models/depth_anything_v2_small_q4f16.onnx"
   ],
   "app_build": "v10.0.6-metric-fusion",
-  "deploy_rev": "1006m1",
+  "deploy_rev": "1006m2",
   "architecture": "V10 WebXR geometry workflow: scan -> model -> frame-quality. WebXR is the metric backbone; automatic keyframes are fused only after affine metric alignment against WebXR anchors. Every user-saved photograph first receives a visible Depth Anything relative-depth preview and contributes RGB-colored surfels only after the user confirms it; rejected or declined frames leave the WebXR map unchanged. SAM is not loaded or used by V10. Audio remains available only in the legacy V9 workflow.",
   "patch": "V10.0.6: SAM-free geometry path, automatic WebXR + Depth Anything metric fusion, user-confirmed depth previews for manual photographs, conservative outlier pruning, and a versioned service-worker cache."
 }
