@@ -5,7 +5,7 @@ from pathlib import Path
 html = Path(__file__).resolve().parents[1].joinpath("room_scanner_v10.html").read_text()
 
 required = [
-    "APP_BUILD='v10.0.4-photo-ai-fusion'",
+    "APP_BUILD='v10.0.5-three-phase-review'",
     "$('#hud').append($('#v10Live'));$('#hud').append($('#objectSeedUI'))",
     "id=\"v10Save\"",
     "id=\"v10Objects\"",
@@ -70,6 +70,21 @@ assert "rgbSource:'foto RGB selezionata'" in html
 assert "color:depthAIRgbAt(F,u,v)" in html
 assert "vertexColors:true" in html
 assert "Auto SAM foto: ON" in html
+
+# V10 exposes only the scan / model / review route. Manual photos queue DepthAI
+# automatically; object review asks only to confirm the proposed mask or remove
+# the photo and take it again.
+for token in [
+    "id=\"v10PhaseScan\"",
+    "id=\"v10PhaseModel\"",
+    "id=\"v10PhaseReview\"",
+    "async function v10AutoFuseManualReview(",
+    "Depth Anything automatica OK",
+    "✓ Conferma oggetto",
+    "✕ Elimina foto",
+    "async function v10RejectCurrentReview()",
+]:
+    assert token in html, token
 
 # A manual screenshot must be a review-only operation; it must not invoke SAM.
 manual = html[html.index("async function h5w15CaptureManualReviewFrame"):html.index("const h5w15ContinueFromMapBase")]
