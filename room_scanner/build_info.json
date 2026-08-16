@@ -1,6 +1,6 @@
 {
-  "appBuild": "v10.0.8-depth-preflight-raw-room",
-  "deployRev": "1008m1",
+  "appBuild": "v10.0.9-depth-wasm-verified",
+  "deployRev": "1009m1",
   "semanticModels": "not used by V10; retained only for the legacy V9 page",
   "requiredLocal": [
     "vendor/ort.min.js",
@@ -10,8 +10,8 @@
   "recommendedLocal": [
     "models/depth_anything_v2_small_q4f16.onnx"
   ],
-  "app_build": "v10.0.8-depth-preflight-raw-room",
-  "deploy_rev": "1008m1",
-  "architecture": "V10 WebXR geometry workflow: scan -> model -> frame-quality. WebXR is the metric backbone; automatic keyframes are fused only after affine metric alignment against WebXR anchors. Every user-saved photograph first receives a visible Depth Anything relative-depth preview and contributes RGB-colored surfels only after the user confirms it; rejected or declined frames leave the WebXR map unchanged. A V10 RAW room ZIP preserves the verified colored surfel cloud, WebXR poses/depth frames, raw XR geometry, and lossless RGBA user photographs so the room can be reopened and its Depth Anything previews reprocessed without a new AR session. SAM is not loaded or used by V10. Audio remains available only in the legacy V9 workflow.",
-  "patch": "V10.0.8: verifies and smoke-tests Depth Anything with visible progress before WebXR scanning, reports the exact readiness/failure state, and adds self-contained RAW room save/reopen and later Depth Anything reprocessing."
+  "app_build": "v10.0.9-depth-wasm-verified",
+  "deploy_rev": "1009m1",
+  "architecture": "V10 WebXR geometry workflow: scan -> model -> frame-quality. WebXR is requested immediately and remains the metric backbone; automatic keyframes are fused only after affine metric alignment against WebXR anchors. Depth Anything is smoke-tested at startup: Q4F16 runs on WebGPU, while the separately pinned Q4 model is the real WASM fallback. Every user-saved photograph first receives a visible relative-depth preview and contributes RGB-colored surfels only after the user confirms it; rejected or declined frames leave the WebXR map unchanged. A V10 RAW room ZIP preserves the verified colored surfel cloud, WebXR poses/depth frames, raw XR geometry, and lossless RGBA user photographs so the room can be reopened and its Depth Anything previews reprocessed without a new AR session. SAM is not loaded or used by V10. Audio remains available only in the legacy V9 workflow.",
+  "patch": "V10.0.9: WebXR is requested immediately so AI loading cannot expire the user gesture. Depth Anything uses Q4F16 on WebGPU and the separately verified Q4 model on WASM; both paths are checksum-pinned and the startup smoke inference reports provider and variant."
 }

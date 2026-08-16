@@ -5,7 +5,7 @@ from pathlib import Path
 html = Path(__file__).resolve().parents[1].joinpath("room_scanner_v10.html").read_text()
 
 required = [
-    "APP_BUILD='v10.0.8-depth-preflight-raw-room'",
+    "APP_BUILD='v10.0.9-depth-wasm-verified'",
     "id=\"v10Save\"", "id=\"v10Photos\"", "id=\"v10Model\"",
     "id=\"v10Settings\"", "id=\"v10Trace\"", "function v10Log(",
     "function v10RenderDepthPoints(", "function v10MetricPath()",
@@ -27,6 +27,7 @@ required = [
     "rawLoaded:true", "photos/photo-",
     "async function v10StartScanWithDepthCheck", "await preflightDepthAI()",
     "smoke inference riuscita",
+    "depthAIModelWasmLocal:'./models/depth_anything_v2_small_q4.onnx'",
 ]
 for token in required:
     assert token in html, token

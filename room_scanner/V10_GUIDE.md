@@ -1,8 +1,8 @@
-# Room Scanner v10.0.8 — fusione metrica, verifica Depth e stanze RAW
+# Room Scanner v10.0.9 — fusione metrica, Depth verificato e stanze RAW
 
 Aprire `room_scanner_v10.html` su un dispositivo WebXR compatibile.
 
-Prima di aprire WebXR, V10.0.8 mostra una barra di caricamento di Depth Anything e compie una smoke inference reale. Il log dichiara provider/runtime, dimensione dell'output e tempo di risposta; se il modello non è disponibile, WebXR può comunque iniziare ma il motivo preciso resta nei log e le foto si possono ricalcolare in seguito.
+V10.0.9 richiede prima WebXR, così il caricamento AI non fa scadere il gesto necessario per aprire la sessione AR. In parallelo mostra la barra di Depth Anything e compie una smoke inference reale. Il log dichiara provider, variante, dimensione dell'output e tempo di risposta: Q4F16 viene usato su WebGPU, Q4 sul fallback WASM. Se il modello non è disponibile entro 18 secondi, WebXR resta comunque attivo e il motivo preciso resta nei log.
 
 Il percorso ha tre fasi, sempre raggiungibili dai controlli in alto. SAM non viene caricato né usato in V10.
 

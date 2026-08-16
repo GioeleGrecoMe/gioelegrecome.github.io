@@ -12,7 +12,7 @@ info = json.loads((root / "build_info.json").read_text())
 build = re.search(r"const APP_BUILD='([^']+)'", html).group(1)
 rev = re.search(r"const DEPLOY_REV='([^']+)'", html).group(1)
 
-assert build == "v10.0.8-depth-preflight-raw-room"
+assert build == "v10.0.9-depth-wasm-verified"
 assert info["appBuild"] == build == info["app_build"]
 assert info["deployRev"] == rev == info["deploy_rev"]
 assert f"const BUILD_REV='{rev}'" in sw

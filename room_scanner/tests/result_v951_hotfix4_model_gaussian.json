@@ -1,9 +1,0 @@
-{
-  "status": "PASS",
-  "model_cache_network_first": true,
-  "fp32_decoder_preferred": true,
-  "quant_fallback": true,
-  "webxr_display_fallback": true,
-  "strict_geometry_preserved_for_solver": true,
-  "viewer_first_render_probe": true
-}

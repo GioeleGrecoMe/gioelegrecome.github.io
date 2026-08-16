@@ -15,11 +15,12 @@ rendering on the phone.
 
 ## Model
 
-The target model is:
+The worker uses two compatible official variants:
 
-`onnx-community/depth-anything-v2-small/onnx/model_q4f16.onnx`
+`onnx-community/depth-anything-v2-small/onnx/model_q4f16.onnx` for WebGPU and
+`onnx-community/depth-anything-v2-small/onnx/model_q4.onnx` for WASM.
 
-The single-file Q4F16 conversion is ~19.1 MB. Expected SHA-256:
+Q4F16 is ~19.1 MB (`eca72971aea64216d767c70c534160de53b5435b588d362bac6dbd5a73f9bf1e`). Q4 is ~27.4 MB (`5d55b02762e1907589158af3e366bd61ddf648155852a07bbf5e3a074639fcf8`).
 
 `eca72971aea64216d767c70c534160de53b5435b588d362bac6dbd5a73f9bf1e`
 
@@ -49,7 +50,7 @@ erase metric geometry.
 ## Mobile compute policy
 
 Runtime lives in `depth_ai_worker.js`, isolated from MobileSAM's ORT instance.
-WebGPU is attempted on compatible Chromium/Android; WASM is the fallback.
+WebGPU is attempted on compatible Chromium/Android; WASM uses Q4 as a true fallback. Q4F16 is not offered to WASM because its fp16-weight operators are not reliably implemented there.
 The worker vendors ONNX Runtime Web **1.23.2** in `vendor/depthai-123/`: this
 version has been smoke-tested with the pinned Q4F16 conversion, whereas 1.24.1
 rejected that graph in its WASM session constructor on the tested browser.

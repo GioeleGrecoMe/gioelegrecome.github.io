@@ -1,11 +1,11 @@
 /*
- * Depth Anything V2 Small Q4F16 worker — cooperative keyframe refinement.
+ * Depth Anything V2 Small worker — cooperative keyframe refinement.
  *
  * Debugging contract:
  *   - the worker owns its own ONNX Runtime instance/session;
  *   - MobileSAM's global ORT 1.14 runtime is never touched;
  *   - WebGPU is attempted only when WorkerNavigator exposes navigator.gpu;
- *   - WASM is the universal fallback;
+ *   - Q4F16 is used on WebGPU, while Q4 is the verified universal WASM fallback;
  *   - model/runtime source and provider are returned to the main thread so a
  *     phone diagnostic export can explain exactly what path was used.
  *
@@ -23,6 +23,7 @@ let session = null;
 let modelSource = null;
 let runtimeSource = null;
 let activeProvider = null;
+let modelVariant = null;
 let forceWasmRuntime = false;
 let inputSize = 518;
 let runtimeVersion = '1.23.2';
@@ -84,17 +85,22 @@ async function initRuntime() {
   ortApi.env.wasm.simd = true;
 }
 
-const DEPTH_MODEL_PIN={bytes:19126267,sha256:'eca72971aea64216d767c70c534160de53b5435b588d362bac6dbd5a73f9bf1e'};
+const DEPTH_MODEL_PINS={
+  q4f16:{bytes:19126267,sha256:'eca72971aea64216d767c70c534160de53b5435b588d362bac6dbd5a73f9bf1e'},
+  q4:{bytes:27404416,sha256:'5d55b02762e1907589158af3e366bd61ddf648155852a07bbf5e3a074639fcf8'},
+};
 let modelIntegrity=null;
 
 async function sha256Hex(buffer){
   if(!self.crypto?.subtle)return null;const d=await self.crypto.subtle.digest('SHA-256',buffer);return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,'0')).join('')
 }
+function modelPinFor(url){return /(?:^|[_/])q4f16(?:[._/]|$)/i.test(url)?DEPTH_MODEL_PINS.q4f16:DEPTH_MODEL_PINS.q4}
 async function fetchVerifiedModel(url){
+  const pin=modelPinFor(url);
   const u=new URL(url,self.location.href),local=u.origin===self.location.origin;if(local)u.searchParams.set('rsbuild',deployRev);const absolute=u.href;
   const r=await fetch(absolute,{cache:local?'no-store':'default',mode:'cors'});if(!r.ok)throw new Error(`DepthAI model HTTP ${r.status}: ${absolute}`);
-  const buffer=await r.arrayBuffer();if(buffer.byteLength!==DEPTH_MODEL_PIN.bytes)throw new Error(`DepthAI model size ${buffer.byteLength} != ${DEPTH_MODEL_PIN.bytes}`);
-  const hash=await sha256Hex(buffer);if(hash&&hash!==DEPTH_MODEL_PIN.sha256)throw new Error('DepthAI model SHA-256 non corrisponde a Q4F16 ufficiale');
+  const buffer=await r.arrayBuffer();if(buffer.byteLength!==pin.bytes)throw new Error(`DepthAI model size ${buffer.byteLength} != ${pin.bytes}`);
+  const hash=await sha256Hex(buffer);if(hash&&hash!==pin.sha256)throw new Error('DepthAI model SHA-256 non corrisponde alla variante ufficiale selezionata');
   modelIntegrity={bytes:buffer.byteLength,sha256:hash||'unavailable',url:absolute};return {buffer,absolute}
 }
 async function createSessionFrom(buffer, providers) {
@@ -104,19 +110,23 @@ async function createSessionFrom(buffer, providers) {
 function metaArray(session,kind){const names=kind==='output'?(session.outputNames||[]):(session.inputNames||[]),raw=kind==='output'?session.outputMetadata:session.inputMetadata;if(Array.isArray(raw))return names.map((n,i)=>{const m=raw.find(x=>x?.name===n)||raw[i]||{};return {name:n,type:m.type||m.dataType||null,shape:Array.from(m.shape||m.dimensions||m.dims||[])}});return names.map(n=>{const m=raw?.[n]||{};return {name:n,type:m.type||m.dataType||null,shape:Array.from(m.shape||m.dimensions||m.dims||[])}})}
 function validateDepthContract(s){const inputs=metaArray(s,'input'),outputs=metaArray(s,'output');if(inputs.length!==1)throw new Error(`DepthAI: atteso 1 input, trovati ${inputs.length}`);const sh=inputs[0].shape;if(sh.length&&sh.length!==4)throw new Error(`DepthAI: input rank atteso 4 NCHW, trovato ${JSON.stringify(sh)}`);if(sh.length&&Number.isFinite(Number(sh[1]))&&Number(sh[1])>0&&Number(sh[1])!==3)throw new Error(`DepthAI: canali input attesi 3, trovati ${sh[1]}`);if(!outputs.length)throw new Error('DepthAI: nessun output ONNX');return {inputs,outputs}}
 
-async function initModel(modelLocal, modelRemote) {
+async function initModel(modelLocal, modelRemote, modelWasmLocal, modelWasmRemote) {
   if (session) return;
   await initRuntime();
-  const modelCandidates = [modelLocal, modelRemote].filter(Boolean);
+  const gpuCandidates = [modelLocal, modelRemote].filter(Boolean);
+  const wasmCandidates = [modelWasmLocal, modelWasmRemote].filter(Boolean);
   let last = null;
-  for (const url of modelCandidates) {
+  // Q4F16 is compact and correct for WebGPU. ORT/WASM does not reliably
+  // implement its fp16-weight operators, so the universal path is Q4 instead.
+  if (!forceWasmRuntime && self.navigator && self.navigator.gpu && /webgpu/i.test(runtimeSource || '')) for (const url of gpuCandidates) {
     let loaded=null;try{loaded=await fetchVerifiedModel(url)}catch(e){last=e;continue}
-    if (!forceWasmRuntime && self.navigator && self.navigator.gpu && /webgpu/i.test(runtimeSource || '')) {
-      try {session=await createSessionFrom(loaded.buffer.slice(0), ['webgpu', 'wasm']);modelSource=loaded.absolute;activeProvider='webgpu';validateDepthContract(session);return} catch(e){last=e;session=null}
-    }
-    try {session=await createSessionFrom(loaded.buffer, ['wasm']);modelSource=loaded.absolute;activeProvider='wasm';validateDepthContract(session);return} catch(e){last=e;session=null}
+    try {session=await createSessionFrom(loaded.buffer.slice(0), ['webgpu', 'wasm']);modelSource=loaded.absolute;activeProvider='webgpu';modelVariant='q4f16';validateDepthContract(session);return} catch(e){last=e;session=null}
   }
-  throw new Error(`Depth Anything Q4F16 non caricabile: ${errText(last)}`);
+  for (const url of wasmCandidates) {
+    let loaded=null;try{loaded=await fetchVerifiedModel(url)}catch(e){last=e;continue}
+    try {session=await createSessionFrom(loaded.buffer, ['wasm']);modelSource=loaded.absolute;activeProvider='wasm';modelVariant='q4';validateDepthContract(session);return} catch(e){last=e;session=null}
+  }
+  throw new Error(`Depth Anything non caricabile (Q4F16 WebGPU e Q4 WASM): ${errText(last)}`);
 }
 
 async function runDepthSession(prep) {
@@ -213,12 +223,12 @@ self.onmessage = async (event) => {
   try {
     if (msg.type === 'init') {
       inputSize = Number(msg.inputSize || 518);
-      runtimeVersion = String(msg.runtimeVersion || '1.24.1');
+      runtimeVersion = String(msg.runtimeVersion || '1.23.2');
       deployRev = String(msg.deployRev || 'dev');
       forceWasmRuntime = !!msg.forceWasm;
-      await initModel(msg.modelLocal, msg.modelRemote);
+      await initModel(msg.modelLocal, msg.modelRemote, msg.modelWasmLocal, msg.modelWasmRemote);
       self.postMessage({
-        id, ok: true, provider: activeProvider, modelSource, runtimeSource,
+        id, ok: true, provider: activeProvider, modelVariant, modelSource, runtimeSource,
         inputNames: Array.from(session.inputNames || []), outputNames: Array.from(session.outputNames || []),
         inputShape: Array.from((session.inputMetadata && session.inputMetadata[0] && session.inputMetadata[0].shape) || []),
         contract: validateDepthContract(session), modelIntegrity, wasmPaths: ortApi.env.wasm.wasmPaths,
@@ -228,7 +238,7 @@ self.onmessage = async (event) => {
     if (msg.type === 'smoke') {
       const sw=96,sh=64,rgba=new Uint8ClampedArray(sw*sh*4);for(let y=0;y<sh;y++)for(let x=0;x<sw;x++){const i=4*(y*sw+x);rgba[i]=Math.round(255*x/(sw-1));rgba[i+1]=Math.round(255*y/(sh-1));rgba[i+2]=128;rgba[i+3]=255}
       const t0=performance.now(),r=await infer({width:sw,height:sh,rgba:rgba.buffer});
-      self.postMessage({id,ok:true,smoke:true,provider:activeProvider,inputWidth:r.inputWidth,inputHeight:r.inputHeight,inputShapeMode:r.inputShapeMode,outputWidth:r.outputWidth,outputHeight:r.outputHeight,outputName:r.outputName,inferenceMs:performance.now()-t0,contract:validateDepthContract(session),modelIntegrity,wasmPaths:ortApi.env.wasm.wasmPaths});
+      self.postMessage({id,ok:true,smoke:true,provider:activeProvider,modelVariant,inputWidth:r.inputWidth,inputHeight:r.inputHeight,inputShapeMode:r.inputShapeMode,outputWidth:r.outputWidth,outputHeight:r.outputHeight,outputName:r.outputName,inferenceMs:performance.now()-t0,contract:validateDepthContract(session),modelIntegrity,wasmPaths:ortApi.env.wasm.wasmPaths});
       return;
     }
     if (msg.type === 'infer') {

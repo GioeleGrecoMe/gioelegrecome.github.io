@@ -1,24 +1,21 @@
-ROOM SCANNER V11 - UPLOAD DA SMARTPHONE
+ROOM SCANNER V10.0.9 — PUBBLICAZIONE
 
-FILE DA CARICARE NELLA STESSA DIRECTORY DOVE ESISTONO GIA':
-  room_scanner_v10.html
-  depth_ai_worker.js
-
-CARICA SOLO QUESTI DUE NUOVI FILE:
-  room_scanner_v11.html
-  depth_ai_worker_v11.js
-
-NON SOVRASCRIVERE:
+Pubblicare nella stessa cartella del sito questi file aggiornati:
   room_scanner_v10.html
   depth_ai_worker.js
   sw.js
+  build_info.json
+  models/depth_anything_v2_small_q4f16.onnx
+  models/depth_anything_v2_small_q4.onnx
 
-NON CREARE CARTELLE NUOVE.
+I due modelli sono entrambi necessari: Q4F16 viene usato con WebGPU; Q4 viene
+usato dal fallback WASM verificato. Non rinominare i file né spostarli fuori da
+models/.
 
-DOPO IL DEPLOY APRI:
-https://gioelegrecome.github.io/room_scanner/room_scanner_v11.html
+Dopo il deploy aprire:
+https://gioelegrecome.github.io/room_scanner/room_scanner_v10.html
 
-Se GitHub Pages mostra ancora una versione vecchia, ricarica forzatamente la pagina o aggiungi temporaneamente ?v=11 all'URL:
-https://gioelegrecome.github.io/room_scanner/room_scanner_v11.html?v=11
-
-Per il debug usa il pulsante "Copia log Depth AI" nella V11 e incolla il JSON in ChatGPT.
+Se appare una versione in cache, fare un hard refresh oppure aggiungere un
+parametro temporaneo, ad esempio ?v=1009. Nei dettagli/diagnostica verificare
+che il build sia "v10.0.9-depth-wasm-verified" e che lo smoke Depth Anything
+indichi provider, variante e output validi.
