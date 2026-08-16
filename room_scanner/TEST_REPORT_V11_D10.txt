@@ -1,0 +1,27 @@
+ROOM SCANNER V11-D10 - TEST REPORT
+
+Scopo: correggere esclusivamente il SyntaxError D9 causato dalla doppia dichiarazione d9OrtDist.
+Il modello ONNX NON viene cambiato. WebXR/audio/geometria/fusion/preprocessing NON vengono cambiati.
+
+EVIDENZA LOG D9:
+- verify_ort_runtime_d9 funziona
+- il worker D9 fallisce nel bootstrap con: Identifier d9OrtDist has already been declared
+- quindi il problema D9 e nella patch del worker, non nel modello o nel CDN ORT
+
+CORREZIONE D10:
+- marker unico DEPTHAI_D10_ORT_ASSET_FIX
+- guardia doppia: marker + presenza della dichiarazione const d10OrtDist
+- ramo worker gia diagnostico: massimo una iniezione
+- ramo worker non diagnostico seguito da augment: massimo una iniezione
+- seconda applicazione augment: idempotente
+
+TEST ESEGUITI NEL CONTAINER:
+PASS node --check room_scanner_v11_d10_loader.js
+PASS node --check room_scanner_v11_d10_diag.js
+PASS node --check depth_ai_worker_v11_d10.js
+PASS HTML -> loader D10 -> worker D10 -> diag D10 references
+PASS no residual V11-D9/d9OrtDist/roomScannerV11D9 tokens
+PASS fresh-worker single ORT injection
+PASS already-instrumented worker single ORT injection
+PASS second-pass idempotence
+PASS flat ZIP integrity

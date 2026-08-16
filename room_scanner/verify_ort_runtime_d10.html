@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ROOM SCANNER V11-D10 · ORT ASSET VERIFIER</title>
+<style>body{font:14px system-ui;background:#101317;color:#eef;padding:14px}#badge{background:#ffcf33;color:#111;padding:10px;font-weight:900;position:sticky;top:0}button{padding:10px;margin:10px 0}pre{white-space:pre-wrap;word-break:break-word;background:#050608;padding:10px;border:1px solid #556;min-height:240px}</style></head>
+<body><div id="badge">ROOM SCANNER V11-D10 · ORT 1.23.2 ASSET VERIFIER</div><p>Controlla solo la raggiungibilita degli asset ORT usati da D10. Non avvia WebXR e non modifica la V10.</p><button id="go">VERIFICA ORT 1.23.2</button><pre id="out">pronto</pre>
+<script>
+(()=>{
+ const base='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/';
+ const assets=[
+  ['webgpu-js','ort.webgpu.min.js','GET'],
+  ['webgpu-mjs','ort-wasm-simd-threaded.asyncify.mjs','GET'],
+  ['webgpu-wasm','ort-wasm-simd-threaded.asyncify.wasm','HEAD'],
+  ['wasm-js','ort.min.js','GET'],
+  ['wasm-mjs','ort-wasm-simd-threaded.mjs','GET'],
+  ['wasm-bin','ort-wasm-simd-threaded.wasm','HEAD'],
+ ];
+ const out=document.getElementById('out'),btn=document.getElementById('go');
+ const rows=[]; const show=()=>out.textContent=JSON.stringify({build:'V11-D10',href:location.href,secureContext:isSecureContext,rows},null,2);
+ btn.onclick=async()=>{btn.disabled=true;rows.length=0;show();for(const [label,file,method] of assets){const url=base+file;const t0=performance.now();try{const r=await fetch(url,{method,cache:'no-store'});let bytes=null;if(method==='GET'){const b=await r.arrayBuffer();bytes=b.byteLength}rows.push({label,file,method,status:r.status,ok:r.ok,contentType:r.headers.get('content-type'),contentLength:r.headers.get('content-length'),bytes,elapsed_ms:Math.round((performance.now()-t0)*10)/10,url})}catch(e){rows.push({label,file,method,ok:false,error:String(e&&e.stack||e),elapsed_ms:Math.round((performance.now()-t0)*10)/10,url})}show()}btn.disabled=false};
+})();
+</script></body></html>
