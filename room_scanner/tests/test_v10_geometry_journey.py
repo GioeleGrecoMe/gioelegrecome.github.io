@@ -46,9 +46,12 @@ assert "S.semantic.autoDiscover=false" in v10_tail
 assert "S.semantic.mode='off'" in v10_tail
 assert "$('#objectSeedUI')?.remove()" in v10_tail
 assert "R.manualDepthState='awaiting-confirmation'" in v10_tail
-assert "✓ Applica alla mappa" in v10_tail
+assert "✓ Applica ${R.manualDepthCandidatePoints||0} punti" in v10_tail
+assert "fuseDepthAIFrame(D,pred,out.outputWidth,out.outputHeight,fit,h5w5LiveDepthBudget(),true)" in v10_tail
 assert "v10AutoFuseManualReview" not in v10_tail
-assert "worker riavviato, ritento la preview Depth Anything" in v10_tail
+assert "Riprovo la preview" in v10_tail
+assert "↻ Ricalcola Depth" in v10_tail
+assert "riproiettati con posa WebXR nella nuvola 3D globale" in v10_tail
 
 for token in [
     "id=\"v10PhaseScan\"", "id=\"v10PhaseModel\"", "id=\"v10PhasePhotos\"",
