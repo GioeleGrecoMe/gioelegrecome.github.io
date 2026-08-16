@@ -1,0 +1,32 @@
+ROOM SCANNER V11-D5 - ISTRUZIONI UPLOAD
+
+Carica NELLA STESSA DIRECTORY di room_scanner_v10.html soltanto:
+  1) room_scanner_v11_d5.html
+  2) depth_ai_worker_v11_d5.js
+
+Non modificare o cancellare:
+  - room_scanner_v10.html
+  - depth_ai_worker.js
+  - sw.js
+  - vendor/ e models/ gia presenti sul sito
+
+Apri poi:
+https://gioelegrecome.github.io/room_scanner/room_scanner_v11_d5.html?build=v11d5-20260816-parsefix
+
+VERIFICA VISIVA IMMEDIATA
+Deve essere SEMPRE visibile in alto una barra gialla con:
+  ROOM SCANNER V11-D5 - DEPTH TRACE ACTIVE - BUILD 2026-08-16
+
+Inoltre, se il testo V10 corrente e quello verificato, il titolo della pagina applicativa diventa:
+  ROOM SCANNER V11-D5 - DEPTH TRACE + RAW
+
+Se vedi soltanto "ROOM SCANNER V10.0.8 - DEPTH VERIFIED + RAW" e NON compare la barra gialla V11-D5,
+non stai eseguendo questo file D5 (upload/percorso/cache errato).
+
+LOG
+Il pannello nero/giallo "V11-D5 - LIVE DEPTH TRACE" deve mostrare gli eventi mentre avvengono.
+Usa "COPIA LOG" per copiare il report corrente.
+Se la pagina si chiude/crasha, riaprila e usa "LOG PRECEDENTE" per recuperare l'ultimo trace salvato.
+
+Per forzare solo Depth Anything in WASM:
+https://gioelegrecome.github.io/room_scanner/room_scanner_v11_d5.html?wasm=1&build=v11d5-20260816-parsefix
