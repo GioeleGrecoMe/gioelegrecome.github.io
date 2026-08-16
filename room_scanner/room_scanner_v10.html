@@ -598,8 +598,8 @@ import * as THREE from 'three';
 // ============================================================================
 
 const $=q=>document.querySelector(q);
-const APP_BUILD='v10.0.5-three-phase-review';
-const DEPLOY_REV='952h5w15';
+const APP_BUILD='v10.0.6-metric-fusion';
+const DEPLOY_REV='1006m1';
 const CFG={
   // Dense geometry map. 6 cm is deliberately conservative on phones: small
   // enough to preserve walls/door recesses, large enough to average depth noise.
@@ -4229,7 +4229,7 @@ const h5w15MapUIBase=updateMapWarmupUI;
 updateMapWarmupUI=function(force=false){const r=h5w15MapUIBase(force);if(S.flow.step==='map'){h5w15EnsureReviewState();const A=S.depthAI.reviewFrames,f=A.filter(x=>x.state==='fused').length;const h=$('#mapFlowHint');if(h)h.textContent+=` · Depth Anything: ${A.length} frame selezionati, ${f} integrati con WebXR.`}return r};
 async function h5w15CaptureManualReviewFrame(){
   const F=h5w5LatestSelectableFrame();if(!F||!S.latestCameraRGB||!S.latestCameraView){$('#mapFlowHint').textContent='Foto non ancora disponibile: mantieni la stanza inquadrata e aspetta un frame RGB-D.';return}
-  const V=S.latestCameraView,K={id:F.id,t:F.t,width:V.width,height:V.height,rgba:new Uint8ClampedArray(S.latestCameraRGB),cols:F.cols,rows:F.rows,depth:Float32Array.from(F.depth),worldToView:F.worldToView.toArray(),projection:F.projection.toArray(),cam:[...F.cam],q:[...F.q],quality:{...(F.semanticQuality||{}),manual:true}};const R=h5w15RegisterReviewFrame(K,{manual:true});if(R){R.manual=true;$('#mapFlowHint').textContent=`Foto #${F.id} salvata per la revisione successiva. Depth Anything la elaborerà se supera il gate metrico XR.`;addEvent?.('depth_review_manual_photo',{frameId:F.id,score:R.quality?.score||null})}
+  const V=S.latestCameraView,manualId=`manual-${F.id}-${(S.depthAI.manualCaptureSeq=(S.depthAI.manualCaptureSeq||0)+1)}`,K={id:manualId,t:F.t,width:V.width,height:V.height,rgba:new Uint8ClampedArray(S.latestCameraRGB),cols:F.cols,rows:F.rows,depth:Float32Array.from(F.depth),worldToView:F.worldToView.toArray(),projection:F.projection.toArray(),cam:[...F.cam],q:[...F.q],quality:{...(F.semanticQuality||{}),manual:true}};const R=h5w15RegisterReviewFrame(K,{manual:true});if(R){R.manual=true;R.sourceFrameId=F.id;$('#mapFlowHint').textContent=`Foto #${F.id} salvata per la revisione successiva. Depth Anything la elaborerà per la tua conferma.`;addEvent?.('depth_review_manual_photo',{frameId:F.id,reviewId:manualId,score:R.quality?.score||null})}
 }
 const h5w15ContinueFromMapBase=continueFromMap;
 continueFromMap=async function(){if(S.flow.step!=='map')return;const b=$('#mapContinue');b.disabled=true;const old=b.textContent;b.textContent='Apro la galleria…';try{S.flow.semanticAvailable=semanticWarmReady();S.flow.semanticSkipReason=null;enterObjectSeeding({preserve:true,returnToMeasurement:S.flow.measurementPaused})}finally{b.disabled=false;b.textContent=old}};
@@ -4283,7 +4283,7 @@ body.v10-mode #landing{display:none!important}body.v10-mode #xrMapUI,body.v10-mo
 </style>`);
 document.body.insertAdjacentHTML('beforeend',`<section id="v10Welcome" aria-label="Room Scanner v10.0.3"><div class="v10WelcomeCard"><div class="v10Kicker">ROOM SCANNER V10.0.3 · GEOMETRIA</div><h1>Scansiona, controlla, costruisci.</h1><p>La mappa metrica viene costruita continuamente da WebXR e rifinita da Depth Anything soltanto sui frame migliori. L’audio non fa parte di questo percorso.</p><div class="v10Steps"><div class="v10Step"><b>1 · Muoviti</b> — inquadra pareti, pavimento e angoli da più distanze.</div><div class="v10Step"><b>2 · Rivedi</b> — conserva foto, scegli i frame utili e usa SAM solo per gli oggetti che vuoi.</div><div class="v10Step"><b>3 · Esplora</b> — apri il modello 3D quando vuoi; continua poi la scansione oppure rimuovi/aggiungi oggetti.</div></div><button type="button" id="v10Start" class="primary">Apri scansione 3D</button></div></section><section id="v10Live" aria-label="Controlli rapidi v10.0.3"><div class="v10LiveCard"><div class="v10LiveHead"><b>V10.0.3 · Scansione geometrica</b><span id="v10State">attendo tracking</span></div><div id="v10Hint" class="v10LiveHint">Muoviti lentamente lungo pareti e angoli. Depth Anything lavora in automatico sui frame abbastanza buoni.</div><div class="v10LiveMetrics"><div class="v10Metric">superfici<b id="v10Surfels">0</b></div><div class="v10Metric">frame AI<b id="v10Frames">0</b></div><div class="v10Metric">punti raffinati<b id="v10Points">0</b></div></div><div class="v10Actions"><button type="button" id="v10Save">＋ Salva foto</button><button type="button" id="v10Objects">Oggetti / frame</button><button type="button" id="v10Model" class="primary">Crea modello 3D</button></div><div id="v10ObjectsList" class="v10ObjectList"></div></div></section>`);
 document.body.classList.add('v10-mode');
-document.title='Room Scanner V10.0.5 · Three Phase Review';
+document.title='Room Scanner V10.0.6 · Metric Fusion';
 // WebXR DOM Overlay only guarantees visibility and touch delivery for children
 // of its declared root (#hud). Keep every live control there, including the
 // object reviewer, instead of relying on regular page compositing behind AR.
@@ -4293,11 +4293,14 @@ body.object-seeding #v10Live{display:none!important}#v10Live{z-index:108!importa
 </style>`);
 $('#v10Live').innerHTML=`<div class="v10LiveCard"><div class="v10LiveHead"><b>V10.0.3 · SCANSIONE 3D</b><span id="v10State">attendo tracking</span><button type="button" id="v10Settings" aria-expanded="false" title="Dettagli e log">⚙</button></div><div id="v10Hint" class="v10LiveHint">Muoviti lentamente lungo pareti e angoli. Depth Anything lavora in automatico sui frame abbastanza buoni.</div><div id="v10Next" class="v10Next">Prossimo: inquadra un angolo o attraversa la stanza senza ruotare troppo velocemente.</div><div class="v10LiveMetrics"><div class="v10Metric">superfici<b id="v10Surfels">0</b></div><div class="v10Metric">frame AI<b id="v10Frames">0</b></div><div class="v10Metric">punti raffinati<b id="v10Points">0</b></div></div><div class="v10Actions"><button type="button" id="v10Save">＋ Foto</button><button type="button" id="v10Objects">Oggetti</button><button type="button" id="v10Model" class="primary">Crea modello 3D</button></div><div id="v10Trace" class="v10Trace" aria-live="polite">[avvio] in attesa del tracking WebXR…</div><div class="v10Details"><div><button type="button" id="v10TogglePoints">Punti DepthAI: ON</button> <button type="button" id="v10SamToggle">SAM: OFF</button> <button type="button" id="v10ExportDiag">Diagnostica</button></div><div id="v10DetailsLog" class="v10DetailsLog"></div><div id="v10ObjectsList" class="v10ObjectList"></div></div></div>`;
 $('#v10Live').innerHTML=`<div class="v10LiveCard"><div class="v10LiveHead"><b>V10.0.4 · SCANSIONE 3D</b><span id="v10State">attendo tracking</span><button type="button" id="v10Settings" aria-expanded="false" title="Dettagli e log">⚙</button></div><div id="v10Hint" class="v10LiveHint">Muoviti lentamente lungo pareti e angoli. Depth Anything lavora in automatico sui frame abbastanza buoni.</div><div id="v10Next" class="v10Next">Prossimo: inquadra un angolo o attraversa la stanza senza ruotare troppo velocemente.</div><div class="v10LiveMetrics"><div class="v10Metric">superfici<b id="v10Surfels">0</b></div><div class="v10Metric">frame AI<b id="v10Frames">0</b></div><div class="v10Metric">punti raffinati<b id="v10Points">0</b></div></div><div class="v10Actions"><button type="button" id="v10Save">＋ Foto</button><button type="button" id="v10Objects">Oggetti</button><button type="button" id="v10Model" class="primary">Crea modello 3D</button></div><div id="v10Trace" class="v10Trace" aria-live="polite">[avvio] in attesa del tracking WebXR…</div><div class="v10Details"><div><button type="button" id="v10TogglePoints">Punti DepthAI: ON</button> <button type="button" id="v10SamToggle">SAM: OFF</button> <button type="button" id="v10ExportDiag">Diagnostica</button></div><div id="v10DetailsLog" class="v10DetailsLog"></div><div id="v10ObjectsList" class="v10ObjectList"></div></div></div>`;
-$('#v10Live .v10LiveHead b').textContent='V10.0.5 · SCANSIONE 3D';$('#v10Objects').textContent='Revisione';$('#v10Model').textContent='Modello';
-$('#v10Welcome .v10Kicker').textContent='ROOM SCANNER V10.0.5 · GEOMETRIA';
-document.head.insertAdjacentHTML('beforeend',`<style>.v10PhaseNav{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:6px}.v10PhaseNav button{min-height:29px;padding:4px 5px;font-size:9px}.v10PhaseNav button.active{border-color:#7de7ff;background:#173b50!important}.v10ModelStage{display:none;position:absolute;z-index:109;top:10px;left:10px;right:10px;max-width:540px;margin:auto;pointer-events:auto}.v10ModelStage.show{display:block}.v10ModelStage .card{padding:12px;border:1px solid rgba(99,220,255,.36);border-radius:14px;background:rgba(4,13,23,.90);box-shadow:0 8px 24px rgba(0,0,0,.3)}.v10ModelStage .actions{display:flex;gap:6px;margin-top:9px}.v10ModelStage button{min-height:38px;font-size:10px}</style>`);
-$('#v10Live .v10LiveHead').insertAdjacentHTML('afterend','<nav class="v10PhaseNav" aria-label="Fasi"><button type="button" id="v10PhaseScan" class="active">1 · Scansione</button><button type="button" id="v10PhaseModel">2 · Modello</button><button type="button" id="v10PhaseReview">3 · Revisione</button></nav>');
-$('#hud').append(Object.assign(document.createElement('section'),{id:'v10ModelStage',className:'v10ModelStage',innerHTML:'<div class="card"><b>2 · Modello 3D</b><p class="small">La base metrica continua a restare disponibile. Puoi tornare alla scansione oppure aprire il viewer finale, che chiuderà WebXR per liberare il renderer.</p><div class="actions"><button type="button" id="v10ModelBack">← Scansione</button><button type="button" id="v10ModelBuild" class="primary">Elabora e apri modello</button></div></div>'}));
+$('#v10Live').innerHTML=`<div class="v10LiveCard"><div class="v10LiveHead"><b>V10.0.6 · SCANSIONE 3D</b><span id="v10State">attendo tracking</span><button type="button" id="v10Settings" aria-expanded="false" title="Dettagli e log">⚙</button></div><nav class="v10PhaseNav" aria-label="Fasi"><button type="button" id="v10PhaseScan" class="active">1 · Scansione</button><button type="button" id="v10PhaseModel">2 · Modello</button><button type="button" id="v10PhasePhotos">3 · Frame</button></nav><div id="v10Hint" class="v10LiveHint">Muoviti lentamente lungo pareti e angoli. WebXR misura; Depth Anything verifica e rifinisce solo i frame coerenti.</div><div id="v10Next" class="v10Next">Prossimo: inquadra un angolo o attraversa la stanza senza ruotare troppo velocemente.</div><div class="v10LiveMetrics"><div class="v10Metric">superfici<b id="v10Surfels">0</b></div><div class="v10Metric">frame AI<b id="v10Frames">0</b></div><div class="v10Metric">punti raffinati<b id="v10Points">0</b></div></div><div class="v10Actions"><button type="button" id="v10Save">＋ Foto</button><button type="button" id="v10Photos">Frame / qualità</button><button type="button" id="v10Model" class="primary">Modello</button></div><div id="v10Trace" class="v10Trace" aria-live="polite">[avvio] in attesa del tracking WebXR…</div><div class="v10Details"><div><button type="button" id="v10TogglePoints">Punti DepthAI: ON</button> <button type="button" id="v10ExportDiag">Diagnostica</button></div><div id="v10DetailsLog" class="v10DetailsLog"></div></div></div>`;
+$('#v10Welcome .v10Kicker').textContent='ROOM SCANNER V10.0.6 · FUSIONE METRICA';
+$('#v10Welcome h1').textContent='Scansiona, verifica, costruisci.';
+$('#v10Welcome p').textContent='WebXR è la base metrica. Depth Anything controlla la profondità relativa sui frame nitidi e aggiunge soltanto punti che superano la verifica metrica; i colori provengono dalle immagini RGB.';
+$('#v10Welcome .v10Steps').innerHTML='<div class="v10Step"><b>1 · Scansione</b> — inquadra pareti, pavimento e angoli da più distanze.</div><div class="v10Step"><b>2 · Fusioni automatiche</b> — i frame buoni e le foto salvate vengono verificati e integrati senza interromperti.</div><div class="v10Step"><b>3 · Modello</b> — controlla i frame, poi apri il modello 3D navigabile.</div>';
+document.head.insertAdjacentHTML('beforeend',`<style>.v10PhaseNav{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:6px}.v10PhaseNav button{min-height:29px;padding:4px 5px;font-size:9px}.v10PhaseNav button.active{border-color:#7de7ff;background:#173b50!important}.v10ModelStage,.v10PhotoStage{display:none;position:absolute;z-index:109;top:10px;left:10px;right:10px;max-width:540px;margin:auto;pointer-events:auto}.v10ModelStage.show,.v10PhotoStage.show{display:block}.v10ModelStage .card,.v10PhotoStage .card{padding:12px;border:1px solid rgba(99,220,255,.36);border-radius:14px;background:rgba(4,13,23,.90);box-shadow:0 8px 24px rgba(0,0,0,.3)}.v10ModelStage .actions,.v10PhotoStage .actions{display:flex;gap:6px;margin-top:9px}.v10ModelStage button,.v10PhotoStage button{min-height:38px;font-size:10px}.v10PhotoRows{max-height:360px;overflow:auto;margin-top:8px}.v10PhotoRow{padding:9px 0;border-top:1px solid rgba(255,255,255,.1);font:10px/1.35 ui-monospace,SFMono-Regular,monospace}.v10PhotoPair{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.v10PhotoPair figure{margin:0}.v10PhotoPair img{display:block;width:100%;max-height:140px;object-fit:cover;border-radius:7px;background:#06101b}.v10PhotoPair figcaption{padding-top:2px;font-size:8px;color:#b8cbd9}.v10PhotoApply{margin-top:6px;display:flex;gap:6px;align-items:center}.v10PhotoApply button{min-height:30px;padding:4px 8px;font-size:9px}.v10PhotoOk{color:#8df3bc}.v10PhotoWarn{color:#ffd36b}</style>`);
+$('#hud').append(Object.assign(document.createElement('section'),{id:'v10ModelStage',className:'v10ModelStage',innerHTML:'<div class="card"><b>2 · Modello 3D</b><p id="v10ModelStageHint" class="small">La base metrica continua a restare disponibile. Puoi tornare alla scansione oppure aprire il viewer finale, che chiuderà WebXR per liberare il renderer.</p><div class="actions"><button type="button" id="v10ModelBack">← Scansione</button><button type="button" id="v10ModelBuild" class="primary">Elabora e apri modello</button></div></div>'}));
+$('#hud').append(Object.assign(document.createElement('section'),{id:'v10PhotoStage',className:'v10PhotoStage',innerHTML:'<div class="card"><b>3 · Frame e qualità</b><p class="small">Le foto salvate alimentano automaticamente Depth Anything. Un frame viene fuso solo quando le ancore WebXR rendono affidabile la conversione relativa → metrica.</p><div id="v10PhotoRows" class="v10PhotoRows"></div><div class="actions"><button type="button" id="v10PhotoBack">← Scansione</button></div></div>'}));
 S.v10Log=[];
 function v10Log(message,level='info',data=null){const e={t:new Date().toLocaleTimeString(),level,message,data};S.v10Log.unshift(e);S.v10Log.length=Math.min(S.v10Log.length,36);const trace=$('#v10Trace'),full=$('#v10DetailsLog');if(trace){const A=S.v10Log.slice(0,2);trace.innerHTML=A.map(x=>`<div class="${x.level==='error'?'err':''}">[${x.t}] ${x.message}</div>`).join('')}if(full)full.textContent=S.v10Log.map(x=>`[${x.t}] ${x.level.toUpperCase()} ${x.message}${x.data?` · ${JSON.stringify(x.data)}`:''}`).join('\n')}
 window.addEventListener('error',e=>v10Log(`${e.error?.name||'Errore'}: ${e.message}`,'error'));window.addEventListener('unhandledrejection',e=>v10Log(`Promise: ${e.reason?.message||e.reason||'errore sconosciuto'}`,'error'));
@@ -4308,123 +4311,45 @@ const v10LogBase=v10Log;v10Log=function(message,level='info',data=null){v10LogBa
 const v10DiagnosticSnapshotBase=diagnosticSnapshot;
 diagnosticSnapshot=function(){const d=v10DiagnosticSnapshotBase();d.v10={appBuild:APP_BUILD,depthAnythingLastMetricCheck:S.depthAI?.lastMetricCheck||null,manualDepthFusion:S.v10?.lastManualDepthFusion||null,reconstructionPruning:{active:!!S.v10PrunePass,lastCompleted:S.v10PruneLastCompleted||null},recentAILog:(S.v10Log||[]).slice(0,20)};return d};
 
-// SAM is an explicit opt-in. Opening the object workflow is sufficient to ask
-// for it, but no model is loaded or inference run during normal room mapping.
-S.v10=S.v10||{};S.v10.samEnabled=!!S.v10.samEnabled;S.v10.autoSamPhotos=S.v10.autoSamPhotos!==false;S.v10.objectDepthRequests=S.v10.objectDepthRequests||new Set();
-const v10RefreshSAMActionBase=h5w15RefreshSAMAction;
-h5w15RefreshSAMAction=function(){
-  v10RefreshSAMActionBase();const b=$('#seedSegment');
-  if(b&&!S.v10.samEnabled){b.disabled=true;b.textContent='Attiva SAM per segmentare'}
-};
-function v10RefreshSamControls(){const on=!!S.v10?.samEnabled;for(const b of [$('#v10SamObjectToggle')])if(b){b.textContent=on?'Disattiva SAM':'Attiva SAM';b.classList.toggle('primary',!on)}const h=$('#v10SamToggle');if(h)h.textContent=`SAM: ${on?'ON':'OFF'}`;const a=$('#v10AutoSamToggle');if(a)a.textContent=`Auto SAM foto: ${S.v10.autoSamPhotos?'ON':'OFF'}`;const d=$('#v10ObjectDepth');if(d)d.disabled=!on;h5w15RefreshSAMAction()}
-async function v10SetSamEnabled(want){
-  if(!want){S.v10.samEnabled=false;v10RefreshSamControls();v10Log('MobileSAM disattivata: i frame e la mappa WebXR restano disponibili.');return false}
-  if(S.v10.samEnabled&&semanticWarmReady()){v10RefreshSamControls();return true}
-  v10Log('Attivo MobileSAM: verifico encoder e decoder locali prima di usarli.');setAIMiniProgress('MobileSAM',null,'verifica locale richiesta dall’utente');
-  try{const r=await preflightGuidedObjectSeeding({reason:'v10-user-toggle'});if(!r?.ok)throw new Error(r?.error||S.semantic.preflightError||S.semantic.modelError||'modelli locali non disponibili');S.v10.samEnabled=true;v10RefreshSamControls();v10Log(`MobileSAM ON: ${S.semantic.encoderVariant||'encoder'} + ${S.semantic.decoderVariant||'decoder'} verificati. Seleziona un frame e premi Applica SAM.`);return true}
-  catch(e){S.v10.samEnabled=false;v10RefreshSamControls();v10Log(`MobileSAM NON attivata: ${e.message||e}. Puoi continuare a mappare senza SAM.`,'error');return false}
-  finally{hideAIMiniProgress(250)}
-}
-async function v10OpenObjects(){
-  // Tapping "Oggetti" is the explicit user choice to use the optional semantic
-  // route. It loads SAM once, then opens only the existing review gallery.
-  if((!S.v10.samEnabled||!semanticWarmReady())&&!(await v10SetSamEnabled(true)))return;
-  v10Log('Apro i frame raccolti: scegli una foto, disegna un’area 2D, poi applica SAM.');
-  if(S.flow.step==='map')await continueFromMap();else if(!S.objectSeeding.active)enterObjectSeeding({preserve:true});
-  if(!S.objectSeeding.active)v10Log('Galleria oggetti non disponibile: la sessione WebXR non è attiva oppure SAM non è pronta.','warn');
-  else{v10ConfigureReviewUI();v10SetPhase('review');await v10AutoAnalyzePendingManualPhotos()}v10RefreshSamControls();
-}
-$('#v10SamToggle').onclick=()=>v10SetSamEnabled(!S.v10.samEnabled);
-$('#v10SamObjectToggle').onclick=()=>v10SetSamEnabled(!S.v10.samEnabled);
-$('#v10AutoSamToggle').onclick=()=>{S.v10.autoSamPhotos=!S.v10.autoSamPhotos;v10RefreshSamControls();v10Log(`Auto SAM sulle foto manuali: ${S.v10.autoSamPhotos?'attiva':'disattiva'}.`) };
-v10RefreshSamControls();
-function v10ConfigureReviewUI(){
-  $('#seedBack').textContent='← Scansione';$('#seedDone').textContent='← Scansione';$('#seedConfirm').textContent='✓ Conferma oggetto';$('#seedRetry').textContent='✕ Elimina foto';
-  for(const el of [$('#seedLoadModel'),$('#seedUndo'),$('#seedManage'),$('#seedSkip'),$('#seedFinalizeObject'),$('#seedObjectName'),$('.v95ObjectSetup'),$('#seedBoundaryTools')])if(el)el.style.display='none';
-  $('#seedHint').textContent='Controlla solo la maschera: conferma per aggiungere l’oggetto, oppure elimina la foto e ripetila con l’oggetto più centrato.';
-  const hint=$('#depthReviewPanel .depthReviewHint');if(hint)hint.textContent='Le foto manuali hanno già raffinato la mappa con Depth Anything. Qui confermi solo gli oggetti che vuoi aggiungere.';
-}
-async function v10RejectCurrentReview(){
-  const id=S.objectSeeding?.reviewFrameId,P=S.objectSeeding?.pending;S.objectSeeding.pending=null;clearObjectSeedMask();
-  const A=S.depthAI.reviewFrames||[],i=A.findIndex(x=>x.id===id);if(i>=0)A.splice(i,1);if(id!=null){const j=S.mapFrames.findIndex(x=>x.id===id&&x.reviewFrame);if(j>=0)S.mapFrames.splice(j,1)}
-  $('#seedConfirm').disabled=true;$('#seedRetry').disabled=true;v10Log(`Foto #${id||'—'} eliminata dalla revisione. Riscattala con l’oggetto più centrato e ben illuminato.`,'warn');
-  h5w15RenderReviewFrames();await v10AutoAnalyzePendingManualPhotos();if(!S.objectSeeding?.pending)$('#seedHint').textContent='Nessuna proposta da confermare: salva o riscattata una foto dell’oggetto che vuoi aggiungere.';
-}
-const v10ConfirmReviewBase=confirmObjectSeed;
-confirmObjectSeed=async function(){
-  const before=S.semantic.objects.length;await v10ConfirmReviewBase();const C=S.objectSeeding?.currentCapture;
-  if((S.semantic.objects.length===before)&&C?.views?.length){const min=CFG.objectCaptureMinViews;try{CFG.objectCaptureMinViews=1;await finalizeCurrentObjectCapture()}finally{CFG.objectCaptureMinViews=min}}
-  if(S.semantic.objects.length>before){v10Log('Oggetto confermato e associato alla mappa 3D.');await v10AutoAnalyzePendingManualPhotos()}else if(S.objectSeeding?.pending)$('#seedHint').textContent='La maschera non ha ancora supporto 3D sufficiente: elimina e ripeti la foto includendo meglio l’oggetto.';
-};
-$('#seedConfirm').onclick=confirmObjectSeed;$('#seedRetry').onclick=v10RejectCurrentReview;
-function v10SetPhase(which){for(const [name,b] of Object.entries({scan:$('#v10PhaseScan'),model:$('#v10PhaseModel'),review:$('#v10PhaseReview')}))b?.classList.toggle('active',name===which)}
-function v10ShowModelStage(){if(!S.session){v10Log('Modello finale già chiuso: avvia una nuova scansione per acquisire altri dati.','warn');return}v10SetPhase('model');$('#v10ModelStage').classList.add('show');$('#v10Live').style.display='none'}
-async function v10ShowScanStage(){if(S.objectSeeding?.active)await finishObjectSeeding(true);v10SetPhase('scan');$('#v10ModelStage').classList.remove('show');$('#v10Live').style.display='';v10Refresh()}
-$('#v10PhaseScan').onclick=()=>v10ShowScanStage();$('#v10PhaseModel').onclick=v10ShowModelStage;$('#v10PhaseReview').onclick=()=>v10OpenObjects();$('#v10ModelBack').onclick=()=>v10ShowScanStage();$('#v10ModelBuild').onclick=v10OpenModel;
-
-// A user photo is normally framed around a single intended object. Queue an
-// automatic central proposal for review; it never creates a persistent object
-// until the user explicitly confirms the resulting mask.
-async function v10AutoAnalyzePendingManualPhotos(){
-  if(!S.v10.samEnabled||!S.v10.autoSamPhotos||!S.objectSeeding?.active)return;
-  const R=(S.depthAI.reviewFrames||[]).filter(x=>x.manual&&!x.autoSamHandled).sort((a,b)=>a.createdAt-b.createdAt)[0];if(!R)return;
-  await h5w15SelectReviewFrame(R.id);
-}
-const v10SelectReviewFrameBase=h5w15SelectReviewFrame;
-h5w15SelectReviewFrame=async function(id){
-  const r=await v10SelectReviewFrameBase(id),R=(S.depthAI.reviewFrames||[]).find(x=>x.id===id);
-  if(!R?.manual||R.autoSamHandled||!S.v10?.autoSamPhotos||!S.v10?.samEnabled||S.v10.autoSamSelecting)return r;
-  S.v10.autoSamSelecting=true;R.autoSamHandled=true;v10Log(`Foto #${R.id}: creo una proposta SAM automatica; potrai correggerla o scartarla.`);
-  try{h5w13SetSeedROI({x:.18,y:.18,w:.64,h:.64});setObjectSeedPromptUV(.5,.5);h5w15RefreshSAMAction();await segmentObjectSeed();R.autoSamApplied=!!S.objectSeeding?.pending?.candidate;if(!R.autoSamApplied)v10Log(`Foto #${R.id}: nessuna proposta SAM utilizzabile; disegna un’altra area 2D.`,'warn')}
-  finally{S.v10.autoSamSelecting=false}
-  return r
-};
+// V10 deliberately has no semantic stage.  Its mapping path is strictly
+// WebXR metric observations + Depth Anything relative depth, admitted only
+// after the metric gate.  Keep legacy SAM assets for the V9 page, but remove
+// its UI and every V10 call path so it cannot load or compete for the AI worker.
+S.v10=S.v10||{};S.v10.pipeline='WebXR + Depth Anything';S.v10.samEnabled=false;S.semantic.autoDiscover=false;S.semantic.mode='off';S.semantic.queue.length=0;
+$('#objectSeedUI')?.remove();
+function v10SetPhase(which){for(const [name,b] of Object.entries({scan:$('#v10PhaseScan'),model:$('#v10PhaseModel'),photos:$('#v10PhasePhotos')}))b?.classList.toggle('active',name===which)}
+function v10PhotoStatus(R){if(R.manualDepthState==='fused')return {label:`integrata · +${R.manualDepthPoints||0} punti RGB metrici`,ok:true};if(R.manualDepthState==='awaiting-confirmation')return {label:`pronta · ${R.manualDepthFit?.inliers||0}/${R.manualDepthFit?.anchors||0} ancore · conferma per applicare`,ok:false};if(R.manualDepthState==='declined')return {label:'non applicata su tua scelta',ok:false};if(R.manualDepthState==='rejected')return {label:'non applicabile · ancore WebXR o fit metrico insufficienti',ok:false};if(R.manualDepthState==='error')return {label:'errore inferenza · la mappa WebXR resta invariata',ok:false};return {label:'analisi Depth Anything in coda',ok:false}}
+function v10DepthHeatmap(pred,w,h){const A=Array.from(pred).filter(Number.isFinite).sort((a,b)=>a-b);if(!A.length)return '';const lo=A[Math.floor(A.length*.03)],hi=A[Math.floor(A.length*.97)],span=Math.max(1e-6,hi-lo),scale=Math.min(360/w,220/h,1),cw=Math.max(1,Math.round(w*scale)),ch=Math.max(1,Math.round(h*scale)),src=document.createElement('canvas'),dst=document.createElement('canvas');src.width=w;src.height=h;dst.width=cw;dst.height=ch;const I=new ImageData(w,h);for(let i=0;i<pred.length;i++){const t=clamp01((pred[i]-lo)/span),j=4*i;I.data[j]=Math.round(255*Math.max(0,1.5-Math.abs(4*t-3)));I.data[j+1]=Math.round(255*Math.max(0,1.5-Math.abs(4*t-2)));I.data[j+2]=Math.round(255*Math.max(0,1.5-Math.abs(4*t-1)));I.data[j+3]=255}src.getContext('2d',{alpha:false}).putImageData(I,0,0);dst.getContext('2d',{alpha:false}).drawImage(src,0,0,cw,ch);return dst.toDataURL('image/png')}
+function v10RenderPhotoReview(){const host=$('#v10PhotoRows');if(!host)return;const A=(S.depthAI.reviewFrames||[]).filter(x=>x.manual).slice().reverse();host.innerHTML=A.length?'':'<div class="small">Nessuna foto salvata. Durante la scansione, + Foto conserva un frame, calcola la mappa Depth Anything e attende la tua conferma prima di aggiungere punti.</div>';for(const R of A){const s=v10PhotoStatus(R),row=document.createElement('div');row.className='v10PhotoRow';row.innerHTML=`Foto #${R.sourceFrameId||R.id} · <span class="${s.ok?'v10PhotoOk':'v10PhotoWarn'}">${s.label}</span>${R.depthPreview?`<div class="v10PhotoPair"><figure><img alt="Foto originale" src="${R.thumb}"><figcaption>foto RGB</figcaption></figure><figure><img alt="Mappa di profondità relativa di Depth Anything" src="${R.depthPreview}"><figcaption>Depth Anything · profondità relativa</figcaption></figure></div>`:''}`;if(R.manualDepthState==='awaiting-confirmation'){const actions=document.createElement('div');actions.className='v10PhotoApply';const apply=document.createElement('button');apply.type='button';apply.className='primary';apply.textContent='✓ Applica alla mappa';apply.onclick=()=>v10FuseReviewDepthIntoMap(R).catch(e=>v10Log(`Foto #${R.id}: applicazione fallita · ${e.message||e}`,'error'));const decline=document.createElement('button');decline.type='button';decline.textContent='Non applicare';decline.onclick=()=>{R.manualDepthState='declined';R.manualDepthAt=new Date().toISOString();v10Log(`Foto #${R.id}: mappa Depth Anything non applicata su richiesta.`,'warn');v10RenderPhotoReview()};actions.append(apply,decline);row.appendChild(actions)}host.appendChild(row)}}
+function v10ShowModelStage(){if(!S.session){v10Log('Modello finale già chiuso: avvia una nuova scansione per acquisire altri dati.','warn');return}const pending=(S.depthAI.reviewFrames||[]).filter(R=>R.manual&&R.manualDepthState==='awaiting-confirmation').length,h=$('#v10ModelStageHint');if(h)h.textContent=pending?`Hai ${pending} mappa${pending===1?'':'e'} Depth Anything da confermare nella fase Frame: senza conferma quei punti non entreranno nel modello. Puoi aprirlo ora oppure tornare a verificarle.`:'La base metrica continua a restare disponibile. Puoi tornare alla scansione oppure aprire il viewer finale, che chiuderà WebXR per liberare il renderer.';v10SetPhase('model');$('#v10PhotoStage').classList.remove('show');$('#v10ModelStage').classList.add('show');$('#v10Live').style.display='none'}
+function v10ShowPhotoStage(){if(!S.session){v10Log('Frame non disponibili: avvia una nuova scansione.','warn');return}v10SetPhase('photos');$('#v10ModelStage').classList.remove('show');$('#v10PhotoStage').classList.add('show');$('#v10Live').style.display='none';v10RenderPhotoReview()}
+async function v10ShowScanStage(){v10SetPhase('scan');$('#v10ModelStage').classList.remove('show');$('#v10PhotoStage').classList.remove('show');$('#v10Live').style.display='';v10Refresh()}
+$('#v10PhaseScan').onclick=()=>v10ShowScanStage();$('#v10PhaseModel').onclick=v10ShowModelStage;$('#v10PhasePhotos').onclick=v10ShowPhotoStage;$('#v10ModelBack').onclick=()=>v10ShowScanStage();$('#v10PhotoBack').onclick=()=>v10ShowScanStage();$('#v10ModelBuild').onclick=v10OpenModel;
 const v10ManualReviewCaptureBase=h5w15CaptureManualReviewFrame;
 h5w15CaptureManualReviewFrame=async function(){
   const beforeManual=new Set((S.depthAI.reviewFrames||[]).filter(x=>x.manual).map(x=>x.id));await v10ManualReviewCaptureBase();const R=(S.depthAI.reviewFrames||[]).find(x=>x.manual&&!beforeManual.has(x.id));
-  if(R){R.autoSamHandled=false;v10Log(`Foto #${R.id} salvata: uso Depth Anything automaticamente per la mappa; la proposta oggetto sarà disponibile in revisione.`);v10AutoFuseManualReview(R).catch(e=>v10Log(`Depth Anything automatica · foto #${R.id}: ${e.message||e}`,'error'))}
+  if(R){v10Log(`Foto #${R.id} salvata: preparo la mappa Depth Anything per la tua conferma; nessun punto viene ancora applicato.`);v10AnalyzeManualReview(R).catch(e=>v10Log(`Depth Anything · foto #${R.id}: ${e.message||e}`,'error'))}
   return R||null
-};
-
-// Depth Anything is deliberately on-demand for an object proposal. This avoids
-// expensive monocular inference for every photograph while preserving the same
-// WebXR metric gate when the user asks for the extra detail.
-const v10ObjectDepthBase=h5w10DepthAnythingOnFrozenCandidate;
-h5w10DepthAnythingOnFrozenCandidate=async function(F,c){
-  if(!S.v10?.objectDepthRequests?.has(F?.id)){
-    c.depthAnything={model:'Depth Anything V2 Small Q4F16',frameId:F?.id,aligned:false,skipped:'richiesta utente'};
-    h5w13SetSeedInference('Depth Anything su richiesta','la maschera SAM usa il supporto WebXR; premi Applica DepthAI se vuoi rifinirla.');
-    return {ok:false,skipped:'user-request'}
-  }
-  S.v10.objectDepthRequests.delete(F.id);return await v10ObjectDepthBase(F,c)
 };
 function v10DepthInferenceFrameForReview(F){
   const R=F?.kf?F:(S.depthAI.reviewFrames||[]).find(x=>x.id===F?.id),K=R?.kf;if(!K?.rgba?.length||!K.width||!K.height)throw new Error('RGB della foto non disponibile');
   S.v10.reviewDepthSeq=(S.v10.reviewDepthSeq||0)+1;return {id:`review-depth-${K.id}-${S.v10.reviewDepthSeq}`,t:K.t,width:K.width,height:K.height,rgba:new Uint8ClampedArray(K.rgba),cols:K.cols,rows:K.rows,depth:Float32Array.from(K.depth),worldToView:Array.from(K.worldToView),projection:Array.from(K.projection),cam:[...K.cam],q:[...K.q],quality:{...(K.quality||{}),manual:true},manualReviewFrameId:K.id}
 }
 async function v10FuseReviewDepthIntoMap(F){
-  const R=F?.kf?F:(S.depthAI.reviewFrames||[]).find(x=>x.id===F?.id),D=v10DepthInferenceFrameForReview(R),r=await runCooperativeDepthAIFrame(D);
-  if(R){R.manualDepthState=r?.ok?'fused':r?.rejected?'rejected':r?.error?'error':'queued';R.manualDepthPoints=r?.points||0;R.manualDepthAt=new Date().toISOString()}
-  if(r?.ok){S.v10.lastManualDepthFusion={reviewFrameId:F.id,points:r.points||0,at:new Date().toISOString(),rgbSource:'foto RGB selezionata'};v10RenderDepthPoints();updateSplats(true)}
-  return r
+  const R=F?.kf?F:(S.depthAI.reviewFrames||[]).find(x=>x.id===F?.id);if(!R)return {ok:false,error:'foto non trovata'};if(R.manualDepthState!=='awaiting-confirmation')return {ok:false,skipped:R.manualDepthState||'non pronta'};
+  const D=v10DepthInferenceFrameForReview(R),fit=R.manualDepthFit,pred=R.manualDepthPrediction;if(!fit||!pred?.length){R.manualDepthState='error';v10RenderPhotoReview();return {ok:false,error:'preview Depth Anything non disponibile'}}
+  const budget=h5w5LiveDepthBudget(),fr=fuseDepthAIFrame(D,pred,R.manualDepthWidth,R.manualDepthHeight,fit,budget),ok=fr.accepted>0;R.manualDepthState=ok?'fused':'rejected';R.manualDepthPoints=fr.accepted||0;R.manualDepthAt=new Date().toISOString();if(!ok){v10RenderPhotoReview();return {ok:false,rejected:true,error:'nessun punto ha superato il gate metrico locale'}}
+  S.depthAI.fusedFrames++;S.depthAI.fusedPoints+=fr.accepted;S.depthAI.alignment.push({frameId:D.id,...fit,acceptedPoints:fr.accepted,inferenceMs:R.manualDepthInferenceMs||0,budget:budget.tier,manual:true,grid:[budget.cols,budget.rows]});S.geometryGaussianSignature=null;S.v10.lastManualDepthFusion={reviewFrameId:R.id,points:fr.accepted,at:R.manualDepthAt,rgbSource:'foto RGB selezionata'};v10RenderDepthPoints();updateSplats(true);v10RenderPhotoReview();v10Log(`Foto #${R.id}: confermata · +${fr.accepted} punti RGB metrici aggiunti alla mappa.`);return {ok:true,points:fr.accepted,fit}
 }
-async function v10AutoFuseManualReview(R){
-  if(!R?.manual||R.manualDepthAutoStarted||S.depthAI?.enabled===false)return;R.manualDepthAutoStarted=true;v10Log(`Foto #${R.id}: Depth Anything automatica in coda per raffinare la mappa RGB-D.`);
-  for(let attempt=0;attempt<5;attempt++){const r=await v10FuseReviewDepthIntoMap(R);if(r?.ok){v10Log(`Foto #${R.id}: Depth Anything automatica OK · +${r.points||0} punti RGB metrici nella mappa.`);return r}if(r?.rejected||r?.error){v10Log(`Foto #${R.id}: Depth Anything non integrata · ${r?.error||'coerenza metrica WebXR insufficiente'}.`,'warn');return r}await delay(350)}
-  R.manualDepthAutoStarted=false;v10Log(`Foto #${R.id}: Depth Anything rimandata perché il worker AI è occupato; sarà ritentata con una nuova foto.`,'warn');return {ok:false,skipped:'AI busy'}
+async function v10AnalyzeManualReview(R){
+  if(!R?.manual||R.manualDepthAnalysisStarted||S.depthAI?.enabled===false)return;R.manualDepthAnalysisStarted=true;R.manualDepthState='running';v10RenderPhotoReview();v10Log(`Foto #${R.id}: Depth Anything calcola la mappa da revisionare.`);
+  if(!h5w5AcquireAI('depthai')){R.manualDepthAnalysisStarted=false;R.manualDepthState='queued';setTimeout(()=>v10AnalyzeManualReview(R),450);return}
+  S.depthAI.liveBusy=true;
+  try{if(!await ensureDepthAIWorker())throw new Error('worker Depth Anything non disponibile');const D=v10DepthInferenceFrameForReview(R),rgbaCopy=new Uint8ClampedArray(D.rgba),t0=performance.now(),out=await depthAIWorkerRequest('infer',{width:D.width,height:D.height,rgba:rgbaCopy.buffer},[rgbaCopy.buffer]),pred=new Float32Array(out.depth),fit=depthAIFitMetric(D,pred,out.outputWidth,out.outputHeight),ms=Number(out.inferenceMs||performance.now()-t0);S.depthAI.lastInferenceMs=ms;S.depthAI.totalInferenceMs+=ms;R.depthPreview=v10DepthHeatmap(pred,out.outputWidth,out.outputHeight);R.manualDepthPrediction=pred;R.manualDepthWidth=out.outputWidth;R.manualDepthHeight=out.outputHeight;R.manualDepthInferenceMs=ms;R.manualDepthFit=fit||null;R.manualDepthAt=new Date().toISOString();if(!fit){R.manualDepthState='rejected';S.depthAI.rejectedFrames++;v10Log(`Foto #${R.id}: profondità visualizzata ma NON applicabile · ${S.depthAI.lastMetricCheck?.reason||'fit metrico WebXR insufficiente'}.`,'warn');return {ok:false,rejected:true}}
+  R.manualDepthState='awaiting-confirmation';v10Log(`Foto #${R.id}: mappa Depth Anything pronta · ${fit.inliers}/${fit.anchors} ancore, errore ${Math.round(100*fit.medianRel)}%. Conferma dalla fase Frame per applicarla.`);return {ok:true,fit}
+  }catch(e){R.manualDepthState='error';R.manualDepthError=e.message||String(e);v10Log(`Foto #${R.id}: Depth Anything non disponibile · ${R.manualDepthError}.`,'error');return {ok:false,error:R.manualDepthError}}
+  finally{R.manualDepthAnalysisStarted=false;S.depthAI.liveBusy=false;h5w5ReleaseAI('depthai');v10RenderPhotoReview();v10Refresh()}
 }
-async function v10ApplyDepthToCurrentObject(){
-  const P=S.objectSeeding?.pending,F=P?.F,c=P?.candidate;
-  if(!F||!c){v10Log('Depth Anything non avviata: applica o ottieni prima una proposta SAM sulla foto selezionata.','warn');return}
-  S.v10.objectDepthRequests.add(F.id);v10Log(`Depth Anything: elaboro su richiesta la foto #${F.id}, fondo i punti metrici RGB nella mappa e rifinisco la proposta.`);
-  try{
-    const map=await v10FuseReviewDepthIntoMap(F);if(map?.ok)v10Log(`Depth Anything → mappa 3D OK · foto #${F.id}: +${map.points||0} surfel metrici colorati dall’immagine.`);else v10Log(`Depth Anything → mappa 3D non integrata · foto #${F.id}: ${map?.error||map?.skipped||'gate metrico WebXR non superato'}.`,'warn');
-    const r=await h5w10DepthAnythingOnFrozenCandidate(F,c);if(S.objectSeeding?.pending?.candidate===c)showObjectSeedCandidate(c,F,c.depthAnything?.aligned?'MobileSAM + Depth Anything + WebXR':'MobileSAM + WebXR');
-    if(c.depthAnything?.aligned)v10Log(`Depth Anything OK · foto #${F.id}: +${c.depthAnythingPoints||0} punti metrici associati alla proposta oggetto.`);
-    else v10Log(`Depth Anything non integrata · foto #${F.id}: ${c.depthAnything?.error||c.depthAnything?.skipped||r?.error||'allineamento metrico WebXR insufficiente'}. La proposta SAM resta rivedibile.`,'warn');
-  }catch(e){v10Log(`Depth Anything errore · foto #${F.id}: ${e.message||e}. La proposta SAM resta rivedibile.`,'error')}
-}
-$('#v10ObjectDepth').onclick=v10ApplyDepthToCurrentObject;
 
 // Record why metric alignment passed or failed. Depth Anything is a relative
 // depth prior: only an affine fit against current WebXR depth may promote it.
@@ -4463,42 +4388,15 @@ runCooperativeDepthAIFrame=async function(F){
   v10Refresh();return r
 };
 
-// The base guided-SAM flow remains responsible for the UI and recovery. This
-// wrapper makes its outcome explicit: an accepted mask, a usable 3-D support,
-// or the concrete reason why the mask was not promoted into the map.
-const v10SegmentObjectBase=segmentObjectSeed;
-segmentObjectSeed=async function(){
-  const frameId=S.objectSeeding?.reviewFrameId||S.objectSeeding?.lastFrameId||'—',roi=S.objectSeeding?.roiUV;
-  if(!S.objectSeeding?.active){v10Log('MobileSAM NON avviata: apri prima Oggetti e scegli un frame.','warn');return}
-  if(!S.v10?.samEnabled){v10Log(`MobileSAM NON avviata · frame #${frameId}: SAM è disattivata dall’utente. Premi Attiva SAM se vuoi segmentare.`, 'warn');v10RefreshSamControls();return}
-  if(!roi){v10Log(`MobileSAM NON avviata · frame #${frameId}: manca l'area 2D scelta dall'utente.`,`warn`);return}
-  v10Log(`MobileSAM: segmento l'area scelta sul frame #${frameId}; la mappa WebXR continua a funzionare.`);
-  try{
-    await v10SegmentObjectBase();const pending=S.objectSeeding?.pending,c=pending?.candidate;
-    if(c){
-      const depth=c.depthAnything,mask=Number.isFinite(c.area)?`${(c.area*100).toFixed(1)}%`:'area non disponibile',conf=Number.isFinite(c.confidence)?`${Math.round(c.confidence*100)}%`:'confidenza non disponibile',support=c.pts?.length||0;
-      const depthResult=depth?.aligned?` · DepthAI oggetto OK (${c.depthAnythingPoints||0} punti, errore ${Number.isFinite(depth.fit?.medianRel)?`${(depth.fit.medianRel*100).toFixed(1)}%`:'—'})`:depth?.error?` · DepthAI oggetto non integrata: ${depth.error}`:'';
-      v10Log(`MobileSAM OK · frame #${frameId}: mask ${mask}, confidenza ${conf}, supporto 3D ${support}${c.metricReady?' (metrico)':' (da confermare con un’altra vista)'}${c.truncated?' · mask al bordo: inquadra anche il resto dell’oggetto':''}${depthResult}.`);
-      v10ConfigureReviewUI();$('#seedHint').textContent=c.metricReady?'Controlla la maschera verde: Conferma oggetto per aggiungerlo, oppure Elimina foto e riscattala più centrata.':'La maschera non ha abbastanza supporto 3D: elimina la foto e riscattala con più depth WebXR sull’oggetto.';
-    }else{
-      const reason=S.semantic.modelError||$('#seedMeta')?.textContent||'il decoder non ha prodotto una mask utilizzabile';
-      v10Log(`MobileSAM NON completata · frame #${frameId}: ${reason}. Nessun oggetto è stato aggiunto alla mappa.`,'warn');
-    }
-  }catch(e){v10Log(`MobileSAM errore · frame #${frameId}: ${e.message||e}. Nessun oggetto è stato aggiunto alla mappa.`,'error')}
-};
-$('#seedSegment').onclick=segmentObjectSeed;
-function v10RenderObjects(){const host=$('#v10ObjectsList');if(!host)return;const A=S.semantic.objects.filter(o=>!o.deleted);host.innerHTML=A.length?'':'<span class="small">Nessun oggetto selezionato: la mappa delle superfici continua comunque.</span>';for(const o of A){const row=document.createElement('div');row.className='v10ObjectRow';row.innerHTML=`<span>${o.name||'Oggetto '+o.id} · ${Math.round(100*(o.confidence||0))}%</span>`;const b=document.createElement('button');b.type='button';b.textContent='Rimuovi';b.onclick=()=>{removeSemanticObject(o.id);S.objectSeeding.confirmedIds=S.objectSeeding.confirmedIds.filter(id=>id!==o.id);v10RenderObjects()};row.appendChild(b);host.appendChild(row)}}
 function v10Refresh(){
   if(!S.session)return;document.body.classList.add('v10-live');const A=S.depthAI.reviewFrames||[];
   $('#v10Surfels').textContent=String(S.realtime?.lastVerifiedCount||S.surfels.size||0);$('#v10Frames').textContent=String(A.length);$('#v10Points').textContent=String(S.depthAI.fusedPoints||0);
-  $('#v10State').textContent=S.depthAI.liveBusy?'Depth Anything elabora…':S.depthAI.fusedPoints?`DepthAI +${S.depthAI.fusedPoints} punti metrici`:'WebXR mappa';
-  $('#v10Hint').textContent=S.flow.step==='objects'?'Rivedi un frame, poi scegli se usare SAM. Gli oggetti restano sempre opzionali.':S.depthAI.liveBusy?'Depth Anything è nascosto ma sta verificando la profondità contro le ancore WebXR.':'Muoviti lungo pareti, pavimento e angoli; salvo automaticamente i frame nitidi e metricamente verificabili.';v10RenderObjects();
-  const next=$('#v10Next'),m=S.flow.step==='map'?mapWarmupMetrics():null;if(next)next.textContent=S.flow.step==='objects'?'Prossimo: scegli un frame; crea un oggetto solo se ti serve nella mappa.':S.depthAI.liveBusy?'In corso: continua a muoverti normalmente, la mappa WebXR non è bloccata.':m?.ready?'Base metrica pronta: puoi continuare a scansionare, aggiungere oggetti o aprire il modello 3D.':'Prossimo: includi un angolo e cambia distanza; evitiamo rotazioni rapide e superfici troppo vicine.';
+  $('#v10State').textContent=S.depthAI.liveBusy?'Depth Anything elabora…':S.depthAI.fusedPoints?`WebXR + DepthAI · ${S.depthAI.fusedPoints} punti`:'WebXR mappa';
+  $('#v10Hint').textContent=S.depthAI.liveBusy?'Depth Anything elabora in background: confronta la profondità relativa con le ancore WebXR prima di integrare punti.':'Muoviti lungo pareti, pavimento e angoli; salvo automaticamente i frame nitidi e metricamente verificabili.';
+  const next=$('#v10Next'),m=S.flow.step==='map'?mapWarmupMetrics():null;if(next)next.textContent=S.depthAI.liveBusy?'In corso: continua a muoverti normalmente, la mappa WebXR non è bloccata.':m?.ready?'Base metrica pronta: continua a scansionare, salva foto utili o apri il modello 3D.':'Prossimo: includi un angolo e cambia distanza; evitiamo rotazioni rapide e superfici troppo vicine.';
+  v10RenderPhotoReview();
 }
 const v10MapUIBase=updateMapWarmupUI;updateMapWarmupUI=function(force=false){const r=v10MapUIBase(force);v10Refresh();return r};
-const v10EnterObjectsBase=enterObjectSeeding;enterObjectSeeding=function(opts={}){const ok=v10EnterObjectsBase(opts);v10Refresh();return ok};
-const v10FinishObjectsBase=finishObjectSeeding;
-finishObjectSeeding=async function(skip=false){if(!S.objectSeeding.active)return;if(S.objectSeeding.busy)return;S.objectSeeding.pending=null;h5w10ReleaseFrozenFrame?.();S.objectSeeding.active=false;document.body.classList.remove('object-seeding','seed-candidate','seed-ready','seed-metric-ready','seed-has-capture','seed-boundary-mode');clearObjectSeedMask();await refineSeededObjectBounds();enterMapWarmup({resume:false});v10RenderDepthPoints();v10Refresh();v10Log(skip?'Revisione oggetti chiusa: nessuna modifica applicata.':'Oggetti aggiornati: ritorno alla scansione della stanza.');addEvent?.('v10_objects_return_to_scan',{skip,objects:S.semantic.objects.filter(o=>!o.deleted).length})};
 function v10MetricPath(){
   const raw=S.bestPath?.length?S.bestPath:(S.cameraPath||[]),out=[];
   for(const x of raw){const p=x?.p||x;if(!p||!Number.isFinite(p.x+p.y+p.z))continue;const q=x?.q;out.push({t_ms:x?.t??null,p:[p.x,p.y,p.z],q:q?[q.x,q.y,q.z,q.w]:null,confidence:x?.confidence??1})}return out
@@ -4530,8 +4428,8 @@ const v10CloseViewerBase=closeFinalViewer;closeFinalViewer=function(){
   v10Log('Viewer chiuso. La sessione WebXR era stata terminata per il viewer: avvia una nuova scansione per acquisire altri dati.');
 };
 $('#v10Start').onclick=e=>{e.preventDefault();$('#v10Welcome').classList.add('hide');v10Log('Richiedo la sessione WebXR e la telecamera AR.');startSpatialCalibration('auto',e).then(()=>{if(!S.session){$('#v10Welcome').classList.remove('hide');v10Log('WebXR non disponibile o sessione non concessa.','error')}else{v10Log('Tracking attivo: inizia a camminare lentamente.');v10Refresh()}}).catch(err=>{console.warn('v10 start',err);$('#v10Welcome').classList.remove('hide');v10Log(`Avvio AR: ${err.message||err}`,'error')})};
-$('#v10Save').onclick=async()=>{v10Log('Salvo la foto: Depth Anything la integrerà automaticamente nella mappa.');await h5w15CaptureManualReviewFrame?.();v10Refresh()};$('#v10Objects').onclick=()=>v10OpenObjects();$('#v10Model').onclick=v10ShowModelStage;
+$('#v10Save').onclick=async()=>{v10Log('Salvo la foto: Depth Anything la integrerà automaticamente nella mappa.');await h5w15CaptureManualReviewFrame?.();v10Refresh()};$('#v10Photos').onclick=v10ShowPhotoStage;$('#v10Model').onclick=v10ShowModelStage;
 $('#v10Settings').onclick=()=>{const p=$('#v10Live');p.classList.toggle('details');$('#v10Settings').setAttribute('aria-expanded',String(p.classList.contains('details')));v10Log('Pannello dettagli '+(p.classList.contains('details')?'aperto.':'chiuso.'))};$('#v10TogglePoints').onclick=()=>{const p=S.v10DepthPoints;if(p)p.visible=!p.visible;$('#v10TogglePoints').textContent=`Punti DepthAI: ${p?.visible?'ON':'OFF'}`};$('#v10ExportDiag').onclick=()=>exportDiagnosticSnapshot?.();
-setInterval(v10Refresh,900);v10RenderObjects();
+setInterval(v10Refresh,900);v10RenderPhotoReview();
 </script>
 </body></html>
