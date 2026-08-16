@@ -1,4 +1,4 @@
-ROOM SCANNER V10.0.9 — PUBBLICAZIONE
+ROOM SCANNER V10.0.9 + V11.0.4 — PUBBLICAZIONE
 
 Pubblicare nella stessa cartella del sito questi file aggiornati:
   room_scanner_v10.html
@@ -9,9 +9,9 @@ Pubblicare nella stessa cartella del sito questi file aggiornati:
   models/depth_anything_v2_small_q4f16.onnx
   models/depth_anything_v2_small_q4.onnx
 
-I due modelli sono entrambi necessari: Q4F16 viene usato con WebGPU; Q4 viene
-usato dal fallback WASM verificato. Non rinominare i file né spostarli fuori da
-models/.
+Il percorso attivo usa soltanto Q4/WASM verificato: Q4F16 resta nel pacchetto
+per compatibilità con le vecchie pagine, ma non viene caricato da V10/V11.
+Non rinominare i file né spostarli fuori da models/.
 
 Dopo il deploy aprire:
 https://gioelegrecome.github.io/room_scanner/room_scanner_v10.html
@@ -24,10 +24,21 @@ indichi provider, variante e output validi.
 TEST ISOLATO V11
 
 Per capire se il problema è nel modello o in WebXR, aprire prima:
-https://gioelegrecome.github.io/room_scanner/room_scanner_v11.html?v=1103c1
+https://gioelegrecome.github.io/room_scanner/room_scanner_v11.html?v=1104m1
 
-1. Nella sessione A eseguire “Apri fotocamera per Depth” e “Analizza con Depth
-   Anything”: deve comparire la heatmap e un esito Depth Anything OK.
-2. Premere “Chiudi sessione Depth”.
-3. Solo allora avviare “Test WebXR”. Il log deve ricevere pose XR senza alcuna
+1. Attendere o premere “Carica modello Q4/WASM”: la barra deve arrivare al
+   controllo smoke e il pulsante deve diventare “✓ Modello Q4/WASM pronto”.
+2. Nella sessione A eseguire “Apri fotocamera per Depth”, “Scatta frame” e
+   “Analizza con Depth Anything”: deve comparire la RGB e la heatmap allineata.
+   Il frame viene ridotto solo se il lato corto supera 720 px.
+3. Ripetere “Scatta frame” e “Analizza” una seconda volta: deve riuscire senza
+   l'errore di destructuring `init`; se il worker ha un guasto transitorio, il
+   log indicherà il riavvio automatico e il singolo tentativo di recupero.
+4. Premere “Chiudi sessione Depth”.
+5. Solo allora avviare “Test WebXR”. Il log deve ricevere pose XR senza alcuna
    inferenza Depth attiva.
+
+V10: sulla schermata iniziale premere “Carica Depth Anything Q4/WASM” e
+attendere il test smoke. Il pulsante mostrerà “✓ Depth Anything pronta”; quindi
+premere “Apri scansione 3D”. Se il caricamento fallisce il motivo resta visibile
+e WebXR può comunque essere avviato senza fusioni AI.
