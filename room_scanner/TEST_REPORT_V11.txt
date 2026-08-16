@@ -1,0 +1,35 @@
+ROOM SCANNER V11 DIAGNOSTIC2 - TEST REPORT
+Date: 2026-08-16
+
+Scope
+- No changes to room_scanner_v10.html on disk.
+- No changes to depth_ai_worker.js on disk.
+- No changes to sw.js, WebXR, audio, geometry, fitting, thresholds, splatting or acquisition.
+- V11 redirects only the Depth Anything worker to depth_ai_worker_v11.js in memory.
+
+Static checks
+PASS: depth_ai_worker_v11.js JavaScript syntax (node --check)
+PASS: outer JavaScript in room_scanner_v11.html
+PASS: injected V11 diagnostic panel JavaScript
+PASS: patch against an uninstrumented V10 Depth worker fixture
+PASS: patch against an already-instrumented V3 Depth worker fixture
+PASS: same-origin wasmPaths correction remains present
+PASS: worker default ORT fallback remains 1.23.2
+
+Worker-flow test
+PASS: init command
+PASS: simulated WebGPU session-creation failure
+PASS: fallback to WASM session
+PASS: smoke inference
+PASS: three RGBA image inferences: room-perspective, gradient, checkerboard
+PASS: Float32 depth buffers finite and non-constant
+PASS: live progress includes runtime-plan, session-create-start, session-create-failed,
+      session-create-ok, preprocess-start, session-run-start, session-run-ok,
+      output-stats and infer-ok.
+
+Important test boundary
+The local execution test uses a deterministic mock ORT/model fixture to exercise the worker
+control flow and image-buffer contract. The actual 19.1 MB Q4F16 binary was not available
+inside the offline execution container, so this report does NOT claim a local real-model ONNX
+inference. The V11 in-browser self-test (?depthtest=1 or the Test WebGPU->WASM button) runs
+against the real deployed local model/runtime on the target smartphone and records every phase.

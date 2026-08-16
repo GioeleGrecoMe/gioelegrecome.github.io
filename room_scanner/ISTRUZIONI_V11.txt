@@ -1,0 +1,18 @@
+ROOM SCANNER V11 - DEPTH ANYTHING DIAGNOSTIC2
+
+Carica questi file, senza cartelle, accanto a room_scanner_v10.html:
+- room_scanner_v11.html
+- depth_ai_worker_v11.js
+
+Non sostituire room_scanner_v10.html, depth_ai_worker.js o sw.js.
+
+Normale:
+https://gioelegrecome.github.io/room_scanner/room_scanner_v11.html
+
+Auto-test reale sul telefono (WebGPU, fallback WASM, smoke e 3 immagini sintetiche):
+https://gioelegrecome.github.io/room_scanner/room_scanner_v11.html?depthtest=1
+
+Forza WASM per Depth Anything:
+https://gioelegrecome.github.io/room_scanner/room_scanner_v11.html?wasm=1
+
+Se si blocca, premi Copia log Depth AI e incolla tutto il JSON.

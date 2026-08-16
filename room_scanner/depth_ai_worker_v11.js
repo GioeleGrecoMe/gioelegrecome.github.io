@@ -18,17 +18,41 @@
  */
 'use strict';
 
-const V11_WORKER_BUILD = 'room-scanner-v11-depth-worker-2026-08-16';
+const V11_WORKER_BUILD = 'room-scanner-v11-depth-worker-diagnostic2-2026-08-16';
 const ORIGINAL_WORKER_URL = './depth_ai_worker.js';
 const bootstrapEvents = [];
-const BOOT_MAX = 40;
+const BOOT_MAX = 180;
+let webgpuProbe = {attempted:false,available:!!(self.navigator&&self.navigator.gpu)};
+let patchedDepthDebugSnapshot = null;
 
 function bootLog(type, detail = {}) {
   let clean = detail;
   try { clean = JSON.parse(JSON.stringify(detail)); }
   catch (_) { clean = { text: String(detail) }; }
-  bootstrapEvents.push({ iso: new Date().toISOString(), t_ms: Math.round(performance.now()), type, detail: clean });
+  const item={iso:new Date().toISOString(),t_ms:Math.round(performance.now()),type,detail:clean};
+  bootstrapEvents.push(item);
   if (bootstrapEvents.length > BOOT_MAX) bootstrapEvents.splice(0, bootstrapEvents.length - BOOT_MAX);
+  // Send progress immediately. This makes a hung InferenceSession.create() diagnosable.
+  try { self.postMessage({__depthDiagV11:true,progress:{scope:'bootstrap',...item}}); } catch (_) {}
+}
+
+async function probeWebGPU() {
+  const t0=performance.now();
+  webgpuProbe={attempted:true,available:!!(self.navigator&&self.navigator.gpu),secureContext:typeof self.isSecureContext==='boolean'?self.isSecureContext:null};
+  if(!webgpuProbe.available){webgpuProbe.result='navigator.gpu-unavailable';webgpuProbe.elapsed_ms=Math.round((performance.now()-t0)*10)/10;bootLog('webgpu-probe-unavailable',webgpuProbe);return webgpuProbe;}
+  try{
+    bootLog('webgpu-request-adapter-start',{});
+    const a0=performance.now(),adapter=await self.navigator.gpu.requestAdapter({powerPreference:'high-performance'});
+    webgpuProbe.adapterElapsed_ms=Math.round((performance.now()-a0)*10)/10;
+    if(!adapter){webgpuProbe.result='adapter-null';bootLog('webgpu-request-adapter-null',webgpuProbe);return webgpuProbe;}
+    let info=null;try{info=adapter.info?JSON.parse(JSON.stringify(adapter.info)):(typeof adapter.requestAdapterInfo==='function'?await adapter.requestAdapterInfo():null)}catch(e){info={error:String(e&&e.stack||e)}}
+    let features=[];try{features=Array.from(adapter.features||[]).sort()}catch(_){}
+    const limits={},keys=['maxBufferSize','maxStorageBufferBindingSize','maxComputeWorkgroupStorageSize','maxComputeInvocationsPerWorkgroup','maxComputeWorkgroupsPerDimension'];
+    try{for(const k of keys)if(adapter.limits&&k in adapter.limits)limits[k]=Number(adapter.limits[k])}catch(_){}
+    webgpuProbe.adapter={info,features,limits};webgpuProbe.result='adapter-ok';
+    try{const d0=performance.now(),device=await adapter.requestDevice();webgpuProbe.device='ok';webgpuProbe.deviceElapsed_ms=Math.round((performance.now()-d0)*10)/10;try{device.destroy()}catch(_){}}catch(e){webgpuProbe.device='failed';webgpuProbe.deviceError=String(e&&e.stack||e)}
+  }catch(e){webgpuProbe.result='probe-exception';webgpuProbe.error=String(e&&e.stack||e)}
+  webgpuProbe.elapsed_ms=Math.round((performance.now()-t0)*10)/10;bootLog('webgpu-probe-complete',webgpuProbe);return webgpuProbe;
 }
 
 function bootstrapSnapshot(reason, error = null) {
@@ -43,8 +67,10 @@ function bootstrapSnapshot(reason, error = null) {
       userAgent: self.navigator && self.navigator.userAgent || '',
       hardwareConcurrency: self.navigator && self.navigator.hardwareConcurrency || null,
       webgpu: !!(self.navigator && self.navigator.gpu),
-      crossOriginIsolated: !!self.crossOriginIsolated
+      crossOriginIsolated: !!self.crossOriginIsolated,
+      webgpuProbe
     },
+    patchedWorker:(()=>{try{return patchedDepthDebugSnapshot?patchedDepthDebugSnapshot('bootstrap-snapshot'):null}catch(_){return null}})(),
     events: bootstrapEvents.slice()
   };
 }
@@ -82,6 +108,47 @@ function replaceOnce(text, oldText, newText, label) {
   return text.replace(oldText, newText);
 }
 
+function augmentDepthDiagnostics(src, changes) {
+  if (!src.includes('function depthDebug(')) return src;
+  // Stream existing worker diagnostics to the page in real time instead of only on final reply.
+  if (!src.includes('DEPTHAI_LIVE_PROGRESS_V11')) {
+    const a1="  depthDebugEvents.push({t_ms:Math.round(performance.now()), iso:new Date().toISOString(), type, detail:clean});";
+    const a2="  depthDebugEvents.push({t_ms:Math.round(performance.now()),iso:new Date().toISOString(),type,detail:clean});";
+    const add="\n  // DEPTHAI_LIVE_PROGRESS_V11\n  try { self.postMessage({__depthDiagV11:true,progress:{scope:'worker',iso:new Date().toISOString(),t_ms:Math.round(performance.now()),type,detail:clean}}); } catch (_) {}";
+    if(src.includes(a1))src=src.replace(a1,a1+add,1);else if(src.includes(a2))src=src.replace(a2,a2+add,1);else throw new Error('depthDebug push anchor not found');
+    if(src.includes('const DEPTH_DEBUG_MAX = 120;'))src=src.replace('const DEPTH_DEBUG_MAX = 120;','const DEPTH_DEBUG_MAX = 360;',1);
+    else if(src.includes('const DEPTH_DEBUG_MAX = 140;'))src=src.replace('const DEPTH_DEBUG_MAX = 140;','const DEPTH_DEBUG_MAX = 360;',1);
+    changes.push('real-time worker progress stream');
+  }
+  // Log runtime selection before any import/session work.
+  if (!src.includes("depthDebug('runtime-plan'")) {
+    const a="  const candidates = wantsWebGPU ? [versionedWorkerAsset(`${localRuntimeDir}ort.webgpu.min.js`)] : [versionedWorkerAsset(`${localRuntimeDir}ort.min.js`)];\n";
+    if(src.includes(a))src=src.replace(a,a+"  depthDebug('runtime-plan',{forceWasm:!!forceWasmRuntime,navigatorGpu:!!self.navigator?.gpu,wantsWebGPU,candidates});\n",1);
+  }
+  if (!src.includes("depthDebug('init-config'")) {
+    const a="      forceWasmRuntime = !!msg.forceWasm;\n";
+    if(src.includes(a))src=src.replace(a,a+"      depthDebug('init-config',{inputSize,runtimeVersion,deployRev,forceWasm:!!forceWasmRuntime,modelLocal:msg.modelLocal||null,modelRemote:msg.modelRemote||null,navigatorGpu:!!self.navigator?.gpu});\n",1);
+  }
+  // Separate preprocessing from actual ORT session.run().
+  if (!src.includes("depthDebug('preprocess-start'")) {
+    const a="  const prep = preprocessRGBA(msg.rgba, Number(msg.width), Number(msg.height), shapeHint);\n";
+    if(src.includes(a))src=src.replace(a,"  const prepT0=performance.now();depthDebug('preprocess-start',{source:[Number(msg.width),Number(msg.height)],rgbaBytes:msg.rgba?.byteLength||0,shapeHint});\n"+a+"  depthDebug('preprocess-ok',{input:[prep.width,prep.height],tensorLength:prep.data?.length||0,elapsed_ms:Math.round((performance.now()-prepT0)*10)/10});\n",1);
+  }
+  if (!src.includes("depthDebug('session-run-start'")) {
+    const a="  const out = await runDepthSession(prep);\n";
+    if(src.includes(a))src=src.replace(a,"  const runT0=performance.now();depthDebug('session-run-start',{provider:activeProvider,input:[prep.width,prep.height]});\n"+a+"  depthDebug('session-run-ok',{provider:activeProvider,elapsed_ms:Math.round((performance.now()-runT0)*10)/10,outputs:Object.keys(out||{})});\n",1);
+  }
+  if (!src.includes("depthDebug('output-stats'")) {
+    const a="  if(depth.length!==w*h)throw new Error(`Depth Anything: output size ${depth.length} != ${w}x${h}`);\n";
+    if(src.includes(a))src=src.replace(a,a+"  let dMin=Infinity,dMax=-Infinity,dSum=0,dCount=0;for(let i=0;i<depth.length;i++){const v=depth[i];if(Number.isFinite(v)){if(v<dMin)dMin=v;if(v>dMax)dMax=v;dSum+=v;dCount++}}depthDebug('output-stats',{width:w,height:h,count:depth.length,finite:dCount,min:dCount?dMin:null,max:dCount?dMax:null,mean:dCount?dSum/dCount:null});\n",1);
+  }
+  if (!src.includes("depthDebug('smoke-start'")) {
+    const a="    if (msg.type === 'smoke') {\n";if(src.includes(a))src=src.replace(a,a+"      depthDebug('smoke-start',{provider:activeProvider});\n",1);
+  }
+  changes.push('phase timing: runtime/preprocess/session.run/output');
+  return src;
+}
+
 function patchDepthWorkerSource(source) {
   let src = source;
   const changes = [];
@@ -110,9 +177,10 @@ function patchDepthWorkerSource(source) {
     changes.push('worker fallback ORT 1.23.2');
   }
 
-  // If this worker was already instrumented by the reviewed V3 diagnostics, do not duplicate it.
+  // If V10 already contains the V3 trace, retain it but upgrade it to live V11 diagnostics.
   if (src.includes('DEPTHAI_DIAG_V3') || src.includes('DEPTHAI_DIAG_V11')) {
     changes.push('existing worker diagnostics retained');
+    src = augmentDepthDiagnostics(src, changes);
     return { src, changes };
   }
 
@@ -274,6 +342,7 @@ depthDebug('worker-boot',{href:self.location?.href||'',webgpu:!!self.navigator?.
   );
 
   changes.push('runtime/model/session/inference diagnostic events');
+  src = augmentDepthDiagnostics(src, changes);
   return { src, changes };
 }
 
@@ -281,6 +350,7 @@ async function boot() {
   try {
     bootLog('bootstrap-start', { build: V11_WORKER_BUILD, originalWorker: ORIGINAL_WORKER_URL });
     emitBootstrap('bootstrap-start');
+    await probeWebGPU();
 
     const sourceUrl = `${ORIGINAL_WORKER_URL}?v11_source=${encodeURIComponent(V11_WORKER_BUILD)}&t=${Date.now()}`;
     const response = await fetch(sourceUrl, { cache: 'no-store', credentials: 'same-origin' });
@@ -305,7 +375,10 @@ async function boot() {
     const blobUrl = URL.createObjectURL(blob);
     try {
       importScripts(blobUrl);
-      bootLog('patched-worker-executed', {});
+      try { if (typeof depthDebugSnapshot === 'function') patchedDepthDebugSnapshot = depthDebugSnapshot; } catch (_) {}
+      const normalOnMessage=self.onmessage;
+      if(typeof normalOnMessage==='function')self.onmessage=event=>{const msg=event&&event.data||{};if(msg.type==='__v11_diag_ping'){let debug=null;try{debug=patchedDepthDebugSnapshot?patchedDepthDebugSnapshot('diag-ping'):null}catch(_){};self.postMessage({id:msg.id,ok:true,__depthDiagV11:true,debug,bootstrap:bootstrapSnapshot('diag-ping')});return}return normalOnMessage.call(self,event)};
+      bootLog('patched-worker-executed', {hasDepthSnapshot:!!patchedDepthDebugSnapshot});
       emitBootstrap('patched-worker-executed');
     } finally {
       URL.revokeObjectURL(blobUrl);
