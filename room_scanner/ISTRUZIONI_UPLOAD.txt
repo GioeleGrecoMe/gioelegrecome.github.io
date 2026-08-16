@@ -24,7 +24,7 @@ indichi provider, variante e output validi.
 TEST ISOLATO V11
 
 Per capire se il problema è nel modello o in WebXR, aprire prima:
-https://gioelegrecome.github.io/room_scanner/room_scanner_v11.html?v=1100s1
+https://gioelegrecome.github.io/room_scanner/room_scanner_v11.html?v=1101p1
 
 1. Nella sessione A eseguire “Apri fotocamera per Depth” e “Analizza con Depth
    Anything”: deve comparire la heatmap e un esito Depth Anything OK.

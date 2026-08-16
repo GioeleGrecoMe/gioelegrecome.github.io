@@ -35,6 +35,9 @@ const STD = [0.229, 0.224, 0.225];
 function errText(e) {
   return e && (e.stack || e.message) ? String(e.stack || e.message) : String(e);
 }
+function reportProgress(stage, progress, detail='') {
+  self.postMessage({type:'progress', stage, progress:Math.max(0,Math.min(1,Number(progress)||0)), detail});
+}
 
 function versionedWorkerAsset(url){const u=new URL(url,self.location.href);if(u.origin===self.location.origin)u.searchParams.set('rsbuild',deployRev);return u.href}
 
@@ -112,19 +115,25 @@ function validateDepthContract(s){const inputs=metaArray(s,'input'),outputs=meta
 
 async function initModel(modelLocal, modelRemote, modelWasmLocal, modelWasmRemote) {
   if (session) return;
+  reportProgress('runtime', .06, 'avvio ONNX Runtime');
   await initRuntime();
+  reportProgress('runtime', .22, forceWasmRuntime ? 'runtime WASM locale pronto' : 'runtime WebGPU/WASM pronto');
   const gpuCandidates = [modelLocal, modelRemote].filter(Boolean);
   const wasmCandidates = [modelWasmLocal, modelWasmRemote].filter(Boolean);
   let last = null;
   // Q4F16 is compact and correct for WebGPU. ORT/WASM does not reliably
   // implement its fp16-weight operators, so the universal path is Q4 instead.
   if (!forceWasmRuntime && self.navigator && self.navigator.gpu && /webgpu/i.test(runtimeSource || '')) for (const url of gpuCandidates) {
+    reportProgress('model', .32, 'scarico modello Q4F16 per WebGPU');
     let loaded=null;try{loaded=await fetchVerifiedModel(url)}catch(e){last=e;continue}
-    try {session=await createSessionFrom(loaded.buffer.slice(0), ['webgpu', 'wasm']);modelSource=loaded.absolute;activeProvider='webgpu';modelVariant='q4f16';validateDepthContract(session);return} catch(e){last=e;session=null}
+    reportProgress('session', .70, 'verifico e inizializzo sessione WebGPU');
+    try {session=await createSessionFrom(loaded.buffer.slice(0), ['webgpu', 'wasm']);modelSource=loaded.absolute;activeProvider='webgpu';modelVariant='q4f16';validateDepthContract(session);reportProgress('session', .84, 'sessione WebGPU pronta');return} catch(e){last=e;session=null}
   }
   for (const url of wasmCandidates) {
+    reportProgress('model', .32, 'scarico modello Q4 per WASM');
     let loaded=null;try{loaded=await fetchVerifiedModel(url)}catch(e){last=e;continue}
-    try {session=await createSessionFrom(loaded.buffer, ['wasm']);modelSource=loaded.absolute;activeProvider='wasm';modelVariant='q4';validateDepthContract(session);return} catch(e){last=e;session=null}
+    reportProgress('session', .70, 'verifico checksum e inizializzo sessione WASM');
+    try {session=await createSessionFrom(loaded.buffer, ['wasm']);modelSource=loaded.absolute;activeProvider='wasm';modelVariant='q4';validateDepthContract(session);reportProgress('session', .84, 'sessione WASM pronta');return} catch(e){last=e;session=null}
   }
   throw new Error(`Depth Anything non caricabile (Q4F16 WebGPU e Q4 WASM): ${errText(last)}`);
 }

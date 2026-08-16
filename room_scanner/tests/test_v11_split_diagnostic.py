@@ -12,13 +12,18 @@ assert "const s=v10PhotoStatus(R),row=document.createElement('div'),rgb=R.rgbPre
 assert "row.className='v10PhotoRow',rgb=" not in v10
 
 for token in [
-    "const BUILD='v11.0.0-split-depth-webxr'",
+    "const BUILD='v11.0.1-wasm-preview-aligned'",
     "navigator.mediaDevices.getUserMedia",
     "new Worker(`./depth_ai_worker.js?rsbuild=${REV}`)",
     "modelWasmLocal:'./models/depth_anything_v2_small_q4.onnx'",
+    "forceWasm:true",
     "await workerRequest('smoke')",
     "await workerRequest('infer'",
     "drawHeatmap(depth,r.outputWidth,r.outputHeight)",
+    "drawRgb(f.rgba,f.w,f.h)",
+    "assets/depth-test-room-v1.png",
+    "assets/depth-test-room-v1-expected-depth.png",
+    "setDepthProgress",
     "function endDepth()",
     "if(cameraStream||worker)throw new Error('chiudi prima la sessione Depth",
     "navigator.xr.isSessionSupported('immersive-ar')",
