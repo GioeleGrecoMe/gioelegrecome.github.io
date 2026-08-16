@@ -1,0 +1,59 @@
+ROOM SCANNER V11-D12 - TEST REPORT
+Build: 2026-08-16
+
+DIAGNOSI DAL LOG UTENTE D11
+- WebXR immersive-ar viene richiesto con userActivation.isActive=true.
+- requestSession completa con successo e depth-sensing WebXR e attivo.
+- La sessione XR rimane attiva durante acquisizione/interazione.
+- Errore V10 ripetuto: ReferenceError: rgb is not defined in v10RenderPhotoReview.
+- La sessione XR viene chiusa esplicitamente dalla pagina quando si apre il modello; non risulta una chiusura spontanea del runtime nel test Depth-OFF.
+
+CORREZIONI D12
+1. Resilient V10 loader:
+   - tentativo cache/default senza timestamp;
+   - retry cache/reload versionato;
+   - retry network/no-store;
+   - ogni risultato deve superare dimensione e anchor validation.
+2. XR-first start:
+   - sospende depthAIEnabled solo durante il richiamo all'handler V10 del pulsante start;
+   - requestSession puo quindi avvenire dentro la user activation;
+   - ripristina immediatamente il valore originale dopo il ritorno dell'handler;
+   - dopo 1.5 s assicura solo la creazione del worker Depth, senza forzare smoke inference.
+3. RGB photo-review guard:
+   - intercetta solo ReferenceError "rgb is not defined" proveniente da v10RenderPhotoReview;
+   - gestisce errore sincrono e Promise rejection;
+   - non modifica cattura, RAW, pose, surfel o geometria.
+
+TEST INTERNI
+PASS node --check depth_ai_worker_v11_d12.js
+PASS node --check room_scanner_v11_d12_loader.js
+PASS node --check room_scanner_v11_d12_xrtrace.js
+PASS node --check room_scanner_v11_d12_fixes.js
+PASS node --check room_scanner_v11_d12_diag.js
+
+PASS XR-first synthetic activation test:
+- activation timeout simulato: 100 ms
+- chiamata XR raggiunta: ~1 ms
+- handler V10 originale preservato
+- depthAIEnabled ripristinato
+- ensureDepthAIWorker eseguito dopo XR
+
+PASS RGB regression guard test:
+- ReferenceError rgb is not defined soppresso
+- evento photo-review-rgb-error-suppressed registrato
+
+PASS resilient loader test:
+- primo fetch simulato fallito
+- secondo fetch riuscito
+- V10 > 100 kB accettata
+- worker D12 rerouted
+- XR tracer / fixes / diagnostics iniettati
+- document.write finale valido nel test di trasformazione
+
+PASS worker regression:
+- depth_ai_worker_v11_d12.js, normalizzando i soli identificatori D12->D10, e identico al worker D10 gia verificato sul dispositivo.
+
+LIMITI
+- Il container non esegue WebXR reale e non dispone del browser/driver del telefono.
+- La prova WebXR reale resta quindi quella del log D11 fornito dall'utente.
+- D12 non corregge direttamente il sorgente V10 server-side: applica fix isolati a runtime sopra V10, cosi V10 rimane invariata sul repository.
