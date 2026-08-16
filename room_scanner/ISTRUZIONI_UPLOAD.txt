@@ -1,0 +1,24 @@
+ROOM SCANNER V11 - UPLOAD DA SMARTPHONE
+
+FILE DA CARICARE NELLA STESSA DIRECTORY DOVE ESISTONO GIA':
+  room_scanner_v10.html
+  depth_ai_worker.js
+
+CARICA SOLO QUESTI DUE NUOVI FILE:
+  room_scanner_v11.html
+  depth_ai_worker_v11.js
+
+NON SOVRASCRIVERE:
+  room_scanner_v10.html
+  depth_ai_worker.js
+  sw.js
+
+NON CREARE CARTELLE NUOVE.
+
+DOPO IL DEPLOY APRI:
+https://gioelegrecome.github.io/room_scanner/room_scanner_v11.html
+
+Se GitHub Pages mostra ancora una versione vecchia, ricarica forzatamente la pagina o aggiungi temporaneamente ?v=11 all'URL:
+https://gioelegrecome.github.io/room_scanner/room_scanner_v11.html?v=11
+
+Per il debug usa il pulsante "Copia log Depth AI" nella V11 e incolla il JSON in ChatGPT.

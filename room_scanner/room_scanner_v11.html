@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Room Scanner V11 - Depth Anything fix</title>
+  <style>
+    /* This small loader UI is visible only while V11 is loading V10, or if fail-closed validation stops. */
+    html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,sans-serif;background:#101318;color:#eef2f7}
+    #v11Loader{max-width:760px;margin:12vh auto;padding:24px;line-height:1.45}
+    #v11Loader code{word-break:break-word}
+    #v11Loader textarea{width:100%;min-height:260px;box-sizing:border-box;background:#090b0e;color:#dce6ef;border:1px solid #49515a;border-radius:8px;padding:10px}
+    #v11Loader button{font:inherit;padding:9px 13px;margin:8px 8px 0 0}
+  </style>
+</head>
+<body>
+<div id="v11Loader">
+  <h1>Room Scanner V11</h1>
+  <p>Caricamento della V10 invariata con il solo worker Depth Anything V11...</p>
+</div>
+<script>
+(() => {
+  'use strict';
+
+  /*
+   * ROOM SCANNER V11 - DEPTH-ONLY LOADER
+   * -------------------------------------
+   * Safety design:
+   *  - room_scanner_v10.html is NEVER written or modified on the server.
+   *  - V11 fetches V10 as text and changes ONLY the dedicated Depth worker URL in memory.
+   *  - No global ONNX Runtime version is changed here.
+   *  - No Service Worker, WebXR, audio, camera, geometry, SAM, splatting, metric fitting,
+   *    thresholds, or acquisition logic is modified.
+   *  - A passive diagnostics panel is injected so failures can be copied verbatim.
+   *  - All source edits are fail-closed: if the reviewed V10 anchors no longer match,
+   *    V11 shows a copyable error instead of guessing and possibly damaging the app.
+   */
+
+  const V11_BUILD = 'room-scanner-v11-depth-only-2026-08-16';
+  const V10_URL = './room_scanner_v10.html';
+  const DEPTH_WORKER_V11 = './depth_ai_worker_v11.js';
+  const loaderEvents = [];
+
+  function log(stage, detail = {}) {
+    loaderEvents.push({
+      iso: new Date().toISOString(),
+      t_ms: Math.round(performance.now()),
+      stage,
+      detail
+    });
+  }
+
+  function failClosed(error, extra = {}) {
+    const message = error && error.stack ? error.stack : String(error);
+    log('v11-fail-closed', { message, ...extra });
+    const report = {
+      schema: 'room-scanner-v11-loader-error-v1',
+      build: V11_BUILD,
+      page: location.href,
+      userAgent: navigator.userAgent,
+      secureContext: !!window.isSecureContext,
+      error: message,
+      events: loaderEvents
+    };
+    const root = document.getElementById('v11Loader') || document.body;
+    root.innerHTML = '<h1>V11 fermata in sicurezza</h1>' +
+      '<p>La V10 non e stata modificata. Copia questo log e incollalo nella chat.</p>' +
+      '<textarea id="v11FailLog" spellcheck="false"></textarea><br>' +
+      '<button id="v11CopyFail" type="button">Copia log V11</button>' +
+      '<button id="v11OpenV10" type="button">Apri V10 invariata</button>';
+    const ta = document.getElementById('v11FailLog');
+    ta.value = JSON.stringify(report, null, 2);
+    document.getElementById('v11CopyFail').onclick = async () => {
+      try { await navigator.clipboard.writeText(ta.value); }
+      catch (_) { ta.focus(); ta.select(); document.execCommand('copy'); }
+    };
+    document.getElementById('v11OpenV10').onclick = () => location.href = V10_URL;
+  }
+
+  function replaceExactlyOnce(text, oldText, newText, label) {
+    const first = text.indexOf(oldText);
+    const last = text.lastIndexOf(oldText);
+    if (first < 0 || first !== last) {
+      throw new Error(`${label}: anchor atteso esattamente una volta; trovato ${first < 0 ? 0 : 'piu di uno'}`);
+    }
+    return text.slice(0, first) + newText + text.slice(first + oldText.length);
+  }
+
+  /*
+   * Passive in-app diagnostic panel. It reads Depth state and Resource Timing only.
+   * It does NOT replace Worker/fetch/console and does NOT alter application decisions.
+   */
+  const DIAG_SCRIPT = String.raw`
+<script>
+(() => {
+  'use strict';
+  const BUILD='room-scanner-v11-depth-only-2026-08-16';
+  const pageEvents=[];
+  const MAX_EVENTS=80;
+  const RX=/depth|onnx|ort\.|wasm|webgpu|inference|session/i;
+  function push(type,detail){
+    let clean=detail;
+    try{clean=JSON.parse(JSON.stringify(detail));}catch(_){clean={text:String(detail)}}
+    pageEvents.push({iso:new Date().toISOString(),t_ms:Math.round(performance.now()),type,detail:clean});
+    if(pageEvents.length>MAX_EVENTS)pageEvents.splice(0,pageEvents.length-MAX_EVENTS);
+    updateCompactStatus();
+  }
+  window.addEventListener('error',e=>{
+    const text=[e.message,e.filename,e.error&&e.error.stack].filter(Boolean).join(' ');
+    if(RX.test(text))push('page-error',{message:e.message||'',filename:e.filename||'',lineno:e.lineno||0,colno:e.colno||0,stack:String(e.error&&e.error.stack||'')});
+  });
+  window.addEventListener('unhandledrejection',e=>{
+    const reason=e.reason;
+    const text=String(reason&&reason.stack||reason||'');
+    if(RX.test(text))push('page-unhandledrejection',{reason:text});
+  });
+  function depthState(){
+    try{
+      if(typeof S==='undefined'||!S||!S.depthAI)return null;
+      const d=S.depthAI;
+      return {
+        lastError:d.lastError||null,
+        lastSmoke:d.lastSmoke||null,
+        wasmPaths:d.wasmPaths||null,
+        modelIntegrity:d.modelIntegrity||null,
+        lastWorkerDebug:d.lastWorkerDebug||null,
+        forceWasm:!!d.forceWasm,
+        alignment:Array.isArray(d.alignment)?d.alignment.slice(-8):null,
+        pendingCount:d.pending&&typeof d.pending.size==='number'?d.pending.size:null
+      };
+    }catch(e){return {snapshotError:String(e&&e.stack||e)}}
+  }
+  function resources(){
+    try{return performance.getEntriesByType('resource').filter(r=>RX.test(r.name)).slice(-80).map(r=>({name:r.name,initiatorType:r.initiatorType,duration_ms:Math.round(r.duration*10)/10,transferSize:r.transferSize||0,encodedBodySize:r.encodedBodySize||0,decodedBodySize:r.decodedBodySize||0}))}catch(_){return []}
+  }
+  function report(){
+    return {
+      schema:'room-scanner-depthai-debug-v11',
+      build:BUILD,
+      generatedAt:new Date().toISOString(),
+      page:{href:location.href,origin:location.origin,secureContext:!!window.isSecureContext,visibility:document.visibilityState},
+      environment:{userAgent:navigator.userAgent,hardwareConcurrency:navigator.hardwareConcurrency||null,deviceMemory:navigator.deviceMemory||null,webgpu:!!navigator.gpu,crossOriginIsolated:!!window.crossOriginIsolated},
+      depthAI:depthState(),
+      pageEvents:pageEvents.slice(),
+      resources:resources()
+    };
+  }
+  function text(){return JSON.stringify(report(),null,2)}
+  let panel,ta,status;
+  function updateCompactStatus(){
+    if(!status)return;
+    const d=depthState();
+    const dbg=d&&d.lastWorkerDebug;
+    const stage=dbg&&dbg.stage||dbg&&dbg.reason||'in attesa';
+    const provider=dbg&&dbg.activeProvider||d&&d.lastSmoke&&d.lastSmoke.provider||'?';
+    const err=d&&d.lastError;
+    status.textContent=err?('ERRORE: '+err):('stage: '+stage+' | provider: '+provider);
+  }
+  function ensurePanel(){
+    if(panel)return;
+    panel=document.createElement('div');
+    panel.id='depthV11Diag';
+    panel.style.cssText='position:fixed;z-index:2147483647;left:8px;right:8px;bottom:8px;max-height:48vh;background:rgba(7,10,14,.96);color:#eef4fa;border:1px solid #5b6773;border-radius:10px;padding:8px;font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 4px 18px #0008';
+    panel.innerHTML='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><b>V11 Depth AI</b><span id="depthV11Status" style="flex:1">in attesa</span><button id="depthV11Refresh" type="button">Aggiorna</button><button id="depthV11Copy" type="button">Copia log Depth AI</button><button id="depthV11Toggle" type="button">Mostra/Nascondi</button></div><textarea id="depthV11Text" spellcheck="false" style="display:none;width:100%;height:28vh;box-sizing:border-box;margin-top:7px;background:#05070a;color:#dbe8f4;border:1px solid #45515d;border-radius:6px;padding:7px"></textarea>';
+    document.body.appendChild(panel);
+    ta=panel.querySelector('#depthV11Text');
+    status=panel.querySelector('#depthV11Status');
+    panel.querySelector('#depthV11Refresh').onclick=()=>{ta.value=text();updateCompactStatus()};
+    panel.querySelector('#depthV11Toggle').onclick=()=>{ta.style.display=ta.style.display==='none'?'block':'none';if(ta.style.display!=='none')ta.value=text()};
+    panel.querySelector('#depthV11Copy').onclick=async()=>{
+      const s=text();ta.value=s;ta.style.display='block';
+      try{await navigator.clipboard.writeText(s);status.textContent='LOG COPIATO - incollalo nella chat';}
+      catch(_){ta.focus();ta.select();try{document.execCommand('copy');status.textContent='LOG COPIATO - incollalo nella chat';}catch(e){status.textContent='Copia automatica fallita: seleziona il testo';}}
+    };
+    updateCompactStatus();
+  }
+  function boot(){ensurePanel();push('v11-diagnostics-ready',{build:BUILD});setInterval(updateCompactStatus,1200)}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+})();
+<\/script>`;
+
+  async function bootV11() {
+    try {
+      log('fetch-v10-start', { url: V10_URL });
+      const sourceUrl = `${V10_URL}?v11_source=${encodeURIComponent(V11_BUILD)}&t=${Date.now()}`;
+      const response = await fetch(sourceUrl, { cache: 'no-store', credentials: 'same-origin' });
+      log('fetch-v10-response', { status: response.status, ok: response.ok, contentType: response.headers.get('content-type') });
+      if (!response.ok) throw new Error(`room_scanner_v10.html HTTP ${response.status}`);
+      let html = await response.text();
+      log('fetch-v10-bytes', { chars: html.length });
+      if (html.length < 100000) throw new Error(`V10 troppo piccola (${html.length} caratteri): rifiuto patch per sicurezza`);
+
+      // Reviewed V10 anchors. These checks protect the app from a blind/approximate rewrite.
+      const workerAnchor = "depthAIWorker:'./depth_ai_worker.js'";
+      const runtimeAnchor = "depthAIRuntimeVersion:'1.23.2'";
+      const workerCreateAnchor = 'new Worker(versionedLocalAsset(CFG.depthAIWorker))';
+      if (!html.includes(runtimeAnchor)) throw new Error(`Anchor mancante: ${runtimeAnchor}`);
+      if (!html.includes(workerCreateAnchor)) throw new Error(`Anchor mancante: ${workerCreateAnchor}`);
+
+      // Functional HTML change #1 and only one: route JUST Depth AI to the V11 worker.
+      html = replaceExactlyOnce(
+        html,
+        workerAnchor,
+        "depthAIWorker:'./depth_ai_worker_v11.js'",
+        'Depth worker URL'
+      );
+      log('depth-worker-rerouted', { from: './depth_ai_worker.js', to: DEPTH_WORKER_V11 });
+
+      // Diagnostic-only HTML change: retain worker snapshots already attached by the V11 worker.
+      const msgOld = 'S.depthAI.worker=W;W.onmessage=e=>{const m=e.data||{},p=S.depthAI.pending.get(m.id);';
+      const msgNew = 'S.depthAI.worker=W;W.onmessage=e=>{const m=e.data||{};if(m.debug)S.depthAI.lastWorkerDebug=m.debug;const p=S.depthAI.pending.get(m.id);';
+      if (html.includes(msgOld)) {
+        html = replaceExactlyOnce(html, msgOld, msgNew, 'Depth worker debug capture');
+        log('debug-capture-injected', {});
+      } else if (!html.includes('if(m.debug)S.depthAI.lastWorkerDebug=m.debug')) {
+        throw new Error('Anchor handler DepthAI non riconosciuto: diagnostica V11 non installata');
+      }
+
+      // Add a visible V11/Depth-only diagnostics panel. No application logic is changed here.
+      const bodyEnd = html.toLowerCase().lastIndexOf('</body>');
+      if (bodyEnd < 0) throw new Error('Tag </body> non trovato nella V10');
+      html = html.slice(0, bodyEnd) + DIAG_SCRIPT + html.slice(bodyEnd);
+      log('diagnostics-ui-injected', {});
+
+      // Render the transformed V10 in THIS V11 document. The server-side V10 remains untouched.
+      document.open();
+      document.write(html);
+      document.close();
+    } catch (error) {
+      failClosed(error);
+    }
+  }
+
+  bootV11();
+})();
+</script>
+</body>
+</html>
