@@ -26,3 +26,9 @@ controllare nei dettagli che il build sia `v10.0.9-depth-wasm-verified` e che
 lo smoke Depth indichi un output finito.
 
 La guida completa del flusso, delle foto e dei file RAW è in `V10_GUIDE.md`.
+
+## Diagnostica separata
+
+`room_scanner_v11.html` isola il test della fotocamera + Depth Anything da
+quello WebXR. Usarlo prima di investigare la fusione V10: la sessione WebXR
+può iniziare soltanto dopo aver chiuso camera e worker Depth.

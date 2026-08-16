@@ -2,6 +2,7 @@ ROOM SCANNER V10.0.9 — PUBBLICAZIONE
 
 Pubblicare nella stessa cartella del sito questi file aggiornati:
   room_scanner_v10.html
+  room_scanner_v11.html
   depth_ai_worker.js
   sw.js
   build_info.json
@@ -19,3 +20,14 @@ Se appare una versione in cache, fare un hard refresh oppure aggiungere un
 parametro temporaneo, ad esempio ?v=1009. Nei dettagli/diagnostica verificare
 che il build sia "v10.0.9-depth-wasm-verified" e che lo smoke Depth Anything
 indichi provider, variante e output validi.
+
+TEST ISOLATO V11
+
+Per capire se il problema è nel modello o in WebXR, aprire prima:
+https://gioelegrecome.github.io/room_scanner/room_scanner_v11.html?v=1100s1
+
+1. Nella sessione A eseguire “Apri fotocamera per Depth” e “Analizza con Depth
+   Anything”: deve comparire la heatmap e un esito Depth Anything OK.
+2. Premere “Chiudi sessione Depth”.
+3. Solo allora avviare “Test WebXR”. Il log deve ricevere pose XR senza alcuna
+   inferenza Depth attiva.
