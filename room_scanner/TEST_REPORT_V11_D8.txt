@@ -1,0 +1,20 @@
+ROOM SCANNER V11-D8 - TEST REPORT
+
+Obiettivo D8:
+- non cambiare il modello Depth Anything V2 Small Q4F16;
+- provare prima il modello piatto same-origin depth_anything_v2_small_q4f16.onnx;
+- mantenere la correzione coda init di D7;
+- evitare che Hugging Face/Xet ritardi il caso normale quando il modello locale e' presente.
+
+Verifiche statiche eseguite:
+PASS room_scanner_v11_d8_loader.js node --check
+PASS room_scanner_v11_d8_diag.js node --check
+PASS depth_ai_worker_v11_d8.js node --check
+PASS verify_depth_model_d8.html inline JS node --check
+PASS nessun riferimento D7 residuo
+PASS rawCandidates inizia con flatLocal
+PASS dimensione attesa 19126267 byte
+PASS SHA-256 atteso eca72971aea64216d767c70c534160de53b5435b588d362bac6dbd5a73f9bf1e
+
+Limite del test locale:
+il container di questa sessione non ha connettivita' DNS verso Hugging Face, quindi il binario ONNX reale non e' stato materializzato qui. L'identita' del modello (dimensione e SHA) e' stata verificata sulla pagina ufficiale Hugging Face.
