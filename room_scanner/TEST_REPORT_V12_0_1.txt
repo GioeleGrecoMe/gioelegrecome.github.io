@@ -1,0 +1,26 @@
+Room Scanner V12.0.1 - test report
+Data: 2026-08-16
+
+PASS node --check sul modulo JavaScript estratto dall'HTML
+PASS nessuna dipendenza Three.js / OrbitControls / jsDelivr
+PASS camera capability verificata tramite XRView.camera
+PASS depth XR indipendente dai keyframe RGB
+PASS baseline automatica metrica/angolare obbligatoria
+PASS inferenza, alignment e admission Deep separati
+PASS revalidation multi-view presente
+PASS supporto dei piani limitato al poligono finito
+PASS provenance/confidence nel RAW
+PASS griglia depth/intrinseche/coverage/quality per keyframe
+PASS esclusione frame reversibile; nessuna cancellazione automatica
+PASS layer viewer separati
+PASS schema RAW room-scanner-v12.0.1-raw
+
+Test sintetici:
+PASS piano: punto interno accettato
+PASS piano: punto su estensione infinita rifiutato
+PASS tavolo: OBB 1.35 x 0.08 x 0.72 m recuperato da geometria ruotata
+PASS divano: OBB 2.05 x 0.86 x 0.92 m
+PASS parete parzialmente occlusa: area ricostruita 7.78 m2, finita
+PASS fit robusto: 45 inlier, residuo mediano circa 0.008 m con outlier aggiunti
+
+NON ESEGUITO: test fisico WebXR su smartphone/ARCore. Richiede hardware reale.

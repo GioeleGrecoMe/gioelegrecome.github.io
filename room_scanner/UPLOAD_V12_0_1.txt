@@ -1,0 +1,18 @@
+UPLOAD MINIMO
+==============
+Sostituisci nel repository:
+  room_scanner/room_scanner_v12.html
+con:
+  room_scanner_v12.html (questo pacchetto)
+
+Non serve sostituire `depth_ai_worker.js`: V12.0.1 usa il contratto worker esistente.
+Il modello locale atteso rimane:
+  room_scanner/models/depth_anything_v2_small_q4.onnx
+
+Dopo il deploy:
+1. apri room_scanner_v12.html;
+2. verifica la label V12.0.1;
+3. avvia AR anche prima di caricare Deep;
+4. controlla in Revisione la catena Deep -> ancore -> ammessi;
+5. prova Scena con i layer separati;
+6. esporta un RAW e riaprilo.
