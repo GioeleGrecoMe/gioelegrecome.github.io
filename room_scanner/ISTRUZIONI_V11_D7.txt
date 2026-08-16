@@ -1,0 +1,32 @@
+ROOM SCANNER V11-D7 - INIT QUEUE FIX
+====================================
+
+PER INSTALLARE DA SMARTPHONE
+1. Estrai lo ZIP.
+2. Carica NELLA STESSA DIRECTORY di room_scanner_v10.html questi quattro file:
+   - room_scanner_v11_d7.html
+   - room_scanner_v11_d7_loader.js
+   - room_scanner_v11_d7_diag.js
+   - depth_ai_worker_v11_d7.js
+3. Non modificare room_scanner_v10.html, depth_ai_worker.js o sw.js.
+4. Non creare nuove cartelle.
+
+URL DI TEST
+https://gioelegrecome.github.io/room_scanner/room_scanner_v11_d7.html?depthtest=1&v=d7-queuefix-20260816
+
+COSA DEVE COMPARIRE
+- ROOM SCANNER V11-D7 - INIT QUEUE FIX
+- LIVE DEPTH TRACE
+- all'avvio del self-test, se init arriva durante il bootstrap:
+  early-message-queued
+  handler-ready
+  early-message-replayed
+- subito dopo deve comparire almeno:
+  message type=init
+  init-config
+  runtime-plan
+
+Se questi ultimi eventi compaiono, la comunicazione init e' stata ripristinata e il test puo' finalmente raggiungere runtime/modello/sessione.
+
+MODELLO
+D7 NON cambia il modello. Il log D6 mostra che il modello non veniva ancora raggiunto: sia WebGPU sia WASM andavano in timeout prima del primo evento init/runtime/model.
