@@ -1,6 +1,5 @@
-import json, math, pathlib, random, statistics
+import json, math, random, statistics
 random.seed(9)
-OUT=pathlib.Path(__file__).with_name('result_virtual_array.json')
 C=343.0
 source=(-1.3,1.1,-0.7)
 true=(0.0,1.05,1.25)  # point on a stable wall patch x=0
@@ -50,6 +49,5 @@ result={
  'receivers':len(receivers),
  'injected_large_outliers':2
 }
-OUT.write_text(json.dumps(result,indent=2))
 print(json.dumps(result,indent=2))
 if result['status']!='PASS': raise SystemExit(1)

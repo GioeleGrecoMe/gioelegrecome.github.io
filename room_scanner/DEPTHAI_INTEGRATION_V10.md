@@ -1,6 +1,6 @@
-# Depth Anything V2 Small — Stage-5 detail pass
+# Depth Anything V2 Small — integrazione V10
 
-Build: `v9.5.1-hotfix5w13-depthai-runtime-compat`
+Build: `v10.0.9-depth-wasm-verified`
 
 ## Cooperative live refinement + deferred remainder
 

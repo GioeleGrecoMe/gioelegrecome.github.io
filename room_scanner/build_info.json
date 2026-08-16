@@ -8,7 +8,8 @@
     "vendor/ort-wasm-simd.wasm"
   ],
   "recommendedLocal": [
-    "models/depth_anything_v2_small_q4f16.onnx"
+    "models/depth_anything_v2_small_q4f16.onnx",
+    "models/depth_anything_v2_small_q4.onnx"
   ],
   "app_build": "v10.0.9-depth-wasm-verified",
   "deploy_rev": "1009m1",

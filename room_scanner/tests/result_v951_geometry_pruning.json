@@ -1,9 +1,0 @@
-{
-  "status": "PASS",
-  "one_view_max": 0.28,
-  "two_view_max": 0.62,
-  "three_view_probability": 0.8306,
-  "young_mono_survives": true,
-  "stale_mono_pruned_online": true,
-  "packet_safe_window_maintenance": true
-}

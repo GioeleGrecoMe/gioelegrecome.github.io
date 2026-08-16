@@ -1,6 +1,4 @@
-import json, math, pathlib
-
-OUT = pathlib.Path(__file__).with_name('result_semantic_structural.json')
+import json, math
 
 # Semantic fallback regression: a clean depth discontinuity must be a boundary,
 # while constant-depth interiors must remain mostly unmarked.
@@ -75,6 +73,5 @@ result={
   'primitive_components':len(large),
   'primitive_support_cells':len(large[0]) if large else 0,
 }
-OUT.write_text(json.dumps(result,indent=2))
 print(json.dumps(result,indent=2))
 if result['status']!='PASS': raise SystemExit(1)
