@@ -1,8 +1,9 @@
-ROOM SCANNER V10.0.9 + V11.0.4 — PUBBLICAZIONE
+ROOM SCANNER V12.0.0 + diagnostica V11 — PUBBLICAZIONE
 
 Pubblicare nella stessa cartella del sito questi file aggiornati:
   room_scanner_v10.html
   room_scanner_v11.html
+  room_scanner_v12.html
   depth_ai_worker.js
   sw.js
   build_info.json
@@ -14,12 +15,27 @@ per compatibilità con le vecchie pagine, ma non viene caricato da V10/V11.
 Non rinominare i file né spostarli fuori da models/.
 
 Dopo il deploy aprire:
-https://gioelegrecome.github.io/room_scanner/room_scanner_v10.html
+https://gioelegrecome.github.io/room_scanner/room_scanner_v12.html
 
 Se appare una versione in cache, fare un hard refresh oppure aggiungere un
 parametro temporaneo, ad esempio ?v=1009. Nei dettagli/diagnostica verificare
-che il build sia "v10.0.9-depth-wasm-verified" e che lo smoke Depth Anything
-indichi provider, variante e output validi.
+che il badge sia "V12.0.0" e che lo smoke Depth Anything indichi provider,
+variante e output validi.
+
+TEST PRINCIPALE V12
+
+1. Premere “Carica modello” e attendere 100% + smoke Q4/WASM.
+2. Premere “Avvia scansione AR”. I comandi Foto, Modello 3D, Revisione e
+   Termina devono restare visibili sopra l'AR (DOM Overlay richiesto).
+3. Muoversi lungo pavimento, pareti, angoli e grandi mobili: il log deve
+   mostrare frame automatici, numero di ancoraggi, fit metrico e punti Deep
+   ammessi/rifiutati. Un frame con pochi ancoraggi deve restare in revisione,
+   non entrare nella nuvola.
+4. Premere “Foto”: il log deve confermare che viene catturata sul frame XR
+   successivo, con posa e depth sincronizzate.
+5. In “Modello 3D” verificare nuvola RGB, piani XR e riquadri degli oggetti;
+   in “Revisione” verificare heatmap, fit e conteggi per frame.
+6. Scaricare RAW, ricaricarlo e verificare che scena, frame e punti ritornino.
 
 TEST ISOLATO V11
 
