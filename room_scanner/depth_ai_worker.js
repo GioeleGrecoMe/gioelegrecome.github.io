@@ -234,7 +234,10 @@ self.onmessage = async (event) => {
       inputSize = Number(msg.inputSize || 518);
       runtimeVersion = String(msg.runtimeVersion || '1.23.2');
       deployRev = String(msg.deployRev || 'dev');
-      forceWasmRuntime = !!msg.forceWasm;
+      // Q4F16/WebGPU can initialize and even smoke-test, then fail on a real
+      // mobile image. The product path deliberately uses the verified Q4/WASM
+      // model only; this also avoids downloading the unused Q4F16 model first.
+      forceWasmRuntime = true;
       await initModel(msg.modelLocal, msg.modelRemote, msg.modelWasmLocal, msg.modelWasmRemote);
       self.postMessage({
         id, ok: true, provider: activeProvider, modelVariant, modelSource, runtimeSource,

@@ -12,11 +12,16 @@ assert "const s=v10PhotoStatus(R),row=document.createElement('div'),rgb=R.rgbPre
 assert "row.className='v10PhotoRow',rgb=" not in v10
 
 for token in [
-    "const BUILD='v11.0.1-wasm-preview-aligned'",
+    "const BUILD='v11.0.3-camera-freeze-preload'",
     "navigator.mediaDevices.getUserMedia",
     "new Worker(`./depth_ai_worker.js?rsbuild=${REV}`)",
     "modelWasmLocal:'./models/depth_anything_v2_small_q4.onnx'",
     "forceWasm:true",
+    "inputSize:392",
+    "720/Math.max(sw,sh)",
+    "function freezeCameraFrame()",
+    "Scatta frame (max 720p)",
+    "setTimeout(()=>ensureDepth()",
     "await workerRequest('smoke')",
     "await workerRequest('infer'",
     "drawHeatmap(depth,r.outputWidth,r.outputHeight)",
