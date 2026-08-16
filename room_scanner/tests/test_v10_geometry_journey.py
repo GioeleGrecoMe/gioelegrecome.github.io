@@ -54,11 +54,18 @@ assert "S.semantic.mode='off'" in v10_tail
 assert "$('#objectSeedUI')?.remove()" in v10_tail
 assert "R.manualDepthState='awaiting-confirmation'" in v10_tail
 assert "✓ Applica ${R.manualDepthCandidatePoints||0} punti" in v10_tail
-assert "fuseDepthAIFrame(D,pred,out.outputWidth,out.outputHeight,fit,h5w5LiveDepthBudget(),true)" in v10_tail
+assert "function v10BuildAnchoredReviewFit(" in v10_tail
+assert "R.manualDepthState='needs-anchors'" in v10_tail
+assert "const budget=strictFit?h5w5LiveDepthBudget():v10CautiousReviewBudget()" in v10_tail
+assert "function v10MapEvidence()" in v10_tail
+assert "function v10DiscardManualPhoto(" in v10_tail
+assert "Elimina foto" in v10_tail
+assert "rgbaOrigin:V.rgbaOrigin||'top-left'" in html
+assert "A second flip here inverted every saved preview" in html
 assert "v10AutoFuseManualReview" not in v10_tail
 assert "Riprovo la preview" in v10_tail
-assert "↻ Ricalcola Depth" in v10_tail
-assert "riproiettati con posa WebXR nella nuvola 3D globale" in v10_tail
+assert "↻ Ricalcola Deep" in v10_tail
+assert "WebXR-globali" in v10_tail
 assert "room-scanner-v10-raw-room-v1" in v10_tail
 assert "v10LoadRawRoomFile" in v10_tail
 assert "manualDepthState:'restored'" in v10_tail
