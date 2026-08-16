@@ -1,35 +1,33 @@
-ROOM SCANNER V11 DIAGNOSTIC2 - TEST REPORT
+ROOM SCANNER V11 DIAGNOSTIC3 - INTERNAL TEST REPORT
 Date: 2026-08-16
 
-Scope
-- No changes to room_scanner_v10.html on disk.
-- No changes to depth_ai_worker.js on disk.
-- No changes to sw.js, WebXR, audio, geometry, fitting, thresholds, splatting or acquisition.
-- V11 redirects only the Depth Anything worker to depth_ai_worker_v11.js in memory.
+STATIC CHECKS
+PASS  depth_ai_worker_v11.js syntax (node --check)
+PASS  room_scanner_v11.html inline JavaScript syntax
+PASS  ZIP is flat (no directories)
+PASS  V10 / original worker / sw.js are not included or modified
 
-Static checks
-PASS: depth_ai_worker_v11.js JavaScript syntax (node --check)
-PASS: outer JavaScript in room_scanner_v11.html
-PASS: injected V11 diagnostic panel JavaScript
-PASS: patch against an uninstrumented V10 Depth worker fixture
-PASS: patch against an already-instrumented V3 Depth worker fixture
-PASS: same-origin wasmPaths correction remains present
-PASS: worker default ORT fallback remains 1.23.2
+MODEL LOADER TESTS
+PASS  requested models/ path HTTP 404 -> flat root model succeeds
+PASS  Git-LFS pointer response -> detected -> remote fallback succeeds
+PASS  HTML response instead of ONNX -> detected -> remote fallback succeeds
+PASS  all candidates missing -> explicit classified error returned
+PASS  streamed payload exactly 19,126,267 bytes
+PASS  model-download-progress emitted during transfer
+PASS  SHA/integrity event emitted before session creation
+PASS  preallocated download buffer avoids a second 19.1 MB merge copy
 
-Worker-flow test
-PASS: init command
-PASS: simulated WebGPU session-creation failure
-PASS: fallback to WASM session
-PASS: smoke inference
-PASS: three RGBA image inferences: room-perspective, gradient, checkerboard
-PASS: Float32 depth buffers finite and non-constant
-PASS: live progress includes runtime-plan, session-create-start, session-create-failed,
-      session-create-ok, preprocess-start, session-run-start, session-run-ok,
-      output-stats and infer-ok.
+PROVIDER / INFERENCE CONTROL FLOW TEST
+PASS  simulated WebGPU session creation failure is logged
+PASS  fallback WASM session creation succeeds
+PASS  smoke/inference message contract remains valid
+PASS  sample room image inference path
+PASS  sample gradient image inference path
+PASS  sample checkerboard image inference path
 
-Important test boundary
-The local execution test uses a deterministic mock ORT/model fixture to exercise the worker
-control flow and image-buffer contract. The actual 19.1 MB Q4F16 binary was not available
-inside the offline execution container, so this report does NOT claim a local real-model ONNX
-inference. The V11 in-browser self-test (?depthtest=1 or the Test WebGPU->WASM button) runs
-against the real deployed local model/runtime on the target smartphone and records every phase.
+IMPORTANT LIMITATION
+The container could not download the actual Hugging Face Xet binary, so the real
+19.1 MB Q4F16 model was not executed inside this environment. The model identity
+(size and SHA-256) was independently checked against the official public model page.
+The tests above validate the model-transfer state machine, error classification,
+progress reporting, provider fallback, message/buffer contract, and sample-image flow.

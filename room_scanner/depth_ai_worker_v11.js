@@ -18,7 +18,7 @@
  */
 'use strict';
 
-const V11_WORKER_BUILD = 'room-scanner-v11-depth-worker-diagnostic2-2026-08-16';
+const V11_WORKER_BUILD = 'room-scanner-v11-depth-worker-diagnostic3-2026-08-16';
 const ORIGINAL_WORKER_URL = './depth_ai_worker.js';
 const bootstrapEvents = [];
 const BOOT_MAX = 180;
@@ -252,32 +252,111 @@ depthDebug('worker-boot',{href:self.location?.href||'',webgpu:!!self.navigator?.
     'runtime-ready anchor'
   );
 
-  // Model transfer and integrity: observe existing checks without changing them.
-  src = replaceOnce(src, 'async function fetchVerifiedModel(url){\n', "async function fetchVerifiedModel(url){\n  depthDebug('model-fetch-start',{url});\n", 'model fetch start');
-  src = replaceOnce(
-    src,
-    "  const r=await fetch(absolute,{cache:local?'no-store':'default',mode:'cors'});if(!r.ok)throw new Error(`DepthAI model HTTP ${r.status}: ${absolute}`);\n",
-    "  const r=await fetch(absolute,{cache:local?'no-store':'default',mode:'cors'});depthDebug('model-fetch-response',{url:absolute,status:r.status,ok:r.ok,contentLength:r.headers.get('content-length'),local});if(!r.ok)throw new Error(`DepthAI model HTTP ${r.status}: ${absolute}`);\n",
-    'model HTTP response'
-  );
-  src = replaceOnce(
-    src,
-    "  const buffer=await r.arrayBuffer();if(buffer.byteLength!==DEPTH_MODEL_PIN.bytes)throw new Error(`DepthAI model size ${buffer.byteLength} != ${DEPTH_MODEL_PIN.bytes}`);\n",
-    "  const buffer=await r.arrayBuffer();depthDebug('model-bytes',{bytes:buffer.byteLength,expectedBytes:DEPTH_MODEL_PIN.bytes});if(buffer.byteLength!==DEPTH_MODEL_PIN.bytes)throw new Error(`DepthAI model size ${buffer.byteLength} != ${DEPTH_MODEL_PIN.bytes}`);\n",
-    'model byte count'
-  );
-  src = replaceOnce(
-    src,
-    "  const hash=await sha256Hex(buffer);if(hash&&hash!==DEPTH_MODEL_PIN.sha256)throw new Error('DepthAI model SHA-256 non corrisponde a Q4F16 ufficiale');\n",
-    "  const hash=await sha256Hex(buffer);depthDebug('model-sha256',{sha256:hash||'unavailable',expectedSha256:DEPTH_MODEL_PIN.sha256,match:!hash||hash===DEPTH_MODEL_PIN.sha256});if(hash&&hash!==DEPTH_MODEL_PIN.sha256)throw new Error('DepthAI model SHA-256 non corrisponde a Q4F16 ufficiale');\n",
-    'model SHA-256'
-  );
-  src = replaceOnce(
-    src,
-    "  modelIntegrity={bytes:buffer.byteLength,sha256:hash||'unavailable',url:absolute};return {buffer,absolute}\n",
-    "  modelIntegrity={bytes:buffer.byteLength,sha256:hash||'unavailable',url:absolute};depthDebug('model-verified',{modelIntegrity});return {buffer,absolute}\n",
-    'model verified'
-  );
+  // DEPTHAI_MODEL_LOADER_V11_DIAG3
+  // Replace ONLY fetchVerifiedModel(). The rest of Depth Anything model/session logic remains untouched.
+  // Why: the previous implementation used response.arrayBuffer() and exposed no progress while the
+  // complete 19.1 MB model was downloading. It also could not distinguish a real ONNX file from a
+  // Git-LFS pointer or an HTML/404 response returned by a static host/service worker.
+  {
+    const modelFnStart = src.indexOf('async function fetchVerifiedModel(url){');
+    const modelFnEnd = src.indexOf('async function createSessionFrom', modelFnStart);
+    if (modelFnStart < 0 || modelFnEnd < 0 || modelFnEnd <= modelFnStart) {
+      throw new Error('fetchVerifiedModel(): source anchors not found');
+    }
+    const robustModelLoader = String.raw`async function fetchVerifiedModel(url){
+  const expectedBytes=Number(DEPTH_MODEL_PIN.bytes);
+  const expectedSha=String(DEPTH_MODEL_PIN.sha256||'').toLowerCase();
+  const officialRemote='https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model_q4f16.onnx';
+  const flatLocal=new URL('./depth_anything_v2_small_q4f16.onnx',self.location.href).href;
+  const requested=new URL(url||flatLocal,self.location.href).href;
+  const oldFolderLocal=new URL('./models/depth_anything_v2_small_q4f16.onnx',self.location.href).href;
+
+  // Keep a deterministic candidate order and remove duplicates. The requested URL is tried first so
+  // an existing V10 deployment keeps working; the flat root file is next for smartphone uploads;
+  // the official single-file model is the final network fallback.
+  const rawCandidates=[requested,flatLocal,oldFolderLocal,officialRemote];
+  const candidates=[];
+  for(const c of rawCandidates){if(c&&!candidates.includes(c))candidates.push(c)}
+  depthDebug('model-candidates',{requested,candidates,expectedBytes,expectedSha});
+
+  const errors=[];
+  for(let ci=0;ci<candidates.length;ci++){
+    const original=candidates[ci];
+    const u=new URL(original,self.location.href);
+    const local=u.origin===self.location.origin;
+    if(local)u.searchParams.set('rsbuild',deployRev);
+    const absolute=u.href;
+    const ac=new AbortController();
+    let hardTimer=null,noProgressTimer=null;
+    const hardTimeoutMs=180000;
+    const noProgressTimeoutMs=25000;
+    let received=0,lastProgressAt=performance.now();
+    const resetNoProgress=()=>{clearTimeout(noProgressTimer);noProgressTimer=setTimeout(()=>ac.abort('model-no-progress-timeout'),noProgressTimeoutMs)};
+    try{
+      depthDebug('model-candidate-start',{index:ci+1,total:candidates.length,url:absolute,local,hardTimeoutMs,noProgressTimeoutMs});
+      hardTimer=setTimeout(()=>ac.abort('model-hard-timeout'),hardTimeoutMs);
+      resetNoProgress();
+      const t0=performance.now();
+      const r=await fetch(absolute,{cache:local?'no-store':'default',mode:'cors',credentials:local?'same-origin':'omit',redirect:'follow',signal:ac.signal});
+      const contentType=String(r.headers.get('content-type')||'').toLowerCase();
+      const contentLengthRaw=r.headers.get('content-length');
+      const contentLength=contentLengthRaw?Number(contentLengthRaw):null;
+      depthDebug('model-fetch-response',{index:ci+1,url:absolute,finalUrl:r.url||absolute,redirected:!!r.redirected,status:r.status,ok:r.ok,contentType,contentLength,local,elapsed_ms:Math.round((performance.now()-t0)*10)/10});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      if(contentType.includes('text/html'))throw new Error('risposta HTML al posto del modello ONNX');
+      if(Number.isFinite(contentLength)&&contentLength>0&&contentLength<1024)depthDebug('model-suspicious-small-response',{contentLength,contentType,url:absolute});
+
+      let buffer;
+      if(r.body&&typeof r.body.getReader==='function'){
+        // Preallocate exactly the pinned model size: this avoids retaining both an array of chunks
+        // and a second merged 19.1 MB copy on memory-constrained phones.
+        const reader=r.body.getReader(),merged=new Uint8Array(expectedBytes);
+        while(true){
+          const q=await reader.read();
+          if(q.done)break;
+          if(q.value&&q.value.byteLength){
+            if(received+q.value.byteLength>expectedBytes)throw new Error('download modello supera la dimensione attesa');
+            merged.set(q.value,received);received+=q.value.byteLength;lastProgressAt=performance.now();resetNoProgress();
+            const pct=Number.isFinite(contentLength)&&contentLength>0?Math.min(100,received*100/contentLength):Math.min(100,received*100/expectedBytes);
+            depthDebug('model-download-progress',{index:ci+1,receivedBytes:received,expectedBytes,contentLength,percent:Math.round(pct*10)/10,elapsed_ms:Math.round((performance.now()-t0)*10)/10});
+          }
+        }
+        buffer=received===expectedBytes?merged.buffer:merged.slice(0,received).buffer;
+      }else{
+        depthDebug('model-stream-unavailable',{index:ci+1,url:absolute});
+        buffer=await r.arrayBuffer();received=buffer.byteLength;
+      }
+      clearTimeout(noProgressTimer);
+      depthDebug('model-bytes',{index:ci+1,bytes:buffer.byteLength,expectedBytes,url:absolute,totalElapsed_ms:Math.round((performance.now()-t0)*10)/10});
+
+      // Give a precise explanation for the most common GitHub Pages failure instead of a generic size mismatch.
+      if(buffer.byteLength<2048){
+        let head='';try{head=new TextDecoder().decode(new Uint8Array(buffer,0,Math.min(buffer.byteLength,512)))}catch(_){}
+        if(/git-lfs\.github\.com\/spec\/v1/i.test(head))throw new Error('Git-LFS pointer rilevato: Git LFS non viene servito da GitHub Pages');
+        if(/<!doctype html|<html[\s>]/i.test(head))throw new Error('documento HTML rilevato al posto del modello ONNX');
+      }
+      if(buffer.byteLength!==expectedBytes)throw new Error('dimensione modello '+buffer.byteLength+' != '+expectedBytes);
+      const hash=await sha256Hex(buffer);
+      depthDebug('model-sha256',{index:ci+1,sha256:hash||'unavailable',expectedSha256:expectedSha,match:!hash||String(hash).toLowerCase()===expectedSha});
+      if(hash&&String(hash).toLowerCase()!==expectedSha)throw new Error('SHA-256 del modello non corrisponde al Q4F16 ufficiale');
+      modelIntegrity={bytes:buffer.byteLength,sha256:hash||'unavailable',url:absolute,requestedUrl:requested,candidateIndex:ci+1};
+      depthDebug('model-verified',{modelIntegrity});
+      return {buffer,absolute};
+    }catch(e){
+      const reason=(e&&e.name==='AbortError')?('timeout/abort: '+String(ac.signal&&ac.signal.reason||e.message||e)):errText(e);
+      errors.push({url:absolute,local,error:reason,receivedBytes:received});
+      depthDebug('model-candidate-failed',{index:ci+1,total:candidates.length,url:absolute,local,error:reason,receivedBytes:received,sinceLastProgress_ms:Math.round((performance.now()-lastProgressAt)*10)/10});
+    }finally{
+      clearTimeout(hardTimer);clearTimeout(noProgressTimer);
+    }
+  }
+  const summary=errors.map((x,i)=>(i+1)+') '+x.url+' :: '+x.error+' ['+x.receivedBytes+' bytes]').join(' | ');
+  throw new Error('DepthAI: nessun modello Q4F16 caricabile. '+summary);
+}
+`;
+    src = src.slice(0, modelFnStart) + robustModelLoader + src.slice(modelFnEnd);
+    changes.push('robust streamed model loader with flat/local/remote fallback');
+  }
 
   // Session creation: provider list and ORT options remain byte-for-byte the same.
   const sessionOld = `async function createSessionFrom(buffer, providers) {
