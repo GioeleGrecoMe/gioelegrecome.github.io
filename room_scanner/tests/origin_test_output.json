@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "sameOrigin": {
+    "remote": false,
+    "wasmPaths": "https://gioelegrecome.github.io/room_scanner/vendor/depthai-123/"
+  },
+  "cdn": {
+    "remote": true,
+    "wasmPaths": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/"
+  }
+}
