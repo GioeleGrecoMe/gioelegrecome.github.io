@@ -5,7 +5,7 @@ from pathlib import Path
 html = Path(__file__).resolve().parents[1].joinpath("room_scanner_v10.html").read_text()
 
 required = [
-    "APP_BUILD='v10.0.6-metric-fusion'",
+    "APP_BUILD='v10.0.8-depth-preflight-raw-room'",
     "id=\"v10Save\"", "id=\"v10Photos\"", "id=\"v10Model\"",
     "id=\"v10Settings\"", "id=\"v10Trace\"", "function v10Log(",
     "function v10RenderDepthPoints(", "function v10MetricPath()",
@@ -21,6 +21,12 @@ required = [
     "const v10EnsureDepthAIWorkerBase=ensureDepthAIWorker;",
     "rgbSource:'foto RGB selezionata'", "color:depthAIRgbAt(F,u,v)",
     "vertexColors:true",
+    "function v10ExportRawRoom()", "async function v10LoadRawRoomFile(file)",
+    "v10_room_raw.json", "v10_surfels.csv", "v10_map_frames.json",
+    "id=\"v10OpenRaw\"", "id=\"v10RawInput\"", "id=\"v10SaveRaw\"",
+    "rawLoaded:true", "photos/photo-",
+    "async function v10StartScanWithDepthCheck", "await preflightDepthAI()",
+    "smoke inference riuscita",
 ]
 for token in required:
     assert token in html, token
@@ -52,6 +58,9 @@ assert "v10AutoFuseManualReview" not in v10_tail
 assert "Riprovo la preview" in v10_tail
 assert "↻ Ricalcola Depth" in v10_tail
 assert "riproiettati con posa WebXR nella nuvola 3D globale" in v10_tail
+assert "room-scanner-v10-raw-room-v1" in v10_tail
+assert "v10LoadRawRoomFile" in v10_tail
+assert "manualDepthState:'restored'" in v10_tail
 
 for token in [
     "id=\"v10PhaseScan\"", "id=\"v10PhaseModel\"", "id=\"v10PhasePhotos\"",
