@@ -1,0 +1,57 @@
+ROOM SCANNER V11-D4 - INTERNAL TEST REPORT
+Date: 2026-08-16
+
+FINDING FIXED
+- Diagnostic3 awaited the WebGPU probe before loading the original Depth worker.
+- requestAdapter()/requestDevice() had no timeout.
+- Therefore a GPU/driver stall could keep the app on the generic V10 "1/2" loading screen before the model was even requested.
+
+D4 CHANGES
+- WebGPU probe is non-blocking for worker bootstrap.
+- requestAdapter timeout: 2500 ms.
+- requestDevice timeout: 2200 ms.
+- Original Depth worker fetch has a 15 s timeout and 1 s heartbeat.
+- Model fetch has 1 s heartbeat with phase + received byte count.
+- Session creation has 1.5 s heartbeat without changing InferenceSession semantics.
+- Visible fixed build badge: ROOM SCANNER V11-D4 / DEPTH BOOT TRACE.
+- Live trace is always visible at the top of the app.
+- Worker progress is forwarded directly to the visible trace.
+- Last D4 trace is persisted in localStorage so it can be recovered after page close/crash.
+- V10 on disk, Service Worker, WebXR, camera/audio, geometry, fusion and thresholds are not modified.
+
+TESTS EXECUTED
+PASS - depth_ai_worker_v11_d4.js JavaScript syntax (node --check)
+PASS - outer V11-D4 loader JavaScript syntax
+PASS - injected diagnostics JavaScript syntax
+PASS - in-memory V10 transform reroutes only depthAIWorker to depth_ai_worker_v11_d4.js
+PASS - visible D4 build badge is injected after V10 document replacement
+PASS - worker diagnostic messages are routed to the visible D4 trace
+PASS - non-blocking GPU bootstrap with requestAdapter() simulated to never resolve
+       Observed order:
+       bootstrap-start
+       webgpu-request-adapter-start
+       source-response
+       source-loaded
+       source-patched
+       worker-boot
+       patched-worker-executed
+       webgpu-probe-complete
+PASS - local model-folder 404 -> flat model fallback
+PASS - Git-LFS-like model response -> next model candidate
+PASS - HTML response instead of ONNX -> next model candidate
+PASS - all model candidates missing -> explicit diagnostic failure
+PASS - WebGPU session create simulated failure -> WASM session create success
+PASS - sample RGBA image: synthetic room -> inference contract success
+PASS - sample RGBA image: RGB gradient -> inference contract success
+PASS - sample RGBA image: checkerboard -> inference contract success
+PASS - slow model stream emits model-heartbeat and model-download-progress
+PASS - slow session creation emits session-create-heartbeat
+
+HEARTBEAT TEST RESULT
+- 39 model-heartbeat events observed in accelerated slow-stream test
+- 19 model-download-progress events observed
+- 6 session-create-heartbeat events observed
+- model-verified and session-create-ok observed after the heartbeat sequence
+
+LIMITATION
+The real 19.1 MB Hugging Face Xet model could not be downloaded into this execution container, so the actual Q4F16 numerical network was not run here. The public Hugging Face metadata was independently checked for the pinned model identity. The loader/fallback/message/buffer paths were tested with a deterministic ORT fixture and three sample images. The phone/browser run is still needed to test the actual mobile WebGPU driver and the deployed model response.
