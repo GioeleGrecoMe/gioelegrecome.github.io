@@ -1,0 +1,28 @@
+ROOM SCANNER V11-D11 - XR TRACE
+
+CARICA NELLA STESSA DIRECTORY DELLA V10:
+- room_scanner_v11_d11.html
+- room_scanner_v11_d11_loader.js
+- room_scanner_v11_d11_xrtrace.js
+- room_scanner_v11_d11_diag.js
+- depth_ai_worker_v11_d11.js
+
+NON MODIFICARE:
+- room_scanner_v10.html
+- depth_ai_worker.js
+- sw.js
+- depth_anything_v2_small_q4f16.onnx
+
+TEST A - controllo WebXR senza Depth:
+https://gioelegrecome.github.io/room_scanner/room_scanner_v11_d11.html?depthoff=1&v=d11-xrtrace-20260816
+Avvia la scansione. Se AR resta aperta, Depth/startup sta interferendo con l'ingresso XR.
+
+TEST B - Depth attivo + trace XR:
+https://gioelegrecome.github.io/room_scanner/room_scanner_v11_d11.html?v=d11-xrtrace-20260816
+Avvia la scansione. Quando torna alla pagina, premi COPIA LOG e incolla il JSON nella chat.
+
+EVENTI CHIAVE:
+- xr-requestSession-call: include navigator.userActivation.isActive e ms dall'ultimo gesto.
+- xr-requestSession-ok / xr-requestSession-failed.
+- xr-session-end-called-by-page: il codice pagina ha chiamato session.end().
+- xr-session-end-event senza end-called-by-page: sessione terminata dal runtime/browser o altro percorso.
