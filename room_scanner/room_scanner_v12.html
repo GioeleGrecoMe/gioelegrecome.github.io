@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#071018">
-<title>Room Scanner V12.1.1 · Structural Ray Fusion</title>
+<title>Room Scanner V12.1.2 · Structural Ray Fusion</title>
 <style>
 :root{color-scheme:dark;--bg:#061019;--panel:rgba(8,20,31,.93);--line:#28465b;--fg:#edf7ff;--muted:#9fb4c5;--accent:#6bd7ff;--xr:#71e5ac;--deep:#74a8ff;--struct:#61dfa1;--ray:#d7a5ff;--warn:#ffd166;--bad:#ff8190}
 *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--fg);font:14px/1.38 system-ui,-apple-system,Segoe UI,sans-serif}button,input{font:inherit}button{border:1px solid var(--line);border-radius:12px;padding:9px 12px;background:#112c43;color:var(--fg);font-weight:760;min-height:41px}button.primary{background:var(--accent);color:#04131e;border-color:transparent}button.danger{background:#45202a}button.ghost{background:#0a1a27}button:disabled{opacity:.43}.hidden{display:none!important}.screen{position:fixed;inset:0}.muted{color:var(--muted)}.tiny{font-size:11px;color:var(--muted)}.ok{color:var(--xr)}.warn{color:var(--warn)}.bad{color:var(--bad)}
@@ -19,7 +19,7 @@
 <body>
 <canvas id="arCanvas" class="screen hidden"></canvas>
 <section id="welcome" class="screen"><div class="welcomeInner">
-  <div class="hero"><span class="build">Room Scanner · V12.1.1</span><h1>Structural Ray Fusion</h1><p class="lede">WebXR definisce posa, scala e spazio libero. Depth Anything usa esclusivamente il raw frame della stessa XRView: viene ottimizzato lungo i raggi contro depth XR, piani e volume TSDF prima di contribuire alla superficie.</p></div>
+  <div class="hero"><span class="build">Room Scanner · V12.1.2</span><h1>Structural Ray Fusion</h1><p class="lede">WebXR definisce posa, scala e spazio libero. Depth Anything usa esclusivamente il raw frame della stessa XRView: viene ottimizzato lungo i raggi contro depth XR, piani e volume TSDF prima di contribuire alla superficie.</p></div>
   <div class="steps">
     <div class="step"><b>1 · Volume metrico</b><span>Ogni raggio XR aggiorna TSDF, spazio libero, superficie e colore.</span></div>
     <div class="step"><b>2 · Deep ottimizzato</b><span>La depth monoculare viene calibrata e corretta tramite gradienti locali su ancore, TSDF e piani.</span></div>
@@ -37,7 +37,7 @@
 <section id="reviewModal" class="screen modal hidden"><div class="modalHead"><button data-close="reviewModal">Chiudi</button><h2>Revisione top-down</h2><button id="rebuildReview">Ricalcola</button></div><div class="modalBody"><div class="reviewGrid"><div class="section"><h3>Keyframe Deep/XR</h3><div id="frames" class="sectionBody" style="padding:0"></div></div><div><div class="section"><h3>Volume di evidenza</h3><div id="volumeReview" class="sectionBody"></div></div><div class="section" style="margin-top:10px"><h3>Stanza chiusa</h3><div id="roomReview" class="sectionBody"></div></div><div class="section" style="margin-top:10px"><h3>Superfici strutturali</h3><div id="surfaceReview" class="sectionBody"></div></div></div></div></div></section>
 <script type="module">
 'use strict';
-const VERSION='V12.1.1', REV='1211-v1202-acquisition-restored-20260817';
+const VERSION='V12.1.2', REV='1212-camera-required-single-consent-20260817';
 const CFG={
   minDepth:.15,maxDepth:12,captureLongEdge:720,
   autoMoveM:.26,autoTurnDeg:14,autoMinMs:650,
@@ -54,7 +54,7 @@ const CFG={
 const $=id=>document.getElementById(id), clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x)), rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI, nowIso=()=>new Date().toISOString(), err=e=>String(e?.message||e||'errore');
 const vadd=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],vsub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],vmul=(a,s)=>[a[0]*s,a[1]*s,a[2]*s],vdot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],vcross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],vlen=a=>Math.hypot(a[0],a[1],a[2]),vnorm=a=>{const n=vlen(a)||1;return[a[0]/n,a[1]/n,a[2]/n]};
 const median=a=>{if(!a.length)return NaN;const b=[...a].sort((x,y)=>x-y),m=b.length>>1;return b.length%2?b[m]:(b[m-1]+b[m])/2},percentile=(a,p)=>{if(!a.length)return NaN;const b=[...a].sort((x,y)=>x-y),i=clamp(p)*(b.length-1),lo=Math.floor(i),hi=Math.ceil(i);return b[lo]*(hi-i)+b[hi]*(i-lo)};
-function log(message,level='INFO',data=null){const x={t:nowIso(),level,message,data};S.logs.unshift(x);S.logs=S.logs.slice(0,500);$('log').textContent=S.logs.map(q=>`[${q.t.slice(11,19)}] ${q.level} ${q.message}${q.data?' '+JSON.stringify(q.data):''}`).join('\n');console[level==='ERROR'?'error':'log']('[RoomScanner 12.1]',x)}
+function log(message,level='INFO',data=null){const x={t:nowIso(),level,message,data};S.logs.unshift(x);S.logs=S.logs.slice(0,500);$('log').textContent=S.logs.map(q=>`[${q.t.slice(11,19)}] ${q.level} ${q.message}${q.data?' '+JSON.stringify(q.data):''}`).join('\n');console[level==='ERROR'?'error':'log'](`[RoomScanner ${VERSION}]`,x)}
 function boot(p,text,kind=''){$('bootFill').style.width=`${clamp(p)*100}%`;$('bootText').textContent=text;$('bootNotice').className=`notice ${kind}`}
 function scan(text,p=null){$('scanStatus').textContent=text;if(p!=null)$('scanFill').style.width=`${clamp(p)*100}%`}
 function idleYield(){return new Promise(r=>typeof requestIdleCallback==='function'?requestIdleCallback(()=>r(),{timeout:30}):setTimeout(r,0))}
@@ -99,7 +99,7 @@ function addNative(p,source,frameId=null,color=null,confidence=.88,normal=null){
 function addDeepTo(map,p,k,color,confidence,evidence){return mergeSurfel(map,p,{source:'Deep ray-optimized',frameId:k.id,color,confidence,evidence,weight:confidence},CFG.deepVoxel)}
 /* ----------------------------- Depth Anything worker ----------------------------- */
 /*
- * V12.1.1 worker lifecycle rules:
+ * V12.1.2 worker lifecycle rules:
  *  - only one Depth boot may exist at a time (depthBootPromise coalesces double taps);
  *  - a stale worker event can never terminate a newer worker (epoch + identity check);
  *  - the main/worker message contract uses modelLocal/modelRemote, matching depth_ai_worker.js;
@@ -299,8 +299,16 @@ function requestXRSession(){
   if(!navigator.xr)throw new Error('WebXR non disponibile in questo browser');
   const overlay={root:document.body};
   const opts={
-    requiredFeatures:['local-floor','dom-overlay'],
-    optionalFeatures:['depth-sensing','plane-detection','mesh-detection','camera-access'],
+    /*
+     * V12.1.2: raw RGB is not an optional convenience anymore. Depth Anything
+     * needs the camera texture from this SAME XRSession, so camera-access is
+     * required. Chromium may legally omit an optional camera-access feature when
+     * its separate camera permission is not granted, leaving XR alive but with
+     * XRView.camera === null. Requiring the feature forces consent resolution
+     * before the session promise can resolve. No second physical camera is used.
+     */
+    requiredFeatures:['local-floor','dom-overlay','camera-access'],
+    optionalFeatures:['depth-sensing','plane-detection','mesh-detection'],
     domOverlay:overlay,
     depthSensing:{
       usagePreference:['cpu-optimized'],
@@ -309,8 +317,8 @@ function requestXRSession(){
       matchDepthView:true
     }
   };
-  S.profile='depth+geometry+camera-v1202';
-  log('XR_REQUEST_V1202_BASELINE','INFO',{requiredFeatures:opts.requiredFeatures,optionalFeatures:opts.optionalFeatures,depthSensing:opts.depthSensing});
+  S.profile='camera-required+depth-optional-v1212';
+  log('XR_REQUEST_V1212_CAMERA_REQUIRED','INFO',{requiredFeatures:opts.requiredFeatures,optionalFeatures:opts.optionalFeatures,depthSensing:opts.depthSensing});
   return navigator.xr.requestSession('immersive-ar',opts)
 }
 async function startXR(){
@@ -319,7 +327,7 @@ async function startXR(){
   S.xrStarting=true;$('startXR').disabled=true;
   let session=null;
   try{
-    boot(.15,'Richiedo WebXR con il profilo di acquisizione V12.0.2…');
+    boot(.15,'Richiedo WebXR + raw camera della stessa XRView…');
     /* Must be the first awaited XR operation in this click handler. */
     session=await requestXRSession();
     const canvas=$('arCanvas');
@@ -340,15 +348,15 @@ async function startXR(){
     S.xrFrames=0;S.lastNativeObs=null;S.lastAuto=null;S.depthState='unknown';S.cameraState=S.cameraState==='error'?'error':'unknown';
     session.addEventListener('end',onXREnd,{once:true});
     $('welcome').classList.add('hidden');$('arCanvas').classList.remove('hidden');$('hud').classList.remove('hidden');
-    statusCapability();scan('Sessione XR attiva. Acquisizione ripristinata alla baseline V12.0.2.',.06);
-    boot(.6,'WebXR attivo. Depth/planes/mesh/raw-camera vengono rilevati opportunisticamente.');
+    statusCapability();scan('Sessione XR attiva. Verifico raw RGB, depth e geometria nativa.',.06);
+    boot(.6,'WebXR + raw-camera concessi. Depth/planes/mesh restano opportunistici.');
     log('XR_SESSION_STARTED','INFO',{profile:S.profile,binding:!!S.binding,depthUsage:session.depthUsage||null,depthFormat:session.depthDataFormat||null,depthType:session.depthType||null});
     session.requestAnimationFrame(onXRFrame)
   }catch(e){
     boot(0,`Avvio XR fallito: ${err(e)}`,'bad');log('XR_START_FAILED','ERROR',err(e));
     /* Never auto-request a second immersive session: require a fresh user tap. */
     if(/user activation/i.test(err(e)))log('XR_ACTIVATION_DIAGNOSTIC','ERROR','Nessun retry automatico eseguito. La prossima richiesta avverrà solo da un nuovo tap.');
-    else if(/configuration|supported|NotSupported/i.test(err(e)))log('XR_CONFIG_DIAGNOSTIC','ERROR','Il profilo V12.0.2 è stato rifiutato dal runtime corrente; nessun secondo requestSession è stato eseguito.');
+    else if(/configuration|supported|NotSupported/i.test(err(e)))log('XR_CONFIG_DIAGNOSTIC','ERROR','La sessione camera-required è stata rifiutata. Nessun secondo requestSession viene eseguito: controlla il log CAMERA_PERMISSION_STATE e le capability raw-camera del runtime.');
     try{await session?.end()}catch{}
     S.session=null;S.gl=null;S.ref=null;S.binding=null;S.cameraReader=null
   }finally{
@@ -378,7 +386,10 @@ function onXRFrame(t,frame){
       S.cameraState='yes';
       if(S.manualPending){const k=keyframeFromView(frame,pose,view,true);if(k)S.manualPending=false}
       else keyframeFromView(frame,pose,view,false)
-    }else if(S.xrFrames>35&&S.cameraState!=='error')S.cameraState='no';
+    }else if(S.xrFrames>35&&S.cameraState!=='error'){
+      if(S.cameraState!=='no')log('XR_CAMERA_GRANTED_BUT_NO_VIEW_CAMERA','ERROR','camera-access era required ma XRView.camera resta null. Runtime/permesso raw-camera incoerente.');
+      S.cameraState='no';
+    }
     if(S.manualPending&&performance.now()-S.manualRequestedAt>4500){S.manualPending=false;log('FOTO_MANUALE_NON_ACQUISITA','WARN','nessun XRView.camera disponibile nel periodo della richiesta')}
     if(S.xrFrames%20===0){statusCapability();scan(scanGuidance(),scanProgress());if(S.xrFrames%60===0){rebuildStructure(false,false);buildRoomShell(false);renderReview()}}
   }catch(e){log('XR_FRAME_ERROR','ERROR',err(e))}
@@ -412,9 +423,9 @@ function typedToB64(a){if(!a)return null;const u=new Uint8Array(a.buffer,a.byteO
 function b64ToTyped(s,Ctor){if(!s)return null;const x=atob(s),u=new Uint8Array(x.length);for(let i=0;i<x.length;i++)u[i]=x.charCodeAt(i);return new Ctor(u.buffer)}
 function serializeFrame(k){return{id:k.id,createdAt:k.createdAt,manual:k.manual,excluded:k.excluded,status:k.status,reason:k.reason,rgbW:k.rgbW,rgbH:k.rgbH,rgba:typedToB64(k.rgba),projection:k.projection,worldFromView:k.worldFromView,worldToView:k.worldToView,poseInfo:k.poseInfo,intrinsics:k.intrinsics,xrDepthGrid:k.xrDepthGrid?{w:k.xrDepthGrid.w,h:k.xrDepthGrid.h,data:typedToB64(k.xrDepthGrid.data)}:null,xrCoverage:k.xrCoverage,anchors:k.anchors,quality:k.quality,deep:k.deep?{w:k.deep.w,h:k.deep.h,data:typedToB64(k.deep.data),inferenceMs:k.deep.inferenceMs}:null,fit:k.fit,correction:k.correction?{w:k.correction.w,h:k.correction.h,data:typedToB64(k.correction.data),iterations:k.correction.iterations,initialLoss:k.correction.initialLoss,finalLoss:k.correction.finalLoss}:null,deepMesh:k.deepMesh?{vertices:k.deepMesh.vertices,indices:Array.from(k.deepMesh.indices||[]),xrOptimized:k.deepMesh.xrOptimized||0}:null,stats:k.stats}}
 function surfelArray(map){return[...map.values()].map(s=>({p:s.p,color:s.color,weight:s.weight,confidence:s.confidence,sources:s.sources,frames:s.frames,evidence:s.evidence,normal:s.normal,colorSamples:s.colorSamples||0,colorSource:s.colorSource||null}))}
-function exportRaw(){const raw={schema:'room-scanner-v12.1.1-raw',version:VERSION,revision:REV,createdAt:nowIso(),config:CFG,frames:S.frames.map(serializeFrame),nativeSurfels:surfelArray(S.nativeSurfels),deepSurfels:surfelArray(S.deepSurfels),surfaces:S.surfaces,structuralModel:S.structuralModel,roomShell:S.roomShell,raySummary:S.ray.stats(),logs:S.logs.slice(0,250)};downloadText(`room_scanner_${VERSION.replaceAll('.','_')}_${Date.now()}.json`,JSON.stringify(raw),'application/json')}
+function exportRaw(){const raw={schema:'room-scanner-v12.1.2-raw',version:VERSION,revision:REV,createdAt:nowIso(),config:CFG,frames:S.frames.map(serializeFrame),nativeSurfels:surfelArray(S.nativeSurfels),deepSurfels:surfelArray(S.deepSurfels),surfaces:S.surfaces,structuralModel:S.structuralModel,roomShell:S.roomShell,raySummary:S.ray.stats(),logs:S.logs.slice(0,250)};downloadText(`room_scanner_${VERSION.replaceAll('.','_')}_${Date.now()}.json`,JSON.stringify(raw),'application/json')}
 function loadSurfelMap(a,size){const m=new Map();for(const s of a||[])m.set(voxelKey(s.p,size),s);return m}
-async function importRawFile(file){const raw=JSON.parse(await file.text());if(!/^room-scanner-v12\.(0\.[1-5]|1\.[01])-raw$/.test(raw.schema||''))throw new Error(`Schema RAW non compatibile: ${raw.schema}`);S.frames=(raw.frames||[]).map(k=>({...k,rgba:b64ToTyped(k.rgba,Uint8ClampedArray),xrDepthGrid:k.xrDepthGrid?{...k.xrDepthGrid,data:b64ToTyped(k.xrDepthGrid.data,Float32Array)}:null,deep:k.deep?{...k.deep,data:b64ToTyped(k.deep.data,Float32Array)}:null,correction:k.correction?{...k.correction,data:b64ToTyped(k.correction.data,Float32Array)}:null,deepMesh:k.deepMesh?{...k.deepMesh,indices:Uint32Array.from(k.deepMesh.indices||[])}:null}));S.frameSeq=Math.max(0,...S.frames.map(k=>k.id||0));S.nativeSurfels=loadSurfelMap(raw.nativeSurfels,CFG.nativeVoxel);S.deepSurfels=loadSurfelMap(raw.deepSurfels,CFG.deepVoxel);S.surfaces=raw.surfaces||[];S.structuralModel=raw.structuralModel||null;S.roomShell=raw.roomShell||null;/* Rebuild XR signed-ray evidence from stored synchronized depth grids. */S.ray=new RayEvidenceVolume();for(const k of S.frames){if(k.excluded||!k.xrDepthGrid)continue;const g=k.xrDepthGrid;for(let y=0;y<g.h;y+=2)for(let x=0;x<g.w;x+=2){const d=g.data[y*g.w+x];if(!(d>CFG.minDepth&&d<CFG.maxDepth))continue;const u=(x+.5)/g.w,v=(y+.5)/g.h,r=rayFromUV(k.projection,k.worldFromView,u,v);if(r)S.ray.integrateRay(r.o,r.d,d,{source:'XR',weight:CFG.rayXrWeight,color:k.rgba?rgbAt(k,u,v):null,carve:true})}}await rebuildAll('RAW import');log('RAW_IMPORTED','INFO',{schema:raw.schema,frames:S.frames.length})}
+async function importRawFile(file){const raw=JSON.parse(await file.text());if(!/^room-scanner-v12\.(0\.[1-5]|1\.[0-2])-raw$/.test(raw.schema||''))throw new Error(`Schema RAW non compatibile: ${raw.schema}`);S.frames=(raw.frames||[]).map(k=>({...k,rgba:b64ToTyped(k.rgba,Uint8ClampedArray),xrDepthGrid:k.xrDepthGrid?{...k.xrDepthGrid,data:b64ToTyped(k.xrDepthGrid.data,Float32Array)}:null,deep:k.deep?{...k.deep,data:b64ToTyped(k.deep.data,Float32Array)}:null,correction:k.correction?{...k.correction,data:b64ToTyped(k.correction.data,Float32Array)}:null,deepMesh:k.deepMesh?{...k.deepMesh,indices:Uint32Array.from(k.deepMesh.indices||[])}:null}));S.frameSeq=Math.max(0,...S.frames.map(k=>k.id||0));S.nativeSurfels=loadSurfelMap(raw.nativeSurfels,CFG.nativeVoxel);S.deepSurfels=loadSurfelMap(raw.deepSurfels,CFG.deepVoxel);S.surfaces=raw.surfaces||[];S.structuralModel=raw.structuralModel||null;S.roomShell=raw.roomShell||null;/* Rebuild XR signed-ray evidence from stored synchronized depth grids. */S.ray=new RayEvidenceVolume();for(const k of S.frames){if(k.excluded||!k.xrDepthGrid)continue;const g=k.xrDepthGrid;for(let y=0;y<g.h;y+=2)for(let x=0;x<g.w;x+=2){const d=g.data[y*g.w+x];if(!(d>CFG.minDepth&&d<CFG.maxDepth))continue;const u=(x+.5)/g.w,v=(y+.5)/g.h,r=rayFromUV(k.projection,k.worldFromView,u,v);if(r)S.ray.integrateRay(r.o,r.d,d,{source:'XR',weight:CFG.rayXrWeight,color:k.rgba?rgbAt(k,u,v):null,carve:true})}}await rebuildAll('RAW import');log('RAW_IMPORTED','INFO',{schema:raw.schema,frames:S.frames.length})}
 function exportPly(){const pts=[];for(const [src,map] of [[1,S.nativeSurfels],[2,S.deepSurfels]])for(const s of map.values())pts.push({s,src});let out=`ply\nformat ascii 1.0\ncomment Room Scanner ${VERSION}\nelement vertex ${pts.length}\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nproperty float confidence\nproperty uchar source\nend_header\n`;for(const {s,src} of pts){const c=s.color||[170,200,215];out+=`${s.p[0]} ${s.p[1]} ${s.p[2]} ${c[0]|0} ${c[1]|0} ${c[2]|0} ${+(s.confidence||0).toFixed(4)} ${src}\n`}downloadText(`room_${VERSION.replaceAll('.','_')}.ply`,out,'application/octet-stream')}
 function exportObj(){if(!S.roomShell){alert('Mesh stanza non ancora disponibile.');return}const sh=S.roomShell;let out=`# Room Scanner ${VERSION}\n# ${sh.method}; confidence ${sh.confidence}\no ROOM_SHELL\n`;for(let i=0;i<sh.vertices.length;i++){const p=sh.vertices[i],c=(sh.colors?.[i]||[180,200,210]).map(x=>x/255);out+=`v ${p[0]} ${p[1]} ${p[2]} ${c[0].toFixed(4)} ${c[1].toFixed(4)} ${c[2].toFixed(4)}\n`}for(let i=0;i<sh.indices.length;i+=3)out+=`f ${sh.indices[i]+1} ${sh.indices[i+1]+1} ${sh.indices[i+2]+1}\n`;downloadText(`room_shell_${VERSION.replaceAll('.','_')}.obj`,out,'text/plain')}
 
@@ -422,8 +433,44 @@ function exportObj(){if(!S.roomShell){alert('Mesh stanza non ancora disponibile.
 function openModal(id){$(id).classList.remove('hidden');if(id==='sceneModal'){if(S.viewer.needsFit)fitScene();else refreshScene()}else renderReview()}
 function closeModal(id){$(id).classList.add('hidden')}
 $('startXR').addEventListener('click',startXR);$('loadDepth').addEventListener('click',()=>ensureDepth().catch(()=>{}));$('stopXR').addEventListener('click',()=>S.session?.end());$('photo').addEventListener('click',()=>{S.manualPending=true;S.manualRequestedAt=performance.now();scan('Keyframe manuale richiesto: mantieni la scena nel raw FOV WebXR.',scanProgress())});for(const id of ['openScene','sceneFromXR'])$(id).addEventListener('click',()=>openModal('sceneModal'));for(const id of ['openReview','reviewFromXR'])$(id).addEventListener('click',()=>openModal('reviewModal'));document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>closeModal(b.dataset.close)));$('fitScene').addEventListener('click',fitScene);for(const id of ['layRoom','layXR','layDeep','layDeepMesh','layPlanes','layCandidates'])$(id).addEventListener('change',refreshScene);$('rebuildAll').addEventListener('click',()=>rebuildAll('welcome button'));$('rebuildReview').addEventListener('click',()=>rebuildAll('review button'));$('exportRaw').addEventListener('click',exportRaw);$('exportPly').addEventListener('click',exportPly);$('exportObj').addEventListener('click',exportObj);$('importRaw').addEventListener('click',()=>$('fileRaw').click());$('fileRaw').addEventListener('change',async e=>{try{if(e.target.files?.[0])await importRawFile(e.target.files[0])}catch(x){log('RAW_IMPORT_FAILED','ERROR',err(x));alert(err(x))}finally{e.target.value=''}});$('frames').addEventListener('click',e=>{const id=Number(e.target?.dataset?.frameToggle);if(!id)return;const k=S.frames.find(x=>x.id===id);if(!k)return;k.excluded=!k.excluded;rebuildAll(`frame ${id} ${k.excluded?'excluded':'included'}`)});installViewerControls();
-async function bootApp(){boot(.08,'Verifico WebXR…');let ok=false;try{ok=!!navigator.xr&&await navigator.xr.isSessionSupported?.('immersive-ar')}catch{}if(!ok){boot(0,'WebXR immersive-ar non disponibile su questo browser/dispositivo.','bad');$('startXR').disabled=true;log('XR_COMPATIBILITY_FAILED','WARN')}else boot(.22,'WebXR disponibile. Deep viene caricato come worker di calcolo, ma usa soltanto RGB raw della stessa XRView.');renderReview();statusCapability()}
-globalThis.__ROOM_SCANNER_V12_1_1__={VERSION,REV,CFG,state:S,RayEvidenceVolume,worldFromViewDepth,rayFromUV,finiteSurfaceSupport,regression,fitOK,optimizeCorrectionGrid,buildDeepFrameMesh,rebuildDeep,rebuildStructure,wallLineFromSurface,manhattanFrame,triangulatePolygon2D,buildStructuralModel,buildRoomShell,rebuildAll,requestXRSession,ensureDepth,destroyDepth};
+async function diagnoseCameraAccess(){
+  /* Query only. This does NOT open a camera and does NOT trigger a permission prompt. */
+  const out={permission:'unknown',policyCamera:'unknown',policyXR:'unknown',secure:window.isSecureContext===true};
+  try{
+    const pp=document.permissionsPolicy||document.featurePolicy;
+    if(pp?.allowsFeature){
+      out.policyCamera=pp.allowsFeature('camera');
+      out.policyXR=pp.allowsFeature('xr-spatial-tracking');
+    }
+  }catch(e){log('PERMISSIONS_POLICY_QUERY_FAILED','WARN',err(e))}
+  try{
+    if(navigator.permissions?.query){
+      const q=await navigator.permissions.query({name:'camera'});
+      out.permission=q.state;
+      q.onchange=()=>log('CAMERA_PERMISSION_CHANGED','INFO',q.state);
+    }
+  }catch(e){log('CAMERA_PERMISSION_QUERY_UNAVAILABLE','WARN',err(e))}
+  S.cameraPermission=out.permission;
+  log('CAMERA_PERMISSION_STATE',out.permission==='denied'?'WARN':'INFO',out);
+  return out
+}
+async function bootApp(){
+  boot(.08,'Verifico WebXR e stato del raw-camera…');
+  const cam=await diagnoseCameraAccess();
+  let ok=false;try{ok=!!navigator.xr&&await navigator.xr.isSessionSupported?.('immersive-ar')}catch{}
+  if(!ok){
+    boot(0,'WebXR immersive-ar non disponibile su questo browser/dispositivo.','bad');$('startXR').disabled=true;log('XR_COMPATIBILITY_FAILED','WARN')
+  }else if(cam.policyCamera===false||cam.policyXR===false){
+    boot(0,'Permissions Policy blocca camera o xr-spatial-tracking per questa pagina.','bad');$('startXR').disabled=true;
+  }else if(cam.permission==='denied'){
+    /* The page cannot reprompt a permission already blocked by browser/OS settings. */
+    boot(.22,'WebXR disponibile, ma Camera risulta BLOCCATA. Riabilita Camera per questo sito/Chrome, poi ricarica la pagina.','bad');
+  }else{
+    boot(.22,`WebXR disponibile · Camera ${cam.permission}. Il tap AR richiederà camera-access nella stessa sessione XR.`);
+  }
+  renderReview();statusCapability()
+}
+globalThis.__ROOM_SCANNER_V12_1_2__={VERSION,REV,CFG,state:S,RayEvidenceVolume,worldFromViewDepth,rayFromUV,finiteSurfaceSupport,regression,fitOK,optimizeCorrectionGrid,buildDeepFrameMesh,rebuildDeep,rebuildStructure,wallLineFromSurface,manhattanFrame,triangulatePolygon2D,buildStructuralModel,buildRoomShell,rebuildAll,requestXRSession,ensureDepth,destroyDepth};
 bootApp();
 </script>
 </body>
