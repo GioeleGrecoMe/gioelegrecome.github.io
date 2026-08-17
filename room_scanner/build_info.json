@@ -1,16 +1,17 @@
 {
-  "appBuild": "V12.2.2",
-  "deployRev": "1222-object-obb-manager-20260817",
+  "appBuild": "V12.2.3",
+  "deployRev": "1223-xr-gaussian-wall-coverage-20260817",
   "entry": "room_scanner_v12.html",
   "depthWorker": "depth_ai_worker.js",
   "depthModel": "models/depth_anything_v2_small_q4.onnx",
   "depthRuntime": "vendor/depthai-123/",
-  "acquisition": "guided local-floor perimeter; explicit corner/refine/wall RGB keyframes; live wall-view guidance from XR pose; same XRView raw camera; CPU depth optional",
-  "processing": "confirmed floor polygon -> constrained Deep wall/object classification -> textured room shell + persistent non-structural RGB point clouds grouped in oriented bounding boxes (OBB)",
-  "viewer": "orthographic/isometric CPU viewer; textured shell; selectable OBB object manager; per-object hide/remove/restore; bare-room mode",
-  "nonLambertian": "depth behind confirmed shell is isolated as opening/optical evidence and never allowed to deform the room shell",
-  "liveHeavyProcessing": "disabled during WebXR: no Deep inference, no TSDF structural fusion, no plane/mesh structural inference",
-  "cachePolicy": "V12.2.2 service worker; HTML/worker/build-info network-first; ONNX/WASM on-demand cache",
-  "generatedAt": "2026-08-17",
-  "objects": "non-structural residual = connected voxel components -> gravity-aligned PCA OBB + compact RGB point cloud; OBB proxy only in OBJ, detailed residual in PLY"
+  "acquisition": "guided local-floor topology -> explicit WebXR refinement pass -> multi-photo wall capture; same XRView raw camera; CPU depth/planes/meshes opportunistic",
+  "xrEvidence": "native depth/mesh/RGB surfels retain weighted mean, normal, RGB, variance and persistence; wall evidence is summarized into lightweight per-surface Gaussian coverage cells",
+  "wallRefinement": "robust signed-offset histograms per wall; persistent wide-support XR surfaces shift the user prior; adjacent corrected wall lines are intersected so the footprint remains closed",
+  "deepProcessing": "batch-only relative depth -> robust metric fit using same-view XR + persistent Gaussian XR anchors + weak analytic shell fallback; wall samples snap to confirmed wall, foreground becomes object residual",
+  "coverage": "per-wall XR/photo/Deep 2D coverage grids; AR overlay red/yellow/green; multiple partial photos can cover one long/narrow wall",
+  "viewer": "orthographic/isometric textured shell; selectable OBB object manager; bare-room mode; PLY/OBJ import",
+  "objects": "persistent non-structural XR/Deep residual -> connected voxels -> gravity-aligned PCA OBB + compact RGB point cloud",
+  "cachePolicy": "V12.2.3 service worker; HTML/worker/build-info network-first; ONNX/WASM cached on demand",
+  "generatedAt": "2026-08-17"
 }

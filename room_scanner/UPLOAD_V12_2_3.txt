@@ -1,0 +1,22 @@
+ROOM SCANNER V12.2.3 — DEPLOY
+
+Sostituire nel repository:
+  room_scanner/room_scanner_v12.html
+  room_scanner/sw.js
+  room_scanner/build_info.json
+
+Mantenere invariati:
+  room_scanner/depth_ai_worker.js
+  room_scanner/models/depth_anything_v2_small_q4.onnx
+  room_scanner/vendor/depthai-123/
+
+Dopo il deploy:
+1. verificare badge `Room Scanner · V12.2.3`;
+2. ricaricare la pagina una volta per aggiornare il service worker;
+3. tracciare un perimetro grezzo e confermarlo;
+4. eseguire `Raffina con WebXR` camminando lungo le pareti;
+5. verificare la seconda pianta corretta prima di confermarla;
+6. acquisire più foto parziali della stessa parete e controllare la coverage rosso/giallo/verde;
+7. terminare XR e usare `Processa modello`;
+8. verificare che la coverage Deep diventi verde solo nelle zone realmente validate;
+9. controllare ROOM_SHELL, texture e oggetti OBB.

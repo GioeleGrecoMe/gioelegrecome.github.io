@@ -1,9 +1,5 @@
-# Room Scanner V12.2.2
+# Room Scanner V12.2.3
 
-Aggiornamento completo del workflow guidato V12.
+Pacchetto di aggiornamento per la pipeline guidata **floor perimeter -> WebXR persistent surfels -> multi-photo Deep wall coverage -> textured room shell -> residual objects**.
 
-Correzione critica: ripristinato il puntatore metrico `local-floor` che in V12.2.1 lasciava permanentemente disabilitato `Aggiungi spigolo + foto`.
-
-Aggiunge inoltre gestione degli oggetti non strutturali tramite OBB orientato + point cloud RGB, selezione da tendina, hide/remove/restore e modalità `Stanza nuda`.
-
-Vedi `README_V12_2_2.md` e `TEST_REPORT_V12_2_2.txt`.
+Per installazione, architettura e test vedere `README_V12_2_3.md`.
