@@ -1,6 +1,6 @@
 {
-  "version": "14.0.1",
-  "revision": "v14.0.1-20260817-room-cells-xrframe-capture-fix",
-  "built_at": "2026-08-17T16:04:00+02:00",
-  "architecture": "capture stations + local room cells + explicit portals + synchronized WebXR rAF photo capture + rigid SE2 cell registration + batch Depth Anything residual objects/textures"
+  "version": "14.1.0",
+  "revision": "v14.1.0-20260817-room-cells-autosurvey",
+  "built_at": "2026-08-17T16:25:00+02:00",
+  "architecture": "single-session multi-room capture stations + authoritative local room cells + explicit portals + automatic guided panorama/parallax WebXR capture + spatially persistent XR/Deep residual objects + rigid SE2 cell registration + batch Depth Anything textures"
 }

@@ -1,5 +1,5 @@
 /*
- * Room Scanner V14.0.1 - Room Cells geometry core
+ * Room Scanner V14.1.0 - Room Cells geometry core
  * -------------------------------------------------
  * Pure geometry helpers for the deliberately simple V14 architecture:
  *   CaptureStation -> RoomCell -> Portal -> rigid cell registration.

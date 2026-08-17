@@ -1,0 +1,41 @@
+ROOM SCANNER V14.1.0 TEST REPORT
+Generated: 2026-08-17 Europe/Rome
+
+== Syntax ==
+inline app: PASS
+geometry core: PASS
+service worker: PASS
+
+== Node suites ==
+[tests/test_v14_audit.js]
+audit ok { html: 87495, core: 21820, listeners: 32 }
+[tests/test_v14_autosurvey.js]
+autosurvey ok { targets: 3, selected: 7 }
+[tests/test_v14_bootstrap.js]
+bootstrap ok
+[tests/test_v14_capture.js]
+capture lifetime ok { rawCameraCalls: 3 }
+[tests/test_v14_geometry.js]
+geometry ok
+[tests/test_v14_integration.js]
+integration ok { registrationScore: 0.005 }
+[tests/test_v14_package.js]
+package ok
+[tests/test_v14_static.js]
+static ok { ids: 68, functions: 125 }
+
+== Source metrics ==
+ 87495 room_scanner_v12.html
+ 21820 v14_cells.js
+  1844 sw.js
+111159 total
+requestSession calls: 1
+getUserMedia refs: 0
+ImageCapture refs: 0
+setInterval refs: 0
+
+== Chromium HTTP smoke ==
+Headless Chromium was run through a local HTTP server for 15 s.
+The process remained alive (expected for this persistent application and this CI image) and was terminated by timeout.
+No ReferenceError, TypeError, SyntaxError, Uncaught application error, ERR_ network error or 404 was found in the captured browser log.
+The browser emitted container DBus/UPower warnings only. Physical WebXR/ARCore is device-only and is NOT claimed as validated here.

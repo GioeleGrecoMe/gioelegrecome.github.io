@@ -1,0 +1,28 @@
+ROOM SCANNER V14.1.0 DEPLOY
+==========================
+
+Replace/add in GitHub Pages /room_scanner/:
+  room_scanner_v12.html
+  v14_cells.js
+  sw.js
+  build_info.json
+
+KEEP unchanged from the current repository:
+  depth_ai_worker.js
+  Depth Anything Q4 ONNX model(s)
+  ONNX Runtime / WASM assets
+
+After upload:
+1. Hard refresh or close/reopen the page so the old service worker/cache is replaced.
+2. Verify the UI badge says: V14.1.0 · Room Cells AutoSurvey.
+3. Start WebXR ONCE.
+4. Cell 1: capture station -> footprint -> automatic rotate/parallax survey.
+5. Mark portal -> walk through it -> New station. WebXR must remain active.
+6. Repeat for every cell.
+7. Only at the end press "Termina intera scansione".
+8. Run Balanced Deep first.
+
+If continuing in a new ChatGPT conversation, attach or paste:
+  CONTINUATION_HANDOFF.md
+  CONTINUATION_CONTEXT.json
+The smaller room_scanner_v14_1_0_continuation.tar.gz contains these continuation files plus audit/build/test notes.

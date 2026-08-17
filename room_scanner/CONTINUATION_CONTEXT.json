@@ -1,0 +1,67 @@
+{
+  "project": "Browser WebXR + Depth Anything room scanner for acoustic digital twins",
+  "current_version": "14.1.0",
+  "architecture": "Room Cells AutoSurvey",
+  "goal": "closed metric wall/floor/ceiling shell with per-surface texture plus separate removable internal 3D objects",
+  "primary_rule": "user local footprint is authoritative inside each cell; walls do not rotate from Deep/XR evidence; cells merge rigidly through portals",
+  "xr": {
+    "session_policy": "one immersive-ar/local-floor session for all cells in a scan; only Termina intera scansione ends it normally",
+    "camera": "WebXR raw camera only; camera-access required; never getUserMedia/ImageCapture",
+    "capture_lifetime": "UI/AutoSurvey queues captureRequest; raw RGB + pose + projection + optional depth copied only inside the next active XR rAF callback; JPEG after callback",
+    "live_budget": "pose + floor pointer + small depth sampling + RGB only when needed; no Deep/TSDF/ICP/global optimizer",
+    "movement": "guided short movement within the same XR session is intentional for parallax and object persistence"
+  },
+  "autosurvey": {
+    "rotate": "24-sector weak-direction guidance with left/right, raise/lower, slow and STOP; automatic synchronized capture when stable",
+    "parallax": "up to 3 safe in-footprint targets around 0.38m from station; then look at weakest wall and auto-capture",
+    "manual": "Scatto extra remains available; Salta guida can bypass incomplete AutoSurvey with warning"
+  },
+  "objects": {
+    "representation": "RGB voxel/point population is real geometry; OBB is UI proxy; optional voxel surface mesh for OBJ",
+    "voxel_m": 0.055,
+    "persistence": "spatialViewId quantizes physical camera position; require >=2 distinct spatial view clusters OR XR+Deep agreement",
+    "important_fix": "never use timestamp-only frame IDs to claim multi-view support"
+  },
+  "deep": {
+    "policy": "batch-only after full XR scan finalization",
+    "role": "relative-depth foreground/object completion and texture support against known cell shell; never wall orientation",
+    "per_cell_caps": {"fast": 7, "balanced": 9, "high": 12},
+    "selection_priority": ["height frames", "parallax frames", "diverse high-quality rotate frames"],
+    "memory": "discard full Deep map after classification"
+  },
+  "portals": {
+    "source": "user marks opening interval on source wall",
+    "target": "auto-match compatible wall in next cell",
+    "registration": "rigid SE2 x,z,yaw only",
+    "shared_wall": "suppress only duplicated target interval; keep source wall with portal cutout",
+    "top": "may be inferred from persistent behind-shell Deep evidence"
+  },
+  "height": "one planar ceiling per local cell; infer from known wall plane + wall-ceiling image edge/ray; ask for/tap full wall floor-to-ceiling view when confidence is weak",
+  "texture": "per-wall metric atlas from multiple photos; mask foreground objects where evidence exists; optical RGB may be kept while optical depth is rejected",
+  "known_fixed_bugs": [
+    "requestSession retry loses user activation",
+    "raw camera optional instead of required",
+    "Depth worker lifecycle races",
+    "getCameraImage outside XRFrame callback",
+    "new room ending XR session",
+    "timestamp fake multi-view object persistence",
+    "Deep live during ARCore tracking"
+  ],
+  "do_not_reintroduce": [
+    "global TSDF",
+    "global Gaussian optimization",
+    "global ICP/wall optimizer",
+    "independent wall rotations",
+    "dense Deep structural meshes",
+    "second camera stream",
+    "pretending a restarted XR session is automatically metrically aligned"
+  ],
+  "next_device_tests": [
+    "multi-room single-session room + corridor",
+    "AutoSurvey arrows/STOP clarity",
+    "chair/cabinet colored object cloud with parallax",
+    "narrow corridor multiple partial wall views"
+  ],
+  "deploy": ["room_scanner_v12.html", "v14_cells.js", "sw.js", "build_info.json"],
+  "keep_existing_dependencies": ["depth_ai_worker.js", "Depth Anything Q4 ONNX", "ONNX Runtime/WASM"]
+}
