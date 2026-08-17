@@ -4,7 +4,7 @@ const fs=require('fs'),path=require('path');
 const html=fs.readFileSync(path.join(__dirname,'..','room_scanner_v12.html'),'utf8');
 const script=(html.match(/<script type="module">([\s\S]*?)<\/script>/)||[])[1]||'';
 let fail=0;const ok=(c,m,d='')=>{if(c)console.log('PASS',m,d);else{console.error('FAIL',m,d);fail++}};
-ok(/V12\.2\.3/.test(html)&&/1223-xr-gaussian-wall-coverage-20260817/.test(html),'build V12.2.3 esplicita');
+ok(/V12\.2\.4/.test(html)&&/1224-multiview-corner-anchors-closed-shell-20260817/.test(html),'build V12.2.4 esplicita');
 const ids=[...html.matchAll(/id="([^"]+)"/g)].map(x=>x[1]),set=new Set(ids);ok(ids.length===set.size,'ID HTML univoci');
 const refs=[...script.matchAll(/\$\('([^']+)'\)/g)].map(x=>x[1]),missing=[...new Set(refs.filter(x=>!set.has(x)))];ok(!missing.length,'tutti i riferimenti DOM esistono',missing.join(','));
 ok(!/navigator\.mediaDevices|getUserMedia\s*\(|ImageCapture\s*\(/.test(script),'nessuna seconda camera');
@@ -31,7 +31,7 @@ ok(/function buildGuidedWallTextures/.test(script)&&/objects masked; optical\/op
 ok(/texture-only score/.test(script)&&/captureRole==='wall'/.test(script),'foto parete resta utilizzabile come RGB texture-only se Deep è debole');
 ok(/wallDiagnosticVoxel/.test(script)&&/Deep wall evidence/.test(script),'Deep strutturale globale resta diagnostico e compattato');
 ok(/function estimateGuidedCeiling/.test(script)&&/Deep ceiling cluster \+ wall upper envelope/.test(script),'stima soffitto multi-foto presente');
-ok(/buildGuidedRoomShell/.test(script)&&/user-guided floor polygon \+ persistent WebXR surfel refinement \+ constrained Deep ceiling/.test(script),'ROOM_SHELL deriva dal perimetro utente');
+ok(/buildGuidedRoomShell/.test(script)&&/multi-view corner-ray anchors \+ persistent WebXR surfel refinement \+ constrained Deep ceiling/.test(script),'ROOM_SHELL deriva dal perimetro utente');
 ok(/if\(!S\.guided\.enabled&&a\.gx%CFG\.rayGridStride/.test(script),'TSDF live disabilitata nel workflow guidato');
 ok(/guidedSpatial=\['xr-refine','wall-capture'\]\.includes\(S\.guided\.phase\)/.test(script)&&/allowNativePrimitives/.test(script),'plane/mesh WebXR attive solo nelle fasi guidate di raffinamento/copertura');
 ok(/m2:\[0,0,0\]/.test(script)&&/function surfelSigma/.test(script)&&/function surfelPersistence/.test(script),'surfel XR conservano statistiche gaussiane leggere senza seconda cloud');
@@ -40,5 +40,16 @@ ok(/function rebuildWallPhotoCoverage/.test(script)&&/function rebuildWallDeepCo
 ok(/persistent XR gaussian/.test(script)&&/gaussianAnchorsForFrame/.test(script),'Deep usa anchor XR persistenti oltre alla depth della stessa vista');
 ok(/id="processDeepCount"/.test(html)&&/id="processFuseCount"/.test(html),'barra batch foto Deep/applicate preservata');
 ok(/id="reviewModal"[\s\S]*?<div class="modalFooter">[\s\S]*id="rebuildReview"[\s\S]*data-close="reviewModal"/.test(html),'Ricalcola/Chiudi in basso');
+
+ok(/function solveCornerAnchor/.test(script)&&/cornerAnchorMinViews/.test(script)&&/cornerRaySeparationDeg/.test(script),'spigoli 3D ancorati da raggi multi-vista invece di overwrite');
+ok(/cornerCeilingSamples/.test(script)&&/multi-view ceiling-corner rays/.test(script),'raccordi parete-soffitto contribuiscono alla quota del soffitto');
+ok(/id="guidedExtra"/.test(html)&&/Aggiungi vista dello spigolo/.test(script),'workflow fase 2 guida osservazioni ripetute e mantiene correzione manuale');
+ok(/function buildSnappedXrModel/.test(script)&&/WebXR structural snapped/.test(script),'surfel RGB strutturali vengono schiacciati sulle superfici della shell');
+ok(/function drawRoomCaps/.test(script)&&/drawRoomCaps\(ctx,cam,w,h\)/.test(script),'preview evidenzia esplicitamente pavimento e soffitto della shell chiusa');
+ok(/wallPhotoFinishMin/.test(script)&&/Completa \$\{missingWalls\.length\} pareti/.test(script),'acquisizione foto richiede coverage per parete, non una sola foto simbolica');
+
+ok(/source: 1=XR_structural 2=Deep_structural 3=Deep_residual 4=XR\+Deep_object/.test(script)&&/const objectMap=new Map\(\)/.test(script),'PLY preserva esplicitamente la cloud oggetti XR+Deep oltre alla shell snapped');
+ok(/room-scanner-v12\.2\.4-raw/.test(script)&&/2\\\.\[0-4\]/.test(script),'RAW V12.2.4 esportabile e import retrocompatibile');
+
 const events=[...script.matchAll(/\$\('([^']+)'\)\.addEventListener\('([^']+)'/g)].map(m=>`${m[1]}:${m[2]}`),dup=events.filter((x,i)=>events.indexOf(x)!==i);ok(!dup.length,'nessun listener diretto duplicato',dup.join(','));
-if(fail)process.exit(1);console.log('\nTutti i test statici V12.2.3 sono passati.');
+if(fail)process.exit(1);console.log('\nTutti i test statici V12.2.4 sono passati.');

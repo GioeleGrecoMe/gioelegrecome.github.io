@@ -1,4 +1,4 @@
-Room Scanner V12.2.3 mantiene invariati il worker e gli asset Depth Anything già verificati.
+Room Scanner V12.2.4 mantiene invariati il worker e gli asset Depth Anything già verificati.
 
 Non rimuovere o sostituire, salvo upgrade intenzionale:
 
@@ -6,5 +6,5 @@ Non rimuovere o sostituire, salvo upgrade intenzionale:
   models/depth_anything_v2_small_q4.onnx
   vendor/depthai-123/
 
-V12.2.3 modifica il workflow guidato, il raffinamento WebXR persistente, le coverage map per parete, il fit Deep e i metadati/cache di deploy.
-Non richiede SAM/MobileSAM. Deep inference resta batch-only dopo il raffinamento e la conferma del perimetro metrico.
+V12.2.4 modifica il workflow guidato, gli anchor multi-vista degli spigoli, la stima del soffitto dai corner superiori, il raffinamento WebXR persistente, lo snapping strutturale RGB, le coverage map per parete, l'export oggetti e i metadati/cache di deploy.
+Non richiede SAM/MobileSAM. Deep inference resta batch-only dopo acquisizione/raffinamento WebXR.

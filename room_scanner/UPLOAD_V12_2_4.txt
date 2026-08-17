@@ -1,0 +1,24 @@
+ROOM SCANNER V12.2.4 - DEPLOY
+
+Sostituire nel repository:
+  room_scanner/room_scanner_v12.html
+  room_scanner/sw.js
+  room_scanner/build_info.json
+
+Lasciare invariati:
+  room_scanner/depth_ai_worker.js
+  room_scanner/models/depth_anything_v2_small_q4.onnx
+  room_scanner/vendor/depthai-123/
+
+Dopo il deploy:
+1. verificare che la pagina mostri V12.2.4;
+2. se Chrome conserva una build precedente, chiudere/riaprire la pagina e verificare build_info/service worker;
+3. tracciare almeno 4 corner;
+4. in fase 2 osservare ogni corner da almeno 2 viste, idealmente 3;
+5. osservare almeno due raccordi parete-soffitto da più viste;
+6. eseguire Raffina con WebXR;
+7. ricontrollare la pianta metrica;
+8. acquisire più foto per pareti lunghe/parzialmente occluse finché la coverage è sufficiente;
+9. terminare XR e Processa modello;
+10. verificare floor/ceiling/pareti e oggetti separati;
+11. esportare RAW, PLY e OBJ e provarne il re-import.

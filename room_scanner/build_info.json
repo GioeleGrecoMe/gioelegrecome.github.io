@@ -1,6 +1,6 @@
 {
-  "appBuild": "V12.2.3",
-  "deployRev": "1223-xr-gaussian-wall-coverage-20260817",
+  "appBuild": "V12.2.4",
+  "deployRev": "1224-multiview-corner-anchors-closed-shell-20260817",
   "entry": "room_scanner_v12.html",
   "depthWorker": "depth_ai_worker.js",
   "depthModel": "models/depth_anything_v2_small_q4.onnx",
@@ -12,6 +12,7 @@
   "coverage": "per-wall XR/photo/Deep 2D coverage grids; AR overlay red/yellow/green; multiple partial photos can cover one long/narrow wall",
   "viewer": "orthographic/isometric textured shell; selectable OBB object manager; bare-room mode; PLY/OBJ import",
   "objects": "persistent non-structural XR/Deep residual -> connected voxels -> gravity-aligned PCA OBB + compact RGB point cloud",
-  "cachePolicy": "V12.2.3 service worker; HTML/worker/build-info network-first; ONNX/WASM cached on demand",
-  "generatedAt": "2026-08-17"
+  "cachePolicy": "V12.2.4 service worker; HTML/worker/build-info network-first; ONNX/WASM cached on demand",
+  "generatedAt": "2026-08-17",
+  "notes": "Multi-view vertical corner ray anchors, ceiling-corner height anchors, persistent WebXR surfel wall refinement, closed floor/ceiling shell, snapped structural XR RGB preview, constrained Deep multi-photo coverage, XR+Deep residual objects."
 }

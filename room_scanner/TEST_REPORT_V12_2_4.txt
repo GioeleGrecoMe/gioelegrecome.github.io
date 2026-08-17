@@ -1,0 +1,151 @@
+Room Scanner V12.2.4 - Test Report
+Generated: 2026-08-17
+
+== JavaScript syntax ==
+PASS node --check
+
+== Static/UI ==
+PASS build V12.2.4 esplicita 
+PASS ID HTML univoci 
+PASS tutti i riferimenti DOM esistono 
+PASS nessuna seconda camera 
+PASS una sola requestSession XR 
+PASS raw camera nella stessa sessione XR 
+PASS nessun keyframe RGB automatico 
+PASS tracciamento guidato spigolo + foto presente 
+PASS loop XR aggiorna il puntatore metrico e può abilitare Aggiungi spigolo 
+PASS verifica top-down metrica presente 
+PASS viewer espone texture pareti e reset isometrico 
+PASS gestore oggetti con tendina, rimozione e stanza nuda presente 
+PASS oggetti rappresentati come OBB orientato + point cloud RGB 
+PASS geometria oggetti limitata in memoria ma appartenenza voxel completa conservata 
+PASS viewer 3D ortografico: nessuna divisione prospettica per z 
+PASS guida posa parete rosso-giallo-verde presente 
+PASS overlay AR semitrasparente verde/giallo/rosso presente 
+PASS render analitico della parete confermata usato per il fit 
+PASS fit robusto Deep relativo→metrico presente 
+PASS punti Deep davanti alla parete diventano residuo/oggetto 
+PASS punti dietro il guscio diventano aperture/superfici ottiche, non geometria libera 
+PASS punti strutturali vengono proiettati sulla parete nota, non conservati come foglio libero 
+PASS anomalie parete richiedono persistenza multi-vista 
+PASS texture atlas per parete maschera oggetti e conserva RGB di aperture/specchi 
+PASS foto parete resta utilizzabile come RGB texture-only se Deep è debole 
+PASS Deep strutturale globale resta diagnostico e compattato 
+PASS stima soffitto multi-foto presente 
+PASS ROOM_SHELL deriva dal perimetro utente 
+PASS TSDF live disabilitata nel workflow guidato 
+PASS plane/mesh WebXR attive solo nelle fasi guidate di raffinamento/copertura 
+PASS surfel XR conservano statistiche gaussiane leggere senza seconda cloud 
+PASS raffinamento robusto del footprint da persistenza XR presente 
+PASS coverage XR/foto/Deep per parete presente 
+PASS Deep usa anchor XR persistenti oltre alla depth della stessa vista 
+PASS barra batch foto Deep/applicate preservata 
+PASS Ricalcola/Chiudi in basso 
+PASS spigoli 3D ancorati da raggi multi-vista invece di overwrite 
+PASS raccordi parete-soffitto contribuiscono alla quota del soffitto 
+PASS workflow fase 2 guida osservazioni ripetute e mantiene correzione manuale 
+PASS surfel RGB strutturali vengono schiacciati sulle superfici della shell 
+PASS preview evidenzia esplicitamente pavimento e soffitto della shell chiusa 
+PASS acquisizione foto richiede coverage per parete, non una sola foto simbolica 
+PASS PLY preserva esplicitamente la cloud oggetti XR+Deep oltre alla shell snapped 
+PASS RAW V12.2.4 esportabile e import retrocompatibile 
+PASS nessun listener diretto duplicato 
+
+Tutti i test statici V12.2.4 sono passati.
+
+== Runtime synthetic ==
+[RoomScanner V12.2.4] {
+  t: '2026-08-17T10:41:17.300Z',
+  level: 'INFO',
+  message: 'MEMORY_BUDGET',
+  data: {
+    deviceMemoryGB: 'unknown',
+    nativeMax: 60000,
+    deepMax: 65000,
+    xrVoxels: 150000,
+    deepVoxels: 65000,
+    autoFrames: 140
+  }
+}
+[RoomScanner V12.2.4] {
+  t: '2026-08-17T10:41:17.303Z',
+  level: 'INFO',
+  message: 'CAMERA_PERMISSION_STATE',
+  data: {
+    permission: 'unknown',
+    policyCamera: 'unknown',
+    policyXR: 'unknown',
+    secure: true
+  }
+}
+PASS puntatore pavimento metrico aggiornato nel loop XR 0.00,0.00,-1.50
+PASS Aggiungi spigolo si abilita quando il reticolo interseca il pavimento 
+PASS rettangolo guidato valido 
+PASS quattro pareti metriche dal perimetro 
+PASS guida parete riconosce una vista frontale 
+PASS proiezione ortografica invariata lungo la profondità della vista A=500.80,259.68 B=500.80,259.68
+PASS ray centrale colpisce la parete confermata a 2 m d=2
+PASS RANSAC recupera scale/shift con outlier m=1.55 med=0.001
+PASS ROOM_SHELL esatta dal perimetro confermato area=16 h=2.65
+PASS mesh stanza realmente chiusa/manifold 
+PASS background Deep viene assegnato alla parete nota wall=30
+PASS patch più vicina diventa oggetto/residuo obj=100
+PASS parete Deep è proiettata sul piano confermato, nessun foglio ruotato 
+PASS patch dietro la parete viene isolata come apertura/superficie ottica 
+PASS anche con anomalie ottiche la parete resta sul piano metrico 
+PASS classificatore texture restituisce una classe valida 
+PASS texture: XR coerente conserva RGB parete 
+PASS texture: foreground XR viene mascherato come oggetto 
+PASS texture: depth dietro shell è ottica/apertura, RGB preservabile ma geometria esclusa 
+PASS soffitto aggregato tra più foto 2.62m 72%
+PASS anomalie persistenti diventano feature di parete, non nuova profondità 
+PASS footprint concavo a L valido 
+PASS stanza a L conserva concavità e chiusura 
+PASS perimetro auto-intersecante rifiutato 
+PASS OBB PCA segue un oggetto ruotato nel piano XZ yaw=30.0 ext=1.27x0.54x0.57
+PASS residuo persistente diventa un oggetto selezionabile OBB + cloud 93 cells / 93 display points
+PASS point cloud visuale limitata ma tutte le celle oggetto restano indicizzate 
+PASS Rimuovi esclude tutte le celle dell oggetto dalla scena/export 
+PASS persistenza XR seleziona la parete esterna e non il mobile parallelo offset=-25.8cm cov=89%
+PASS intersezioni delle pareti correggono gli spigoli mantenendo il footprint chiuso mean=12.9cm
+PASS gaussian surfel persistenti popolano la coverage XR della parete XR=36%
+PASS più foto parziali si uniscono nella coverage Deep della stessa parete Deep=86%
+PASS anchor gaussiani interrogabili dal fit Deep n=22
+PASS triangolazione multi-vista corregge lo spigolo senza usare l ultimo click p=0.061,0.000,0.051 res=2.6cm
+PASS anchor richiede baseline angolare e viste multiple angle=86.9 views=3
+PASS spigoli parete-soffitto multi-vista ancorano la quota del soffitto 2.70m 88%
+PASS WebXR strutturale produce una cloud RGB schiacciata sulla shell n=105
+PASS surfel strutturali sono esattamente sulle superfici parametriche 
+
+Tutti i test runtime V12.2.4 sono passati.
+[RoomScanner V12.2.4] {
+  t: '2026-08-17T10:41:17.377Z',
+  level: 'WARN',
+  message: 'XR_COMPATIBILITY_FAILED',
+  data: null
+}
+
+== Package/deploy ==
+PASS build_info coerente V12.2.4 
+PASS cache service worker dedicate V12.2.4 
+PASS service worker espone build corretta 
+PASS HTML/worker/build-info network-first 
+PASS ONNX/WASM cache on-demand 
+PASS HTML presente 
+
+Tutti i test package V12.2.4 sono passati.
+
+== Source audit ==
+PASS functions 299 / unique 299
+PASS DOM ids 90 / unique 90
+PASS direct listeners 37 / unique 37
+PASS requestSession count 1
+PASS getUserMedia count 0
+PASS setInterval count 0
+
+== Browser smoke ==
+Chromium headless was bounded to 10 s because the scanner page intentionally keeps an active application lifecycle.
+No Uncaught / ReferenceError / TypeError / SyntaxError / failed-module pattern was found in stderr during the bounded run.
+This is not a WebXR validation.
+
+DEVICE-ONLY: Android/ARCore raw camera, depth, plane detection, mesh detection, real tracking drift and permissions.
