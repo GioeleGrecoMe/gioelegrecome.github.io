@@ -1,205 +1,486 @@
 <!doctype html>
 <html lang="it">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#061019">
-<title>Room Scanner V14.1.0 · Room Cells AutoSurvey</title>
-<style>
-:root{color-scheme:dark;--bg:#061019;--panel:rgba(8,21,32,.94);--line:#29495e;--fg:#edf8ff;--muted:#9eb4c4;--accent:#6ed8ff;--good:#67e2a4;--mid:#ffd166;--bad:#ff7e8d;--deep:#7fa9ff;--xr:#77e2b0}
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;min-height:100dvh;overflow:hidden;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,-apple-system,Segoe UI,sans-serif}button,select,input{font:inherit}button{border:1px solid var(--line);background:#102b40;color:var(--fg);border-radius:11px;min-height:40px;padding:8px 11px;font-weight:760}button.primary{background:var(--accent);color:#04121b;border-color:transparent}button.danger{background:#48202a}button.ghost{background:#091a27}button:disabled{opacity:.4}.hidden{display:none!important}.screen{position:fixed;inset:0}.card{background:var(--panel);border:1px solid var(--line);border-radius:15px;box-shadow:0 12px 34px #0007;backdrop-filter:blur(7px)}.muted{color:var(--muted)}.good{color:var(--good)}.mid{color:var(--mid)}.bad{color:var(--bad)}
-#welcome{z-index:10;overflow:auto;padding:max(18px,env(safe-area-inset-top)) 15px max(25px,env(safe-area-inset-bottom));background:radial-gradient(circle at 80% 8%,#12374c 0,#07141f 48%,#050c12 100%)}.welcomeInner{max-width:900px;margin:auto}.build{display:inline-flex;border:1px solid #3c6178;border-radius:999px;padding:5px 9px;color:#c7edff;font-size:11px;font-weight:850}.hero h1{font-size:30px;line-height:1.04;margin:8px 0}.lede{max-width:800px;color:#c6d8e4}.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0}.step{border:1px solid var(--line);border-radius:13px;padding:10px;background:#081a26}.step b{display:block;font-size:12px;color:#ddf4ff}.step span{font-size:11px;color:var(--muted)}.notice{margin:12px 0;padding:10px;border-left:3px solid var(--accent);background:#091a27;border-radius:8px}.actions{display:flex;gap:8px;flex-wrap:wrap}.diagnostics{white-space:pre-wrap;margin-top:12px;max-height:180px;overflow:auto;padding:9px;background:#04101a;border:1px solid #213d50;border-radius:10px;font:10px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.meter{height:7px;border:1px solid #29495e;border-radius:999px;background:#041018;overflow:hidden}.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,#58afff,#69e0a7)}
-#arCanvas,#overlayCanvas{position:fixed;inset:0;width:100%;height:100%}#arCanvas{z-index:0;background:transparent}#overlayCanvas{z-index:2;pointer-events:none}#overlayCanvas.clickable{pointer-events:auto;touch-action:none}.screenTint{position:fixed;inset:0;z-index:1;pointer-events:none;transition:background .12s}.hud{z-index:3;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:calc(max(12px,env(safe-area-inset-top)) + var(--top-extra,0px)) 10px calc(max(12px,env(safe-area-inset-bottom)));height:100dvh}.hud>*{pointer-events:auto}.topbar,.bottomBar{display:flex;gap:8px;align-items:center}.topbar{justify-content:space-between}.bottomBar{justify-content:center;flex-wrap:wrap}.status{padding:9px 11px;max-width:min(780px,84vw)}.phase{font-size:12px;font-weight:900;color:#dff5ff}.statusText{font-size:11px;margin-top:2px}.metric{font:10px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:#cce8f4;margin-top:4px}.badge{display:inline-flex;border:1px solid #416278;border-radius:999px;padding:2px 7px;margin-top:5px;font-size:9px;font-weight:850}.panoramaStrip{display:flex;gap:2px;margin-top:6px}.panoramaStrip i{display:block;width:11px;height:8px;border-radius:2px;background:#5b2630;border:1px solid #733845}.panoramaStrip i.mid{background:#755f2c;border-color:#967c3e}.panoramaStrip i.good{background:#2b694c;border-color:#438c68}
-.modal{z-index:20;background:#061019;display:flex;flex-direction:column}.modalHead{min-height:52px;padding:max(8px,env(safe-area-inset-top)) 12px 8px;border-bottom:1px solid var(--line);background:#081722;display:flex;align-items:center;gap:8px}.modalHead h2{margin:0;font-size:16px;flex:1}.modalBody{flex:1;min-height:0;overflow:auto}.modalFooter{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;padding:9px 10px calc(9px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:#081722}.modalFooter .spacer{flex:1}.planWrap{height:100%;display:flex;flex-direction:column}.planCanvasWrap{flex:1;min-height:320px;background:#040b11}.planCanvasWrap canvas,.sceneWrap canvas{width:100%;height:100%;display:block;touch-action:none}.planStats{padding:9px 12px;border-top:1px solid var(--line);font-size:11px;background:#071722}.sceneWrap{height:100%;position:relative;background:#03080d}.layers{position:absolute;left:10px;top:10px;display:flex;gap:5px;flex-wrap:wrap}.layer{background:#071722dd;border:1px solid #36576d;border-radius:999px;padding:5px 7px;font-size:10px;font-weight:760}.sceneHelp{position:absolute;left:10px;right:10px;bottom:10px;background:#071722d8;border:1px solid #36576d;border-radius:9px;padding:7px;font-size:10px;color:#bad0dd;pointer-events:none}.objectManager{position:absolute;right:10px;bottom:56px;width:min(360px,calc(100% - 20px));padding:9px;border:1px solid #36576d;border-radius:11px;background:#071722e8}.objectManager .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.objectManager select{flex:1;min-width:140px;background:#06131e;color:var(--fg);border:1px solid #36576d;border-radius:8px;padding:6px}.objectManager button{min-height:33px;padding:5px 8px;font-size:10px}.reviewGrid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);gap:10px;padding:10px}.section{border:1px solid var(--line);border-radius:12px;background:#081722;overflow:hidden}.section h3{font-size:12px;margin:0;padding:9px;border-bottom:1px solid var(--line)}.sectionBody{padding:9px}.frameRow{display:grid;grid-template-columns:112px 1fr;gap:8px;padding:8px;border-bottom:1px solid #1d3547}.frameRow img{width:112px;height:72px;object-fit:cover;border:1px solid #29495e;border-radius:7px;background:#02070a}.cellCard{padding:9px;border-bottom:1px solid #1d3547}.cellCard b{font-size:11px}.cellCard span{font-size:10px;color:var(--muted)}.proc{z-index:30;background:#03101bea;display:grid;place-items:center;padding:16px}.procPanel{width:min(620px,100%);padding:17px}.processCounts{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}.stat{border:1px solid #29495e;border-radius:9px;padding:7px;background:#071722;text-align:center}.stat b{display:block;font-size:16px}.stat span{font-size:9px;color:var(--muted)}
-@media(max-width:700px){.steps{grid-template-columns:1fr}.reviewGrid{grid-template-columns:1fr}.hero h1{font-size:25px}.status{max-width:78vw}.objectManager{bottom:78px}}
-</style>
-<script src="./v14_cells.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#07131c">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Scansione metrica guidata di ambienti connessi e oggetti, in una sola sessione WebXR.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <title>Room Scanner V15 · Guided Walk</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07131c;
+      --bg-deep: #03080d;
+      --panel: rgba(10, 27, 39, .94);
+      --panel-soft: rgba(13, 34, 48, .86);
+      --line: #315166;
+      --line-soft: #1d3849;
+      --text: #eff9ff;
+      --muted: #a6bdca;
+      --accent: #78ddff;
+      --accent-strong: #3cc4f3;
+      --good: #69e0a7;
+      --warn: #ffd166;
+      --bad: #ff8191;
+      --object: #f2ad62;
+      --shadow: 0 16px 44px rgba(0, 0, 0, .38);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      min-height: 100dvh;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg-deep);
+      color: var(--text);
+      font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body { overscroll-behavior: none; }
+    button, input, select { font: inherit; }
+    button, select, input[type="text"], input[type="number"] {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      color: var(--text);
+      background: #0d2535;
+    }
+    button {
+      min-height: 44px;
+      padding: 9px 13px;
+      font-weight: 800;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    button:hover { border-color: #56839e; }
+    button:active { transform: translateY(1px); }
+    button:disabled { opacity: .42; cursor: default; transform: none; }
+    button.primary {
+      border-color: transparent;
+      color: #031017;
+      background: linear-gradient(135deg, var(--accent), #80efc1);
+    }
+    button.danger { background: #48212b; border-color: #80404d; }
+    button.ghost { background: #091b28; }
+    button.compact { min-height: 36px; padding: 6px 10px; font-size: 12px; }
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      min-height: 40px;
+      padding: 8px 10px;
+    }
+    input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent-strong); }
+    label { color: #d8ecf6; }
+    .hidden { display: none !important; }
+    .screen { position: fixed; inset: 0; }
+    .small { font-size: 11px; color: var(--muted); }
+    .good { color: var(--good) !important; }
+    .warn { color: var(--warn) !important; }
+    .bad { color: var(--bad) !important; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .grow { flex: 1 1 auto; }
+    .meter {
+      height: 8px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #041018;
+    }
+    .meter > i {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent-strong), var(--good));
+      transition: width .18s ease;
+    }
+
+    /* Landing ----------------------------------------------------------- */
+    #welcome {
+      z-index: 10;
+      overflow: auto;
+      padding: max(18px, env(safe-area-inset-top)) 14px max(26px, env(safe-area-inset-bottom));
+      background:
+        radial-gradient(circle at 82% 4%, rgba(46, 143, 181, .25), transparent 34%),
+        radial-gradient(circle at 12% 76%, rgba(73, 185, 139, .12), transparent 35%),
+        linear-gradient(160deg, #091c29, #061018 56%, #03080d);
+    }
+    .welcome-inner { width: min(980px, 100%); margin: 0 auto; }
+    .build {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 10px;
+      border: 1px solid #47738c;
+      border-radius: 999px;
+      color: #d8f5ff;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .03em;
+    }
+    .build::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 10px var(--good); }
+    .hero h1 { margin: 10px 0 5px; font-size: clamp(30px, 7vw, 52px); line-height: 1; letter-spacing: -.045em; }
+    .hero p { max-width: 790px; margin: 0; color: #c9dce7; font-size: 15px; }
+    .principles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin: 18px 0 10px; }
+    .principle { padding: 11px; border: 1px solid var(--line-soft); border-radius: 13px; background: rgba(6, 20, 29, .72); }
+    .principle b { display: block; margin-bottom: 3px; font-size: 12px; color: #e6f7ff; }
+    .principle span { display: block; color: var(--muted); font-size: 11px; }
+    .workflow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 14px; }
+    .step { min-height: 92px; padding: 11px; border: 1px solid var(--line); border-radius: 14px; background: rgba(10, 27, 39, .78); }
+    .step em { display: inline-grid; place-items: center; width: 23px; height: 23px; margin-bottom: 6px; border-radius: 8px; background: #17465e; color: var(--accent); font-style: normal; font-size: 11px; font-weight: 900; }
+    .step b { display: block; font-size: 12px; }
+    .step span { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+    .notice {
+      margin: 12px 0;
+      padding: 11px 12px;
+      border: 1px solid #315b70;
+      border-left: 4px solid var(--accent);
+      border-radius: 12px;
+      background: rgba(8, 28, 40, .86);
+      color: #d4eaf5;
+    }
+    .landing-summary { margin: 8px 0 12px; color: var(--muted); font-size: 12px; }
+    .action-panel { padding: 12px; }
+    .action-primary { display: grid; grid-template-columns: minmax(190px, 1.2fr) minmax(160px, .8fr); gap: 8px; }
+    .action-secondary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .action-secondary button { flex: 1 1 118px; }
+    .quality-row { display: grid; grid-template-columns: 1fr minmax(150px, 240px); gap: 10px; align-items: center; margin-top: 10px; }
+    .quality-row label { font-size: 11px; color: var(--muted); }
+    .boot { margin-top: 12px; }
+    #bootText { margin-top: 6px; min-height: 18px; }
+    details.debug { margin-top: 10px; border: 1px solid var(--line-soft); border-radius: 12px; background: rgba(4, 15, 22, .7); }
+    details.debug summary { padding: 9px 11px; color: var(--muted); font-size: 11px; cursor: pointer; }
+    .diagnostics { max-height: 190px; margin: 0; overflow: auto; padding: 0 11px 11px; white-space: pre-wrap; color: #bdd4df; font: 10px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+    /* XR --------------------------------------------------------------- */
+    #arCanvas, #overlayCanvas { position: fixed; inset: 0; width: 100%; height: 100%; }
+    #arCanvas { z-index: 0; background: transparent; }
+    #overlayCanvas { z-index: 2; pointer-events: none; }
+    #screenTint { position: fixed; inset: 0; z-index: 1; pointer-events: none; transition: background .12s linear; }
+    #hud {
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100dvh;
+      padding: max(10px, env(safe-area-inset-top)) 9px max(10px, env(safe-area-inset-bottom));
+      pointer-events: none;
+    }
+    #hud > * { pointer-events: auto; }
+    .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .status-card { width: min(720px, calc(100vw - 108px)); padding: 10px 11px; }
+    #phaseTitle { font-size: 12px; font-weight: 950; color: #e4f7ff; }
+    #statusText { margin-top: 2px; font-size: 11px; color: #d2e5ee; }
+    #metricText { margin-top: 4px; color: #b8d5e2; font: 9px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .badge-row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-top: 5px; }
+    .badge { display: inline-flex; padding: 2px 7px; border: 1px solid #47697d; border-radius: 999px; color: #cce5f0; font-size: 9px; font-weight: 900; }
+    #capabilities { font-size: 9px; color: var(--muted); }
+    .hud-bottom { display: grid; gap: 8px; justify-items: center; }
+    .tool-card { width: min(680px, 100%); padding: 8px 10px; }
+    .tool-row { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .tool-row label { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; }
+    #heightControls input { width: 92px; min-height: 36px; }
+    .room-progress { width: min(680px, 100%); }
+    .bottom-actions { display: flex; justify-content: center; gap: 8px; width: 100%; flex-wrap: wrap; }
+    .bottom-actions button { flex: 1 1 128px; max-width: 225px; }
+
+    /* Modals ------------------------------------------------------------ */
+    .modal { z-index: 20; display: flex; flex-direction: column; background: #061019; }
+    .modal-head { min-height: 56px; display: flex; align-items: center; gap: 8px; padding: max(8px, env(safe-area-inset-top)) 11px 8px; border-bottom: 1px solid var(--line); background: #091923; }
+    .modal-head h2 { flex: 1; margin: 0; font-size: 17px; }
+    .modal-body { flex: 1; min-height: 0; overflow: auto; }
+    .modal-footer { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; padding: 9px 10px calc(9px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: #091923; }
+    .modal-footer .spacer { flex: 1; }
+    .workspace { height: 100%; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(270px, 350px); }
+    .canvas-pane { min-height: 360px; background: #03080d; position: relative; }
+    .canvas-pane canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    .editor-pane { overflow: auto; padding: 10px; border-left: 1px solid var(--line); background: #081722; }
+    .editor-section { margin-bottom: 10px; padding: 10px; border: 1px solid var(--line-soft); border-radius: 13px; background: #0a1d2a; }
+    .editor-section h3 { margin: 0 0 8px; font-size: 12px; }
+    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+    .field { display: grid; gap: 3px; }
+    .field.full { grid-column: 1 / -1; }
+    .field label { color: var(--muted); font-size: 10px; }
+    .editor-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .editor-actions button { flex: 1 1 90px; min-height: 36px; padding: 6px 8px; font-size: 11px; }
+    #planStats { position: absolute; left: 9px; right: 9px; bottom: 9px; padding: 7px 9px; border: 1px solid #315166; border-radius: 10px; background: rgba(6, 21, 31, .88); color: #c6dce7; font-size: 10px; pointer-events: none; }
+
+    .scene-wrap { height: 100%; min-height: 360px; position: relative; background: #02070b; }
+    .scene-wrap canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    .layers { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 5px; flex-wrap: wrap; pointer-events: none; }
+    .layer { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border: 1px solid #365b70; border-radius: 999px; background: rgba(7, 24, 34, .88); color: #d5eaf4; font-size: 10px; font-weight: 800; pointer-events: auto; }
+    .scene-help { position: absolute; left: 10px; right: 10px; bottom: 10px; padding: 7px 9px; border: 1px solid #315166; border-radius: 10px; background: rgba(6, 21, 31, .86); color: #b8ced9; font-size: 10px; pointer-events: none; }
+
+    .review-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; padding: 10px; }
+    .review-section { min-height: 170px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #081722; }
+    .review-section h3 { margin: 0; padding: 9px 10px; border-bottom: 1px solid var(--line); font-size: 12px; }
+    .review-content { max-height: calc(100dvh - 175px); overflow: auto; }
+    .reviewCard { display: grid; gap: 2px; padding: 9px 10px; border-bottom: 1px solid var(--line-soft); }
+    .reviewCard b { font-size: 11px; }
+    .reviewCard span { color: var(--muted); font-size: 10px; }
+    .frameRow { display: grid; grid-template-columns: 104px 1fr; gap: 8px; padding: 8px; border-bottom: 1px solid var(--line-soft); }
+    .frameRow img { width: 104px; height: 68px; object-fit: cover; border: 1px solid var(--line); border-radius: 8px; background: #02070a; }
+    .frameRow div { min-width: 0; display: grid; align-content: start; gap: 2px; }
+    .frameRow b { font-size: 10px; }
+    .frameRow span { color: var(--muted); font-size: 9px; overflow-wrap: anywhere; }
+
+    #processModal { z-index: 30; display: grid; place-items: center; padding: 15px; background: rgba(2, 10, 15, .92); }
+    .process-panel { width: min(620px, 100%); padding: 16px; }
+    .process-panel h2 { margin: 0 0 5px; font-size: 19px; }
+    .process-counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 11px 0; }
+    .stat { padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: #071722; text-align: center; }
+    .stat b { display: block; font-size: 18px; }
+    .stat span { color: var(--muted); font-size: 9px; }
+    #processStage { margin-top: 10px; font-weight: 850; }
+    #processDetail { min-height: 35px; margin: 5px 0 10px; color: var(--muted); font-size: 11px; }
+
+    @media (max-width: 780px) {
+      .principles, .workflow { grid-template-columns: 1fr; }
+      .principle { min-height: 0; }
+      .step { min-height: 0; }
+      .action-primary { grid-template-columns: 1fr; }
+      .quality-row { grid-template-columns: 1fr; }
+      .workspace { grid-template-columns: 1fr; grid-template-rows: minmax(52%, 1fr) auto; overflow: auto; }
+      .editor-pane { max-height: 44dvh; border-left: 0; border-top: 1px solid var(--line); }
+      .review-grid { grid-template-columns: 1fr; }
+      .review-content { max-height: 50dvh; }
+    }
+    @media (max-width: 460px) {
+      #welcome { padding-left: 10px; padding-right: 10px; }
+      .hero h1 { font-size: 34px; }
+      .action-panel { padding: 9px; }
+      .status-card { width: calc(100vw - 94px); }
+      .topbar > button { min-width: 78px; padding-left: 8px; padding-right: 8px; font-size: 11px; }
+      .bottom-actions button { min-height: 48px; }
+      .field-grid { grid-template-columns: 1fr 1fr; }
+      .modal-head h2 { font-size: 15px; }
+    }
+  </style>
+  <script src="./roomscan_core.js" defer></script>
+  <script src="./roomscan_app.js" defer></script>
 </head>
 <body>
-<section id="welcome" class="screen"><div class="welcomeInner">
-  <div class="hero"><span class="build">V14.1.0 · Room Cells AutoSurvey</span><h1>Room Scanner</h1><p class="lede">Ogni punto di ripresa genera un vano locale semplice. L'utente definisce il perimetro visibile, lascia che l’app acquisisca automaticamente viste panoramiche sovrapposte e segnala i varchi. Deep completa texture e oggetti; le celle vengono unite rigidamente attraverso superfici comuni.</p></div>
-  <div class="steps">
-    <div class="step"><b>1 · Punto di ripresa</b><span>Fermati in una posizione che vede bene il vano.</span></div>
-    <div class="step"><b>2 · Perimetro locale</b><span>Traccia solo il vano visibile da qui; ignora corridoi e zone oltre le aperture.</span></div>
-    <div class="step"><b>3 · Scansione guidata</b><span>Segui frecce e STOP: l’app scatta automaticamente durante la rotazione e una breve passata di parallasse.</span></div>
-    <div class="step"><b>4 · Altezza</b><span>Se serve, inquadra una parete completa e tocca/segui il raccordo parete-soffitto.</span></div>
-    <div class="step"><b>5 · Apertura</b><span>Segna un varco, attraversalo e crea la cella successiva.</span></div>
-    <div class="step"><b>6 · Deep batch</b><span>Texture per superficie e oggetti 3D come residuo multi-vista, senza deformare la shell.</span></div>
-  </div>
-  <div id="bootNotice" class="notice">WebXR resta leggero: posa, raw camera, piccoli campioni depth e foto. Niente Deep durante il tracking.</div>
-  <div class="actions"><button id="fullscreen" class="ghost">Schermo intero</button><button id="startXR" class="primary">Avvia / continua scansione</button><button id="processModel" class="primary">Processa Deep</button><button id="openPlan">Mappa celle</button><button id="openScene">Scena 3D</button><button id="openReview">Revisione</button><button id="exportRaw">RAW</button><button id="exportPly">PLY</button><button id="exportObj">OBJ</button><button id="importRaw">Carica RAW</button><input id="fileRaw" type="file" accept=".json,application/json" class="hidden"></div>
-  <div class="meter" style="margin-top:12px"><i id="bootFill"></i></div><div id="bootText" class="muted" style="font-size:11px;margin-top:5px">Pronto.</div><pre id="diagnostics" class="diagnostics"></pre>
-</div></section>
-<canvas id="arCanvas" class="hidden"></canvas><div id="screenTint" class="screenTint hidden"></div><canvas id="overlayCanvas" class="hidden"></canvas>
-<section id="hud" class="screen hud hidden"><div class="topbar"><div class="card status"><div id="phase" class="phase">1 · Punto di ripresa</div><div id="statusText" class="statusText">Fermati in una posizione utile e imposta la stazione.</div><div id="metric" class="metric">—</div><div id="trackingBadge" class="badge">TRACKING</div><div id="panoramaStrip" class="panoramaStrip hidden"></div></div><button id="stopXR" class="danger">Interrompi XR</button></div><div class="bottomBar"><button id="fullXR" class="ghost">⛶</button><button id="prev" class="ghost hidden">◀</button><button id="primary" class="primary">Imposta punto di ripresa</button><button id="next" class="ghost hidden">▶</button><button id="secondary" class="ghost">Annulla</button><button id="finish" class="ghost hidden">Chiudi perimetro</button><button id="heightConfirm" class="primary hidden">Conferma altezza</button><button id="portalStart" class="ghost hidden">Segna apertura</button><button id="newStation" class="primary hidden">Nuova stazione</button><button id="finishScan" class="danger hidden">Termina intera scansione</button></div></section>
-<section id="planModal" class="screen modal hidden"><div class="modalHead"><h2>Mappa delle celle</h2></div><div class="modalBody planWrap"><div class="planCanvasWrap"><canvas id="planCanvas"></canvas></div><div id="planStats" class="planStats"></div></div><div class="modalFooter"><span class="spacer"></span><button data-close="planModal">Chiudi</button></div></section>
-<section id="sceneModal" class="screen modal hidden"><div class="modalHead"><h2>Scena 3D ortografica</h2></div><div class="modalBody sceneWrap"><canvas id="sceneCanvas"></canvas><div class="layers"><label class="layer"><input id="layRoom" type="checkbox" checked> celle</label><label class="layer"><input id="layTexture" type="checkbox" checked> texture</label><label class="layer"><input id="layObjects" type="checkbox" checked> oggetti</label><label class="layer"><input id="layBoxes" type="checkbox"> OBB</label></div><div class="objectManager"><div class="row"><select id="objectSelect"><option value="">Nessun oggetto</option></select><button id="objectFocus" class="ghost">Inquadra</button></div><div class="row" style="margin-top:5px"><button id="objectHide" class="ghost">Nascondi</button><button id="objectRemove" class="danger">Rimuovi</button><button id="objectRestore" class="ghost">Ripristina</button><label style="font-size:10px"><input id="bareRoom" type="checkbox"> stanza nuda</label></div><div id="objectInfo" class="muted" style="font-size:10px;margin-top:5px">Il box è solo un proxy UI; la geometria è la cloud voxel RGB XR+Deep.</div></div><div class="sceneHelp">Vista ortografica/isometrica. Ogni vano resta rigido; i varchi collegano le celle.</div></div><div class="modalFooter"><span class="spacer"></span><button id="sceneIso" class="ghost">Isometrica</button><button id="sceneFit">Inquadra</button><button data-close="sceneModal">Chiudi</button></div></section>
-<section id="reviewModal" class="screen modal hidden"><div class="modalHead"><h2>Revisione V14</h2></div><div class="modalBody"><div class="reviewGrid"><div class="section"><h3>Celle / portali</h3><div id="cellReview" class="sectionBody"></div></div><div><div class="section"><h3>Foto</h3><div id="frameReview" class="sectionBody" style="padding:0"></div></div><div class="section" style="margin-top:10px"><h3>Oggetti</h3><div id="objectReview" class="sectionBody"></div></div></div></div></div><div class="modalFooter"><span class="spacer"></span><button id="reviewProcess" class="primary">Processa Deep</button><button data-close="reviewModal">Chiudi</button></div></section>
-<section id="processModal" class="screen proc hidden"><div class="card procPanel"><h2>Processing batch</h2><div id="processStage">Preparazione</div><div class="meter" style="margin-top:8px"><i id="processFill"></i></div><div class="processCounts"><div class="stat"><b id="deepCount">0/0</b><span>Deep</span></div><div class="stat"><b id="fusedCount">0</b><span>frame utili</span></div><div class="stat"><b id="objectCount">0</b><span>oggetti</span></div></div><div id="processDetail" class="muted" style="font-size:10px"></div><div class="actions" style="margin-top:10px"><label class="muted" style="font-size:10px">Qualità <select id="quality"><option value="fast">Rapida 280</option><option value="balanced" selected>Bilanciata 336</option><option value="high">Alta 392</option></select></label><button id="processCancel" class="danger">Annulla</button></div></div></section>
-<script>
-'use strict';
-const G=globalThis.RoomV14Cells,VERSION='14.1.0',REV='v14-room-cells-20260817-autosurvey';
-const CFG={captureLongEdge:720,jpegQuality:.82,depthGridW:28,depthGridH:16,minDepth:.18,maxDepth:8.5,panoBins:24,panoGood:.78,panoMin:.78,panoAutoGoal:.88,panoWallGoal:.46,panoStableMs:300,panoCaptureGapMs:850,panoTurnTol:.16,panoMaxAngSpeed:.30,panoMaxLinSpeed:.13,parallaxRadius:.38,parallaxReach:.14,parallaxTargets:3,wallCols:18,wallRows:10,defaultHeight:2.7,minHeight:1.85,maxHeight:4.8,heightEdgeMin:13,heightCandidateStep:.04,heightSamplesMin:2,deepSamplesX:54,deepSamplesY:36,deepTolMin:.09,deepTolFrac:.05,objectVoxel:.055,objectMaxVoxels:42000,objectMinCells:6,maxFrames:84,importMaxBytes:55*1024*1024};
-const S={phase:'station',session:null,ref:null,gl:null,binding:null,cameraReader:null,currentView:null,currentFrame:null,currentPose:null,trackingLost:false,xrStarting:false,xrFrames:0,sessionInterrupted:false,finalizingXR:false,cells:[],activeCellId:null,cellSeq:0,portalSeq:0,frameSeq:0,frames:[],portals:[],pendingPortalId:null,portalDraft:null,heightWall:0,heightCandidate:null,heightAutoSamples:[],captureRequest:null,lastLiveRGB:null,lastLiveRGBAt:0,lastObserveAt:0,motion:{last:null,lin:0,ang:0},guide:{kind:'idle',text:'',delta:0,distance:0,targetYaw:null},autoCaptureBusy:false,objectVoxels:new Map(),objects:[],wallTextures:{},textureImages:{},worker:null,workerEpoch:0,workerSeq:0,pending:new Map(),depthReady:false,depthBoot:null,depthInputSize:null,process:{running:false,cancel:false,total:0,done:0,fused:0,stage:''},logs:[],viewer:{yaw:Math.PI/4,pitch:-.615,zoom:1,pan:[0,0],fit:true,drag:null,focus:null},rawImported:false};
-const $=id=>document.getElementById(id),err=e=>e?.message||String(e),nowIso=()=>new Date().toISOString(),deg=r=>r*180/Math.PI;
-function log(message,level='INFO',data=null){const line=`${new Date().toLocaleTimeString()} [${level}] ${message}${data?' '+JSON.stringify(data):''}`;S.logs.unshift(line);S.logs=S.logs.slice(0,80);$('diagnostics').textContent=S.logs.join('\n')}
-function boot(p,text,kind=''){$('bootFill').style.width=`${G.clamp(p)*100}%`;$('bootText').textContent=text;$('bootText').className=`muted ${kind}`}
-function activeCell(){return S.cells.find(c=>c.id===S.activeCellId)||null}
-function sourcePortal(){return S.portals.find(p=>p.id===S.pendingPortalId)||null}
-function sourceCellForPortal(){const p=sourcePortal();return p?S.cells.find(c=>c.id===p.cellId):null}
-function cellFrames(cellId){return S.frames.filter(f=>f.cellId===cellId)}
-function qualityProfile(){const id=$('quality').value||'balanced';return id==='high'?{id,input:392,long:720,step:1,texPPM:82,texMaxW:850,texMaxH:500,deepMaxFrames:12}:id==='fast'?{id,input:280,long:440,step:2,texPPM:46,texMaxW:500,texMaxH:300,deepMaxFrames:7}:{id,input:336,long:560,step:1,texPPM:64,texMaxW:680,texMaxH:410,deepMaxFrames:9}}
-function invert4(a){const o=new Array(16);const b00=a[0]*a[5]-a[1]*a[4],b01=a[0]*a[6]-a[2]*a[4],b02=a[0]*a[7]-a[3]*a[4],b03=a[1]*a[6]-a[2]*a[5],b04=a[1]*a[7]-a[3]*a[5],b05=a[2]*a[7]-a[3]*a[6],b06=a[8]*a[13]-a[9]*a[12],b07=a[8]*a[14]-a[10]*a[12],b08=a[8]*a[15]-a[11]*a[12],b09=a[9]*a[14]-a[10]*a[13],b10=a[9]*a[15]-a[11]*a[13],b11=a[10]*a[15]-a[11]*a[14];let d=b00*b11-b01*b10+b02*b09+b03*b08-b04*b07+b05*b06;if(!d)return null;d=1/d;o[0]=(a[5]*b11-a[6]*b10+a[7]*b09)*d;o[1]=(-a[1]*b11+a[2]*b10-a[3]*b09)*d;o[2]=(a[13]*b05-a[14]*b04+a[15]*b03)*d;o[3]=(-a[9]*b05+a[10]*b04-a[11]*b03)*d;o[4]=(-a[4]*b11+a[6]*b08-a[7]*b07)*d;o[5]=(a[0]*b11-a[2]*b08+a[3]*b07)*d;o[6]=(-a[12]*b05+a[14]*b02-a[15]*b01)*d;o[7]=(a[8]*b05-a[10]*b02+a[11]*b01)*d;o[8]=(a[4]*b10-a[5]*b08+a[7]*b06)*d;o[9]=(-a[0]*b10+a[1]*b08-a[3]*b06)*d;o[10]=(a[12]*b04-a[13]*b02+a[15]*b00)*d;o[11]=(-a[8]*b04+a[9]*b02-a[11]*b00)*d;o[12]=(-a[4]*b09+a[5]*b07-a[6]*b06)*d;o[13]=(a[0]*b09-a[1]*b07+a[2]*b06)*d;o[14]=(-a[12]*b03+a[13]*b01-a[14]*b00)*d;o[15]=(a[8]*b03-a[9]*b01+a[10]*b00)*d;return o}
-function transformPoint(m,p){const q=G.mat4Point(m,[p[0],p[1],p[2],1]);return[q[0],q[1],q[2]]}
-function worldFromViewDepth(P,W,u,v,d){const ip=invert4(P);if(!ip)return null;const q=G.mat4Point(ip,[2*u-1,1-2*v,-1,1]);if(Math.abs(q[3])<1e-8)return null;const r=[q[0]/q[3],q[1]/q[3],q[2]/q[3]];if(r[2]>=-1e-5)return null;const s=d/(-r[2]);return transformPoint(W,[r[0]*s,r[1]*s,r[2]*s])}
-function requestFullscreen(){if(document.fullscreenElement)return Promise.resolve();return document.documentElement.requestFullscreen?.({navigationUI:'hide'}).catch(()=>{})||Promise.resolve()}
-function imageQuality(rgba,w,h){if(!rgba||w<4||h<4)return.2;let n=0,e=0,mean=0,mean2=0,step=Math.max(2,Math.floor(Math.min(w,h)/70));for(let y=1;y<h-1;y+=step)for(let x=1;x<w-1;x+=step){const i=4*(y*w+x),j=i+4,k=i+4*w,L=.299*rgba[i]+.587*rgba[i+1]+.114*rgba[i+2],Lx=.299*rgba[j]+.587*rgba[j+1]+.114*rgba[j+2],Ly=.299*rgba[k]+.587*rgba[k+1]+.114*rgba[k+2];e+=Math.abs(Lx-L)+Math.abs(Ly-L);mean+=L;mean2+=L*L;n++}const ed=e/Math.max(1,n),mu=mean/Math.max(1,n),sd=Math.sqrt(Math.max(0,mean2/Math.max(1,n)-mu*mu));return G.clamp(.15+.58*G.clamp(ed/30)+.27*G.clamp(sd/62))}
-/* camera reader */
-function compileShader(gl,type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s)||'shader');return s}
-function createCameraReader(gl){const vs=compileShader(gl,gl.VERTEX_SHADER,'attribute vec2 a;varying vec2 uv;void main(){uv=(a+1.0)*.5;gl_Position=vec4(a,0.,1.);}'),fs=compileShader(gl,gl.FRAGMENT_SHADER,'precision mediump float;uniform sampler2D cam;varying vec2 uv;void main(){gl_FragColor=texture2D(cam,vec2(uv.x,1.0-uv.y));}'),program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program)||'camera link');const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);const r={program,vb,vs,fs,a:gl.getAttribLocation(program,'a'),cam:gl.getUniformLocation(program,'cam'),fbo:null,tex:null,w:0,h:0,pixels:null};r.dispose=()=>{try{if(r.tex)gl.deleteTexture(r.tex);if(r.fbo)gl.deleteFramebuffer(r.fbo);gl.deleteBuffer(r.vb);gl.deleteProgram(r.program);gl.deleteShader(r.vs);gl.deleteShader(r.fs)}catch{}};return r}
-function ensureCameraTarget(r,w,h){if(r.w===w&&r.h===h&&r.fbo)return;const gl=S.gl;if(r.tex)gl.deleteTexture(r.tex);if(r.fbo)gl.deleteFramebuffer(r.fbo);r.tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,r.tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,null);r.fbo=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,r.fbo);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,r.tex,0);r.w=w;r.h=h;r.pixels=new Uint8Array(w*h*4);gl.bindFramebuffer(gl.FRAMEBUFFER,null)}
-function readCameraRGBA(view,copy=true,longEdge=CFG.captureLongEdge){if(!S.binding||!S.cameraReader||!view?.camera)return null;const gl=S.gl,r=S.cameraReader,cw=Math.max(1,view.camera.width||1280),ch=Math.max(1,view.camera.height||720),scale=Math.min(1,longEdge/Math.max(cw,ch)),w=Math.max(2,Math.round(cw*scale)),h=Math.max(2,Math.round(ch*scale));ensureCameraTarget(r,w,h);const tex=S.binding.getCameraImage(view.camera);if(!tex)return null;gl.bindFramebuffer(gl.FRAMEBUFFER,r.fbo);gl.viewport(0,0,w,h);gl.useProgram(r.program);gl.bindBuffer(gl.ARRAY_BUFFER,r.vb);gl.enableVertexAttribArray(r.a);gl.vertexAttribPointer(r.a,2,gl.FLOAT,false,0,0);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,tex);gl.uniform1i(r.cam,0);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);gl.readPixels(0,0,w,h,gl.RGBA,gl.UNSIGNED_BYTE,r.pixels);gl.bindFramebuffer(gl.FRAMEBUFFER,null);return{rgba:copy?new Uint8ClampedArray(r.pixels):r.pixels,w,h}}
-function rgbaToJpeg(rgba,w,h,q=CFG.jpegQuality){const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(rgba),w,h),0,0);return c.toDataURL('image/jpeg',q)}
-async function jpegToRGBA(url){return new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;const x=c.getContext('2d');x.drawImage(im,0,0);const d=x.getImageData(0,0,c.width,c.height);resolve({rgba:d.data,w:c.width,h:c.height})};im.onerror=reject;im.src=url})}
-async function ensureFrameRGBA(k){if(k.rgba)return k;const d=await jpegToRGBA(k.jpegDataUrl);k.rgba=d.rgba;k.rgbW=d.w;k.rgbH=d.h;return k}
-function rgbAt(k,u,v){if(!k.rgba)return[175,190,200];const x=G.clamp(Math.floor(u*k.rgbW),0,k.rgbW-1),y=G.clamp(Math.floor(v*k.rgbH),0,k.rgbH-1),i=4*(y*k.rgbW+x);return[k.rgba[i],k.rgba[i+1],k.rgba[i+2]]}
-function getCpuDepth(frame,view){try{const d=frame.getDepthInformation?.(view);return d&&typeof d.getDepthInMeters==='function'?d:null}catch{return null}}
-function sampleDepthGrid(frame,view,w=CFG.depthGridW,h=CFG.depthGridH){const di=getCpuDepth(frame,view);if(!di)return null;const data=new Float32Array(w*h);let n=0;for(let y=0;y<h;y++)for(let x=0;x<w;x++){const u=(x+.5)/w,v=(y+.5)/h,d=di.getDepthInMeters(u,v);if(d>=CFG.minDepth&&d<=CFG.maxDepth){data[y*w+x]=d;n++}}return{w,h,data,coverage:n/(w*h)}}
-function depthAtGrid(g,u,v){if(!g)return null;const x=G.clamp(Math.floor(u*g.w),0,g.w-1),y=G.clamp(Math.floor(v*g.h),0,g.h-1),d=g.data[y*g.w+x];return d>0?d:null}
-/* Depth Anything worker batch-only */
-function workerRequest(worker,type,payload={},transfer=[]){if(!worker||worker!==S.worker)return Promise.reject(new Error('worker Depth non attivo'));const id=`v14-${++S.workerSeq}`;return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{S.pending.delete(id);reject(new Error(`timeout ${type}`))},type==='init'?120000:90000);S.pending.set(id,{resolve,reject,timer,worker});try{worker.postMessage({id,type,...payload},transfer)}catch(e){clearTimeout(timer);S.pending.delete(id);reject(e)}})}
-function destroyDepth(reason='worker Depth chiuso'){const w=S.worker;if(!w)return;try{w.terminate()}catch{}for(const [id,q] of S.pending){if(q.worker!==w)continue;clearTimeout(q.timer);q.reject(new Error(reason));S.pending.delete(id)}S.worker=null;S.depthReady=false;S.workerEpoch++}
-async function bootDepthWorker(inputSize){const worker=new Worker(`./depth_ai_worker.js?rsbuild=${REV}`),epoch=++S.workerEpoch;S.worker=worker;S.depthInputSize=inputSize;worker.onmessage=e=>{if(worker!==S.worker||epoch!==S.workerEpoch)return;const m=e.data||{};if(m.type==='progress'){processUI(`Depth: ${m.detail||m.stage||'caricamento'}`,S.process.done/Math.max(1,S.process.total)*.68+.03);return}const q=S.pending.get(m.id);if(!q)return;clearTimeout(q.timer);S.pending.delete(m.id);m.ok?q.resolve(m):q.reject(new Error(m.error||'worker Depth'))};worker.onerror=e=>destroyDepth(e.message||'crash Depth');const init=await workerRequest(worker,'init',{runtimeVersion:'1.23.2',deployRev:REV,inputSize,forceWasm:true,modelWasmLocal:'./models/depth_anything_v2_small_q4.onnx',modelWasmRemote:'https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model_q4.onnx'}),smoke=await workerRequest(worker,'smoke');if(!(smoke.outputWidth>0&&smoke.outputHeight>0))throw new Error('smoke Depth senza output');S.depthReady=true;return{init,smoke}}
-function ensureDepth(inputSize){if(S.depthReady&&S.worker&&S.depthInputSize===inputSize)return Promise.resolve();if(S.depthBoot)return S.depthBoot;if(S.worker)destroyDepth('cambio profilo');S.depthBoot=bootDepthWorker(inputSize).finally(()=>S.depthBoot=null);return S.depthBoot}
-function resizeRGBA(src,w,h,longEdge){const sc=Math.min(1,longEdge/Math.max(w,h)),W=Math.max(2,Math.round(w*sc)),H=Math.max(2,Math.round(h*sc));if(W===w&&H===h)return{rgba:src,w,h};const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(src),w,h),0,0);const o=document.createElement('canvas');o.width=W;o.height=H;const x=o.getContext('2d');x.drawImage(c,0,0,W,H);return{rgba:x.getImageData(0,0,W,H).data,w:W,h:H}}
-async function inferDepth(k,p){await ensureFrameRGBA(k);await ensureDepth(p.input);const rsz=resizeRGBA(k.rgba,k.rgbW,k.rgbH,p.long),buf=new Uint8ClampedArray(rsz.rgba),r=await workerRequest(S.worker,'infer',{width:rsz.w,height:rsz.h,rgba:buf.buffer},[buf.buffer]);k.deep={data:new Float32Array(r.depth),w:r.outputWidth,h:r.outputHeight,inferenceMs:r.inferenceMs};return k.deep}
-function deepAt(k,u,v){if(!k.deep)return NaN;const x=G.clamp(Math.floor(u*k.deep.w),0,k.deep.w-1),y=G.clamp(Math.floor(v*k.deep.h),0,k.deep.h-1);return k.deep.data[y*k.deep.w+x]}
-/* XR */
-function requestXRSession(){if(!navigator.xr)throw new Error('WebXR non disponibile');return navigator.xr.requestSession('immersive-ar',{requiredFeatures:['local-floor','dom-overlay','camera-access'],optionalFeatures:['depth-sensing'],domOverlay:{root:document.body},depthSensing:{usagePreference:['cpu-optimized'],dataFormatPreference:['float32','unsigned-short','luminance-alpha'],depthTypeRequest:['raw','smooth'],matchDepthView:true}})}
-async function startXR(){if(S.session||S.xrStarting)return;if(S.sessionInterrupted&&S.cells.length){alert('La sessione WebXR precedente si è chiusa inaspettatamente. Le celle già acquisite restano valide per revisione/export, ma una nuova sessione non può essere considerata automaticamente nello stesso reference space. Durante il workflow normale V14.1 mantiene una sola sessione XR per tutti i vani.');return;}S.xrStarting=true;$('startXR').disabled=true;if(S.worker)destroyDepth('rilascio GPU/RAM per WebXR');let session=null;try{boot(.08,'Richiedo WebXR + raw camera…');const p=requestXRSession();requestFullscreen();session=await p;const canvas=$('arCanvas'),gl=canvas.getContext('webgl',{xrCompatible:true,alpha:true,antialias:false})||canvas.getContext('webgl2',{xrCompatible:true,alpha:true,antialias:false});if(!gl)throw new Error('WebGL non disponibile');await gl.makeXRCompatible?.();S.gl=gl;S.session=session;S.ref=await session.requestReferenceSpace('local-floor');session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl,{alpha:true,antialias:false})});S.binding=typeof XRWebGLBinding!=='undefined'?new XRWebGLBinding(session,gl):null;S.cameraReader=S.binding?createCameraReader(gl):null;session.addEventListener('end',onXREnd,{once:true});$('welcome').classList.add('hidden');$('arCanvas').classList.remove('hidden');$('overlayCanvas').classList.remove('hidden');$('hud').classList.remove('hidden');document.body.classList.add('xr-active');S.trackingLost=false;session.requestAnimationFrame(onXRFrame);updateHUD();log('XR_STARTED')}catch(e){boot(0,`XR fallito: ${err(e)}`,'bad');log('XR_START_FAILED','ERROR',err(e));try{await session?.end()}catch{}S.session=null}finally{S.xrStarting=false;$('startXR').disabled=!!S.session}}
-function onXREnd(){const wasFinal=!!S.finalizingXR;S.finalizingXR=false;if(S.cells.length&&!wasFinal)S.sessionInterrupted=true;if(S.captureRequest){clearTimeout(S.captureRequest.timer);S.captureRequest.reject(new Error('sessione XR terminata prima dello scatto'));S.captureRequest=null}S.cameraReader?.dispose?.();S.cameraReader=null;S.session=null;S.ref=null;S.currentView=null;S.currentFrame=null;S.motion.last=null;$('hud').classList.add('hidden');$('arCanvas').classList.add('hidden');$('overlayCanvas').classList.add('hidden');$('screenTint').classList.add('hidden');$('welcome').classList.remove('hidden');document.body.classList.remove('xr-active');$('startXR').disabled=false;if(wasFinal){boot(1,'Acquisizione completa. Puoi processare Deep, revisionare ed esportare.','good');setTimeout(()=>openReview(),0)}else{boot(0,'Sessione XR interrotta. I dati acquisiti sono conservati, ma non riavvio automaticamente una nuova metrica.','bad')}log(wasFinal?'XR_FINALIZED':'XR_INTERRUPTED',wasFinal?'INFO':'WARN')}
-function findCameraView(pose){return pose?.views?.find(v=>v.camera)||pose?.views?.[0]||null}
-/*
- * IMPORTANT WEBXR LIFETIME RULE
- * -----------------------------
- * XRFrame, XRView.camera and XRWebGLBinding.getCameraImage() are frame-scoped.
- * Camera/depth data therefore MUST be copied while this requestAnimationFrame
- * callback is executing. UI button handlers only enqueue a capture request;
- * this function fulfils it on the next valid tracked frame. This guarantees
- * RGB + pose + projection + depth all belong to the exact same XRFrame.
- */
-function fulfillCaptureRequest(frame,view){const req=S.captureRequest;if(!req)return;try{/* Keep the XR callback short: copy only frame-scoped data here. JPEG encoding, quality analysis and frame-list bookkeeping happen in captureFrame() after this callback returns. */const rgb=readCameraRGBA(view,true,CFG.captureLongEdge);if(!rgb)throw new Error('raw camera non disponibile');const snapshot={role:req.role,cellId:req.cellId,rgba:rgb.rgba,rgbW:rgb.w,rgbH:rgb.h,projection:[...view.projectionMatrix],worldFromView:[...view.transform.matrix],worldToView:[...view.transform.inverse.matrix],xrDepthGrid:sampleDepthGrid(frame,view)};clearTimeout(req.timer);S.captureRequest=null;req.resolve(snapshot);log('XR_PHOTO_FRAME_COPIED','INFO',{role:req.role,cell:req.cellId,depth:!!snapshot.xrDepthGrid})}catch(e){clearTimeout(req.timer);S.captureRequest=null;req.reject(e);log('XR_PHOTO_CAPTURE_FAILED','ERROR',err(e))}}
-function onXRFrame(t,frame){if(!S.session||frame.session!==S.session)return;try{const pose=frame.getViewerPose(S.ref),L=S.session.renderState.baseLayer;if(L&&S.gl){S.gl.bindFramebuffer(S.gl.FRAMEBUFFER,L.framebuffer);S.gl.viewport(0,0,L.framebufferWidth,L.framebufferHeight);S.gl.clearColor(0,0,0,0);S.gl.clear(S.gl.COLOR_BUFFER_BIT|S.gl.DEPTH_BUFFER_BIT)}if(!pose?.views?.length){S.trackingLost=true;S.motion.last=null;updateHUD();return}S.trackingLost=false;S.currentPose=pose;S.currentFrame=frame;const view=findCameraView(pose);if(!view)return;S.currentView=view;if(S.captureRequest)fulfillCaptureRequest(frame,view);const now=performance.now();if(S.phase==='panorama')autoSurveyTick(view,now);else cameraPoseState(view,now);if((S.phase==='panorama'||S.phase==='height')&&now-S.lastLiveRGBAt>(S.phase==='height'?260:720)){S.lastLiveRGBAt=now;S.lastLiveRGB=readCameraRGBA(view,true,560);if(S.phase==='height')updateHeightCandidate()}if(S.phase==='panorama'&&now-S.lastObserveAt>300){S.lastObserveAt=now;observeLiveXR(frame,view)}renderOverlay();if(++S.xrFrames%8===0)updateHUD()}catch(e){log('XR_FRAME_ERROR','ERROR',err(e));if(S.captureRequest){const req=S.captureRequest;clearTimeout(req.timer);S.captureRequest=null;req.reject(e)}}finally{try{S.session?.requestAnimationFrame(onXRFrame)}catch{}}}
-function floorAim(){if(!S.currentView)return null;const ray=G.rayFromUV([...S.currentView.projectionMatrix],[...S.currentView.transform.matrix],.5,.5);if(!ray||ray.d[1]>=-1e-4)return null;const t=-ray.o[1]/ray.d[1];return t>.05?G.v3(ray.o,G.m3(ray.d,t)):null}
-/* station + footprint */
-function createStation(){if(!S.currentView||S.trackingLost)return alert('Tracking non valido.');const id=`S${S.cellSeq+1}`,station=G.stationFromPose([...S.currentView.transform.matrix],id,0),cell={id:`C${++S.cellSeq}`,name:`Vano ${S.cellSeq}`,station,footprint:[],model:null,transform:{...station.transform},height:CFG.defaultHeight,heightConfidence:0,heightSamples:[],panorama:G.panoramaCoverage(CFG.panoBins),wallCoverage:[],survey:{stage:'rotate',stableSince:0,lastCaptureAt:0,autoShots:0,moveTargets:[],moveIndex:0,moveShots:0,complete:false},entranceWallIndex:null,sourcePortalId:S.pendingPortalId||null,status:'tracing'};S.cells.push(cell);S.activeCellId=cell.id;S.phase='footprint';log('STATION_CREATED','INFO',{cell:cell.id,station:station.origin});updateHUD()}
-function addFootprintPoint(){const c=activeCell(),p=floorAim();if(!c||!p)return;const q=G.worldPointToStationXZ(p,c.station);if(c.footprint.length&&G.len2(G.s2(q,c.footprint[c.footprint.length-1]))<.16)return;c.footprint.push(q);updateHUD();renderOverlay()}
-function undoFootprint(){const c=activeCell();if(c?.footprint.length)c.footprint.pop();updateHUD()}
-function closeFootprint(){const c=activeCell();if(!c)return;const v=G.validateFootprint(c.footprint);if(!v.ok)return alert(v.reason);c.model=G.buildCellModel(c.footprint,c.height,0);c.wallCoverage=c.model.walls.map(()=>G.coverageGrid(CFG.wallCols,CFG.wallRows));if(c.sourcePortalId){const p=sourcePortal(),src=sourceCellForPortal(),prevStation=src?.station?.origin?[src.station.origin[0],src.station.origin[2]]:null,curStation=[c.station.origin[0],c.station.origin[2]],reg=G.registerCellToPortal(c,src,p,c.transform,curStation,prevStation);if(reg.ok){c.transform=reg.transform;c.entranceWallIndex=reg.wallIndex;c.suppressedIntervals=c.suppressedIntervals||{};const sw=src.model.walls[p.wallIndex],tw=c.model.walls[reg.wallIndex],sa=G.inverseTransform2(G.transform2(sw.a,src.transform),c.transform),sb=G.inverseTransform2(G.transform2(sw.b,src.transform),c.transform),sA=G.clamp(G.d2(G.s2(sa,tw.a),tw.t),0,tw.length),sB=G.clamp(G.d2(G.s2(sb,tw.a),tw.t),0,tw.length);c.suppressedIntervals[reg.wallIndex]=[{s0:Math.min(sA,sB),s1:Math.max(sA,sB)}];p.linkedCellId=c.id;p.linkedWallIndex=reg.wallIndex;p.registration=reg.diagnostics;log('CELL_REGISTERED','INFO',{cell:c.id,portal:p.id,wall:reg.wallIndex,score:reg.score,shared:[+Math.min(sA,sB).toFixed(2),+Math.max(sA,sB).toFixed(2)]})}else{log('CELL_REGISTRATION_WEAK','WARN',reg);alert('La superficie comune non è abbastanza chiara. La nuova cella resta nella posa WebXR iniziale: verifica la mappa prima del processing.')}}c.status='panorama';c.survey=c.survey||{stage:'rotate',stableSince:0,lastCaptureAt:0,autoShots:0,moveTargets:[],moveIndex:0,moveShots:0,complete:false};c.survey.moveTargets=buildParallaxTargets(c);S.phase='panorama';S.pendingPortalId=null;S.guide={kind:'turn',text:'Ruota lentamente',delta:0,distance:0,targetYaw:null};updateHUD();openPlan()}
-/* panorama + automatic guided survey */
-function cameraPoseState(view,now){const m=[...view.transform.matrix],p=[m[12],m[13],m[14]],yaw=G.viewYaw(m),last=S.motion.last;if(last){const dt=Math.max(.016,(now-last.t)/1000);S.motion.lin=Math.hypot(p[0]-last.p[0],p[1]-last.p[1],p[2]-last.p[2])/dt;S.motion.ang=G.angleDiff(yaw,last.yaw)/dt}else{S.motion.lin=0;S.motion.ang=0}S.motion.last={p,yaw,t:now};return{m,p,yaw}}
-function buildParallaxTargets(c){if(!c?.model)return[];const r=CFG.parallaxRadius,cands=[];for(const a of [Math.PI/2,-Math.PI/2,0,Math.PI,Math.PI/4,-Math.PI/4,3*Math.PI/4,-3*Math.PI/4]){const q=[Math.cos(a)*r,Math.sin(a)*r];if(!G.pointInPolygon(q,c.model.footprint))continue;const near=G.nearestWallPoint([q[0],0,q[1]],c.model);if(near&&near.distance>.28)cands.push(q)}const out=[];for(const q of cands){if(out.every(r=>G.len2(G.s2(q,r))>.42)){out.push(q);if(out.length>=CFG.parallaxTargets)break}}return out}
-function localCameraXZ(c,view=S.currentView){if(!c||!view)return[0,0];const m=view.transform.matrix,q=G.inverseTransform3([m[12],0,m[14]],c.transform);return[q[0],q[2]]}
-function spatialViewId(worldFromView,step=.18){const m=worldFromView;return`${Math.round(m[12]/step)},${Math.round(m[13]/.25)},${Math.round(m[14]/step)}`}
-function viewPitch(worldFromView){const f=[-worldFromView[8],-worldFromView[9],-worldFromView[10]];return Math.atan2(f[1],Math.hypot(f[0],f[2]))}
-function wallLookYaw(c,wallIndex,posGlobal){const w=c.model.walls[wallIndex],mid=G.transform3([(w.a[0]+w.b[0])/2,c.height*.52,(w.a[1]+w.b[1])/2],c.transform);return Math.atan2(mid[2]-posGlobal[2],mid[0]-posGlobal[0])}
-function setGuide(kind,text,delta=0,distance=0,targetYaw=null){S.guide={kind,text,delta,distance,targetYaw}}
-function queueAutoCapture(mode){if(S.autoCaptureBusy||S.captureRequest||S.trackingLost||S.phase!=='panorama')return;S.autoCaptureBusy=true;capturePanorama(mode).catch(e=>log('AUTO_CAPTURE_FAILED','WARN',err(e))).finally(()=>{S.autoCaptureBusy=false;updateHUD()})}
-function completeAutoSurvey(c){if(c.survey.complete)return;c.survey.complete=true;setGuide('done','Scansione automatica completata');log('AUTO_SURVEY_COMPLETE','INFO',{cell:c.id,photos:cellFrames(c.id).filter(k=>k.role==='pano').length,parallax:c.survey.moveShots});if(c.heightConfidence>=.55)finishCellReady();else{S.phase='height';S.heightWall=bestHeightWall(c);updateHUD()}}
-function autoSurveyTick(view,now){const c=activeCell();if(S.phase!=='panorama'||!c?.model||S.trackingLost)return;const ps=c.survey||(c.survey={stage:'rotate',stableSince:0,lastCaptureAt:0,autoShots:0,moveTargets:buildParallaxTargets(c),moveIndex:0,moveShots:0,complete:false}),st=cameraPoseState(view,now),rel=G.angleWrap(st.yaw-c.station.yaw),pitch=viewPitch(st.m),stable=S.motion.ang<CFG.panoMaxAngSpeed&&S.motion.lin<CFG.panoMaxLinSpeed;if(ps.stage==='rotate'){if(Math.abs(pitch)>.36){ps.stableSince=0;setGuide('pitch',pitch>0?'ABBASSA leggermente il telefono':'ALZA leggermente il telefono',pitch);return}const cov=G.panoramaFraction(c.panorama,'photo'),ws=cellWallPhotoSummary(c);if((cov>=CFG.panoAutoGoal&&ws.min>=CFG.panoWallGoal)||(ps.autoShots>=10&&cov>=.75)){ps.stage='move';ps.stableSince=0;if(!ps.moveTargets.length)ps.moveTargets=buildParallaxTargets(c);if(!ps.moveTargets.length)return completeAutoSurvey(c)}else{const target=G.weakestPanoramaYaw(c.panorama,'photo'),d=G.angleWrap(target-rel);if(Math.abs(d)>CFG.panoTurnTol){ps.stableSince=0;setGuide('turn',`RUOTA ${d>0?'→':'←'} · settore mancante`,d,0,target);return}if(!stable){ps.stableSince=0;setGuide('slow','RALLENTA · mantieni questa direzione',d,0,target);return}if(!ps.stableSince)ps.stableSince=now;const left=CFG.panoStableMs-(now-ps.stableSince);setGuide('hold',left>0?'FERMO · preparo lo scatto':'FERMO · scatto automatico',d,0,target);if(left<=0&&now-ps.lastCaptureAt>CFG.panoCaptureGapMs&&!S.captureRequest&&!S.autoCaptureBusy){ps.lastCaptureAt=now;ps.stableSince=0;queueAutoCapture('rotate')}return}}
-if(ps.stage==='move'){if(ps.moveIndex>=ps.moveTargets.length)return completeAutoSurvey(c);const target=ps.moveTargets[ps.moveIndex],cur=localCameraXZ(c,view),dv=G.s2(target,cur),dist=G.len2(dv),targetGlobal=G.transform3([target[0],0,target[1]],c.transform),moveYaw=Math.atan2(targetGlobal[2]-st.p[2],targetGlobal[0]-st.p[0]),moveDelta=G.angleWrap(moveYaw-st.yaw);if(dist>CFG.parallaxReach){ps.stableSince=0;setGuide('move',`MUOVITI ${moveDelta>0?'→':'←'} · ${dist.toFixed(2)} m`,moveDelta,dist,moveYaw);return}const ws=cellWallPhotoSummary(c),look=wallLookYaw(c,ws.wall,st.p),d=G.angleWrap(look-st.yaw);if(Math.abs(d)>.20){ps.stableSince=0;setGuide('look',`FERMATI QUI · guarda parete ${ws.wall+1} ${d>0?'→':'←'}`,d,dist,look);return}if(!stable){ps.stableSince=0;setGuide('slow','RALLENTA · mantieni parete inquadrata',d,dist,look);return}if(!ps.stableSince)ps.stableSince=now;setGuide('hold','FERMO · scatto parallasse',d,dist,look);if(now-ps.stableSince>=CFG.panoStableMs&&now-ps.lastCaptureAt>CFG.panoCaptureGapMs&&!S.captureRequest&&!S.autoCaptureBusy){ps.lastCaptureAt=now;ps.stableSince=0;queueAutoCapture('parallax')}}}
-function markFrameWallCoverage(k,c){for(const w of c.model.walls){let visible=0,total=0;for(let yy=1;yy<=4;yy++)for(let xx=1;xx<=8;xx++){const u=xx/9,v=yy/5,pLocal=G.wallPoint(w,u,v,c.model),pGlobal=G.transform3(pLocal,c.transform),q=G.projectPoint(k.projection,k.worldToView,pGlobal);if(q&&q.u>.03&&q.u<.97&&q.v>.03&&q.v<.97&&q.depth>.15){visible++;G.updateCoverage(c.wallCoverage[w.index],'photo',u,v,k.quality)}total++}k.wallVisibility=k.wallVisibility||{};k.wallVisibility[w.index]=visible/total}}
-function captureFrame(role='pano'){/* Never touch XRFrame/XR camera here: this function runs from a DOM click handler, outside the WebXR rAF callback. It only queues the request. fulfillCaptureRequest() copies synchronized frame data on the next valid XR callback; the .then() below runs after that callback and can safely perform slower JPEG/quality work. */const pending=new Promise((resolve,reject)=>{if(!S.session)return reject(new Error('sessione XR non attiva'));if(S.trackingLost)return reject(new Error('tracking non valido'));if(S.captureRequest)return reject(new Error('uno scatto WebXR è già in acquisizione'));const c=activeCell();if(!c)return reject(new Error('nessuna cella attiva'));const timer=setTimeout(()=>{if(S.captureRequest?.resolve===resolve){S.captureRequest=null;reject(new Error('timeout scatto WebXR: mantieni il telefono stabile e riprova'));updateHUD()}},3500);S.captureRequest={role,cellId:c.id,resolve,reject,timer,requestedAt:performance.now()};updateHUD()});return pending.then(snap=>{const quality=imageQuality(snap.rgba,snap.rgbW,snap.rgbH),k={id:++S.frameSeq,createdAt:nowIso(),role:snap.role,cellId:snap.cellId,jpegDataUrl:rgbaToJpeg(snap.rgba,snap.rgbW,snap.rgbH),rgba:snap.rgba,rgbW:snap.rgbW,rgbH:snap.rgbH,projection:snap.projection,worldFromView:snap.worldFromView,worldToView:snap.worldToView,xrDepthGrid:snap.xrDepthGrid,quality,yaw:G.viewYaw(snap.worldFromView),viewCluster:spatialViewId(snap.worldFromView),status:'captured'};S.frames.push(k);while(S.frames.length>CFG.maxFrames){let ix=S.frames.findIndex(x=>x.role==='pano'&&x.captureMode==='rotate'&&x.quality<.55);if(ix<0)ix=S.frames.findIndex(x=>x.role==='pano'&&x.captureMode==='rotate');if(ix<0)ix=0;S.frames.splice(ix,1)}return k})}
-async function capturePanorama(mode='manual'){const c=activeCell();if(!c)return;try{const k=await captureFrame('pano');k.captureMode=mode;const rel=G.angleWrap(k.yaw-c.station.yaw);G.markPanorama(c.panorama,'photo',rel,G.horizontalFov(k.projection),k.quality);markFrameWallCoverage(k,c);const hs=autoHeightFromFrame(k,c);if(hs&&hs.confidence>.48){c.heightSamples.push(hs.height);recomputeHeight(c)}observeFrameXRObjects(k,c);if(mode==='rotate')c.survey.autoShots++;if(mode==='parallax'){c.survey.moveShots++;c.survey.moveIndex++;}updateHUD();renderReview();log('PANORAMA_PHOTO','INFO',{cell:c.id,frame:k.id,mode,quality:+k.quality.toFixed(2),coverage:+G.panoramaFraction(c.panorama,'photo').toFixed(2)})}catch(e){if(mode==='manual')alert(err(e));else throw e}}
-async function captureHeightPhoto(){const c=activeCell();if(!c)return;try{const k=await captureFrame('height');k.heightWall=S.heightWall;markFrameWallCoverage(k,c);const rel=G.angleWrap(k.yaw-c.station.yaw);G.markPanorama(c.panorama,'photo',rel,G.horizontalFov(k.projection),Math.min(.9,k.quality));const hs=autoHeightFromFrame(k,c);if(hs&&hs.confidence>.35){c.heightSamples.push(hs.height);recomputeHeight(c)}observeFrameXRObjects(k,c);renderReview();updateHUD()}catch(e){alert(err(e))}}
-function finishPanorama(){const c=activeCell();if(!c)return;const cov=G.panoramaFraction(c.panorama,'photo'),ws=cellWallPhotoSummary(c);if((cov<CFG.panoMin||ws.min<.38)&&!confirm(`La guida automatica non ha ancora coperto tutto: direzioni ${Math.round(cov*100)}%, parete ${ws.wall+1} ${Math.round(ws.min*100)}%. Saltare comunque il resto della scansione guidata?`))return;c.survey.complete=true;if(c.heightConfidence>=.55)finishCellReady();else{S.phase='height';S.heightWall=bestHeightWall(c);updateHUD()}}
-function bestHeightWall(c){let best=0,score=-1;for(const w of c.model.walls){const f=G.coverageFraction(c.wallCoverage[w.index],'photo',.4),s=f*w.length;if(s>score){score=s;best=w.index}}return best}
-/* height from a known wall plane + image edge */
-function luminanceAt(img,x,y){x=G.clamp(Math.round(x),0,img.w-1);y=G.clamp(Math.round(y),0,img.h-1);const i=4*(y*img.w+x),a=img.rgba;return .299*a[i]+.587*a[i+1]+.114*a[i+2]}
-function projectedWallLine(c,wallIndex,h,projection,worldToView){const w=c.model.walls[wallIndex],a=G.transform3([w.a[0],h,w.a[1]],c.transform),b=G.transform3([w.b[0],h,w.b[1]],c.transform),qa=G.projectPoint(projection,worldToView,a),qb=G.projectPoint(projection,worldToView,b);return qa&&qb?{a:qa,b:qb}:null}
-function lineEdgeScore(img,line){if(!img||!line)return 0;const ax=line.a.u*img.w,ay=line.a.v*img.h,bx=line.b.u*img.w,by=line.b.v*img.h,dx=bx-ax,dy=by-ay,L=Math.hypot(dx,dy);if(L<30)return 0;const nx=-dy/L,ny=dx/L;let sum=0,n=0;for(let i=2;i<=10;i++){const t=i/12,x=ax+dx*t,y=ay+dy*t;if(x<8||x>img.w-8||y<8||y>img.h-8)continue;const a=luminanceAt(img,x+nx*4,y+ny*4),b=luminanceAt(img,x-nx*4,y-ny*4);sum+=Math.abs(a-b);n++}return n?sum/n:0}
-function autoHeightFromPose(c,projection,worldToView,img){let best=null,second=0;for(let h=CFG.minHeight;h<=CFG.maxHeight;h+=CFG.heightCandidateStep){const line=projectedWallLine(c,S.heightWall,h,projection,worldToView),score=lineEdgeScore(img,line);if(!best||score>best.score){second=best?.score||0;best={height:h,score,line}}else if(score>second)second=score}if(!best)return null;best.confidence=G.clamp((best.score-CFG.heightEdgeMin)/28)*G.clamp((best.score-second+3)/12);return best}
-function updateHeightCandidate(){const c=activeCell();if(!c||!S.currentView||!S.lastLiveRGB)return;S.heightCandidate=autoHeightFromPose(c,[...S.currentView.projectionMatrix],[...S.currentView.transform.inverse.matrix],S.lastLiveRGB)}
-function autoHeightFromFrame(k,c){if(!k.rgba)return null;let best=null;for(let wi=0;wi<c.model.walls.length;wi++){if((k.wallVisibility?.[wi]||0)<.28)continue;const old=S.heightWall;S.heightWall=wi;const q=autoHeightFromPose(c,k.projection,k.worldToView,{rgba:k.rgba,w:k.rgbW,h:k.rgbH});S.heightWall=old;if(q&&(!best||q.confidence>best.confidence))best={...q,wallIndex:wi}}return best}
-function recomputeHeight(c){if(!c.heightSamples.length)return;const h=G.median(c.heightSamples),spread=1.4826*(G.mad(c.heightSamples,h)||0);c.height=G.clamp(h,CFG.minHeight,CFG.maxHeight);c.heightConfidence=G.clamp(c.heightSamples.length/3)*G.clamp(1-spread/.18);c.model=G.buildCellModel(c.footprint,c.height,0)}
-function confirmHeight(){const c=activeCell();if(!c)return;if(S.heightCandidate?.confidence>.28)c.heightSamples.push(S.heightCandidate.height);else return alert('Linea soffitto non abbastanza chiara: tocca direttamente il raccordo parete-soffitto nell’immagine oppure cambia parete.');recomputeHeight(c);if(c.heightConfidence>=.45||c.heightSamples.length>=2)finishCellReady();else updateHUD()}
-function tapHeight(ev){if(S.phase!=='height'||S.trackingLost||!S.currentView)return;const r=$('overlayCanvas').getBoundingClientRect(),u=(ev.clientX-r.left)/r.width,v=(ev.clientY-r.top)/r.height,ray=G.rayFromUV([...S.currentView.projectionMatrix],[...S.currentView.transform.matrix],u,v),c=activeCell();if(!ray||!c)return;const local={o:G.inverseTransform3(ray.o,c.transform),d:G.rotate2([ray.d[0],ray.d[2]],-(c.transform.yaw||0))};local.d=[local.d[0],ray.d[1],local.d[1]];const hit=G.heightFromWallRay(local,c.model.walls[S.heightWall],0,CFG.minHeight,CFG.maxHeight);if(!hit)return; c.heightSamples.push(hit.height);recomputeHeight(c);captureHeightPhoto().catch(()=>{});updateHUD();renderOverlay()}
-function finishCellReady(){const c=activeCell();if(!c)return;c.status='ready';S.phase='cellReady';updateHUD();openPlan()}
-/* portals */
-function startPortal(){const c=activeCell();if(!c)return;S.portalDraft={cellId:c.id,wallIndex:null,s:[]};S.phase='portal';updateHUD()}
-function addPortalPoint(){const c=activeCell(),p=floorAim();if(!c||!p||!S.portalDraft)return;const local=G.inverseTransform3(p,c.transform),near=G.nearestWallPoint(local,c.model);if(S.portalDraft.wallIndex==null)S.portalDraft.wallIndex=near.wallIndex;if(near.wallIndex!==S.portalDraft.wallIndex){const w=c.model.walls[S.portalDraft.wallIndex],rel=[local[0]-w.a[0],local[2]-w.a[1]],s=G.clamp(G.d2(rel,w.t),0,w.length);S.portalDraft.s.push(s)}else S.portalDraft.s.push(near.s);if(S.portalDraft.s.length>=2){const w=c.model.walls[S.portalDraft.wallIndex],s0=Math.min(...S.portalDraft.s),s1=Math.max(...S.portalDraft.s);if(s1-s0<.35){S.portalDraft.s=[];return alert('Apertura troppo stretta: ripeti i due bordi.')}const ptl=G.createPortal(c.id,w.index,s0,s1,c.height,`P${++S.portalSeq}`);S.portals.push(ptl);S.pendingPortalId=ptl.id;S.portalDraft=null;S.phase='cellReady';log('PORTAL_CREATED','INFO',{portal:ptl.id,cell:c.id,wall:w.index,width:+ptl.width.toFixed(2)});updateHUD();openPlan()}}
-function newStationFromPortal(){if(!S.pendingPortalId)return alert('Segna prima un’apertura.');S.phase='station';S.activeCellId=null;updateHUD();alert('La sessione WebXR RESTA attiva. Attraversa il varco lentamente, mantieni per qualche secondo la parete/apertura comune nell’inquadratura, poi fermati nel nuovo punto di ripresa e premi “Imposta punto di ripresa”.')}
-function finishAcquisition(){if(!confirm(`Terminare l'intera scansione WebXR? Hai ${S.cells.length} vano/i. Dopo la chiusura non aggiungeremo altre celle a questa metrica.`))return;S.phase='ready';S.finalizingXR=true;updateHUD();if(S.session)S.session.end().catch(e=>{S.finalizingXR=false;alert(err(e))});else openReview()}
-function interruptXR(){if(!S.session)return;if(S.cells.length&&!confirm('Interrompere WebXR prima della fine? I dati già acquisiti restano salvati, ma non potremo garantire che una nuova sessione usi lo stesso reference space.'))return;S.finalizingXR=false;S.session.end().catch(e=>alert(err(e)))}
-function localRayForCell(ray,c){const o=G.inverseTransform3(ray.o,c.transform),d2=G.rotate2([ray.d[0],ray.d[2]],-(c.transform.yaw||0));return{o,d:[d2[0],ray.d[1],d2[1]]}}
-function observeFrameXRObjects(k,c){if(!k.xrDepthGrid)return;for(let y=0;y<k.xrDepthGrid.h;y++)for(let x=0;x<k.xrDepthGrid.w;x++){const d=k.xrDepthGrid.data[y*k.xrDepthGrid.w+x];if(!(d>0))continue;const u=(x+.5)/k.xrDepthGrid.w,v=(y+.5)/k.xrDepthGrid.h,pg=worldFromViewDepth(k.projection,k.worldFromView,u,v,d);if(!pg)continue;const ray=G.rayFromUV(k.projection,k.worldFromView,u,v),lr=localRayForCell(ray,c),hit=G.rayCellHit(lr,c.model);if(!hit)continue;const hp=G.transform3(hit.p,c.transform),shellDepth=G.projectPoint(k.projection,k.worldToView,hp)?.depth;if(!(shellDepth>0))continue;const tol=Math.max(.10,.05*shellDepth);if(d<shellDepth-tol){const color=rgbAt(k,u,v);G.mergeVoxel(S.objectVoxels,pg,{source:'XR',frameId:`xr-${k.viewCluster||spatialViewId(k.worldFromView)}`,cellId:c.id,color,weight:1},CFG.objectVoxel)}}pruneObjectVoxels()}
-function observeLiveXR(frame,view){const c=activeCell();if(!c?.model)return;const grid=sampleDepthGrid(frame,view,12,7);if(!grid)return;const wf=[...view.transform.matrix],pseudo={projection:[...view.projectionMatrix],worldFromView:wf,worldToView:[...view.transform.inverse.matrix],xrDepthGrid:grid,rgba:null,rgbW:0,rgbH:0,id:`live-${spatialViewId(wf)}`,viewCluster:spatialViewId(wf)};observeFrameXRObjects(pseudo,c)}
-function pruneObjectVoxels(){if(S.objectVoxels.size<=CFG.objectMaxVoxels)return;const a=[...S.objectVoxels.entries()].sort((A,B)=>(B[1].frames.size+B[1].xr*.4+B[1].deep*.3)-(A[1].frames.size+A[1].xr*.4+A[1].deep*.3));S.objectVoxels=new Map(a.slice(0,CFG.objectMaxVoxels))}
-/* Deep classification per cell shell */
-function fitSamplesForFrame(k,c){const out=[];if(k.xrDepthGrid){for(let y=0;y<k.xrDepthGrid.h;y++)for(let x=0;x<k.xrDepthGrid.w;x++){const d=k.xrDepthGrid.data[y*k.xrDepthGrid.w+x];if(!(d>0))continue;const u=(x+.5)/k.xrDepthGrid.w,v=(y+.5)/k.xrDepthGrid.h,r=deepAt(k,u,v);if(Number.isFinite(r))out.push({r,d,weight:4})}}for(let y=0;y<9;y++)for(let x=0;x<14;x++){const u=(x+.5)/14,v=(y+.5)/9,r=deepAt(k,u,v),ray=G.rayFromUV(k.projection,k.worldFromView,u,v);if(!Number.isFinite(r)||!ray)continue;const hit=G.rayCellHit(localRayForCell(ray,c),c.model);if(!hit)continue;const pg=G.transform3(hit.p,c.transform),d=G.projectPoint(k.projection,k.worldToView,pg)?.depth;if(d>0)out.push({r,d,weight:.55})}return out}
-function classifyDeepFrame(k,c,p){const fit=G.fitRelativeDepth(fitSamplesForFrame(k,c));k.fit=fit;if(!fit||fit.n<7||fit.med>.30)throw new Error('fit Deep debole');const mask=new Uint8Array(CFG.deepSamplesX*CFG.deepSamplesY);let struct=0,obj=0,opt=0;for(let y=0;y<CFG.deepSamplesY;y+=p.step)for(let x=0;x<CFG.deepSamplesX;x+=p.step){const u=(x+.5)/CFG.deepSamplesX,v=(y+.5)/CFG.deepSamplesY,r=deepAt(k,u,v),d=G.metricDepth(fit,r);if(!(d>CFG.minDepth&&d<CFG.maxDepth))continue;const ray=G.rayFromUV(k.projection,k.worldFromView,u,v),hit=ray&&G.rayCellHit(localRayForCell(ray,c),c.model);if(!hit)continue;const shellGlobal=G.transform3(hit.p,c.transform),sd=G.projectPoint(k.projection,k.worldToView,shellGlobal)?.depth;if(!(sd>0))continue;const tol=Math.max(CFG.deepTolMin,CFG.deepTolFrac*sd),color=rgbAt(k,u,v),ix=y*CFG.deepSamplesX+x;if(Math.abs(d-sd)<=tol){mask[ix]=1;struct++;if(hit.kind==='wall'){const uv=G.wallUV(c.model.walls[hit.wallIndex],hit.p,c.model);G.updateCoverage(c.wallCoverage[hit.wallIndex],'deep',uv.u,uv.v,1)}}else if(d<sd-tol){mask[ix]=2;obj++;const pg=worldFromViewDepth(k.projection,k.worldFromView,u,v,d);if(pg)G.mergeVoxel(S.objectVoxels,pg,{source:'Deep',frameId:`deep-${k.viewCluster||spatialViewId(k.worldFromView)}`,cellId:c.id,color,weight:.68},CFG.objectVoxel)}else{mask[ix]=3;opt++;if(hit.kind==='wall'){const wall=c.model.walls[hit.wallIndex],uv=G.wallUV(wall,hit.p,c.model);for(const portal of S.portals.filter(p=>p.cellId===c.id&&p.wallIndex===hit.wallIndex)){const s=uv.u*wall.length;if(s>=portal.s0-.03&&s<=portal.s1+.03){portal.opticalHeights=portal.opticalHeights||[];portal.opticalHeights.push(hit.p[1]-c.model.floorY)}}}}}k.deepMask={w:CFG.deepSamplesX,h:CFG.deepSamplesY,data:mask};k.deepClass={structural:struct,objects:obj,optical:opt};pruneObjectVoxels()}
-function deepMaskAt(k,u,v){if(!k.deepMask)return 0;const x=G.clamp(Math.floor(u*k.deepMask.w),0,k.deepMask.w-1),y=G.clamp(Math.floor(v*k.deepMask.h),0,k.deepMask.h-1);return k.deepMask.data[y*k.deepMask.w+x]}
-function inferPortalHeights(){for(const portal of S.portals){const c=S.cells.find(x=>x.id===portal.cellId),a=(portal.opticalHeights||[]).filter(Number.isFinite);if(!c||a.length<4)continue;const q=G.quantile(a,.90);if(Number.isFinite(q)&&q>1.35)portal.top=G.clamp(q,1.45,c.height)}}
-function buildObjects(){inferPortalHeights();const comps=G.connectedVoxelComponents(S.objectVoxels,CFG.objectVoxel,CFG.objectMinCells);S.objects=comps.map((c,i)=>{const o=G.objectFromCells(c,i+1,CFG.objectVoxel);o.mesh=G.voxelSurfaceMesh(c,CFG.objectVoxel);return o});renderObjectsUI()}
-/* textures */
-async function buildTextures(profile){S.wallTextures={};for(const c of S.cells){if(!c.model)continue;for(const w of c.model.walls){if(c.entranceWallIndex===w.index)continue;const frames=cellFrames(c.id).filter(k=>(k.role==='pano'||k.role==='height')&&(k.wallVisibility?.[w.index]||0)>.08).sort((a,b)=>b.quality-a.quality).slice(0,profile.id==='high'?5:3),W=Math.max(48,Math.min(profile.texMaxW,Math.round(w.length*profile.texPPM))),H=Math.max(48,Math.min(profile.texMaxH,Math.round(c.height*profile.texPPM))),cv=document.createElement('canvas');cv.width=W;cv.height=H;const ctx=cv.getContext('2d'),im=ctx.createImageData(W,H),data=im.data;for(const k of frames)await ensureFrameRGBA(k);for(let py=0;py<H;py++){const v=1-(py+.5)/H;for(let px=0;px<W;px++){const u=(px+.5)/W,pGlobal=G.transform3(G.wallPoint(w,u,v,c.model),c.transform);let best={score:-1,color:[145,165,178]};for(const k of frames){const q=G.projectPoint(k.projection,k.worldToView,pGlobal);if(!q||q.u<.01||q.u>.99||q.v<.01||q.v>.99)continue;const xd=depthAtGrid(k.xrDepthGrid,q.u,q.v);if(xd&&xd<q.depth-Math.max(.08,.045*q.depth))continue;if(deepMaskAt(k,q.u,q.v)===2)continue;const edge=Math.min(q.u,1-q.u,q.v,1-q.v),score=k.quality*(.5+.5*G.clamp(edge/.18));if(score>best.score)best={score,color:rgbAt(k,q.u,q.v)}}const i=4*(py*W+px);data[i]=best.color[0];data[i+1]=best.color[1];data[i+2]=best.color[2];data[i+3]=255}if(py&&py%24===0)await new Promise(r=>setTimeout(r,0))}ctx.putImageData(im,0,0);S.wallTextures[`${c.id}:${w.index}`]={cellId:c.id,wallIndex:w.index,width:W,height:H,dataUrl:cv.toDataURL('image/jpeg',.84),frames:frames.map(f=>f.id)};for(const k of frames)k.rgba=null}}
-}
-function selectProcessingFrames(profile){const out=[];for(const c of S.cells){const a=cellFrames(c.id).filter(k=>k.role==='pano'||k.role==='height'),chosen=[];for(const k of a.filter(k=>k.role==='height').sort((x,y)=>y.quality-x.quality))if(chosen.length<profile.deepMaxFrames)chosen.push(k);for(const k of a.filter(k=>k.captureMode==='parallax').sort((x,y)=>y.quality-x.quality))if(chosen.length<profile.deepMaxFrames&&!chosen.includes(k))chosen.push(k);const rest=a.filter(k=>!chosen.includes(k)).sort((x,y)=>y.quality-x.quality);for(const k of rest){if(chosen.length>=profile.deepMaxFrames)break;const diverse=chosen.every(q=>G.angleDiff(k.yaw,q.yaw)>.28||k.viewCluster!==q.viewCluster);if(diverse||chosen.length<4)chosen.push(k)}out.push(...chosen)}return out}
-async function processModel(){if(S.process.running)return;if(S.session&&S.phase!=='ready'&&S.phase!=='processed')return alert('La scansione WebXR è ancora attiva. Aggiungi tutti i vani e premi “Termina intera scansione” prima di avviare Deep.');const p=qualityProfile(),frames=selectProcessingFrames(p);if(!S.cells.some(c=>c.model)||!frames.length)return alert('Completa almeno un vano con fotografie.');if(S.session)try{S.finalizingXR=true;await S.session.end()}catch{}S.process={running:true,cancel:false,total:frames.length,done:0,fused:0,stage:''};showProcess(true);try{await ensureDepth(p.input);for(let i=0;i<frames.length;i++){if(S.process.cancel)throw new Error('PROCESS_CANCELLED');const k=frames[i],c=S.cells.find(x=>x.id===k.cellId);processUI(`Deep ${i+1}/${frames.length}`,.05+.66*i/frames.length,`${c?.name||k.cellId}: struttura nota → residuo oggetti.`);try{await inferDepth(k,p);classifyDeepFrame(k,c,p);k.deep=null;k.status='processed';S.process.fused++;G.markPanorama(c.panorama,'deep',G.angleWrap(k.yaw-c.station.yaw),G.horizontalFov(k.projection),k.quality)}catch(e){k.deep=null;k.status='weak';k.reason=err(e)}S.process.done=i+1;processUI(`Deep ${i+1}/${frames.length}`,.05+.66*(i+1)/frames.length);await new Promise(r=>setTimeout(r,0))}processUI('Oggetti',.76,'Componenti persistenti XR + Deep.');buildObjects();processUI('Texture',.84,'Atlas separato per ogni superficie.');await buildTextures(p);destroyDepth('batch completato');S.phase='processed';processUI('Completato',1,`${S.cells.length} celle · ${S.portals.length} portali · ${S.objects.length} oggetti.`);renderReview();renderScene();setTimeout(()=>{showProcess(false);openScene()},200)}catch(e){destroyDepth('batch interrotto');if(err(e)!=='PROCESS_CANCELLED')alert(err(e));showProcess(false)}finally{S.process.running=false;updateHUD()}}
-function processUI(stage,p,detail=''){S.process.stage=stage;$('processStage').textContent=stage;$('processFill').style.width=`${G.clamp(p)*100}%`;$('deepCount').textContent=`${S.process.done}/${S.process.total}`;$('fusedCount').textContent=String(S.process.fused);$('objectCount').textContent=String(S.objects.length);$('processDetail').textContent=detail}
-function showProcess(v){$('processModal').classList.toggle('hidden',!v)}
-/* overlay */
-function canvas2D(id){const c=$(id),r=c.getBoundingClientRect(),dpr=Math.min(2,devicePixelRatio||1),W=Math.max(2,Math.round(r.width*dpr)),H=Math.max(2,Math.round(r.height*dpr));if(c.width!==W||c.height!==H){c.width=W;c.height=H}const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);return{c,x,w:r.width,h:r.height}}
-function projGlobal(p){return S.currentView?G.projectPoint([...S.currentView.projectionMatrix],[...S.currentView.transform.inverse.matrix],p):null}
-function drawLine(x,a,b,color,width=2,dash=[]){if(!a||!b)return;x.save();x.strokeStyle=color;x.lineWidth=width;x.setLineDash(dash);x.beginPath();x.moveTo(a.x,a.y);x.lineTo(b.x,b.y);x.stroke();x.restore()}
-function sp(q,w,h){return q?{x:q.u*w,y:q.v*h}:null}
-function drawCellWire(x,w,h,c){if(!c?.model)return;for(const wall of c.model.walls){const a=sp(projGlobal(G.transform3([wall.a[0],0,wall.a[1]],c.transform)),w,h),b=sp(projGlobal(G.transform3([wall.b[0],0,wall.b[1]],c.transform)),w,h),A=sp(projGlobal(G.transform3([wall.a[0],c.height,wall.a[1]],c.transform)),w,h),B=sp(projGlobal(G.transform3([wall.b[0],c.height,wall.b[1]],c.transform)),w,h);drawLine(x,a,b,'#6ed8ff',2);drawLine(x,A,B,'#b88dff',1.5);drawLine(x,a,A,'#6ed8ff99',1)}}
-function drawPanoramaRing(x,w,h,c){const cx=w/2,cy=h*.78,r=Math.min(w,h)*.15;for(let i=0;i<c.panorama.bins;i++){const v=c.panorama.photo[i],a0=-Math.PI/2+i*2*Math.PI/c.panorama.bins,a1=-Math.PI/2+(i+1)*2*Math.PI/c.panorama.bins;x.strokeStyle=v>.7?'#67e2a4':v>.25?'#ffd166':'#ff7e8d';x.lineWidth=7;x.beginPath();x.arc(cx,cy,r,a0,a1);x.stroke()}x.fillStyle='#dff5ff';x.font='bold 10px system-ui';x.fillText(`${Math.round(G.panoramaFraction(c.panorama,'photo')*100)}% foto`,cx-25,cy+4)}
-function drawAutoGuide(x,w,h,c){drawPanoramaRing(x,w,h,c);const g=S.guide||{},cx=w/2,cy=h*.43;x.save();x.textAlign='center';x.font='900 46px system-ui';let icon='•',color='#ffd166';if(g.kind==='turn'||g.kind==='look')icon=g.delta>0?'→':'←';else if(g.kind==='move')icon=g.delta>0?'↗':'↖';else if(g.kind==='pitch')icon=g.delta>0?'↓':'↑';else if(g.kind==='hold')icon='STOP';else if(g.kind==='slow')icon='≈';else if(g.kind==='done')icon='✓';if(g.kind==='hold'||g.kind==='done')color='#67e2a4';if(g.kind==='move')color='#6ed8ff';x.fillStyle='rgba(2,10,16,.62)';x.fillRect(w*.08,cy-58,w*.84,112);x.fillStyle=color;x.fillText(icon,cx,cy-6);x.font='800 14px system-ui';x.fillStyle='#fff';x.fillText(g.text||'Segui la guida',cx,cy+32);x.font='11px ui-monospace,monospace';x.fillStyle='#cce8f4';if(c?.survey?.stage==='move')x.fillText(`parallasse ${Math.min(c.survey.moveIndex+1,c.survey.moveTargets.length)}/${c.survey.moveTargets.length}`,cx,cy+52);x.restore()}
-function renderOverlay(){if($('overlayCanvas').classList.contains('hidden'))return;const {c,x,w,h}=canvas2D('overlayCanvas');x.clearRect(0,0,w,h);c.classList.toggle('clickable',S.phase==='height');const ac=activeCell();$('screenTint').classList.add('hidden');if(S.phase==='footprint'||S.phase==='portal'){const p=floorAim();x.strokeStyle=p?'#67e2a4':'#fff';x.lineWidth=2;x.beginPath();x.moveTo(w/2-13,h/2);x.lineTo(w/2+13,h/2);x.moveTo(w/2,h/2-13);x.lineTo(w/2,h/2+13);x.stroke();if(ac?.footprint.length){for(let i=0;i<ac.footprint.length;i++){const q=sp(projGlobal(G.stationPointToWorld(ac.footprint[i],ac.station,0)),w,h),r=i?sp(projGlobal(G.stationPointToWorld(ac.footprint[i-1],ac.station,0)),w,h):null;if(q){x.fillStyle='#6ed8ff';x.beginPath();x.arc(q.x,q.y,5,0,Math.PI*2);x.fill();x.fillText(`P${i+1}`,q.x+6,q.y)}if(r&&q)drawLine(x,r,q,'#6ed8ff',2)}}return}if(ac?.model)drawCellWire(x,w,h,ac);if(S.phase==='panorama'&&ac){drawAutoGuide(x,w,h,ac);$('screenTint').classList.remove('hidden');$('screenTint').style.background=S.guide.kind==='hold'||S.guide.kind==='done'?'rgba(55,220,120,.10)':S.guide.kind==='slow'?'rgba(255,205,70,.11)':'rgba(255,70,80,.08)'}if(S.phase==='height'&&ac){const wall=ac.model.walls[S.heightWall],floorLine=projectedWallLine(ac,S.heightWall,0,[...S.currentView.projectionMatrix],[...S.currentView.transform.inverse.matrix]),topLine=S.heightCandidate?.line||projectedWallLine(ac,S.heightWall,ac.height,[...S.currentView.projectionMatrix],[...S.currentView.transform.inverse.matrix]);drawLine(x,sp(floorLine?.a,w,h),sp(floorLine?.b,w,h),'#67e2a4',3);drawLine(x,sp(topLine?.a,w,h),sp(topLine?.b,w,h),S.heightCandidate?.confidence>.45?'#67e2a4':'#ffd166',4);x.fillStyle='#fff';x.font='bold 11px system-ui';x.fillText(`Parete ${wall.index+1} · H candidato ${S.heightCandidate?S.heightCandidate.height.toFixed(2):ac.height.toFixed(2)} m`,12,h-90)}}
-/* HUD */
-function phaseTitle(){return{station:'1 · Punto di ripresa',footprint:'2 · Perimetro locale',panorama:'3 · Scansione automatica 360°',height:'4 · Altezza pareti',cellReady:'5 · Aperture / nuova cella',portal:'5 · Segna apertura',ready:'Acquisizione completa',processed:'Modello processato'}[S.phase]||S.phase}
-function cellWallPhotoSummary(c){if(!c?.wallCoverage?.length)return{min:0,avg:0,wall:0};const a=c.wallCoverage.map((g,i)=>({i,v:G.coverageFraction(g,'photo',.45)}));const min=a.reduce((q,r)=>r.v<q.v?r:q,a[0]);return{min:min.v,wall:min.i,avg:a.reduce((n,r)=>n+r.v,0)/a.length}}
-function updatePanoramaStrip(){const c=activeCell(),el=$('panoramaStrip');if(S.phase!=='panorama'||!c){el.classList.add('hidden');el.innerHTML='';return}el.classList.remove('hidden');el.innerHTML=[...c.panorama.photo].map(v=>`<i class="${v>.7?'good':v>.25?'mid':''}"></i>`).join('')}
-function updateHUD(){const c=activeCell();$('phase').textContent=phaseTitle();$('trackingBadge').textContent=S.trackingLost?'TRACKING PERSO':'TRACKING';$('trackingBadge').className=`badge ${S.trackingLost?'bad':'good'}`;let st='',mt='';if(S.phase==='station')st=S.pendingPortalId?'Attraversa il varco e imposta il nuovo punto di ripresa.':'Fermati in una posizione che vede bene il vano e imposta la stazione.';if(S.phase==='footprint'){st='Punta il pavimento sugli spigoli visibili del vano. Ignora gli spazi oltre le aperture.';mt=`${c?.footprint.length||0} punti`; }if(S.phase==='panorama'){const f=G.panoramaFraction(c.panorama,'photo'),ws=cellWallPhotoSummary(c),sv=c.survey;st=sv?.stage==='move'?'Segui la freccia: piccoli spostamenti nella STESSA sessione XR danno parallasse e migliorano depth/oggetti. Fermati quando compare STOP.':'Ruota lentamente seguendo la freccia. Non premere nulla: quando sei stabile l’app acquisisce automaticamente RGB + posa + depth.';mt=`${c.name} · direzioni ${Math.round(f*100)}% · parete peggiore ${ws.wall+1}: ${Math.round(ws.min*100)}% · auto ${sv?.autoShots||0} · parallasse ${sv?.moveShots||0}`;}if(S.phase==='height'){st='Inquadra una parete mostrando pavimento e soffitto. La linea colorata mostra il raccordo inferito; puoi toccarlo direttamente.';mt=`${c.name} · parete ${S.heightWall+1} · H ${c.height.toFixed(2)} m · conf ${Math.round(c.heightConfidence*100)}%`;}if(S.phase==='cellReady'){st=S.pendingPortalId?'Varco pronto: attraversalo e crea una nuova stazione.':'Il vano è pronto e WebXR resta attivo. Segna un’apertura e passa al vano successivo; termina solo quando hai acquisito TUTTI i vani.';mt=`${c.name} · ${c.model.walls.length} pareti · ${c.model.area.toFixed(2)} m² · H ${c.height.toFixed(2)} m`;}if(S.phase==='portal'){st=S.portalDraft?.s.length?'Punta il secondo bordo dell’apertura sul pavimento.':'Punta il primo bordo dell’apertura sul pavimento.';mt=`${c.name}`;}if(S.phase==='ready'||S.phase==='processed'){st='Acquisizione terminata. Processa Deep o apri la revisione.';mt=`${S.cells.length} celle · ${S.portals.length} varchi · ${S.frames.filter(k=>k.role==='pano').length} foto`}$('statusText').textContent=st;$('metric').textContent=mt;updatePanoramaStrip();updateButtons()}
-function updateButtons(){const p=S.phase;$('primary').textContent=p==='station'?'Imposta punto di ripresa':p==='footprint'?'Aggiungi spigolo':p==='panorama'?'Scatto extra':p==='portal'?'Segna bordo':p==='height'?'Foto / tocca linea':'Apri revisione';$('primary').disabled=!!S.captureRequest||(S.trackingLost&&(p!=='ready'&&p!=='processed'));$('secondary').textContent=p==='footprint'?'Annulla punto':p==='height'?'Cambia parete':p==='portal'?'Annulla apertura':'Indietro';$('finish').classList.toggle('hidden',p!=='footprint'&&p!=='panorama');$('finish').textContent=p==='footprint'?'Chiudi perimetro':'Salta guida';$('heightConfirm').classList.toggle('hidden',p!=='height');$('portalStart').classList.toggle('hidden',p!=='cellReady'||!!S.pendingPortalId);$('newStation').classList.toggle('hidden',p!=='cellReady'||!S.pendingPortalId);$('finishScan').classList.toggle('hidden',p!=='cellReady');$('prev').classList.toggle('hidden',p!=='height');$('next').classList.toggle('hidden',p!=='height')}
-async function primaryAction(){if(S.phase==='station')createStation();else if(S.phase==='footprint')addFootprintPoint();else if(S.phase==='panorama')await capturePanorama();else if(S.phase==='portal')addPortalPoint();else if(S.phase==='height')await captureHeightPhoto();else openReview()}
-function secondaryAction(){if(S.phase==='footprint')undoFootprint();else if(S.phase==='height'){const c=activeCell();S.heightWall=(S.heightWall+1)%c.model.walls.length;S.heightCandidate=null}else if(S.phase==='portal'){S.portalDraft=null;S.phase='cellReady'}else if(S.phase==='station'&&S.pendingPortalId){S.pendingPortalId=null;const last=S.cells[S.cells.length-1];S.activeCellId=last?.id||null;S.phase=last?'cellReady':'station'}updateHUD()}
-function finishAction(){if(S.phase==='footprint')closeFootprint();else if(S.phase==='panorama')finishPanorama()}
-/* plan */
-function openPlan(){$('planModal').classList.remove('hidden');renderPlan()}
-function renderPlan(){const {x,w,h}=canvas2D('planCanvas'),cells=S.cells.filter(c=>c.model);x.clearRect(0,0,w,h);if(!cells.length){$('planStats').textContent='Nessuna cella.';return}const pts=[];for(const c of cells)for(const p of c.model.footprint)pts.push(G.transform2(p,c.transform));let minx=Math.min(...pts.map(p=>p[0])),maxx=Math.max(...pts.map(p=>p[0])),minz=Math.min(...pts.map(p=>p[1])),maxz=Math.max(...pts.map(p=>p[1])),pad=.5,sc=Math.min((w-50)/(maxx-minx+2*pad),(h-50)/(maxz-minz+2*pad)),map=p=>({x:25+(p[0]-minx+pad)*sc,y:h-25-(p[1]-minz+pad)*sc});x.strokeStyle='#173247';x.lineWidth=1;for(let gx=Math.floor(minx);gx<=Math.ceil(maxx);gx+=.5){const a=map([gx,minz-pad]),b=map([gx,maxz+pad]);drawLine(x,a,b,'#173247',1)}for(let gz=Math.floor(minz);gz<=Math.ceil(maxz);gz+=.5){const a=map([minx-pad,gz]),b=map([maxx+pad,gz]);drawLine(x,a,b,'#173247',1)}for(const c of cells){const poly=c.model.footprint.map(p=>map(G.transform2(p,c.transform)));x.fillStyle=c.id===S.activeCellId?'rgba(70,180,255,.18)':'rgba(100,210,160,.10)';x.strokeStyle=c.id===S.activeCellId?'#6ed8ff':'#67e2a4';x.lineWidth=2;x.beginPath();poly.forEach((p,i)=>i?x.lineTo(p.x,p.y):x.moveTo(p.x,p.y));x.closePath();x.fill();x.stroke();const center=map(G.transform2(c.model.centroid,c.transform));x.fillStyle='#fff';x.font='bold 11px system-ui';x.fillText(c.name,center.x-20,center.y);for(const p of S.portals.filter(p=>p.cellId===c.id)){const seg=G.portalGlobalSegment(c,p),a=map(seg.a),b=map(seg.b);drawLine(x,a,b,'#ffd166',5);x.fillStyle='#ffd166';x.fillText(p.id,(a.x+b.x)/2,(a.y+b.y)/2)}}$('planStats').innerHTML=`${cells.map(c=>`<b>${c.name}</b>: ${c.model.area.toFixed(2)} m² · H ${c.height.toFixed(2)} m · panorama ${Math.round(G.panoramaFraction(c.panorama,'photo')*100)}%${c.sourcePortalId?` · da ${c.sourcePortalId}`:''}`).join('<br>')}<br><br><b>Portali:</b> ${S.portals.length||0}`}
-/* scene */
-function openScene(){$('sceneModal').classList.remove('hidden');S.viewer.fit=true;renderScene()}
-function orthoProject(p,center,scale){const cy=Math.cos(S.viewer.yaw),sy=Math.sin(S.viewer.yaw),cp=Math.cos(S.viewer.pitch),sp=Math.sin(S.viewer.pitch),x=p[0]-center[0],y=p[1]-center[1],z=p[2]-center[2],X=cy*x-sy*z,Z=sy*x+cy*z,Y=cp*y-sp*Z;return[X*scale,Y*scale]}
-function textureImage(key){const t=S.wallTextures[key];if(!t?.dataUrl)return null;let im=S.textureImages[key];if(!im){im=new Image();im.onload=()=>renderScene();im.src=t.dataUrl;S.textureImages[key]=im}return im.complete?im:null}
-function drawImageTriangle(ctx,img,s0,s1,s2,d0,d1,d2){const den=s0.x*(s1.y-s2.y)+s1.x*(s2.y-s0.y)+s2.x*(s0.y-s1.y);if(Math.abs(den)<1e-6)return;const a=(d0.x*(s1.y-s2.y)+d1.x*(s2.y-s0.y)+d2.x*(s0.y-s1.y))/den,b=(d0.y*(s1.y-s2.y)+d1.y*(s2.y-s0.y)+d2.y*(s0.y-s1.y))/den,c=(d0.x*(s2.x-s1.x)+d1.x*(s0.x-s2.x)+d2.x*(s1.x-s0.x))/den,d=(d0.y*(s2.x-s1.x)+d1.y*(s0.x-s2.x)+d2.y*(s1.x-s0.x))/den,e=(d0.x*(s1.x*s2.y-s2.x*s1.y)+d1.x*(s2.x*s0.y-s0.x*s2.y)+d2.x*(s0.x*s1.y-s1.x*s0.y))/den,f=(d0.y*(s1.x*s2.y-s2.x*s1.y)+d1.y*(s2.x*s0.y-s0.x*s2.y)+d2.y*(s0.x*s1.y-s1.x*s0.y))/den;ctx.save();ctx.beginPath();ctx.moveTo(d0.x,d0.y);ctx.lineTo(d1.x,d1.y);ctx.lineTo(d2.x,d2.y);ctx.closePath();ctx.clip();ctx.transform(a,b,c,d,e,f);ctx.drawImage(img,0,0);ctx.restore()}
-function cellCutouts(c){const a=S.portals.filter(p=>p.cellId===c.id&&p.status!=='closed').map(p=>({...p}));for(const [wi,arr] of Object.entries(c.suppressedIntervals||{}))for(const r of arr)a.push({cellId:c.id,wallIndex:+wi,s0:r.s0,s1:r.s1,top:c.height,status:'open',synthetic:true});return a}
-function wallTexturePieces(c,w){const ps=cellCutouts(c).filter(p=>p.wallIndex===w.index).sort((a,b)=>a.s0-b.s0),out=[];let cursor=0;for(const p of ps){if(p.s0>cursor+.01)out.push({u0:cursor/w.length,u1:p.s0/w.length,v0:0,v1:1});const top=Number.isFinite(p.top)?G.clamp(p.top/c.height,0,1):1;if(top<.99)out.push({u0:p.s0/w.length,u1:p.s1/w.length,v0:top,v1:1});cursor=Math.max(cursor,p.s1)}if(cursor<w.length-.01)out.push({u0:cursor/w.length,u1:1,v0:0,v1:1});if(!ps.length)out.push({u0:0,u1:1,v0:0,v1:1});return out}
-function drawWallTexture(ctx,cv,c,w){const key=`${c.id}:${w.index}`,img=textureImage(key);if(!img)return;for(const r of wallTexturePieces(c,w)){const A=cv(G.transform3(G.wallPoint(w,r.u0,r.v0,c.model),c.transform)),B=cv(G.transform3(G.wallPoint(w,r.u1,r.v0,c.model),c.transform)),C=cv(G.transform3(G.wallPoint(w,r.u1,r.v1,c.model),c.transform)),D=cv(G.transform3(G.wallPoint(w,r.u0,r.v1,c.model),c.transform)),sA={x:r.u0*img.width,y:(1-r.v0)*img.height},sB={x:r.u1*img.width,y:(1-r.v0)*img.height},sC={x:r.u1*img.width,y:(1-r.v1)*img.height},sD={x:r.u0*img.width,y:(1-r.v1)*img.height};drawImageTriangle(ctx,img,sA,sB,sC,A,B,C);drawImageTriangle(ctx,img,sA,sC,sD,A,C,D)}}
-function renderScene(){if($('sceneModal').classList.contains('hidden'))return;const {x,w,h}=canvas2D('sceneCanvas'),cells=S.cells.filter(c=>c.model),objs=S.objects.filter(o=>o.status!=='removed'&&!o.hidden);x.clearRect(0,0,w,h);const bounds=G.sceneBounds(cells,objs),center=S.viewer.focus||[0,1,2].map(i=>(bounds.min[i]+bounds.max[i])/2),span=Math.max(bounds.max[0]-bounds.min[0],bounds.max[1]-bounds.min[1],bounds.max[2]-bounds.min[2],1),scale=.72*Math.min(w,h)/span*S.viewer.zoom,cv=p=>{const q=orthoProject(p,center,scale);return{x:w/2+S.viewer.pan[0]+q[0],y:h/2+S.viewer.pan[1]-q[1]}};if($('layRoom').checked){for(const c of cells){if($('layTexture').checked)for(const wall of c.model.walls)drawWallTexture(x,cv,c,wall);const mesh=G.cellShellMesh(c,cellCutouts(c),[]);x.strokeStyle='#74d7ff';x.lineWidth=1;for(let i=0;i<mesh.indices.length;i+=3){const a=cv(mesh.vertices[mesh.indices[i]]),b=cv(mesh.vertices[mesh.indices[i+1]]),d=cv(mesh.vertices[mesh.indices[i+2]]);x.beginPath();x.moveTo(a.x,a.y);x.lineTo(b.x,b.y);x.lineTo(d.x,d.y);x.closePath();x.stroke()}}}if($('layObjects').checked&&!$('bareRoom').checked){x.fillStyle='#f5b86d';for(const o of objs)for(const q of o.points){const p=cv(q.p);x.globalAlpha=.55;x.fillRect(p.x-1.2,p.y-1.2,2.4,2.4)}x.globalAlpha=1}if($('layBoxes').checked&&!$('bareRoom').checked){x.strokeStyle='#ffd166';for(const o of objs){const e=o.obb.extent,c=o.obb.center,yaw=o.obb.yaw,co=Math.cos(yaw),si=Math.sin(yaw),corn=[];for(const sx of [-1,1])for(const sz of [-1,1])corn.push([c[0]+co*sx*e[0]/2-si*sz*e[2]/2,c[1],c[2]+si*sx*e[0]/2+co*sz*e[2]/2]);const pp=corn.map(cv);for(const [a,b] of [[0,1],[0,2],[1,3],[2,3]])drawLine(x,pp[a],pp[b],'#ffd166',1)}}requestAnimationFrame(()=>{if(!$('sceneModal').classList.contains('hidden'))renderScene()})}
-function renderObjectsUI(){const sel=$('objectSelect'),old=sel.value;sel.innerHTML='<option value="">Nessun oggetto</option>'+S.objects.map(o=>`<option value="${o.id}">${o.name}${o.status==='removed'?' (rimosso)':''}</option>`).join('');sel.value=S.objects.some(o=>String(o.id)===old)?old:'';updateObjectInfo()}
-function selectedObject(){return S.objects.find(o=>String(o.id)===$('objectSelect').value)||null}
-function updateObjectInfo(){const o=selectedObject();$('objectInfo').textContent=o?`${o.name} · ${o.points.length} punti · ${o.obb.extent.map(v=>v.toFixed(2)).join(' × ')} m · conf ${Math.round(o.confidence*100)}%`:'Il box è solo un proxy UI; la geometria è la cloud voxel RGB XR+Deep.'}
-/* review */
-function openReview(){$('reviewModal').classList.remove('hidden');renderReview()}
-function renderReview(){$('cellReview').innerHTML=S.cells.length?S.cells.map(c=>`<div class="cellCard"><b>${c.name}</b><br><span>${c.model?`${c.model.area.toFixed(2)} m² · H ${c.height.toFixed(2)} m · ${c.model.walls.length} pareti`:c.status} · panorama ${Math.round(G.panoramaFraction(c.panorama,'photo')*100)}% · Deep ${Math.round(G.panoramaFraction(c.panorama,'deep')*100)}%</span><br><span>${S.portals.filter(p=>p.cellId===c.id).map(p=>`${p.id} → ${p.linkedCellId||'non collegato'}`).join(' · ')||'nessun varco'}</span></div>`).join(''):'Nessuna cella.';$('frameReview').innerHTML=S.frames.length?S.frames.map(k=>`<div class="frameRow"><img src="${k.jpegDataUrl}"><div><b>${k.role} · ${k.cellId}</b><br><span class="muted">Q ${Math.round(k.quality*100)}% · ${k.status}${k.deepClass?` · wall ${k.deepClass.structural} · obj ${k.deepClass.objects} · optical ${k.deepClass.optical}`:''}</span></div></div>`).join(''):'Nessuna foto.';$('objectReview').innerHTML=S.objects.length?S.objects.map(o=>`${o.name}: ${o.points.length} punti · ${o.obb.extent.map(v=>v.toFixed(2)).join('×')} m · ${o.status}`).join('<br>'):'Nessun oggetto.'}
-/* exports */
-function download(name,text,type='text/plain'){const a=document.createElement('a'),b=new Blob([text],{type}),u=URL.createObjectURL(b);a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1200)}
-function typedB64(a){if(!a)return null;let s='',u=new Uint8Array(a.buffer,a.byteOffset,a.byteLength);for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode(...u.subarray(i,i+0x8000));return btoa(s)}
-function b64Typed(s,Ctor){if(!s)return null;const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return new Ctor(u.buffer)}
-function exportRaw(){const raw={schema:'room-scanner-v14.0-raw',version:VERSION,createdAt:nowIso(),phase:S.phase,cells:S.cells.map(c=>({...c,panorama:{bins:c.panorama.bins,photo:Array.from(c.panorama.photo),deep:Array.from(c.panorama.deep)},wallCoverage:c.wallCoverage.map(g=>({cols:g.cols,rows:g.rows,photo:Array.from(g.photo),deep:Array.from(g.deep),xr:Array.from(g.xr)}))})),portals:S.portals,frames:S.frames.map(k=>({...k,rgba:null,xrDepthGrid:k.xrDepthGrid?{w:k.xrDepthGrid.w,h:k.xrDepthGrid.h,data:typedB64(k.xrDepthGrid.data)}:null,deep:null,deepMask:k.deepMask?{w:k.deepMask.w,h:k.deepMask.h,data:typedB64(k.deepMask.data)}:null})),wallTextures:S.wallTextures,objects:S.objects.map(o=>({id:o.id,name:o.name,status:o.status,hidden:o.hidden,obb:o.obb,confidence:o.confidence,points:o.points,mesh:o.mesh})),logs:S.logs.slice(0,100)};download(`room_v14_${Date.now()}.json`,JSON.stringify(raw),'application/json')}
-async function importRawFile(file){if(file.size>CFG.importMaxBytes)throw new Error('RAW troppo grande');const raw=JSON.parse(await file.text());if(raw.schema!=='room-scanner-v14.0-raw')throw new Error(`schema incompatibile: ${raw.schema}`);S.cells=(raw.cells||[]).map(c=>({...c,panorama:{bins:c.panorama.bins,photo:Float32Array.from(c.panorama.photo),deep:Float32Array.from(c.panorama.deep)},wallCoverage:(c.wallCoverage||[]).map(g=>({cols:g.cols,rows:g.rows,photo:Float32Array.from(g.photo),deep:Float32Array.from(g.deep),xr:Float32Array.from(g.xr)}))}));S.portals=raw.portals||[];S.frames=(raw.frames||[]).map(k=>({...k,rgba:null,xrDepthGrid:k.xrDepthGrid?{w:k.xrDepthGrid.w,h:k.xrDepthGrid.h,data:b64Typed(k.xrDepthGrid.data,Float32Array)}:null,deep:null,deepMask:k.deepMask?{w:k.deepMask.w,h:k.deepMask.h,data:b64Typed(k.deepMask.data,Uint8Array)}:null}));S.wallTextures=raw.wallTextures||{};S.textureImages={};S.objects=raw.objects||[];S.cellSeq=Math.max(0,...S.cells.map(c=>parseInt(c.id.slice(1))||0));S.portalSeq=Math.max(0,...S.portals.map(p=>parseInt(p.id.slice(1))||0));S.frameSeq=Math.max(0,...S.frames.map(k=>k.id||0));S.phase=raw.phase||'ready';S.activeCellId=S.cells.at(-1)?.id||null;S.rawImported=true;renderReview();renderObjectsUI();openScene();updateHUD()}
-function activeObjects(){return S.objects.filter(o=>o.status!=='removed')}
-function exportPly(){const pts=[];for(const o of activeObjects())for(const q of o.points)pts.push({p:q.p,c:q.color||[190,190,190],oid:o.id});let out=`ply\nformat ascii 1.0\ncomment Room Scanner ${VERSION}\nelement vertex ${pts.length}\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nproperty ushort object_id\nend_header\n`;for(const q of pts)out+=`${q.p[0]} ${q.p[1]} ${q.p[2]} ${q.c[0]|0} ${q.c[1]|0} ${q.c[2]|0} ${q.oid}\n`;download(`room_v14_${Date.now()}.ply`,out,'application/octet-stream')}
-function exportObj(){let out=`# Room Scanner ${VERSION}\n# Room-cell shells + object voxel meshes\n`,base=1;for(const c of S.cells.filter(c=>c.model)){const mesh=G.cellShellMesh(c,cellCutouts(c),[]);out+=`g CELL_${c.id}\n`;for(const v of mesh.vertices)out+=`v ${v[0]} ${v[1]} ${v[2]}\n`;for(let i=0;i<mesh.indices.length;i+=3)out+=`f ${base+mesh.indices[i]} ${base+mesh.indices[i+1]} ${base+mesh.indices[i+2]}\n`;base+=mesh.vertices.length}for(const o of activeObjects()){out+=`g OBJECT_${o.id}\n`;for(const v of o.mesh.vertices)out+=`v ${v[0]} ${v[1]} ${v[2]}\n`;for(let i=0;i<o.mesh.indices.length;i+=3)out+=`f ${base+o.mesh.indices[i]} ${base+o.mesh.indices[i+1]} ${base+o.mesh.indices[i+2]}\n`;base+=o.mesh.vertices.length}download(`room_v14_${Date.now()}.obj`,out,'text/plain')}
-/* listeners */
-$('startXR').addEventListener('click',startXR);$('stopXR').addEventListener('click',interruptXR);$('fullscreen').addEventListener('click',requestFullscreen);$('fullXR').addEventListener('click',requestFullscreen);$('primary').addEventListener('click',primaryAction);$('secondary').addEventListener('click',secondaryAction);$('finish').addEventListener('click',finishAction);$('heightConfirm').addEventListener('click',confirmHeight);$('portalStart').addEventListener('click',startPortal);$('newStation').addEventListener('click',newStationFromPortal);$('finishScan').addEventListener('click',finishAcquisition);$('prev').addEventListener('click',()=>{const c=activeCell();S.heightWall=(S.heightWall-1+c.model.walls.length)%c.model.walls.length;S.heightCandidate=null;updateHUD()});$('next').addEventListener('click',()=>{const c=activeCell();S.heightWall=(S.heightWall+1)%c.model.walls.length;S.heightCandidate=null;updateHUD()});$('overlayCanvas').addEventListener('pointerdown',tapHeight);$('processModel').addEventListener('click',processModel);$('reviewProcess').addEventListener('click',processModel);$('processCancel').addEventListener('click',()=>S.process.cancel=true);$('openPlan').addEventListener('click',openPlan);$('openScene').addEventListener('click',openScene);$('openReview').addEventListener('click',openReview);$('exportRaw').addEventListener('click',exportRaw);$('exportPly').addEventListener('click',exportPly);$('exportObj').addEventListener('click',exportObj);$('importRaw').addEventListener('click',()=>$('fileRaw').click());$('fileRaw').addEventListener('change',e=>e.target.files?.[0]&&importRawFile(e.target.files[0]).catch(x=>alert(err(x))));document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('.modal').classList.add('hidden')));$('sceneIso').addEventListener('click',()=>{S.viewer.yaw=Math.PI/4;S.viewer.pitch=-.615;S.viewer.fit=true});$('sceneFit').addEventListener('click',()=>{S.viewer.zoom=1;S.viewer.pan=[0,0];S.viewer.focus=null});for(const id of ['layRoom','layTexture','layObjects','layBoxes','bareRoom'])$(id).addEventListener('change',renderScene);$('objectSelect').addEventListener('change',()=>{updateObjectInfo();const o=selectedObject();$('objectHide').textContent=o?.hidden?'Mostra':'Nascondi'});$('objectFocus').addEventListener('click',()=>{const o=selectedObject();if(o){S.viewer.focus=[...o.obb.center];S.viewer.zoom=2.2;S.viewer.pan=[0,0]}});$('objectHide').addEventListener('click',()=>{const o=selectedObject();if(o){o.hidden=!o.hidden;$('objectHide').textContent=o.hidden?'Mostra':'Nascondi'}});$('objectRemove').addEventListener('click',()=>{const o=selectedObject();if(o){o.status='removed';renderObjectsUI()}});$('objectRestore').addEventListener('click',()=>{const o=selectedObject();if(o){o.status='active';o.hidden=false;renderObjectsUI()}});
-const sceneEl=$('sceneCanvas');sceneEl.addEventListener('pointerdown',e=>{S.viewer.drag={x:e.clientX,y:e.clientY,yaw:S.viewer.yaw,pitch:S.viewer.pitch};sceneEl.setPointerCapture?.(e.pointerId)});sceneEl.addEventListener('pointermove',e=>{if(!S.viewer.drag)return;S.viewer.yaw=S.viewer.drag.yaw+(e.clientX-S.viewer.drag.x)*.008;S.viewer.pitch=G.clamp(S.viewer.drag.pitch+(e.clientY-S.viewer.drag.y)*.006,-1.35,.15)});sceneEl.addEventListener('pointerup',()=>S.viewer.drag=null);sceneEl.addEventListener('pointercancel',()=>S.viewer.drag=null);sceneEl.addEventListener('wheel',e=>{e.preventDefault?.();S.viewer.zoom=G.clamp(S.viewer.zoom*Math.exp(-e.deltaY*.001),.35,6)},{passive:false});
-window.addEventListener('resize',()=>{renderPlan();renderScene()});
-if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js?rsbuild='+REV).catch(e=>log('SW_FAIL','WARN',err(e)));
-updateHUD();renderObjectsUI();boot(0,'Pronto. Avvia WebXR e scegli il primo punto di ripresa.');
-globalThis.__ROOM_SCANNER_V14__={VERSION,REV,CFG,state:S,createStation,addFootprintPoint,closeFootprint,markFrameWallCoverage,buildParallaxTargets,spatialViewId,viewPitch,autoSurveyTick,finishAcquisition,selectProcessingFrames,autoHeightFromPose,recomputeHeight,startPortal,addPortalPoint,newStationFromPortal,fitSamplesForFrame,classifyDeepFrame,buildObjects,renderPlan,cellCutouts,inferPortalHeights,captureHeightPhoto};
-</script>
+  <main id="welcome" class="screen">
+    <div class="welcome-inner">
+      <section class="hero">
+        <span class="build">V15.0.0 · GUIDED WALK</span>
+        <h1>Scansiona vani e oggetti,<br>senza ricostruzione pesante.</h1>
+        <p>Una sola sessione WebXR mantiene tutti i vani nello stesso riferimento metrico. Tu confermi solo la geometria essenziale; il telefono acquisisce automaticamente viste utili e Deep lavora soltanto dopo la passeggiata.</p>
+      </section>
+
+      <section class="principles" aria-label="Principi della scansione">
+        <div class="principle"><b>Geometria verificabile</b><span>Gli angoli e l’altezza definiscono una shell semplice, misurabile e correggibile.</span></div>
+        <div class="principle"><b>Un’unica passeggiata</b><span>Non chiudere WebXR tra i vani: attraversa la porta e continua nello stesso spazio metrico.</span></div>
+        <div class="principle"><b>AI fuori dal tracking</b><span>Durante XR si salvano solo pose, foto ridotte e piccoli campioni depth. Il batch Deep parte alla fine.</span></div>
+      </section>
+
+      <section class="workflow" aria-label="Procedura guidata">
+        <div class="step"><em>1</em><b>Segna gli angoli</b><span>Mira al raccordo pavimento-parete e tocca in ordine.</span></div>
+        <div class="step"><em>2</em><b>Conferma l’altezza</b><span>Mira al raccordo parete-soffitto oppure usa il valore manuale.</span></div>
+        <div class="step"><em>3</em><b>Guarda il vano</b><span>Cammina piano: le foto utili vengono scattate da sole.</span></div>
+        <div class="step"><em>4</em><b>Attraversa la porta</b><span>La traiettoria identifica parete e posizione del passaggio.</span></div>
+        <div class="step"><em>5</em><b>Ripeti nei vani</b><span>Tutti i perimetri restano già allineati nel local-floor WebXR.</span></div>
+        <div class="step"><em>6</em><b>Correggi e processa</b><span>Modifica passaggi e oggetti dalla mappa; poi esegui Deep.</span></div>
+      </section>
+
+      <div class="notice"><b>Regola importante:</b> completa tutti i vani prima di chiudere WebXR. Una nuova sessione non viene finta come se avesse lo stesso sistema metrico.</div>
+      <div id="landingSummary" class="landing-summary">Nessuna scansione in memoria.</div>
+
+      <section class="card action-panel">
+        <div class="action-primary">
+          <button id="startXR" class="primary">Avvia scansione WebXR</button>
+          <button id="processModel">Processa Deep</button>
+        </div>
+        <div class="action-secondary">
+          <button id="openPlan">Mappa e oggetti</button>
+          <button id="openScene">Scena 3D</button>
+          <button id="openReview">Revisione</button>
+          <button id="fullscreen" class="ghost">Schermo intero</button>
+          <button id="newScan" class="danger">Nuova scansione</button>
+        </div>
+        <div class="action-secondary">
+          <button id="exportRaw" class="compact ghost">Esporta RAW</button>
+          <button id="exportPly" class="compact ghost">Esporta PLY</button>
+          <button id="exportObj" class="compact ghost">Esporta OBJ</button>
+          <button id="importRaw" class="compact ghost">Importa RAW</button>
+          <input id="fileRaw" class="hidden" type="file" accept=".json,application/json">
+        </div>
+        <div class="quality-row">
+          <label for="quality">Qualità batch: “Rapido” usa meno foto; “Accurato” usa più viste ma richiede più RAM.</label>
+          <select id="quality">
+            <option value="quick">Rapido · smartphone base</option>
+            <option value="balanced" selected>Bilanciato · consigliato</option>
+            <option value="accurate">Accurato · smartphone recente</option>
+          </select>
+        </div>
+        <div class="boot">
+          <div class="meter"><i id="bootFill"></i></div>
+          <div id="bootText" class="small">Verifica WebXR in corso…</div>
+        </div>
+      </section>
+
+      <details class="debug">
+        <summary>Diagnostica tecnica</summary>
+        <pre id="diagnostics" class="diagnostics"></pre>
+      </details>
+    </div>
+  </main>
+
+  <canvas id="arCanvas" class="hidden" aria-hidden="true"></canvas>
+  <div id="screenTint" class="hidden"></div>
+  <canvas id="overlayCanvas" class="hidden" aria-hidden="true"></canvas>
+
+  <section id="hud" class="screen hidden" aria-live="polite">
+    <div class="topbar">
+      <div class="card status-card">
+        <div id="phaseTitle">Avvio tracking</div>
+        <div id="statusText">Mantieni il telefono fermo.</div>
+        <div id="metricText">Attendo posa WebXR…</div>
+        <div class="badge-row">
+          <span id="trackingBadge" class="badge">TRACKING</span>
+          <span id="capabilities">POSE XR</span>
+        </div>
+      </div>
+      <button id="stopXR" class="danger">Chiudi XR</button>
+    </div>
+
+    <div class="hud-bottom">
+      <div id="snapControl" class="card tool-card hidden">
+        <div class="tool-row">
+          <label><input id="smartSnap" type="checkbox" checked> Pareti ortogonali assistite</label>
+          <span class="small">Disattiva per stanze irregolari.</span>
+        </div>
+      </div>
+      <div id="heightControls" class="card tool-card hidden">
+        <div class="tool-row">
+          <label for="heightValue">Altezza</label>
+          <input id="heightValue" type="number" inputmode="decimal" min="1.85" max="4.80" step="0.01" value="2.70">
+          <span class="small">metri</span>
+        </div>
+      </div>
+      <div class="room-progress meter"><i id="roomProgressFill"></i></div>
+      <div class="bottom-actions">
+        <button id="finishButton" class="ghost hidden">Chiudi vano</button>
+        <button id="secondaryButton" class="ghost">Annulla ultimo</button>
+        <button id="primaryButton" class="primary">Aggiungi angolo</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="planModal" class="screen modal hidden" role="dialog" aria-modal="true" aria-labelledby="planTitle">
+    <header class="modal-head">
+      <h2 id="planTitle">Mappa, passaggi e oggetti</h2>
+      <button class="compact ghost" data-close>Chiudi</button>
+    </header>
+    <div class="modal-body workspace">
+      <div class="canvas-pane">
+        <canvas id="planCanvas"></canvas>
+        <div id="planStats">0 vani | 0 passaggi | 0 oggetti</div>
+      </div>
+      <aside class="editor-pane">
+        <section class="editor-section">
+          <h3>Aggiungi oggetto semplice</h3>
+          <div class="field-grid">
+            <div class="field full"><label for="manualName">Nome</label><input id="manualName" type="text" value="Mobile" maxlength="60"></div>
+            <div class="field"><label for="manualHeight">Altezza (m)</label><input id="manualHeight" type="number" inputmode="decimal" value="0.80" min="0.12" max="4" step="0.01"></div>
+          </div>
+          <div class="editor-actions"><button id="addObject" class="primary">Aggiungi oggetto</button></div>
+          <p class="small">Premi il pulsante e tocca due angoli opposti del rettangolo in pianta.</p>
+        </section>
+
+        <section class="editor-section">
+          <h3>Modifica / rimuovi oggetto</h3>
+          <div class="field-grid">
+            <div class="field full"><label for="objectSelect">Oggetto</label><select id="objectSelect"><option value="">Nessun oggetto</option></select></div>
+            <div class="field full"><label for="objectName">Nome</label><input id="objectName" type="text" maxlength="60" disabled></div>
+            <div class="field"><label for="objectLength">Lunghezza (m)</label><input id="objectLength" type="number" inputmode="decimal" min="0.08" max="8" step="0.01" disabled></div>
+            <div class="field"><label for="objectDepth">Profondità (m)</label><input id="objectDepth" type="number" inputmode="decimal" min="0.08" max="8" step="0.01" disabled></div>
+            <div class="field"><label for="objectHeight">Altezza (m)</label><input id="objectHeight" type="number" inputmode="decimal" min="0.08" max="5" step="0.01" disabled></div>
+            <div class="field"><label for="objectYaw">Rotazione (°)</label><input id="objectYaw" type="number" inputmode="decimal" min="-180" max="180" step="1" disabled></div>
+          </div>
+          <div id="objectInfo" class="small" style="margin-top:7px">Seleziona un oggetto automatico o manuale.</div>
+          <div class="editor-actions">
+            <button id="applyObject">Applica</button>
+            <button id="objectHide" class="ghost">Nascondi</button>
+            <button id="objectRemove" class="danger">Rimuovi</button>
+            <button id="objectRestore" class="ghost">Ripristina</button>
+          </div>
+        </section>
+
+        <section class="editor-section">
+          <h3>Correggi passaggio</h3>
+          <div class="field-grid">
+            <div class="field full"><label for="portalSelect">Passaggio</label><select id="portalSelect"><option value="">Nessun passaggio</option></select></div>
+            <div class="field"><label for="portalWidth">Larghezza (m)</label><input id="portalWidth" type="number" inputmode="decimal" min="0.45" max="4.5" step="0.01" disabled></div>
+            <div class="field"><label for="portalTop">Altezza (m)</label><input id="portalTop" type="number" inputmode="decimal" min="1.40" max="4.5" step="0.01" disabled></div>
+          </div>
+          <div class="editor-actions"><button id="applyPortal" disabled>Applica passaggio</button></div>
+          <p class="small">Il centro del varco resta sulla parete rilevata; qui modifichi larghezza e altezza.</p>
+        </section>
+      </aside>
+    </div>
+  </section>
+
+  <section id="sceneModal" class="screen modal hidden" role="dialog" aria-modal="true" aria-labelledby="sceneTitle">
+    <header class="modal-head">
+      <h2 id="sceneTitle">Scena 3D leggera</h2>
+      <button id="sceneIso" class="compact ghost">Vista isometrica</button>
+      <button class="compact ghost" data-close>Chiudi</button>
+    </header>
+    <div class="modal-body scene-wrap">
+      <canvas id="sceneCanvas"></canvas>
+      <div class="layers" aria-label="Livelli della scena">
+        <label class="layer"><input id="layerRoom" type="checkbox" checked> Vani</label>
+        <label class="layer"><input id="layerTexture" type="checkbox" checked> Texture</label>
+        <label class="layer"><input id="layerObjects" type="checkbox" checked> Punti oggetti</label>
+        <label class="layer"><input id="layerBoxes" type="checkbox" checked> Box oggetti</label>
+        <label class="layer"><input id="bareRoom" type="checkbox"> Solo shell</label>
+      </div>
+      <div class="scene-help">Trascina per ruotare · usa due dita o la rotella per lo zoom · gli oggetti si modificano dalla Mappa.</div>
+    </div>
+  </section>
+
+  <section id="reviewModal" class="screen modal hidden" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+    <header class="modal-head">
+      <h2 id="reviewTitle">Revisione acquisizione</h2>
+      <button id="reviewProcess" class="compact primary">Processa Deep</button>
+      <button class="compact ghost" data-close>Chiudi</button>
+    </header>
+    <div class="modal-body review-grid">
+      <section class="review-section"><h3>Vani</h3><div id="roomsReview" class="review-content"></div></section>
+      <section class="review-section"><h3>Foto e scala</h3><div id="framesReview" class="review-content"></div></section>
+      <section class="review-section"><h3>Oggetti</h3><div id="objectsReview" class="review-content"></div></section>
+    </div>
+  </section>
+
+  <section id="processModal" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="processTitle">
+    <div class="card process-panel">
+      <h2 id="processTitle">Elaborazione batch</h2>
+      <div class="small">WebXR è già chiuso: il modello può usare la RAM senza disturbare il tracking.</div>
+      <div class="process-counts">
+        <div class="stat"><b id="deepCount">0</b><span>FOTO DEEP</span></div>
+        <div class="stat"><b id="fusedCount">0</b><span>PUNTI FUSI</span></div>
+        <div class="stat"><b id="objectCount">0</b><span>OGGETTI</span></div>
+      </div>
+      <div class="meter"><i id="processFill"></i></div>
+      <div id="processStage">Preparazione</div>
+      <div id="processDetail">Selezione delle viste migliori…</div>
+      <div class="row" style="justify-content:flex-end"><button id="processCancel" class="danger">Interrompi batch</button></div>
+    </div>
+  </section>
 </body>
 </html>

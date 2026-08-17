@@ -1,272 +1,323 @@
 /*
- * Depth Anything V2 Small worker — cooperative keyframe refinement.
+ * Room Scanner V15 - batch-only Depth Anything V2 worker
+ * ------------------------------------------------------
+ * The worker is intentionally created only after WebXR has ended. This avoids
+ * competing with ARCore for GPU/RAM while the metric reference space is live.
  *
- * Debugging contract:
- *   - the worker owns its own ONNX Runtime instance/session;
- *   - MobileSAM's global ORT 1.14 runtime is never touched;
- *   - WebGPU is attempted only when WorkerNavigator exposes navigator.gpu;
- *   - Q4F16 is used on WebGPU, while Q4 is the verified universal WASM fallback;
- *   - model/runtime source and provider are returned to the main thread so a
- *     phone diagnostic export can explain exactly what path was used.
- *
- * Model preprocessing follows onnx-community/depth-anything-v2-small:
- *   RGB -> [0,1] -> ImageNet mean/std, CHW float32. The ONNX input shape is
- *   inspected at runtime: static exports receive their exact HxW; dynamic
- *   exports keep aspect ratio and constrain both axes to a multiple of 14.
- * Metric scale is deliberately NOT handled here; the
- * main thread aligns relative output to synchronized WebXR depth anchors.
+ * The application shell is tiny. On the first Deep run this worker downloads
+ * ONNX Runtime Web plus the Apache-2.0 Depth Anything V2 Small quantized model.
+ * The model bytes are cached in IndexedDB, so subsequent runs can reuse them.
+ * A deployment can be fully offline by placing the same files under vendor/
+ * and models/; the local URLs are always attempted before the remote URLs.
  */
 'use strict';
 
-let ortApi = null;
+let ortRuntime = null;
 let session = null;
-let modelSource = null;
-let runtimeSource = null;
-let activeProvider = null;
-let modelVariant = null;
-let forceWasmRuntime = false;
-let inputSize = 518;
-let runtimeVersion = '1.23.2';
-let deployRev = 'dev';
+let inputName = null;
+let outputName = null;
+let inputWidth = 336;
+let inputHeight = 336;
+let requestedInputSize = 336;
+let dynamicSpatialInput = false;
+let activeModelKey = null;
 
-const MEAN = [0.485, 0.456, 0.406];
-const STD = [0.229, 0.224, 0.225];
+const DB_NAME = 'room-scanner-v15-ai';
+const DB_VERSION = 1;
+const STORE_NAME = 'models';
 
-function errText(e) {
-  return e && (e.stack || e.message) ? String(e.stack || e.message) : String(e);
-}
-function reportProgress(stage, progress, detail='') {
-  self.postMessage({type:'progress', stage, progress:Math.max(0,Math.min(1,Number(progress)||0)), detail});
+function postProgress(detail, stage = 'loading') {
+  self.postMessage({ type: 'progress', stage, detail });
 }
 
-function versionedWorkerAsset(url){const u=new URL(url,self.location.href);if(u.origin===self.location.origin)u.searchParams.set('rsbuild',deployRev);return u.href}
-
-function importRuntime(url) {
-  importScripts(url);
-  if (!self.ort || !self.ort.InferenceSession) throw new Error(`ORT non esposto da ${url}`);
-  ortApi = self.ort;
-  runtimeSource = url;
+function openDatabase() {
+  return new Promise((resolve, reject) => {
+    if (!self.indexedDB) {
+      resolve(null);
+      return;
+    }
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(STORE_NAME)) database.createObjectStore(STORE_NAME);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('IndexedDB non disponibile'));
+  });
 }
 
-async function initRuntime() {
-  if (ortApi) return;
-  const localRuntimeDir = './vendor/depthai-123/';
-  const wantsWebGPU = !forceWasmRuntime && !!(self.navigator && self.navigator.gpu);
-  const candidates = wantsWebGPU
-    ? [
-        versionedWorkerAsset(`${localRuntimeDir}ort.webgpu.min.js`),
-        `https://cdn.jsdelivr.net/npm/onnxruntime-web@${runtimeVersion}/dist/ort.webgpu.min.js`,
-        versionedWorkerAsset(`${localRuntimeDir}ort.min.js`),
-        `https://cdn.jsdelivr.net/npm/onnxruntime-web@${runtimeVersion}/dist/ort.min.js`,
-      ]
-    : [
-        versionedWorkerAsset(`${localRuntimeDir}ort.min.js`),
-        `https://cdn.jsdelivr.net/npm/onnxruntime-web@${runtimeVersion}/dist/ort.min.js`,
-      ];
-  let last = null;
+async function cacheGet(key) {
+  try {
+    const database = await openDatabase();
+    if (!database) return null;
+    return await new Promise((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, 'readonly');
+      const request = transaction.objectStore(STORE_NAME).get(key);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+      transaction.oncomplete = () => database.close();
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function cachePut(key, buffer) {
+  try {
+    const database = await openDatabase();
+    if (!database) return;
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, 'readwrite');
+      transaction.objectStore(STORE_NAME).put(buffer, key);
+      transaction.oncomplete = () => {
+        database.close();
+        resolve();
+      };
+      transaction.onerror = () => reject(transaction.error);
+    });
+  } catch {
+    // Cache failures are non-fatal. The browser HTTP cache may still help.
+  }
+}
+
+async function fetchArrayBuffer(url, label) {
+  postProgress(`${label}: download`, 'download');
+  const response = await fetch(url, { cache: 'force-cache', mode: 'cors' });
+  if (!response.ok) throw new Error(`${label}: HTTP ${response.status}`);
+  const length = Number(response.headers.get('content-length')) || 0;
+  if (!response.body || !length) return response.arrayBuffer();
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  let received = 0;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.byteLength;
+    postProgress(`${label}: ${Math.round(received / length * 100)}%`, 'download');
+  }
+  const merged = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return merged.buffer;
+}
+
+async function loadRuntime(runtimeVersion, runtimeLocal, runtimeRemote) {
+  if (ortRuntime) return ortRuntime;
+  const candidates = [
+    runtimeLocal || './vendor/onnxruntime-web/ort.min.js',
+    runtimeRemote || `https://cdn.jsdelivr.net/npm/onnxruntime-web@${runtimeVersion}/dist/ort.min.js`,
+  ];
+  let lastError = null;
   for (const url of candidates) {
     try {
-      importRuntime(url);
-      break;
-    } catch (e) {
-      last = e;
-      ortApi = null;
+      postProgress(`Runtime ONNX: ${url.startsWith('.') ? 'locale' : 'CDN'}`, 'runtime');
+      importScripts(url);
+      if (!self.ort) throw new Error('La libreria ONNX non ha esposto ort');
+      ortRuntime = self.ort;
+      const base = url.slice(0, url.lastIndexOf('/') + 1);
+      ortRuntime.env.wasm.wasmPaths = base;
+      ortRuntime.env.wasm.numThreads = self.crossOriginIsolated
+        ? Math.max(1, Math.min(2, self.navigator?.hardwareConcurrency || 2))
+        : 1;
+      ortRuntime.env.wasm.simd = true;
+      return ortRuntime;
+    } catch (error) {
+      lastError = error;
     }
   }
-  if (!ortApi) throw new Error(`ONNX Runtime DepthAI non disponibile: ${errText(last)}`);
-
-  // Same-origin vendor assets are preferred. If the runtime came from jsDelivr,
-  // use the matching CDN dist directory so WASM/JSEP binaries match the JS API.
-  const remote = /^https?:/i.test(runtimeSource);
-  // wasmPaths is an override consumed inside ORT/WASM. Keep it absolute even
-  // inside this worker so URL resolution cannot depend on the worker bootstrap
-  // location or on service-worker rewriting.
-  ortApi.env.wasm.wasmPaths = remote
-    ? `https://cdn.jsdelivr.net/npm/onnxruntime-web@${runtimeVersion}/dist/`
-    : new URL(localRuntimeDir, self.location.href).href;
-  ortApi.env.wasm.numThreads = self.crossOriginIsolated ? Math.max(1, Math.min(4, (self.navigator && self.navigator.hardwareConcurrency) || 2)) : 1;
-  ortApi.env.wasm.simd = true;
+  throw new Error(`ONNX Runtime non caricabile: ${lastError?.message || lastError}`);
 }
 
-const DEPTH_MODEL_PINS={
-  q4f16:{bytes:19126267,sha256:'eca72971aea64216d767c70c534160de53b5435b588d362bac6dbd5a73f9bf1e'},
-  q4:{bytes:27404416,sha256:'5d55b02762e1907589158af3e366bd61ddf648155852a07bbf5e3a074639fcf8'},
-};
-let modelIntegrity=null;
-
-async function sha256Hex(buffer){
-  if(!self.crypto?.subtle)return null;const d=await self.crypto.subtle.digest('SHA-256',buffer);return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,'0')).join('')
-}
-function modelPinFor(url){return /(?:^|[_/])q4f16(?:[._/]|$)/i.test(url)?DEPTH_MODEL_PINS.q4f16:DEPTH_MODEL_PINS.q4}
-async function fetchVerifiedModel(url){
-  const pin=modelPinFor(url);
-  const u=new URL(url,self.location.href),local=u.origin===self.location.origin;if(local)u.searchParams.set('rsbuild',deployRev);const absolute=u.href;
-  const r=await fetch(absolute,{cache:local?'no-store':'default',mode:'cors'});if(!r.ok)throw new Error(`DepthAI model HTTP ${r.status}: ${absolute}`);
-  const buffer=await r.arrayBuffer();if(buffer.byteLength!==pin.bytes)throw new Error(`DepthAI model size ${buffer.byteLength} != ${pin.bytes}`);
-  const hash=await sha256Hex(buffer);if(hash&&hash!==pin.sha256)throw new Error('DepthAI model SHA-256 non corrisponde alla variante ufficiale selezionata');
-  modelIntegrity={bytes:buffer.byteLength,sha256:hash||'unavailable',url:absolute};return {buffer,absolute}
-}
-async function createSessionFrom(buffer, providers) {
-  const opts = {executionProviders: providers,graphOptimizationLevel:'all',enableCpuMemArena:true,enableMemPattern:true};
-  return await ortApi.InferenceSession.create(buffer, opts);
-}
-function metaArray(session,kind){const names=kind==='output'?(session.outputNames||[]):(session.inputNames||[]),raw=kind==='output'?session.outputMetadata:session.inputMetadata;if(Array.isArray(raw))return names.map((n,i)=>{const m=raw.find(x=>x?.name===n)||raw[i]||{};return {name:n,type:m.type||m.dataType||null,shape:Array.from(m.shape||m.dimensions||m.dims||[])}});return names.map(n=>{const m=raw?.[n]||{};return {name:n,type:m.type||m.dataType||null,shape:Array.from(m.shape||m.dimensions||m.dims||[])}})}
-function validateDepthContract(s){const inputs=metaArray(s,'input'),outputs=metaArray(s,'output');if(inputs.length!==1)throw new Error(`DepthAI: atteso 1 input, trovati ${inputs.length}`);const sh=inputs[0].shape;if(sh.length&&sh.length!==4)throw new Error(`DepthAI: input rank atteso 4 NCHW, trovato ${JSON.stringify(sh)}`);if(sh.length&&Number.isFinite(Number(sh[1]))&&Number(sh[1])>0&&Number(sh[1])!==3)throw new Error(`DepthAI: canali input attesi 3, trovati ${sh[1]}`);if(!outputs.length)throw new Error('DepthAI: nessun output ONNX');return {inputs,outputs}}
-
-async function initModel(modelLocal, modelRemote, modelWasmLocal, modelWasmRemote) {
-  if (session) return;
-  reportProgress('runtime', .06, 'avvio ONNX Runtime');
-  await initRuntime();
-  reportProgress('runtime', .22, forceWasmRuntime ? 'runtime WASM locale pronto' : 'runtime WebGPU/WASM pronto');
-  const gpuCandidates = [modelLocal, modelRemote].filter(Boolean);
-  const wasmCandidates = [modelWasmLocal, modelWasmRemote].filter(Boolean);
-  let last = null;
-  // Q4F16 is compact and correct for WebGPU. ORT/WASM does not reliably
-  // implement its fp16-weight operators, so the universal path is Q4 instead.
-  if (!forceWasmRuntime && self.navigator && self.navigator.gpu && /webgpu/i.test(runtimeSource || '')) for (const url of gpuCandidates) {
-    reportProgress('model', .32, 'scarico modello Q4F16 per WebGPU');
-    let loaded=null;try{loaded=await fetchVerifiedModel(url)}catch(e){last=e;continue}
-    reportProgress('session', .70, 'verifico e inizializzo sessione WebGPU');
-    try {session=await createSessionFrom(loaded.buffer.slice(0), ['webgpu', 'wasm']);modelSource=loaded.absolute;activeProvider='webgpu';modelVariant='q4f16';validateDepthContract(session);reportProgress('session', .84, 'sessione WebGPU pronta');return} catch(e){last=e;session=null}
+async function loadModelBuffer(localUrl, remoteUrls) {
+  const candidates = [localUrl, ...(remoteUrls || [])].filter(Boolean);
+  let lastError = null;
+  for (const url of candidates) {
+    const key = `depth-anything-v2-small:${url}`;
+    const cached = await cacheGet(key);
+    if (cached instanceof ArrayBuffer && cached.byteLength > 1_000_000) {
+      postProgress('Modello Deep recuperato dalla cache locale', 'cache');
+      activeModelKey = key;
+      return cached;
+    }
+    try {
+      const buffer = await fetchArrayBuffer(url, 'Depth Anything V2 Small');
+      if (buffer.byteLength < 1_000_000) throw new Error('file modello troppo piccolo');
+      activeModelKey = key;
+      postProgress('Salvataggio modello nella cache locale', 'cache');
+      await cachePut(key, buffer.slice(0));
+      return buffer;
+    } catch (error) {
+      lastError = error;
+    }
   }
-  for (const url of wasmCandidates) {
-    reportProgress('model', .32, 'scarico modello Q4 per WASM');
-    let loaded=null;try{loaded=await fetchVerifiedModel(url)}catch(e){last=e;continue}
-    reportProgress('session', .70, 'verifico checksum e inizializzo sessione WASM');
-    try {session=await createSessionFrom(loaded.buffer, ['wasm']);modelSource=loaded.absolute;activeProvider='wasm';modelVariant='q4';validateDepthContract(session);reportProgress('session', .84, 'sessione WASM pronta');return} catch(e){last=e;session=null}
+  throw new Error(`Modello Deep non disponibile: ${lastError?.message || lastError}`);
+}
+
+function numericDimension(value, fallback) {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+async function initialize(payload) {
+  if (session) {
+    return {
+      inputName,
+      outputName,
+      inputWidth,
+      inputHeight,
+      dynamicSpatialInput,
+      modelKey: activeModelKey,
+      reused: true,
+    };
   }
-  throw new Error(`Depth Anything non caricabile (Q4F16 WebGPU e Q4 WASM): ${errText(last)}`);
-}
-
-async function runDepthSession(prep) {
-  const inputName = session.inputNames[0];
-  const tensor = new ortApi.Tensor('float32', prep.data, [1, 3, prep.height, prep.width]);
-  try {
-    return await session.run({ [inputName]: tensor });
-  } finally {
-    try { tensor.dispose && tensor.dispose(); } catch (_) {}
+  const runtimeVersion = payload.runtimeVersion || '1.23.2';
+  await loadRuntime(runtimeVersion, payload.runtimeLocal, payload.runtimeRemote);
+  requestedInputSize = Math.max(140, Math.round((payload.inputSize || 336) / 14) * 14);
+  inputWidth = requestedInputSize;
+  inputHeight = requestedInputSize;
+  const modelBuffer = await loadModelBuffer(payload.modelLocal, payload.modelRemoteUrls);
+  postProgress('Creazione sessione ONNX WASM', 'session');
+  session = await ortRuntime.InferenceSession.create(modelBuffer, {
+    executionProviders: ['wasm'],
+    graphOptimizationLevel: 'all',
+    executionMode: 'sequential',
+    enableCpuMemArena: true,
+    enableMemPattern: true,
+  });
+  inputName = session.inputNames[0];
+  outputName = session.outputNames[0];
+  // ONNX Runtime Web exposes inputMetadata as an array aligned with
+  // inputNames. Some older builds also exposed a name-keyed object, so support
+  // both shapes. Reading it only by inputName silently returned undefined on
+  // current ORT and caused static 518 x 518 models to receive the wrong tensor.
+  const metadataCollection = session.inputMetadata;
+  const metadata = Array.isArray(metadataCollection)
+    ? metadataCollection[0]
+    : metadataCollection?.[inputName] || metadataCollection?.[0];
+  const dimensions = metadata?.shape || metadata?.dimensions || metadata?.dims || [];
+  if (dimensions.length >= 4) {
+    const declaredHeight = dimensions[dimensions.length - 2];
+    const declaredWidth = dimensions[dimensions.length - 1];
+    const fixedHeight = numericDimension(declaredHeight, NaN);
+    const fixedWidth = numericDimension(declaredWidth, NaN);
+    dynamicSpatialInput = !(Number.isFinite(fixedHeight) && Number.isFinite(fixedWidth));
+    if (!dynamicSpatialInput) {
+      inputHeight = fixedHeight;
+      inputWidth = fixedWidth;
+    }
   }
+  const shapeLabel = dynamicSpatialInput
+    ? `dinamico, lato lungo ${requestedInputSize}`
+    : `${inputWidth} x ${inputHeight}`;
+  postProgress(`Deep pronto: ${shapeLabel}`, 'ready');
+  return {
+    inputName,
+    outputName,
+    inputWidth,
+    inputHeight,
+    dynamicSpatialInput,
+    modelKey: activeModelKey,
+    reused: false,
+  };
 }
 
-function constrainMultiple(value, multiple=14) {
-  return Math.max(multiple, Math.round(value / multiple) * multiple);
+function bilinearChannel(rgba, sourceWidth, sourceHeight, sourceX, sourceY, channel) {
+  const x0 = Math.max(0, Math.min(sourceWidth - 1, Math.floor(sourceX)));
+  const y0 = Math.max(0, Math.min(sourceHeight - 1, Math.floor(sourceY)));
+  const x1 = Math.min(sourceWidth - 1, x0 + 1);
+  const y1 = Math.min(sourceHeight - 1, y0 + 1);
+  const fx = sourceX - x0;
+  const fy = sourceY - y0;
+  const a = rgba[4 * (y0 * sourceWidth + x0) + channel];
+  const b = rgba[4 * (y0 * sourceWidth + x1) + channel];
+  const c = rgba[4 * (y1 * sourceWidth + x0) + channel];
+  const d = rgba[4 * (y1 * sourceWidth + x1) + channel];
+  return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy;
 }
 
-function inputShapeForSource(srcW, srcH) {
-  // Match DPTImageProcessor's keep_aspect_ratio=true policy: use the scale
-  // closest to 1 for both axes, then constrain each result to a multiple of 14.
-  // For our 384x216 landscape keyframe this becomes about 518x294 rather than
-  // a distorted 518x518 square: fewer tokens/conv pixels and better geometry.
-  const sh = inputSize / srcH, sw = inputSize / srcW;
-  const scale = Math.abs(1 - sw) < Math.abs(1 - sh) ? sw : sh;
-  return { width: constrainMultiple(srcW * scale), height: constrainMultiple(srcH * scale) };
+function inferenceShape(sourceWidth, sourceHeight) {
+  if (!dynamicSpatialInput) return { width: inputWidth, height: inputHeight };
+  const scale = requestedInputSize / Math.max(sourceWidth, sourceHeight);
+  const width = Math.max(14, Math.round(sourceWidth * scale / 14) * 14);
+  const height = Math.max(14, Math.round(sourceHeight * scale / 14) * 14);
+  return { width, height };
 }
 
-function modelInputShapeHint() {
-  const meta = session && session.inputMetadata && session.inputMetadata[0];
-  const raw = meta && Array.isArray(meta.shape) ? meta.shape : [];
-  const h = Number(raw.length >= 2 ? raw[raw.length - 2] : NaN);
-  const w = Number(raw.length >= 1 ? raw[raw.length - 1] : NaN);
-  if (Number.isFinite(h) && h > 0 && Number.isFinite(w) && w > 0) {
-    return { static: true, height: Math.round(h), width: Math.round(w), raw: Array.from(raw) };
-  }
-  return { static: false, raw: Array.from(raw) };
-}
-
-function preprocessRGBA(buffer, srcW, srcH, shapeHint=null) {
-  const rgba = new Uint8ClampedArray(buffer);
-  if (rgba.length !== srcW * srcH * 4) throw new Error(`RGBA size errata: ${rgba.length} != ${srcW * srcH * 4}`);
-  const shape = shapeHint && shapeHint.static
-    ? { width: shapeHint.width, height: shapeHint.height }
-    : inputShapeForSource(srcW, srcH);
-  const dstW = shape.width, dstH = shape.height;
-  const N = dstW * dstH;
-  const out = new Float32Array(3 * N);
-
-  // Bilinear resize is still tiny compared with transformer inference and is
-  // materially closer to the official bicubic DPT preprocessing than nearest
-  // sampling. No letterbox/padding is introduced, so normalized output UV stays
-  // aligned to the captured camera frame.
-  for (let y = 0; y < dstH; y++) {
-    const fy = Math.max(0, Math.min(srcH - 1, (y + 0.5) / dstH * srcH - 0.5));
-    const y0 = Math.floor(fy), y1 = Math.min(srcH - 1, y0 + 1), ty = fy - y0;
-    for (let x = 0; x < dstW; x++) {
-      const fx = Math.max(0, Math.min(srcW - 1, (x + 0.5) / dstW * srcW - 0.5));
-      const x0 = Math.floor(fx), x1 = Math.min(srcW - 1, x0 + 1), tx = fx - x0;
-      const i00 = 4 * (y0 * srcW + x0), i10 = 4 * (y0 * srcW + x1);
-      const i01 = 4 * (y1 * srcW + x0), i11 = 4 * (y1 * srcW + x1);
-      const di = y * dstW + x;
-      for (let c = 0; c < 3; c++) {
-        const a = rgba[i00 + c] * (1 - tx) + rgba[i10 + c] * tx;
-        const b = rgba[i01 + c] * (1 - tx) + rgba[i11 + c] * tx;
-        const v = (a * (1 - ty) + b * ty) / 255;
-        out[c * N + di] = (v - MEAN[c]) / STD[c];
+function preprocessRGBA(rgba, sourceWidth, sourceHeight, targetWidth, targetHeight) {
+  const plane = targetWidth * targetHeight;
+  const tensorData = new Float32Array(3 * plane);
+  const mean = [0.485, 0.456, 0.406];
+  const std = [0.229, 0.224, 0.225];
+  for (let y = 0; y < targetHeight; y += 1) {
+    const sourceY = (y + 0.5) * sourceHeight / targetHeight - 0.5;
+    for (let x = 0; x < targetWidth; x += 1) {
+      const sourceX = (x + 0.5) * sourceWidth / targetWidth - 0.5;
+      const index = y * targetWidth + x;
+      for (let channel = 0; channel < 3; channel += 1) {
+        const normalized = bilinearChannel(rgba, sourceWidth, sourceHeight, sourceX, sourceY, channel) / 255;
+        tensorData[channel * plane + index] = (normalized - mean[channel]) / std[channel];
       }
     }
   }
-  return { data: out, width: dstW, height: dstH };
-}
-async function infer(msg) {
-  if (!session) throw new Error('DepthAI sessione non inizializzata');
-  const shapeHint = modelInputShapeHint();
-  const prep = preprocessRGBA(msg.rgba, Number(msg.width), Number(msg.height), shapeHint);
-  const out = await runDepthSession(prep);
-  const outputName = session.outputNames.find(n => /predicted_depth/i.test(n)) || session.outputNames[0];
-  const t = out[outputName] || Object.values(out)[0];
-  if (!t || !t.data || !t.data.length) throw new Error('Depth Anything: predicted_depth assente');
-  const dims = Array.from(t.dims || []);
-  const h = Number(dims[dims.length - 2] || inputSize);
-  const w = Number(dims[dims.length - 1] || inputSize);
-  const depth = t.data instanceof Float32Array ? new Float32Array(t.data) : Float32Array.from(t.data, Number);
-  if(depth.length!==w*h)throw new Error(`Depth Anything: output size ${depth.length} != ${w}x${h}`);
-  let finite=0;for(let i=0;i<depth.length;i++)if(Number.isFinite(depth[i]))finite++;if(finite<depth.length*.98)throw new Error(`Depth Anything: output non finito (${finite}/${depth.length})`);
-  for (const value of Object.values(out)) {
-    try { value && value.dispose && value.dispose(); } catch (_) {}
-  }
-  return { depth, outputWidth: w, outputHeight: h, outputName, inputWidth: prep.width, inputHeight: prep.height, inputShapeMode: shapeHint.static ? 'static' : 'aspect-dynamic' };
+  return tensorData;
 }
 
-self.onmessage = async (event) => {
-  const msg = event.data || {};
-  const id = msg.id;
+async function infer(payload) {
+  if (!session) throw new Error('Deep non inizializzato');
+  const rgba = new Uint8ClampedArray(payload.rgba);
+  if (rgba.byteLength !== payload.width * payload.height * 4) throw new Error('Buffer RGBA non coerente');
+  const shape = inferenceShape(payload.width, payload.height);
+  const inputData = preprocessRGBA(rgba, payload.width, payload.height, shape.width, shape.height);
+  const tensor = new ortRuntime.Tensor('float32', inputData, [1, 3, shape.height, shape.width]);
+  const started = performance.now();
+  const results = await session.run({ [inputName]: tensor });
+  const output = results[outputName] || results[session.outputNames[0]];
+  if (!output?.data) throw new Error('Output Deep assente');
+  const dimensions = output.dims || [];
+  const outputHeight = dimensions.length >= 2 ? dimensions[dimensions.length - 2] : shape.height;
+  const outputWidth = dimensions.length >= 1 ? dimensions[dimensions.length - 1] : shape.width;
+  const depth = output.data instanceof Float32Array
+    ? new Float32Array(output.data)
+    : Float32Array.from(output.data);
+  return {
+    depth: depth.buffer,
+    outputWidth,
+    outputHeight,
+    inferenceMs: performance.now() - started,
+  };
+}
+
+self.onmessage = async event => {
+  const message = event.data || {};
+  const id = message.id;
   try {
-    if (msg.type === 'init') {
-      inputSize = Number(msg.inputSize || 518);
-      runtimeVersion = String(msg.runtimeVersion || '1.23.2');
-      deployRev = String(msg.deployRev || 'dev');
-      // Q4F16/WebGPU can initialize and even smoke-test, then fail on a real
-      // mobile image. The product path deliberately uses the verified Q4/WASM
-      // model only; this also avoids downloading the unused Q4F16 model first.
-      forceWasmRuntime = true;
-      await initModel(msg.modelLocal, msg.modelRemote, msg.modelWasmLocal, msg.modelWasmRemote);
+    if (message.type === 'init') {
+      const result = await initialize(message);
+      self.postMessage({ id, ok: true, ...result });
+      return;
+    }
+    if (message.type === 'smoke') {
       self.postMessage({
-        id, ok: true, provider: activeProvider, modelVariant, modelSource, runtimeSource,
-        inputNames: Array.from(session.inputNames || []), outputNames: Array.from(session.outputNames || []),
-        inputShape: Array.from((session.inputMetadata && session.inputMetadata[0] && session.inputMetadata[0].shape) || []),
-        contract: validateDepthContract(session), modelIntegrity, wasmPaths: ortApi.env.wasm.wasmPaths,
+        id,
+        ok: true,
+        outputWidth: inputWidth,
+        outputHeight: inputHeight,
+        inputName,
+        outputName,
       });
       return;
     }
-    if (msg.type === 'smoke') {
-      const sw=96,sh=64,rgba=new Uint8ClampedArray(sw*sh*4);for(let y=0;y<sh;y++)for(let x=0;x<sw;x++){const i=4*(y*sw+x);rgba[i]=Math.round(255*x/(sw-1));rgba[i+1]=Math.round(255*y/(sh-1));rgba[i+2]=128;rgba[i+3]=255}
-      const t0=performance.now(),r=await infer({width:sw,height:sh,rgba:rgba.buffer});
-      self.postMessage({id,ok:true,smoke:true,provider:activeProvider,modelVariant,inputWidth:r.inputWidth,inputHeight:r.inputHeight,inputShapeMode:r.inputShapeMode,outputWidth:r.outputWidth,outputHeight:r.outputHeight,outputName:r.outputName,inferenceMs:performance.now()-t0,contract:validateDepthContract(session),modelIntegrity,wasmPaths:ortApi.env.wasm.wasmPaths});
+    if (message.type === 'infer') {
+      const result = await infer(message);
+      self.postMessage({ id, ok: true, ...result }, [result.depth]);
       return;
     }
-    if (msg.type === 'infer') {
-      const t0 = performance.now();
-      const r = await infer(msg);
-      self.postMessage({ id, ok: true, depth: r.depth.buffer, outputWidth: r.outputWidth, outputHeight: r.outputHeight, outputName: r.outputName, inputWidth: r.inputWidth, inputHeight: r.inputHeight, inputShapeMode: r.inputShapeMode, inferenceMs: performance.now() - t0 }, [r.depth.buffer]);
-      return;
-    }
-    if (msg.type === 'dispose') {
-      try { session && session.release && session.release(); } catch (_) {}
-      session = null;
-      self.postMessage({ id, ok: true });
-      return;
-    }
-    throw new Error(`Messaggio worker sconosciuto: ${msg.type}`);
-  } catch (e) {
-    self.postMessage({ id, ok: false, error: errText(e), provider: activeProvider, modelSource, runtimeSource });
+    throw new Error(`Messaggio worker sconosciuto: ${message.type}`);
+  } catch (error) {
+    self.postMessage({ id, ok: false, error: error?.message || String(error) });
   }
 };

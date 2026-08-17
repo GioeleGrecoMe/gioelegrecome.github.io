@@ -1,6 +1,15 @@
 {
-  "version": "14.1.0",
-  "revision": "v14.1.0-20260817-room-cells-autosurvey",
-  "built_at": "2026-08-17T16:25:00+02:00",
-  "architecture": "single-session multi-room capture stations + authoritative local room cells + explicit portals + automatic guided panorama/parallax WebXR capture + spatially persistent XR/Deep residual objects + rigid SE2 cell registration + batch Depth Anything textures"
+  "name": "Room Scanner Guided Walk",
+  "version": "15.0.0",
+  "revision": "v15-guided-walk-20260817",
+  "build_date": "2026-08-17",
+  "canonical_entry": "room_scanner_v12.html",
+  "root_entry": "index.html",
+  "target": "Chrome Android / ARCore / HTTPS",
+  "metric_frame": "single WebXR local-floor session",
+  "deep_runtime": "onnxruntime-web 1.23.2 wasm, post-XR only",
+  "deep_model": "onnx-community/depth-anything-v2-small model_q4.onnx",
+  "deep_model_sha256": "5d55b02762e1907589158af3e366bd61ddf648155852a07bbf5e3a074639fcf8",
+  "automatic_tests": "pass",
+  "physical_arcore_test": "not run in this environment"
 }
