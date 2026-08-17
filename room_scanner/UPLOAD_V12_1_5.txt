@@ -1,0 +1,21 @@
+ROOM SCANNER V12.1.5 - DEPLOY
+
+Replace in the repository:
+  room_scanner/room_scanner_v12.html
+  room_scanner/sw.js
+  room_scanner/build_info.json
+
+Keep unchanged:
+  room_scanner/depth_ai_worker.js
+  room_scanner/models/depth_anything_v2_small_q4.onnx
+  room_scanner/vendor/depthai-123/
+
+After deployment:
+1. Open room_scanner_v12.html and verify `Room Scanner · V12.1.5`.
+2. Reload once after service-worker activation if an older build was already installed.
+3. Scan one corner from three distinct lateral positions.
+4. End XR and press Processa modello.
+5. Wait for the transactional batch to complete.
+6. In Review inspect `struttura`, `residuo`, surface persistence and objects.
+7. In Scene compare diagnostic Deep mesh against Deep strutturale / Mesh stanza.
+8. Export PLY and OBJ, then import them back into the viewer.

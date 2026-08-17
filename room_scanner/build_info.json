@@ -1,12 +1,12 @@
 {
-  "appBuild": "V12.1.4",
-  "deployRev": "1214-audit-batch-memory-20260817",
+  "appBuild": "V12.1.5",
+  "deployRev": "1215-persistent-structure-deep-projection-20260817",
   "entry": "room_scanner_v12.html",
   "depthWorker": "depth_ai_worker.js",
   "depthModel": "models/depth_anything_v2_small_q4.onnx",
   "depthRuntime": "vendor/depthai-123/",
   "acquisitionBaseline": "V12.0.2-compatible WebXR acquisition; camera-access required; depth/planes/mesh optional",
-  "processing": "explicit transactional Deep batch; TSDF/ray fusion; structural room shell",
-  "cachePolicy": "V12.1.4 service worker; HTML/worker/build-info network-first; ONNX/WASM on-demand cache",
+  "processing": "transactional Deep batch; persistent structural semantics; shared wall/floor/ceiling primitives; Deep projected to global structure; residual persistent objects",
+  "cachePolicy": "V12.1.5 service worker; HTML/worker/build-info network-first; ONNX/WASM on-demand cache",
   "generatedAt": "2026-08-17"
 }

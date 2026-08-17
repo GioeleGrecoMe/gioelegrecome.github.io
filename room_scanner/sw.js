@@ -1,4 +1,4 @@
-/* Room Scanner V12.1.4 service worker.
+/* Room Scanner V12.1.5 service worker.
  *
  * Audit fix: the repository previously kept a stale legacy cache/build identity while
  * serving V12.1.x.  This worker deliberately keeps the install cache tiny and
@@ -7,9 +7,9 @@
  * after they are actually requested.
  */
 'use strict';
-const BUILD_REV='1214-audit-batch-memory-20260817';
-const CORE_CACHE='room-scanner-v1214-core';
-const ASSET_CACHE='room-scanner-v1214-assets';
+const BUILD_REV='1215-persistent-structure-deep-projection-20260817';
+const CORE_CACHE='room-scanner-v1215-core';
+const ASSET_CACHE='room-scanner-v1215-assets';
 const CORE=['./room_scanner_v12.html','./build_info.json','./depth_ai_worker.js'];
 
 self.addEventListener('install',event=>{
@@ -32,4 +32,4 @@ function isHeavyAsset(url){return /\.(?:onnx|wasm)$/i.test(url.pathname)||/\/ven
 async function networkFirst(req,cacheName){const cache=await caches.open(cacheName);try{const r=await fetch(req);if(r&&r.ok)await cache.put(req,r.clone());return r}catch(e){const hit=await cache.match(req,{ignoreSearch:false})||await cache.match(new URL(req.url).pathname.split('/').pop());if(hit)return hit;throw e}}
 async function cacheFirst(req){const cache=await caches.open(ASSET_CACHE),hit=await cache.match(req);if(hit)return hit;const r=await fetch(req);if(r&&r.ok)await cache.put(req,r.clone());return r}
 self.addEventListener('fetch',event=>{const req=event.request,url=new URL(req.url);if(req.method!=='GET'||url.origin!==self.location.origin)return;if(isDocument(req,url)||isCriticalCode(url)){event.respondWith(networkFirst(req,CORE_CACHE));return}if(isHeavyAsset(url)){event.respondWith(cacheFirst(req));return}event.respondWith((async()=>{try{return await fetch(req)}catch(e){return await caches.match(req)||Promise.reject(e)}})())});
-self.addEventListener('message',event=>{if(event.data?.type==='GET_BUILD')event.source?.postMessage?.({type:'ROOM_SCANNER_BUILD',version:'V12.1.4',revision:BUILD_REV,coreCache:CORE_CACHE,assetCache:ASSET_CACHE})});
+self.addEventListener('message',event=>{if(event.data?.type==='GET_BUILD')event.source?.postMessage?.({type:'ROOM_SCANNER_BUILD',version:'V12.1.5',revision:BUILD_REV,coreCache:CORE_CACHE,assetCache:ASSET_CACHE})});

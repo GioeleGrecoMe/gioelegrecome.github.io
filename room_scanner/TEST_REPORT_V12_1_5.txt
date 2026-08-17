@@ -1,0 +1,134 @@
+Room Scanner V12.1.5 - Final Test Report
+Date: 2026-08-17
+Build: 1215-persistent-structure-deep-projection-20260817
+
+== Syntax ==
+PASS room_scanner_v12 module syntax
+PASS service worker syntax
+
+== Static/UI/architecture ==
+PASS build V12.1.5 esplicita 
+PASS ID HTML univoci 
+PASS tutti i riferimenti $() hanno elemento DOM 
+PASS nessuna seconda camera/API MediaStream 
+PASS una sola requestSession XR 
+PASS camera raw resta nella stessa sessione XR 
+PASS batch transazionale e qualità presenti 
+PASS progress foto Deep/fuse presente 
+PASS Ricalcola e Chiudi restano in basso 
+PASS Chiudi Scena resta in basso 
+PASS layer e revisione oggetti persistenti presenti 
+PASS assegnazione Deep per raggio a superfici globali presente 
+PASS ottimizzatore Deep usa target strutturale globale 
+PASS Deep strutturale blocca la normale globale e viene riproiettato 
+PASS residuo non strutturale separato dalla struttura 
+PASS nuova parete Deep richiede persistenza multi-vista 
+PASS pareti nate da Deep non diventano autorità per ammettere altro Deep 
+PASS selezione top-down esclude piani verticali interni dalla frontiera stanza 
+PASS nuove pareti Deep persistenti devono restare vicine alla frontiera stanza nota 
+PASS soffitto geometrico richiede quota rispetto alla camera e area, non soglia fissa 1.45m 
+PASS clustering leggero del residuo in oggetti presente 
+PASS oggetti possono essere nascosti/rimossi/ripristinati 
+PASS PLY esporta residuo e object_id 
+PASS PLY esclude celle degli oggetti rimossi 
+PASS OBJ esclude rimossi ma non confonde Nascondi con Rimuovi 
+PASS OBJ esporta oggetti interni attivi 
+PASS RAW V12.1.5 conserva semantica/residuo 
+PASS compattazione memoria V12.1.4 preservata 
+PASS budget TSDF/pruning preservati 
+PASS shell XR iniziale precede Deep e commit finale segue la fusione semantica 
+PASS rebuildDeep esegue struttura → raffinamento → oggetti 
+PASS fusione non usa più il vecchio projection gate punto-per-punto come percorso principale 
+PASS nessun listener diretto duplicato 
+
+Tutti i test statici V12.1.5 sono passati.
+
+== Runtime/semantic synthetic ==
+[RoomScanner V12.1.5] {
+  t: '2026-08-17T07:52:40.086Z',
+  level: 'INFO',
+  message: 'MEMORY_BUDGET',
+  data: {
+    deviceMemoryGB: 'unknown',
+    nativeMax: 90000,
+    deepMax: 65000,
+    xrVoxels: 150000,
+    deepVoxels: 65000,
+    autoFrames: 140
+  }
+}
+[RoomScanner V12.1.5] {
+  t: '2026-08-17T07:52:40.088Z',
+  level: 'INFO',
+  message: 'CAMERA_PERMISSION_STATE',
+  data: {
+    permission: 'unknown',
+    policyCamera: 'unknown',
+    policyXR: 'unknown',
+    secure: true
+  }
+}
+PASS stesso raggio associa Deep alla parete globale XR d=2
+PASS Deep vicino al muro diventa struttura, non foglio libero 
+PASS oggetto davanti alla parete resta residuo interno invece di essere schiacciato sul muro 
+PASS tre fogli ruotati raffinano UNA parete con normale bloccata 
+PASS correzione offset Deep limitata 0.0mm
+[RoomScanner V12.1.5] {
+  t: '2026-08-17T07:52:40.093Z',
+  level: 'INFO',
+  message: 'INTERIOR_VERTICAL_PLANES_EXCLUDED',
+  data: { input: 5, boundary: 4, rejected: 1 }
+}
+PASS piano verticale interno non sostituisce la frontiera stanza walls=4
+PASS faccia verticale interna marcata non-boundary e non usata come target strutturale 
+PASS faccia interna esclusa dalla distanza strutturale e disponibile alla popolazione oggetti 
+PASS piano orizzontale interno sopra 1.45 m non diventa automaticamente soffitto 
+PASS piano orizzontale alto/esteso sopra la camera puo diventare soffitto 
+PASS semantic label desk impedisce falsa classificazione soffitto 
+PASS chiusura inferita diventa candidato Deep solo dopo 3 viste persistenti 
+PASS residuo popolato/persistente diventa oggetto interno objects=2
+PASS punti aderenti alla parete non vengono trasformati in oggetti 
+PASS oggetto rimosso resta separato dalla mappa attiva 
+PASS oggetto rimosso puo essere riaggiunto senza ricostruire Deep 
+PASS mesh coarse oggetto è chiusa/manifold 
+PASS parser PLY invariato 
+PASS quantizzazione Deep invariata 
+
+Tutti i test runtime/semantici V12.1.5 sono passati.
+[RoomScanner V12.1.5] {
+  t: '2026-08-17T07:52:40.112Z',
+  level: 'WARN',
+  message: 'XR_COMPATIBILITY_FAILED',
+  data: null
+}
+
+== Package/deploy ==
+PASS build_info allineato a V12.1.5
+PASS cache service worker versionate V12.1.5
+PASS service worker espone build V12.1.5
+PASS service worker non mantiene identita/cache precedenti
+PASS core cache contiene pagina e worker corrente
+PASS modello ONNX non pre-caricato durante install
+PASS ONNX/WASM cache on-demand preservata
+PASS build_info descrive il processing semantico persistente
+PASS README.md presente
+PASS README_V12_1_5.md presente
+PASS AUDIT_V12_1_5.md presente
+PASS UPLOAD_V12_1_5.txt presente
+PASS UNCHANGED_DEPENDENCIES.txt presente
+PASS README documenta vincoli Deep strutturali
+PASS documenti V12.1.4 obsoleti rimossi dal package
+
+Tutti i test package V12.1.5 sono passati.
+
+== Code audit ==
+PASS functions: 203 unique: 203 duplicates: {}
+PASS direct event bindings: 22 duplicates: {}
+PASS navigator.xr.requestSession calls: 1
+PASS getUserMedia references: 0
+PASS setInterval calls: 0
+INFO HTML bytes: 172002 module bytes: 156915
+
+== Device-only limitation ==
+NOT EXECUTED: physical Android/ARCore WebXR camera/depth/plane/mesh validation.
+Headless desktop Chromium cannot emulate the target WebXR runtime; hardware behavior is not claimed as tested.
