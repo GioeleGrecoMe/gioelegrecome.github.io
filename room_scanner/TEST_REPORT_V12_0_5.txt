@@ -1,0 +1,93 @@
+Room Scanner V12.0.5 - TEST REPORT
+Generated: 2026-08-17
+
+== JavaScript syntax ==
+PASS node --check
+
+== Static tests ==
+PASS versione V12.0.5
+PASS viewer offline senza CDN/Three.js
+PASS permission recovery usa <usermedia> quando disponibile
+PASS fallback legacy spiega recupero permesso bloccato
+PASS diagnostica permesso camera persistita nel RAW
+PASS probe 0.5x protetto da richieste concorrenti/ripetute
+PASS WebXR non richiede feature opzionali
+PASS depth/piani/mesh/camera/dom-overlay sono opportunistici
+PASS dom-overlay non puo piu invalidare la sessione base
+PASS local-floor degrada a local
+PASS negoziazione XR diagnosticata
+PASS timestamp 0.5x associato a pose XR
+PASS nessun fallback Deep silenzioso alla camera XR
+PASS depth XR riproiettata nella foto 0.5x
+PASS camera 0.5x rifinita contro XR
+PASS WebXR conserva colore RGB
+PASS RAW conserva fino a 900 eventi diagnostici
+PASS schema RAW V12.0.5 esportabile e reimportabile
+PASS nessuna richiesta permesso camera viene aperta dentro WebXR se 0.5x non preparata
+PASS mesh Deep e ROOM_SHELL watertight preservate
+PASS tutti i riferimenti UI puntano a elementi presenti
+
+Tutti i test statici V12.0.5 sono passati.
+
+== Synthetic tests ==
+[RoomScanner V12.0.5] {
+  t: '2026-08-16T22:17:47.679Z',
+  level: 'INFO',
+  message: 'UWA_PERMISSION_MODE',
+  data: { mode: 'legacy-getUserMedia', recovery: false }
+}
+[RoomScanner V12.0.5] {
+  t: '2026-08-16T22:17:47.682Z',
+  level: 'ERROR',
+  message: 'XR_COMPATIBILITY_FAILED',
+  data: 'navigator.xr assente'
+}
+PASS piano finito: punto interno supportato 
+PASS piano finito: estensione infinita rifiutata 
+PASS fit metrico robusto con outlier n=48 med=0.006
+PASS campo locale deforma Deep verso ancore XR senza cambiare posa L=-0.180 R=0.180
+PASS mesh Deep costruita per keyframe v=12 t=12
+PASS mesh Deep ottimizzata sulle depth XR della stessa vista mean=2.176
+PASS triangoli Deep non attraversano salto di profondita tris=4/12
+PASS nuvola WebXR salva colore RGB sincronizzato 230,40,30
+PASS linea parete conserva componente Z n=0,1 rho=-1.5
+PASS quattro pareti: angoli da intersezioni e guscio chiuso wall-plane intersection graph area=12.00
+PASS dimensioni stanza rettangolare coerenti con WebXR area=12.00 h=2.60
+PASS topologia rettangolo: ogni spigolo appartiene esattamente a due triangoli 
+PASS stanza obliqua preservata da intersezioni, non forzata a rettangolo area=10.39 target=10.39 M=0.77
+PASS triangolazione concava copre esattamente footprint a L tris=4 area=5.00
+PASS stanza a L produce mesh chiusa concava wall-plane intersection graph verts=6 area=5.00
+PASS topologia stanza a L: mesh realmente chiusa per incidenza degli spigoli 
+PASS nessuna stanza inventata da soli punti di arredo 
+PASS mesh oggetto singolo voxel chiusa 
+PASS mesh oggetto adiacente elimina faccia interna 
+PASS projectionFromIntrinsics mantiene fx/fy/cx/cy 
+PASS registrazione visuale riconosce FOV 0.5x scale=1.70 score=0.90
+PASS gate 0.5x rifiuta una camera con FOV simile a XR 
+PASS timestamp 0.5x associato alla posa XR piu vicina age=6
+PASS depth WebXR riproiettata nella griglia 0.5x anchors=35 coverage=0.071
+PASS ottimizzazione intrinseche preferisce la proiezione coerente con XR good=0.000 bad=0.027
+PASS XR base non viene invalidato da feature obbligatorie 
+PASS XR avanzato richiesto solo come optionalFeatures 
+PASS diniego camera classificato esplicitamente nel RAW/log 
+
+Tutti i test sintetici V12.0.5 sono passati.
+[RoomScanner V12.0.5] {
+  t: '2026-08-16T22:17:48.133Z',
+  level: 'INFO',
+  message: 'UWA_PERMISSION_INITIAL',
+  data: {
+    state: 'unknown',
+    secureContext: false,
+    topLevel: true,
+    visibility: 'unknown',
+    policyAllowsCamera: null,
+    userActivationActive: null,
+    userActivationHasBeenActive: null,
+    capabilityElement: false,
+    mediaDevices: false,
+    ua: ''
+  }
+}
+
+NOTE: accesso reale a permission UI, WebXR/ARCore, raw camera, depth, plane, mesh e concorrenza 0.5x deve essere validato su hardware Android.
