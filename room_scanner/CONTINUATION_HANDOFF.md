@@ -1,131 +1,82 @@
-# Continuation handoff - Room Scanner V15.0.0
+# Continuation handoff - Room Scanner V15.1.0
 
 ## Baseline
 
-- Versione: `15.0.0`
-- Revisione: `v15-guided-walk-20260817`
-- Pagina deploy canonica: `room_scanner_v12.html`
-- Ingresso root: `index.html`
-- Target: Chrome Android + ARCore + HTTPS
-- Stato test automatici: PASS
-- Stato test fisico ARCore: non eseguito in questo ambiente
+- Version: `15.1.0`
+- Revision: `v15.1.0-wall-targets-recovery-20260817`
+- Canonical deploy page: `room_scanner_v12.html`
+- Target: Chrome Android, ARCore, HTTPS
+- Architecture: one WebXR `local-floor` session for all connected rooms; post-XR Deep only
 
-## Goal operativo
+## Non-negotiable invariants
 
-Acquisire in modo guidato e leggero:
+- Do not add a second camera stack (`getUserMedia`, `ImageCapture`, MediaStream, etc.).
+- Keep exactly one Raw Camera `getCameraImage()` call site and invoke it only in an active XR frame path.
+- Do not load/run ONNX while WebXR is active.
+- Do not introduce ICP, TSDF, global mesh optimization, free room rotation or a second metric coordinate system.
+- Do not let neural depth modify wall geometry.
+- Keep `room_scanner_v12.html` as the canonical page unless all deploy references are deliberately migrated.
+- Keep compatibility aliases byte-identical to the versioned executable files.
 
-- shell metriche di piu' vani collegati;
-- passaggi tra vani;
-- fotografie sincronizzate e scalabili metricamente;
-- oggetti automatici persistenti multi-vista;
-- oggetti manuali/modificabili;
-- export RAW, PLY e OBJ.
+## Wall target implementation
 
-## Invarianti da non violare
+Core functions in `roomscan_core_v15_1_0.js`:
 
-1. Una sola `XRSession` per tutti i vani della scansione.
-2. `local-floor` e' il solo frame metrico globale.
-3. Una nuova sessione non puo' essere dichiarata allineata alla precedente.
-4. Nessun `getUserMedia`, `ImageCapture` o secondo stack camera.
-5. `XRWebGLBinding.getCameraImage()` deve restare in un solo callsite raggiunto dentro XR rAF.
-6. Il modello neurale non viene caricato o eseguito mentre XR e' attivo.
-7. Deep puo' generare evidenza oggetto, ma non spostare la shell metrica.
-8. Oggetti automatici richiedono viste spazialmente distinte.
-9. La fusione oggetti non deve attraversare `roomId` differenti.
-10. Nessun TSDF, ICP o ottimizzatore globale sul telefono.
-11. L'HTML completo non va incollato in chat; consegnare un archivio tar.gz.
-12. Ogni modifica deve mantenere test e commenti diagnostici.
+- `createWallPhotoTargets(model, options)`
+- `evaluatePhotoTarget(target, projection, worldToView, cameraPosition, options)`
+- `photoTargetStatus(target)`
+- `photoTargetProgress(target)`
+- `registerPhotoTargetObservation(target, observation)`
+- `registerFramePhotoTargets(targets, frame, options)`
+- `photoTargetStats(targets)`
 
-I test in `tests/static_contract.test.js` proteggono gli invarianti camera/sessione principali. Non indebolirli per far passare una modifica.
+The app generates targets immediately after room height confirmation. IDs are prefixed with the room ID. Lower `objects` targets require two distinct `viewCluster` values; upper `surface` targets require one.
 
-## Macchina a stati principale
+`coverageGuidance()` chooses the highest-priority unresolved physical target. `drawPhotoTargetBox()` projects its four metric corners into the overlay. `drawTargetArrow()` points toward its projected centre or toward the correct turn direction if off-screen.
 
-- `idle`: nessuna scansione attiva.
-- `starting`: sessione XR aperta, in attesa di una posa.
-- `corners`: acquisizione footprint del vano.
-- `height`: stima/conferma altezza.
-- `coverage`: auto keyframe e depth XR.
-- `room-ready`: vano completato; scegliere passaggio o fine.
-- `transition`: traiettoria attraverso porta/apertura.
-- `finished`: XR chiuso, dati pronti per revisione/batch.
-- `processed`: batch concluso.
+`roomCompletionReadiness()` intentionally ignores unresolved target count as a hard gate. The hard minimum is three frames and two view clusters. Do not restore the old all-green deadlock.
 
-## Pipeline metrica
+## Back/recovery implementation
 
-### Footprint
+`armHistoryGuard()` adds one same-document history entry when XR starts. A guarded `popstate` calls `handleBrowserBack()`.
 
-`updateAimSamples()` costruisce un raggio dal centro della view al piano y=0. Un hit test viene usato soltanto se il suo y e' vicino a `local-floor`, per evitare snap su mobili. `addCorner()` usa mediana/jitter e smart snap. `validateFootprint()` rifiuta degenerazioni e auto-intersezioni.
+`saveAndCloseXR()`:
 
-### Altezza
+- blocks repeated exit actions;
+- suspends automatic capture;
+- invokes `settleCaptureBeforeExit()`;
+- marks an unfinished measured room partial;
+- persists a checkpoint;
+- ends the existing XR session.
 
-`updateHeightCandidate()` interseca il raggio centrale con le pareti verticali gia' metriche. In fallback usa un piano soffitto rilevato, se disponibile. `confirmHeight()` aggiorna la shell.
+`onXREnd()` owns resource cleanup and opens Review. An unexpected XR end follows the same reviewable path and marks the scan interrupted.
 
-### Keyframe
+IndexedDB:
 
-`captureKeyframe()` crea una richiesta asincrona con timeout. `fulfillCaptureRequest()` viene chiamata da `onXRFrame()` e contiene l'unico percorso che legge la camera XR. Ogni frame salva JPEG, posa, proiezione, inverse, depth grid, yaw, pitch, cluster vista e visibilita' pareti.
+- database: `room-scanner-v15-checkpoints`
+- store: `snapshots`
+- key: `latest`
 
-### Passaggi
+Checkpoint object point arrays are capped at 12,000 points per object to avoid making a navigation save too large. Explicit RAW export retains the complete point data.
 
-`beginTransition()` inizia a campionare la traiettoria telefono. `pathBoundaryCrossing()` cerca l'uscita dal polygon sorgente. `createPortalFromCrossing()` crea il lato sorgente. Alla chiusura del nuovo footprint, `linkPortalToRoom()` cerca una parete parallela e coincidente per il lato target.
+## Executable assets
 
-## Pipeline oggetti
+- `roomscan_core_v15_1_0.js` == `roomscan_core.js`
+- `roomscan_app_v15_1_0.js` == `roomscan_app.js`
+- `depth_ai_worker_v15_1_0.js` == `depth_ai_worker.js`
+- `sw_v15_1_0.js` == `sw.js`
 
-### XR
+After modifying one side, copy it to its alias and run `tests/run_all.sh`.
 
-Per ogni depth sample, la distanza osservata viene confrontata con la prima intersezione della shell. Residui davanti alla shell e interni al vano alimentano voxel da 6 cm.
+## Main tests
 
-### Deep
+- `photo_targets.test.js`: physical subdivision, projection and status transitions.
+- `coverage_guidance.test.js`: selected box, second-view instruction and completion with unresolved targets.
+- `navigation_recovery.test.js`: Back path, single XR end and automatic Review.
+- `checkpoint_recovery.test.js`: IndexedDB save and restoration of target/object state.
+- `workflow_state.test.js`: two rooms and doorway linkage in one metric frame.
+- `static_contract.test.js`: WebXR/camera/deploy invariants.
 
-Il worker esegue Depth Anything V2 Small quantizzato con ONNX Runtime WASM. `fitRelativeDepth()` valuta fit lineare e inverso con robust regression. I campioni XR hanno peso maggiore; la shell fornisce copertura supplementare. Frame con errore p90 eccessivo vengono esclusi.
+## Remaining device validation
 
-### Persistenza
-
-`connectedVoxelComponents()` usa supporto locale 3x3x3 e set di view ID. Piccoli scarti tra viste sono tollerati, ma una sola vista non basta. `objectFromVoxels()` assegna un roomId dominante e OBB. Gli oggetti editati vengono sostituiti da `boxMesh()` per preview/OBJ.
-
-## Deep worker
-
-Il file `depth_ai_worker.js` supporta entrambe le forme di `session.inputMetadata`:
-
-- array allineato a `inputNames` nelle versioni ORT correnti;
-- oggetto name-keyed in build precedenti.
-
-Un modello con forma statica usa esattamente le dimensioni dichiarate. Un input dinamico preserva aspect ratio e arrotonda a multipli di 14. `tests/deep_worker_contract.test.js` simula entrambi i casi.
-
-## Offline/PWA
-
-`sw.js` pre-cacha solo la shell. Il modello e' separato in IndexedDB. Le navigazioni vengono memorizzate sotto la propria URL: la root non deve sovrascrivere la cache della pagina canonica. I lookup offline ignorano la query build, cosi' il worker pre-cachato resta caricabile.
-
-## Test presenti
-
-- `core_geometry.test.js`
-- `depth_fit.test.js`
-- `object_voxels.test.js`
-- `deep_worker_contract.test.js`
-- `static_contract.test.js`
-- `bootstrap.test.js`
-- `workflow_state.test.js`
-- `http_smoke.test.js`
-- parse JSON manifest
-- `node --check` su app/core/worker/service worker
-
-Comando unico: `./tests/run_all.sh`.
-
-## Prossime priorita'
-
-1. Eseguire `TEST_ON_PHONE.md` su almeno due telefoni ARCore.
-2. Raccogliere RAW di casi semplici prima di modificare soglie.
-3. Verificare orientamento/copia della texture Raw Camera sui dispositivi target.
-4. Misurare tempi e memoria del modello Q4 statico.
-5. Valutare soltanto dopo i dati se ridurre grid, frame o texture.
-6. Aggiungere autosave IndexedDB della scansione solo se i test mostrano perdita dati reale; non introdurlo senza budget e migrazione schema.
-7. Non aggiungere registrazione multi-sessione finche' non esiste un ancoraggio persistente verificabile.
-
-## Informazioni da fornire al prossimo ciclo
-
-- archivio di questa build;
-- RAW del test fallito;
-- log diagnostico;
-- modello dispositivo/Chrome/Android;
-- passaggi e momento esatto del guasto;
-- misure reali di riferimento;
-- indicazione delle capability badge disponibili.
+No container test can validate actual Raw Camera Access, Android browser Back behavior inside a live immersive session, ARCore CPU depth quality, thermal throttling or ONNX memory pressure. Use `TEST_ON_PHONE.md` before calling a release hardware-validated.

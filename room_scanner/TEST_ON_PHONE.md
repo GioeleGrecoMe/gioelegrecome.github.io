@@ -1,154 +1,127 @@
-# Protocollo di validazione su smartphone
+# Physical phone test plan - Room Scanner V15.1.0
 
-Questo protocollo separa i problemi di tracking, UX, camera/depth, Deep e export. Non cambiare piu' variabili nello stesso test.
+Use Chrome Android on an ARCore-compatible phone over HTTPS. Before the first V15.1.0 test, clear the old site data once so no previous service worker controls the page.
 
-## Preparazione
+## 1. Build and cache identity
 
-- Usare Chrome Android aggiornato su telefono ARCore.
-- Pubblicare la cartella in HTTPS.
-- Aprire la pagina top-level, non dentro un iframe durante il primo test.
-- Cancellare dati sito e cache della vecchia build.
-- Misurare con metro almeno due pareti, altezza e larghezza porta.
-- Liberare il percorso; non camminare all'indietro guardando lo schermo.
-- Per il primo test scegliere due vani rettangolari collegati da una porta.
+1. Open the deployed root URL.
+2. Verify the badge reads `V15.1.0 · WALL TARGETS + RECOVERY`.
+3. Reload once online, then enable airplane mode and reload.
+4. Confirm the landing page still opens offline.
 
-Annotare:
+Pass: no V15.0.x page or old yaw-sector UI appears.
 
-- modello telefono;
-- versione Android e Chrome;
-- presenza badge `DEPTH XR`, `HIT TEST`, `ANCHOR`, `PLANES`;
-- memoria libera approssimativa;
-- luce, superfici riflettenti e movimento di persone.
+## 2. Single-room metric shell
 
-## Test A - avvio e lifetime camera XR
+1. Start WebXR.
+2. Walk to each floor/wall corner and add it in order.
+3. Close the footprint and confirm height.
+4. Compare the displayed wall lengths/area with tape measurements.
 
-1. Premere Avvia scansione.
-2. Accettare i permessi.
-3. Verificare che compaiano `TRACKING OK` e `RGB XR`.
-4. Lasciare attiva la sessione per almeno due minuti.
-5. Bloccare e sbloccare brevemente lo schermo solo in un test separato.
+Record: phone model, Chrome version, ARCore version, measured dimensions, scanner dimensions and maximum error.
 
-Passa se:
+## 3. Physical target overlay
 
-- viene richiesta una sola sessione;
-- non compare un secondo prompt camera;
-- non viene aperta una preview `getUserMedia`;
-- la UI resta responsiva;
-- una interruzione non permette di continuare falsamente la metrica in una nuova sessione.
+1. Enter coverage after height confirmation.
+2. Verify colored quadrilaterals appear attached to wall surfaces, not as a compass circle.
+3. Rotate and translate the phone.
+4. Confirm the boxes remain on the same physical wall regions while the camera moves.
+5. Follow the large arrow to the selected red box.
+6. Hold still until a photograph is captured.
 
-## Test B - vano metrico singolo
+Pass: the selected physical area is visually unambiguous and one photograph may update several visible boxes.
 
-1. Acquisire quattro angoli in ordine.
-2. Chiudere il vano.
-3. Misurare il soffitto con il reticolo, poi confermare.
-4. Camminare lentamente fino ad almeno sei keyframe.
-5. Terminare la scansione senza Deep.
-6. Aprire planimetria e scena.
-7. Esportare RAW e OBJ.
+## 4. Red/yellow/green semantics
 
-Registrare per ogni parete:
+1. Photograph an upper wall box once.
+2. Confirm it becomes green.
+3. Photograph a lower/object box once.
+4. Confirm it becomes yellow and shows a one-of-two indication.
+5. Without moving, keep aiming at it.
+6. Confirm duplicate shots from the same position do not falsely complete it.
+7. Move laterally about 0.5 m and photograph it again.
+8. Confirm it becomes green.
 
-- lunghezza reale;
-- lunghezza esportata;
-- errore assoluto e percentuale.
+Pass: lower areas request spatial diversity instead of repeated identical photos.
 
-Primo gate di progetto, non ancora prestazione certificata:
+## 5. Completion without deadlock
 
-- nessuna parete duplicata;
-- perimetro non auto-intersecante;
-- altezza plausibile;
-- errore massimo parete entro 0.10 m o 3%, usando il valore piu' permissivo;
-- OBJ apribile e in metri.
+1. Acquire at least three photos from at least two positions.
+2. Deliberately leave one difficult or occluded tile red/yellow.
+3. Press `Completa vano`.
 
-## Test C - due vani nella stessa sessione
+Pass: the room completes. Review records the number of unresolved tiles instead of blocking forever.
 
-1. Completare il primo vano.
-2. Premere Attraversa passaggio.
-3. Camminare attraverso la porta senza terminare XR.
-4. Premere Sono nel nuovo vano.
-5. Acquisire e completare il secondo vano.
-6. Terminare la sessione.
+## 6. Complete during an active capture
 
-Passa se:
+1. Wait for an automatic capture to begin.
+2. Immediately press `Completa vano`.
+3. Confirm the label changes to `Salvo e completo...`.
+4. Confirm WebXR remains active and the room changes phase only after capture settlement.
 
-- esiste una sola sessione WebXR dall'inizio alla fine;
-- il secondo vano non viene ruotato o traslato da un registratore separato;
-- viene creato un solo portale con lato R1 e lato R2;
-- la porta resta sulla parete attraversata;
-- i vani non mostrano salti metrici evidenti nella planimetria.
+Pass: no crash, duplicate action or accidental entire-scan termination.
 
-Ripetere con porta larga, corridoio stretto e vano non ortogonale con Smart snap disattivato.
+## 7. Browser Back recovery
 
-## Test D - oggetti multi-vista
+1. Scan a footprint, confirm height and acquire at least one photo.
+2. Press the Android/browser Back control while WebXR is active.
+3. Observe the application without reopening the URL.
 
-Preparare almeno:
+Pass:
 
-- un tavolo o mobile voluminoso;
-- una sedia;
-- un oggetto sottile;
-- una superficie riflettente o trasparente da annotare come caso difficile.
+- WebXR ends once;
+- the page does not crash or go blank;
+- Review opens automatically;
+- the partial room and acquired frames are visible;
+- `Ripristina ultima scansione` appears after reloading the page.
 
-Per ogni oggetto, acquisire viste da almeno tre posizioni separate di circa 0.4 m o piu'. Terminare XR ed eseguire Deep Rapido.
+Repeat while an automatic photo is being captured. Pass if the capture settles or is safely cancelled and Review still opens.
 
-Passa se:
+## 8. Save and close
 
-- un oggetto non compare basandosi solo su ripetizioni dalla stessa posizione;
-- componenti di vani diversi non vengono fuse;
-- gli oggetti principali compaiono come proposte modificabili;
-- rimozione, ripristino, hide/show e correzione dimensioni aggiornano planimetria, scena e OBJ.
+1. Repeat a partial or complete scan.
+2. Press `Salva e chiudi`.
 
-Non considerare fallimento automatico l'assenza di vetro, specchi, fili o elementi molto sottili; registrarli come limite del sensore/modello.
+Pass: behavior matches browser Back recovery and the latest checkpoint can be restored after a reload/browser restart.
 
-## Test E - Deep e fallback
+## 9. Two connected rooms
 
-### Online
+1. Complete room one.
+2. Press `Attraversa passaggio`.
+3. Walk through the doorway and press `Sono nel nuovo vano`.
+4. Acquire room two without ending WebXR.
+5. Save and open the plan.
 
-1. Cancellare la cache AI IndexedDB.
-2. Eseguire Deep Rapido.
-3. Verificare download runtime/modello e completamento del smoke test.
-4. Ripetere il processo o ricaricare un RAW per verificare il riuso del modello dalla cache.
+Pass: both rooms share one metric frame and the doorway connects the correct wall sides without independent rotation or ICP.
 
-### Offline dopo cache
+## 10. Objects
 
-1. Verificare che la shell e il modello siano gia' stati caricati.
-2. Attivare modalita' aereo.
-3. Riaprire la PWA.
-4. Importare il RAW ed eseguire il batch.
+1. Place a chair/table near a wall.
+2. Photograph the lower wall/object tiles from two positions.
+3. End XR and run the balanced Deep batch.
+4. Inspect the plan and 3D scene.
+5. Rename/resize one detected object, hide it, restore it, remove it, restore it again.
+6. Add one manual object with two taps.
+7. Reload and restore the checkpoint.
 
-Se il runtime remoto non e' disponibile dalla cache HTTP, installare i file locali descritti in `vendor/onnxruntime-web/README.md`.
+Pass: edits persist and removed objects stay excluded from active preview/export until restored.
 
-### Fallback XR-only
+## 11. Memory and thermal test
 
-Bloccare volutamente CDN/modello e processare. La app deve segnalare Deep non disponibile, mantenere shell, texture, dati XR e oggetti manuali senza perdere il RAW.
+1. Scan two or three rooms with the balanced profile.
+2. End XR and run Deep.
+3. Monitor browser termination, phone temperature and processing duration.
+4. Repeat with `Rapido` if balanced is unstable.
 
-## Test F - pressione memoria
+Pass: the app remains usable even if Deep fails; room geometry, photos and manual editing remain available.
 
-Ripetere una scansione con 3-4 vani e profilo Rapido. Osservare:
+## Required report
 
-- chiusure della scheda;
-- freeze durante JPEG o ONNX;
-- tempi per keyframe e batch;
-- numero di frame selezionati;
-- dimensione RAW.
+For every failure capture:
 
-Se il telefono e' in difficolta': usare Rapido, ridurre le viste per vano a 5-6, chiudere altre app e non eseguire Deep mentre il dispositivo e' caldo.
-
-## Test G - installazione e offline shell
-
-1. Visitare la root `/room_scan/` online.
-2. Verificare il reindirizzamento a `room_scanner_v12.html`.
-3. Installare la PWA o ricaricare due volte.
-4. Attivare modalita' aereo.
-5. Riaprire root e pagina canonica.
-6. Verificare che UI, moduli e worker siano disponibili.
-
-## Materiale da conservare per ogni errore
-
-- RAW JSON;
-- screenshot della planimetria;
-- modello OBJ;
-- log diagnostico copiato dalla pagina;
-- passaggi esatti;
-- modello telefono e versioni software;
-- indicazione se la sessione XR e' stata interrotta;
-- foto delle misure reali, senza includere persone non consenzienti.
+- exact step;
+- phone/OS/Chrome/ARCore versions;
+- screenshot or screen recording;
+- diagnostics text;
+- whether the page, XR session or entire browser process closed;
+- exported RAW checkpoint when possible.

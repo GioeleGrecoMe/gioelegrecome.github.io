@@ -1,7 +1,7 @@
 {
-  "name": "Room Scanner V15 Guided Walk",
+  "name": "Room Scanner V15.1.0 Wall Targets",
   "short_name": "Room Scanner",
-  "description": "Scansione metrica guidata di ambienti connessi e oggetti in una sola sessione WebXR.",
+  "description": "Scansione metrica guidata di ambienti connessi e oggetti tramite caselle AR ancorate alle pareti.",
   "lang": "it",
   "start_url": "./room_scanner_v12.html",
   "scope": "./",

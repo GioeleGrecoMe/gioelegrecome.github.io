@@ -8,9 +8,10 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="Scansione metrica guidata di ambienti connessi e oggetti, in una sola sessione WebXR.">
+  <meta name="description" content="Scansione metrica guidata di ambienti e oggetti con caselle AR ancorate alle pareti e salvataggio automatico.">
+  <meta name="room-scanner-build" content="v15.1.0-wall-targets-recovery-20260817">
   <link rel="manifest" href="./manifest.webmanifest">
-  <title>Room Scanner V15 · Guided Walk</title>
+  <title>Room Scanner V15.1.0 · Wall Targets</title>
   <style>
     :root {
       color-scheme: dark;
@@ -194,6 +195,49 @@
     .tool-row { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
     .tool-row label { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; }
     #heightControls input { width: 92px; min-height: 36px; }
+    .coverage-coach {
+      width: min(680px, 100%);
+      padding: 9px 10px;
+      border-color: #42677b;
+      background: rgba(7, 24, 35, .95);
+    }
+    .coach-main { display: grid; grid-template-columns: 48px 1fr; gap: 9px; align-items: center; }
+    #coverageDirection {
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      border: 1px solid #5d8398;
+      border-radius: 14px;
+      background: rgba(101, 217, 255, .10);
+      color: #a9eaff;
+      font-size: 31px;
+      font-weight: 950;
+      line-height: 1;
+    }
+    #coverageInstruction { display: block; color: #ffffff; font-size: 13px; }
+    #coverageDetail { display: block; margin-top: 2px; color: #c8dce6; font-size: 10px; }
+    #coverageCounts { margin-top: 6px; color: #d8edf6; font: 9px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .coverage-legend { margin-top: 5px; color: #bfd4df; font-size: 9px; }
+    .coverage-legend::before {
+      content: "";
+      display: inline-block;
+      width: 30px;
+      height: 7px;
+      margin-right: 6px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #ff6478 0 33%, #ffd166 33% 66%, #62e6a5 66% 100%);
+      box-shadow: 0 0 8px rgba(120, 221, 255, .28);
+    }
+    .runtime-notice {
+      width: min(680px, 100%);
+      padding: 8px 10px;
+      border-color: #8b4c58;
+      background: rgba(59, 23, 31, .95);
+      color: #ffd4da;
+      font-size: 10px;
+    }
+    .runtime-notice b { display: block; margin-bottom: 2px; color: #ffffff; }
     .room-progress { width: min(680px, 100%); }
     .bottom-actions { display: flex; justify-content: center; gap: 8px; width: 100%; flex-wrap: wrap; }
     .bottom-actions button { flex: 1 1 128px; max-width: 225px; }
@@ -270,14 +314,16 @@
       .modal-head h2 { font-size: 15px; }
     }
   </style>
-  <script src="./roomscan_core.js" defer></script>
-  <script src="./roomscan_app.js" defer></script>
+  <!-- Versioned asset paths bypass any stale service worker left by an older
+       deployment, preventing mixed HTML/JavaScript builds on the first load. -->
+  <script src="./roomscan_core_v15_1_0.js" defer></script>
+  <script src="./roomscan_app_v15_1_0.js" defer></script>
 </head>
 <body>
   <main id="welcome" class="screen">
     <div class="welcome-inner">
       <section class="hero">
-        <span class="build">V15.0.0 · GUIDED WALK</span>
+        <span class="build">V15.1.0 · WALL TARGETS + RECOVERY</span>
         <h1>Scansiona vani e oggetti,<br>senza ricostruzione pesante.</h1>
         <p>Una sola sessione WebXR mantiene tutti i vani nello stesso riferimento metrico. Tu confermi solo la geometria essenziale; il telefono acquisisce automaticamente viste utili e Deep lavora soltanto dopo la passeggiata.</p>
       </section>
@@ -291,13 +337,13 @@
       <section class="workflow" aria-label="Procedura guidata">
         <div class="step"><em>1</em><b>Segna gli angoli</b><span>Mira al raccordo pavimento-parete e tocca in ordine.</span></div>
         <div class="step"><em>2</em><b>Conferma l’altezza</b><span>Mira al raccordo parete-soffitto oppure usa il valore manuale.</span></div>
-        <div class="step"><em>3</em><b>Guarda il vano</b><span>Cammina piano: le foto utili vengono scattate da sole.</span></div>
+        <div class="step"><em>3</em><b>Segui le caselle</b><span>Rosso = da fotografare, giallo = seconda posizione, verde = coperta. Una zona difficile non blocca il vano.</span></div>
         <div class="step"><em>4</em><b>Attraversa la porta</b><span>La traiettoria identifica parete e posizione del passaggio.</span></div>
         <div class="step"><em>5</em><b>Ripeti nei vani</b><span>Tutti i perimetri restano già allineati nel local-floor WebXR.</span></div>
         <div class="step"><em>6</em><b>Correggi e processa</b><span>Modifica passaggi e oggetti dalla mappa; poi esegui Deep.</span></div>
       </section>
 
-      <div class="notice"><b>Regola importante:</b> completa tutti i vani prima di chiudere WebXR. Una nuova sessione non viene finta come se avesse lo stesso sistema metrico.</div>
+      <div class="notice"><b>Regola importante:</b> completa tutti i vani nella stessa sessione WebXR. Il tasto Indietro e “Salva e chiudi” conservano quanto acquisito e aprono la revisione; una nuova sessione non viene finta come se avesse lo stesso sistema metrico.</div>
       <div id="landingSummary" class="landing-summary">Nessuna scansione in memoria.</div>
 
       <section class="card action-panel">
@@ -310,6 +356,7 @@
           <button id="openScene">Scena 3D</button>
           <button id="openReview">Revisione</button>
           <button id="fullscreen" class="ghost">Schermo intero</button>
+          <button id="resumeCheckpoint" class="ghost hidden">Ripristina ultima scansione</button>
           <button id="newScan" class="danger">Nuova scansione</button>
         </div>
         <div class="action-secondary">
@@ -355,7 +402,7 @@
           <span id="capabilities">POSE XR</span>
         </div>
       </div>
-      <button id="stopXR" class="danger">Chiudi XR</button>
+      <button id="stopXR" class="danger">Salva e chiudi</button>
     </div>
 
     <div class="hud-bottom">
@@ -371,6 +418,21 @@
           <input id="heightValue" type="number" inputmode="decimal" min="1.85" max="4.80" step="0.01" value="2.70">
           <span class="small">metri</span>
         </div>
+      </div>
+      <div id="coverageCoach" class="card coverage-coach hidden">
+        <div class="coach-main">
+          <div id="coverageDirection" aria-hidden="true">◎</div>
+          <div>
+            <b id="coverageInstruction">Inquadra qui parete e mobili</b>
+            <span id="coverageDetail">La freccia indica la prossima casella fisica da fotografare.</span>
+            <div id="coverageCounts">rosse 0 · gialle 0 · verdi 0/0 · 0 foto</div>
+          </div>
+        </div>
+        <div class="coverage-legend">Caselle sulle pareti: rosso = da fare, giallo = seconda vista, verde = coperta. Non devono essere tutte verdi per chiudere.</div>
+      </div>
+      <div id="runtimeNotice" class="card runtime-notice hidden">
+        <b>Errore recuperato senza chiudere WebXR</b>
+        <span id="runtimeNoticeText">Dettaglio diagnostico</span>
       </div>
       <div class="room-progress meter"><i id="roomProgressFill"></i></div>
       <div class="bottom-actions">

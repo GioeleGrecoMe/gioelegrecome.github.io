@@ -1,9 +1,7 @@
-# Room Scanner V15.0.0 - Guided Walk
+# Room Scanner V15.1.0 - Wall Targets + Recovery
 
-Documentazione completa: [`README_V15_0_0.md`](./README_V15_0_0.md)
+Canonical page: `room_scanner_v12.html`
 
-Validazione su telefono: [`TEST_ON_PHONE.md`](./TEST_ON_PHONE.md)
+This build replaces the failing direction circle with metric red/yellow/green photo tiles projected on the measured walls. Browser Back and `Salva e chiudi` now preserve the current scan, close WebXR in a controlled way, and open Review.
 
-Handoff tecnico: [`CONTINUATION_HANDOFF.md`](./CONTINUATION_HANDOFF.md)
-
-Avvio applicazione: [`room_scanner_v12.html`](./room_scanner_v12.html)
+Read `README_V15_1_0.md` for architecture and deployment, then `TEST_ON_PHONE.md` for the physical Android/ARCore validation sequence.

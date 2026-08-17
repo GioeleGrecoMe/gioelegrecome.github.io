@@ -1,15 +1,23 @@
 {
-  "name": "Room Scanner Guided Walk",
-  "version": "15.0.0",
-  "revision": "v15-guided-walk-20260817",
+  "name": "Room Scanner Wall Targets",
+  "version": "15.1.0",
+  "revision": "v15.1.0-wall-targets-recovery-20260817",
   "build_date": "2026-08-17",
   "canonical_entry": "room_scanner_v12.html",
   "root_entry": "index.html",
   "target": "Chrome Android / ARCore / HTTPS",
   "metric_frame": "single WebXR local-floor session",
+  "capture_guide": "metric red/yellow/green quadrilaterals projected onto measured wall surfaces",
+  "target_semantics": "red=no usable view; yellow=one view but another position required; green=complete",
+  "completion_policy": "minimum three photos from two positions; unresolved wall targets remain guidance and never deadlock completion",
+  "navigation_recovery": "browser Back and Save and close settle active capture, checkpoint IndexedDB, end XR, then open Review",
+  "checkpoint_scope": "rooms, wall targets, frames, portals, edited objects, object reconstruction evidence and processing state",
+  "asset_strategy": "versioned executable assets plus network-first service worker",
   "deep_runtime": "onnxruntime-web 1.23.2 wasm, post-XR only",
   "deep_model": "onnx-community/depth-anything-v2-small model_q4.onnx",
   "deep_model_sha256": "5d55b02762e1907589158af3e366bd61ddf648155852a07bbf5e3a074639fcf8",
   "automatic_tests": "pass",
-  "physical_arcore_test": "not run in this environment"
+  "physical_arcore_test": "not run in this environment",
+  "test_suite": "16 checks including wall-target rendering, Back recovery, checkpoint recovery and HTTP smoke",
+  "headless_browser_test": "not completed: container Chromium did not exit under headless mode"
 }
