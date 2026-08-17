@@ -1,0 +1,28 @@
+#!/usr/bin/env node
+'use strict';
+const fs=require('fs'),path=require('path');
+const html=fs.readFileSync(path.join(__dirname,'..','room_scanner_v12.html'),'utf8');
+const script=(html.match(/<script type="module">([\s\S]*?)<\/script>/)||[])[1]||'';
+let fail=0;const ok=(c,m,d='')=>{if(c)console.log('PASS',m,d);else{console.error('FAIL',m,d);fail++}};
+ok(/V12\.2\.0/.test(html)&&/1220-guided-floor-shell-deep-20260817/.test(html),'build V12.2.0 esplicita');
+const ids=[...html.matchAll(/id="([^"]+)"/g)].map(x=>x[1]),set=new Set(ids);ok(ids.length===set.size,'ID HTML univoci');
+const refs=[...script.matchAll(/\$\('([^']+)'\)/g)].map(x=>x[1]),missing=[...new Set(refs.filter(x=>!set.has(x)))];ok(!missing.length,'tutti i riferimenti DOM esistono',missing.join(','));
+ok(!/navigator\.mediaDevices|getUserMedia\s*\(|ImageCapture\s*\(/.test(script),'nessuna seconda camera');
+ok((script.match(/navigator\.xr\.requestSession\s*\(/g)||[]).length===1,'una sola requestSession XR');
+ok(/requiredFeatures:\['local-floor','dom-overlay','camera-access'\]/.test(script),'raw camera nella stessa sessione XR');
+ok(/function shouldCapture\(info,manual\)\{[^}]*return !!manual/.test(script),'nessun keyframe RGB automatico');
+ok(/id="guidedPrimary"/.test(html)&&/Aggiungi spigolo \+ foto/.test(html),'tracciamento guidato spigolo + foto presente');
+ok(/id="planCanvas"/.test(html)&&/Pianta metrica verificabile/.test(html),'verifica top-down metrica presente');
+ok(/function guidedWallHit/.test(script)&&/confirmed wall render/.test(script),'render analitico della parete confermata usato per il fit');
+ok(/function guidedRansacMode/.test(script)&&/guided RANSAC shell\+XR/.test(script),'fit robusto Deep relativo→metrico presente');
+ok(/d<hit\.d-CFG\.guidedObjectGap/.test(script),'punti Deep davanti alla parete diventano residuo/oggetto');
+ok(/d>hit\.d\+CFG\.guidedBehindGate/.test(script),'punti Deep dietro il guscio vengono rifiutati');
+ok(/p:hit\.p/.test(script),'punti strutturali vengono proiettati sulla parete nota, non conservati come foglio libero');
+ok(/function estimateGuidedCeiling/.test(script)&&/Deep ceiling cluster \+ wall upper envelope/.test(script),'stima soffitto multi-foto presente');
+ok(/buildGuidedRoomShell/.test(script)&&/user-guided WebXR floor polygon \+ constrained Deep ceiling/.test(script),'ROOM_SHELL deriva dal perimetro utente');
+ok(/if\(!S\.guided\.enabled&&a\.gx%CFG\.rayGridStride/.test(script),'TSDF live disabilitata nel workflow guidato');
+ok(/if\(!S\.guided\.enabled&&tick-S\.lastPlaneUpdateAt/.test(script),'plane/mesh inference live pesante disabilitata');
+ok(/id="processDeepCount"/.test(html)&&/id="processFuseCount"/.test(html),'barra batch foto Deep/applicate preservata');
+ok(/id="reviewModal"[\s\S]*?<div class="modalFooter">[\s\S]*id="rebuildReview"[\s\S]*data-close="reviewModal"/.test(html),'Ricalcola/Chiudi in basso');
+const events=[...script.matchAll(/\$\('([^']+)'\)\.addEventListener\('([^']+)'/g)].map(m=>`${m[1]}:${m[2]}`),dup=events.filter((x,i)=>events.indexOf(x)!==i);ok(!dup.length,'nessun listener diretto duplicato',dup.join(','));
+if(fail)process.exit(1);console.log('\nTutti i test statici V12.2.0 sono passati.');

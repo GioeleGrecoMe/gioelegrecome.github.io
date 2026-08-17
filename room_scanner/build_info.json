@@ -1,12 +1,13 @@
 {
-  "appBuild": "V12.1.5",
-  "deployRev": "1215-persistent-structure-deep-projection-20260817",
+  "appBuild": "V12.2.0",
+  "deployRev": "1220-guided-floor-shell-deep-20260817",
   "entry": "room_scanner_v12.html",
   "depthWorker": "depth_ai_worker.js",
   "depthModel": "models/depth_anything_v2_small_q4.onnx",
   "depthRuntime": "vendor/depthai-123/",
-  "acquisitionBaseline": "V12.0.2-compatible WebXR acquisition; camera-access required; depth/planes/mesh optional",
-  "processing": "transactional Deep batch; persistent structural semantics; shared wall/floor/ceiling primitives; Deep projected to global structure; residual persistent objects",
-  "cachePolicy": "V12.1.5 service worker; HTML/worker/build-info network-first; ONNX/WASM on-demand cache",
+  "acquisition": "guided local-floor perimeter; explicit corner/refine/wall RGB keyframes only; same XRView raw camera; CPU depth optional",
+  "processing": "confirmed floor polygon -> analytic wall-depth render -> robust Deep scale/shift fit -> wall snap / ceiling estimate / foreground objects -> watertight room shell",
+  "liveHeavyProcessing": "disabled during WebXR: no Deep inference, no TSDF carving, no plane/mesh structural inference",
+  "cachePolicy": "V12.2.0 service worker; HTML/worker/build-info network-first; ONNX/WASM on-demand cache",
   "generatedAt": "2026-08-17"
 }

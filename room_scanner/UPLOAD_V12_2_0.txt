@@ -1,0 +1,23 @@
+ROOM SCANNER V12.2.0 - DEPLOY
+
+Sostituire:
+  room_scanner/room_scanner_v12.html
+  room_scanner/sw.js
+  room_scanner/build_info.json
+
+Lasciare invariati:
+  room_scanner/depth_ai_worker.js
+  room_scanner/models/depth_anything_v2_small_q4.onnx
+  room_scanner/vendor/depthai-123/
+
+Dopo il deploy:
+1. verificare in alto "Room Scanner · V12.2.0";
+2. se compare una build precedente, fare reload del sito e controllare che il nuovo service worker V12.2.0 sia attivo;
+3. avviare WebXR;
+4. tracciare almeno 3 spigoli e chiudere il perimetro;
+5. correggere/verificare la pianta;
+6. confermare;
+7. acquisire foto pareti;
+8. Processa modello;
+9. verificare che la Scena finale compaia solo al 100%;
+10. esportare e ricaricare OBJ/PLY.

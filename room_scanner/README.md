@@ -1,12 +1,5 @@
-# Room Scanner V12.1.5
+# Room Scanner V12.2.0
 
-This package updates the V12 scanner to persistent structural semantics.
+Aggiornamento guidato per dispositivi mobili: misura manuale/corretta del perimetro WebXR, pareti vincolate, Depth Anything usato soltanto nel batch finale per aderire al guscio metrico, stimare il soffitto e ricostruire il residuo-oggetti.
 
-Deploy `room_scanner_v12.html`, `sw.js` and `build_info.json`. Keep the existing verified Depth Anything worker/model/runtime assets in the repository.
-
-See:
-
-- `README_V12_1_5.md` for architecture and device tests;
-- `AUDIT_V12_1_5.md` for the implementation invariants;
-- `UPLOAD_V12_1_5.txt` for deployment steps;
-- `TEST_REPORT_V12_1_5.txt` after running the final suite.
+Vedere `README_V12_2_0.md` per dettagli e `UPLOAD_V12_2_0.txt` per il deploy.
