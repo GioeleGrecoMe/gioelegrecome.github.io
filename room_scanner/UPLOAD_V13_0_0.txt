@@ -1,0 +1,22 @@
+Room Scanner V13.0.0 deployment
+
+Replace/upload in room_scanner/:
+  room_scanner_v12.html
+  v13_geometry.js
+  sw.js
+  build_info.json
+
+Keep unchanged:
+  depth_ai_worker.js
+  models/depth_anything_v2_small_q4.onnx
+  existing ONNX Runtime WASM assets used by depth_ai_worker.js
+
+After upload:
+  1. hard-reload once so the V13 service-worker cache takes control;
+  2. verify the welcome badge reports V13.0.0;
+  3. on Android, start a NEW scan rather than importing an old RAW for metric continuation;
+  4. test 4 corners -> multi-view anchors -> XR refinement -> explicit recalculation -> metric confirmation -> wall photos -> Deep batch.
+
+V13 metric-session invariant:
+  Keep WebXR open through topology -> corner anchors -> XR refinement -> metric confirmation -> wall photos.
+  After the XR session ends, process/review/export the captured scan. Do not resume the same metric model in a second XR session; reload for a new scan.

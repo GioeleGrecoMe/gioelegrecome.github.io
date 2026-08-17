@@ -1,18 +1,6 @@
 {
-  "appBuild": "V12.2.4",
-  "deployRev": "1224-multiview-corner-anchors-closed-shell-20260817",
-  "entry": "room_scanner_v12.html",
-  "depthWorker": "depth_ai_worker.js",
-  "depthModel": "models/depth_anything_v2_small_q4.onnx",
-  "depthRuntime": "vendor/depthai-123/",
-  "acquisition": "guided local-floor topology -> explicit WebXR refinement pass -> multi-photo wall capture; same XRView raw camera; CPU depth/planes/meshes opportunistic",
-  "xrEvidence": "native depth/mesh/RGB surfels retain weighted mean, normal, RGB, variance and persistence; wall evidence is summarized into lightweight per-surface Gaussian coverage cells",
-  "wallRefinement": "robust signed-offset histograms per wall; persistent wide-support XR surfaces shift the user prior; adjacent corrected wall lines are intersected so the footprint remains closed",
-  "deepProcessing": "batch-only relative depth -> robust metric fit using same-view XR + persistent Gaussian XR anchors + weak analytic shell fallback; wall samples snap to confirmed wall, foreground becomes object residual",
-  "coverage": "per-wall XR/photo/Deep 2D coverage grids; AR overlay red/yellow/green; multiple partial photos can cover one long/narrow wall",
-  "viewer": "orthographic/isometric textured shell; selectable OBB object manager; bare-room mode; PLY/OBJ import",
-  "objects": "persistent non-structural XR/Deep residual -> connected voxels -> gravity-aligned PCA OBB + compact RGB point cloud",
-  "cachePolicy": "V12.2.4 service worker; HTML/worker/build-info network-first; ONNX/WASM cached on demand",
-  "generatedAt": "2026-08-17",
-  "notes": "Multi-view vertical corner ray anchors, ceiling-corner height anchors, persistent WebXR surfel wall refinement, closed floor/ceiling shell, snapped structural XR RGB preview, constrained Deep multi-photo coverage, XR+Deep residual objects."
+  "version": "13.0.0",
+  "revision": "v13.0.0-20260817-rigid-room",
+  "built_at": "2026-08-17T13:29:00+02:00",
+  "architecture": "single authoritative rigid room model; multi-view corner rays; optional single RoomAnchor; XR residual evidence; batch Deep objects/textures"
 }

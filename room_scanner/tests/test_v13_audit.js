@@ -1,0 +1,18 @@
+'use strict';
+const fs=require('fs'),assert=require('assert'),path=require('path');
+const root=path.join(__dirname,'..');
+const html=fs.readFileSync(path.join(root,'room_scanner_v12.html'),'utf8');
+const geo=fs.readFileSync(path.join(root,'v13_geometry.js'),'utf8');
+const funcs=src=>[...src.matchAll(/function\s+([A-Za-z0-9_$]+)\s*\(/g)].map(m=>m[1]);
+const hf=funcs(html),gf=funcs(geo);
+assert.equal(hf.length,new Set(hf).size,'duplicate HTML function declarations');
+assert.equal(gf.length,new Set(gf).size,'duplicate geometry function declarations');
+const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
+assert.equal(ids.length,new Set(ids).size,'duplicate DOM ids');
+const direct=[...html.matchAll(/\$\('([^']+)'\)\.addEventListener\('([^']+)'/g)].map(m=>`${m[1]}::${m[2]}`);
+assert.equal(direct.length,new Set(direct).size,'duplicate direct DOM listener');
+assert.equal((html.match(/navigator\.xr\.requestSession\(/g)||[]).length,1);
+assert.equal((html.match(/getUserMedia/g)||[]).length,0);
+assert.equal((html.match(/ImageCapture/g)||[]).length,0);
+assert.equal((html.match(/setInterval\(/g)||[]).length,0);
+console.log(`V13 audit tests: PASS · HTML funcs ${hf.length} · geometry funcs ${gf.length} · DOM IDs ${ids.length} · direct listeners ${direct.length}`);

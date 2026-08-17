@@ -1,0 +1,49 @@
+Room Scanner V13.0.0 - Final Verification Report
+Built: 2026-08-17 Europe/Rome
+
+== Syntax ==
+v13_geometry.js: PASS
+inline app extracted: 85787 bytes
+inline application JS: PASS
+
+== Deterministic tests ==
+--- tests/test_v13_geometry.js
+V13 geometry tests: PASS
+--- tests/test_v13_static.js
+V13 static tests: PASS · 78 DOM IDs
+--- tests/test_v13_bootstrap.js
+V13 bootstrap test: PASS · app integration invariants OK
+--- tests/test_v13_audit.js
+V13 audit tests: PASS · HTML funcs 149 · geometry funcs 59 · DOM IDs 78 · direct listeners 37
+--- tests/test_v13_package.js
+V13 package tests: PASS
+
+== Source audit ==
+{
+  "htmlBytes": 101011,
+  "geometryBytes": 26050,
+  "htmlFunctions": 149,
+  "geometryFunctions": 59,
+  "domIds": 78,
+  "directListeners": 37,
+  "requestSession": 1,
+  "getUserMedia": 0,
+  "ImageCapture": 0,
+  "setInterval": 0,
+  "legacyRayEvidenceVolume": 0,
+  "legacyRebuildStructure": 0
+}
+
+== Key V13 invariants covered ==
+- one authoritative floor polygon + measured ceiling height
+- wall normals derived from adjacent corners; parallel-only XR refinement
+- BASE/CENTRO/TETTO multi-view corner rays with spatial view clustering
+- measured ceiling gate before closed-volume refinement
+- residual rebase and symmetric undo after wall refinement
+- single metric XR session; no unlocalized cross-session continuation
+- object evidence takes precedence over wall evidence when clearly inside shell
+- XR mesh shares physical view identity even when CPU depth is unavailable
+- Deep is batch-only, foreground-aware and full depth maps are discarded after classification
+- closed analytic shell + persistent XR/Deep object voxel geometry
+
+Physical Android ARCore/WebXR tracking, raw-camera permission, depth/mesh availability and optional anchors remain device-only validation items.
