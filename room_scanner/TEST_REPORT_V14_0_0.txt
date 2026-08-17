@@ -1,0 +1,41 @@
+Room Scanner V14.0.0 - Final Test Report
+Generated: 2026-08-17
+
+$ node --check v14_cells.js
+PASS
+
+$ node --check inline application script
+PASS
+
+$ node --check sw.js
+PASS
+
+$ node tests/test_v14_geometry.js
+V14 geometry tests: PASS
+
+$ node tests/test_v14_static.js
+V14 static tests: PASS · 68 DOM IDs
+
+$ node tests/test_v14_bootstrap.js
+V14 bootstrap test: PASS
+
+$ node tests/test_v14_integration.js
+V14 integration tests: PASS
+
+$ node tests/test_v14_audit.js
+V14 audit tests: PASS · HTML funcs 111 · core funcs 60 · IDs 68 · listeners 32
+
+$ node tests/test_v14_package.js
+V14 package tests: PASS
+
+HTTP smoke:
+- final HTML previously served successfully with HTTP 200
+- deterministic VM bootstrap is the authoritative non-WebXR application bootstrap test
+- physical immersive WebXR remains device-only
+
+File sizes:
+75585 room_scanner_v12.html
+21820 v14_cells.js
+ 1556 sw.js
+  269 build_info.json
+99230 total

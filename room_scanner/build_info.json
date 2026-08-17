@@ -1,6 +1,6 @@
 {
-  "version": "13.0.0",
-  "revision": "v13.0.0-20260817-rigid-room",
-  "built_at": "2026-08-17T13:29:00+02:00",
-  "architecture": "single authoritative rigid room model; multi-view corner rays; optional single RoomAnchor; XR residual evidence; batch Deep objects/textures"
+  "version": "14.0.0",
+  "revision": "v14.0.0-20260817-room-cells",
+  "built_at": "2026-08-17T15:05:00+02:00",
+  "architecture": "capture stations + local room cells + explicit portals + rigid SE2 cell registration + batch Depth Anything residual objects/textures"
 }

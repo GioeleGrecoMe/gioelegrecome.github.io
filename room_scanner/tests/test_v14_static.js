@@ -1,0 +1,20 @@
+'use strict';
+const fs=require('fs'),assert=require('assert'),path=require('path');
+const root=path.join(__dirname,'..'),html=fs.readFileSync(path.join(root,'room_scanner_v12.html'),'utf8'),geo=fs.readFileSync(path.join(root,'v14_cells.js'),'utf8');
+assert.match(html,/V14\.0\.0/);assert.ok(!html.includes('v13_geometry.js'));assert.ok(!html.includes('RoomV13Geometry'));assert.match(html,/__ROOM_SCANNER_V14__/);assert.match(html,/v14_cells\.js/);
+assert.equal((html.match(/navigator\.xr\.requestSession\(/g)||[]).length,1,'one requestSession');
+assert.equal((html.match(/getUserMedia/g)||[]).length,0);assert.equal((html.match(/ImageCapture/g)||[]).length,0);assert.equal((html.match(/setInterval\(/g)||[]).length,0);
+for(const bad of ['RayEvidenceVolume','TSDF','solveAllCorners','applyParallelWallRefinement','rebuildStructure'])assert.ok(!html.includes(bad),`legacy complexity leaked: ${bad}`);
+assert.ok(!html.includes('mesh-detection'),'unused XR mesh detection must not be requested');assert.match(html,/registerCellToPortal/);assert.match(html,/panoramaCoverage/);assert.match(html,/cellCutouts/);assert.match(html,/heightFromWallRay/);assert.match(html,/inferPortalHeights/);
+assert.match(html,/k\.deep=null/,'full Deep maps must be discarded');
+assert.match(html,/k\.role==='pano'\|\|k\.role==='height'/,'height photos must enter the Deep batch');
+assert.match(html,/k\.role==='pano'\|\|k\.role==='height'/,'height photos must remain useful after height estimation');
+assert.match(html,/suppressedIntervals/,'partial shared walls must be represented explicitly');
+assert.match(html,/metricSessionEnded/,'a completed metric session must not silently restart in a new reference space');
+const xr=html.slice(html.indexOf('function onXRFrame'),html.indexOf('function floorAim'));
+assert.ok(!/ensureDepth|inferDepth|workerRequest/.test(xr),'Deep leaked into live XR frame loop');
+const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]),idSet=new Set(ids);assert.equal(ids.length,idSet.size,'duplicate DOM IDs');
+const refs=[...html.matchAll(/\$\('([^']+)'\)/g)].map(m=>m[1]);for(const r of refs)assert.ok(idSet.has(r),`missing DOM id ${r}`);
+for(const [name,src] of [['html',html],['core',geo]]){const f=[...src.matchAll(/function\s+([A-Za-z0-9_$]+)\s*\(/g)].map(m=>m[1]),seen=new Set();for(const x of f){assert.ok(!seen.has(x),`${name}: duplicate ${x}`);seen.add(x)}}
+assert.ok(!/wallRotation|optimizePlaneNormal|freeWallNormal/.test(html));
+console.log(`V14 static tests: PASS · ${ids.length} DOM IDs`);

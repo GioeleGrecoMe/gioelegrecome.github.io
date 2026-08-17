@@ -1,0 +1,19 @@
+Room Scanner V14.0.0 deployment
+===============================
+
+Upload/replace in room_scanner/:
+
+1. room_scanner_v12.html
+2. v14_cells.js
+3. sw.js
+4. build_info.json
+
+Keep unchanged:
+- depth_ai_worker.js
+- models/depth_anything_v2_small_q4.onnx
+- existing ONNX Runtime WASM assets used by the worker
+
+After upload:
+- hard-refresh once or close/reopen the installed page;
+- check that the welcome badge says V14.0.0 · Room Cells;
+- start with one simple rectangular cell before testing portals.

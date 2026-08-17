@@ -1,4 +1,4 @@
-Not bundled because they are unchanged from the existing repository deployment:
+V14 reuses the existing repository dependencies without modification:
 - depth_ai_worker.js
 - models/depth_anything_v2_small_q4.onnx
-- ONNX Runtime WASM runtime files referenced by depth_ai_worker.js
+- ONNX Runtime WASM files referenced by depth_ai_worker.js
