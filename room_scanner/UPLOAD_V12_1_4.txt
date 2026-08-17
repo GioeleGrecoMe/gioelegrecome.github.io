@@ -1,0 +1,30 @@
+ROOM SCANNER V12.1.4 - DEPLOY
+
+REPLACE in room_scanner/:
+  room_scanner_v12.html
+  sw.js
+  build_info.json
+
+ADD/REPLACE tests:
+  tests/test_v12_1_4_static.js
+  tests/test_v12_1_4_runtime.js
+  tests/test_v12_1_4_package.js
+
+KEEP UNCHANGED from commit e45bd0ff0b825af010cd4d2c95f51bf3c7deb0ab:
+  depth_ai_worker.js
+  models/depth_anything_v2_small_q4.onnx
+  vendor/depthai-123/
+
+OPTIONAL documentation replacement:
+  README.md  (included in this package)
+
+After upload:
+1. Open room_scanner_v12.html over HTTPS.
+2. Verify visible build: Room Scanner V12.1.4.
+3. Hard reload once after the service-worker update if an older build was previously installed.
+4. Run an XR scan without loading Deep during acquisition.
+5. End scan and press Processa modello.
+6. Verify processed/fused counters and that Scene opens only at 100%.
+7. Test Riduci qualita e riavvia.
+8. Export/re-import PLY and OBJ.
+9. Inspect logs for MEMORY_BUDGET / MEMORY_PRUNE during a long scan.

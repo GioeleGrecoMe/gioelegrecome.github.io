@@ -1,0 +1,145 @@
+Room Scanner V12.1.4 - FINAL AUDIT TEST REPORT
+Date: 2026-08-17
+Baseline repository commit: e45bd0ff0b825af010cd4d2c95f51bf3c7deb0ab
+
+VALIDATION SCOPE
+- JavaScript syntax and static UI/event audit
+- synthetic geometry/runtime audit under Node VM
+- service-worker/build/package consistency audit
+- memory-budget/code-path audit
+- repository worker/model/runtime contract inspection
+- no physical Android/ARCore WebXR runtime available in this environment
+
+FINAL SOURCE SANITY
+PASS node --check extracted ES module
+PASS 181 named functions; duplicate declarations: []
+PASS setInterval count: 0
+PASS getUserMedia count: 0
+PASS ImageCapture count: 0
+PASS navigator.xr.requestSession count: 1
+
+STATIC TEST SUITE
+PASS build V12.1.4 esplicita 
+PASS ID HTML univoci 
+PASS tutti i riferimenti $() hanno elemento DOM 
+PASS nessuna seconda camera/API MediaStream nel codice 
+PASS una sola requestSession XR nel codice 
+PASS camera-access resta required nella stessa sessione XR 
+PASS depth/plane/mesh restano opportunistiche 
+PASS batch UI con qualità e progress bar presente 
+PASS progress distingue foto Deep, fuse e deboli 
+PASS downgrade qualità disponibile durante batch 
+PASS nessun bottone/listener rebuildAll duplicato o fantasma 
+PASS header Scena/Revisione senza pulsanti che coprono la toolbar 
+PASS Ricalcola e Chiudi sono nel footer Revisione 
+PASS Chiudi è nel footer Scena 
+PASS acquisizione non avvia automaticamente inferenza Deep pesante 
+PASS boot modello non lancia automaticamente tutte le foto 
+PASS infer Deep usa sempre worker attivo esplicito 
+PASS TSDF ha budget separato e pruning esplicito 
+PASS surfels hanno limiti di memoria 
+PASS budget memoria adattivo sui dispositivi low-memory 
+PASS keyframe automatici hanno soft-cap senza bloccare le foto manuali 
+PASS mappe Deep fredde quantizzate a 16 bit in RAM 
+PASS anchor XR duplicati non persistono nei nuovi keyframe 
+PASS color painting XR riusa il buffer camera senza copia continua 
+PASS plane/mesh WebXR sono throttled 
+PASS mesh/plane invariati possono essere saltati 
+PASS primitive WebXR non piu rilevate vengono rimosse dalle mappe attive 
+PASS foto persistono compresse e RGBA freddi vengono rilasciati 
+PASS RAW V12.1.4 comprime le mappe Deep in uint16 
+PASS import PLY/OBJ/RAW ha limiti di sicurezza 
+PASS import multipli hanno budget aggregato 
+PASS campi provenienti da RAW/file importati sono escapati prima di innerHTML 
+PASS service worker viene aggiornato senza cache del bootstrap 
+PASS Review evita generazione miniature quando chiusa 
+PASS viewer coalesca requestAnimationFrame 
+PASS modello finale diventa ready solo dopo Deep fusion + ROOM_SHELL 
+PASS nessun listener diretto duplicato 
+
+Tutti i test statici V12.1.4 sono passati.
+
+RUNTIME/SYNTHETIC TEST SUITE
+[RoomScanner V12.1.4] {
+  t: '2026-08-17T07:12:46.126Z',
+  level: 'INFO',
+  message: 'MEMORY_BUDGET',
+  data: {
+    deviceMemoryGB: 'unknown',
+    nativeMax: 90000,
+    deepMax: 65000,
+    xrVoxels: 150000,
+    deepVoxels: 65000,
+    autoFrames: 140
+  }
+}
+[RoomScanner V12.1.4] {
+  t: '2026-08-17T07:12:46.128Z',
+  level: 'INFO',
+  message: 'CAMERA_PERMISSION_STATE',
+  data: {
+    permission: 'unknown',
+    policyCamera: 'unknown',
+    policyXR: 'unknown',
+    secure: true
+  }
+}
+PASS parser PLY ASCII mantiene RGB 
+PASS parser OBJ mantiene mesh + vertex colors 
+PASS compattazione export fonde voxel sovrapposti con priorità XR 
+PASS ottimizzazione coplanare pesa XR e fonde supporti vicini 
+PASS pareti coplanari ma lontane non vengono unite attraverso zone ignote 
+PASS TSDF non cresce oltre budget e il pruning libera celle before=80 after=35
+PASS packing Deep uint16 conserva la mappa entro errore sub-mm relativo al range 
+PASS profili qualità riducono costo in modo coerente 
+PASS ear clipping mantiene footprint concavo a L 
+
+Tutti i test runtime V12.1.4 sono passati.
+[RoomScanner V12.1.4] {
+  t: '2026-08-17T07:12:46.132Z',
+  level: 'WARN',
+  message: 'XR_COMPATIBILITY_FAILED',
+  data: null
+}
+
+PACKAGE/SERVICE-WORKER TEST SUITE
+PASS build_info allineato alla pagina
+PASS cache service worker versionate V12.1.4
+PASS service worker non mantiene identità V10
+PASS core cache punta alla V12 e al worker corrente
+PASS modello ONNX non viene precaricato durante install
+PASS ONNX/WASM sono cache on-demand
+PASS manifest dipendenze invariate presente
+PASS README di deploy allineato a V12.1.4
+PASS audit e istruzioni upload inclusi
+
+Tutti i test package V12.1.4 sono passati.
+
+ADDITIONAL AUDIT FIXES VERIFIED IN SOURCE
+PASS transactional model processing: final modelReady commit follows per-frame Deep + global fusion + ROOM_SHELL stage
+PASS progress exposes Deep processed / globally fused / weak counts
+PASS quality downgrade cancels safely and restarts whole batch
+PASS no hidden automatic Deep batch during XR acquisition
+PASS worker ONNX session released before XR and after batch
+PASS sparse TSDF and surfel maps bounded/pruned
+PASS low-memory device budget adaptation present
+PASS automatic-keyframe soft cap present; manual photos remain available
+PASS cold RGB frames JPEG-backed; decoded RGBA limited
+PASS synchronized XR anchor duplication removed for new frames
+PASS processed Deep maps quantized to uint16 in RAM
+PASS continuous XR color painting reuses readback buffer
+PASS Deep resize canvases reused
+PASS stale XRPlane/XRMesh records removed from active maps
+PASS imported dynamic UI fields escaped before innerHTML
+PASS PLY/OBJ import aggregate memory budgets present
+PASS footer layout keeps Chiudi/Ricalcola at bottom
+PASS stale V10 service-worker/build identity removed
+
+DEVICE-ONLY ITEMS
+NOT EXECUTED: physical XRCamera readback
+NOT EXECUTED: physical XRCpuDepthInformation sampling
+NOT EXECUTED: physical XRPlane/XRMesh lifecycle
+NOT EXECUTED: real 27 MB Q4/WASM inference on target Android phone
+NOT EXECUTED: long-session Android memory profiling / thermal throttling
+
+The Node VM logs XR_COMPATIBILITY_FAILED by design because Node does not expose navigator.xr.

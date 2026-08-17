@@ -1,51 +1,35 @@
-const CACHE='room-acoustic-v1009m1';
-const SEMANTIC_CACHE='room-acoustic-semantic-v1009m1';
-const DEPTH_CACHE='room-acoustic-depthai-v1009m1';
-const BUILD_REV='1009m1';
-const CORE=['./room_scanner_v9.html','./room_scanner_v10.html','./room_scanner_v11.html','./build_info.json','./depth_ai_worker.js','./README.md','./V10_GUIDE.md','./DEPTHAI_INTEGRATION_V10.md'];
+/* Room Scanner V12.1.4 service worker.
+ *
+ * Audit fix: the repository previously kept a stale legacy cache/build identity while
+ * serving V12.1.x.  This worker deliberately keeps the install cache tiny and
+ * treats HTML, worker JS and build metadata as network-first so a deploy cannot
+ * be hidden behind an old scanner shell. Large ONNX/WASM assets are cached only
+ * after they are actually requested.
+ */
+'use strict';
+const BUILD_REV='1214-audit-batch-memory-20260817';
+const CORE_CACHE='room-scanner-v1214-core';
+const ASSET_CACHE='room-scanner-v1214-assets';
+const CORE=['./room_scanner_v12.html','./build_info.json','./depth_ai_worker.js'];
 
 self.addEventListener('install',event=>{
-  event.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()).catch(()=>self.skipWaiting()));
+  event.waitUntil((async()=>{
+    const cache=await caches.open(CORE_CACHE);
+    await Promise.all(CORE.map(async url=>{try{const r=await fetch(new Request(url,{cache:'reload'}));if(r.ok)await cache.put(url,r.clone())}catch(_){}}));
+    await self.skipWaiting();
+  })());
 });
 self.addEventListener('activate',event=>{
-  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('room-acoustic-')&&! [CACHE,SEMANTIC_CACHE,DEPTH_CACHE].includes(k)).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
+  event.waitUntil((async()=>{
+    const keep=new Set([CORE_CACHE,ASSET_CACHE]);
+    for(const key of await caches.keys())if((key.startsWith('room-acoustic-')||key.startsWith('room-scanner-'))&&!keep.has(key))await caches.delete(key);
+    await self.clients.claim();
+  })());
 });
-
-function classify(req){
-  const u=new URL(req.url),same=u.origin===self.location.origin;
-  const model=same&&/\/models\/.*\.onnx$/i.test(u.pathname);
-  const ort=same&&/\/vendor\/(?:depthai(?:-\d+)?\/)?ort(?:-|\.).*/i.test(u.pathname);
-  const remoteModel=u.hostname==='huggingface.co'&&/\.onnx(?:$|\?)/i.test(u.pathname+u.search);
-  const remoteOrt=u.hostname==='cdn.jsdelivr.net'&&/onnxruntime-web@/.test(u.pathname);
-  return {u,same,neural:model||ort||remoteModel||remoteOrt,depth:/depth_anything|\/depthai(?:-\d+)?\//i.test(u.pathname)};
-}
-async function neuralNetworkFirst(req,depth){
-  const cache=await caches.open(depth?DEPTH_CACHE:SEMANTIC_CACHE);
-  try{
-    // Critical for GitHub Pages redeploys: do not let an old ONNX/WASM response
-    // shadow a newly uploaded file. Network wins; verified HTTP success is then
-    // cached for offline use.
-    const r=await fetch(req,{cache:'no-store'});if(r&&r.ok){await cache.put(req,r.clone());return r}
-    const old=await cache.match(req);if(old)return old;return r
-  }catch(e){const old=await cache.match(req);if(old)return old;throw e}
-}
-async function documentNetworkFirst(req){
-  const cache=await caches.open(CACHE);
-  try{
-    const fresh=await fetch(req,{cache:'no-store'});
-    if(fresh&&fresh.ok)await cache.put(req,fresh.clone());
-    return fresh;
-  }catch(e){
-    const old=await cache.match(req,{ignoreSearch:true});
-    if(old)return old;
-    throw e;
-  }
-}
-self.addEventListener('message',event=>{if(event.data?.type==='ROOM_SCANNER_BUILD_QUERY')event.source?.postMessage?.({type:'ROOM_SCANNER_BUILD',build:BUILD_REV})});
-self.addEventListener('fetch',event=>{
-  if(event.request.method!=='GET')return;const k=classify(event.request);
-  const isDocument=event.request.mode==='navigate'||(k.same&&/\/room_scanner_v9\.html$/i.test(k.u.pathname));
-  if(isDocument){event.respondWith(documentNetworkFirst(event.request));return}
-  if(k.neural){event.respondWith(neuralNetworkFirst(event.request,k.depth));return}
-  event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(resp=>{if(resp&&resp.ok&&k.same){const copy=resp.clone();caches.open(CACHE).then(c=>c.put(event.request,copy)).catch(()=>{})}return resp}).catch(()=>hit)));
-});
+function isDocument(req,url){return req.mode==='navigate'||/\/room_scanner_v\d+(?:_\d+)?\.html$/i.test(url.pathname)}
+function isCriticalCode(url){return /\/(?:depth_ai_worker\.js|build_info\.json)$/i.test(url.pathname)}
+function isHeavyAsset(url){return /\.(?:onnx|wasm)$/i.test(url.pathname)||/\/vendor\/depthai-/i.test(url.pathname)}
+async function networkFirst(req,cacheName){const cache=await caches.open(cacheName);try{const r=await fetch(req);if(r&&r.ok)await cache.put(req,r.clone());return r}catch(e){const hit=await cache.match(req,{ignoreSearch:false})||await cache.match(new URL(req.url).pathname.split('/').pop());if(hit)return hit;throw e}}
+async function cacheFirst(req){const cache=await caches.open(ASSET_CACHE),hit=await cache.match(req);if(hit)return hit;const r=await fetch(req);if(r&&r.ok)await cache.put(req,r.clone());return r}
+self.addEventListener('fetch',event=>{const req=event.request,url=new URL(req.url);if(req.method!=='GET'||url.origin!==self.location.origin)return;if(isDocument(req,url)||isCriticalCode(url)){event.respondWith(networkFirst(req,CORE_CACHE));return}if(isHeavyAsset(url)){event.respondWith(cacheFirst(req));return}event.respondWith((async()=>{try{return await fetch(req)}catch(e){return await caches.match(req)||Promise.reject(e)}})())});
+self.addEventListener('message',event=>{if(event.data?.type==='GET_BUILD')event.source?.postMessage?.({type:'ROOM_SCANNER_BUILD',version:'V12.1.4',revision:BUILD_REV,coreCache:CORE_CACHE,assetCache:ASSET_CACHE})});

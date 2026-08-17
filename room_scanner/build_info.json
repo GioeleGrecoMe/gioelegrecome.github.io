@@ -1,18 +1,12 @@
 {
-  "appBuild": "v10.0.9-depth-wasm-verified",
-  "deployRev": "1009m1",
-  "semanticModels": "not used by V10; retained only for the legacy V9 page",
-  "requiredLocal": [
-    "vendor/ort.min.js",
-    "vendor/ort-wasm.wasm",
-    "vendor/ort-wasm-simd.wasm"
-  ],
-  "recommendedLocal": [
-    "models/depth_anything_v2_small_q4f16.onnx",
-    "models/depth_anything_v2_small_q4.onnx"
-  ],
-  "app_build": "v10.0.9-depth-wasm-verified",
-  "deploy_rev": "1009m1",
-  "architecture": "V10 WebXR geometry workflow: scan -> model -> frame-quality. WebXR is requested immediately and remains the metric backbone; automatic keyframes are fused only after affine metric alignment against WebXR anchors. Depth Anything is smoke-tested at startup: Q4F16 runs on WebGPU, while the separately pinned Q4 model is the real WASM fallback. Every user-saved photograph first receives a visible relative-depth preview and contributes RGB-colored surfels only after the user confirms it; rejected or declined frames leave the WebXR map unchanged. A V10 RAW room ZIP preserves the verified colored surfel cloud, WebXR poses/depth frames, raw XR geometry, and lossless RGBA user photographs so the room can be reopened and its Depth Anything previews reprocessed without a new AR session. SAM is not loaded or used by V10. Audio remains available only in the legacy V9 workflow.",
-  "patch": "V10.0.9: WebXR is requested immediately so AI loading cannot expire the user gesture. Depth Anything uses Q4F16 on WebGPU and the separately verified Q4 model on WASM; both paths are checksum-pinned and the startup smoke inference reports provider and variant."
+  "appBuild": "V12.1.4",
+  "deployRev": "1214-audit-batch-memory-20260817",
+  "entry": "room_scanner_v12.html",
+  "depthWorker": "depth_ai_worker.js",
+  "depthModel": "models/depth_anything_v2_small_q4.onnx",
+  "depthRuntime": "vendor/depthai-123/",
+  "acquisitionBaseline": "V12.0.2-compatible WebXR acquisition; camera-access required; depth/planes/mesh optional",
+  "processing": "explicit transactional Deep batch; TSDF/ray fusion; structural room shell",
+  "cachePolicy": "V12.1.4 service worker; HTML/worker/build-info network-first; ONNX/WASM on-demand cache",
+  "generatedAt": "2026-08-17"
 }

@@ -1,0 +1,15 @@
+V12.1.4 MODIFICA SOLO IL CODICE DI ORCHESTRAZIONE/APP E IL SERVICE WORKER.
+
+Mantieni dal commit e45bd0ff0b825af010cd4d2c95f51bf3c7deb0ab i seguenti file/directory senza modificarli:
+
+  depth_ai_worker.js
+  models/depth_anything_v2_small_q4.onnx
+  vendor/depthai-123/
+
+Il worker e il modello Q4/WASM sono stati auditati come contratto di runtime della V12 e non vengono duplicati nell'archivio per evitare di distribuire nuovamente decine di MB di binari invariati.
+
+File da sostituire con quelli del pacchetto V12.1.4:
+
+  room_scanner_v12.html
+  sw.js
+  build_info.json
