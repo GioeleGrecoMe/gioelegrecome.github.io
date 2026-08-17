@@ -4,7 +4,7 @@ const fs=require('fs'),path=require('path');
 const html=fs.readFileSync(path.join(__dirname,'..','room_scanner_v12.html'),'utf8');
 const script=(html.match(/<script type="module">([\s\S]*?)<\/script>/)||[])[1]||'';
 let fail=0;const ok=(c,m,d='')=>{if(c)console.log('PASS',m,d);else{console.error('FAIL',m,d);fail++}};
-ok(/V12\.2\.1/.test(html)&&/1221-ortho-wall-guide-textures-20260817/.test(html),'build V12.2.1 esplicita');
+ok(/V12\.2\.2/.test(html)&&/1222-object-obb-manager-20260817/.test(html),'build V12.2.2 esplicita');
 const ids=[...html.matchAll(/id="([^"]+)"/g)].map(x=>x[1]),set=new Set(ids);ok(ids.length===set.size,'ID HTML univoci');
 const refs=[...script.matchAll(/\$\('([^']+)'\)/g)].map(x=>x[1]),missing=[...new Set(refs.filter(x=>!set.has(x)))];ok(!missing.length,'tutti i riferimenti DOM esistono',missing.join(','));
 ok(!/navigator\.mediaDevices|getUserMedia\s*\(|ImageCapture\s*\(/.test(script),'nessuna seconda camera');
@@ -12,8 +12,12 @@ ok((script.match(/navigator\.xr\.requestSession\s*\(/g)||[]).length===1,'una sol
 ok(/requiredFeatures:\['local-floor','dom-overlay','camera-access'\]/.test(script),'raw camera nella stessa sessione XR');
 ok(/function shouldCapture\(info,manual\)\{[^}]*return !!manual/.test(script),'nessun keyframe RGB automatico');
 ok(/id="guidedPrimary"/.test(html)&&/Aggiungi spigolo \+ foto/.test(html),'tracciamento guidato spigolo + foto presente');
+ok(/function updateGuidedAimAndOverlay\(view\)/.test(script)&&/G\.currentAim=floorPhase\?guidedFloorAim\(view\):null/.test(script),'loop XR aggiorna il puntatore metrico e può abilitare Aggiungi spigolo');
 ok(/id="planCanvas"/.test(html)&&/Pianta metrica verificabile/.test(html),'verifica top-down metrica presente');
 ok(/id="layTextures"/.test(html)&&/id="isoScene"/.test(html),'viewer espone texture pareti e reset isometrico');
+ok(/id="objectSelect"/.test(html)&&/id="objectRemoveSelected"/.test(html)&&/id="bareRoom"/.test(html),'gestore oggetti con tendina, rimozione e stanza nuda presente');
+ok(/id="layObjectBoxes"/.test(html)&&/function semanticOrientedBox/.test(script)&&/RGB point cloud \+ OBB/.test(script),'oggetti rappresentati come OBB orientato + point cloud RGB');
+ok(/semanticObjectPointMax:900/.test(script)&&/cellKeys/.test(script),'geometria oggetti limitata in memoria ma appartenenza voxel completa conservata');
 ok(/function projectScenePoint\([^)]*\)\{[^}]*vdot\(d,cam\.right\)[^}]*vdot\(d,cam\.up\)/.test(script)&&!/vdot\(d,cam\.right\)\/z/.test(script),'viewer 3D ortografico: nessuna divisione prospettica per z');
 ok(/function guidedWallViewMetricsMatrices/.test(script)&&/wallGuideGreenAngleDeg/.test(script)&&/wallGuideYellowAngleDeg/.test(script),'guida posa parete rosso-giallo-verde presente');
 ok(/wallGuideBadge/.test(html)&&/rgba\(55,220,125/.test(script)&&/rgba\(255,70,85/.test(script),'overlay AR semitrasparente verde/giallo/rosso presente');
@@ -33,4 +37,4 @@ ok(/if\(!S\.guided\.enabled&&tick-S\.lastPlaneUpdateAt/.test(script),'plane/mesh
 ok(/id="processDeepCount"/.test(html)&&/id="processFuseCount"/.test(html),'barra batch foto Deep/applicate preservata');
 ok(/id="reviewModal"[\s\S]*?<div class="modalFooter">[\s\S]*id="rebuildReview"[\s\S]*data-close="reviewModal"/.test(html),'Ricalcola/Chiudi in basso');
 const events=[...script.matchAll(/\$\('([^']+)'\)\.addEventListener\('([^']+)'/g)].map(m=>`${m[1]}:${m[2]}`),dup=events.filter((x,i)=>events.indexOf(x)!==i);ok(!dup.length,'nessun listener diretto duplicato',dup.join(','));
-if(fail)process.exit(1);console.log('\nTutti i test statici V12.2.1 sono passati.');
+if(fail)process.exit(1);console.log('\nTutti i test statici V12.2.2 sono passati.');

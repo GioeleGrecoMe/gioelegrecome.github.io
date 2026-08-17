@@ -1,7 +1,9 @@
-# Room Scanner V12.2.1
+# Room Scanner V12.2.2
 
-Workflow guidato e leggero per ricostruire prima una shell metrica chiusa della stanza, quindi completarla con texture per superficie e oggetti interni.
+Aggiornamento completo del workflow guidato V12.
 
-La geometria primaria è costituita da superfici, non da nuvole dense: perimetro pavimento confermato dall'utente, pareti vincolate a quel perimetro, soffitto stimato da più viste, texture RGB per parete e oggetti residui separati.
+Correzione critica: ripristinato il puntatore metrico `local-floor` che in V12.2.1 lasciava permanentemente disabilitato `Aggiungi spigolo + foto`.
 
-Vedere `README_V12_2_1.md` per architettura e test, `AUDIT_V12_2_1.md` per le scelte tecniche e `UPLOAD_V12_2_1.txt` per il deploy.
+Aggiunge inoltre gestione degli oggetti non strutturali tramite OBB orientato + point cloud RGB, selezione da tendina, hide/remove/restore e modalità `Stanza nuda`.
+
+Vedi `README_V12_2_2.md` e `TEST_REPORT_V12_2_2.txt`.

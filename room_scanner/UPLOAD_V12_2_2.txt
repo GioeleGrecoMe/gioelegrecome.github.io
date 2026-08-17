@@ -1,0 +1,20 @@
+ROOM SCANNER V12.2.2
+
+Sostituire nel repository:
+  room_scanner/room_scanner_v12.html
+  room_scanner/sw.js
+  room_scanner/build_info.json
+
+Lasciare invariati:
+  room_scanner/depth_ai_worker.js
+  room_scanner/models/depth_anything_v2_small_q4.onnx
+  room_scanner/vendor/depthai-123/
+
+TEST DEVICE IMMEDIATO
+1. Aprire la pagina e verificare V12.2.2.
+2. Premere Avvia scansione AR.
+3. Inclinare il telefono verso il pavimento.
+4. Il reticolo deve diventare verde.
+5. `Aggiungi spigolo + foto` deve diventare cliccabile.
+6. Aggiungere almeno 3 spigoli e verificare che appaiano nell'overlay AR.
+7. Dopo il processing aprire Scena: verificare tendina oggetti, OBB e `Stanza nuda`.
