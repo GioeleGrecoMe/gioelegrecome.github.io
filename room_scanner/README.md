@@ -1,5 +1,7 @@
-# Room Scanner V12.2.0
+# Room Scanner V12.2.1
 
-Aggiornamento guidato per dispositivi mobili: misura manuale/corretta del perimetro WebXR, pareti vincolate, Depth Anything usato soltanto nel batch finale per aderire al guscio metrico, stimare il soffitto e ricostruire il residuo-oggetti.
+Workflow guidato e leggero per ricostruire prima una shell metrica chiusa della stanza, quindi completarla con texture per superficie e oggetti interni.
 
-Vedere `README_V12_2_0.md` per dettagli e `UPLOAD_V12_2_0.txt` per il deploy.
+La geometria primaria è costituita da superfici, non da nuvole dense: perimetro pavimento confermato dall'utente, pareti vincolate a quel perimetro, soffitto stimato da più viste, texture RGB per parete e oggetti residui separati.
+
+Vedere `README_V12_2_1.md` per architettura e test, `AUDIT_V12_2_1.md` per le scelte tecniche e `UPLOAD_V12_2_1.txt` per il deploy.

@@ -1,0 +1,25 @@
+ROOM SCANNER V12.2.1 — DEPLOY
+
+Replace in the repository:
+
+  room_scanner/room_scanner_v12.html
+  room_scanner/sw.js
+  room_scanner/build_info.json
+
+Keep unchanged:
+
+  room_scanner/depth_ai_worker.js
+  room_scanner/models/depth_anything_v2_small_q4.onnx
+  room_scanner/vendor/depthai-123/
+
+After upload:
+
+1. Open the scanner over HTTPS.
+2. Verify the UI says `Room Scanner · V12.2.1`.
+3. If a previous build appears, reload after the new service worker activates or clear only the Room Scanner site cache.
+4. Trace/confirm a simple four-wall floor perimeter.
+5. In wall capture verify the screen tint changes red → yellow → green as pose improves.
+6. Process in Balanced quality.
+7. Open Scene: default should be orthographic/isometric with shell textures and objects; XR/Deep evidence layers are optional diagnostics.
+8. Check Review for wall texture coverage and optical/opening features.
+9. Export RAW before making further code changes if the result exposes a reproducible issue.

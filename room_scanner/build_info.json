@@ -1,13 +1,15 @@
 {
-  "appBuild": "V12.2.0",
-  "deployRev": "1220-guided-floor-shell-deep-20260817",
+  "appBuild": "V12.2.1",
+  "deployRev": "1221-ortho-wall-guide-textures-20260817",
   "entry": "room_scanner_v12.html",
   "depthWorker": "depth_ai_worker.js",
   "depthModel": "models/depth_anything_v2_small_q4.onnx",
   "depthRuntime": "vendor/depthai-123/",
-  "acquisition": "guided local-floor perimeter; explicit corner/refine/wall RGB keyframes only; same XRView raw camera; CPU depth optional",
-  "processing": "confirmed floor polygon -> analytic wall-depth render -> robust Deep scale/shift fit -> wall snap / ceiling estimate / foreground objects -> watertight room shell",
-  "liveHeavyProcessing": "disabled during WebXR: no Deep inference, no TSDF carving, no plane/mesh structural inference",
-  "cachePolicy": "V12.2.0 service worker; HTML/worker/build-info network-first; ONNX/WASM on-demand cache",
+  "acquisition": "guided local-floor perimeter; explicit corner/refine/wall RGB keyframes; live wall-view guidance from XR pose; same XRView raw camera; CPU depth optional",
+  "processing": "confirmed floor polygon -> analytic wall render -> robust Deep metric fit -> wall/object/optical classification -> ceiling estimate -> compact room shell + persistent objects + per-wall RGB texture atlas",
+  "viewer": "orthographic/isometric CPU viewer; perspective division removed; textured wall layer separated from evidence clouds",
+  "nonLambertian": "depth behind confirmed shell is isolated as opening/optical evidence and never allowed to deform the room shell",
+  "liveHeavyProcessing": "disabled during WebXR: no Deep inference, no TSDF structural fusion, no plane/mesh structural inference",
+  "cachePolicy": "V12.2.1 service worker; HTML/worker/build-info network-first; ONNX/WASM on-demand cache",
   "generatedAt": "2026-08-17"
 }
