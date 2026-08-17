@@ -1,0 +1,20 @@
+Room Scanner V14.0.1 deployment
+================================
+
+Upload/replace in room_scanner/:
+
+1. room_scanner_v12.html
+2. v14_cells.js
+3. sw.js
+4. build_info.json
+
+Keep unchanged:
+- depth_ai_worker.js
+- models/depth_anything_v2_small_q4.onnx
+- existing ONNX Runtime WASM assets used by the worker
+
+After upload:
+- close/reopen the page or hard-refresh once so the V14.0.1 service-worker cache replaces V14.0.0;
+- verify the welcome badge says V14.0.1 · Room Cells;
+- start one cell, close its footprint, then slowly rotate in WebXR and press “Scatta foto” several times;
+- each photo must be accepted without “XRFrame access outside the callback” and the panorama coverage ring must advance.

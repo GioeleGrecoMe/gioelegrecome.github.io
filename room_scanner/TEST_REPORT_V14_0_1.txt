@@ -1,0 +1,47 @@
+Room Scanner V14.0.1 - Test Report
+==================================
+Date: 2026-08-17
+
+Regression fixed
+----------------
+V14.0.0 called XRWebGLBinding.getCameraImage() indirectly from the DOM photo
+button handler via captureFrame(). The XRCamera belonged to an XRFrame whose
+requestAnimationFrame callback had already returned, producing:
+
+  Failed to execute 'getCameraImage' on 'XRWebGLBinding':
+  XRFrame access outside the callback that produced it is invalid
+
+V14.0.1 uses a queued capture request. The next valid XRSession rAF callback
+copies RGB + projection + pose + optional CPU depth from one synchronized
+XRFrame. JPEG encoding and image-quality analysis happen after that callback.
+
+Automated tests
+---------------
+node --check v14_cells.js                         PASS
+node --check inline application script            PASS
+node --check sw.js                                PASS
+tests/test_v14_geometry.js                        PASS
+tests/test_v14_static.js                          PASS (68 unique DOM IDs)
+tests/test_v14_bootstrap.js                       PASS
+tests/test_v14_integration.js                     PASS
+tests/test_v14_capture.js                         PASS
+tests/test_v14_audit.js                           PASS (112 HTML funcs, 60 core funcs, 32 direct listeners)
+tests/test_v14_package.js                         PASS
+
+Capture-lifetime invariants explicitly tested
+----------------------------------------------
+- captureFrame() contains no raw-camera access.
+- captureFrame() contains no XRFrame/depth access.
+- the click only queues S.captureRequest.
+- fulfillCaptureRequest(frame, view) is invoked by onXRFrame().
+- RGB, projection, world pose and CPU depth are copied from that same frame.
+- JPEG encoding and image-quality scoring are NOT done inside the XR callback.
+- duplicate pending captures are rejected.
+- timeout clears a stuck request.
+- XR session end rejects a pending request.
+
+Physical-device boundary
+------------------------
+Headless Chromium cannot provide an immersive-ar WebXR raw-camera session, so
+the exact getCameraImage path still requires one Android/ARCore device test.
+The regression test prevents the invalid out-of-callback access structurally.

@@ -10,7 +10,7 @@ const els=new Map(ids.map(id=>[id,element(id)]));
 const document={getElementById:id=>els.get(id)||null,querySelectorAll:()=>[],addEventListener(){},documentElement:{requestFullscreen(){return Promise.resolve()}},fullscreenElement:null,body:{classList:classList()}};
 const context={console,RoomV14Cells:require('../v14_cells.js'),document,navigator:{},window:{addEventListener(){}},globalThis:null,performance:{now:()=>1000},setTimeout,clearTimeout,requestAnimationFrame(){},Blob:function(){},URL:{createObjectURL(){return'blob:x'},revokeObjectURL(){}},Image:function(){this.complete=false},ImageData:function(data,w,h){this.data=data;this.width=w;this.height=h},devicePixelRatio:1,innerWidth:800,innerHeight:600,alert(){},confirm(){return true},btoa:s=>Buffer.from(s,'binary').toString('base64'),atob:s=>Buffer.from(s,'base64').toString('binary')};
 context.globalThis=context;vm.createContext(context);vm.runInContext(m[1],context,{filename:'room_scanner_v14_inline.js',timeout:4000});
-const H=context.__ROOM_SCANNER_V14__;assert.ok(H);assert.equal(H.VERSION,'14.0.0');assert.equal(H.state.phase,'station');assert.equal(els.get('phase').textContent,'1 · Punto di ripresa');
+const H=context.__ROOM_SCANNER_V14__;assert.ok(H);assert.equal(H.VERSION,'14.0.1');assert.equal(H.state.phase,'station');assert.equal(els.get('phase').textContent,'1 · Punto di ripresa');
 // A station creates a new independent cell; no global wall solver exists.
 H.state.currentView={transform:{matrix:[1,0,0,0,0,1,0,0,0,0,1,0,2,1.45,3,1]}};H.state.trackingLost=false;H.createStation();
 assert.equal(H.state.phase,'footprint');assert.equal(H.state.cells.length,1);assert.equal(H.state.cells[0].id,'C1');assert.equal(H.state.cells[0].footprint.length,0);

@@ -1,5 +1,5 @@
 /* Room Scanner V14 service worker: lightweight app shell only. Heavy ONNX/WASM assets are runtime/network managed. */
-const CACHE='room-scanner-v14.0.0-room-cells';
+const CACHE='room-scanner-v14.0.1-room-cells-capturefix';
 const SHELL=['./room_scanner_v12.html','./v14_cells.js','./build_info.json','./depth_ai_worker.js'];
 self.addEventListener('install',event=>{event.waitUntil((async()=>{const c=await caches.open(CACHE);for(const url of SHELL){try{await c.add(url)}catch{/* staged deployments may upload the worker separately */}}await self.skipWaiting()})())});
 self.addEventListener('activate',event=>{event.waitUntil((async()=>{for(const k of await caches.keys())if(k!==CACHE&&(k.startsWith('room-scanner-')||k.startsWith('acoustic-room-')))await caches.delete(k);await self.clients.claim()})())});

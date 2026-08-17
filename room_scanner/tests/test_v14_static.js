@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('fs'),assert=require('assert'),path=require('path');
 const root=path.join(__dirname,'..'),html=fs.readFileSync(path.join(root,'room_scanner_v12.html'),'utf8'),geo=fs.readFileSync(path.join(root,'v14_cells.js'),'utf8');
-assert.match(html,/V14\.0\.0/);assert.ok(!html.includes('v13_geometry.js'));assert.ok(!html.includes('RoomV13Geometry'));assert.match(html,/__ROOM_SCANNER_V14__/);assert.match(html,/v14_cells\.js/);
+assert.match(html,/V14\.0\.1/);assert.ok(!html.includes('v13_geometry.js'));assert.ok(!html.includes('RoomV13Geometry'));assert.match(html,/__ROOM_SCANNER_V14__/);assert.match(html,/v14_cells\.js/);
 assert.equal((html.match(/navigator\.xr\.requestSession\(/g)||[]).length,1,'one requestSession');
 assert.equal((html.match(/getUserMedia/g)||[]).length,0);assert.equal((html.match(/ImageCapture/g)||[]).length,0);assert.equal((html.match(/setInterval\(/g)||[]).length,0);
 for(const bad of ['RayEvidenceVolume','TSDF','solveAllCorners','applyParallelWallRefinement','rebuildStructure'])assert.ok(!html.includes(bad),`legacy complexity leaked: ${bad}`);
