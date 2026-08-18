@@ -5,10 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0b171d">
   <meta name="color-scheme" content="dark">
-  <link rel="manifest" href="manifest.webmanifest">
+  <!-- V20.3 build marker: useful in exported diagnostics and when checking stale GitHub Pages caches. -->
+  <meta name="room-scanner-build" content="v20.3.0-dense-gaussian-deep-fusion">
+  <link rel="manifest" href="manifest.webmanifest?v=20.3.0">
   <link rel="icon" href="assets/icon.svg">
-  <link rel="stylesheet" href="css/app_v20_2_0.css">
-  <title>Room Scanner V20.2.4</title>
+  <link rel="stylesheet" href="css/app_v20_2_0.css?v=20.3.0">
+  <title>Room Scanner V20.3.0</title>
 </head>
 <body>
   <canvas id="xr-canvas" aria-label="Vista WebXR"></canvas>
@@ -18,7 +20,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">ROOM SCANNER</div>
-        <h1>V20.2.4 · Mesh WebXR + RAW-first</h1>
+        <h1>V20.3.0 · Dense Gaussian + Deep Fusion</h1>
       </div>
       <div id="state-pill" class="pill neutral">Inizializzazione</div>
     </header>
@@ -76,27 +78,21 @@
         </div>
         <div id="guidance-card" class="guidance-card">
           <div id="guidance-arrow" class="guidance-arrow">↑</div>
-          <div><strong id="guidance-title">Muoviti lentamente</strong><p id="guidance-detail">WebXR stima automaticamente pavimento, pareti e soffitto: non devi marcarli.</p></div>
+          <div><strong id="guidance-title">Muoviti lentamente</strong><p id="guidance-detail">Le griglie compariranno sulle superfici osservate.</p></div>
         </div>
         <div class="telemetry mono">
-          <span id="telemetry-geometry">geometria: attendo WebXR</span>
           <span id="telemetry-points">0 punti</span>
           <span id="telemetry-frames">0 foto</span>
           <span id="telemetry-chirps">0 chirp</span>
           <span id="telemetry-writes">coda 0</span>
         </div>
-        <div class="marker-strip" aria-label="Riferimenti spaziali">
-          <span id="markpoint-count" class="marker-count">0/10 riferimenti</span>
-          <select id="markpoint-action" aria-label="Azione sul riferimento">
-            <option value="new">Nuovo riferimento al reticolo</option>
-          </select>
-        </div>
       </div>
       <div class="capture-controls">
-        <button id="btn-markpoint" class="mark">Pinna al reticolo</button>
+        <button id="btn-markpoint" class="mark">Marca riferimento</button>
         <button id="btn-force-photo">Foto Deep</button>
         <button id="btn-safe-exit" class="danger">Salva ed esci da XR</button>
       </div>
+      <div id="capture-toast" class="toast" hidden></div>
     </section>
 
     <section id="screen-review" class="screen">
@@ -124,12 +120,6 @@
       </div>
     </section>
   </main>
-  <div id="capture-toast" class="toast" hidden role="status" aria-live="polite"></div>
-  <dialog id="download-dialog" aria-labelledby="download-title">
-    <h3 id="download-title">Download pronto</h3>
-    <p id="download-detail">Il file è pronto.</p>
-    <div class="button-row"><button id="btn-download-ready" class="primary" type="button">Scarica di nuovo</button><button type="button" onclick="this.closest('dialog').close()">Chiudi</button></div>
-  </dialog>
 
   <dialog id="markpoint-dialog">
     <form method="dialog">
@@ -140,6 +130,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="js/app_v20_2_0.js"></script>
+  <script type="module" src="js/app_v20_2_0.js?v=20.3.0"></script>
 </body>
 </html>
