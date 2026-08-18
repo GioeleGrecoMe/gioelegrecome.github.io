@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="it"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b171d">
+<link rel="stylesheet" href="css/app_v20_2_0.css"><title>Room Scanner Processing</title>
+</head><body class="processing-page">
+<main class="processing-shell">
+  <header class="topbar"><div><div class="eyebrow">PROCESSING ISOLATO</div><h1>Ricostruzione V20.2</h1></div><a class="button-link" href="room_scanner_v12.html">Torna alla cattura</a></header>
+  <section class="card">
+    <p>Questa pagina viene aperta solo su richiesta e non condivide il ciclo di vita WebXR. Ogni fase è riavviabile e salva risultati intermedi.</p>
+    <div class="form-grid">
+      <label>Modalità
+        <select id="processing-mode"><option value="safe" selected>Leggera, senza Deep</option><option value="deep">Completa, Depth Anything sequenziale</option></select>
+      </label>
+      <label>Budget memoria
+        <select id="memory-budget"><option value="192">192 MB</option><option value="320" selected>320 MB</option><option value="512">512 MB</option></select>
+      </label>
+    </div>
+    <div class="button-row"><button id="btn-run-processing" class="primary">Avvia processing</button><button id="btn-cancel-processing">Interrompi</button><button id="btn-export-model" disabled>Scarica modello</button><button id="btn-run-acoustics">Analizza RIR relative</button></div>
+  </section>
+  <section class="card"><h3>Avanzamento</h3><progress id="processing-progress" max="100" value="0"></progress><p id="processing-stage">Pronto.</p><pre id="processing-log" class="log-view"></pre></section>
+  <section class="card"><h3>Anteprima struttura</h3><canvas id="model-preview" class="model-preview"></canvas></section>
+</main>
+<script type="module" src="js/processing_ui_v20_2_0.js"></script>
+</body></html>

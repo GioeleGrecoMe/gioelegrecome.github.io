@@ -1,20 +1,13 @@
 {
-  "name": "Room Scanner V20.1 Metric RIR Twin",
-  "short_name": "Room Scanner",
-  "description": "Scansione metrica WebXR con chirp/RIR, surfel RGB, oggetti e inferenza acustica per zone.",
-  "lang": "it",
+  "name": "Room Scanner V20.2",
+  "short_name": "RoomScan",
+  "description": "Adaptive metric RGB and acoustic-ready room capture",
   "start_url": "./room_scanner_v12.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#03080d",
-  "theme_color": "#07131c",
+  "background_color": "#071014",
+  "theme_color": "#0b171d",
   "icons": [
-    {
-      "src": "./icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
+    {"src":"assets/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
   ]
 }

@@ -1,84 +1,38 @@
-# Continuation handoff - V20.1.0
+# Continuation Handoff - V20.2.0
 
 ## Baseline
 
-Build: `v20.1.0-metric-rir-twin-20260818`
+Canonical entry: `room_scanner_v12.html`
 
-Entry point: `room_scanner_v12.html`
+Build: `v20.2.0-20260818-observation-graph`
 
-## Invarianti
+## Non-negotiable architecture
 
-- Una sola sessione WebXR per tutti i vani collegati.
-- `local-floor` e l'unico frame metrico globale.
-- `getCameraImage()` resta nel callback XR rAF.
-- Nessun secondo stream camera; `getUserMedia` e solo audio.
-- Nessun Deep, FFT, deconvoluzione o clustering globale nel frame XR.
-- Il fit strutturale e bounded e non cambia la scala WebXR.
-- PCM e JPEG sono record IndexedDB separati dal checkpoint.
-- Nessuna funzione o risorsa browser non clonabile nel checkpoint.
-- La chiusura segue `session.end -> XR end -> cleanup -> persist -> review`.
-- Le associazioni usano delay eco relativo al diretto.
-- Il sample rate effettivo della route audio, non quello richiesto, governa ESS, timeline PCM e deconvoluzione.
-- La classe `unassigned` deve restare disponibile.
-- Ogni stima acustica conserva supporto, residuo e confidenza.
-- Gli override manuali sono autorevoli.
-- Gli oggetti automatici richiedono viste distinte e non fondono stanze.
+- Capture data is append-only and binary-first.
+- WebXR exit performs no processing, export, reload or navigation.
+- The page remains usable after XR ends.
+- Processing is explicit, restartable and isolated in a worker/page.
+- The RAW archive is the durable interchange format.
+- Walk-only capture is the default; walls are inferred later.
+- Adaptive cells guide quality but never hard-block completion.
+- WebXR owns scale inside a segment.
+- Cross-segment fitting uses validated markpoints and no scale parameter.
+- Deep is optional post-XR densification, not metric authority.
+- All surfaces and objects retain stable IDs for later acoustic evidence.
 
-## File principali
+## Highest-value next tests
 
-```text
-roomscan_core_v20_1_0.js
-roomscan_signal_v20_1_0.js
-roomscan_geometry_v20_1_0.js
-roomscan_acoustics_v20_1_0.js
-roomscan_audio_v20_1_0.js
-roomscan_audio_worklet_v20_1_0.js
-roomscan_app_v20_1_0.js
-depth_ai_worker_v20_1_0.js
-sw_v20_1_0.js
-```
+1. Reproduce XR exit ten times on at least three Android devices and retain diagnostics/crash IDs.
+2. Compare wall thickness and metric error against taped room dimensions.
+3. Validate markpoint registration after real ARCore relocalization loss.
+4. Tune adaptive cell thresholds using object scans with glossy, dark and textureless surfaces.
+5. Characterize speaker/microphone processing and chirp SNR across phone models.
+6. Add a desktop high-quality reconstruction backend that consumes exactly the same `.rscan.zip` without changing capture code.
 
-Dopo una modifica copiare ogni file versionato nel relativo alias senza versione e rieseguire `static_contract.test.js`.
+## Known limitations
 
-## Handoff post-XR
-
-Non aggiungere serializzazione prima dell'evento `end`. La mappa clock deve contenere soltanto numeri. I corner devono passare da `serializeCornerRecord`/`restoreCornerRecord`. Non salvare `AudioContext`, `AudioNode`, `MediaStream`, `XRSession`, `XRAnchor`, reader camera o oggetti WebGL.
-
-## Audio
-
-`AcousticCaptureController` emette ESS e conserva finestre PCM bounded. Il descrittore ESS contiene `samples`; non trattarlo come array diretto. La posa deve includere sorgente e ricevitore nello stesso frame metrico.
-
-Il timing assoluto e diagnostico. Il delay acustico usato dal solver e sempre relativo al diretto rilevato nella singola RIR.
-
-## Geometria
-
-`MetricSurfelMap` e la rappresentazione densa autoritativa. La shell utente fornisce topologia e prior. Deep e solo una sorgente secondaria calibrata. Non introdurre ICP globale o una trasformazione per stanza.
-
-## Acustica
-
-Pipeline:
-
-```text
-PCM -> onset ESS -> Kirkeby -> diretto -> RIR relativa
--> picchi/bande/decadimento
--> candidati image-source + Gaussiane + unassigned
--> posterior
--> alpha per zona + confidenza
-```
-
-Un test sintetico deve continuare ad assegnare l'eco noto alla parete corretta anche cambiando il lag hardware.
-
-## Test obbligatori
-
-```sh
-./tests/run_all.sh
-```
-
-Prima della distribuzione:
-
-1. rimuovere file di versioni precedenti;
-2. rigenerare `SHA256SUMS.txt`;
-3. creare l'archivio;
-4. estrarlo in una directory vuota;
-5. verificare i checksum;
-6. rieseguire la suite dalla copia estratta.
+- Raw camera and CPU depth availability vary by device/browser.
+- A single-phone monostatic chirp cannot provide a trustworthy absolute system delay without calibration; relative arrivals are used.
+- Dynamic objects can create inconsistent surfels and markpoint failures.
+- Monocular depth is only as metric as its per-frame anchors.
+- The lightweight processor favors acoustic geometry and diagnostics over photorealistic meshing.
