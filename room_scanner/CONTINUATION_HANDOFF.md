@@ -1,82 +1,83 @@
-# Continuation handoff - Room Scanner V15.1.0
+# Continuation handoff — V20.0.0
 
 ## Baseline
 
-- Version: `15.1.0`
-- Revision: `v15.1.0-wall-targets-recovery-20260817`
-- Canonical deploy page: `room_scanner_v12.html`
-- Target: Chrome Android, ARCore, HTTPS
-- Architecture: one WebXR `local-floor` session for all connected rooms; post-XR Deep only
+Build: `v20.0.0-rgb-acoustic-safe-handoff-20260818`
 
-## Non-negotiable invariants
+Entry point: `room_scanner_v12.html`
 
-- Do not add a second camera stack (`getUserMedia`, `ImageCapture`, MediaStream, etc.).
-- Keep exactly one Raw Camera `getCameraImage()` call site and invoke it only in an active XR frame path.
-- Do not load/run ONNX while WebXR is active.
-- Do not introduce ICP, TSDF, global mesh optimization, free room rotation or a second metric coordinate system.
-- Do not let neural depth modify wall geometry.
-- Keep `room_scanner_v12.html` as the canonical page unless all deploy references are deliberately migrated.
-- Keep compatibility aliases byte-identical to the versioned executable files.
+## Invarianti da non rompere
 
-## Wall target implementation
+- Una sola sessione WebXR per tutti i vani collegati.
+- `local-floor` è l’unico riferimento metrico globale.
+- `getCameraImage()` resta dentro il callback XR rAF.
+- Nessun `getUserMedia` o secondo stream camera.
+- Nessun Deep/ONNX mentre WebXR o l’handoff sono attivi.
+- Nessuna chiusura automatica del perimetro per prossimità al primo punto.
+- Oggetti automatici richiedono evidenza da viste spazialmente distinte e non fondono vani diversi.
+- Le pareti non vengono spostate da Deep.
+- I valori acustici automatici restano marcati come prior non misurati.
+- Le modifiche manuali alle superfici acustiche hanno precedenza.
 
-Core functions in `roomscan_core_v15_1_0.js`:
+## Handoff post-XR
 
-- `createWallPhotoTargets(model, options)`
-- `evaluatePhotoTarget(target, projection, worldToView, cameraPosition, options)`
-- `photoTargetStatus(target)`
-- `photoTargetProgress(target)`
-- `registerPhotoTargetObservation(target, observation)`
-- `registerFramePhotoTargets(targets, frame, options)`
-- `photoTargetStats(targets)`
+`saveAndCloseXR()` sospende gli scatti e chiama `session.end()` senza avviare structured clone o IndexedDB. L’evento `end` azzera subito il riferimento alla sessione, chiama `cleanupXRResources()` e solo dopo esegue `completePostXRHandoff()`: i JPEG vengono salvati come record IndexedDB separati, il checkpoint principale conserva i riferimenti, viene scritto il marker `room-scanner-v20-post-xr-handoff`, la pagina si ricarica e `initialize()` richiama `recoverPostXRHandoff()`.
 
-The app generates targets immediately after room height confirmation. IDs are prefixed with the room ID. Lower `objects` targets require two distinct `viewCluster` values; upper `surface` targets require one.
+Il processing deve restare bloccato quando:
 
-`coverageGuidance()` chooses the highest-priority unresolved physical target. `drawPhotoTargetBox()` projects its four metric corners into the overlay. `drawTargetArrow()` points toward its projected centre or toward the correct turn direction if off-screen.
+```text
+state.session
+state.navigationExitPending
+state.handoffPending
+!state.postXrReady
+state.process.running
+```
 
-`roomCompletionReadiness()` intentionally ignores unresolved target count as a hard gate. The hard minimum is three frames and two view clusters. Do not restore the old all-green deadlock.
+## Modello oggetti
 
-## Back/recovery implementation
+Oggetto automatico:
 
-`armHistoryGuard()` adds one same-document history entry when XR starts. A guarded `popstate` calls `handleBrowserBack()`.
+```text
+points[]          centri voxel con RGB
+mesh              facce voxel esterne con colors[] e triangleFaceKeys[]
+obb               proxy orientata editabile
+shape             voxelSize, occupiedVolume, obbVolume, fillRatio
+rgbSummary        mean, pointCount
+```
 
-`saveAndCloseXR()`:
+Oggetto manuale: punti di superficie sintetici marcati `synthetic: true`.
 
-- blocks repeated exit actions;
-- suspends automatic capture;
-- invokes `settleCaptureBeforeExit()`;
-- marks an unfinished measured room partial;
-- persists a checkpoint;
-- ends the existing XR session.
+Quando cambia l’OBB, usare `transformPointsBetweenObbs()`; non lasciare i punti nella posa precedente. Dopo import o modifica, chiamare `assignMeshAcousticFaces()` per garantire una etichetta acustica per ogni triangolo.
 
-`onXREnd()` owns resource cleanup and opens Review. An unexpected XR end follows the same reviewable path and marks the scan interrupted.
+## Modello acustico
 
-IndexedDB:
+Core in `roomscan_core_v20_0_0.js`:
 
-- database: `room-scanner-v15-checkpoints`
-- store: `snapshots`
-- key: `latest`
+- `ACOUSTIC_BANDS`;
+- `MATERIAL_LIBRARY`;
+- `visualFeaturesFromColors/Rgba`;
+- `tinyMaterialPosterior`;
+- `buildAcousticSurfaceModel`;
+- `applyMaterialToSurface`;
+- `acousticSummary`.
 
-Checkpoint object point arrays are capped at 12,000 points per object to avoid making a navigation save too large. Explicit RAW export retains the complete point data.
+ID stabili:
 
-## Executable assets
+```text
+R1:floor
+R1:ceiling
+R1:wall:0
+O1:face:front
+```
 
-- `roomscan_core_v15_1_0.js` == `roomscan_core.js`
-- `roomscan_app_v15_1_0.js` == `roomscan_app.js`
-- `depth_ai_worker_v15_1_0.js` == `depth_ai_worker.js`
-- `sw_v15_1_0.js` == `sw.js`
+`buildAcousticSurfaceModel()` preserva una superficie precedente quando `material.mode === 'manual'`. Le superfici oggetto espongono `geometryRef.type === 'object-mesh-triangle-label'`: il valore `triangleFaceKey` seleziona i triangoli corrispondenti in `objects[].mesh.triangleFaceKeys`.
 
-After modifying one side, copy it to its alias and run `tests/run_all.sh`.
+## Test
 
-## Main tests
+Eseguire sempre:
 
-- `photo_targets.test.js`: physical subdivision, projection and status transitions.
-- `coverage_guidance.test.js`: selected box, second-view instruction and completion with unresolved targets.
-- `navigation_recovery.test.js`: Back path, single XR end and automatic Review.
-- `checkpoint_recovery.test.js`: IndexedDB save and restoration of target/object state.
-- `workflow_state.test.js`: two rooms and doorway linkage in one metric frame.
-- `static_contract.test.js`: WebXR/camera/deploy invariants.
+```sh
+./tests/run_all.sh
+```
 
-## Remaining device validation
-
-No container test can validate actual Raw Camera Access, Android browser Back behavior inside a live immersive session, ARCore CPU depth quality, thermal throttling or ONNX memory pressure. Use `TEST_ON_PHONE.md` before calling a release hardware-validated.
+Prima di distribuire, rigenerare `SHA256SUMS.txt`, estrarre l’archivio in una directory pulita, verificare i checksum e rieseguire la suite da quella copia.

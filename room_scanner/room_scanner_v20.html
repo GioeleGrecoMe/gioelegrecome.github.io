@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#07131c">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Scansione metrica WebXR di ambienti connessi, oggetti RGB e superfici acustiche editabili.">
+  <meta name="room-scanner-build" content="v20.0.0-rgb-acoustic-safe-handoff-20260818">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <title>Room Scanner V20.0.0 · RGB Acoustic Twin</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07131c;
+      --bg-deep: #03080d;
+      --panel: rgba(10, 27, 39, .94);
+      --panel-soft: rgba(13, 34, 48, .86);
+      --line: #315166;
+      --line-soft: #1d3849;
+      --text: #eff9ff;
+      --muted: #a6bdca;
+      --accent: #78ddff;
+      --accent-strong: #3cc4f3;
+      --good: #69e0a7;
+      --warn: #ffd166;
+      --bad: #ff8191;
+      --object: #f2ad62;
+      --shadow: 0 16px 44px rgba(0, 0, 0, .38);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      min-height: 100dvh;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg-deep);
+      color: var(--text);
+      font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body { overscroll-behavior: none; }
+    button, input, select { font: inherit; }
+    button, select, input[type="text"], input[type="number"] {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      color: var(--text);
+      background: #0d2535;
+    }
+    button {
+      min-height: 44px;
+      padding: 9px 13px;
+      font-weight: 800;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    button:hover { border-color: #56839e; }
+    button:active { transform: translateY(1px); }
+    button:disabled { opacity: .42; cursor: default; transform: none; }
+    button.primary {
+      border-color: transparent;
+      color: #031017;
+      background: linear-gradient(135deg, var(--accent), #80efc1);
+    }
+    button.danger { background: #48212b; border-color: #80404d; }
+    button.ghost { background: #091b28; }
+    button.compact { min-height: 36px; padding: 6px 10px; font-size: 12px; }
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      min-height: 40px;
+      padding: 8px 10px;
+    }
+    input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent-strong); }
+    label { color: #d8ecf6; }
+    .hidden { display: none !important; }
+    .screen { position: fixed; inset: 0; }
+    .small { font-size: 11px; color: var(--muted); }
+    .good { color: var(--good) !important; }
+    .warn { color: var(--warn) !important; }
+    .bad { color: var(--bad) !important; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .grow { flex: 1 1 auto; }
+    .meter {
+      height: 8px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #041018;
+    }
+    .meter > i {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent-strong), var(--good));
+      transition: width .18s ease;
+    }
+
+    /* Landing ----------------------------------------------------------- */
+    #welcome {
+      z-index: 10;
+      overflow: auto;
+      padding: max(18px, env(safe-area-inset-top)) 14px max(26px, env(safe-area-inset-bottom));
+      background:
+        radial-gradient(circle at 82% 4%, rgba(46, 143, 181, .25), transparent 34%),
+        radial-gradient(circle at 12% 76%, rgba(73, 185, 139, .12), transparent 35%),
+        linear-gradient(160deg, #091c29, #061018 56%, #03080d);
+    }
+    .welcome-inner { width: min(980px, 100%); margin: 0 auto; }
+    .build {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 10px;
+      border: 1px solid #47738c;
+      border-radius: 999px;
+      color: #d8f5ff;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .03em;
+    }
+    .build::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 10px var(--good); }
+    .hero h1 { margin: 10px 0 5px; font-size: clamp(30px, 7vw, 52px); line-height: 1; letter-spacing: -.045em; }
+    .hero p { max-width: 790px; margin: 0; color: #c9dce7; font-size: 15px; }
+    .principles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin: 18px 0 10px; }
+    .principle { padding: 11px; border: 1px solid var(--line-soft); border-radius: 13px; background: rgba(6, 20, 29, .72); }
+    .principle b { display: block; margin-bottom: 3px; font-size: 12px; color: #e6f7ff; }
+    .principle span { display: block; color: var(--muted); font-size: 11px; }
+    .workflow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 14px; }
+    .step { min-height: 92px; padding: 11px; border: 1px solid var(--line); border-radius: 14px; background: rgba(10, 27, 39, .78); }
+    .step em { display: inline-grid; place-items: center; width: 23px; height: 23px; margin-bottom: 6px; border-radius: 8px; background: #17465e; color: var(--accent); font-style: normal; font-size: 11px; font-weight: 900; }
+    .step b { display: block; font-size: 12px; }
+    .step span { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+    .notice {
+      margin: 12px 0;
+      padding: 11px 12px;
+      border: 1px solid #315b70;
+      border-left: 4px solid var(--accent);
+      border-radius: 12px;
+      background: rgba(8, 28, 40, .86);
+      color: #d4eaf5;
+    }
+    .landing-summary { margin: 8px 0 12px; color: var(--muted); font-size: 12px; }
+    .action-panel { padding: 12px; }
+    .action-primary { display: grid; grid-template-columns: minmax(190px, 1.2fr) minmax(160px, .8fr); gap: 8px; }
+    .action-secondary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .action-secondary button { flex: 1 1 118px; }
+    .quality-row { display: grid; grid-template-columns: 1fr minmax(150px, 240px); gap: 10px; align-items: center; margin-top: 10px; }
+    .quality-row label { font-size: 11px; color: var(--muted); }
+    .boot { margin-top: 12px; }
+    #bootText { margin-top: 6px; min-height: 18px; }
+    details.debug { margin-top: 10px; border: 1px solid var(--line-soft); border-radius: 12px; background: rgba(4, 15, 22, .7); }
+    details.debug summary { padding: 9px 11px; color: var(--muted); font-size: 11px; cursor: pointer; }
+    .diagnostics { max-height: 190px; margin: 0; overflow: auto; padding: 0 11px 11px; white-space: pre-wrap; color: #bdd4df; font: 10px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+    /* XR --------------------------------------------------------------- */
+    #arCanvas, #overlayCanvas { position: fixed; inset: 0; width: 100%; height: 100%; }
+    #arCanvas { z-index: 0; background: transparent; }
+    #overlayCanvas { z-index: 2; pointer-events: none; }
+    #screenTint { position: fixed; inset: 0; z-index: 1; pointer-events: none; transition: background .12s linear; }
+    #hud {
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100dvh;
+      padding: max(10px, env(safe-area-inset-top)) 9px max(10px, env(safe-area-inset-bottom));
+      pointer-events: none;
+    }
+    #hud > * { pointer-events: auto; }
+    .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .status-card { width: min(720px, calc(100vw - 108px)); padding: 10px 11px; }
+    #phaseTitle { font-size: 12px; font-weight: 950; color: #e4f7ff; }
+    #statusText { margin-top: 2px; font-size: 11px; color: #d2e5ee; }
+    #metricText { margin-top: 4px; color: #b8d5e2; font: 9px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .badge-row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-top: 5px; }
+    .badge { display: inline-flex; padding: 2px 7px; border: 1px solid #47697d; border-radius: 999px; color: #cce5f0; font-size: 9px; font-weight: 900; }
+    #capabilities { font-size: 9px; color: var(--muted); }
+    .hud-bottom { display: grid; gap: 8px; justify-items: center; }
+    .tool-card { width: min(680px, 100%); padding: 8px 10px; }
+    .tool-row { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .tool-row label { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; }
+    #heightControls input { width: 92px; min-height: 36px; }
+    .coverage-coach {
+      width: min(680px, 100%);
+      padding: 9px 10px;
+      border-color: #42677b;
+      background: rgba(7, 24, 35, .95);
+    }
+    .coach-main { display: grid; grid-template-columns: 48px 1fr; gap: 9px; align-items: center; }
+    #coverageDirection {
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      border: 1px solid #5d8398;
+      border-radius: 14px;
+      background: rgba(101, 217, 255, .10);
+      color: #a9eaff;
+      font-size: 31px;
+      font-weight: 950;
+      line-height: 1;
+    }
+    #coverageInstruction { display: block; color: #ffffff; font-size: 13px; }
+    #coverageDetail { display: block; margin-top: 2px; color: #c8dce6; font-size: 10px; }
+    #coverageCounts { margin-top: 6px; color: #d8edf6; font: 9px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .coverage-legend { margin-top: 5px; color: #bfd4df; font-size: 9px; }
+    .coverage-legend::before {
+      content: "";
+      display: inline-block;
+      width: 30px;
+      height: 7px;
+      margin-right: 6px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #ff6478 0 33%, #ffd166 33% 66%, #62e6a5 66% 100%);
+      box-shadow: 0 0 8px rgba(120, 221, 255, .28);
+    }
+    .runtime-notice {
+      width: min(680px, 100%);
+      padding: 8px 10px;
+      border-color: #8b4c58;
+      background: rgba(59, 23, 31, .95);
+      color: #ffd4da;
+      font-size: 10px;
+    }
+    .runtime-notice b { display: block; margin-bottom: 2px; color: #ffffff; }
+    .room-progress { width: min(680px, 100%); }
+    .bottom-actions { display: flex; justify-content: center; gap: 8px; width: 100%; flex-wrap: wrap; }
+    .bottom-actions button { flex: 1 1 128px; max-width: 225px; }
+
+    /* Modals ------------------------------------------------------------ */
+    .modal { z-index: 20; display: flex; flex-direction: column; background: #061019; }
+    .modal-head { min-height: 56px; display: flex; align-items: center; gap: 8px; padding: max(8px, env(safe-area-inset-top)) 11px 8px; border-bottom: 1px solid var(--line); background: #091923; }
+    .modal-head h2 { flex: 1; margin: 0; font-size: 17px; }
+    .modal-body { flex: 1; min-height: 0; overflow: auto; }
+    .modal-footer { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; padding: 9px 10px calc(9px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: #091923; }
+    .modal-footer .spacer { flex: 1; }
+    .workspace { height: 100%; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(270px, 350px); }
+    .canvas-pane { min-height: 360px; background: #03080d; position: relative; }
+    .canvas-pane canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    .editor-pane { overflow: auto; padding: 10px; border-left: 1px solid var(--line); background: #081722; }
+    .editor-section { margin-bottom: 10px; padding: 10px; border: 1px solid var(--line-soft); border-radius: 13px; background: #0a1d2a; }
+    .editor-section h3 { margin: 0 0 8px; font-size: 12px; }
+    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+    .field { display: grid; gap: 3px; }
+    .field.full { grid-column: 1 / -1; }
+    .field label { color: var(--muted); font-size: 10px; }
+    .editor-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .editor-actions button { flex: 1 1 90px; min-height: 36px; padding: 6px 8px; font-size: 11px; }
+    #planStats { position: absolute; left: 9px; right: 9px; bottom: 9px; padding: 7px 9px; border: 1px solid #315166; border-radius: 10px; background: rgba(6, 21, 31, .88); color: #c6dce7; font-size: 10px; pointer-events: none; }
+
+    .scene-wrap { height: 100%; min-height: 360px; position: relative; background: #02070b; }
+    .scene-wrap canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    .layers { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 5px; flex-wrap: wrap; pointer-events: none; }
+    .layer { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border: 1px solid #365b70; border-radius: 999px; background: rgba(7, 24, 34, .88); color: #d5eaf4; font-size: 10px; font-weight: 800; pointer-events: auto; }
+    .scene-help { position: absolute; left: 10px; right: 10px; bottom: 10px; padding: 7px 9px; border: 1px solid #315166; border-radius: 10px; background: rgba(6, 21, 31, .86); color: #b8ced9; font-size: 10px; pointer-events: none; }
+
+    .review-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; padding: 10px; }
+    .review-section { min-height: 170px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #081722; }
+    .review-section h3 { margin: 0; padding: 9px 10px; border-bottom: 1px solid var(--line); font-size: 12px; }
+    .review-content { max-height: calc(100dvh - 175px); overflow: auto; }
+    .reviewCard { display: grid; gap: 2px; padding: 9px 10px; border-bottom: 1px solid var(--line-soft); }
+    .reviewCard b { font-size: 11px; }
+    .reviewCard span { color: var(--muted); font-size: 10px; }
+    .alpha-grid { display: grid; grid-template-columns: repeat(4, minmax(62px, 1fr)); gap: 6px; margin-top: 8px; }
+    .alpha-grid .field label { font-size: 9px; }
+    .acoustic-note { padding: 8px 9px; border: 1px solid #5d4e28; border-radius: 10px; background: rgba(83, 66, 23, .22); color: #ffe7a1; font-size: 10px; }
+    .layers select { width: auto; min-height: 30px; padding: 3px 7px; font-size: 10px; }
+    .frameRow { display: grid; grid-template-columns: 104px 1fr; gap: 8px; padding: 8px; border-bottom: 1px solid var(--line-soft); }
+    .frameRow img { width: 104px; height: 68px; object-fit: cover; border: 1px solid var(--line); border-radius: 8px; background: #02070a; }
+    .frameRow div { min-width: 0; display: grid; align-content: start; gap: 2px; }
+    .frameRow b { font-size: 10px; }
+    .frameRow span { color: var(--muted); font-size: 9px; overflow-wrap: anywhere; }
+
+    #processModal { z-index: 30; display: grid; place-items: center; padding: 15px; background: rgba(2, 10, 15, .92); }
+    .process-panel { width: min(620px, 100%); padding: 16px; }
+    .process-panel h2 { margin: 0 0 5px; font-size: 19px; }
+    .process-counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 11px 0; }
+    .stat { padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: #071722; text-align: center; }
+    .stat b { display: block; font-size: 18px; }
+    .stat span { color: var(--muted); font-size: 9px; }
+    #processStage { margin-top: 10px; font-weight: 850; }
+    #processDetail { min-height: 35px; margin: 5px 0 10px; color: var(--muted); font-size: 11px; }
+
+    @media (max-width: 780px) {
+      .principles, .workflow { grid-template-columns: 1fr; }
+      .principle { min-height: 0; }
+      .step { min-height: 0; }
+      .action-primary { grid-template-columns: 1fr; }
+      .quality-row { grid-template-columns: 1fr; }
+      .workspace { grid-template-columns: 1fr; grid-template-rows: minmax(52%, 1fr) auto; overflow: auto; }
+      .editor-pane { max-height: 44dvh; border-left: 0; border-top: 1px solid var(--line); }
+      .review-grid { grid-template-columns: 1fr; }
+      .review-content { max-height: 50dvh; }
+    }
+    @media (max-width: 460px) {
+      #welcome { padding-left: 10px; padding-right: 10px; }
+      .hero h1 { font-size: 34px; }
+      .action-panel { padding: 9px; }
+      .status-card { width: calc(100vw - 94px); }
+      .topbar > button { min-width: 78px; padding-left: 8px; padding-right: 8px; font-size: 11px; }
+      .bottom-actions button { min-height: 48px; }
+      .field-grid { grid-template-columns: 1fr 1fr; }
+      .alpha-grid { grid-template-columns: repeat(2, minmax(70px, 1fr)); }
+      .modal-head h2 { font-size: 15px; }
+    }
+  </style>
+  <!-- Versioned asset paths bypass any stale service worker left by an older
+       deployment, preventing mixed HTML/JavaScript builds on the first load. -->
+  <script src="./roomscan_core_v20_0_0.js" defer></script>
+  <script src="./roomscan_app_v20_0_0.js" defer></script>
+</head>
+<body>
+  <main id="welcome" class="screen">
+    <div class="welcome-inner">
+      <section class="hero">
+        <span class="build">V20.0.0 · RGB + ACOUSTIC SURFACES</span>
+        <h1>Crea un gemello metrico,<br>RGB e acusticamente annotabile.</h1>
+        <p>Una sola sessione WebXR mantiene tutti i vani nello stesso riferimento metrico. Le caselle guidano le foto, gli oggetti conservano punti RGB e ogni superficie può ricevere coefficienti acustici per banda.</p>
+      </section>
+
+      <section class="principles" aria-label="Principi della scansione">
+        <div class="principle"><b>Geometria senza limiti artificiali</b><span>Nicchie, pilastri e rientranze corte sono ammessi; chiudi il vano solo con il pulsante esplicito.</span></div>
+        <div class="principle"><b>Un’unica passeggiata</b><span>Non chiudere WebXR tra i vani: attraversa la porta e continua nello stesso spazio metrico.</span></div>
+        <div class="principle"><b>Handoff sicuro</b><span>Alla fine XR l’app salva, libera ARCore/WebGL, si riavvia e soltanto dopo abilita Deep.</span></div>
+      </section>
+
+      <section class="workflow" aria-label="Procedura guidata">
+        <div class="step"><em>1</em><b>Segna gli angoli</b><span>Mira al raccordo pavimento-parete e tocca in ordine.</span></div>
+        <div class="step"><em>2</em><b>Conferma l’altezza</b><span>Mira al raccordo parete-soffitto oppure usa il valore manuale.</span></div>
+        <div class="step"><em>3</em><b>Segui le caselle</b><span>Rosso = da fotografare, giallo = seconda posizione, verde = coperta. Una zona difficile non blocca il vano.</span></div>
+        <div class="step"><em>4</em><b>Attraversa la porta</b><span>La traiettoria identifica parete e posizione del passaggio.</span></div>
+        <div class="step"><em>5</em><b>Ripeti nei vani</b><span>Tutti i perimetri restano già allineati nel local-floor WebXR.</span></div>
+        <div class="step"><em>6</em><b>Controlla RGB e acustica</b><span>Rivedi forma e colori degli oggetti; assegna o correggi il materiale di ogni superficie.</span></div>
+      </section>
+
+      <div class="notice"><b>Regola importante:</b> completa tutti i vani nella stessa sessione WebXR. Alla chiusura la pagina esegue un riavvio leggero automatico: è intenzionale e serve a liberare completamente camera, ARCore e WebGL prima del processing.</div>
+      <div id="landingSummary" class="landing-summary">Nessuna scansione in memoria.</div>
+
+      <section class="card action-panel">
+        <div class="action-primary">
+          <button id="startXR" class="primary">Avvia scansione WebXR</button>
+          <button id="processModel">Processa Deep + acustica</button>
+        </div>
+        <div class="action-secondary">
+          <button id="openPlan">Mappa e oggetti</button>
+          <button id="openScene">Scena 3D</button>
+          <button id="openReview">Revisione</button>
+          <button id="fullscreen" class="ghost">Schermo intero</button>
+          <button id="resumeCheckpoint" class="ghost hidden">Ripristina ultima scansione</button>
+          <button id="newScan" class="danger">Nuova scansione</button>
+        </div>
+        <div class="action-secondary">
+          <button id="exportRaw" class="compact ghost">Esporta RAW</button>
+          <button id="exportPly" class="compact ghost">Esporta PLY</button>
+          <button id="exportObj" class="compact ghost">Esporta OBJ</button>
+          <button id="exportAcousticJson" class="compact ghost">Acustica JSON</button>
+          <button id="exportAcousticCsv" class="compact ghost">Acustica CSV</button>
+          <button id="importRaw" class="compact ghost">Importa RAW</button>
+          <input id="fileRaw" class="hidden" type="file" accept=".json,application/json">
+        </div>
+        <div class="quality-row">
+          <label for="quality">Qualità batch: “Rapido” usa meno foto; “Accurato” usa più viste ma richiede più RAM.</label>
+          <select id="quality">
+            <option value="quick">Rapido · smartphone base</option>
+            <option value="balanced" selected>Bilanciato · consigliato</option>
+            <option value="accurate">Accurato · smartphone recente</option>
+          </select>
+        </div>
+        <div class="boot">
+          <div class="meter"><i id="bootFill"></i></div>
+          <div id="bootText" class="small">Verifica WebXR in corso…</div>
+        </div>
+      </section>
+
+      <details class="debug">
+        <summary>Diagnostica tecnica</summary>
+        <pre id="diagnostics" class="diagnostics"></pre>
+      </details>
+    </div>
+  </main>
+
+  <canvas id="arCanvas" class="hidden" aria-hidden="true"></canvas>
+  <div id="screenTint" class="hidden"></div>
+  <canvas id="overlayCanvas" class="hidden" aria-hidden="true"></canvas>
+
+  <section id="hud" class="screen hidden" aria-live="polite">
+    <div class="topbar">
+      <div class="card status-card">
+        <div id="phaseTitle">Avvio tracking</div>
+        <div id="statusText">Mantieni il telefono fermo.</div>
+        <div id="metricText">Attendo posa WebXR…</div>
+        <div class="badge-row">
+          <span id="trackingBadge" class="badge">TRACKING</span>
+          <span id="capabilities">POSE XR</span>
+        </div>
+      </div>
+      <button id="stopXR" class="danger">Salva e chiudi</button>
+    </div>
+
+    <div class="hud-bottom">
+      <div id="snapControl" class="card tool-card hidden">
+        <div class="tool-row">
+          <label><input id="smartSnap" type="checkbox" checked> Pareti ortogonali assistite</label>
+          <span class="small">Disattiva per stanze irregolari.</span>
+        </div>
+      </div>
+      <div id="heightControls" class="card tool-card hidden">
+        <div class="tool-row">
+          <label for="heightValue">Altezza</label>
+          <input id="heightValue" type="number" inputmode="decimal" min="1.85" max="4.80" step="0.01" value="2.70">
+          <span class="small">metri</span>
+        </div>
+      </div>
+      <div id="coverageCoach" class="card coverage-coach hidden">
+        <div class="coach-main">
+          <div id="coverageDirection" aria-hidden="true">◎</div>
+          <div>
+            <b id="coverageInstruction">Inquadra qui parete e mobili</b>
+            <span id="coverageDetail">La freccia indica la prossima casella fisica da fotografare.</span>
+            <div id="coverageCounts">rosse 0 · gialle 0 · verdi 0/0 · 0 foto</div>
+          </div>
+        </div>
+        <div class="coverage-legend">Caselle sulle pareti: rosso = da fare, giallo = seconda vista, verde = coperta. Non devono essere tutte verdi per chiudere.</div>
+      </div>
+      <div id="runtimeNotice" class="card runtime-notice hidden">
+        <b>Errore recuperato senza chiudere WebXR</b>
+        <span id="runtimeNoticeText">Dettaglio diagnostico</span>
+      </div>
+      <div class="room-progress meter"><i id="roomProgressFill"></i></div>
+      <div class="bottom-actions">
+        <button id="finishButton" class="ghost hidden">Chiudi vano</button>
+        <button id="secondaryButton" class="ghost">Annulla ultimo</button>
+        <button id="primaryButton" class="primary">Aggiungi angolo</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="planModal" class="screen modal hidden" role="dialog" aria-modal="true" aria-labelledby="planTitle">
+    <header class="modal-head">
+      <h2 id="planTitle">Mappa, passaggi e oggetti</h2>
+      <button class="compact ghost" data-close>Chiudi</button>
+    </header>
+    <div class="modal-body workspace">
+      <div class="canvas-pane">
+        <canvas id="planCanvas"></canvas>
+        <div id="planStats">0 vani | 0 passaggi | 0 oggetti</div>
+      </div>
+      <aside class="editor-pane">
+        <section class="editor-section">
+          <h3>Aggiungi oggetto semplice</h3>
+          <div class="field-grid">
+            <div class="field full"><label for="manualName">Nome</label><input id="manualName" type="text" value="Mobile" maxlength="60"></div>
+            <div class="field"><label for="manualHeight">Altezza (m)</label><input id="manualHeight" type="number" inputmode="decimal" value="0.80" min="0.12" max="4" step="0.01"></div>
+          </div>
+          <div class="editor-actions"><button id="addObject" class="primary">Aggiungi oggetto</button></div>
+          <p class="small">Premi il pulsante e tocca due angoli opposti del rettangolo in pianta.</p>
+        </section>
+
+        <section class="editor-section">
+          <h3>Modifica / rimuovi oggetto</h3>
+          <div class="field-grid">
+            <div class="field full"><label for="objectSelect">Oggetto</label><select id="objectSelect"><option value="">Nessun oggetto</option></select></div>
+            <div class="field full"><label for="objectName">Nome</label><input id="objectName" type="text" maxlength="60" disabled></div>
+            <div class="field"><label for="objectLength">Lunghezza (m)</label><input id="objectLength" type="number" inputmode="decimal" min="0.08" max="8" step="0.01" disabled></div>
+            <div class="field"><label for="objectDepth">Profondità (m)</label><input id="objectDepth" type="number" inputmode="decimal" min="0.08" max="8" step="0.01" disabled></div>
+            <div class="field"><label for="objectHeight">Altezza (m)</label><input id="objectHeight" type="number" inputmode="decimal" min="0.08" max="5" step="0.01" disabled></div>
+            <div class="field"><label for="objectYaw">Rotazione (°)</label><input id="objectYaw" type="number" inputmode="decimal" min="-180" max="180" step="1" disabled></div>
+          </div>
+          <div id="objectInfo" class="small" style="margin-top:7px">Seleziona un oggetto automatico o manuale.</div>
+          <div class="editor-actions">
+            <button id="applyObject">Applica</button>
+            <button id="objectHide" class="ghost">Nascondi</button>
+            <button id="objectRemove" class="danger">Rimuovi</button>
+            <button id="objectRestore" class="ghost">Ripristina</button>
+          </div>
+        </section>
+
+        <section class="editor-section">
+          <h3>Correggi passaggio</h3>
+          <div class="field-grid">
+            <div class="field full"><label for="portalSelect">Passaggio</label><select id="portalSelect"><option value="">Nessun passaggio</option></select></div>
+            <div class="field"><label for="portalWidth">Larghezza (m)</label><input id="portalWidth" type="number" inputmode="decimal" min="0.45" max="4.5" step="0.01" disabled></div>
+            <div class="field"><label for="portalTop">Altezza (m)</label><input id="portalTop" type="number" inputmode="decimal" min="1.40" max="4.5" step="0.01" disabled></div>
+          </div>
+          <div class="editor-actions"><button id="applyPortal" disabled>Applica passaggio</button></div>
+          <p class="small">Il centro del varco resta sulla parete rilevata; qui modifichi larghezza e altezza.</p>
+        </section>
+
+
+        <section class="editor-section">
+          <h3>Caratterizzazione acustica</h3>
+          <div class="field-grid">
+            <div class="field full"><label for="acousticSurfaceSelect">Superficie</label><select id="acousticSurfaceSelect"><option value="">Nessuna superficie</option></select></div>
+            <div class="field full"><label for="acousticScope">Applica a</label><select id="acousticScope"><option value="surface" selected>Solo questa superficie</option><option value="owner">Gruppo geometrico (pareti del vano / facce oggetto)</option><option value="similar">Superfici visivamente simili</option></select></div>
+            <div class="field full"><label for="acousticMaterial">Materiale</label><select id="acousticMaterial"><option value="auto">Auto · prior visivo V10</option></select></div>
+            <div class="field"><label for="acousticScattering">Scattering</label><input id="acousticScattering" type="number" inputmode="decimal" min="0" max="1" step="0.01" value="0.20"></div>
+          </div>
+          <div class="alpha-grid" aria-label="Coefficienti di assorbimento per banda d'ottava">
+            <div class="field"><label for="alpha125">α 125 Hz</label><input id="alpha125" type="number" inputmode="decimal" min="0" max="1" step="0.01"></div>
+            <div class="field"><label for="alpha250">α 250 Hz</label><input id="alpha250" type="number" inputmode="decimal" min="0" max="1" step="0.01"></div>
+            <div class="field"><label for="alpha500">α 500 Hz</label><input id="alpha500" type="number" inputmode="decimal" min="0" max="1" step="0.01"></div>
+            <div class="field"><label for="alpha1000">α 1 kHz</label><input id="alpha1000" type="number" inputmode="decimal" min="0" max="1" step="0.01"></div>
+            <div class="field"><label for="alpha2000">α 2 kHz</label><input id="alpha2000" type="number" inputmode="decimal" min="0" max="1" step="0.01"></div>
+            <div class="field"><label for="alpha4000">α 4 kHz</label><input id="alpha4000" type="number" inputmode="decimal" min="0" max="1" step="0.01"></div>
+            <div class="field"><label for="alpha8000">α 8 kHz</label><input id="alpha8000" type="number" inputmode="decimal" min="0" max="1" step="0.01"></div>
+          </div>
+          <div id="acousticInfo" class="small" style="margin-top:8px">Seleziona una superficie.</div>
+          <div id="acousticSummary" class="small" style="margin-top:5px"></div>
+          <div class="editor-actions"><button id="applyAcoustic">Applica coefficienti</button><button id="resetAcoustic" class="ghost">Ripristina Auto</button></div>
+          <p class="acoustic-note">I valori automatici sono prior visivi conservativi, non misure RIR. Puoi applicare una correzione alla singola superficie, al gruppo geometrico o alle superfici visivamente simili; gli override restano autorevoli nel RAW e negli export acustici, inclusa la partizione triangolare degli oggetti.</p>
+        </section>
+      </aside>
+    </div>
+  </section>
+
+  <section id="sceneModal" class="screen modal hidden" role="dialog" aria-modal="true" aria-labelledby="sceneTitle">
+    <header class="modal-head">
+      <h2 id="sceneTitle">Scena 3D leggera</h2>
+      <button id="sceneIso" class="compact ghost">Vista isometrica</button>
+      <button class="compact ghost" data-close>Chiudi</button>
+    </header>
+    <div class="modal-body scene-wrap">
+      <canvas id="sceneCanvas"></canvas>
+      <div class="layers" aria-label="Livelli della scena">
+        <label class="layer"><input id="layerRoom" type="checkbox" checked> Vani</label>
+        <label class="layer"><input id="layerTexture" type="checkbox" checked> Texture pareti</label>
+        <label class="layer"><input id="layerObjects" type="checkbox" checked> Punti RGB</label>
+        <label class="layer"><input id="layerObjectShape" type="checkbox" checked> Forma voxel</label>
+        <label class="layer"><input id="layerBoxes" type="checkbox" checked> Ingombro OBB</label>
+        <label class="layer"><input id="layerAcoustic" type="checkbox"> Mappa α</label>
+        <label class="layer" for="acousticBand">Banda <select id="acousticBand"><option value="3">1000 Hz</option></select></label>
+        <label class="layer"><input id="bareRoom" type="checkbox"> Solo shell</label>
+      </div>
+      <div class="scene-help">Trascina per ruotare · i punti usano i colori fotografici · “Forma voxel” mostra la mesh RGB approssimata · ogni triangolo eredita una faccia acustica · “Mappa α” colora le superfici.</div>
+    </div>
+  </section>
+
+  <section id="reviewModal" class="screen modal hidden" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+    <header class="modal-head">
+      <h2 id="reviewTitle">Revisione acquisizione</h2>
+      <button id="reviewProcess" class="compact primary">Processa Deep + acustica</button>
+      <button class="compact ghost" data-close>Chiudi</button>
+    </header>
+    <div class="modal-body review-grid">
+      <section class="review-section"><h3>Vani</h3><div id="roomsReview" class="review-content"></div></section>
+      <section class="review-section"><h3>Foto e scala</h3><div id="framesReview" class="review-content"></div></section>
+      <section class="review-section"><h3>Oggetti RGB</h3><div id="objectsReview" class="review-content"></div></section>
+      <section class="review-section"><h3>Superfici acustiche</h3><div id="acousticReview" class="review-content"></div></section>
+    </div>
+  </section>
+
+  <section id="processModal" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="processTitle">
+    <div class="card process-panel">
+      <h2 id="processTitle">Elaborazione batch</h2>
+      <div class="small">WebXR è chiuso e la pagina è stata reinizializzata: Deep, texture RGB e prior acustici possono usare la RAM senza competere con ARCore.</div>
+      <div class="process-counts">
+        <div class="stat"><b id="deepCount">0</b><span>FOTO DEEP</span></div>
+        <div class="stat"><b id="fusedCount">0</b><span>PUNTI FUSI</span></div>
+        <div class="stat"><b id="objectCount">0</b><span>OGGETTI</span></div>
+      </div>
+      <div class="meter"><i id="processFill"></i></div>
+      <div id="processStage">Preparazione</div>
+      <div id="processDetail">Selezione delle viste migliori…</div>
+      <div class="row" style="justify-content:flex-end"><button id="processCancel" class="danger">Interrompi batch</button></div>
+    </div>
+  </section>
+</body>
+</html>

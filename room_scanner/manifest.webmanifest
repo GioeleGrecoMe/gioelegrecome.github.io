@@ -1,7 +1,7 @@
 {
-  "name": "Room Scanner V15.1.0 Wall Targets",
+  "name": "Room Scanner V20 RGB Acoustic Twin",
   "short_name": "Room Scanner",
-  "description": "Scansione metrica guidata di ambienti connessi e oggetti tramite caselle AR ancorate alle pareti.",
+  "description": "Scansione metrica WebXR di ambienti connessi, oggetti RGB e superfici acustiche editabili.",
   "lang": "it",
   "start_url": "./room_scanner_v12.html",
   "scope": "./",
