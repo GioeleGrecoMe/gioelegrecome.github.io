@@ -6,8 +6,8 @@
  * conservative: losing a frame is preferable to losing the browser process.
  */
 export const BUILD = Object.freeze({
-  version: '20.2.4',
-  id: 'v20.2.4-20260818-depth-guard-webxr-patch-mesh',
+  version: '20.3.0',
+  id: 'v20.3.0-20260818-dense-gaussian-deep-fusion',
   dbName: 'room-scanner-v20-2',
   dbVersion: 1,
   rawFormat: 'RSCAN-ZIP-1'
@@ -23,10 +23,7 @@ export const PROFILES = Object.freeze({
     maxVisibleTiles: 70,
     maxPendingWrites: 5,
     audioChunkFrames: 16384,
-    mapBudgetCells: 26000,
-    maxAutoPhotos: 18,
-    autoPhotoMinIntervalMs: 6500,
-    maxAutoPhotosPerTarget: 2
+    mapBudgetCells: 36000
   },
   balanced: {
     depthStride: 16,
@@ -37,10 +34,7 @@ export const PROFILES = Object.freeze({
     maxVisibleTiles: 105,
     maxPendingWrites: 7,
     audioChunkFrames: 12288,
-    mapBudgetCells: 42000,
-    maxAutoPhotos: 30,
-    autoPhotoMinIntervalMs: 5600,
-    maxAutoPhotosPerTarget: 2
+    mapBudgetCells: 52000
   },
   detail: {
     depthStride: 11,
@@ -51,10 +45,7 @@ export const PROFILES = Object.freeze({
     maxVisibleTiles: 135,
     maxPendingWrites: 8,
     audioChunkFrames: 8192,
-    mapBudgetCells: 62000,
-    maxAutoPhotos: 44,
-    autoPhotoMinIntervalMs: 4300,
-    maxAutoPhotosPerTarget: 3
+    mapBudgetCells: 65000
   }
 });
 
@@ -79,7 +70,6 @@ export const GRID = Object.freeze({
 });
 
 export const MARKPOINT = Object.freeze({
-  maxPoints: 10,
   minDepthM: 0.28,
   maxDepthM: 5.5,
   minSaturation: 0.24,
@@ -107,9 +97,9 @@ export const AUDIO = Object.freeze({
 });
 
 export const PROCESSING = Object.freeze({
-  planeDistanceM: 0.085,
-  planeNormalDeg: 24,
-  minPlaneSupport: 22,
+  planeDistanceM: 0.065,
+  planeNormalDeg: 18,
+  minPlaneSupport: 36,
   floorNormalY: 0.78,
   wallNormalYMax: 0.32,
   planeIterations: 210,

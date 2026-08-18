@@ -1,7 +1,7 @@
 {
   "name": "Room Scanner",
-  "version": "20.2.4",
-  "build": "v20.2.4-20260818-depth-guard-webxr-patch-mesh",
+  "version": "20.3.0",
+  "build": "v20.3.0-20260818-dense-gaussian-deep-fusion",
   "entry": "room_scanner_v20.html",
   "captureArchitecture": "append-only-binary",
   "processingArchitecture": "explicit-worker-after-xr",
