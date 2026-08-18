@@ -6,8 +6,8 @@
  * conservative: losing a frame is preferable to losing the browser process.
  */
 export const BUILD = Object.freeze({
-  version: '20.2.1',
-  id: 'v20.2.1-20260818-xr-surface-export-recovery-fix',
+  version: '20.2.2',
+  id: 'v20.2.2-20260818-shell-plane-marker-fix',
   dbName: 'room-scanner-v20-2',
   dbVersion: 1,
   rawFormat: 'RSCAN-ZIP-1'
@@ -70,6 +70,7 @@ export const GRID = Object.freeze({
 });
 
 export const MARKPOINT = Object.freeze({
+  maxPoints: 10,
   minDepthM: 0.28,
   maxDepthM: 5.5,
   minSaturation: 0.24,

@@ -1,10 +1,10 @@
-# Continuation Handoff - V20.2.1
+# Continuation Handoff - V20.2.2
 
 ## Baseline
 
 Canonical entry: `room_scanner_v12.html`
 
-Build: `v20.2.1-20260818-xr-surface-export-recovery-fix`
+Build: `v20.2.2-20260818-shell-plane-marker-fix`
 
 ## Non-negotiable architecture
 

@@ -12,7 +12,7 @@ const requireText = (rel, needles) => {
 };
 
 const html = requireText('room_scanner_v12.html', [
-  'V20.2.1',
+  'V20.2.2',
   'Salva ed esci da XR',
   'Scarica pacchetto RAW',
   'markpoint',
@@ -78,7 +78,7 @@ requireText('js/raw_export_v20_2_0.js', [
   'StoredZipBuilder', 'manifest.json', 'diagnostics',
 ]);
 requireText('workers/processing_worker_v20_2_0.js', [
-  'floor', 'ceiling', 'wall', 'object', 'frameRefs',
+  'fitStructuralPlanes', 'clusterResidualObjects', 'frameRefs',
 ]);
 requireText('js/acoustics_v20_2_0.js', [
   'direct', 'relative', 'peak', 'robust',
@@ -86,7 +86,7 @@ requireText('js/acoustics_v20_2_0.js', [
 requireText('workers/acoustic_worker_v20_2_0.js', [
   'chirp', 'PCM', 'RIR',
 ]);
-requireText('processing.html', ['V20.2.1', 'processing_ui_v20_2_0.js']);
+requireText('processing.html', ['V20.2.2', 'processing_ui_v20_2_0.js']);
 
 const sw = requireText('sw_v20_2_0.js', [
   'room_scanner_v12.html', 'processing.html', 'network',
@@ -96,7 +96,7 @@ if (/catch\s*\([^)]*\)\s*\{?\s*return\s+caches[^\n]*room_scanner_v12\.html/i.tes
 }
 
 requireText('tools/process_rscan.py', [
-  'RSPT', 'markpoint', 'trajectory', 'PLY', 'diagnostic',
+  'RSPT', 'markpoint', 'trajectory', 'write_ply', 'diagnostic',
 ]);
 requireText('README_V20_2_0.md', [
   'append-only', 'Safe handoff', 'adaptive metric', 'Acoustic',

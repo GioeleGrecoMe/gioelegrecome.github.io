@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/icon.svg">
   <link rel="stylesheet" href="css/app_v20_2_0.css">
-  <title>Room Scanner V20.2</title>
+  <title>Room Scanner V20.2.2</title>
 </head>
 <body>
   <canvas id="xr-canvas" aria-label="Vista WebXR"></canvas>
@@ -18,7 +18,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">ROOM SCANNER</div>
-        <h1>V20.2.1 · Adaptive Grid + RAW-first</h1>
+        <h1>V20.2.2 · Adaptive Grid + RAW-first</h1>
       </div>
       <div id="state-pill" class="pill neutral">Inizializzazione</div>
     </header>
@@ -76,7 +76,7 @@
         </div>
         <div id="guidance-card" class="guidance-card">
           <div id="guidance-arrow" class="guidance-arrow">↑</div>
-          <div><strong id="guidance-title">Muoviti lentamente</strong><p id="guidance-detail">Le griglie compariranno sulle superfici osservate.</p></div>
+          <div><strong id="guidance-title">Muoviti lentamente</strong><p id="guidance-detail">WebXR stima automaticamente pavimento, pareti e soffitto: non devi marcarli.</p></div>
         </div>
         <div class="telemetry mono">
           <span id="telemetry-points">0 punti</span>
@@ -84,9 +84,15 @@
           <span id="telemetry-chirps">0 chirp</span>
           <span id="telemetry-writes">coda 0</span>
         </div>
+        <div class="marker-strip" aria-label="Riferimenti spaziali">
+          <span id="markpoint-count" class="marker-count">0/10 riferimenti</span>
+          <select id="markpoint-action" aria-label="Azione sul riferimento">
+            <option value="new">Nuovo riferimento al reticolo</option>
+          </select>
+        </div>
       </div>
       <div class="capture-controls">
-        <button id="btn-markpoint" class="mark">Marca riferimento</button>
+        <button id="btn-markpoint" class="mark">Pinna al reticolo</button>
         <button id="btn-force-photo">Foto Deep</button>
         <button id="btn-safe-exit" class="danger">Salva ed esci da XR</button>
       </div>
@@ -121,7 +127,7 @@
   <dialog id="download-dialog" aria-labelledby="download-title">
     <h3 id="download-title">Download pronto</h3>
     <p id="download-detail">Il file è pronto.</p>
-    <div class="button-row"><button id="btn-download-ready" class="primary" type="button">Scarica ora</button><button type="button" onclick="this.closest('dialog').close()">Chiudi</button></div>
+    <div class="button-row"><button id="btn-download-ready" class="primary" type="button">Scarica di nuovo</button><button type="button" onclick="this.closest('dialog').close()">Chiudi</button></div>
   </dialog>
 
   <dialog id="markpoint-dialog">

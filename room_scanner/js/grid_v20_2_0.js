@@ -37,16 +37,17 @@ export function summarizeCoverage(tiles){const out={red:0,yellow:0,green:0,deep:
  * layer, and the overlay can be dropped under load without losing capture.
  */
 export class AdaptiveGridOverlay {
-  constructor(canvas,{maxVisibleTiles=105}={}){this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:true,desynchronized:true});this.maxVisibleTiles=maxVisibleTiles;this.tiles=[];this.lastGuidance=null;}
+  constructor(canvas,{maxVisibleTiles=105}={}){this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:true,desynchronized:true});this.maxVisibleTiles=maxVisibleTiles;this.tiles=[];this.reticle=null;this.lastGuidance=null;}
   resize(){const dpr=Math.min(2,globalThis.devicePixelRatio||1),w=Math.max(1,innerWidth),h=Math.max(1,innerHeight);if(this.canvas.width!==Math.round(w*dpr)||this.canvas.height!==Math.round(h*dpr)){this.canvas.width=Math.round(w*dpr);this.canvas.height=Math.round(h*dpr);this.canvas.style.width=`${w}px`;this.canvas.style.height=`${h}px`;this.ctx.setTransform(dpr,0,0,dpr,0,0);}return {w,h};}
   setTiles(tiles){this.tiles=Array.isArray(tiles)?tiles:[];}
+  setReticle(reticle){this.reticle=reticle?.position?reticle:null;}
   clear(){const {w,h}=this.resize();this.ctx.clearRect(0,0,w,h);}
   render({viewMatrix,projectionMatrix,cameraPosition}){
     const {w,h}=this.resize(),ctx=this.ctx;ctx.clearRect(0,0,w,h);if(!viewMatrix||!projectionMatrix)return null;
     const candidates=[];
     for(const tile of this.tiles){const d=dist3(tile.center,cameraPosition);if(d<.18||d>8.5)continue;const p=projectWorldPoint(tile.center,viewMatrix,projectionMatrix,w,h);const priority=tilePriority(tile,d);if(!p)continue;candidates.push({tile,p,d,priority});}
     candidates.sort((a,b)=>b.priority-a.priority||a.d-b.d);const visible=candidates.filter(c=>c.p.inside).slice(0,this.maxVisibleTiles);
-    for(const c of visible)this._drawTile(c.tile,viewMatrix,projectionMatrix,w,h,c.tile===candidates[0]?.tile);
+    for(const c of visible)this._drawTile(c.tile,viewMatrix,projectionMatrix,w,h,c.tile===candidates[0]?.tile);this._drawReticle(viewMatrix,projectionMatrix,w,h);
     const target=candidates.find(c=>c.tile.status!=='green')||null;this.lastGuidance=target?guidanceForTarget(target,w,h):null;return this.lastGuidance;
   }
   _drawTile(tile,viewMatrix,projectionMatrix,w,h,primary){
@@ -56,6 +57,7 @@ export class AdaptiveGridOverlay {
     const ctx=this.ctx;ctx.beginPath();ctx.moveTo(corners[0].x,corners[0].y);for(let i=1;i<4;i++)ctx.lineTo(corners[i].x,corners[i].y);ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=primary?3:1.2;ctx.stroke();
     if(primary){const c=projectWorldPoint(tile.center,viewMatrix,projectionMatrix,w,h);ctx.fillStyle='rgba(4,12,15,.78)';ctx.fillRect(c.x-20,c.y-9,40,18);ctx.fillStyle=tile.needDeep?'#64b5f6':'#edf7f5';ctx.font='700 9px system-ui';ctx.textAlign='center';ctx.fillText(tile.needDeep?'FOTO':'OK',c.x,c.y+3);}
   }
+  _drawReticle(viewMatrix,projectionMatrix,w,h){const r=this.reticle;if(!r)return;const n=norm3(r.normal||[0,1,0]),u=Math.abs(n[1])>.88?[1,0,0]:norm3(cross3([0,1,0],n)),v=norm3(cross3(n,u)),radius=.075,ring=[];for(let i=0;i<16;i++){const a=i*Math.PI*2/16;ring.push(projectWorldPoint(add3(r.position,add3(scale3(u,Math.cos(a)*radius),scale3(v,Math.sin(a)*radius))),viewMatrix,projectionMatrix,w,h));}const tip=projectWorldPoint(add3(r.position,scale3(n,.19)),viewMatrix,projectionMatrix,w,h),center=projectWorldPoint(r.position,viewMatrix,projectionMatrix,w,h);if(!tip||!center||ring.some(p=>!p))return;const ctx=this.ctx;ctx.beginPath();ctx.moveTo(ring[0].x,ring[0].y);for(const p of ring.slice(1))ctx.lineTo(p.x,p.y);ctx.closePath();ctx.strokeStyle='#9ffff0';ctx.fillStyle='rgba(82,224,182,.14)';ctx.lineWidth=2.4;ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(tip.x,tip.y);ctx.lineTo(center.x-7,center.y-6);ctx.lineTo(center.x+7,center.y-6);ctx.closePath();ctx.fillStyle='#9ffff0';ctx.fill();}
 }
 function tilePriority(tile,d){const state=tile.status==='red'?3:tile.status==='yellow'?1.7:.15;const deep=tile.needDeep?1.35:0;const object=(tile.surfaceType==='object'||tile.surfaceType==='edge') ? .85 : 0;return state+deep+object+(1/(.5+d));}
 function guidanceForTarget(target,w,h){const dx=target.p.x-w/2,dy=target.p.y-h/2;const angle=Math.atan2(dx,-dy);const inside=target.p.inside;const direction=inside&&Math.hypot(dx,dy)<Math.min(w,h)*.17?'hold':Math.abs(dx)>Math.abs(dy)?(dx<0?'left':'right'):(dy<0?'up':'down');const title=direction==='hold'?(target.tile.needDeep?'Scatta qui per Deep':'Mantieni e spostati lateralmente'):`Porta il telefono ${direction==='left'?'a sinistra':direction==='right'?'a destra':direction==='up'?'verso l’alto':'verso il basso'}`;const detail=target.tile.surfaceType==='object'?'Superficie di oggetto: servono forma e viste laterali.':target.tile.needDeep?'La geometria è ambigua: acquisisci una fotografia metrica.':'Aggiungi una vista distinta per stabilizzare la cella.';return {angleRad:angle,direction,title,detail,tileId:target.tile.id};}
