@@ -29,6 +29,7 @@ export class ModelPreview3D {
     this.showPoints = true;
     this.showSurfaces = true;
     this.showObjects = true;
+    this.interactionMode = 'orbit';
     this.pointer = new Map();
     this.dragState = null;
     this.raf = 0;
@@ -93,6 +94,16 @@ export class ModelPreview3D {
     else if (name === 'surfaces') this.showSurfaces = !!enabled;
     else if (name === 'objects') this.showObjects = !!enabled;
     this.requestRender();
+  }
+
+  setInteractionMode(mode) { this.interactionMode = mode === 'pan' ? 'pan' : 'orbit'; return this.interactionMode; }
+
+  setPointCloud({positions, colors, label='Nuvola RGB importata'}={}) {
+    if (!positions?.length) { this._setStatus('Nuvola vuota.'); return; }
+    const pos = positions instanceof Float32Array ? positions : new Float32Array(positions);
+    let col = colors instanceof Float32Array ? colors : new Float32Array(colors || (pos.length/3)*4);
+    if (!colors?.length) { col=new Float32Array((pos.length/3)*4); for(let i=0;i<col.length;i+=4){col[i]=col[i+1]=col[i+2]=.7;col[i+3]=1;} }
+    const bounds=computeBoundsFlat(pos);this.model=null;this.data={positions:pos,colors:col,lines:[],surfaces:[],surfaceColors:[],objectLines:[],objectSurfaces:[],objectSurfaceColors:[],bounds,pointCount:pos.length/3,rawPointCount:pos.length/3,surfaceCount:0,objectCount:0};this.target=bounds.center.slice();this.radius=Math.max(.35,bounds.radius);this.distance=Math.max(.8,this.radius*2.25);if(this.gl)this._upload();this._setStatus(`${label} · ${(pos.length/3).toLocaleString('it-IT')} punti`);this.requestRender();
   }
 
   requestRender() {
@@ -249,33 +260,32 @@ export class ModelPreview3D {
     c.addEventListener('pointerdown', e => {
       c.setPointerCapture?.(e.pointerId);
       this.pointer.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (this.pointer.size === 1) this.dragState = { x: e.clientX, y: e.clientY, yaw: this.yaw, pitch: this.pitch };
-      else if (this.pointer.size === 2) this._pinchStart = pinchState(this.pointer, this.distance);
+      if (this.pointer.size === 1) this.dragState = { x: e.clientX, y: e.clientY, yaw: this.yaw, pitch: this.pitch, target:this.target.slice(), button:e.button };
+      else if (this.pointer.size === 2) this._pinchStart = pinchState(this.pointer, this.distance, this.target);
     });
     c.addEventListener('pointermove', e => {
       if (!this.pointer.has(e.pointerId)) return;
       this.pointer.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.pointer.size === 1 && this.dragState) {
-        const dx = e.clientX - this.dragState.x, dy = e.clientY - this.dragState.y;
-        this.yaw = this.dragState.yaw - dx * 0.008;
-        this.pitch = clamp(this.dragState.pitch - dy * 0.008, -1.48, 1.48);
-        this.requestRender();
+        const dx = e.clientX - this.dragState.x, dy = e.clientY - this.dragState.y,pan=this.interactionMode==='pan'||e.shiftKey||this.dragState.button===1||this.dragState.button===2;
+        if(pan)this.target=panTarget(this.dragState.target,dx,dy,this.distance,this.yaw,this.pitch,this.canvas.clientHeight||420);else{this.yaw=this.dragState.yaw-dx*.008;this.pitch=clamp(this.dragState.pitch-dy*.008,-1.48,1.48);}this.requestRender();
       } else if (this.pointer.size === 2 && this._pinchStart) {
-        const now = pinchState(this.pointer, this.distance);
+        const now = pinchState(this.pointer, this.distance, this.target);
         if (now.span > 2) this.distance = clamp(this._pinchStart.distance * this._pinchStart.span / now.span, this.radius * 0.22, this.radius * 12 + 2);
-        this.requestRender();
+        this.target=panTarget(this._pinchStart.target,now.cx-this._pinchStart.cx,now.cy-this._pinchStart.cy,this._pinchStart.distance,this.yaw,this.pitch,this.canvas.clientHeight||420);this.requestRender();
       }
     });
     const end = e => {
       this.pointer.delete(e.pointerId);
       if (this.pointer.size === 1) {
         const p = [...this.pointer.values()][0];
-        this.dragState = { x: p.x, y: p.y, yaw: this.yaw, pitch: this.pitch };
+        this.dragState = { x: p.x, y: p.y, yaw: this.yaw, pitch: this.pitch, target:this.target.slice(), button:0 };
       } else this.dragState = null;
       if (this.pointer.size !== 2) this._pinchStart = null;
     };
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);
+    c.addEventListener('contextmenu',e=>e.preventDefault());
     c.addEventListener('wheel', e => {
       e.preventDefault();
       this.distance = clamp(this.distance * Math.exp(e.deltaY * 0.0012), this.radius * 0.22, this.radius * 12 + 2);
@@ -426,9 +436,14 @@ function lookAt(eye,target,up){const z=norm(sub(eye,target)),x=norm(cross(up,z))
 function perspective(fovy,aspect,near,far){const f=1/Math.tan(fovy/2),nf=1/(near-far);return new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,(far+near)*nf,-1,0,0,2*far*near*nf,0]);}
 function multiply4(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];o[c*4+r]=s;}return o;}
 function projectMVP(p,m,w,h){const x=p[0],y=p[1],z=p[2],cx=m[0]*x+m[4]*y+m[8]*z+m[12],cy=m[1]*x+m[5]*y+m[9]*z+m[13],cz=m[2]*x+m[6]*y+m[10]*z+m[14],cw=m[3]*x+m[7]*y+m[11]*z+m[15];if(cw<=1e-5)return null;return{x:(cx/cw*.5+.5)*w,y:(1-(cy/cw*.5+.5))*h,z:cz/cw};}
-function pinchState(map,distance){const a=[...map.values()];return{span:a.length>=2?Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y):0,distance};}
+function pinchState(map,distance,target=[0,0,0]){const a=[...map.values()],cx=a.length>=2?(a[0].x+a[1].x)/2:0,cy=a.length>=2?(a[0].y+a[1].y)/2:0;return{span:a.length>=2?Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y):0,distance,target:target.slice(),cx,cy};}
+function panTarget(target,dx,dy,distance,yaw,pitch,height){const scale=2*distance*Math.tan(Math.PI/6.5)/Math.max(120,height),right=[Math.cos(yaw),0,-Math.sin(yaw)],eye=orbitEye([0,0,0],1,yaw,pitch),forward=norm([-eye[0],-eye[1],-eye[2]]),up=norm(cross(right,forward));return[target[0]-right[0]*dx*scale+up[0]*dy*scale,target[1]-right[1]*dx*scale+up[1]*dy*scale,target[2]-right[2]*dx*scale+up[2]*dy*scale];}
 function resizeCanvasToDisplaySize(canvas,maxDpr=2){const dpr=Math.min(maxDpr,globalThis.devicePixelRatio||1),cssWidth=Math.max(1,Math.round(canvas.clientWidth||800)),cssHeight=Math.max(1,Math.round(canvas.clientHeight||420)),width=Math.max(1,Math.round(cssWidth*dpr)),height=Math.max(1,Math.round(cssHeight*dpr));if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;}return{width,height,cssWidth,cssHeight};}
 function resizeCanvasToDisplaySize2D(canvas,maxDpr=2){return resizeCanvasToDisplaySize(canvas,maxDpr);}
+function computeBoundsFlat(pos){let min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];for(let i=0;i+2<pos.length;i+=3)for(let k=0;k<3;k++){const v=pos[i+k];if(Number.isFinite(v)){min[k]=Math.min(min[k],v);max[k]=Math.max(max[k],v);}}if(!Number.isFinite(min[0])){min=[-1,0,-1];max=[1,2,1];}const center=min.map((v,i)=>(v+max[i])/2),radius=Math.max(.25,.5*Math.hypot(max[0]-min[0],max[1]-min[1],max[2]-min[2]));return{min,max,center,radius};}
+export function buildRgbPointCloudPly(model){const g=model?.geometry||{},pts=Array.isArray(g.surfels)?g.surfels:(Array.isArray(g.pointGaussians)?g.pointGaussians:(Array.isArray(g.gaussians)?g.gaussians:[])),valid=[];for(const p of pts){const q=normalizedPoint(p);if(q)valid.push(q);}const header=`ply\nformat binary_little_endian 1.0\ncomment Room Scanner RGB point cloud\nelement vertex ${valid.length}\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nend_header\n`,buf=new ArrayBuffer(valid.length*15),dv=new DataView(buf);let o=0;for(const p of valid){dv.setFloat32(o,p.position[0],true);dv.setFloat32(o+4,p.position[1],true);dv.setFloat32(o+8,p.position[2],true);dv.setUint8(o+12,Math.round(p.color[0]*255));dv.setUint8(o+13,Math.round(p.color[1]*255));dv.setUint8(o+14,Math.round(p.color[2]*255));o+=15;}return new Blob([header,buf],{type:'application/octet-stream'});}
+export async function loadRgbPointCloud(file){const buf=await file.arrayBuffer(),bytes=new Uint8Array(buf),headText=new TextDecoder().decode(bytes.subarray(0,Math.min(bytes.length,65536))),idx=headText.indexOf('end_header');if(idx<0)throw new Error('PLY non valido: header mancante');let headerEnd=headText.indexOf('\n',idx);if(headerEnd<0)headerEnd=idx+'end_header'.length;else headerEnd+=1;const header=headText.slice(0,headerEnd),m=/element vertex\s+(\d+)/i.exec(header);if(!m)throw new Error('PLY senza vertici');const count=Number(m[1]);if(/format binary_little_endian/i.test(header)){const dv=new DataView(buf,headerEnd),positions=new Float32Array(count*3),colors=new Float32Array(count*4);for(let i=0,o=0;i<count;i++,o+=15){positions[i*3]=dv.getFloat32(o,true);positions[i*3+1]=dv.getFloat32(o+4,true);positions[i*3+2]=dv.getFloat32(o+8,true);colors[i*4]=dv.getUint8(o+12)/255;colors[i*4+1]=dv.getUint8(o+13)/255;colors[i*4+2]=dv.getUint8(o+14)/255;colors[i*4+3]=1;}return{positions,colors,label:file.name};}if(/format ascii/i.test(header)){const lines=new TextDecoder().decode(bytes.subarray(headerEnd)).trim().split(/\r?\n/),positions=new Float32Array(count*3),colors=new Float32Array(count*4);for(let i=0;i<count&&i<lines.length;i++){const a=lines[i].trim().split(/\s+/).map(Number);positions.set(a.slice(0,3),i*3);colors[i*4]=(a[3]??180)/255;colors[i*4+1]=(a[4]??180)/255;colors[i*4+2]=(a[5]??180)/255;colors[i*4+3]=1;}return{positions,colors,label:file.name};}throw new Error('Formato PLY non supportato');}
+
 function shader(gl,type,source){const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){const msg=gl.getShaderInfoLog(s)||'shader compile failed';gl.deleteShader(s);throw new Error(msg);}return s;}
 function program(gl,vs,fs){const p=gl.createProgram(),v=shader(gl,gl.VERTEX_SHADER,vs),f=shader(gl,gl.FRAGMENT_SHADER,fs);gl.attachShader(p,v);gl.attachShader(p,f);gl.linkProgram(p);gl.deleteShader(v);gl.deleteShader(f);if(!gl.getProgramParameter(p,gl.LINK_STATUS)){const msg=gl.getProgramInfoLog(p)||'program link failed';gl.deleteProgram(p);throw new Error(msg);}return p;}
 

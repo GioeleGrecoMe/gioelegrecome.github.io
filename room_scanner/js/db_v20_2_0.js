@@ -60,6 +60,8 @@ export class CaptureRepository {
   async getRecords(sessionId,kind=null){await this.open();const all=await this._request(this._tx(['records']).objectStore('records').index('sessionId').getAll(sessionId));return all.filter(r=>!kind||r.kind===kind).sort((a,b)=>a.time-b.time);}
   async getBlobs(sessionId,kind=null){await this.open();const all=await this._request(this._tx(['blobs']).objectStore('blobs').index('sessionId').getAll(sessionId));return all.filter(r=>!kind||r.kind===kind).sort((a,b)=>a.time-b.time);}
   async getEvents(sessionId){await this.open();const all=await this._request(this._tx(['events']).objectStore('events').index('sessionId').getAll(sessionId));return all.sort((a,b)=>a.time-b.time);}
+  async deleteBlobKey(key){await this.open();const tx=this._tx(['blobs'],'readwrite');tx.objectStore('blobs').delete(key);await txDone(tx);}
+  async deleteRecordKey(key){await this.open();const tx=this._tx(['records'],'readwrite');tx.objectStore('records').delete(key);await txDone(tx);}
   async putModel(sessionId,model){await this.open();const tx=this._tx(['models'],'readwrite');tx.objectStore('models').put({key:sessionId,sessionId,time:Date.now(),model});await txDone(tx);}
   async getModel(sessionId){await this.open();const r=await this._request(this._tx(['models']).objectStore('models').get(sessionId));return r?.model||null;}
   async drain(timeoutMs=3500){

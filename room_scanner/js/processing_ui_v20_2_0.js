@@ -1,6 +1,6 @@
 import {CaptureRepository} from './db_v20_2_0.js';
 import {downloadBlob} from './raw_export_v20_2_0.js';
-import {ModelPreview3D} from './model_preview_v20_4_2.js';
+import {ModelPreview3D,buildRgbPointCloudPly,loadRgbPointCloud} from './model_preview_v20_4_2.js';
 
 const $=s=>document.querySelector(s),repo=new CaptureRepository();
 let sessionId=null,worker=null,acousticWorker=null,currentModel=null,viewer=null;
@@ -11,20 +11,23 @@ async function init(){
   viewer=new ModelPreview3D($('#model-preview'),{statusElement:$('#model-preview-status'),maxPoints:180000});
   bindViewerControls();
   const query=new URLSearchParams(location.search);sessionId=query.get('session')||(await repo.latestSession())?.id;
-  if(!sessionId){$('#processing-stage').textContent='Nessuna sessione disponibile.';$('#btn-run-processing').disabled=true;return;}
+  if(!sessionId){$('#processing-stage').textContent='Nessuna sessione disponibile. Puoi comunque caricare una nuvola PLY RGB salvata in precedenza.';$('#btn-run-processing').disabled=true;return;}
   const session=await repo.getSession(sessionId);$('#processing-stage').textContent=`Sessione ${sessionId} · stato ${session.status}`;
   currentModel=await repo.getModel(sessionId);
-  if(currentModel){$('#btn-export-model').disabled=false;showModel(currentModel);log('È presente un modello già salvato.');}
+  if(currentModel){$('#btn-export-model').disabled=false;$('#btn-export-ply').disabled=false;showModel(currentModel);log('È presente un modello già salvato.');}
 }
 
 $('#btn-run-processing').addEventListener('click',()=>run());
 $('#btn-run-acoustics').addEventListener('click',()=>runAcoustics());
 $('#btn-cancel-processing').addEventListener('click',()=>worker?.postMessage({type:'cancel'}));
 $('#btn-export-model').addEventListener('click',()=>{if(!currentModel)return;downloadBlob(new Blob([JSON.stringify(currentModel,null,2)],{type:'application/json'}),`roomscan-${sessionId}-model.json`);});
+$('#btn-export-ply')?.addEventListener('click',()=>{if(!currentModel)return;downloadBlob(buildRgbPointCloudPly(currentModel),`roomscan-${sessionId}-rgb.ply`);});
+$('#btn-import-ply')?.addEventListener('click',()=>$('#input-import-ply')?.click());
+$('#input-import-ply')?.addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{const cloud=await loadRgbPointCloud(file);viewer?.setPointCloud(cloud);log(`Nuvola caricata: ${file.name}, ${(cloud.positions.length/3).toLocaleString('it-IT')} punti.`);}catch(error){log(`Import PLY fallito: ${error.message}`,'error');}finally{e.target.value='';}});
 
 async function run(){
   if(worker){worker.terminate();worker=null;}
-  $('#btn-run-processing').disabled=true;$('#btn-export-model').disabled=true;
+  $('#btn-run-processing').disabled=true;$('#btn-export-model').disabled=true;$('#btn-export-ply').disabled=true;
   const mode=$('#processing-mode').value,memoryBudgetMB=Number($('#memory-budget').value);log(`Avvio modalità ${mode}, budget ${memoryBudgetMB} MB.`);
   worker=new Worker(new URL('../workers/processing_worker_v20_4_0.js',import.meta.url),{type:'module'});
   worker.onmessage=e=>{
@@ -34,7 +37,7 @@ async function run(){
     }else if(m.type==='complete'){
       currentModel=m.model;$('#processing-progress').value=100;
       $('#processing-stage').textContent=`Completato: ${m.summary.gaussians??m.summary.surfels??0} Gaussian, ${m.summary.planes} superfici, ${m.summary.objects} oggetti.`;
-      $('#btn-export-model').disabled=false;$('#btn-run-processing').disabled=false;log('Modello salvato in IndexedDB.');showModel(currentModel);worker.terminate();worker=null;
+      $('#btn-export-model').disabled=false;$('#btn-export-ply').disabled=false;$('#btn-run-processing').disabled=false;log('Modello salvato in IndexedDB.');showModel(currentModel);worker.terminate();worker=null;
     }else if(m.type==='error'){
       log(`${m.message}\n${m.stack||''}`,'error');$('#processing-stage').textContent='Errore: i RAW restano disponibili.';$('#btn-run-processing').disabled=false;worker?.terminate();worker=null;
     }
@@ -46,7 +49,7 @@ async function run(){
 async function runAcoustics(){
   if(acousticWorker)acousticWorker.terminate();$('#btn-run-acoustics').disabled=true;log('Avvio analisi RIR relativa in worker separato.');
   acousticWorker=new Worker(new URL('../workers/acoustic_worker_v20_2_0.js',import.meta.url),{type:'module'});
-  acousticWorker.onmessage=async e=>{const m=e.data||{};if(m.type==='progress'){if(Number.isFinite(m.progress))$('#processing-progress').value=m.progress;$('#processing-stage').textContent=m.detail;log(m.detail);}else if(m.type==='complete'){log(`RIR completate: ${m.count}, valide ${m.valid}.`);currentModel=await repo.getModel(sessionId);if(currentModel){$('#btn-export-model').disabled=false;showModel(currentModel);}$('#btn-run-acoustics').disabled=false;acousticWorker.terminate();acousticWorker=null;}else if(m.type==='error'){log(m.message,'error');$('#btn-run-acoustics').disabled=false;acousticWorker?.terminate();acousticWorker=null;}};
+  acousticWorker.onmessage=async e=>{const m=e.data||{};if(m.type==='progress'){if(Number.isFinite(m.progress))$('#processing-progress').value=m.progress;$('#processing-stage').textContent=m.detail;log(m.detail);}else if(m.type==='complete'){log(`RIR completate: ${m.count}, valide ${m.valid}.`);currentModel=await repo.getModel(sessionId);if(currentModel){$('#btn-export-model').disabled=false;$('#btn-export-ply').disabled=false;showModel(currentModel);}$('#btn-run-acoustics').disabled=false;acousticWorker.terminate();acousticWorker=null;}else if(m.type==='error'){log(m.message,'error');$('#btn-run-acoustics').disabled=false;acousticWorker?.terminate();acousticWorker=null;}};
   acousticWorker.onerror=e=>{log(e.message,'error');$('#btn-run-acoustics').disabled=false;};acousticWorker.postMessage({type:'run',sessionId});
 }
 
@@ -63,6 +66,7 @@ function showModel(model){
 
 function bindViewerControls(){
   $('#btn-view-reset')?.addEventListener('click',()=>viewer?.resetView());
+  $('#btn-view-mode')?.addEventListener('click',e=>{const mode=e.currentTarget.dataset.mode==='pan'?'orbit':'pan';e.currentTarget.dataset.mode=mode;e.currentTarget.textContent=mode==='pan'?'Modalità: sposta':'Modalità: orbita';viewer?.setInteractionMode(mode);});
   $('#view-points')?.addEventListener('change',e=>viewer?.setLayer('points',e.target.checked));
   $('#view-surfaces')?.addEventListener('change',e=>viewer?.setLayer('surfaces',e.target.checked));
   $('#view-objects')?.addEventListener('change',e=>viewer?.setLayer('objects',e.target.checked));

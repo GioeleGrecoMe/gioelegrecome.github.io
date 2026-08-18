@@ -1,0 +1,21 @@
+Room Scanner V20.4.3 drop-in
+============================
+
+Estrai il CONTENUTO di questa cartella nella root del sito room_scanner e
+sovrascrivi i file omonimi.
+
+Questa patch NON contiene room_scanner_v20.html, room_scanner_v12.html o
+js/app_v20_2_0.js, cosi le personalizzazioni della pagina principale restano
+intatte.
+
+Funzioni V20.4.3:
+- richieste/foto Deep moderate da movimento + novita + cooldown per zona;
+- rolling cleanup dei JPEG automatici mantenendo manuali e markpoint;
+- celle predette non contano come zone Deep;
+- snapshot riserva spazio ai punti stabili/verdi e tile-memory anti-flicker;
+- green piu raggiungibile con evidenza XR multi-view reale;
+- target parete propagati verticalmente fino al soffitto;
+- markpoint con fallback center hit-test fresco;
+- pruning conservativo dei soli outlier palesi nel modello derivato (RAW invariati);
+- viewer 3D orbit/pan/pinch;
+- export PLY RGB binary little-endian + re-import PLY anche senza sessione attiva.

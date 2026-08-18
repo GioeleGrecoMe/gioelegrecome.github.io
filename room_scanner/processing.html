@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="css/app_v20_2_0.css"><link rel="stylesheet" href="css/preview_v20_4_2.css"><title>Room Scanner Processing</title>
 </head><body class="processing-page">
 <main class="processing-shell">
-  <header class="topbar"><div><div class="eyebrow">PROCESSING ISOLATO</div><h1>Ricostruzione V20.4</h1></div><a class="button-link" href="room_scanner_v20.html">Torna alla cattura</a></header>
+  <header class="topbar"><div><div class="eyebrow">PROCESSING ISOLATO</div><h1>Ricostruzione V20.4.3</h1></div><a class="button-link" href="room_scanner_v20.html">Torna alla cattura</a></header>
   <section class="card">
     <p>Questa pagina viene aperta solo su richiesta e non condivide il ciclo di vita WebXR. Ogni fase è riavviabile e salva risultati intermedi.</p>
     <div class="form-grid">
@@ -15,7 +15,7 @@
         <select id="memory-budget"><option value="192">192 MB</option><option value="320" selected>320 MB</option><option value="512">512 MB</option></select>
       </label>
     </div>
-    <div class="button-row"><button id="btn-run-processing" class="primary">Avvia processing</button><button id="btn-cancel-processing">Interrompi</button><button id="btn-export-model" disabled>Scarica modello</button><button id="btn-run-acoustics">Analizza RIR relative</button></div>
+    <div class="button-row"><button id="btn-run-processing" class="primary">Avvia processing</button><button id="btn-cancel-processing">Interrompi</button><button id="btn-export-model" disabled>Scarica modello</button><button id="btn-export-ply" disabled>Scarica PLY RGB</button><button id="btn-import-ply" type="button">Carica PLY RGB</button><input id="input-import-ply" type="file" accept=".ply,application/octet-stream" hidden><button id="btn-run-acoustics">Analizza RIR relative</button></div>
   </section>
   <section class="card"><h3>Avanzamento</h3><progress id="processing-progress" max="100" value="0"></progress><p id="processing-stage">Pronto.</p><pre id="processing-log" class="log-view"></pre></section>
   <section class="card model-preview-card">
@@ -26,7 +26,7 @@
         <label><input id="view-surfaces" type="checkbox" checked> Superfici</label>
         <label><input id="view-objects" type="checkbox" checked> Oggetti</label>
         <label class="point-size-control">Punto <input id="view-point-size" type="range" min="1" max="6" step="0.25" value="2.2"></label>
-        <button id="btn-view-reset" type="button">Centra vista</button>
+        <button id="btn-view-mode" type="button" data-mode="orbit">Modalità: orbita</button><button id="btn-view-reset" type="button">Centra vista</button>
       </div>
     </div>
     <div class="preview-stats">
@@ -38,7 +38,7 @@
       <span id="preview-provenance">XR 0 · Deep 0</span>
     </div>
     <canvas id="model-preview" class="model-preview" aria-label="Anteprima 3D interattiva del modello"></canvas>
-    <p class="preview-help">Trascina con un dito per orbitare · pinch per zoom · doppio tap/click per ricentrare. I punti RGB sono la misura primaria; le superfici trasparenti sono un fit derivato.</p>
+    <p class="preview-help">Un dito orbita oppure sposta secondo la modalità · due dita spostano + zoomano · su desktop Shift/right-drag sposta · doppio tap/click ricentra. I punti RGB sono la misura primaria; le superfici trasparenti sono un fit derivato.</p>
   </section>
 </main>
 <script type="module" src="js/processing_ui_v20_2_0.js"></script>

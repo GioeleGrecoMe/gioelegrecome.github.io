@@ -13,11 +13,11 @@ export function scoreObservationCell(cell,now=Date.now()){
   const parallaxDeg=cell.maxParallaxDeg||0;const parallaxScore=clamp((parallaxDeg-GRID.minParallaxDeg)/(GRID.strongParallaxDeg-GRID.minParallaxDeg),0,1);
   const ageMs=Math.max(0,now-(cell.lastSeen||now));const stalePenalty=clamp((ageMs-GRID.staleAfterMs)/(GRID.staleAfterMs*3),0,.24);
   const objectLike=(cell.surfaceType==='object'||cell.surfaceType==='edge');
-  const requiredPhoto=objectLike ? .72 : .48;const requiredParallax=objectLike ? .55 : .25;
+  const requiredPhoto=objectLike ? .50 : .30;const requiredParallax=objectLike ? .30 : .10;
   let status='red';
   if(geometry>=GRID.greenGeometryThreshold&&photoScore>=requiredPhoto&&parallaxScore>=requiredParallax)status='green';
   else if(geometry>=GRID.redGeometryThreshold||photoScore>.20)status='yellow';
-  const needDeep=(status!=='green'&&photoScore<requiredPhoto)||(geometry<.56&&photoViews>0&&ageMs>GRID.deepRequestAfterMs);
+  const observedSupport=depthSupport;const needDeep=status!=='green'&&observedSupport>=2&&((photoViews===0&&geometry>.22)||(photoViews>0&&geometry<.52&&photoScore<requiredPhoto&&ageMs>GRID.deepRequestAfterMs));
   const overall=clamp(.58*geometry+.27*photoScore+.15*parallaxScore-stalePenalty,0,1);
   return {geometry,photoScore,parallaxScore,normalResultant,positionStdM:posStdM,status,needDeep,overall,independentViews,photoViews,maxBaselineM:baseline,maxParallaxDeg:parallaxDeg};
 }
@@ -94,6 +94,7 @@ export class AdaptiveGridOverlay {
     ctx.beginPath();ctx.arc(c.p.x,c.p.y,r,0,Math.PI*2);
     if(status==='green')ctx.fill();else{ctx.fillStyle='rgba(4,12,15,.34)';ctx.fill();ctx.stroke();}
     if(objectLike){ctx.beginPath();ctx.arc(c.p.x,c.p.y,r+2.2,0,Math.PI*2);ctx.globalAlpha=.45;ctx.stroke();}
+    if(c.tile.markpointId){ctx.globalAlpha=.96;ctx.strokeStyle='#ff4dff';ctx.lineWidth=2.1;ctx.beginPath();ctx.arc(c.p.x,c.p.y,r+5.5,0,Math.PI*2);ctx.moveTo(c.p.x-r-8,c.p.y);ctx.lineTo(c.p.x+r+8,c.p.y);ctx.moveTo(c.p.x,c.p.y-r-8);ctx.lineTo(c.p.x,c.p.y+r+8);ctx.stroke();}
     ctx.restore();
   }
   _drawTarget(target,w,h){
@@ -108,7 +109,7 @@ export class AdaptiveGridOverlay {
     ctx.restore();
   }
 }
-function tilePriority(tile,d){const state=tile.status==='red'?3:tile.status==='yellow'?1.7:.15;const deep=tile.needDeep?1.35:0;const object=(tile.surfaceType==='object'||tile.surfaceType==='edge') ? .85 : 0;return state+deep+object+(1/(.5+d));}
+function tilePriority(tile,d){const state=tile.status==='red'?2.6:tile.status==='yellow'?1.7:.60;const deep=tile.needDeep?1.35:0;const object=(tile.surfaceType==='object'||tile.surfaceType==='edge') ? .85 : 0;return state+deep+object+(1/(.5+d));}
 function guidanceForTarget(target,w,h){const dx=target.p.x-w/2,dy=target.p.y-h/2;const angle=Math.atan2(dx,-dy);const inside=target.p.inside;const direction=inside&&Math.hypot(dx,dy)<Math.min(w,h)*.17?'hold':Math.abs(dx)>Math.abs(dy)?(dx<0?'left':'right'):(dy<0?'up':'down');const title=direction==='hold'?(target.tile.needDeep?'Scatta qui per Deep':'Mantieni e spostati lateralmente'):`Porta il telefono ${direction==='left'?'a sinistra':direction==='right'?'a destra':direction==='up'?'verso l’alto':'verso il basso'}`;const detail=target.tile.surfaceType==='object'?'Oggetto visibile: completa forma e viste laterali.':target.tile.needDeep?'La geometria è ambigua: acquisisci una fotografia metrica.':'Aggiungi una vista distinta per stabilizzare questi punti.';return {angleRad:angle,direction,title,detail,tileId:target.tile.id};}
 function pointColor(status){if(status==='green')return{fill:'rgba(82,224,182,.88)',stroke:'rgba(125,255,218,.98)'};if(status==='yellow')return{fill:'rgba(255,209,102,.5)',stroke:'rgba(255,221,126,.98)'};return{fill:'rgba(255,93,115,.5)',stroke:'rgba(255,113,133,.98)'};}
 function meshColor(status,q){const a=.12+.28*clamp(q||0,0,1);if(status==='green')return`rgba(82,224,182,${a})`;if(status==='yellow')return`rgba(255,209,102,${a})`;return`rgba(255,93,115,${a})`;}

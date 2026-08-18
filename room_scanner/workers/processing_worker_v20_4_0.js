@@ -49,8 +49,10 @@ async function run({sessionId,mode='safe',memoryBudgetMB=320}){
     catch(error){deepSummary={status:'failed',message:error.message};post('warning',69,`Depth Anything non disponibile; mantengo la mappa WebXR: ${error.message}`);}
   }
 
-  check();stage(72,'Compattazione fine: rimuovo solo ridondanza sub-centimetrica');
-  points=decimateSurfels(points,{maxPoints:Math.min(maxSurfels,320000)});await saveCheckpoint(repo,sessionId,'decimation',{surfelCount:points.length});check();
+  check();stage(71,'Pruning conservativo degli outlier palesi (RAW invariati)');
+  const beforePrune=points.length;points=pruneGrossOutliers(points,{poses:collectPosePositions(byKind,registration,referenceSegment)});const grossPruned=beforePrune-points.length;stage(72,`Pruning: rimossi ${grossPruned} punti isolati/fuori volume; ${points.length} restano`);
+  stage(74,'Compattazione fine: rimuovo solo ridondanza sub-centimetrica');
+  points=decimateSurfels(points,{maxPoints:Math.min(maxSurfels,320000)});await saveCheckpoint(repo,sessionId,'decimation',{surfelCount:points.length,grossPruned});check();
   stage(80,'Fit strutturale sopra la mappa densa (la mappa originale resta nel modello)');const fit=fitStructuralPlanes(points);await saveCheckpoint(repo,sessionId,'structural-fit',{stats:fit.stats,planes:fit.planes});check();
   stage(89,'Raggruppo i residui persistenti in oggetti RGB');const objects=clusterResidualObjects(fit.residual,{maxPoints:Math.min(26000,Math.floor(memoryBudgetMB*70))});check();
   const markpoints=rawMarkpoints.map(m=>transformEntityPoint(m,registration,referenceSegment)),frames=(byKind.get('frame-meta')||[]).map(r=>transformFrameMeta(r.value,registration,referenceSegment)).filter(Boolean),chirps=(byKind.get('chirp')||[]).map(r=>transformChirp(r.value,registration,referenceSegment)).filter(Boolean),audio=blobRecords.filter(b=>b.kind==='audio-pcm').map(b=>({key:b.key,size:b.size,meta:b.meta}));
@@ -59,6 +61,14 @@ async function run({sessionId,mode='safe',memoryBudgetMB=320}){
   // working, while newer tools can use covariance/scales as true Gaussian data.
   model.format='ROOMSCAN-MODEL-20.4';model.geometry.gaussianCount=points.filter(p=>p.gaussian).length;model.geometry.gaussianEncoding='point3d.mean+covariance6+scale+normal+rgb+confidence+ray-provenance';model.geometry.rawRaySamples=rawRaySamples;model.geometry.rawRayBatches=rayBlobs.length;model.geometry.rawRayFormat='RSRY-1';model.processing={...(model.processing||{}),deepFusion:deepSummary};
   await repo.putModel(sessionId,model);await repo.patchSession(sessionId,{status:'processed',flags:{processingStarted:true},processing:{finishedAt:Date.now(),mode,surfelCount:points.length,planeCount:fit.planes.length,objectCount:objects.length,deepFusion:compactDeepSummary(deepSummary)}});await repo.drain(2500);stage(100,'Modello salvato');postMessage({type:'complete',model,summary:{surfels:points.length,gaussians:model.geometry.gaussianCount,planes:fit.planes.length,objects:objects.length,frames:frames.length,chirps:chirps.length,deep:compactDeepSummary(deepSummary)}});repo.close();
+}
+
+function collectPosePositions(byKind,registration,referenceSegment){const out=[];for(const r of byKind.get('pose-chunk')||[]){const sid=r.value?.segmentId||referenceSegment,reg=registration.transforms[sid];if(sid!==referenceSegment&&!reg?.registered)continue;for(const p of r.value?.poses||[]){let q=p.position||[p.matrix?.[12],p.matrix?.[13],p.matrix?.[14]];if(q?.every(Number.isFinite)){if(reg?.matrix)q=transformPoint4(reg.matrix,q);out.push(q);}}}return out;}
+function pruneGrossOutliers(points,{poses=[]}={}){
+  if(points.length<80)return points.filter(p=>p?.position?.every(Number.isFinite));
+  let bounds=null;if(poses.length){const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];for(const p of poses)for(let k=0;k<3;k++){min[k]=Math.min(min[k],p[k]);max[k]=Math.max(max[k],p[k]);}bounds={min:min.map(v=>v-9.0),max:max.map(v=>v+9.0)};}
+  const voxel=.16,counts=new Map();for(const p of points){const q=p?.position;if(!q?.every(Number.isFinite))continue;if(bounds&&q.some((v,k)=>v<bounds.min[k]||v>bounds.max[k]))continue;const key=hashCell(q,voxel);counts.set(key,(counts.get(key)||0)+1);}
+  const keep=[];for(const p of points){const q=p?.position;if(!q?.every(Number.isFinite))continue;if(bounds&&q.some((v,k)=>v<bounds.min[k]||v>bounds.max[k]))continue;if(p.markpointId||(p.sourceCounts?.xr||0)>=2||(p.sourceCounts?.deep||0)>=2||(p.viewCount||0)>=2||(p.sourceCounts?.grid||0)>=2){keep.push(p);continue;}const ix=Math.floor(q[0]/voxel),iy=Math.floor(q[1]/voxel),iz=Math.floor(q[2]/voxel);let local=0;for(let dx=-1;dx<=1&&local<3;dx++)for(let dy=-1;dy<=1&&local<3;dy++)for(let dz=-1;dz<=1;dz++){local+=counts.get(`${ix+dx},${iy+dy},${iz+dz}`)||0;if(local>=3)break;}if(local>=3&&(p.quality??.5)>.035)keep.push(p);}return keep;
 }
 
 class GaussianAccumulator{

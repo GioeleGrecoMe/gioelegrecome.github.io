@@ -142,8 +142,8 @@ function ingestPlanes(m){
       let u=normalize(sub(pts[1],pts[0]));if(Math.hypot(...u)<.5)u=orthogonal(normal);let v=normalize(cross(normal,u));if(Math.hypot(...v)<.5)v=orthogonal(u);
       const uv=pts.map(q=>[dot(sub(q,center),u),dot(sub(q,center),v)]),minU=Math.min(...uv.map(q=>q[0])),maxU=Math.max(...uv.map(q=>q[0])),minV=Math.min(...uv.map(q=>q[1])),maxV=Math.max(...uv.map(q=>q[1]));
       const step=kind==='wall'?0.24:0.28;
-      for(let a=minU;a<=maxU;a+=step)for(let b=minV;b<=maxV;b+=step){const q=[center[0]+u[0]*a+v[0]*b,center[1]+u[1]*a+v[1]*b,center[2]+u[2]*a+v[2]*b],k=`plane:${kind}:${key3(...q,step)}`;planeCells.set(k,{id:k,key:k,center:q,normal,rgb:[128,150,165],size:step,surfaceType:kind,status:'yellow',needDeep:true,overall:.24,geometry:.28,photoScore:0,maxParallaxDeg:0,maxBaselineM:0,viewCount:0,frameRefs:[],markpointId:null,lastSeen:time,count:0,positionStdM:null,curvature:0,predicted:true,planeHint:true});}
-    }else if(p.center?.length>=3){const k=`plane:${kind}:${key3(...p.center,.26)}`;planeCells.set(k,{id:k,key:k,center:p.center,normal,rgb:[128,150,165],size:.26,surfaceType:kind,status:'yellow',needDeep:true,overall:.2,geometry:.25,photoScore:0,maxParallaxDeg:0,maxBaselineM:0,viewCount:0,frameRefs:[],lastSeen:time,count:0,predicted:true,planeHint:true});}
+      for(let a=minU;a<=maxU;a+=step)for(let b=minV;b<=maxV;b+=step){const q=[center[0]+u[0]*a+v[0]*b,center[1]+u[1]*a+v[1]*b,center[2]+u[2]*a+v[2]*b],k=`plane:${kind}:${key3(...q,step)}`;planeCells.set(k,{id:k,key:k,center:q,normal,rgb:[128,150,165],size:step,surfaceType:kind,status:'yellow',needDeep:false,overall:.24,geometry:.28,photoScore:0,maxParallaxDeg:0,maxBaselineM:0,viewCount:0,frameRefs:[],markpointId:null,lastSeen:time,count:0,positionStdM:null,curvature:0,predicted:true,planeHint:true});}
+    }else if(p.center?.length>=3){const k=`plane:${kind}:${key3(...p.center,.26)}`;planeCells.set(k,{id:k,key:k,center:p.center,normal,rgb:[128,150,165],size:.26,surfaceType:kind,status:'yellow',needDeep:false,overall:.2,geometry:.25,photoScore:0,maxParallaxDeg:0,maxBaselineM:0,viewCount:0,frameRefs:[],lastSeen:time,count:0,predicted:true,planeHint:true});}
   }
 }
 
@@ -156,10 +156,12 @@ function cellSummary(c,now){
   let surfaceType=Math.abs(ny)>.78?(ny>0?'floor':'ceiling'):Math.abs(ny)<.32?(curvature>.24?'edge':'wall'):(curvature>.17?'object':'unknown');if(c.markpointId)surfaceType='edge';
   const sourceSupport=c.xrDepth+CFG.deepWeight*c.deepDepth+CFG.hitWeight*c.hitTest+.25*c.planeSupport,support=1-Math.exp(-sourceSupport/5.5),viewScore=clamp((origins.length-1)/2.6,0,1),baseScore=clamp((baseline-.16)/.34,0,1),normalScore=clamp((resultant-.42)/.53,0,1),varScore=clamp(1-std/.085,0,1),temporalScore=clamp((c.lastSeen-c.firstSeen)/2200,0,1);
   const geometry=.27*support+.18*viewScore+.15*baseScore+.18*normalScore+.12*varScore+.10*temporalScore;
-  const frames=[...c.frameRefs.values()],photoViews=frames.length,sharp=photoViews?frames.reduce((s,f)=>s+f.sharpness,0)/photoViews:0,expo=photoViews?frames.reduce((s,f)=>s+f.exposure,0)/photoViews:0,photo=(1-Math.exp(-photoViews/1.45))*(.58+.24*sharp+.18*expo),parallaxScore=clamp((parallax-5)/12,0,1),objectLike=surfaceType==='object'||surfaceType==='edge',requiredPhoto=objectLike?.70:.45,requiredParallax=objectLike?.48:.20;
-  const confirmed=origins.length>=CFG.minConfirmViews&&(c.lastSeen-c.firstSeen>=CFG.minConfirmSpanMs||c.xrDepth>=5||c.deepDepth>=3);
-  let status='red';if(confirmed&&geometry>=.70&&photo>=requiredPhoto&&parallaxScore>=requiredParallax)status='green';else if(geometry>=.30||photo>.18)status='yellow';
-  const needDeep=(status!=='green'&&photo<requiredPhoto)||(geometry<.58&&photoViews>0&&now-c.lastSeen>3600),overall=clamp(.57*geometry+.27*photo+.16*parallaxScore,0,1),size=(c.markpointId||surfaceType==='edge')?.052:(surfaceType==='object'?.065:((['wall','floor','ceiling'].includes(surfaceType)&&resultant>.84&&geometry>.68)?.20:.105));
+  const frames=[...c.frameRefs.values()],photoViews=frames.length,sharp=photoViews?frames.reduce((s,f)=>s+f.sharpness,0)/photoViews:0,expo=photoViews?frames.reduce((s,f)=>s+f.exposure,0)/photoViews:0,photo=(1-Math.exp(-photoViews/1.35))*(.58+.24*sharp+.18*expo),parallaxScore=clamp((parallax-3.5)/11,0,1),objectLike=surfaceType==='object'||surfaceType==='edge',requiredPhoto=objectLike?.48:.28,requiredParallax=objectLike?.28:.08;
+  const confirmed=(origins.length>=2&&(c.lastSeen-c.firstSeen>=420||c.xrDepth>=3||c.deepDepth>=3))||c.xrDepth>=7;
+  let status='red';if(confirmed&&geometry>=(objectLike?.61:.54)&&photo>=requiredPhoto&&parallaxScore>=requiredParallax)status='green';else if(geometry>=.24||photo>.14||c.xrDepth>=2)status='yellow';
+  // Deep is requested only for *observed* ambiguous cells. Predicted grid cells
+  // guide camera motion but no longer inflate the FOTO counter by thousands.
+  const observedSupport=c.xrDepth+c.deepDepth+c.hitTest,needDeep=status!=='green'&&observedSupport>=2&&((photoViews===0&&geometry>=.22)||(photoViews>0&&geometry<.52&&photo<requiredPhoto)),overall=clamp(.59*geometry+.25*photo+.16*parallaxScore,0,1),size=(c.markpointId||surfaceType==='edge')?.052:(surfaceType==='object'?.065:((['wall','floor','ceiling'].includes(surfaceType)&&resultant>.84&&geometry>.68)?.20:.105));
   const rgbStd=rgbStd3(c,rgb,iw);
   return {id:c.key,key:c.key,center:p,normal:n,rgb,size,surfaceType,status,needDeep,overall,geometry,photoScore:photo,maxParallaxDeg:parallax,maxBaselineM:baseline,viewCount:origins.length,frameRefs:frames,markpointId:c.markpointId,lastSeen:c.lastSeen,firstSeen:c.firstSeen,count:c.count,positionStdM:std,curvature,sourceCounts:{xr:c.xrDepth,deep:c.deepDepth,hit:c.hitTest},gaussian:{kind:'point3d',mean:p,covariance6:covariance,scale:[eig.tangentScale,eig.secondScale,eig.normalScale],normal:n,rgbMean:rgb,rgbStd,opacity:clamp(.10+.90*overall,0,1),confidence:overall,confirmed,temporalSpanMs:c.lastSeen-c.firstSeen,viewCount:origins.length,support:c.count,rayTerminated:true,voxelM:CFG.voxel}};
 }
@@ -180,12 +182,27 @@ function snapshot(m){
   // region. This avoids the old visual result in which a plane grid replaced
   // rich object geometry.
   const occupied=new Set(real.map(s=>key3(...s.center,.12)));const hints=[];for(const p of planeCells.values()){if(dist(p.center,center)>radius||occupied.has(key3(...p.center,.12)))continue;hints.push({...p,_d:dist(p.center,center),_p:priority(p,dist(p.center,center))-.35});}
-  const predicted=propagateTargets(real,center,Math.min(650,Math.floor(max*.28)));let arr=real.concat(hints,predicted);arr.sort((a,b)=>b._p-a._p);arr=arr.slice(0,max).map(({_d,_p,...s})=>s);
-  postMessage({type:'snapshot',requestId:m.requestId||null,tiles:arr,stats:{cells:cells.size,planeCells:planeCells.size,predictedTargets:predicted.length,totalPoints,rawRayCount,droppedPoints,batches,confirmedGaussians:real.filter(s=>s.gaussian?.confirmed).length}});
+  const predicted=propagateTargets(real,center,Math.min(520,Math.floor(max*.18)));
+  // Reserve room for already-confirmed geometry. The old priority list was
+  // dominated by red targets, so stable green points visually disappeared.
+  const stable=real.filter(s=>s.status==='green'||s.gaussian?.confirmed).sort((a,b)=>b.overall-a.overall||a._d-b._d),unresolved=real.filter(s=>!(s.status==='green'||s.gaussian?.confirmed)).concat(hints).sort((a,b)=>b._p-a._p),arr=[];const used=new Set();
+  const take=(list,n)=>{for(const x of list){if(arr.length>=max||n--<=0)break;if(used.has(x.id))continue;used.add(x.id);arr.push(x);}};
+  take(stable,Math.floor(max*.48));take(unresolved,Math.floor(max*.40));take(predicted,Math.floor(max*.12));take(stable,max-arr.length);take(unresolved,max-arr.length);
+  const clean=arr.slice(0,max).map(({_d,_p,...s})=>s);
+  postMessage({type:'snapshot',requestId:m.requestId||null,tiles:clean,stats:{cells:cells.size,planeCells:planeCells.size,predictedTargets:predicted.length,totalPoints,rawRayCount,droppedPoints,batches,confirmedGaussians:real.filter(s=>s.gaussian?.confirmed).length}});
 }
 
-function propagateTargets(real,camera,maxPredicted){const out=[],seen=new Set(real.map(s=>`${s.surfaceType}:${key3(...s.center,Math.max(.04,s.size*.72))}`)),seeds=real.filter(s=>s.geometry>.34&&s.surfaceType!=='unknown').sort((a,b)=>b.geometry-a.geometry).slice(0,430);for(const seed of seeds){if(out.length>=maxPredicted)break;const n=normalize(seed.normal),structural=['wall','floor','ceiling'].includes(seed.surfaceType),ring=structural?1:1,size=(seed.surfaceType==='object'||seed.surfaceType==='edge')?.07:Math.max(.10,Math.min(.20,seed.size||.11));let u,v;if(Math.abs(n[1])>.82){u=[1,0,0];v=[0,0,1];}else{u=normalize([-n[2],0,n[0]]);v=normalize(cross(n,u));}for(let a=-ring;a<=ring;a++)for(let b=-ring;b<=ring;b++){if(!a&&!b)continue;const p=[seed.center[0]+u[0]*a*size+v[0]*b*size,seed.center[1]+u[1]*a*size+v[1]*b*size,seed.center[2]+u[2]*a*size+v[2]*b*size];if(dist(p,camera)>9)continue;const key=`${seed.surfaceType}:${key3(...p,Math.max(.04,size*.72))}`;if(seen.has(key))continue;seen.add(key);const d=dist(p,camera),target={id:`target:${key}`,key:`target:${key}`,center:p,normal:n,rgb:seed.rgb,size,surfaceType:seed.surfaceType,status:'red',needDeep:true,overall:0,geometry:0,photoScore:0,maxParallaxDeg:0,maxBaselineM:0,viewCount:0,frameRefs:[],markpointId:null,lastSeen:seed.lastSeen,count:0,positionStdM:null,curvature:seed.curvature,predicted:true,parentId:seed.id,_d:d};target._p=priority(target,d)-.22;out.push(target);if(out.length>=maxPredicted)break;}}return out;}
-
+function propagateTargets(real,camera,maxPredicted){
+  const out=[],seen=new Set(real.map(s=>`${s.surfaceType}:${key3(...s.center,Math.max(.04,s.size*.72))}`)),seeds=real.filter(s=>s.geometry>.28&&s.surfaceType!=='unknown').sort((a,b)=>b.geometry-a.geometry).slice(0,520);
+  const add=(seed,n,u,v,a,b,size)=>{const p=[seed.center[0]+u[0]*a*size+v[0]*b*size,seed.center[1]+u[1]*a*size+v[1]*b*size,seed.center[2]+u[2]*a*size+v[2]*b*size];if(p[1]<.02||p[1]>Math.max(3.8,camera[1]+2.0)||dist(p,camera)>9)return;const key=`${seed.surfaceType}:${key3(...p,Math.max(.04,size*.72))}`;if(seen.has(key))return;seen.add(key);const d=dist(p,camera),target={id:`target:${key}`,key:`target:${key}`,center:p,normal:n,rgb:seed.rgb,size,surfaceType:seed.surfaceType,status:'red',needDeep:false,overall:0,geometry:0,photoScore:0,maxParallaxDeg:0,maxBaselineM:0,viewCount:0,frameRefs:[],markpointId:null,lastSeen:seed.lastSeen,count:0,positionStdM:null,curvature:seed.curvature,predicted:true,parentId:seed.id,_d:d};target._p=priority(target,d)-.38;out.push(target);};
+  for(const seed of seeds){if(out.length>=maxPredicted)break;const n=normalize(seed.normal),size=(seed.surfaceType==='object'||seed.surfaceType==='edge')?.07:Math.max(.10,Math.min(.20,seed.size||.11));let u,v;if(Math.abs(n[1])>.82){u=[1,0,0];v=[0,0,1];}else{u=normalize([-n[2],0,n[0]]);v=[0,1,0];}
+    // Structural walls explicitly grow vertically. This gives the user targets
+    // all the way from skirting level to the ceiling instead of only near the
+    // camera-height band first observed by ARCore.
+    const vertical=seed.surfaceType==='wall'||seed.surfaceType==='edge';const aVals=vertical?[-1,0,1]:[-1,0,1];const bVals=vertical?[-3,-2,-1,1,2,3,4,5]:[-1,0,1];
+    for(const a of aVals)for(const b of bVals){if(!a&&!b)continue;add(seed,n,u,v,a,b,size);if(out.length>=maxPredicted)break;}
+  }return out;
+}
 function finalize(m){const now=Date.now(),tiles=[];for(const c of cells.values())tiles.push(cellSummary(c,now));postMessage({type:'final',requestId:m.requestId||null,tiles,gaussians:tiles.map(t=>({...t.gaussian,id:t.id,surfaceType:t.surfaceType,frameRefs:t.frameRefs,sourceCounts:t.sourceCounts})),stats:{cells:cells.size,planeCells:planeCells.size,totalPoints,rawRayCount,droppedPoints,batches}});}
 
 function prune(){
@@ -195,7 +212,7 @@ function prune(){
   if(cells.size>CFG.budget){const rest=[...cells.entries()].filter(([,c])=>!c.markpointId).sort((a,b)=>importance(a[1])-importance(b[1]));for(const [key,c] of rest){if(cells.size<=CFG.budget*.95)break;cells.delete(key);droppedPoints+=c.count;}}
 }
 
-function priority(s,d){return (s.status==='red'?3:s.status==='yellow'?1.7:.12)+(s.needDeep?1.25:0)+((s.surfaceType==='object'||s.surfaceType==='edge')?.9:0)+(s.gaussian?.confirmed?.35:0)+1/(.4+d);}
+function priority(s,d){return (s.status==='red'?2.6:s.status==='yellow'?1.65:.62)+(s.needDeep?1.25:0)+((s.surfaceType==='object'||s.surfaceType==='edge')?.9:0)+(s.gaussian?.confirmed?.35:0)+(s.markpointId?5:0)+1/(.4+d);}
 function importance(c){return (c.markpointId?100:0)+Math.min(12,c.count)*.12+c.frameRefs.size*.85+c.views.size*.65+c.curvature*2.4+(Date.now()-c.lastSeen<8000?1:0)+Math.min(3,c.deepDepth*.12);}
 function trimMap(map,max,sorter){if(map.size<=max)return;const a=[...map.entries()].sort(sorter);map.clear();for(const [k,v] of a.slice(0,max))map.set(k,v);}
 function reset(){cells.clear();planeCells.clear();totalPoints=0;rawRayCount=0;droppedPoints=0;batches=0;}
