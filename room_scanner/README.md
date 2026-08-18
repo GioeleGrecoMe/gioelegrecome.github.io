@@ -1,10 +1,23 @@
-# Room Scanner V20.0.0
+# Room Scanner V20.1.0 - Metric RIR Twin
 
-Scanner WebXR leggero per ambienti connessi, oggetti RGB e superfici acustiche editabili.
+Web app statica per costruire su smartphone un digital twin metrico e visuale-acustico di piu vani collegati.
 
-- Avvio: `room_scanner_v12.html`
-- Guida completa: `README_V20_0_0.md`
-- Prove su smartphone: `TEST_ON_PHONE.md`
-- Esito test automatici: `TEST_REPORT.md`
+Il pacchetto completo, l'architettura, i limiti e la procedura di misura sono descritti in `README_V20_1_0.md`.
 
-Pubblicare il contenuto di questa cartella nella root di un sito HTTPS, per esempio GitHub Pages.
+Avvio locale:
+
+```sh
+python3 -m http.server 8000
+```
+
+Poi aprire `http://localhost:8000/` per la sola interfaccia. Una sessione WebXR immersiva richiede HTTPS, Chrome Android e un dispositivo ARCore compatibile.
+
+Test automatici:
+
+```sh
+./tests/run_all.sh
+```
+
+## Debug
+
+La build include un export diagnostico approfondito manuale e automatico con conferma. Vedere `DIAGNOSTICS_DEBUG.md`.

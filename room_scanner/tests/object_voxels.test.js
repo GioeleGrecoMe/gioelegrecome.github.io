@@ -24,6 +24,10 @@ assert.ok(object.obb.extent[0] >= 0.29);
 assert.ok(object.obb.extent[1] >= 0.19);
 assert.ok(object.mesh.vertices.length > 0);
 assert.ok(object.mesh.indices.length > 0);
+assert.equal(object.mesh.colors.length, object.mesh.vertices.length);
+assert.equal(object.shape.representation, 'colored-voxel-surface');
+assert.equal(object.rgbSummary.pointCount, object.points.length);
+assert.ok(object.points.every(item => Array.isArray(item.color) && item.color.length === 3));
 
 // Repeated evidence from only one spatial view is not enough to create an
 // object component, even if the same voxel was observed many times.

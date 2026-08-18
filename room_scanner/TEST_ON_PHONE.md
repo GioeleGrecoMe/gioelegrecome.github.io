@@ -1,130 +1,179 @@
-# Validazione fisica V20 su smartphone
+# Validazione fisica V20.1.0 su smartphone
 
-Queste prove devono essere eseguite su Chrome Android, HTTPS e dispositivo ARCore reale. Prima della prima prova cancellare i dati del sito della V15.
+Queste prove richiedono Chrome Android, HTTPS e un dispositivo ARCore reale. Prima della prima prova cancellare i dati del sito della release precedente.
 
-## 1. Identificazione build
+## 1. Build e cache
 
 Verificare nella landing:
 
 ```text
-V20.0.0 · RGB + ACOUSTIC SURFACES
+V20.1.0 · METRIC + RIR + RGB SURFELS
 ```
 
-Aprire `build_info.json` e controllare la revisione:
+Aprire `build_info.json` e controllare:
 
 ```text
-v20.0.0-rgb-acoustic-safe-handoff-20260818
+v20.1.0-metric-rir-twin-20260818
 ```
 
-## 2. Spigoli ravvicinati e nicchia
+Ricaricare due volte online, poi verificare che HTML e moduli mostrino sempre la stessa versione.
 
-1. Avviare WebXR.
-2. Inserire un vano rettangolare.
-3. Aggiungere una nicchia con due spigoli distanti circa 1–3 cm.
-4. Tornare molto vicino al primo angolo senza premere **Chiudi vano**.
-5. Verificare che l’app resti in acquisizione angoli e non chiuda da sola.
-6. Premere **Chiudi vano**.
+## 2. Preparazione microfono
 
-Esito atteso: nessun messaggio di “muro troppo corto”; la nicchia appare nella planimetria. Un doppio tap sullo stesso identico punto può essere rifiutato.
+1. Selezionare **Telefono: speaker + microfono**.
+2. Premere **Prepara microfono e chirp**.
+3. Parlare e verificare il meter.
+4. Controllare che l'interfaccia mostri 48 kHz o il sample rate effettivo.
+5. Controllare l'indicazione relativa a echo cancellation, noise suppression e AGC.
+6. Ripetere con cuffie/dispositivo Bluetooth solo come prova di compatibilita, non come misura di riferimento.
 
-## 3. Due o più vani nello stesso WebXR
+Esito atteso: nessun avvio WebXR finche audio e attivo ma non pronto; disattivando RIR la geometria puo partire.
 
-1. Completare il primo vano.
-2. Premere **Attraversa passaggio**.
-3. Attraversare la porta e confermare il nuovo vano.
-4. Acquisire il secondo perimetro senza uscire da WebXR.
-5. Ripetere con un terzo vano o corridoio stretto.
+## 3. ESS e clipping
 
-Esito atteso: un solo riferimento metrico, porte collegate e nessuna registrazione libera tra stanze.
+1. In un ambiente silenzioso avviare una breve scansione.
+2. Restare stabili e attendere il flash/suono chirp.
+3. Verificare che il contatore RIR aumenti dopo la coda.
+4. Avvicinare e allontanare il telefono dalla parete senza coprire speaker o microfono.
+5. Nel RAW controllare meter, clipping e impostazioni track.
 
-## 4. Caselle fotografiche
+Esito atteso: nessun campione saturato in modo sistematico; almeno una finestra RIR valida.
 
-1. Inquadrare una casella rossa finché viene acquisita.
-2. Verificare che una casella bassa diventi gialla dopo la prima posizione.
-3. Spostarsi lateralmente di circa mezzo metro e riprenderla.
+## 4. Sorgente esterna fissa
+
+1. Collegare un altoparlante con routing noto.
+2. Selezionare **Altoparlante esterno fisso**.
+3. In AR mirare al centro acustico approssimativo e premere **Segna sorgente**.
+4. Camminare in almeno quattro posizioni distinte.
+
+Esito atteso: la sorgente resta fissa nel viewer; ogni manifest usa la stessa posizione sorgente e una posizione ricevitore diversa.
+
+## 5. Tracking e scala
+
+1. Misurare con metro una parete e una porta.
+2. Acquisire il vano senza movimenti bruschi.
+3. Tornare vicino al punto iniziale prima di chiudere.
+4. Confrontare le dimensioni nel viewer/export.
+5. Ripetere includendo un corridoio e tornando nel primo vano.
+
+Registrare errore assoluto e percentuale. Esito atteso: nessun reset o riallineamento libero tra vani; il loop non deve creare una seconda copia della stanza.
+
+## 6. Spigoli ravvicinati
+
+1. Inserire una nicchia o un pilastro con lati molto corti.
+2. Aggiungere due corner distanti pochi centimetri.
+3. Avvicinarsi al primo corner senza chiudere.
+4. Premere esplicitamente **Chiudi vano**.
+
+Esito atteso: nessun messaggio di muro troppo corto e nessuna chiusura automatica. Solo due punti numericamente coincidenti possono essere rifiutati.
+
+## 7. Caselle e keyframe
+
+1. Inquadrare una casella rossa.
+2. Verificare che diventi gialla dopo una vista valida.
+3. Spostarsi lateralmente di circa 0.5 m e riprenderla.
 4. Verificare il passaggio a verde.
-5. Lasciare volontariamente alcune caselle rosse e completare il vano con almeno tre foto da due posizioni.
+5. Inquadrare contemporaneamente piu caselle.
+6. Lasciarne una occlusa e completare il vano con almeno tre foto e due posizioni.
 
-Esito atteso: le caselle residue non bloccano la chiusura.
+Esito atteso: le frecce indicano una superficie fisica; una foto puo aggiornare piu target; una casella impossibile non blocca la chiusura.
 
-## 5. Uscita sicura e riavvio
+## 8. Sweep solo da pose distinte
 
-1. Durante uno scatto automatico, premere **Salva e chiudi** oppure usare Indietro.
-2. Verificare che lo scatto venga completato o annullato senza pagina bianca.
-3. Attendere la chiusura XR.
-4. Osservare un breve reload della stessa pagina.
-5. Verificare che si apra automaticamente la revisione con vani e fotografie presenti.
-6. Verificare che **Processa Deep + acustica** sia disabilitato prima del reload e abilitato dopo il ripristino.
+1. Restare fermi dopo una misura.
+2. Verificare che non partano sweep continui dalla stessa posa.
+3. Traslare di circa 0.45 m oppure ruotare di oltre 35 gradi.
+4. Restare stabili.
 
-Esito atteso: nessun crash del tab e nessuna perdita del checkpoint.
+Esito atteso: parte una nuova misura. Nel RAW le pose devono essere distinte e associate al vano corretto.
 
-## 6. Stress memoria post-XR
+## 9. Uscita WebXR durante una misura
 
-1. Acquisire almeno 3 vani e 20–30 fotografie totali.
-2. Chiudere WebXR e avviare il profilo **Bilanciato**.
-3. Monitorare temperatura, uso memoria e log diagnostico.
-4. Ripetere con **Rapido** se il dispositivo è di fascia bassa.
+1. Attendere l'inizio di un chirp.
+2. Premere **Salva e chiudi** o usare Indietro durante la coda.
+3. Verificare che nuovi sweep siano bloccati.
+4. Verificare che la pagina non si ricarichi.
+5. Attendere la revisione nello stesso documento.
+6. Controllare che vani, foto, pose e manifest RIR siano presenti.
+7. Premere processing.
 
-Esito atteso: le pareti vengono processate una alla volta; il browser non chiude la pagina. Un errore Deep deve lasciare disponibili modello metrico, RGB esistente, editing ed export.
+Esito atteso: nessuna pagina bianca, nessun crash tab, nessun `DataCloneError`, nessun modello ONNX avviato prima dell'evento XR `end`.
 
-## 7. Oggetto RGB acquisito
+## 10. Stress handoff e memoria
 
-1. Fotografare un mobile da almeno due posizioni distinte.
-2. Processare.
-3. Aprire il viewer 3D e attivare **Punti RGB**, **Forma voxel** e **Oggetti**.
-4. Verificare che colore e ingombro approssimativo siano riconoscibili.
-5. Ruotare e ridimensionare l’oggetto nell’editor.
-6. Verificare che i punti si spostino con il nuovo OBB e non restino come fantasma.
-7. Nascondere, rimuovere e ripristinare l’oggetto.
+1. Acquisire 3 vani, 20-30 keyframe e 20-30 RIR.
+2. Chiudere WebXR.
+3. Attendere 10 secondi nella revisione senza processing.
+4. Aprire diagnostica e controllare il conteggio record.
+5. Avviare il profilo processing piu leggero.
+6. Monitorare temperatura e riavvii del tab.
 
-Esito atteso: punti, forma e superficie acustica seguono lo stato dell’oggetto.
+Esito atteso: JPEG e PCM vengono letti a piccoli gruppi; il browser non chiude la pagina. Un errore Deep lascia esportabili geometria e RIR.
 
-## 8. Oggetto manuale
+## 11. Delay ignoto
 
-1. In planimetria scegliere **Aggiungi oggetto**.
-2. Definire il rettangolo e l’altezza.
-3. Aprire il viewer.
+1. Ripetere la stessa geometria con speaker del telefono e con sorgente esterna.
+2. Confrontare `hardwareLatencyResidual` e il delay dei picchi relativi al diretto.
+3. Se possibile introdurre una catena Bluetooth come stress test.
 
-Esito atteso: compaiono punti RGB sintetici e forma cuboide. Nel PLY il flag `synthetic` vale 1.
+Esito atteso: il lag assoluto puo cambiare molto, ma i delay degli echi rispetto al diretto devono restare coerenti. Misure con jitter elevato devono avere confidenza inferiore.
 
-## 9. Superfici acustiche
+## 12. Parete nota
 
-1. Aprire **Caratterizzazione acustica**.
-2. Verificare pavimento, soffitto, ogni parete e sei facce per oggetto.
-3. Selezionare una parete e cambiare materiale.
-4. Selezionare “Gruppo geometrico”, impostare tutti i coefficienti e lo scattering a `0.00`, applicare e verificare che lo zero non venga sostituito da un default.
-5. Ripristinare Auto, poi modificare almeno un coefficiente per banda e lo scattering.
-6. Salvare, chiudere la revisione, riaprirla e verificare la persistenza.
-7. Attivare **Mappa α** e cambiare banda.
-8. Esportare JSON e CSV acustici.
-9. Importare il RAW e controllare che la modifica manuale resti autorevole.
-10. Nel RAW verificare che ogni oggetto abbia un `triangleFaceKeys` per triangolo e che le sei superfici abbiano un `geometryRef.triangleFaceKey` corrispondente.
+1. Scegliere un vano rettangolare semplice.
+2. Posizionare sorgente e ricevitore in punti misurabili.
+3. Calcolare a mano la lunghezza del primo cammino speculare di una parete.
+4. Confrontare il delay relativo previsto con un picco RIR.
+5. Aprire la mappa alpha/RIR e verificare la zona associata.
 
-Esito atteso: le superfici automatiche mostrano bassa confidenza e indicazione “non misura RIR”; le modifiche manuali hanno sorgente `user`.
+Esito atteso: il posterior della parete fisicamente compatibile supera alternative lontane; un picco non compatibile puo restare `unassigned`.
 
-## 10. Export geometrico
+## 13. Materiali contrastanti
 
-- Aprire il PLY in CloudCompare o MeshLab e controllare RGB, `object_id` e `synthetic`.
-- Aprire l’OBJ in un lettore che supporta colori per vertice; in un lettore che li ignora, la geometria deve comunque essere valida.
-- Verificare nel RAW `shape`, `rgbSummary`, `acousticSurfaces` e `acousticSummary`.
+1. Acquisire una parete riflettente e una zona coperta da tenda/pannello.
+2. Ottenere misure da almeno quattro pose.
+3. Processare e confrontare supporto e alpha per banda.
+4. Ripetere cambiando posizione della sorgente.
 
-## 11. Offline e fallback
+Esito atteso: la zona assorbente tende ad avere alpha maggiore nelle bande supportate, ma la UI deve mostrare confidenza e non una classificazione certa. Registrare differenze, non solo il valore assoluto.
 
-1. Caricare una volta la shell online.
-2. Riavviare in modalità aereo.
-3. Verificare apertura, revisione, editing ed export.
-4. Senza modello locale, il Deep può non avviarsi: l’app non deve perdere la scansione.
-5. Per Deep interamente offline, installare runtime e modello nelle cartelle documentate.
+## 14. Oggetti RGB
 
-## Dati da riportare in caso di errore
+1. Fotografare un mobile da almeno due lati.
+2. Attivare punti RGB, forma voxel, OBB e Gaussiane.
+3. Controllare riconoscibilita e ingombro.
+4. Modificare OBB, nascondere, eliminare e ripristinare.
+5. Esportare PLY e OBJ.
 
-- modello smartphone;
-- versione Android e Chrome;
-- build V20 visibile;
-- fase esatta;
-- numero di vani/foto/oggetti;
-- profilo processing;
-- log Diagnostica esportato o copiato;
-- disponibilità Raw Camera e XR Depth;
-- se il reload post-XR è avvenuto;
-- memoria libera approssimativa e temperatura percepita.
+Esito atteso: punti e mesh seguono l'editing; nessun punto fantasma; le sei facce acustiche riferiscono i triangoli corretti.
+
+## 15. Override acustici
+
+1. Selezionare una superficie inferita.
+2. Applicare coefficienti manuali, incluso `0.00`.
+3. Applicare a singola zona, gruppo o superfici simili.
+4. Salvare checkpoint, ricaricare e importare RAW.
+5. Ripetere il processing.
+
+Esito atteso: il valore manuale resta autorevole e non viene sovrascritto dall'inferenza.
+
+## 16. Offline
+
+1. Caricare la shell online una volta.
+2. Chiudere il browser e attivare modalita aereo.
+3. Riaprire la PWA e verificare editing, RIR processing ed export.
+4. Senza runtime/modello locale, Deep puo fallire senza perdita dati.
+5. Installare i file locali documentati e ripetere Deep offline.
+
+## Dati da allegare a un bug
+
+- modello telefono, Android, Chrome e ARCore;
+- build/revisione;
+- modalita sorgente e routing audio;
+- track settings effettivi;
+- numero di vani, keyframe, surfel e RIR;
+- fase esatta e ultimo evento diagnostico;
+- disponibilita Raw Camera/XR Depth;
+- memoria/temperatura percepita;
+- RAW JSON e Acoustic JSON, senza PCM se i dati sono sensibili;
+- screenshot della mappa e ID della zona errata.

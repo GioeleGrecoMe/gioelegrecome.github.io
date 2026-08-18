@@ -1,7 +1,7 @@
 {
-  "name": "Room Scanner V20 RGB Acoustic Twin",
+  "name": "Room Scanner V20.1 Metric RIR Twin",
   "short_name": "Room Scanner",
-  "description": "Scansione metrica WebXR di ambienti connessi, oggetti RGB e superfici acustiche editabili.",
+  "description": "Scansione metrica WebXR con chirp/RIR, surfel RGB, oggetti e inferenza acustica per zone.",
   "lang": "it",
   "start_url": "./room_scanner_v12.html",
   "scope": "./",

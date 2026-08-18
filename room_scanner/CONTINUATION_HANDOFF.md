@@ -1,83 +1,84 @@
-# Continuation handoff — V20.0.0
+# Continuation handoff - V20.1.0
 
 ## Baseline
 
-Build: `v20.0.0-rgb-acoustic-safe-handoff-20260818`
+Build: `v20.1.0-metric-rir-twin-20260818`
 
 Entry point: `room_scanner_v12.html`
 
-## Invarianti da non rompere
+## Invarianti
 
 - Una sola sessione WebXR per tutti i vani collegati.
-- `local-floor` è l’unico riferimento metrico globale.
-- `getCameraImage()` resta dentro il callback XR rAF.
-- Nessun `getUserMedia` o secondo stream camera.
-- Nessun Deep/ONNX mentre WebXR o l’handoff sono attivi.
-- Nessuna chiusura automatica del perimetro per prossimità al primo punto.
-- Oggetti automatici richiedono evidenza da viste spazialmente distinte e non fondono vani diversi.
-- Le pareti non vengono spostate da Deep.
-- I valori acustici automatici restano marcati come prior non misurati.
-- Le modifiche manuali alle superfici acustiche hanno precedenza.
+- `local-floor` e l'unico frame metrico globale.
+- `getCameraImage()` resta nel callback XR rAF.
+- Nessun secondo stream camera; `getUserMedia` e solo audio.
+- Nessun Deep, FFT, deconvoluzione o clustering globale nel frame XR.
+- Il fit strutturale e bounded e non cambia la scala WebXR.
+- PCM e JPEG sono record IndexedDB separati dal checkpoint.
+- Nessuna funzione o risorsa browser non clonabile nel checkpoint.
+- La chiusura segue `session.end -> XR end -> cleanup -> persist -> review`.
+- Le associazioni usano delay eco relativo al diretto.
+- Il sample rate effettivo della route audio, non quello richiesto, governa ESS, timeline PCM e deconvoluzione.
+- La classe `unassigned` deve restare disponibile.
+- Ogni stima acustica conserva supporto, residuo e confidenza.
+- Gli override manuali sono autorevoli.
+- Gli oggetti automatici richiedono viste distinte e non fondono stanze.
+
+## File principali
+
+```text
+roomscan_core_v20_1_0.js
+roomscan_signal_v20_1_0.js
+roomscan_geometry_v20_1_0.js
+roomscan_acoustics_v20_1_0.js
+roomscan_audio_v20_1_0.js
+roomscan_audio_worklet_v20_1_0.js
+roomscan_app_v20_1_0.js
+depth_ai_worker_v20_1_0.js
+sw_v20_1_0.js
+```
+
+Dopo una modifica copiare ogni file versionato nel relativo alias senza versione e rieseguire `static_contract.test.js`.
 
 ## Handoff post-XR
 
-`saveAndCloseXR()` sospende gli scatti e chiama `session.end()` senza avviare structured clone o IndexedDB. L’evento `end` azzera subito il riferimento alla sessione, chiama `cleanupXRResources()` e solo dopo esegue `completePostXRHandoff()`: i JPEG vengono salvati come record IndexedDB separati, il checkpoint principale conserva i riferimenti, viene scritto il marker `room-scanner-v20-post-xr-handoff`, la pagina si ricarica e `initialize()` richiama `recoverPostXRHandoff()`.
+Non aggiungere serializzazione prima dell'evento `end`. La mappa clock deve contenere soltanto numeri. I corner devono passare da `serializeCornerRecord`/`restoreCornerRecord`. Non salvare `AudioContext`, `AudioNode`, `MediaStream`, `XRSession`, `XRAnchor`, reader camera o oggetti WebGL.
 
-Il processing deve restare bloccato quando:
+## Audio
 
-```text
-state.session
-state.navigationExitPending
-state.handoffPending
-!state.postXrReady
-state.process.running
-```
+`AcousticCaptureController` emette ESS e conserva finestre PCM bounded. Il descrittore ESS contiene `samples`; non trattarlo come array diretto. La posa deve includere sorgente e ricevitore nello stesso frame metrico.
 
-## Modello oggetti
+Il timing assoluto e diagnostico. Il delay acustico usato dal solver e sempre relativo al diretto rilevato nella singola RIR.
 
-Oggetto automatico:
+## Geometria
 
-```text
-points[]          centri voxel con RGB
-mesh              facce voxel esterne con colors[] e triangleFaceKeys[]
-obb               proxy orientata editabile
-shape             voxelSize, occupiedVolume, obbVolume, fillRatio
-rgbSummary        mean, pointCount
-```
+`MetricSurfelMap` e la rappresentazione densa autoritativa. La shell utente fornisce topologia e prior. Deep e solo una sorgente secondaria calibrata. Non introdurre ICP globale o una trasformazione per stanza.
 
-Oggetto manuale: punti di superficie sintetici marcati `synthetic: true`.
+## Acustica
 
-Quando cambia l’OBB, usare `transformPointsBetweenObbs()`; non lasciare i punti nella posa precedente. Dopo import o modifica, chiamare `assignMeshAcousticFaces()` per garantire una etichetta acustica per ogni triangolo.
-
-## Modello acustico
-
-Core in `roomscan_core_v20_0_0.js`:
-
-- `ACOUSTIC_BANDS`;
-- `MATERIAL_LIBRARY`;
-- `visualFeaturesFromColors/Rgba`;
-- `tinyMaterialPosterior`;
-- `buildAcousticSurfaceModel`;
-- `applyMaterialToSurface`;
-- `acousticSummary`.
-
-ID stabili:
+Pipeline:
 
 ```text
-R1:floor
-R1:ceiling
-R1:wall:0
-O1:face:front
+PCM -> onset ESS -> Kirkeby -> diretto -> RIR relativa
+-> picchi/bande/decadimento
+-> candidati image-source + Gaussiane + unassigned
+-> posterior
+-> alpha per zona + confidenza
 ```
 
-`buildAcousticSurfaceModel()` preserva una superficie precedente quando `material.mode === 'manual'`. Le superfici oggetto espongono `geometryRef.type === 'object-mesh-triangle-label'`: il valore `triangleFaceKey` seleziona i triangoli corrispondenti in `objects[].mesh.triangleFaceKeys`.
+Un test sintetico deve continuare ad assegnare l'eco noto alla parete corretta anche cambiando il lag hardware.
 
-## Test
-
-Eseguire sempre:
+## Test obbligatori
 
 ```sh
 ./tests/run_all.sh
 ```
 
-Prima di distribuire, rigenerare `SHA256SUMS.txt`, estrarre l’archivio in una directory pulita, verificare i checksum e rieseguire la suite da quella copia.
+Prima della distribuzione:
+
+1. rimuovere file di versioni precedenti;
+2. rigenerare `SHA256SUMS.txt`;
+3. creare l'archivio;
+4. estrarlo in una directory vuota;
+5. verificare i checksum;
+6. rieseguire la suite dalla copia estratta.

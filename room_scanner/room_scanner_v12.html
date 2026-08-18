@@ -8,10 +8,10 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="Scansione metrica guidata di ambienti e oggetti con caselle AR ancorate alle pareti e salvataggio automatico.">
-  <meta name="room-scanner-build" content="v15.1.0-wall-targets-recovery-20260817">
+  <meta name="description" content="Scansione metrica WebXR con chirp/RIR sincronizzati, surfel RGB, oggetti e inferenza acustica per zone.">
+  <meta name="room-scanner-build" content="v20.1.0-metric-rir-twin-20260818">
   <link rel="manifest" href="./manifest.webmanifest">
-  <title>Room Scanner V15.1.0 · Wall Targets</title>
+  <title>Room Scanner V20.1.0 · Metric RIR Twin</title>
   <style>
     :root {
       color-scheme: dark;
@@ -276,6 +276,10 @@
     .reviewCard { display: grid; gap: 2px; padding: 9px 10px; border-bottom: 1px solid var(--line-soft); }
     .reviewCard b { font-size: 11px; }
     .reviewCard span { color: var(--muted); font-size: 10px; }
+    .alpha-grid { display: grid; grid-template-columns: repeat(4, minmax(62px, 1fr)); gap: 6px; margin-top: 8px; }
+    .alpha-grid .field label { font-size: 9px; }
+    .acoustic-note { padding: 8px 9px; border: 1px solid #5d4e28; border-radius: 10px; background: rgba(83, 66, 23, .22); color: #ffe7a1; font-size: 10px; }
+    .layers select { width: auto; min-height: 30px; padding: 3px 7px; font-size: 10px; }
     .frameRow { display: grid; grid-template-columns: 104px 1fr; gap: 8px; padding: 8px; border-bottom: 1px solid var(--line-soft); }
     .frameRow img { width: 104px; height: 68px; object-fit: cover; border: 1px solid var(--line); border-radius: 8px; background: #02070a; }
     .frameRow div { min-width: 0; display: grid; align-content: start; gap: 2px; }
@@ -285,7 +289,7 @@
     #processModal { z-index: 30; display: grid; place-items: center; padding: 15px; background: rgba(2, 10, 15, .92); }
     .process-panel { width: min(620px, 100%); padding: 16px; }
     .process-panel h2 { margin: 0 0 5px; font-size: 19px; }
-    .process-counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 11px 0; }
+    .process-counts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin: 11px 0; }
     .stat { padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: #071722; text-align: center; }
     .stat b { display: block; font-size: 18px; }
     .stat span { color: var(--muted); font-size: 9px; }
@@ -311,45 +315,66 @@
       .topbar > button { min-width: 78px; padding-left: 8px; padding-right: 8px; font-size: 11px; }
       .bottom-actions button { min-height: 48px; }
       .field-grid { grid-template-columns: 1fr 1fr; }
+      .alpha-grid { grid-template-columns: repeat(2, minmax(70px, 1fr)); }
       .modal-head h2 { font-size: 15px; }
     }
   </style>
   <!-- Versioned asset paths bypass any stale service worker left by an older
        deployment, preventing mixed HTML/JavaScript builds on the first load. -->
-  <script src="./roomscan_core_v15_1_0.js" defer></script>
-  <script src="./roomscan_app_v15_1_0.js" defer></script>
+  <script src="./roomscan_core_v20_1_0.js" defer></script>
+  <script src="./roomscan_signal_v20_1_0.js" defer></script>
+  <script src="./roomscan_geometry_v20_1_0.js" defer></script>
+  <script src="./roomscan_acoustics_v20_1_0.js" defer></script>
+  <script src="./roomscan_audio_v20_1_0.js" defer></script>
+  <script src="./roomscan_diagnostics_v20_1_0.js" defer></script>
+  <script src="./roomscan_app_v20_1_0.js" defer></script>
 </head>
 <body>
   <main id="welcome" class="screen">
     <div class="welcome-inner">
       <section class="hero">
-        <span class="build">V15.1.0 · WALL TARGETS + RECOVERY</span>
-        <h1>Scansiona vani e oggetti,<br>senza ricostruzione pesante.</h1>
-        <p>Una sola sessione WebXR mantiene tutti i vani nello stesso riferimento metrico. Tu confermi solo la geometria essenziale; il telefono acquisisce automaticamente viste utili e Deep lavora soltanto dopo la passeggiata.</p>
+        <span class="build">V20.1.0 · METRIC + RIR + RGB SURFELS</span>
+        <h1>Scansiona geometria e risposta acustica<br>nella stessa passeggiata.</h1>
+        <p>WebXR mantiene pose e scala metrica; brevi chirp registrano una RIR relativa in posizioni distinte; depth XR, foto RGB e Deep post-XR formano una mappa surfel leggera. Le riflessioni vengono associate probabilisticamente a pareti, zone e Gaussiane locali.</p>
       </section>
 
       <section class="principles" aria-label="Principi della scansione">
-        <div class="principle"><b>Geometria verificabile</b><span>Gli angoli e l’altezza definiscono una shell semplice, misurabile e correggibile.</span></div>
-        <div class="principle"><b>Un’unica passeggiata</b><span>Non chiudere WebXR tra i vani: attraversa la porta e continua nello stesso spazio metrico.</span></div>
-        <div class="principle"><b>AI fuori dal tracking</b><span>Durante XR si salvano solo pose, foto ridotte e piccoli campioni depth. Il batch Deep parte alla fine.</span></div>
+        <div class="principle"><b>Metrica WebXR preservata</b><span>Il local-floor e la traiettoria sono autoritativi; il fit robusto può solo rifinire localmente pareti e soffitto.</span></div>
+        <div class="principle"><b>RIR senza offset fisso</b><span>PCM continuo, sweep ESS e allineamento sul cammino diretto rendono le riflessioni utilizzabili anche con latenza hardware incerta.</span></div>
+        <div class="principle"><b>Geometria densa ma leggera</b><span>Surfel metrici bounded e Gaussiane locali sostituiscono TSDF/ICP; Deep aggiunge dettaglio solo dopo WebXR.</span></div>
       </section>
 
       <section class="workflow" aria-label="Procedura guidata">
-        <div class="step"><em>1</em><b>Segna gli angoli</b><span>Mira al raccordo pavimento-parete e tocca in ordine.</span></div>
-        <div class="step"><em>2</em><b>Conferma l’altezza</b><span>Mira al raccordo parete-soffitto oppure usa il valore manuale.</span></div>
-        <div class="step"><em>3</em><b>Segui le caselle</b><span>Rosso = da fotografare, giallo = seconda posizione, verde = coperta. Una zona difficile non blocca il vano.</span></div>
-        <div class="step"><em>4</em><b>Attraversa la porta</b><span>La traiettoria identifica parete e posizione del passaggio.</span></div>
-        <div class="step"><em>5</em><b>Ripeti nei vani</b><span>Tutti i perimetri restano già allineati nel local-floor WebXR.</span></div>
-        <div class="step"><em>6</em><b>Correggi e processa</b><span>Modifica passaggi e oggetti dalla mappa; poi esegui Deep.</span></div>
+        <div class="step"><em>1</em><b>Prepara l’audio</b><span>Consenti il microfono e scegli telefono mono-statico oppure altoparlante esterno fisso.</span></div>
+        <div class="step"><em>2</em><b>Segna la shell</b><span>Mira agli angoli pavimento-parete e conferma l’altezza.</span></div>
+        <div class="step"><em>3</em><b>Segui le caselle</b><span>Foto e depth alimentano surfel RGB; i chirp partono automaticamente solo quando sei stabile.</span></div>
+        <div class="step"><em>4</em><b>Muoviti tra posizioni</b><span>Le RIR da pose distinte aumentano la probabilità di associare gli echi alle zone corrette.</span></div>
+        <div class="step"><em>5</em><b>Attraversa i vani</b><span>La stessa sessione conserva allineamento metrico e porte.</span></div>
+        <div class="step"><em>6</em><b>Processa e verifica</b><span>Fit bounded, Deep metrico, oggetti RGB e assorbimento per zona con confidenza esplicita.</span></div>
       </section>
 
-      <div class="notice"><b>Regola importante:</b> completa tutti i vani nella stessa sessione WebXR. Il tasto Indietro e “Salva e chiudi” conservano quanto acquisito e aprono la revisione; una nuova sessione non viene finta come se avesse lo stesso sistema metrico.</div>
+      <div class="notice"><b>Regola importante:</b> completa tutti i vani nella stessa sessione WebXR. Alla chiusura l’app ferma gli sweep, attende l’evento <span class="mono">end</span>, libera camera/depth/WebGL e passa alla revisione nello stesso documento: non forza più un reload della pagina.</div>
       <div id="landingSummary" class="landing-summary">Nessuna scansione in memoria.</div>
 
       <section class="card action-panel">
+        <div class="audio-setup" style="margin-bottom:10px;padding:10px;border:1px solid var(--line-soft);border-radius:13px;background:rgba(5,19,28,.7)">
+          <div class="row">
+            <label class="grow"><input id="audioEnabled" type="checkbox" checked> Registra chirp e RIR durante la scansione</label>
+            <select id="sourceMode" style="width:min(100%,300px)">
+              <option value="monostatic" selected>Telefono: speaker + microfono</option>
+              <option value="fixed">Altoparlante esterno fisso</option>
+            </select>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button id="prepareAudio" class="ghost">1 · Prepara microfono e chirp</button>
+            <span id="audioStatus" class="small grow">Audio non inizializzato.</span>
+          </div>
+          <div class="meter" style="margin-top:7px"><i id="audioMeterFill"></i></div>
+          <p class="small" style="margin:7px 0 0">Il modo telefono è il più semplice ma meno accurato. Con un altoparlante Bluetooth/cablato fermo, dopo l’avvio AR dovrai inquadrarlo e marcarne la posizione.</p>
+        </div>
         <div class="action-primary">
-          <button id="startXR" class="primary">Avvia scansione WebXR</button>
-          <button id="processModel">Processa Deep</button>
+          <button id="startXR" class="primary">2 · Avvia scansione WebXR</button>
+          <button id="processModel">Processa metrica + Deep + RIR</button>
         </div>
         <div class="action-secondary">
           <button id="openPlan">Mappa e oggetti</button>
@@ -363,6 +388,9 @@
           <button id="exportRaw" class="compact ghost">Esporta RAW</button>
           <button id="exportPly" class="compact ghost">Esporta PLY</button>
           <button id="exportObj" class="compact ghost">Esporta OBJ</button>
+          <button id="exportAcousticJson" class="compact ghost">Acustica JSON</button>
+          <button id="exportAcousticCsv" class="compact ghost">Acustica CSV</button>
+          <button id="exportDiagnostics" class="compact ghost">Esporta log debug</button>
           <button id="importRaw" class="compact ghost">Importa RAW</button>
           <input id="fileRaw" class="hidden" type="file" accept=".json,application/json">
         </div>
@@ -399,10 +427,13 @@
         <div id="metricText">Attendo posa WebXR…</div>
         <div class="badge-row">
           <span id="trackingBadge" class="badge">TRACKING</span>
-          <span id="capabilities">POSE XR</span>
+          <span id="capabilities">POSE XR</span><span id="audioBadge" class="badge">AUDIO OFF</span>
         </div>
       </div>
-      <button id="stopXR" class="danger">Salva e chiudi</button>
+      <div class="row" style="justify-content:flex-end">
+        <button id="exportDiagnosticsXR" class="compact ghost">Log debug</button>
+        <button id="stopXR" class="danger">Salva e chiudi</button>
+      </div>
     </div>
 
     <div class="hud-bottom">
@@ -493,6 +524,30 @@
           <div class="editor-actions"><button id="applyPortal" disabled>Applica passaggio</button></div>
           <p class="small">Il centro del varco resta sulla parete rilevata; qui modifichi larghezza e altezza.</p>
         </section>
+
+
+        <section class="editor-section">
+          <h3>Caratterizzazione acustica</h3>
+          <div class="field-grid">
+            <div class="field full"><label for="acousticSurfaceSelect">Superficie</label><select id="acousticSurfaceSelect"><option value="">Nessuna superficie</option></select></div>
+            <div class="field full"><label for="acousticScope">Applica a</label><select id="acousticScope"><option value="surface" selected>Solo questa superficie</option><option value="owner">Gruppo geometrico (pareti del vano / facce oggetto)</option><option value="similar">Superfici visivamente simili</option></select></div>
+            <div class="field full"><label for="acousticMaterial">Materiale</label><select id="acousticMaterial"><option value="auto">Auto · prior visivo V10</option></select></div>
+            <div class="field"><label for="acousticScattering">Scattering</label><input id="acousticScattering" type="number" inputmode="decimal" min="0" max="1" step="0.01" value="0.20"></div>
+          </div>
+          <div class="alpha-grid" aria-label="Coefficienti di assorbimento per banda d'ottava">
+            <div class="field"><label for="alpha125">α 125 Hz</label><input id="alpha125" type="number" inputmode="decimal" min="0" max="1" step="0.01"></div>
+            <div class="field"><label for="alpha250">α 250 Hz</label><input id="alpha250" type="number" inputmode="decimal" min="0" max="1" step="0.01"></div>
+            <div class="field"><label for="alpha500">α 500 Hz</label><input id="alpha500" type="number" inputmode="decimal" min="0" max="1" step="0.01"></div>
+            <div class="field"><label for="alpha1000">α 1 kHz</label><input id="alpha1000" type="number" inputmode="decimal" min="0" max="1" step="0.01"></div>
+            <div class="field"><label for="alpha2000">α 2 kHz</label><input id="alpha2000" type="number" inputmode="decimal" min="0" max="1" step="0.01"></div>
+            <div class="field"><label for="alpha4000">α 4 kHz</label><input id="alpha4000" type="number" inputmode="decimal" min="0" max="1" step="0.01"></div>
+            <div class="field"><label for="alpha8000">α 8 kHz</label><input id="alpha8000" type="number" inputmode="decimal" min="0" max="1" step="0.01"></div>
+          </div>
+          <div id="acousticInfo" class="small" style="margin-top:8px">Seleziona una superficie.</div>
+          <div id="acousticSummary" class="small" style="margin-top:5px"></div>
+          <div class="editor-actions"><button id="applyAcoustic">Applica coefficienti</button><button id="resetAcoustic" class="ghost">Ripristina Auto</button></div>
+          <p class="acoustic-note">V20.1 usa RIR allineate sul cammino diretto, image-source e Gaussiane locali per stimare un assorbimento efficace per zona. Confidenza, supporto e residui restano nel RAW. Dove i dati non bastano, usa decadimento globale e prior visivo; gli override manuali restano autorevoli.</p>
+        </section>
       </aside>
     </div>
   </section>
@@ -507,34 +562,41 @@
       <canvas id="sceneCanvas"></canvas>
       <div class="layers" aria-label="Livelli della scena">
         <label class="layer"><input id="layerRoom" type="checkbox" checked> Vani</label>
-        <label class="layer"><input id="layerTexture" type="checkbox" checked> Texture</label>
-        <label class="layer"><input id="layerObjects" type="checkbox" checked> Punti oggetti</label>
-        <label class="layer"><input id="layerBoxes" type="checkbox" checked> Box oggetti</label>
+        <label class="layer"><input id="layerTexture" type="checkbox" checked> Texture pareti</label>
+        <label class="layer"><input id="layerObjects" type="checkbox" checked> Punti RGB</label>
+        <label class="layer"><input id="layerObjectShape" type="checkbox" checked> Forma voxel</label>
+        <label class="layer"><input id="layerBoxes" type="checkbox" checked> Ingombro OBB</label>
+        <label class="layer"><input id="layerGaussians" type="checkbox"> Gaussiane metriche</label>
+        <label class="layer"><input id="layerAcoustic" type="checkbox"> Mappa α/RIR</label>
+        <label class="layer" for="acousticBand">Banda <select id="acousticBand"><option value="3">1000 Hz</option></select></label>
         <label class="layer"><input id="bareRoom" type="checkbox"> Solo shell</label>
       </div>
-      <div class="scene-help">Trascina per ruotare · usa due dita o la rotella per lo zoom · gli oggetti si modificano dalla Mappa.</div>
+      <div class="scene-help">Trascina per ruotare · punti e forma voxel conservano RGB · le Gaussiane rappresentano patch metriche locali · “Mappa α/RIR” colora le zone secondo assorbimento e confidenza inferiti.</div>
     </div>
   </section>
 
   <section id="reviewModal" class="screen modal hidden" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
     <header class="modal-head">
       <h2 id="reviewTitle">Revisione acquisizione</h2>
-      <button id="reviewProcess" class="compact primary">Processa Deep</button>
+      <button id="reviewProcess" class="compact primary">Processa metrica + Deep + RIR</button>
       <button class="compact ghost" data-close>Chiudi</button>
     </header>
     <div class="modal-body review-grid">
       <section class="review-section"><h3>Vani</h3><div id="roomsReview" class="review-content"></div></section>
       <section class="review-section"><h3>Foto e scala</h3><div id="framesReview" class="review-content"></div></section>
-      <section class="review-section"><h3>Oggetti</h3><div id="objectsReview" class="review-content"></div></section>
+      <section class="review-section"><h3>Oggetti RGB</h3><div id="objectsReview" class="review-content"></div></section>
+      <section class="review-section"><h3>Traiettoria e surfel metrici</h3><div id="metricReview" class="review-content"></div></section>
+      <section class="review-section"><h3>RIR e superfici acustiche</h3><div id="acousticReview" class="review-content"></div></section>
     </div>
   </section>
 
   <section id="processModal" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="processTitle">
     <div class="card process-panel">
       <h2 id="processTitle">Elaborazione batch</h2>
-      <div class="small">WebXR è già chiuso: il modello può usare la RAM senza disturbare il tracking.</div>
+      <div class="small">WebXR è chiuso e le risorse XR sono state rilasciate nello stesso documento. Ora vengono eseguiti fit metrico bounded, Deep post-XR, deconvoluzione RIR e associazione probabilistica alle superfici.</div>
       <div class="process-counts">
         <div class="stat"><b id="deepCount">0</b><span>FOTO DEEP</span></div>
+        <div class="stat"><b id="rirCount">0</b><span>RIR</span></div>
         <div class="stat"><b id="fusedCount">0</b><span>PUNTI FUSI</span></div>
         <div class="stat"><b id="objectCount">0</b><span>OGGETTI</span></div>
       </div>
