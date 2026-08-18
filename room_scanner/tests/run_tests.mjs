@@ -42,6 +42,21 @@ await test('static_safe_handoff_and_raw_first',async()=>{const xr=await readFile
 
 await test('static_adaptive_grid_and_no_wall_marking',async()=>{const html=await readFile(path.join(root,'room_scanner_v12.html'),'utf8'),worker=await readFile(path.join(root,'workers/map_worker_v20_2_0.js'),'utf8');assert.ok(html.includes('grid-overlay'));assert.ok(html.includes('Marca riferimento'));assert.ok(!/Segna parete|Completa vano|angolo parete/i.test(html));assert.ok(worker.includes("surfaceType==='object'"));assert.ok(worker.includes('droppedPoints'));});
 
+
+await test('xr_passthrough_and_depth_contract_regression',async()=>{
+  const xr=await readFile(path.join(root,'js/xr_capture_v20_2_0.js'),'utf8');
+  const css=await readFile(path.join(root,'css/app_v20_2_0.css'),'utf8');
+  const app=await readFile(path.join(root,'js/app_v20_2_0.js'),'utf8');
+  assert.ok(xr.includes("usagePreference:['cpu-optimized','gpu-optimized']"));
+  assert.ok(xr.includes("this.depthMode==='cpu-optimized'"));
+  assert.ok(xr.includes('frame.getDepthInformation(view)'));
+  assert.ok(xr.includes("this.depthMode==='gpu-optimized'"));
+  assert.ok(xr.includes("clearColor(0,0,0,0)"));
+  assert.ok(xr.includes('layer.framebuffer'));
+  assert.ok(css.includes('html.xr-active,body.xr-active{background:transparent!important}'));
+  assert.ok(css.includes('.xr-active #xr-canvas{opacity:0}'));
+  assert.ok(app.includes("document.documentElement.classList.add('xr-active')"));
+});
 await test('processing_is_explicit_separate_page',async()=>{const html=await readFile(path.join(root,'processing.html'),'utf8'),app=await readFile(path.join(root,'js/app_v20_2_0.js'),'utf8');assert.ok(html.includes('PROCESSING ISOLATO'));assert.ok(app.includes("processing.html?session="));assert.ok(!app.includes("new Worker(new URL('../workers/processing_worker"));});
 
 for(const [status,name] of results)console.log(`${status} ${name}`);if(!process.exitCode)console.log('ALL TESTS PASSED');

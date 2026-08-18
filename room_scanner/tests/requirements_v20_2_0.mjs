@@ -12,9 +12,9 @@ const requireText = (rel, needles) => {
 };
 
 const html = requireText('room_scanner_v12.html', [
-  'V20.2.0',
-  'Save and leave XR',
-  'Export RAW',
+  'V20.2.1',
+  'Salva ed esci da XR',
+  'Scarica pacchetto RAW',
   'markpoint',
 ]);
 if (/Completa vano|mark wall|segna parete/i.test(html)) {
@@ -28,15 +28,15 @@ if (!/(listSessions|recover|restore|resume)/i.test(appTextForRecovery)) {
 
 const app = requireText('js/app_v20_2_0.js', [
   'requestSafeExit',
-  'CAPTURE_SAVED',
   'exportRaw',
 ]);
 const capture = requireText('js/xr_capture_v20_2_0.js', [
   'requestSession',
   'requestAnimationFrame',
   'requestSafeExit',
-  'session.end',
-  'activePhotoTasks',
+  'xrSession?.end',
+  'activeTasks',
+  'CAPTURE_SAVED',
 ]);
 if (/toDataURL\s*\(/.test(capture) || /btoa\s*\(/.test(capture)) {
   throw new Error('XR capture must not base64-encode frame payloads.');
@@ -56,7 +56,7 @@ const grid = requireText('js/grid_v20_2_0.js', [
   'red', 'yellow', 'green', 'needDeep', 'parallax',
 ]);
 const mapWorker = requireText('workers/map_worker_v20_2_0.js', [
-  'predicted', 'surfaceType', 'photoRefs', 'viewOrigins',
+  'predicted', 'surfaceType', 'frameRefs', 'views',
 ]);
 if (!/(floor|pavimento)/i.test(mapWorker) || !/(ceiling|soffitto)/i.test(mapWorker)) {
   throw new Error('Adaptive map must model floor and ceiling targets.');
@@ -66,13 +66,13 @@ requireText('js/markpoints_v20_2_0.js', [
   'hue', 'saturation', 'contrast', 'edge', 'quality',
 ]);
 requireText('js/registration_v20_2_0.js', [
-  'yaw', 'translation', 'scale', 'correspond',
+  'yaw', 'translation', 'scale', 'pairs',
 ]);
 requireText('js/audio_v20_2_0.js', [
   'chirp', 'sampleRate', 'expectedMicFrame',
 ]);
 requireText('workers/audio_worklet_v20_2_0.js', [
-  'Int16Array', 'startFrame', 'endFrame',
+  'Int16Array', 'totalFrames', 'flush',
 ]);
 requireText('js/raw_export_v20_2_0.js', [
   'StoredZipBuilder', 'manifest.json', 'diagnostics',
@@ -86,7 +86,7 @@ requireText('js/acoustics_v20_2_0.js', [
 requireText('workers/acoustic_worker_v20_2_0.js', [
   'chirp', 'PCM', 'RIR',
 ]);
-requireText('processing.html', ['V20.2.0', 'processing_worker_v20_2_0.js']);
+requireText('processing.html', ['V20.2.1', 'processing_ui_v20_2_0.js']);
 
 const sw = requireText('sw_v20_2_0.js', [
   'room_scanner_v12.html', 'processing.html', 'network',

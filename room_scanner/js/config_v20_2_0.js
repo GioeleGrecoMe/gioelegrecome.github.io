@@ -6,8 +6,8 @@
  * conservative: losing a frame is preferable to losing the browser process.
  */
 export const BUILD = Object.freeze({
-  version: '20.2.0',
-  id: 'v20.2.0-20260818-adaptive-grid-raw-first',
+  version: '20.2.1',
+  id: 'v20.2.1-20260818-xr-passthrough-depth-fix',
   dbName: 'room-scanner-v20-2',
   dbVersion: 1,
   rawFormat: 'RSCAN-ZIP-1'

@@ -1,0 +1,13 @@
+usage: process_rscan.py [-h] [--out OUT] [--voxel VOXEL] [--extract-images]
+                        bundle
+
+Validate and unpack Room Scanner RAW data
+
+positional arguments:
+  bundle            *.rscan.zip file exported by the webpage
+
+options:
+  -h, --help        show this help message and exit
+  --out OUT         output directory
+  --voxel VOXEL     metric decimation voxel in metres
+  --extract-images  copy JPEG keyframes to output

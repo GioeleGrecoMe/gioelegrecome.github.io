@@ -1,0 +1,2 @@
+curl: (22) The requested URL returned error: 404
+PASS http_smoke_v20_2_0

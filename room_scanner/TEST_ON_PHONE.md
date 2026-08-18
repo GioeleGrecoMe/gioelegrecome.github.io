@@ -1,11 +1,11 @@
-# Phone Validation Protocol - V20.2.0
+# Phone Validation Protocol - V20.2.1
 
 Use a recent Chrome Android build with ARCore support, HTTPS and at least several hundred megabytes of free storage. Disable Bluetooth audio for the first acoustic tests.
 
 ## A. First-load and persistence
 
 1. Clear the site's old storage once.
-2. Open `room_scanner_v12.html` and verify the visible build is `V20.2.0`.
+2. Open `room_scanner_v12.html` and verify the visible build is `V20.2.1`.
 3. Grant camera/motion/microphone permissions.
 4. Start capture and walk for 20 seconds.
 5. Force-close Chrome without using the exit button.
@@ -98,3 +98,12 @@ Record:
 - capture and processing durations;
 - diagnostics JSON;
 - renderer crash IDs.
+
+
+## V20.2.1 XR passthrough / depth regression
+1. Open `room_scanner_v20.html` on Chrome Android over HTTPS.
+2. Start AR and verify the physical camera passthrough is visible immediately; the page background must never cover it with black.
+3. In diagnostics record `depthUsage` and `depthDataFormat`.
+4. If `depthUsage=cpu-optimized`, verify depth batches increase without `InvalidStateError`.
+5. If `depthUsage=gpu-optimized`, verify capture remains live, hit-test/grid/photo acquisition continues, and only the warning `xr-depth-gpu-fallback` is emitted. This build intentionally avoids synchronous GPU depth readback on the XR frame thread.
+6. Save/exit XR and export diagnostics; verify the session remains recoverable.

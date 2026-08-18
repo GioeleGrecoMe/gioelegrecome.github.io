@@ -1,0 +1,12 @@
+file:///mnt/data/room_scanner_v20_2_0/tests/requirements_v20_2_0.mjs:9
+    if (!text.includes(needle)) throw new Error(`${rel} lacks required contract token: ${needle}`);
+                                      ^
+
+Error: room_scanner_v12.html lacks required contract token: V20.2.0
+    at requireText (file:///mnt/data/room_scanner_v20_2_0/tests/requirements_v20_2_0.mjs:9:39)
+    at file:///mnt/data/room_scanner_v20_2_0/tests/requirements_v20_2_0.mjs:14:14
+    at ModuleJob.run (node:internal/modules/esm/module_job:274:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:644:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+
+Node.js v22.16.0

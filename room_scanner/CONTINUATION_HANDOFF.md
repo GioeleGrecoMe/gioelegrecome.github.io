@@ -1,10 +1,10 @@
-# Continuation Handoff - V20.2.0
+# Continuation Handoff - V20.2.1
 
 ## Baseline
 
 Canonical entry: `room_scanner_v12.html`
 
-Build: `v20.2.0-20260818-observation-graph`
+Build: `v20.2.1-20260818-xr-passthrough-depth-fix`
 
 ## Non-negotiable architecture
 
