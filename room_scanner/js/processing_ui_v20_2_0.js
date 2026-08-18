@@ -1,12 +1,72 @@
 import {CaptureRepository} from './db_v20_2_0.js';
 import {downloadBlob} from './raw_export_v20_2_0.js';
+import {ModelPreview3D} from './model_preview_v20_4_2.js';
 
-const $=s=>document.querySelector(s),repo=new CaptureRepository();let sessionId=null,worker=null,acousticWorker=null,currentModel=null;
+const $=s=>document.querySelector(s),repo=new CaptureRepository();
+let sessionId=null,worker=null,acousticWorker=null,currentModel=null,viewer=null;
 const log=(text,level='info')=>{const box=$('#processing-log');box.textContent+=`${new Date().toLocaleTimeString()} ${level.toUpperCase()} ${text}\n`;box.scrollTop=box.scrollHeight;};
-async function init(){await repo.open();const query=new URLSearchParams(location.search);sessionId=query.get('session')||(await repo.latestSession())?.id;if(!sessionId){$('#processing-stage').textContent='Nessuna sessione disponibile.';$('#btn-run-processing').disabled=true;return;}const session=await repo.getSession(sessionId);$('#processing-stage').textContent=`Sessione ${sessionId} · stato ${session.status}`;currentModel=await repo.getModel(sessionId);if(currentModel){$('#btn-export-model').disabled=false;drawModel(currentModel);log('È presente un modello già salvato.');}}
-$('#btn-run-processing').addEventListener('click',()=>run());$('#btn-run-acoustics').addEventListener('click',()=>runAcoustics());$('#btn-cancel-processing').addEventListener('click',()=>worker?.postMessage({type:'cancel'}));$('#btn-export-model').addEventListener('click',()=>{if(!currentModel)return;downloadBlob(new Blob([JSON.stringify(currentModel,null,2)],{type:'application/json'}),`roomscan-${sessionId}-model.json`);});
-async function run(){if(worker){worker.terminate();worker=null;}$('#btn-run-processing').disabled=true;$('#btn-export-model').disabled=true;const mode=$('#processing-mode').value,memoryBudgetMB=Number($('#memory-budget').value);log(`Avvio modalità ${mode}, budget ${memoryBudgetMB} MB.`);worker=new Worker(new URL('../workers/processing_worker_v20_4_0.js',import.meta.url),{type:'module'});worker.onmessage=e=>{const m=e.data||{};if(m.type==='progress'||m.type==='warning'||m.type==='cancelled'){if(Number.isFinite(m.progress))$('#processing-progress').value=m.progress;$('#processing-stage').textContent=m.detail||m.type;log(m.detail||m.type,m.type==='warning'?'warn':'info');}else if(m.type==='complete'){currentModel=m.model;$('#processing-progress').value=100;$('#processing-stage').textContent=`Completato: ${m.summary.planes} superfici, ${m.summary.objects} oggetti.`;$('#btn-export-model').disabled=false;$('#btn-run-processing').disabled=false;log('Modello salvato in IndexedDB.');drawModel(currentModel);worker.terminate();worker=null;}else if(m.type==='error'){log(`${m.message}\n${m.stack||''}`,'error');$('#processing-stage').textContent='Errore: i RAW restano disponibili.';$('#btn-run-processing').disabled=false;worker?.terminate();worker=null;}};worker.onerror=e=>{log(e.message,'error');$('#btn-run-processing').disabled=false;};worker.postMessage({type:'run',sessionId,mode,memoryBudgetMB});}
 
-async function runAcoustics(){if(acousticWorker)acousticWorker.terminate();$('#btn-run-acoustics').disabled=true;log('Avvio analisi RIR relativa in worker separato.');acousticWorker=new Worker(new URL('../workers/acoustic_worker_v20_2_0.js',import.meta.url),{type:'module'});acousticWorker.onmessage=async e=>{const m=e.data||{};if(m.type==='progress'){if(Number.isFinite(m.progress))$('#processing-progress').value=m.progress;$('#processing-stage').textContent=m.detail;log(m.detail);}else if(m.type==='complete'){log(`RIR completate: ${m.count}, valide ${m.valid}.`);currentModel=await repo.getModel(sessionId);if(currentModel){$('#btn-export-model').disabled=false;drawModel(currentModel);}$('#btn-run-acoustics').disabled=false;acousticWorker.terminate();acousticWorker=null;}else if(m.type==='error'){log(m.message,'error');$('#btn-run-acoustics').disabled=false;acousticWorker?.terminate();acousticWorker=null;}};acousticWorker.onerror=e=>{log(e.message,'error');$('#btn-run-acoustics').disabled=false;};acousticWorker.postMessage({type:'run',sessionId});}
-function drawModel(model){const canvas=$('#model-preview'),ctx=canvas.getContext('2d'),dpr=Math.min(2,devicePixelRatio||1),w=canvas.clientWidth||800,h=canvas.clientHeight||420;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);const pts=model.geometry?.surfels||[];if(!pts.length){ctx.fillStyle='#9bb0b5';ctx.fillText('Nessun punto',20,30);return;}const xs=pts.map(p=>p.position[0]),zs=pts.map(p=>p.position[2]),minX=Math.min(...xs),maxX=Math.max(...xs),minZ=Math.min(...zs),maxZ=Math.max(...zs),scale=Math.min((w-40)/Math.max(.1,maxX-minX),(h-40)/Math.max(.1,maxZ-minZ)),map=p=>[20+(p[0]-minX)*scale,h-20-(p[2]-minZ)*scale];const step=Math.max(1,Math.floor(pts.length/60000));for(let i=0;i<pts.length;i+=step){const q=pts[i],[x,y]=map(q.position),rgb=q.rgb||q.gaussian?.rgbMean||[150,190,198],a=.28+.62*Math.max(.15,Math.min(1,q.gaussian?.confidence??q.quality??.5));ctx.fillStyle=`rgba(${rgb[0]|0},${rgb[1]|0},${rgb[2]|0},${a.toFixed(2)})`;const r=q.surfaceType==='edge'||q.surfaceType==='object'?2.0:1.45;ctx.fillRect(x-r/2,y-r/2,r,r);}ctx.lineWidth=2;ctx.strokeStyle='#52e0b6';for(const s of model.geometry?.structuralSurfaces||[]){if(s.kind!=='wall')continue;const poly=s.geometry?.bounds?.polygon||[];if(poly.length<2)continue;ctx.beginPath();const a=map(poly[0]);ctx.moveTo(a[0],a[1]);for(const q of poly.slice(1)){const p=map(q);ctx.lineTo(p[0],p[1]);}ctx.closePath();ctx.stroke();}ctx.strokeStyle='#ffd166';for(const o of model.geometry?.objects||[]){const c=o.obb.center,[sx,,sz]=o.obb.size;const p=map([c[0]-sx/2,0,c[2]+sz/2]);ctx.strokeRect(p[0],p[1],sx*scale,sz*scale);}}
+async function init(){
+  await repo.open();
+  viewer=new ModelPreview3D($('#model-preview'),{statusElement:$('#model-preview-status'),maxPoints:180000});
+  bindViewerControls();
+  const query=new URLSearchParams(location.search);sessionId=query.get('session')||(await repo.latestSession())?.id;
+  if(!sessionId){$('#processing-stage').textContent='Nessuna sessione disponibile.';$('#btn-run-processing').disabled=true;return;}
+  const session=await repo.getSession(sessionId);$('#processing-stage').textContent=`Sessione ${sessionId} · stato ${session.status}`;
+  currentModel=await repo.getModel(sessionId);
+  if(currentModel){$('#btn-export-model').disabled=false;showModel(currentModel);log('È presente un modello già salvato.');}
+}
+
+$('#btn-run-processing').addEventListener('click',()=>run());
+$('#btn-run-acoustics').addEventListener('click',()=>runAcoustics());
+$('#btn-cancel-processing').addEventListener('click',()=>worker?.postMessage({type:'cancel'}));
+$('#btn-export-model').addEventListener('click',()=>{if(!currentModel)return;downloadBlob(new Blob([JSON.stringify(currentModel,null,2)],{type:'application/json'}),`roomscan-${sessionId}-model.json`);});
+
+async function run(){
+  if(worker){worker.terminate();worker=null;}
+  $('#btn-run-processing').disabled=true;$('#btn-export-model').disabled=true;
+  const mode=$('#processing-mode').value,memoryBudgetMB=Number($('#memory-budget').value);log(`Avvio modalità ${mode}, budget ${memoryBudgetMB} MB.`);
+  worker=new Worker(new URL('../workers/processing_worker_v20_4_0.js',import.meta.url),{type:'module'});
+  worker.onmessage=e=>{
+    const m=e.data||{};
+    if(m.type==='progress'||m.type==='warning'||m.type==='cancelled'){
+      if(Number.isFinite(m.progress))$('#processing-progress').value=m.progress;$('#processing-stage').textContent=m.detail||m.type;log(m.detail||m.type,m.type==='warning'?'warn':'info');
+    }else if(m.type==='complete'){
+      currentModel=m.model;$('#processing-progress').value=100;
+      $('#processing-stage').textContent=`Completato: ${m.summary.gaussians??m.summary.surfels??0} Gaussian, ${m.summary.planes} superfici, ${m.summary.objects} oggetti.`;
+      $('#btn-export-model').disabled=false;$('#btn-run-processing').disabled=false;log('Modello salvato in IndexedDB.');showModel(currentModel);worker.terminate();worker=null;
+    }else if(m.type==='error'){
+      log(`${m.message}\n${m.stack||''}`,'error');$('#processing-stage').textContent='Errore: i RAW restano disponibili.';$('#btn-run-processing').disabled=false;worker?.terminate();worker=null;
+    }
+  };
+  worker.onerror=e=>{log(e.message,'error');$('#btn-run-processing').disabled=false;};
+  worker.postMessage({type:'run',sessionId,mode,memoryBudgetMB});
+}
+
+async function runAcoustics(){
+  if(acousticWorker)acousticWorker.terminate();$('#btn-run-acoustics').disabled=true;log('Avvio analisi RIR relativa in worker separato.');
+  acousticWorker=new Worker(new URL('../workers/acoustic_worker_v20_2_0.js',import.meta.url),{type:'module'});
+  acousticWorker.onmessage=async e=>{const m=e.data||{};if(m.type==='progress'){if(Number.isFinite(m.progress))$('#processing-progress').value=m.progress;$('#processing-stage').textContent=m.detail;log(m.detail);}else if(m.type==='complete'){log(`RIR completate: ${m.count}, valide ${m.valid}.`);currentModel=await repo.getModel(sessionId);if(currentModel){$('#btn-export-model').disabled=false;showModel(currentModel);}$('#btn-run-acoustics').disabled=false;acousticWorker.terminate();acousticWorker=null;}else if(m.type==='error'){log(m.message,'error');$('#btn-run-acoustics').disabled=false;acousticWorker?.terminate();acousticWorker=null;}};
+  acousticWorker.onerror=e=>{log(e.message,'error');$('#btn-run-acoustics').disabled=false;};acousticWorker.postMessage({type:'run',sessionId});
+}
+
+function showModel(model){
+  viewer?.setModel(model);
+  const g=model?.geometry||{},surfels=g.surfels||g.pointGaussians||g.gaussians||[],confirmed=surfels.reduce((n,p)=>n+(p?.gaussian?.confirmed?1:0),0),xr=surfels.reduce((n,p)=>n+(p?.sourceCounts?.xr||0),0),deep=surfels.reduce((n,p)=>n+(p?.sourceCounts?.deep||0),0);
+  $('#preview-gaussians').textContent=(g.gaussianCount??surfels.length??0).toLocaleString('it-IT');
+  $('#preview-confirmed').textContent=confirmed.toLocaleString('it-IT');
+  $('#preview-surfaces').textContent=(g.structuralSurfaces?.length||0).toLocaleString('it-IT');
+  $('#preview-objects').textContent=(g.objects?.length||0).toLocaleString('it-IT');
+  $('#preview-rays').textContent=(g.rawRaySamples||0).toLocaleString('it-IT');
+  $('#preview-provenance').textContent=`XR ${xr.toLocaleString('it-IT')} · Deep ${deep.toLocaleString('it-IT')}`;
+}
+
+function bindViewerControls(){
+  $('#btn-view-reset')?.addEventListener('click',()=>viewer?.resetView());
+  $('#view-points')?.addEventListener('change',e=>viewer?.setLayer('points',e.target.checked));
+  $('#view-surfaces')?.addEventListener('change',e=>viewer?.setLayer('surfaces',e.target.checked));
+  $('#view-objects')?.addEventListener('change',e=>viewer?.setLayer('objects',e.target.checked));
+  $('#view-point-size')?.addEventListener('input',e=>viewer?.setPointSize(e.target.value));
+}
+
 init().catch(e=>{log(e.stack||e.message,'error');$('#processing-stage').textContent=e.message;});

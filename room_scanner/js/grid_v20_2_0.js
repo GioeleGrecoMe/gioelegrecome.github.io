@@ -32,34 +32,85 @@ export function chooseAdaptiveTileSize(cell,quality=scoreObservationCell(cell)){
 export function summarizeCoverage(tiles){const out={red:0,yellow:0,green:0,deep:0,total:tiles.length,score:0};for(const t of tiles){out[t.status]=(out[t.status]||0)+1;if(t.needDeep)out.deep++;out.score+=t.overall||0;}out.score=tiles.length?out.score/tiles.length:0;return out;}
 
 /**
- * 2D compositor for 3D metric grid tiles. It intentionally uses a separate
- * transparent canvas: a rendering failure cannot interfere with WebXR's GL
- * layer, and the overlay can be dropped under load without losing capture.
+ * V20.4.2 capture overlay.
+ *
+ * The old overlay filled a square for every adaptive cell. That made a good
+ * diagnostic structure look like many floating billboards. The map itself is
+ * unchanged; only its on-screen representation changes:
+ *   - cell centres are rendered as small splats/points;
+ *   - neighbouring, similarly oriented cells are linked by a sparse wire mesh;
+ *   - only the current target gets a halo and optional FOTO label.
+ *
+ * This keeps the user informed about coverage without pretending that the
+ * adaptive cells are physical rectangular surfaces.
  */
 export class AdaptiveGridOverlay {
-  constructor(canvas,{maxVisibleTiles=105}={}){this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:true,desynchronized:true});this.maxVisibleTiles=maxVisibleTiles;this.tiles=[];this.reticle=null;this.markpoints=[];this.lastGuidance=null;}
+  constructor(canvas,{maxVisibleTiles=115}={}){this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:true,desynchronized:true});this.maxVisibleTiles=maxVisibleTiles;this.tiles=[];this.lastGuidance=null;this.meshNeighborLimit=3;}
   resize(){const dpr=Math.min(2,globalThis.devicePixelRatio||1),w=Math.max(1,innerWidth),h=Math.max(1,innerHeight);if(this.canvas.width!==Math.round(w*dpr)||this.canvas.height!==Math.round(h*dpr)){this.canvas.width=Math.round(w*dpr);this.canvas.height=Math.round(h*dpr);this.canvas.style.width=`${w}px`;this.canvas.style.height=`${h}px`;this.ctx.setTransform(dpr,0,0,dpr,0,0);}return {w,h};}
   setTiles(tiles){this.tiles=Array.isArray(tiles)?tiles:[];}
-  setReticle(reticle){this.reticle=reticle?.position?reticle:null;}
-  setMarkpoints(points){this.markpoints=Array.isArray(points)?points.filter(p=>p?.position):[];}
   clear(){const {w,h}=this.resize();this.ctx.clearRect(0,0,w,h);}
   render({viewMatrix,projectionMatrix,cameraPosition}){
     const {w,h}=this.resize(),ctx=this.ctx;ctx.clearRect(0,0,w,h);if(!viewMatrix||!projectionMatrix)return null;
     const candidates=[];
-    for(const tile of this.tiles){const d=dist3(tile.center,cameraPosition);if(d<.18||d>8.5)continue;const p=projectWorldPoint(tile.center,viewMatrix,projectionMatrix,w,h);const priority=tilePriority(tile,d);if(!p)continue;candidates.push({tile,p,d,priority});}
-    candidates.sort((a,b)=>b.priority-a.priority||a.d-b.d);const visible=candidates.filter(c=>c.p.inside).slice(0,this.maxVisibleTiles);
-    for(const c of visible)this._drawTile(c.tile,viewMatrix,projectionMatrix,w,h,c.tile===candidates[0]?.tile);this._drawReticle(viewMatrix,projectionMatrix,w,h);this._drawMarkpoints(viewMatrix,projectionMatrix,w,h);
-    const target=candidates.find(c=>c.tile.status!=='green')||null;this.lastGuidance=target?guidanceForTarget(target,w,h):null;return this.lastGuidance;
+    for(const tile of this.tiles){
+      const d=dist3(tile.center,cameraPosition);if(d<.16||d>9.0)continue;
+      const p=projectWorldPoint(tile.center,viewMatrix,projectionMatrix,w,h);if(!p)continue;
+      candidates.push({tile,p,d,priority:tilePriority(tile,d),normal:norm3(tile.normal||[0,1,0])});
+    }
+    candidates.sort((a,b)=>b.priority-a.priority||a.d-b.d);
+    const visible=candidates.filter(c=>c.p.inside).slice(0,this.maxVisibleTiles);
+    this._drawSparseMesh(visible);
+    const target=candidates.find(c=>c.tile.status!=='green')||null;
+    for(const c of visible)this._drawPoint(c,c===target);
+    if(target&&target.p.inside)this._drawTarget(target,w,h);
+    this.lastGuidance=target?guidanceForTarget(target,w,h):null;
+    return this.lastGuidance;
   }
-  _drawTile(tile,viewMatrix,projectionMatrix,w,h,primary){
-    const n=norm3(tile.normal||[0,1,0]);let u=Math.abs(n[1])>.88?[1,0,0]:norm3(cross3([0,1,0],n));let v=norm3(cross3(n,u));const hs=(tile.size||GRID.unknownTileM)*.46;
-    const corners=[add3(add3(tile.center,scale3(u,-hs)),scale3(v,-hs)),add3(add3(tile.center,scale3(u,hs)),scale3(v,-hs)),add3(add3(tile.center,scale3(u,hs)),scale3(v,hs)),add3(add3(tile.center,scale3(u,-hs)),scale3(v,hs))].map(p=>projectWorldPoint(p,viewMatrix,projectionMatrix,w,h));
-    if(corners.some(p=>!p))return;const colors={red:['rgba(255,55,80,.22)','rgba(255,93,115,.92)'],yellow:['rgba(255,193,40,.18)','rgba(255,209,102,.92)'],green:['rgba(44,210,160,.13)','rgba(82,224,182,.72)']};const [fill,stroke]=colors[tile.status]||colors.red;
-    const ctx=this.ctx;ctx.beginPath();ctx.moveTo(corners[0].x,corners[0].y);for(let i=1;i<4;i++)ctx.lineTo(corners[i].x,corners[i].y);ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=primary?3:1.2;ctx.stroke();
-    if(primary){const c=projectWorldPoint(tile.center,viewMatrix,projectionMatrix,w,h);ctx.fillStyle='rgba(4,12,15,.78)';ctx.fillRect(c.x-20,c.y-9,40,18);ctx.fillStyle=tile.needDeep?'#64b5f6':'#edf7f5';ctx.font='700 9px system-ui';ctx.textAlign='center';ctx.fillText(tile.needDeep?'FOTO':'OK',c.x,c.y+3);}
+  _drawSparseMesh(visible){
+    if(visible.length<2)return;
+    const ctx=this.ctx,used=new Set();ctx.save();ctx.lineWidth=.75;
+    for(let i=0;i<visible.length;i++){
+      const a=visible[i],neighbors=[];
+      for(let j=i+1;j<visible.length;j++){
+        const b=visible[j],dot=Math.abs(dot3(a.normal,b.normal));if(dot<.88)continue;
+        const s=Math.max(a.tile.size||GRID.unknownTileM,b.tile.size||GRID.unknownTileM),d3=dist3(a.tile.center,b.tile.center);if(d3>s*1.95||d3<.015)continue;
+        const ds=Math.hypot(a.p.x-b.p.x,a.p.y-b.p.y);if(ds>Math.min(innerWidth,innerHeight)*.22)continue;
+        neighbors.push({j,d3});
+      }
+      neighbors.sort((x,y)=>x.d3-y.d3);
+      for(const n of neighbors.slice(0,this.meshNeighborLimit)){
+        const key=`${i}:${n.j}`;if(used.has(key))continue;used.add(key);const b=visible[n.j];
+        const status=worstStatus(a.tile.status,b.tile.status);ctx.strokeStyle=meshColor(status,Math.min(a.tile.overall??.5,b.tile.overall??.5));
+        ctx.beginPath();ctx.moveTo(a.p.x,a.p.y);ctx.lineTo(b.p.x,b.p.y);ctx.stroke();
+      }
+    }
+    ctx.restore();
   }
-  _drawReticle(viewMatrix,projectionMatrix,w,h){const r=this.reticle;if(!r)return;const n=norm3(r.normal||[0,1,0]),u=Math.abs(n[1])>.88?[1,0,0]:norm3(cross3([0,1,0],n)),v=norm3(cross3(n,u)),radius=.075,ring=[];for(let i=0;i<16;i++){const a=i*Math.PI*2/16;ring.push(projectWorldPoint(add3(r.position,add3(scale3(u,Math.cos(a)*radius),scale3(v,Math.sin(a)*radius))),viewMatrix,projectionMatrix,w,h));}const tip=projectWorldPoint(add3(r.position,scale3(n,.19)),viewMatrix,projectionMatrix,w,h),center=projectWorldPoint(r.position,viewMatrix,projectionMatrix,w,h);if(!tip||!center||ring.some(p=>!p))return;const ctx=this.ctx;ctx.beginPath();ctx.moveTo(ring[0].x,ring[0].y);for(const p of ring.slice(1))ctx.lineTo(p.x,p.y);ctx.closePath();ctx.strokeStyle='#9ffff0';ctx.fillStyle='rgba(82,224,182,.14)';ctx.lineWidth=2.4;ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(tip.x,tip.y);ctx.lineTo(center.x-7,center.y-6);ctx.lineTo(center.x+7,center.y-6);ctx.closePath();ctx.fillStyle='#9ffff0';ctx.fill();}
-  _drawMarkpoints(viewMatrix,projectionMatrix,w,h){const ctx=this.ctx;for(let index=0;index<this.markpoints.length&&index<10;index++){const point=this.markpoints[index],n=norm3(point.normal||[0,1,0]),u=Math.abs(n[1])>.88?[1,0,0]:norm3(cross3([0,1,0],n)),v=norm3(cross3(n,u)),radius=.085,ring=[];for(let i=0;i<14;i++){const a=i*Math.PI*2/14;ring.push(projectWorldPoint(add3(point.position,add3(scale3(u,Math.cos(a)*radius),scale3(v,Math.sin(a)*radius))),viewMatrix,projectionMatrix,w,h));}const center=projectWorldPoint(point.position,viewMatrix,projectionMatrix,w,h),tip=projectWorldPoint(add3(point.position,scale3(n,.24)),viewMatrix,projectionMatrix,w,h);if(!center||!tip||ring.some(p=>!p))continue;const confirmed=point.status==='valid',color=confirmed?'#9ffff0':'#ffcf70';ctx.beginPath();ctx.moveTo(ring[0].x,ring[0].y);for(const p of ring.slice(1))ctx.lineTo(p.x,p.y);ctx.closePath();ctx.fillStyle=confirmed?'rgba(82,224,182,.20)':'rgba(255,193,40,.22)';ctx.strokeStyle=color;ctx.lineWidth=2.8;ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(tip.x,tip.y);ctx.lineTo(center.x-8,center.y-7);ctx.lineTo(center.x+8,center.y-7);ctx.closePath();ctx.fillStyle=color;ctx.fill();ctx.fillStyle='#ffffff';ctx.font='800 11px system-ui';ctx.fillText(`R${index+1}`,tip.x+8,tip.y-5);}}
+  _drawPoint(c,primary){
+    const ctx=this.ctx,status=c.tile.status||'red',objectLike=c.tile.surfaceType==='object'||c.tile.surfaceType==='edge';
+    const base=objectLike?3.3:2.5,depthScale=clamp(1.8/(.55+c.d),.55,1.45),r=base*depthScale*(primary?1.45:1);
+    const color=pointColor(status);ctx.save();ctx.globalAlpha=status==='green'?.78:.94;ctx.fillStyle=color.fill;ctx.strokeStyle=color.stroke;
+    ctx.lineWidth=primary?2.1:1;
+    ctx.beginPath();ctx.arc(c.p.x,c.p.y,r,0,Math.PI*2);
+    if(status==='green')ctx.fill();else{ctx.fillStyle='rgba(4,12,15,.34)';ctx.fill();ctx.stroke();}
+    if(objectLike){ctx.beginPath();ctx.arc(c.p.x,c.p.y,r+2.2,0,Math.PI*2);ctx.globalAlpha=.45;ctx.stroke();}
+    ctx.restore();
+  }
+  _drawTarget(target,w,h){
+    const ctx=this.ctx,p=target.p,t=target.tile,status=t.status||'red',col=pointColor(status);ctx.save();
+    const pulse=1+.12*Math.sin(performance.now()*.006),r=(t.surfaceType==='object'?13:11)*pulse;
+    ctx.strokeStyle=col.stroke;ctx.lineWidth=2.2;ctx.globalAlpha=.92;ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.stroke();
+    // Short tangential strokes communicate local surface orientation without
+    // drawing a fake rectangular patch.
+    // Draw a short screen-space tangent rather than a rectangular patch.
+    ctx.beginPath();ctx.moveTo(p.x-r*1.55,p.y);ctx.lineTo(p.x-r*.85,p.y);ctx.moveTo(p.x+r*.85,p.y);ctx.lineTo(p.x+r*1.55,p.y);ctx.stroke();
+    if(t.needDeep){const text='FOTO';ctx.font='800 10px system-ui';ctx.textAlign='center';const tw=ctx.measureText(text).width+12;ctx.fillStyle='rgba(4,12,15,.80)';roundRect(ctx,p.x-tw/2,p.y+r+6,tw,19,7);ctx.fill();ctx.fillStyle='#9dcfff';ctx.fillText(text,p.x,p.y+r+19);}
+    ctx.restore();
+  }
 }
 function tilePriority(tile,d){const state=tile.status==='red'?3:tile.status==='yellow'?1.7:.15;const deep=tile.needDeep?1.35:0;const object=(tile.surfaceType==='object'||tile.surfaceType==='edge') ? .85 : 0;return state+deep+object+(1/(.5+d));}
-function guidanceForTarget(target,w,h){const dx=target.p.x-w/2,dy=target.p.y-h/2;const angle=Math.atan2(dx,-dy);const inside=target.p.inside;const direction=inside&&Math.hypot(dx,dy)<Math.min(w,h)*.17?'hold':Math.abs(dx)>Math.abs(dy)?(dx<0?'left':'right'):(dy<0?'up':'down');const title=direction==='hold'?(target.tile.needDeep?'Scatto selezionato qui':'Mantieni e spostati lateralmente'):`Porta il telefono ${direction==='left'?'a sinistra':direction==='right'?'a destra':direction==='up'?'verso l’alto':'verso il basso'}`;const structural=target.tile.surfaceType==='ceiling'?'Soffitto: inquadralo da due punti per consolidare altezza e bordi.':target.tile.surfaceType==='wall'?'Parete: mantienila visibile mentre fai un piccolo spostamento laterale.':target.tile.surfaceType==='floor'?'Pavimento: una vista ampia stabilizza il riferimento metrico.':null;const detail=structural|| (target.tile.surfaceType==='object'?'Superficie di oggetto: servono forma e viste laterali.':target.tile.needDeep?'La geometria è ambigua: salvo solo keyframe informativi.':'Aggiungi una vista distinta per stabilizzare la cella.');return {angleRad:angle,direction,title,detail,tileId:target.tile.id};}
+function guidanceForTarget(target,w,h){const dx=target.p.x-w/2,dy=target.p.y-h/2;const angle=Math.atan2(dx,-dy);const inside=target.p.inside;const direction=inside&&Math.hypot(dx,dy)<Math.min(w,h)*.17?'hold':Math.abs(dx)>Math.abs(dy)?(dx<0?'left':'right'):(dy<0?'up':'down');const title=direction==='hold'?(target.tile.needDeep?'Scatta qui per Deep':'Mantieni e spostati lateralmente'):`Porta il telefono ${direction==='left'?'a sinistra':direction==='right'?'a destra':direction==='up'?'verso l’alto':'verso il basso'}`;const detail=target.tile.surfaceType==='object'?'Oggetto visibile: completa forma e viste laterali.':target.tile.needDeep?'La geometria è ambigua: acquisisci una fotografia metrica.':'Aggiungi una vista distinta per stabilizzare questi punti.';return {angleRad:angle,direction,title,detail,tileId:target.tile.id};}
+function pointColor(status){if(status==='green')return{fill:'rgba(82,224,182,.88)',stroke:'rgba(125,255,218,.98)'};if(status==='yellow')return{fill:'rgba(255,209,102,.5)',stroke:'rgba(255,221,126,.98)'};return{fill:'rgba(255,93,115,.5)',stroke:'rgba(255,113,133,.98)'};}
+function meshColor(status,q){const a=.12+.28*clamp(q||0,0,1);if(status==='green')return`rgba(82,224,182,${a})`;if(status==='yellow')return`rgba(255,209,102,${a})`;return`rgba(255,93,115,${a})`;}
+function worstStatus(a,b){if(a==='red'||b==='red')return'red';if(a==='yellow'||b==='yellow')return'yellow';return'green';}
+function roundRect(ctx,x,y,w,h,r){if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,r);return;}ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();}

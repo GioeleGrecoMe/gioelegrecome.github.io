@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="it"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b171d">
-<link rel="stylesheet" href="css/app_v20_2_0.css"><link rel="stylesheet" href="css/preview_v20_2_4.css"><title>Room Scanner Processing</title>
+<link rel="stylesheet" href="css/app_v20_2_0.css"><link rel="stylesheet" href="css/preview_v20_4_2.css"><title>Room Scanner Processing</title>
 </head><body class="processing-page">
 <main class="processing-shell">
-  <header class="topbar"><div><div class="eyebrow">PROCESSING ISOLATO</div><h1>Ricostruzione V20.2.4</h1></div><a id="btn-back-capture" class="button-link" href="room_scanner_v20.html?review=1">Torna al riepilogo</a></header>
+  <header class="topbar"><div><div class="eyebrow">PROCESSING ISOLATO</div><h1>Ricostruzione V20.4</h1></div><a class="button-link" href="room_scanner_v20.html">Torna alla cattura</a></header>
   <section class="card">
     <p>Questa pagina viene aperta solo su richiesta e non condivide il ciclo di vita WebXR. Ogni fase è riavviabile e salva risultati intermedi.</p>
     <div class="form-grid">
@@ -18,7 +18,28 @@
     <div class="button-row"><button id="btn-run-processing" class="primary">Avvia processing</button><button id="btn-cancel-processing">Interrompi</button><button id="btn-export-model" disabled>Scarica modello</button><button id="btn-run-acoustics">Analizza RIR relative</button></div>
   </section>
   <section class="card"><h3>Avanzamento</h3><progress id="processing-progress" max="100" value="0"></progress><p id="processing-stage">Pronto.</p><pre id="processing-log" class="log-view"></pre></section>
-  <section class="card"><h3>Anteprima 3D navigabile</h3><p>La vista predefinita è una mesh fatta solo dalle patch WebXR osservate: non chiude artificialmente il volume fra due stanze. Un dito ruota; due dita spostano e zoomano.</p><div class="button-row preview-controls"><button id="btn-preview-mesh" class="primary" type="button">Mesh osservata</button><button id="btn-preview-points" type="button">Punti RAW</button><button id="btn-preview-zoom-in" type="button" aria-label="Aumenta zoom">+</button><button id="btn-preview-zoom-out" type="button" aria-label="Riduci zoom">−</button><button id="btn-preview-reset" type="button">Reimposta vista</button></div><canvas id="model-preview" class="model-preview" tabindex="0" aria-label="Anteprima 3D navigabile del modello"></canvas></section>
+  <section class="card model-preview-card">
+    <div class="preview-header">
+      <div><h3>Anteprima 3D del gemello</h3><p id="model-preview-status">In attesa del modello.</p></div>
+      <div class="preview-controls">
+        <label><input id="view-points" type="checkbox" checked> Punti RGB</label>
+        <label><input id="view-surfaces" type="checkbox" checked> Superfici</label>
+        <label><input id="view-objects" type="checkbox" checked> Oggetti</label>
+        <label class="point-size-control">Punto <input id="view-point-size" type="range" min="1" max="6" step="0.25" value="2.2"></label>
+        <button id="btn-view-reset" type="button">Centra vista</button>
+      </div>
+    </div>
+    <div class="preview-stats">
+      <span><strong id="preview-gaussians">0</strong> Gaussian</span>
+      <span><strong id="preview-confirmed">0</strong> confermate</span>
+      <span><strong id="preview-rays">0</strong> raggi RAW</span>
+      <span><strong id="preview-surfaces">0</strong> superfici</span>
+      <span><strong id="preview-objects">0</strong> oggetti</span>
+      <span id="preview-provenance">XR 0 · Deep 0</span>
+    </div>
+    <canvas id="model-preview" class="model-preview" aria-label="Anteprima 3D interattiva del modello"></canvas>
+    <p class="preview-help">Trascina con un dito per orbitare · pinch per zoom · doppio tap/click per ricentrare. I punti RGB sono la misura primaria; le superfici trasparenti sono un fit derivato.</p>
+  </section>
 </main>
 <script type="module" src="js/processing_ui_v20_2_0.js"></script>
 </body></html>
