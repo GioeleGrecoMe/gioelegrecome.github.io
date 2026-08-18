@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/icon.svg">
   <link rel="stylesheet" href="css/app_v20_2_0.css">
-  <title>Room Scanner V20.2.3</title>
+  <title>Room Scanner V20.2.4</title>
 </head>
 <body>
   <canvas id="xr-canvas" aria-label="Vista WebXR"></canvas>
@@ -18,7 +18,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">ROOM SCANNER</div>
-        <h1>V20.2.3 · Adaptive Grid + RAW-first</h1>
+        <h1>V20.2.4 · Mesh WebXR + RAW-first</h1>
       </div>
       <div id="state-pill" class="pill neutral">Inizializzazione</div>
     </header>
@@ -79,6 +79,7 @@
           <div><strong id="guidance-title">Muoviti lentamente</strong><p id="guidance-detail">WebXR stima automaticamente pavimento, pareti e soffitto: non devi marcarli.</p></div>
         </div>
         <div class="telemetry mono">
+          <span id="telemetry-geometry">geometria: attendo WebXR</span>
           <span id="telemetry-points">0 punti</span>
           <span id="telemetry-frames">0 foto</span>
           <span id="telemetry-chirps">0 chirp</span>

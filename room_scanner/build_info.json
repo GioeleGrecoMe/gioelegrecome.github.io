@@ -1,7 +1,7 @@
 {
   "name": "Room Scanner",
-  "version": "20.2.3",
-  "build": "v20.2.3-20260818-persistent-pin-keyframes-preview-deep",
+  "version": "20.2.4",
+  "build": "v20.2.4-20260818-depth-guard-webxr-patch-mesh",
   "entry": "room_scanner_v20.html",
   "captureArchitecture": "append-only-binary",
   "processingArchitecture": "explicit-worker-after-xr",

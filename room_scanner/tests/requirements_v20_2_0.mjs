@@ -12,7 +12,7 @@ const requireText = (rel, needles) => {
 };
 
 const html = requireText('room_scanner_v12.html', [
-  'V20.2.3',
+  'V20.2.4',
   'Salva ed esci da XR',
   'Scarica pacchetto RAW',
   'markpoint',
@@ -86,7 +86,7 @@ requireText('js/acoustics_v20_2_0.js', [
 requireText('workers/acoustic_worker_v20_2_0.js', [
   'chirp', 'PCM', 'RIR',
 ]);
-requireText('processing.html', ['V20.2.3', 'processing_ui_v20_2_0.js']);
+requireText('processing.html', ['V20.2.4', 'processing_ui_v20_2_0.js']);
 
 const sw = requireText('sw_v20_2_0.js', [
   'room_scanner_v12.html', 'processing.html', 'network',

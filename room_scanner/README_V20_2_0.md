@@ -1,6 +1,6 @@
-# Room Scanner V20.2.3 - Observation Graph Capture
+# Room Scanner V20.2.4 - WebXR Patch Mesh Capture
 
-Room Scanner V20.2.3 is a static, offline-capable WebXR application for collecting a metric, photo-linked and acoustically oriented description of connected indoor spaces with a smartphone.
+Room Scanner V20.2.4 is a static, offline-capable WebXR application for collecting a metric, photo-linked and acoustically oriented description of connected indoor spaces with a smartphone. The processed preview defaults to a mesh made solely of observed WebXR patches, so it does not bridge unobserved gaps between rooms.
 
 The release deliberately separates three responsibilities:
 
@@ -74,7 +74,7 @@ Publish the complete directory to an HTTPS static origin. GitHub Pages is suffic
 room_scanner_v12.html
 ```
 
-When upgrading from an older build, clear the old site's storage once or uninstall the previous PWA. V20.2.3 uses versioned modules and a versioned service worker.
+When upgrading from an older build, clear the old site's storage once or uninstall the previous PWA. V20.2.4 uses versioned modules and a versioned service worker.
 
 ## Local optional dependencies
 

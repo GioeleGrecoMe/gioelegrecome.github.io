@@ -1,4 +1,4 @@
-# V20.2.3 Architecture
+# V20.2.4 Architecture
 
 ## Design invariants
 

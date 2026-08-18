@@ -1,10 +1,10 @@
-# Continuation Handoff - V20.2.3
+# Continuation Handoff - V20.2.4
 
 ## Baseline
 
 Canonical entry: `room_scanner_v12.html`
 
-Build: `v20.2.3-20260818-persistent-pin-keyframes-preview-deep`
+Build: `v20.2.4-20260818-depth-guard-webxr-patch-mesh`
 
 ## Non-negotiable architecture
 

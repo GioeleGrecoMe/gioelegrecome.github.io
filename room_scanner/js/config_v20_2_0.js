@@ -6,8 +6,8 @@
  * conservative: losing a frame is preferable to losing the browser process.
  */
 export const BUILD = Object.freeze({
-  version: '20.2.3',
-  id: 'v20.2.3-20260818-persistent-pin-keyframes-preview-deep',
+  version: '20.2.4',
+  id: 'v20.2.4-20260818-depth-guard-webxr-patch-mesh',
   dbName: 'room-scanner-v20-2',
   dbVersion: 1,
   rawFormat: 'RSCAN-ZIP-1'
