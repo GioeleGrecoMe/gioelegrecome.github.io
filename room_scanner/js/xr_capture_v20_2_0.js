@@ -3,6 +3,117 @@ import {add3,angle3,cameraPositionFromMatrix,clamp,cross3,dist3,finiteArray,forw
 import {AdaptiveGridOverlay,summarizeCoverage} from './grid_v20_2_0.js';
 import {computePatchDescriptor} from './markpoints_v20_2_0.js';
 
+
+/**
+ * Lightweight XR pose-motion tracker used by capture scheduling.
+ *
+ * V20.4.0 accidentally instantiated PoseMotionTracker without defining it,
+ * causing an immediate ReferenceError when the XR capture controller was
+ * constructed.  Keep the tracker local to this module so it cannot depend on
+ * globals or script load order.
+ *
+ * The tracker intentionally filters frame-to-frame motion: raw XR poses can
+ * contain tiny jitter that should not suppress photos/chirps, while a tracking
+ * discontinuity or a long suspended frame must not be interpreted as a huge
+ * physical velocity.  All timestamps are XR rAF timestamps in milliseconds.
+ */
+class PoseMotionTracker {
+  constructor({linearTauS=0.12,angularTauS=0.10,maxGapMs=450}={}){
+    this.linearTauS=linearTauS;
+    this.angularTauS=angularTauS;
+    this.maxGapMs=maxGapMs;
+    this.reset();
+  }
+
+  reset(){
+    this.previousPosition=null;
+    this.previousQuaternion=null;
+    this.previousForward=null;
+    this.previousTime=null;
+    this.linearSpeed=0;
+    this.angularSpeed=0;
+    this.stability=1;
+  }
+
+  _quaternion(orientation){
+    if(!orientation)return null;
+    const q=[Number(orientation.x),Number(orientation.y),Number(orientation.z),Number(orientation.w)];
+    if(!q.every(Number.isFinite))return null;
+    const n=Math.hypot(q[0],q[1],q[2],q[3]);
+    if(n<1e-8)return null;
+    return q.map(v=>v/n);
+  }
+
+  _angularDelta(q0,q1,forward0,forward1){
+    if(q0&&q1){
+      // q and -q represent the same rotation, therefore use |dot|.
+      const d=Math.abs(q0[0]*q1[0]+q0[1]*q1[1]+q0[2]*q1[2]+q0[3]*q1[3]);
+      return 2*Math.acos(clamp(d,-1,1));
+    }
+    if(forward0&&forward1)return angle3(forward0,forward1);
+    return 0;
+  }
+
+  update(matrix,orientation,time){
+    const position=cameraPositionFromMatrix(matrix);
+    const quaternion=this._quaternion(orientation);
+    const forward=norm3(forwardFromMatrix(matrix));
+    const now=Number.isFinite(time)?time:performance.now();
+
+    if(!this.previousPosition||!Number.isFinite(this.previousTime)){
+      this.previousPosition=position.slice();
+      this.previousQuaternion=quaternion;
+      this.previousForward=forward;
+      this.previousTime=now;
+      return {position,linearSpeed:0,angularSpeed:0,stability:1,dtS:0,discontinuity:false};
+    }
+
+    const dtMs=now-this.previousTime;
+    // Rebase after tab/compositor stalls. Dividing a large pose jump by a stale
+    // timestamp creates false motion and used to suppress capture for seconds.
+    if(!Number.isFinite(dtMs)||dtMs<=0||dtMs>this.maxGapMs){
+      this.previousPosition=position.slice();
+      this.previousQuaternion=quaternion;
+      this.previousForward=forward;
+      this.previousTime=now;
+      this.linearSpeed*=0.35;
+      this.angularSpeed*=0.35;
+      this.stability=Math.max(0.55,this.stability*0.8);
+      return {position,linearSpeed:this.linearSpeed,angularSpeed:this.angularSpeed,stability:this.stability,dtS:0,discontinuity:true};
+    }
+
+    const dtS=Math.max(0.001,dtMs/1000);
+    const rawLinear=dist3(position,this.previousPosition)/dtS;
+    const rawAngular=this._angularDelta(this.previousQuaternion,quaternion,this.previousForward,forward)/dtS;
+
+    // Very large single-frame velocities are almost certainly relocalisation
+    // jumps rather than the user physically moving the phone that fast.
+    const discontinuity=rawLinear>6||rawAngular>12;
+    if(discontinuity){
+      this.linearSpeed*=0.5;
+      this.angularSpeed*=0.5;
+    }else{
+      const aLin=1-Math.exp(-dtS/this.linearTauS);
+      const aAng=1-Math.exp(-dtS/this.angularTauS);
+      this.linearSpeed+=(rawLinear-this.linearSpeed)*aLin;
+      this.angularSpeed+=(rawAngular-this.angularSpeed)*aAng;
+    }
+
+    // Deliberately permissive: the dense scanner should keep collecting while
+    // walking. Stability is guidance/quality metadata, not a hard capture gate.
+    const linearPenalty=Math.min(1,this.linearSpeed/1.6);
+    const angularPenalty=Math.min(1,this.angularSpeed/3.2);
+    this.stability=clamp(1-0.55*linearPenalty-0.45*angularPenalty,0,1);
+
+    this.previousPosition=position.slice();
+    this.previousQuaternion=quaternion;
+    this.previousForward=forward;
+    this.previousTime=now;
+
+    return {position,linearSpeed:this.linearSpeed,angularSpeed:this.angularSpeed,stability:this.stability,dtS,discontinuity};
+  }
+}
+
 /** Legacy compact point format retained for V20.2/V20.3 RAW compatibility. */
 export function encodePointBatch(points,origin){
   const count=Math.floor(points.length/10),header=20,recordBytes=14,buffer=new ArrayBuffer(header+count*recordBytes),dv=new DataView(buffer);dv.setUint32(0,0x52535054,true);dv.setUint16(4,1,true);dv.setUint16(6,recordBytes,true);dv.setUint32(8,count,true);dv.setFloat32(12,GRID.sourceVoxelM,true);dv.setUint32(16,0,true);let o=header;
