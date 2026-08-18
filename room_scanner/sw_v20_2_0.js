@@ -1,4 +1,4 @@
-const CACHE='room-scanner-v20.2.1-xr-compositor-ui-shell';
+const CACHE='room-scanner-v20.2.1-xr-surface-export-recovery-shell';
 const SHELL=[
   './','./index.html','./room_scanner_v20.html','./room_scanner_v12.html','./processing.html','./manifest.webmanifest','./build_info.json','./assets/icon.svg','./css/app_v20_2_0.css',
   './js/config_v20_2_0.js','./js/math_v20_2_0.js','./js/db_v20_2_0.js','./js/diagnostics_v20_2_0.js','./js/grid_v20_2_0.js','./js/markpoints_v20_2_0.js','./js/audio_v20_2_0.js','./js/xr_capture_v20_2_0.js','./js/raw_export_v20_2_0.js','./js/reconstruction_v20_2_0.js','./js/registration_v20_2_0.js','./js/acoustics_v20_2_0.js','./js/app_v20_2_0.js','./js/processing_ui_v20_2_0.js',

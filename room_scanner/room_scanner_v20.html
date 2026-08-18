@@ -118,6 +118,11 @@
     </section>
   </main>
   <div id="capture-toast" class="toast" hidden role="status" aria-live="polite"></div>
+  <dialog id="download-dialog" aria-labelledby="download-title">
+    <h3 id="download-title">Download pronto</h3>
+    <p id="download-detail">Il file è pronto.</p>
+    <div class="button-row"><button id="btn-download-ready" class="primary" type="button">Scarica ora</button><button type="button" onclick="this.closest('dialog').close()">Chiudi</button></div>
+  </dialog>
 
   <dialog id="markpoint-dialog">
     <form method="dialog">

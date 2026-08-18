@@ -55,6 +55,8 @@ await test('xr_passthrough_and_depth_contract_regression',async()=>{
   assert.ok(xr.includes('layer.framebuffer'));
   assert.ok(xr.includes('xr-end-event-timeout'));
   assert.ok(xr.includes('capture-ended-ui-failed'));
+  assert.ok(xr.includes('plane-detection'));
+  assert.ok(xr.includes('frame.detectedPlanes'));
   assert.ok(css.includes('html.xr-active,body.xr-active{background:transparent!important}'));
   assert.ok(css.includes('.xr-active #xr-canvas{visibility:visible;opacity:1}'));
   assert.ok(css.includes('.xr-active .topbar{display:none}'));
@@ -65,6 +67,11 @@ await test('xr_passthrough_and_depth_contract_regression',async()=>{
   assert.ok(app.includes("setState('Diagnostica pronta','good')"));
   assert.ok(app.includes('audio-start-timeout'));
   assert.ok(app.includes("['created','starting','capturing'"));
+  assert.ok(app.includes('freshXRCanvas'));
+  assert.ok(app.includes('sw_v20_2_0.js?build='));
+  assert.ok(app.includes('prepareDownload'));
+  const map=await readFile(path.join(root,'workers/map_worker_v20_2_0.js'),'utf8');
+  assert.ok(map.includes('planeEstimates')&&map.includes('webxr-plane'));
 });
 await test('processing_is_explicit_separate_page',async()=>{const html=await readFile(path.join(root,'processing.html'),'utf8'),app=await readFile(path.join(root,'js/app_v20_2_0.js'),'utf8');assert.ok(html.includes('PROCESSING ISOLATO'));assert.ok(app.includes("processing.html?session="));assert.ok(!app.includes("new Worker(new URL('../workers/processing_worker"));});
 

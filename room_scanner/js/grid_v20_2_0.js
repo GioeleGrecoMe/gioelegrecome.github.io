@@ -54,7 +54,7 @@ export class AdaptiveGridOverlay {
     const corners=[add3(add3(tile.center,scale3(u,-hs)),scale3(v,-hs)),add3(add3(tile.center,scale3(u,hs)),scale3(v,-hs)),add3(add3(tile.center,scale3(u,hs)),scale3(v,hs)),add3(add3(tile.center,scale3(u,-hs)),scale3(v,hs))].map(p=>projectWorldPoint(p,viewMatrix,projectionMatrix,w,h));
     if(corners.some(p=>!p))return;const colors={red:['rgba(255,55,80,.22)','rgba(255,93,115,.92)'],yellow:['rgba(255,193,40,.18)','rgba(255,209,102,.92)'],green:['rgba(44,210,160,.13)','rgba(82,224,182,.72)']};const [fill,stroke]=colors[tile.status]||colors.red;
     const ctx=this.ctx;ctx.beginPath();ctx.moveTo(corners[0].x,corners[0].y);for(let i=1;i<4;i++)ctx.lineTo(corners[i].x,corners[i].y);ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=primary?3:1.2;ctx.stroke();
-    if(tile.needDeep||primary){const c=projectWorldPoint(tile.center,viewMatrix,projectionMatrix,w,h);ctx.fillStyle='rgba(4,12,15,.78)';ctx.fillRect(c.x-20,c.y-9,40,18);ctx.fillStyle=tile.needDeep?'#64b5f6':'#edf7f5';ctx.font='700 9px system-ui';ctx.textAlign='center';ctx.fillText(tile.needDeep?'FOTO':'OK',c.x,c.y+3);}
+    if(primary){const c=projectWorldPoint(tile.center,viewMatrix,projectionMatrix,w,h);ctx.fillStyle='rgba(4,12,15,.78)';ctx.fillRect(c.x-20,c.y-9,40,18);ctx.fillStyle=tile.needDeep?'#64b5f6':'#edf7f5';ctx.font='700 9px system-ui';ctx.textAlign='center';ctx.fillText(tile.needDeep?'FOTO':'OK',c.x,c.y+3);}
   }
 }
 function tilePriority(tile,d){const state=tile.status==='red'?3:tile.status==='yellow'?1.7:.15;const deep=tile.needDeep?1.35:0;const object=(tile.surfaceType==='object'||tile.surfaceType==='edge') ? .85 : 0;return state+deep+object+(1/(.5+d));}
