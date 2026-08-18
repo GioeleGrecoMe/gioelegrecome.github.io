@@ -4,7 +4,7 @@
 
 Canonical entry: `room_scanner_v12.html`
 
-Build: `v20.2.1-20260818-xr-passthrough-depth-fix`
+Build: `v20.2.1-20260818-xr-compositor-ui-fix`
 
 ## Non-negotiable architecture
 

@@ -54,7 +54,13 @@ export class XRCaptureController {
     try{await Promise.race([this.audio?.flush?.(),new Promise(r=>setTimeout(r,180))]);}catch(e){await this.diag.error('pre-exit-audio-flush-failed',e);}
     try{await Promise.all([this._flushPoseChunk(),this._flushHitChunk()]);}catch(e){await this.diag.error('pre-exit-small-record-flush-failed',e);}
     try{await this.repo.patchSession(this.sessionId,{status:'xr-ending',lastExitReason:reason});}catch(e){await this.diag.error('pre-exit-session-patch-failed',e);}
-    try{await this.xrSession?.end();}catch(e){await this.diag.error('xr-end-call-failed',e);await this._onSessionEnd();}return this._endPromise;
+    try{
+      await this.xrSession?.end();
+      // A few Android WebXR stacks resolve end() before dispatching `end` and
+      // occasionally never dispatch it after a renderer interruption. Never
+      // leave the user on an inert capture HUD in that case.
+      if(!this.ended){const ended=await Promise.race([this._endPromise.then(()=>true),new Promise(resolve=>setTimeout(()=>resolve(false),1200))]);if(!ended&&!this.ended){await this.diag.log('xr-end-event-timeout',{timeoutMs:1200},'warn');await this._onSessionEnd();}}
+    }catch(e){await this.diag.error('xr-end-call-failed',e);await this._onSessionEnd();}return this._endPromise;
   }
   _onXRFrame(time,frame){
     if(this.ended)return;const session=frame.session;if(!this.closing)session.requestAnimationFrame((t,f)=>this._onXRFrame(t,f));try{const pose=frame.getViewerPose(this.refSpace);if(!pose?.views?.length)return;const view=pose.views[0];this._prepareXRFramebuffer(view);const matrix=finiteArray(view.transform.matrix),viewMatrix=finiteArray(view.transform.inverse.matrix),projection=finiteArray(view.projectionMatrix),motion=this.motion.update(matrix,view.transform.orientation,time),cameraPosition=motion.position;this.latestFrameContext={time,frame,view,pose,matrix,viewMatrix,projection,cameraPosition,motion};
@@ -129,7 +135,9 @@ export class XRCaptureController {
     // Deep, plane fitting, ZIP creation or model reconstruction is started.
     try{this.hitTestSource?.cancel?.();}catch{}this.hitTestSource=null;try{this.cameraReader?.dispose();}catch{}this.cameraReader=null;try{this.gl?.getExtension('WEBGL_lose_context')?.loseContext();}catch{}this.canvas.width=this.canvas.height=1;this.overlay.clear();try{this.mapWorker?.terminate();}catch{}this.mapWorker=null;
     try{await this.audio?.stop?.({timeoutMs:520});}catch(e){await this.diag.error('audio-stop-after-xr-failed',e);}const drain=await this.repo.drain(1700);try{await this.repo.patchSession(this.sessionId,{status:reason==='requested'?'captured':'interrupted',flags:{xrEnded:true},xr:{endedAt:Date.now(),endReason:reason},counts:this.sessionRecord.counts,writeDrain:drain});}catch(e){await this.diag.error('final-session-patch-failed',e);}
-    await this.diag.memory('after-xr-release');await this.diag.transition('CAPTURE_SAVED',{drain});this.cb.onEnded?.({reason,drain,sessionId:this.sessionId});this._resolveEnd?.({reason,drain});
+    await this.diag.memory('after-xr-release');await this.diag.transition('CAPTURE_SAVED',{drain});
+    try{await this.cb.onEnded?.({reason,drain,sessionId:this.sessionId});}catch(error){await this.diag.error('capture-ended-ui-failed',error);}
+    this._resolveEnd?.({reason,drain});
   }
 }
 

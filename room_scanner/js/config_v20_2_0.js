@@ -7,7 +7,7 @@
  */
 export const BUILD = Object.freeze({
   version: '20.2.1',
-  id: 'v20.2.1-20260818-xr-passthrough-depth-fix',
+  id: 'v20.2.1-20260818-xr-compositor-ui-fix',
   dbName: 'room-scanner-v20-2',
   dbVersion: 1,
   rawFormat: 'RSCAN-ZIP-1'

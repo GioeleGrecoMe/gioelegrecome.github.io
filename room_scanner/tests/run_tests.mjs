@@ -53,9 +53,18 @@ await test('xr_passthrough_and_depth_contract_regression',async()=>{
   assert.ok(xr.includes("this.depthMode==='gpu-optimized'"));
   assert.ok(xr.includes("clearColor(0,0,0,0)"));
   assert.ok(xr.includes('layer.framebuffer'));
+  assert.ok(xr.includes('xr-end-event-timeout'));
+  assert.ok(xr.includes('capture-ended-ui-failed'));
   assert.ok(css.includes('html.xr-active,body.xr-active{background:transparent!important}'));
-  assert.ok(css.includes('.xr-active #xr-canvas{opacity:0}'));
+  assert.ok(css.includes('.xr-active #xr-canvas{visibility:visible;opacity:1}'));
+  assert.ok(css.includes('.xr-active .topbar{display:none}'));
+  assert.ok(!css.includes('.xr-active #xr-canvas{opacity:0}'));
   assert.ok(app.includes("document.documentElement.classList.add('xr-active')"));
+  assert.ok(app.includes('capture-review-failed'));
+  assert.ok(app.includes('open-review-failed'));
+  assert.ok(app.includes("setState('Diagnostica pronta','good')"));
+  assert.ok(app.includes('audio-start-timeout'));
+  assert.ok(app.includes("['created','starting','capturing'"));
 });
 await test('processing_is_explicit_separate_page',async()=>{const html=await readFile(path.join(root,'processing.html'),'utf8'),app=await readFile(path.join(root,'js/app_v20_2_0.js'),'utf8');assert.ok(html.includes('PROCESSING ISOLATO'));assert.ok(app.includes("processing.html?session="));assert.ok(!app.includes("new Worker(new URL('../workers/processing_worker"));});
 
