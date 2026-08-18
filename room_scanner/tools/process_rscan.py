@@ -25,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Validate and unpack Room Scanner RAW data")
     p.add_argument("bundle", type=Path, help="*.rscan.zip file exported by the webpage")
     p.add_argument("--out", type=Path, default=Path("roomscan_processed"), help="output directory")
-    p.add_argument("--voxel", type=float, default=0.075, help="metric decimation voxel in metres")
+    p.add_argument("--voxel", type=float, default=0.025, help="metric point-Gaussian fusion voxel in metres")
     p.add_argument("--extract-images", action="store_true", help="copy JPEG keyframes to output")
     return p.parse_args()
 
@@ -127,6 +127,70 @@ def fit_yaw_translation(reference: str, moving: str, pairs: list[tuple]) -> dict
             "translation": [tx, ty, tz], "referenceSegmentId": reference, "segmentId": moving}
 
 
+
+
+def mat4_vec4_col(m: list[float], v: tuple[float, float, float, float]) -> tuple[float, float, float, float]:
+    x, y, z, w = v
+    return (
+        m[0]*x + m[4]*y + m[8]*z + m[12]*w,
+        m[1]*x + m[5]*y + m[9]*z + m[13]*w,
+        m[2]*x + m[6]*y + m[10]*z + m[14]*w,
+        m[3]*x + m[7]*y + m[11]*z + m[15]*w,
+    )
+
+
+def invert4_colmajor(m: list[float]) -> list[float] | None:
+    if len(m) != 16:
+        return None
+    a = [[float(m[c*4+r]) for c in range(4)] + [1.0 if r == c else 0.0 for c in range(4)] for r in range(4)]
+    for col in range(4):
+        pivot = max(range(col, 4), key=lambda r: abs(a[r][col]))
+        if abs(a[pivot][col]) < 1e-12:
+            return None
+        a[col], a[pivot] = a[pivot], a[col]
+        inv = 1.0 / a[col][col]
+        a[col] = [x * inv for x in a[col]]
+        for r in range(4):
+            if r == col:
+                continue
+            f = a[r][col]
+            if f:
+                a[r] = [a[r][j] - f*a[col][j] for j in range(8)]
+    rows = [row[4:] for row in a]
+    return [rows[r][c] for c in range(4) for r in range(4)]
+
+
+def decode_rsry(data: bytes, meta: dict):
+    if len(data) < 24 or struct.unpack_from("<I", data, 0)[0] != 0x52535259:
+        raise ValueError("invalid RSRY ray batch")
+    version, stride = struct.unpack_from("<HH", data, 4)
+    count = struct.unpack_from("<I", data, 8)[0]
+    if version != 1 or stride < 14 or 24 + count * stride > len(data):
+        raise ValueError(f"unsupported/corrupt RSRY version={version} stride={stride} count={count}")
+    camera = meta.get("cameraMatrix")
+    projection = meta.get("projectionMatrix")
+    inv_proj = invert4_colmajor(projection or [])
+    if not camera or not inv_proj:
+        raise ValueError("RSRY metadata missing camera/projection matrix")
+    for i in range(count):
+        off = 24 + i * stride
+        uq, vq, depth_mm = struct.unpack_from("<HHH", data, off)
+        nx, ny, nz = struct.unpack_from("<bbb", data, off + 6)
+        r, g, b, conf, flags = struct.unpack_from("<BBBBB", data, off + 9)
+        u, v = uq / 65535.0, vq / 65535.0
+        depth = depth_mm / 1000.0
+        far = mat4_vec4_col(inv_proj, (u*2-1, 1-v*2, 1.0, 1.0))
+        fw = far[3] if abs(far[3]) > 1e-12 else 1.0
+        ray = [far[0]/fw, far[1]/fw, far[2]/fw]
+        rl = math.sqrt(sum(x*x for x in ray)) or 1.0
+        ray = [x/rl for x in ray]
+        if ray[2] >= -1e-6 or depth <= 0:
+            continue
+        k = depth / (-ray[2])
+        cam = (ray[0]*k, ray[1]*k, ray[2]*k)
+        world = transform_point(camera, cam)
+        yield world, (nx/127, ny/127, nz/127), (r, g, b), conf/255, (u, v, depth, flags)
+
 def decode_rspt(data: bytes, origin: list[float]):
     if len(data) < 20 or struct.unpack_from("<I", data, 0)[0] != 0x52535054:
         raise ValueError("invalid RSPT point batch")
@@ -200,7 +264,20 @@ def main() -> int:
         registration = estimate_registration(session, mark_records)
         entry_by_leaf = {Path(e["key"]).name: e for e in manifest.get("entries", [])}
         raw_points = []
+        raw_ray_count = 0
         skipped_batches = 0
+        for name in sorted(n for n in zf.namelist() if n.startswith("depth/") and n.endswith(".rsry")):
+            meta = entry_by_leaf.get(Path(name).name, {}).get("meta", {})
+            sid = meta.get("segmentId") or registration["referenceSegmentId"]
+            reg = registration["transforms"].get(sid, {})
+            if sid != registration["referenceSegmentId"] and not reg.get("registered"):
+                skipped_batches += 1
+                continue
+            matrix = reg.get("matrix") or identity()
+            for p, n, rgb, conf, ray in decode_rsry(zf.read(name), meta):
+                raw_ray_count += 1
+                raw_points.append((transform_point(matrix, p), transform_direction(matrix, n), rgb, conf))
+        # Legacy V20.2/V20.3 sessions may contain RSPT instead of RSRY.
         for name in sorted(n for n in zf.namelist() if n.startswith("depth/") and n.endswith(".rspt")):
             meta = entry_by_leaf.get(Path(name).name, {}).get("meta", {})
             sid = meta.get("segmentId") or registration["referenceSegmentId"]
@@ -211,7 +288,7 @@ def main() -> int:
             matrix = reg.get("matrix") or identity()
             for p, n, rgb, conf in decode_rspt(zf.read(name), meta.get("origin", [0, 0, 0])):
                 raw_points.append((transform_point(matrix, p), transform_direction(matrix, n), rgb, conf))
-        point_count = write_ply(args.out / "metric_surfels.ply", voxel_fuse(raw_points, args.voxel))
+        point_count = write_ply(args.out / "metric_point_gaussians.ply", voxel_fuse(raw_points, args.voxel))
 
         with (args.out / "trajectory.csv").open("w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -245,14 +322,14 @@ def main() -> int:
         summary = {
             "format": manifest["format"], "sessionId": manifest["sessionId"],
             "build": manifest.get("build"), "zipEntries": len(zf.namelist()),
-            "metricSurfelCount": point_count, "rawPointCount": len(raw_points),
+            "metricPointGaussianCount": point_count, "rawPointCount": len(raw_points), "rawRayCount": raw_ray_count,
             "skippedUnregisteredDepthBatches": skipped_batches,
             "registration": registration, "diagnosticEvents": len(events),
             "lastEvents": events[-30:], "session": session,
         }
         (args.out / "diagnostics_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
         (args.out / "registration.json").write_text(json.dumps(registration, indent=2), encoding="utf-8")
-    print(json.dumps({"status": "ok", "output": str(args.out), "surfels": point_count,
+    print(json.dumps({"status": "ok", "output": str(args.out), "pointGaussians": point_count, "rawRays": raw_ray_count,
                       "unregistered": registration["unregistered"]}, indent=2))
     return 0
 

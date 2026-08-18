@@ -1,13 +1,14 @@
 /**
- * Room Scanner V20.2 configuration.
+ * Room Scanner V20.4 configuration.
  *
- * All budgets live in one file so a phone profile can be changed without
- * touching acquisition or reconstruction logic. Values are intentionally
- * conservative: losing a frame is preferable to losing the browser process.
+ * V20.4 deliberately prioritizes dense metric evidence over early surface
+ * simplification.  The online map is still bounded, but capture persists a
+ * compact ray stream so later processing (phone, desktop or GPU) can rebuild
+ * a much denser virtual twin without rescanning the room.
  */
 export const BUILD = Object.freeze({
-  version: '20.3.0',
-  id: 'v20.3.0-20260818-dense-gaussian-deep-fusion',
+  version: '20.4.0',
+  id: 'v20.4.0-20260818-dense-ray-gaussian-twin',
   dbName: 'room-scanner-v20-2',
   dbVersion: 1,
   rawFormat: 'RSCAN-ZIP-1'
@@ -15,58 +16,70 @@ export const BUILD = Object.freeze({
 
 export const PROFILES = Object.freeze({
   light: {
-    depthStride: 22,
-    maxPointBatch: 900,
+    depthStride: 9,
+    depthIntervalMs: 150,
+    maxPointBatch: 3200,
     cameraWidth: 320,
-    minPhotoIntervalMs: 2200,
-    gridSnapshotIntervalMs: 6000,
-    maxVisibleTiles: 70,
-    maxPendingWrites: 5,
+    minPhotoIntervalMs: 1500,
+    denseRgbIntervalMs: 1900,
+    rayRgbIntervalMs: 900,
+    gridSnapshotIntervalMs: 5200,
+    maxVisibleTiles: 80,
+    maxPendingWrites: 6,
     audioChunkFrames: 16384,
-    mapBudgetCells: 36000
+    mapBudgetCells: 90000
   },
   balanced: {
-    depthStride: 16,
-    maxPointBatch: 1600,
+    depthStride: 6,
+    depthIntervalMs: 105,
+    maxPointBatch: 6200,
     cameraWidth: 416,
-    minPhotoIntervalMs: 1500,
-    gridSnapshotIntervalMs: 4500,
-    maxVisibleTiles: 105,
-    maxPendingWrites: 7,
+    minPhotoIntervalMs: 1050,
+    denseRgbIntervalMs: 1250,
+    rayRgbIntervalMs: 520,
+    gridSnapshotIntervalMs: 3900,
+    maxVisibleTiles: 120,
+    maxPendingWrites: 8,
     audioChunkFrames: 12288,
-    mapBudgetCells: 52000
+    mapBudgetCells: 160000
   },
   detail: {
-    depthStride: 11,
-    maxPointBatch: 2600,
+    depthStride: 4,
+    depthIntervalMs: 75,
+    maxPointBatch: 11000,
     cameraWidth: 512,
-    minPhotoIntervalMs: 1050,
-    gridSnapshotIntervalMs: 3500,
-    maxVisibleTiles: 135,
-    maxPendingWrites: 8,
+    minPhotoIntervalMs: 720,
+    denseRgbIntervalMs: 760,
+    rayRgbIntervalMs: 320,
+    gridSnapshotIntervalMs: 3000,
+    maxVisibleTiles: 155,
+    maxPendingWrites: 10,
     audioChunkFrames: 8192,
-    mapBudgetCells: 65000
+    mapBudgetCells: 220000
   }
 });
 
 export const GRID = Object.freeze({
+  // Kept for old RSPT decoders.  V20.4 online point Gaussians use the much
+  // finer pointGaussianVoxelM and raw rays retain their original UV+depth.
   sourceVoxelM: 0.055,
-  unknownTileM: 0.13,
-  flatTileM: 0.22,
+  pointGaussianVoxelM: 0.020,
+  unknownTileM: 0.11,
+  flatTileM: 0.18,
   objectTileM: 0.075,
-  edgeTileM: 0.065,
-  minIndependentBaselineM: 0.22,
-  strongIndependentBaselineM: 0.48,
-  minParallaxDeg: 7,
-  strongParallaxDeg: 15,
-  maxFrameRefsPerCell: 6,
-  redGeometryThreshold: 0.34,
-  greenGeometryThreshold: 0.72,
-  greenPhotoThreshold: 0.62,
-  normalStableResultant: 0.82,
-  objectCurvatureThreshold: 0.19,
-  deepRequestAfterMs: 4500,
-  staleAfterMs: 12000
+  edgeTileM: 0.045,
+  minIndependentBaselineM: 0.18,
+  strongIndependentBaselineM: 0.42,
+  minParallaxDeg: 5,
+  strongParallaxDeg: 13,
+  maxFrameRefsPerCell: 8,
+  redGeometryThreshold: 0.30,
+  greenGeometryThreshold: 0.68,
+  greenPhotoThreshold: 0.56,
+  normalStableResultant: 0.80,
+  objectCurvatureThreshold: 0.17,
+  deepRequestAfterMs: 3600,
+  staleAfterMs: 14000
 });
 
 export const MARKPOINT = Object.freeze({
@@ -97,17 +110,20 @@ export const AUDIO = Object.freeze({
 });
 
 export const PROCESSING = Object.freeze({
-  planeDistanceM: 0.065,
+  planeDistanceM: 0.055,
   planeNormalDeg: 18,
-  minPlaneSupport: 36,
-  floorNormalY: 0.78,
-  wallNormalYMax: 0.32,
-  planeIterations: 210,
-  maxPlanes: 28,
-  objectClusterRadiusM: 0.16,
-  minObjectPoints: 12,
-  maxObjectPoints: 18000,
-  maxFrameLinksPerSurface: 10
+  minPlaneSupport: 50,
+  floorNormalY: 0.76,
+  wallNormalYMax: 0.34,
+  planeIterations: 260,
+  maxPlanes: 36,
+  objectClusterRadiusM: 0.13,
+  minObjectPoints: 18,
+  maxObjectPoints: 48000,
+  maxFrameLinksPerSurface: 16,
+  denseGaussianVoxelM: 0.018,
+  denseGaussianMaxPhone: 320000,
+  denseGaussianMaxDesktop: 900000
 });
 
 export function profileFor(name) {

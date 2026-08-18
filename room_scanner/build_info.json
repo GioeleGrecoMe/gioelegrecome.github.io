@@ -1,11 +1,12 @@
 {
   "name": "Room Scanner",
-  "version": "20.3.0",
-  "build": "v20.3.0-20260818-dense-gaussian-deep-fusion",
+  "version": "20.4.0",
+  "build": "v20.4.0-20260818-dense-ray-gaussian-twin",
   "entry": "room_scanner_v20.html",
-  "captureArchitecture": "append-only-binary",
+  "captureArchitecture": "append-only-dense-ray-evidence",
+  "mapRepresentation": "confirmed-point-gaussians-plus-raw-rays",
   "processingArchitecture": "explicit-worker-after-xr",
-  "rawFormat": "RSCAN-ZIP-1",
-  "metricAuthority": "WebXR local-floor plus XR depth anchors",
-  "notes": "No automatic processing or navigation is performed from the WebXR end handler."
+  "rawFormat": "RSCAN-ZIP-1 + RSRY-1",
+  "metricAuthority": "WebXR local-floor + XR depth; Deep is multi-view refinement",
+  "notes": "Raw UV/depth rays are retained for future dense reconstruction; surface fitting never replaces the raw evidence."
 }
