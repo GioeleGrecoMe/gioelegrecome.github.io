@@ -1,10 +1,10 @@
-# Continuation Handoff - V20.2.2
+# Continuation Handoff - V20.2.3
 
 ## Baseline
 
 Canonical entry: `room_scanner_v12.html`
 
-Build: `v20.2.2-20260818-shell-plane-marker-fix`
+Build: `v20.2.3-20260818-persistent-pin-keyframes-preview-deep`
 
 ## Non-negotiable architecture
 

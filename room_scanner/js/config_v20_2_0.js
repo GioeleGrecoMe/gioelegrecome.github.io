@@ -6,8 +6,8 @@
  * conservative: losing a frame is preferable to losing the browser process.
  */
 export const BUILD = Object.freeze({
-  version: '20.2.2',
-  id: 'v20.2.2-20260818-shell-plane-marker-fix',
+  version: '20.2.3',
+  id: 'v20.2.3-20260818-persistent-pin-keyframes-preview-deep',
   dbName: 'room-scanner-v20-2',
   dbVersion: 1,
   rawFormat: 'RSCAN-ZIP-1'
@@ -23,7 +23,10 @@ export const PROFILES = Object.freeze({
     maxVisibleTiles: 70,
     maxPendingWrites: 5,
     audioChunkFrames: 16384,
-    mapBudgetCells: 26000
+    mapBudgetCells: 26000,
+    maxAutoPhotos: 18,
+    autoPhotoMinIntervalMs: 6500,
+    maxAutoPhotosPerTarget: 2
   },
   balanced: {
     depthStride: 16,
@@ -34,7 +37,10 @@ export const PROFILES = Object.freeze({
     maxVisibleTiles: 105,
     maxPendingWrites: 7,
     audioChunkFrames: 12288,
-    mapBudgetCells: 42000
+    mapBudgetCells: 42000,
+    maxAutoPhotos: 30,
+    autoPhotoMinIntervalMs: 5600,
+    maxAutoPhotosPerTarget: 2
   },
   detail: {
     depthStride: 11,
@@ -45,7 +51,10 @@ export const PROFILES = Object.freeze({
     maxVisibleTiles: 135,
     maxPendingWrites: 8,
     audioChunkFrames: 8192,
-    mapBudgetCells: 62000
+    mapBudgetCells: 62000,
+    maxAutoPhotos: 44,
+    autoPhotoMinIntervalMs: 4300,
+    maxAutoPhotosPerTarget: 3
   }
 });
 
@@ -98,9 +107,9 @@ export const AUDIO = Object.freeze({
 });
 
 export const PROCESSING = Object.freeze({
-  planeDistanceM: 0.065,
-  planeNormalDeg: 18,
-  minPlaneSupport: 36,
+  planeDistanceM: 0.085,
+  planeNormalDeg: 24,
+  minPlaneSupport: 22,
   floorNormalY: 0.78,
   wallNormalYMax: 0.32,
   planeIterations: 210,

@@ -1,7 +1,7 @@
-const CACHE='room-scanner-v20.2.2-shell-plane-marker-fix';
+const CACHE='room-scanner-v20.2.3-persistent-pin-keyframes-preview-deep';
 const SHELL=[
   './','./index.html','./room_scanner_v20.html','./room_scanner_v12.html','./processing.html','./manifest.webmanifest','./build_info.json','./assets/icon.svg','./css/app_v20_2_0.css',
-  './js/config_v20_2_0.js','./js/math_v20_2_0.js','./js/db_v20_2_0.js','./js/diagnostics_v20_2_0.js','./js/grid_v20_2_0.js','./js/markpoints_v20_2_0.js','./js/audio_v20_2_0.js','./js/xr_capture_v20_2_0.js','./js/raw_export_v20_2_0.js','./js/reconstruction_v20_2_0.js','./js/registration_v20_2_0.js','./js/acoustics_v20_2_0.js','./js/app_v20_2_0.js','./js/processing_ui_v20_2_0.js',
+  './js/config_v20_2_0.js','./js/math_v20_2_0.js','./js/db_v20_2_0.js','./js/diagnostics_v20_2_0.js','./js/grid_v20_2_0.js','./js/markpoints_v20_2_0.js','./js/audio_v20_2_0.js','./js/xr_capture_v20_2_0.js','./js/raw_export_v20_2_0.js','./js/reconstruction_v20_2_0.js','./js/registration_v20_2_0.js','./js/acoustics_v20_2_0.js','./js/keyframe_selection_v20_2_0.js','./js/model_preview_v20_2_0.js','./js/app_v20_2_0.js','./js/processing_ui_v20_2_0.js',
   './workers/audio_worklet_v20_2_0.js','./workers/map_worker_v20_2_0.js','./workers/processing_worker_v20_2_0.js','./workers/depth_ai_worker_v20_2_0.js','./workers/acoustic_worker_v20_2_0.js'
 ];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())));
