@@ -1,6 +1,6 @@
-# Room Scanner V30.1.0 — Standalone Debug Bootstrap
+# Room Scanner V30.2.0 — Standalone resilient capture
 
-V30.1.0 is a self-contained GitHub Pages application. It does not import or
+V30.2.0 is a self-contained GitHub Pages application. It does not import or
 require any Room Scanner V20 HTML, JavaScript, worker, stylesheet, cache name or
 database.
 
@@ -25,6 +25,7 @@ can download an early diagnostics JSON even if the main ES module fails.
 - incremental 3D Gaussian map in an isolated Worker;
 - dependency-free WebGL2 Gaussian viewer, initialized lazily only when needed;
 - incremental IndexedDB storage;
+- recoverable local sessions with Gaussian checkpoints and keyframes;
 - binary RGB/Gaussian PLY import/export;
 - `.r30` raw container using binary Gaussian payloads;
 - persistent diagnostics UI and downloadable logs.
@@ -32,6 +33,11 @@ can download an early diagnostics JSON even if the main ES module fails.
 Depth failure is deliberately non-fatal. Camera capture, WASM feature tracking,
 keyframe storage, IMU collection and diagnostics continue if the neural model or
 runtime cannot load.
+
+When a scan finishes, the app stops the Depth worker first, drains all accepted
+Gaussian work, persists the final snapshot, then opens review. Saved local
+sessions can be reopened after a reload and exported again; a new segment always
+starts with clean worker, IMU and map state.
 
 ## Deploy
 
@@ -79,6 +85,11 @@ If absent it tries the configured CDN module. The model ID is configured in
 A fully offline deployment can populate the local runtime/model assets later;
 they are not required for the UI, WASM SLAM, storage, diagnostics or PLY/R30
 viewer to bootstrap.
+
+Metric reconstruction remains an estimate on ordinary cameras: the application
+uses the supplied camera-height/floor bootstrap and refuses to fuse nominal
+low-confidence depth into the persistent Gaussian map. Validate a known
+distance in the exported model before using it for dimensional work.
 
 ## Tests
 

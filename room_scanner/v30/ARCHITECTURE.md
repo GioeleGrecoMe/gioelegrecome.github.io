@@ -1,4 +1,4 @@
-# V30.1 standalone architecture
+# V30.2 standalone architecture
 
 ## Boot layer
 
@@ -35,7 +35,9 @@ later.
 
 `js/storage/db.js` creates a V30-only IndexedDB database named
 `room-scanner-v30`, with session, keyframe, IMU, event and Gaussian snapshot
-stores. There is no shared V20 database or service worker cache.
+stores. The final map and throttled in-progress checkpoints are stored under the
+session ID, so completed and interrupted sessions can be reopened for review or
+export. There is no shared V20 database or service worker cache.
 
 ## Diagnostics
 
@@ -46,7 +48,8 @@ single diagnostics JSON at any time.
 
 ## Review/export
 
-The Gaussian viewer is instantiated lazily in review mode so a WebGL driver
-problem cannot break application bootstrap. `js/formats.js` handles binary PLY
-and a compact `.r30` container. Gaussian floats are stored as binary payloads,
-not expanded JSON arrays.
+The Gaussian viewer is instantiated lazily in review mode and falls back to a
+2D preview when WebGL shader initialization fails. `js/formats.js` handles
+validated binary/ASCII PLY and a compact `.r30` container. Gaussian floats and
+keyframe descriptors are binary payloads; a keyframe index keeps an imported
+container exportable without losing its source evidence.

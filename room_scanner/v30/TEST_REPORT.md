@@ -1,6 +1,6 @@
-# V30.1.0 test report
+# V30.2.0 test report
 
-Build: `v30.1.0-20260819-standalone-debug-bootstrap`
+Build: `v30.2.0-20260819-robust-session-recovery`
 
 The following suite was run from the final project directory:
 
@@ -14,7 +14,8 @@ Result:
 PASS javascript_syntax
 PASS static_contract
 PASS bootstrap_contract ids=41
-PASS wasm_frontend features=35 matches=8
+PASS wasm_frontend features=96 matches=24 portrait=500
+PASS camera_analysis_fit
 PASS math_depth_calibration
 PASS format_roundtrip
 PASS http_smoke
@@ -30,9 +31,11 @@ Verified contracts:
 - slider, Start, diagnostics-download and self-test bootstrap bindings exist;
 - no HTML/JS/CSS runtime reference uses a V20 filename/path;
 - the real `slam_core.wasm` instantiates and returns features + frame matches;
+- WASM exports its dimensional limits and accepts the portrait analysis frame;
+- portrait and landscape camera analysis dimensions remain inside WASM limits;
 - depth affine calibration and plane math pass synthetic tests;
-- binary Gaussian PLY export/import round-trips;
-- `.r30` binary Gaussian + JPEG container round-trips;
+- binary/CRLF ASCII Gaussian PLY import/export round-trips;
+- `.r30` binary Gaussian, JPEG, descriptors, keyframe index and extra entries round-trip;
 - static HTTP serving returns the entry page, JS, workers and WASM;
 - WASM is served with `application/wasm`;
 - manifest and build-info JSON parse.

@@ -1,12 +1,14 @@
 /* Wrapper for the freestanding V30 WASM visual front-end. */
 export class WasmVisionFrontend{
- constructor(url='./wasm/slam_core.wasm'){this.url=url;this.instance=null;this.prevFeatureCount=0;}
- async init(){const r=await fetch(this.url);if(!r.ok)throw new Error(`WASM HTTP ${r.status}`);const bytes=await r.arrayBuffer();const {instance}=await WebAssembly.instantiate(bytes,{});this.instance=instance;return this;}
+ constructor(url='./wasm/slam_core.wasm'){this.url=url;this.instance=null;this.prevFeatureCount=0;this.limits={maxWidth:640,maxHeight:480,maxPixels:640*480};}
+ async init(){const r=await fetch(this.url);if(!r.ok)throw new Error(`WASM HTTP ${r.status}`);const bytes=await r.arrayBuffer();const {instance}=await WebAssembly.instantiate(bytes,{});this.instance=instance;const e=instance.exports;this.limits={maxWidth:e.max_width?.()||640,maxHeight:e.max_height?.()||480,maxPixels:e.max_pixels?.()||640*480};return this;}
  reset(){this.instance?.exports.reset();this.prevFeatureCount=0;}
  process(gray,w,h,{maxFeatures=900,threshold=18}={}){
   if(!this.instance)throw new Error('WASM frontend not initialized');const e=this.instance.exports,mem=e.memory;
-  if(gray.length>w*h)throw new Error('gray buffer larger than frame');new Uint8Array(mem.buffer,e.input_ptr(),w*h).set(gray.subarray(0,w*h));
-  const previousCount=this.prevFeatureCount,n=e.process_frame(w,h,maxFeatures,threshold);if(n<0)throw new Error('WASM frame dimensions unsupported');const mc=e.match_count(),db=e.descriptor_bytes();
+  if(gray.length<w*h)throw new Error(`gray buffer smaller than frame: ${gray.length} < ${w*h}`);
+  const L=this.limits;if(w<32||h<24||w>L.maxWidth||h>L.maxHeight||w*h>L.maxPixels)throw new Error(`WASM frame dimensions unsupported: ${w}x${h}; max ${L.maxWidth}x${L.maxHeight}, ${L.maxPixels} px`);
+  new Uint8Array(mem.buffer,e.input_ptr(),w*h).set(gray.subarray(0,w*h));
+  const previousCount=this.prevFeatureCount,n=e.process_frame(w,h,maxFeatures,threshold);if(n<0)throw new Error(`WASM rejected frame ${w}x${h}; max ${L.maxWidth}x${L.maxHeight}`);const mc=e.match_count(),db=e.descriptor_bytes();
   const xs=new Uint16Array(mem.buffer,e.curr_x_ptr(),n).slice(),ys=new Uint16Array(mem.buffer,e.curr_y_ptr(),n).slice(),scores=new Uint16Array(mem.buffer,e.curr_score_ptr(),n).slice(),desc=new Uint8Array(mem.buffer,e.curr_desc_ptr(),n*db).slice();
   const mi=new Int16Array(mem.buffer,e.match_curr_ptr(),mc).slice(),mp=new Int16Array(mem.buffer,e.match_prev_ptr(),mc).slice(),md=new Uint16Array(mem.buffer,e.match_dist_ptr(),mc).slice();
   this.prevFeatureCount=n;return {count:n,previousCount,xs,ys,scores,descriptors:desc,descriptorBytes:db,matches:{count:mc,curr:mi,prev:mp,distance:md}};

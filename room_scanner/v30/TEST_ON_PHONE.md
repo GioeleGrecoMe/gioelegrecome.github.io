@@ -43,6 +43,8 @@ specific rejection reason.
 4. Test orbit, pan, zoom and splat size.
 5. Export PLY, `.r30` and diagnostics.
 6. Return Home and import the PLY and `.r30` again.
+7. Return Home, press `Apri` on the saved local session, then export `.r30`
+   again. The keyframe count and Gaussian map must still be available.
 
 ## F. Failure capture
 

@@ -1,11 +1,12 @@
 export const BUILD={
-  version:'30.1.0',
-  id:'v30.1.0-20260819-standalone-debug-bootstrap',
+  version:'30.2.0',
+  id:'v30.2.0-20260819-robust-session-recovery',
   dbName:'room-scanner-v30',
-  dbVersion:1
+  dbVersion:2
 };
 export const CONFIG={
   analysisWidth:320,
+  analysisHeight:480,
   analysisFps:12,
   cameraFovDeg:62,
   keyframeIntervalMs:1100,
@@ -15,6 +16,8 @@ export const CONFIG={
   gaussianVoxelM:0.028,
   gaussianMaxLive:180000,
   gaussianSnapshot:65000,
+  snapshotPersistIntervalMs:10000,
+  minimumMetricConfidence:.30,
   depthWorker:'workers/depth_worker.js',
   gaussianWorker:'workers/gaussian_worker.js',
   wasmCore:'wasm/slam_core.wasm',

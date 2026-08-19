@@ -7,6 +7,7 @@ echo "PASS javascript_syntax"
 node tests/test_static.mjs
 node tests/test_bootstrap_contract.mjs
 node tests/test_wasm.mjs
+node tests/test_camera.mjs
 node tests/test_math.mjs
 node tests/test_formats.mjs
 node tests/test_http.mjs

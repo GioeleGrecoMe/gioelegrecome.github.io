@@ -160,6 +160,8 @@ static void copy_curr_to_prev(void) {
 
 __attribute__((export_name("input_ptr"))) int input_ptr(void) { return (int)(uintptr_t)g_image; }
 __attribute__((export_name("max_pixels"))) int max_pixels(void) { return MAX_PIXELS; }
+__attribute__((export_name("max_width"))) int max_width(void) { return MAX_W; }
+__attribute__((export_name("max_height"))) int max_height(void) { return MAX_H; }
 __attribute__((export_name("reset"))) void reset(void) { g_curr_count = g_prev_count = g_match_count = 0; }
 
 __attribute__((export_name("process_frame")))
