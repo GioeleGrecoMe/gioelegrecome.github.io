@@ -1,0 +1,10 @@
+== JavaScript syntax ==
+PASS javascript_syntax
+PASS static_contract
+PASS bootstrap_contract ids=41
+PASS wasm_frontend features=35 matches=8
+PASS math_depth_calibration
+PASS format_roundtrip
+PASS http_smoke
+PASS json_contracts
+ALL TESTS PASSED
