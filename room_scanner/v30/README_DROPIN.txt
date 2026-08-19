@@ -1,4 +1,4 @@
-Room Scanner V30.6.0 live visual-inertial mesh without Deep AI
+Room Scanner V30.6.1 live visual-inertial mesh without Deep AI
 
 Copy/overwrite this directory's contents into the existing /room_scanner/v30/ GitHub Pages directory.
 Includes portrait WASM sizing, visual markpoints that work without a neural

@@ -8,6 +8,7 @@ node tests/test_static.mjs
 node tests/test_bootstrap_contract.mjs
 node tests/test_wasm.mjs
 node tests/test_camera.mjs
+node tests/test_imu.mjs
 node tests/test_math.mjs
 node tests/test_slam.mjs
 node tests/test_mesh_worker.mjs

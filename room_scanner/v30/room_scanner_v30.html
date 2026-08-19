@@ -3,7 +3,7 @@
 <body>
 <main id="app">
 <section id="home" class="screen active">
- <div class="hero"><div id="buildBadge" class="badge">V30.6.0 · BOOT</div><h1>Room Scanner V30</h1><p>Mesh live visual-inerziale da keypoint, senza Deep AI.</p></div>
+ <div class="hero"><div id="buildBadge" class="badge">V30.6.1 · BOOT</div><h1>Room Scanner V30</h1><p>Mesh live visual-inerziale da keypoint, senza Deep AI.</p></div>
  <div class="card"><label>Altezza camera dal pavimento <span id="heightLabel">1.35 m</span></label><input id="cameraHeight" type="range" min="0.70" max="2.00" step="0.01" value="1.35"><p class="hint">Riferimento opzionale per la successiva riscalatura: la mesh live usa scala relativa L e keypoint.</p></div>
  <div class="actions"><button id="startBtn" class="primary">Avvia scansione guidata</button><button id="loadPlyBtn">Apri PLY RGB / Gaussian</button><button id="loadR30Btn">Apri sessione .r30</button></div>
  <input id="filePly" type="file" accept=".ply" hidden><input id="fileR30" type="file" accept=".r30,application/octet-stream" hidden>
@@ -13,7 +13,7 @@
 <section id="scan" class="screen">
  <video id="camera" autoplay muted playsinline></video><canvas id="miniMap"></canvas><canvas id="liveMesh" aria-label="Anteprima mesh 3D live"></canvas>
  <div class="topHud"><span id="slamState">INIT</span><span id="metricState">scala —</span><span id="deepState">mesh —</span></div>
- <div class="stats"><span>feat <b id="statFeat">0</b></span><span>match <b id="statMatch">0</b></span><span>lm <b id="statLandmarks">0</b></span><span>KF <b id="statKf">0</b></span><span>mesh <b id="statMesh">0</b></span><span>GS <b id="statGs">0</b></span></div>
+ <div class="stats"><span>feat <b id="statFeat">0</b></span><span>match <b id="statMatch">0</b></span><span>lm <b id="statLandmarks">0</b></span><span>KF <b id="statKf">0</b></span><span>mesh <b id="statMesh">0</b></span><span>parallasse <b id="statGs">0</b></span></div>
  <div id="coach" class="coach">Calibrazione 1/4: osserva una parete con spigoli e dettagli; poi muoviti lateralmente con calma.</div>
  <div class="scanButtons"><button id="pinBtn">◎ Pin repere</button><button id="pauseDeepBtn">Deep AI escluso</button><button id="finishBtn" class="danger">Salva / termina</button></div>
 </section>

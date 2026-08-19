@@ -1,6 +1,6 @@
-# Room Scanner V30.6.0 — Live visual-inertial mesh
+# Room Scanner V30.6.1 — Live visual-inertial mesh
 
-V30.6.0 is a self-contained GitHub Pages application. It does not import or
+V30.6.1 is a self-contained GitHub Pages application. It does not import or
 require any Room Scanner V20 HTML, JavaScript, worker, stylesheet, cache name or
 database.
 

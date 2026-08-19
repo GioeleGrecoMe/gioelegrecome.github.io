@@ -1,6 +1,6 @@
 export const BUILD={
-  version:'30.6.0',
-  id:'v30.6.0-20260819-visual-inertial-live-mesh',
+  version:'30.6.1',
+  id:'v30.6.1-20260819-imu-parallax-live-mesh',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
