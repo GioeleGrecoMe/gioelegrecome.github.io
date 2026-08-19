@@ -1,6 +1,6 @@
 {
-  "version": "30.12.0",
-  "id": "v30.12.0-20260819-live-mvs-gs-mesh",
-  "builtAt": "2026-08-19T21:45:00+02:00",
-  "notes": "Connects metric SLAM keyframes to two-view geometric MVS, feeds triangulated points to the Gaussian accumulator, exposes live GS/triangulation diagnostics, and auto-builds a metric mesh in Review. Metric motion scale is initialised from the calibrated WebXR common-view pin depths."
+  "version": "30.13.0",
+  "id": "v30.13.0-20260819-alvaar-live-ar-splats",
+  "builtAt": "2026-08-19T22:34:00+02:00",
+  "notes": "Restores AlvaAR WASM as the primary visual-SLAM pose source when available, aligns it to the WebXR metric calibration, fixes camera crop/intrinsic geometry, adds robust multi-view splat fusion, live GS/mesh overlay over the camera, and a simpler navigable review viewer."
 }

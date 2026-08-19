@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.12.0 runtime configuration.
+ * Room Scanner V30.13.0 runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.12.0',
-  id:'v30.12.0-20260819-live-mvs-gs-mesh',
+  version:'30.13.0',
+  id:'v30.13.0-20260819-alvaar-live-ar-splats',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -102,7 +102,7 @@ export const CONFIG={
   // Camera-only multi-view densification. No monocular AI depth is involved.
   mvsWorker:'workers/mvs_worker.js',
   mvsEveryNthKeyframe:1,
-  // V30.12 feeds real metric keyframe pairs to the MVS worker. A 3 cm
+  // V30.13 feeds real metric keyframe pairs to the MVS worker. A 3 cm
   // lateral baseline is usually enough for local triangulation at room scale,
   // while still preserving strong visual overlap on a phone camera.
   mvsMinBaselineM:0.03,
@@ -112,17 +112,23 @@ export const CONFIG={
   mvsFarM:9.0,
   mvsDepthSteps:36,
   mvsGridStep:7,
-  mvsMinParallaxPx:1.4,
-  mvsMaxRayGapM:0.10,
-  mvsMaxFeatures:420,
+  mvsMinParallaxPx:2.0,
+  mvsMaxRayGapM:0.065,
+  mvsMaxFeatures:620,
   mvsMaxPoints:5200,
 
-  gaussianVoxelM:0.025,
+  gaussianVoxelM:0.022,
   gaussianMaxLive:240000,
   gaussianSnapshot:90000,
   gaussianWorker:'workers/gaussian_worker.js',
+  gaussianMinSupport:2,
+  liveOverlayMaxSplats:3200,
+  // Official AlvaAR ESM distribution. The runtime tries vendor/alva_ar.js first
+  // so the project can be made fully self-contained by vendoring the GPLv3
+  // bundle; the CDN path is the online fallback.
+  alvaRemoteUrl:'https://cdn.jsdelivr.net/gh/alanross/AlvaAR@main/dist/alva_ar.js',
   wasmCore:'wasm/slam_core.wasm',
-  // No Depth Anything / DeepAI and no IMU are required by the V30.12.0 runtime.
+  // No Depth Anything / DeepAI and no IMU are required by the V30.13.0 runtime.
   serviceWorker:'sw.js',
   serviceWorkerRegisterDelayMs:2500,
   buildInfo:'build_info.json'

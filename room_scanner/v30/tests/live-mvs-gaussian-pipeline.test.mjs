@@ -60,3 +60,20 @@ test('triangulated Gaussians produce a non-empty metric mesh',()=>{
   const mesh=runWorker('../workers/metric_mesh_worker.js');mesh.self.onmessage({data:{type:'mesh',samples:pts.map(x=>({p:x.position,color:x.color,opacity:1})),voxelM:.05,maxVoxels:1000}});const out=mesh.messages.at(-1);
   assert.equal(out.type,'mesh-result');assert.ok(out.vertices.length>0);assert.ok(out.faces.length>0);
 });
+
+test('MVS rejects repeated-texture descriptor lookalikes away from the epipolar line',()=>{
+  const {K,a,b}=syntheticPair();
+  // Insert a descriptor-identical distractor for every true feature, but move
+  // it vertically by 24 px. With a horizontal camera baseline the true
+  // epipolar lines are horizontal, so pose-guided matching must reject these
+  // repeated-texture lookalikes before triangulation.
+  const distractors=b.features.map(f=>({x:f.x,y:f.y+24,desc:[...f.desc],score:f.score+1}));
+  b.features=[...distractors,...b.features];
+  const mvs=runWorker('../workers/mvs_worker.js');
+  mvs.self.onmessage({data:{type:'init',config:{near:.3,far:5,minBaselineM:.03,maxBaselineM:1,maxPoints:100,maxEpipolarPx:2.2}}});
+  mvs.self.onmessage({data:{type:'pair',a,b,K}});
+  const result=mvs.messages.at(-1);
+  assert.equal(result.type,'mvs-result');
+  assert.ok(result.count>=7,`epipolar guided matcher lost too many true correspondences: ${result.count}`);
+  assert.ok(result.points.every(p=>Number.isFinite(p.epipolarPx)&&p.epipolarPx<.05),'accepted points should lie on the calibrated epipolar line');
+});

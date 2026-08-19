@@ -4,7 +4,7 @@ import {V30Database,openVersionSafe} from './storage/db.js';
 import {triangulateRays,poseIdentity} from './slam/math.js';
 
 /*
- * V30.12.0 self-tests intentionally include regressions for the two phone failures
+ * V30.13.0 self-tests intentionally include regressions for the two phone failures
  * reported on V30.8: IndexedDB downgrade and fake/screen-space WebXR pins.
  */
 export async function runSelfTests(log){
@@ -20,6 +20,10 @@ export async function runSelfTests(log){
   await run('unhandled-rejections',()=>{const xs=(window.__ROOMSCAN_PREBOOT?.errors||[]).filter(e=>e.type==='rejection');if(xs.length){const e=xs[xs.length-1];throw new Error(`${e.name||'PromiseRejection'}: ${e.message||'reason unavailable'}${e.source?` [${e.source}]`:''}`);}return 'none observed since page bootstrap';});
 
   await run('wasm-core',async()=>{const f=new WasmVisionFrontend(CONFIG.wasmCore);await f.init();const w=96,h=72,a=new Uint8Array(w*h),b=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){a[y*w+x]=((x*13+y*7)^((x>>3)*37))&255;const xx=Math.max(0,x-2);b[y*w+x]=((xx*13+y*7)^((xx>>3)*37))&255;}const r1=f.process(a,w,h,{maxFeatures:180,threshold:12}),r2=f.process(b,w,h,{maxFeatures:180,threshold:12});if(r1.count<5||r2.matches.count<2)throw new Error(`weak WASM output ${r1.count}/${r2.matches.count}`);return {features:r2.count,matches:r2.matches.count,limits:f.limits};});
+  await run('alvaar-source-contract',async()=>{const [front,slam,overlay]=await Promise.all([fetch(`js/slam/wasm_frontend.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),fetch(`js/slam/slam_engine.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),fetch(`js/gaussian/ar_overlay.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text())]);for(const t of ['AlvaAR.Initialize','findCameraPose','alvaar-wasm'])if(!front.includes(t))throw new Error(`AlvaAR frontend token missing: ${t}`);for(const t of ['alvaMatrixToPose','alvaar-metric-scale'])if(!slam.includes(t))throw new Error(`Alva metric alignment token missing: ${t}`);if(!overlay.includes('projectPoint')||!overlay.includes('analysisPixelToSource'))throw new Error('live AR overlay is not registered to the camera geometry');return {local:'vendor/alva_ar.js',remote:CONFIG.alvaRemoteUrl,mode:window.RoomScanV30?.state?.frontend?.mode||'not-started'};});
+  await run('camera-crop-contract',async()=>{const text=await fetch(`js/camera.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());for(const t of ['coverCrop','intrinsicsForCrop','analysisPixelToSource','drawImage(this.video,g.sx,g.sy,g.sw,g.sh'])if(!text.includes(t))throw new Error(`camera crop token missing: ${t}`);return 'analysis frame is cropped, not stretched; K follows the crop';});
+  await run('live-ar-reconstruction',async()=>{const html=await fetch(`room_scanner_v30.html?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),app=await fetch(`js/app.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());if(!html.includes('id="arModeBtn"')||!app.includes("new LiveReconstructionOverlay($('miniMap')"))throw new Error('live GS/mesh AR controls missing');if(!app.includes('state.liveOverlay?.draw({pose:r.pose,K,geometry:frame.geometry'))throw new Error('overlay is not rendered from the live SLAM pose');return 'camera + metric pose + GS/mesh overlay';});
+
   await run('camera-only-triangulation',()=>{const K={fx:300,fy:300,cx:160,cy:120,width:320,height:240},a={pose:poseIdentity(),K,u:160,v:120},b={pose:{p:[.20,0,0],q:[0,0,0,1]},K,u:130,v:120},r=triangulateRays(a,b,{minAngleRad:.005,maxGapM:.15});if(!r.ok)throw new Error(r.reason);return {p:r.p,angle:r.angle,gap:r.gap};});
 
   // Runtime regression: V30.11.3 parsed correctly but crashed only when Scan
@@ -37,7 +41,8 @@ export async function runSelfTests(log){
   });
   await run('live-mvs-gaussian-pipeline',async()=>{
     const app=await fetch(`js/app.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());
-    for(const token of ["queueMvsKeyframe(r.newKeyframe,frame,K)","type:'pair'","state.gaussianWorker?.postMessage({type:'add',points:d.points})"])if(!app.includes(token))throw new Error(`missing live MVS wiring: ${token}`);
+    for(const token of ["queueMvsKeyframe(r.newKeyframe,frame,K)","type:'pair'","state.gaussianWorker?.postMessage({type:'add',points:d.points,sourceId:"])if(!app.includes(token))throw new Error(`missing live MVS wiring: ${token}`);
+    const mvsText=await fetch(`${CONFIG.mvsWorker}?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());for(const token of ['epipolarErrorPx','maxEpipolarPx','maxReprojectionPx'])if(!mvsText.includes(token))throw new Error(`missing pose-guided MVS quality gate: ${token}`);
     const r=await mvsTriangulationProbe(CONFIG.mvsWorker);if(r.count<6)throw new Error(`MVS runtime returned only ${r.count} points`);
     return {points:r.count,baseline:r.baseline,matches:r.matches,source:r.source};
   });
