@@ -1,1 +1,14 @@
-{"name":"Room Scanner V30.8","short_name":"RoomScan V30.8","start_url":"./room_scanner_v30.html","scope":"./","display":"standalone","background_color":"#080b10","theme_color":"#080b10","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
+{
+  "name": "Room Scanner V30",
+  "short_name": "RoomScan V30",
+  "description": "Offline-capable WebXR room scanner with metric calibration and Gaussian reconstruction.",
+  "start_url": "./room_scanner_v30.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#080b10",
+  "theme_color": "#080b10",
+  "icons": [
+    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}
