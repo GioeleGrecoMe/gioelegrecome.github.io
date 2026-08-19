@@ -1,6 +1,0 @@
-{
-  "version":"30.0.0",
-  "build":"v30.0.0-20260818-wasm-slam-gaussian-twin",
-  "architecture":"WASM feature SLAM + Deep metric keyframes + incremental 3D Gaussian map",
-  "date":"2026-08-18"
-}
