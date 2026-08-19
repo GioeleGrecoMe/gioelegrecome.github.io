@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.11.0 runtime configuration.
+ * Room Scanner V30.11.1 runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.11.0',
-  id:'v30.11.0-20260819-minimal-xr-pins-lazy-boot',
+  version:'30.11.1',
+  id:'v30.11.1-20260819-three-useful-pins-apply',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -37,8 +37,12 @@ export const CONFIG={
   xrCalibrationMinCommonPoints:3,
   xrCalibrationStableFrames:5,
   xrCalibrationHitStdM:0.025,
-  xrCalibrationMinSpanM:0.45,
-  xrCalibrationMinVerticalSpanM:0.05,
+  // Apply must be reachable after three well-spaced pins.  The old V30.11
+  // gate (0.45 m span + vertical span + 8 ROI + 4 sectors + 3 global poses)
+  // was unnecessarily strict and could keep the button disabled forever.
+  xrCalibrationMinSpanM:0.20,
+  xrCalibrationMinTriangleAreaM2:0.0025,
+  xrCalibrationMinScreenTriangleArea:0.0015,
   xrCalibrationPatchFraction:0.065,
   xrCalibrationPatchSize:16,
   xrCalibrationMinPatchVariance:42,
@@ -51,8 +55,11 @@ export const CONFIG={
   xrRoiScales:[0.055,0.11,0.20],
   xrRoiPatchSize:24,
   xrRoiMaxViewsPerTarget:24,
-  xrRoiMinViewsPerTarget:8,
-  xrRoiMinAzimuthSectors:4,
+  // Four genuinely separated ROI observations are enough to *apply*.  Capture
+  // continues in the background up to xrRoiMaxViewsPerTarget, so more views
+  // still improve later re-localisation without blocking the user.
+  xrRoiMinViewsPerTarget:4,
+  xrRoiMinAzimuthSectors:2,
   xrRoiAzimuthSectors:8,
   xrRoiElevationBands:3,
   xrRoiCaptureStepM:0.055,
@@ -61,12 +68,13 @@ export const CONFIG={
   xrCalibrationMaxViewsPerTarget:16,
   xrCalibrationViewStepM:0.075,
   xrCalibrationViewStepAngleRad:0.07,
-  xrCalibrationMinTargetBaselineM:0.14,
+  xrCalibrationMinTargetBaselineM:0.08,
   xrCalibrationMaxTemplatesPerPoint:12,
   xrCalibrationTrackingZncc:0.28,
 
-  // Global coverage contract requested for calibration quality: at least three
-  // distinct camera poses, each with at least three real anchored pins visible.
+  // Global multi-pin poses are still collected as a diagnostic/quality bonus,
+  // but no longer gate Apply. Per-pin useful multi-view evidence + a common
+  // frame with >=3 useful pins is sufficient.
   xrCalibrationMinGlobalPoses:3,
   xrCalibrationMinPinsPerPose:3,
   xrCalibrationGlobalPoseStepM:0.075,
@@ -108,7 +116,7 @@ export const CONFIG={
   gaussianSnapshot:90000,
   gaussianWorker:'workers/gaussian_worker.js',
   wasmCore:'wasm/slam_core.wasm',
-  // No Depth Anything / DeepAI and no IMU are required by the V30.11.0 runtime.
+  // No Depth Anything / DeepAI and no IMU are required by the V30.11.1 runtime.
   serviceWorker:'sw.js',
   serviceWorkerRegisterDelayMs:2500,
   buildInfo:'build_info.json'

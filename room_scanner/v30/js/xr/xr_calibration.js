@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.11.0 - minimal user-selected multi-view WebXR calibration with REAL
+ * Room Scanner V30.11.1 - minimal user-selected multi-view WebXR calibration with REAL
  * XRAnchor-backed pins.
  *
  * V30.8 bug fixed here
@@ -18,9 +18,9 @@
  *  4. The DOM canvas is only a diagnostic projection. Its marker UV is derived
  *     from the live anchor pose every frame; seedUv is never reused after the
  *     anchor becomes active.
- *  5. Calibration requires >=3 distinct camera poses with >=3 anchored targets
- *     visible, in addition to the final common view required by the camera-only
- *     metric bridge.
+ *  5. Apply becomes available as soon as >=3 user pins have useful multi-view
+ *     evidence and >=3 such pins are visible together in a non-degenerate
+ *     common view. Global multi-pin pose samples remain diagnostic only.
  *  6. createAnchor() is started while the XRFrame/hit result is current, but no
  *     frame.getPose() is performed after awaiting that promise. The first anchor
  *     pose is read from a subsequent active XR frame.
@@ -105,6 +105,28 @@ export function patchDetailScore(patch,size=Math.round(Math.sqrt(patch.length)))
 function maxPoseBaseline(poses){let best=0;for(let i=0;i<poses.length;i++)for(let j=i+1;j<poses.length;j++)best=Math.max(best,dist(poses[i].p,poses[j].p));return best;}
 function maxPoseAngle(poses){let best=0;for(let i=0;i<poses.length;i++)for(let j=i+1;j<poses.length;j++)best=Math.max(best,qAngle(poses[i].q,poses[j].q));return best;}
 function averageUv(vs){if(!vs.length)return null;return [mean(vs.map(v=>v.uv[0])),mean(vs.map(v=>v.uv[1]))];}
+function maxTriangleArea3(points){
+  let best=0;
+  for(let i=0;i<points.length;i++)for(let j=i+1;j<points.length;j++)for(let k=j+1;k<points.length;k++){
+    const a=points[i],b=points[j],c=points[k],ab=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],ac=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
+    const cross=[ab[1]*ac[2]-ab[2]*ac[1],ab[2]*ac[0]-ab[0]*ac[2],ab[0]*ac[1]-ab[1]*ac[0]];
+    best=Math.max(best,.5*Math.hypot(...cross));
+  }
+  return best;
+}
+function maxTriangleArea2(points){
+  let best=0;
+  for(let i=0;i<points.length;i++)for(let j=i+1;j<points.length;j++)for(let k=j+1;k<points.length;k++){
+    const a=points[i],b=points[j],c=points[k],twice=Math.abs((b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]));
+    best=Math.max(best,.5*twice);
+  }
+  return best;
+}
+function targetCenter(target){
+  const ps=(target.points||[]).map(p=>p.p).filter(p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite));
+  if(!ps.length)return null;
+  return [mean(ps.map(p=>p[0])),mean(ps.map(p=>p[1])),mean(ps.map(p=>p[2]))];
+}
 
 export class XRMetricCalibrator extends EventTarget{
   constructor({overlayRoot,config,log}){
@@ -374,7 +396,14 @@ export class XRMetricCalibrator extends EventTarget{
       for(const v of visible){const arr=v.point.observations;arr.push({uv:v.uv,patch:v.patch,patchSize:v.patchSize,patchRel:v.patchRel,variance:v.variance,detail:v.detail,score:v.score,pose:clonePose(pose)});while(arr.length>this.cfg.xrCalibrationMaxTemplatesPerPoint)arr.shift();}
       this.log?.info('xr-target-view-added',{id:target.id,view:target.views,visiblePoints:visible.length,baselineM:target.maxBaselineM,angleRad:target.maxAngleRad,tracking:'XRAnchor'});
     }
-    target.ready=target.points.length>=this.cfg.xrCalibrationMinPointsPerTarget&&target.views>=this.cfg.xrCalibrationMinViewsPerTarget&&target.maxBaselineM>=this.cfg.xrCalibrationMinTargetBaselineM&&(target.roiViews?.length||0)>=(this.cfg.xrRoiMinViewsPerTarget||8)&&(target.roiSectors?.length||0)>=(this.cfg.xrRoiMinAzimuthSectors||4);
+    // A pin is 'useful' once it has several genuinely separated observations.
+    // Sector count is deliberately diagnostic only: on a planar wall a good
+    // lateral camera translation can remain inside one coarse azimuth bin.
+    // Requiring four sectors was the main reason Apply could remain disabled.
+    target.ready=target.points.length>=this.cfg.xrCalibrationMinPointsPerTarget
+      &&target.views>=this.cfg.xrCalibrationMinViewsPerTarget
+      &&target.maxBaselineM>=this.cfg.xrCalibrationMinTargetBaselineM
+      &&(target.roiViews?.length||0)>=(this.cfg.xrRoiMinViewsPerTarget||4);
   }
 
   _captureGlobalPoseIfEligible(){
@@ -388,14 +417,36 @@ export class XRMetricCalibrator extends EventTarget{
   }
 
   _quality(){
-    const selected=this.targets.length,readyTargets=this.targets.filter(t=>t.ready).length,commonVisibleTargets=this.targets.filter(t=>t.ready&&t.visible).length,commonVisiblePoints=this.targets.reduce((s,t)=>s+(t.ready?t.visiblePoints:0),0),points=this.targets.flatMap(t=>t.points||[]),xs=points.map(a=>a.p[0]),ys=points.map(a=>a.p[1]),zs=points.map(a=>a.p[2]);
-    const span=points.length?Math.hypot(Math.max(...xs)-Math.min(...xs),Math.max(...zs)-Math.min(...zs)):0,vertical=points.length?Math.max(...ys)-Math.min(...ys):0;
-    const allReady=selected>=this.cfg.xrCalibrationMinTargets&&readyTargets===selected,commonView=allReady&&commonVisibleTargets===selected&&commonVisiblePoints>=this.cfg.xrCalibrationMinCommonPoints,geometryOk=span>=this.cfg.xrCalibrationMinSpanM&&vertical>=this.cfg.xrCalibrationMinVerticalSpanM;
-    const minGlobal=this.cfg.xrCalibrationMinGlobalPoses??3,poseCoverageOk=this.globalPoses.length>=minGlobal,ready=commonView&&geometryOk&&poseCoverageOk;
-    return {selected,readyTargets,target:this.cfg.xrCalibrationMinTargets,maxTargets:this.cfg.xrCalibrationMaxTargets,totalPoints:points.length,commonVisibleTargets,commonVisiblePoints,commonView,span,vertical,geometryOk,poseCount:this.globalPoses.length,requiredPoseCount:minGlobal,poseCoverageOk,realAnchorPoints:points.filter(p=>p.realAnchor).length,trackedAnchorPoints:points.filter(p=>p.tracked).length,ready,cameraSize:this.cameraSize,candidates:this.candidates.map(c=>({...c})),targets:this.targets.map(t=>({id:t.id,
-      // app.js V30.8 draws t.seedUv. Feed it the LIVE anchor projection once
-      // tracking starts, and an off-screen value when tracking is lost. This is
-      // the critical visual world-lock fix without a second overlay renderer.
+    const selected=this.targets.length,readyList=this.targets.filter(t=>t.ready),readyTargets=readyList.length;
+    // Apply uses ANY three useful pins. Extra experimental pins that are not yet
+    // ready must never make the whole calibration impossible to finish.
+    const commonReady=readyList.filter(t=>t.visible),commonVisibleTargets=commonReady.length;
+    const commonVisiblePoints=commonReady.reduce((sum,t)=>sum+(t.visiblePoints||0),0);
+    const points=this.targets.flatMap(t=>t.points||[]),centers=commonReady.map(targetCenter).filter(Boolean),uvs=commonReady.map(t=>t.displayUv).filter(uv=>Array.isArray(uv)&&uv.length===2);
+    let span=0;for(let i=0;i<centers.length;i++)for(let j=i+1;j<centers.length;j++)span=Math.max(span,dist(centers[i],centers[j]));
+    const triangleAreaM2=maxTriangleArea3(centers),screenTriangleArea=maxTriangleArea2(uvs);
+    const minSpan=this.cfg.xrCalibrationMinSpanM??.20,minArea=this.cfg.xrCalibrationMinTriangleAreaM2??.0025,minScreenArea=this.cfg.xrCalibrationMinScreenTriangleArea??.0015;
+    const enoughUseful=readyTargets>=this.cfg.xrCalibrationMinTargets;
+    const commonView=commonVisibleTargets>=this.cfg.xrCalibrationMinTargets&&commonVisiblePoints>=this.cfg.xrCalibrationMinCommonPoints;
+    const geometryOk=commonView&&span>=minSpan&&triangleAreaM2>=minArea&&screenTriangleArea>=minScreenArea;
+    const minGlobal=this.cfg.xrCalibrationMinGlobalPoses??3,poseCoverageOk=this.globalPoses.length>=minGlobal;
+    // Global pose coverage remains recorded for diagnostics, but no longer gates
+    // Apply: useful per-pin multi-view evidence already carries the required
+    // perspective diversity. A current common view is still required so the
+    // camera-only bridge gets coherent UVs and a single common camera pose.
+    const ready=enoughUseful&&commonView&&geometryOk;
+    const minUsefulViews=readyList.length?Math.min(...readyList.map(t=>t.roiViews?.length||0)):0;
+    let blocker=null;
+    if(selected<this.cfg.xrCalibrationMinTargets)blocker=`aggiungi ${this.cfg.xrCalibrationMinTargets-selected} pin`;
+    else if(!enoughUseful)blocker=`muoviti attorno ai pin: ${readyTargets}/${this.cfg.xrCalibrationMinTargets} hanno viste sufficienti`;
+    else if(!commonView)blocker=`riporta almeno ${this.cfg.xrCalibrationMinTargets} pin utili nella stessa inquadratura`;
+    else if(!geometryOk)blocker='distribuisci i 3 pin formando un triangolo più ampio';
+    return {selected,readyTargets,target:this.cfg.xrCalibrationMinTargets,maxTargets:this.cfg.xrCalibrationMaxTargets,totalPoints:points.length,
+      commonVisibleTargets,commonVisibleReadyTargets:commonVisibleTargets,commonVisiblePoints,commonView,span,triangleAreaM2,screenTriangleArea,geometryOk,
+      poseCount:this.globalPoses.length,requiredPoseCount:minGlobal,poseCoverageOk,poseCoverageRequiredForApply:false,minUsefulViews,blocker,
+      applyTargetIds:commonReady.map(t=>t.id),realAnchorPoints:points.filter(p=>p.realAnchor).length,trackedAnchorPoints:points.filter(p=>p.tracked).length,ready,cameraSize:this.cameraSize,candidates:this.candidates.map(c=>({...c})),targets:this.targets.map(t=>({id:t.id,
+      // app.js draws t.seedUv. Feed it the LIVE anchor projection once tracking
+      // starts, and an off-screen value when tracking is lost.
       seedUv:t.state==='tracking'?(t.visible&&t.displayUv?[...t.displayUv]:[-2,-2]):[...t.seedUv],
       originalSeedUv:[...t.seedUv],state:t.state,points:t.points.length,views:t.views,baselineM:t.maxBaselineM,visible:t.visible,visiblePoints:t.visiblePoints,trackedPoints:t.points.filter(p=>p.tracked).length,roiViews:t.roiViews?.length||0,roiSectors:t.roiSectors?.length||0,ready:t.ready,trackingSource:t.state==='tracking'?'XRAnchor':'hit-test-acquisition'})),manualAim:{uv:[...(this.manualAim?.uv||[.5,.5])],valid:!!this.manualAim?.valid,stable:!!this.manualAim?.stable,point:this.manualAim?.point?[...this.manualAim.point]:null,depthM:this.manualAim?.depthM??null,rmsM:this.manualAim?.rmsM??null}};
   }
@@ -426,21 +477,23 @@ export class XRMetricCalibrator extends EventTarget{
   async finish(){
     const q=this._quality();
     if(!q.ready){
-      if(q.selected<this.cfg.xrCalibrationMinTargets)throw new Error(`Seleziona almeno ${this.cfg.xrCalibrationMinTargets} oggetti/dettagli distinti.`);
-      if(q.readyTargets<q.selected)throw new Error('Osserva ogni pin da più posizioni: tutti devono raggiungere almeno 3 viste con parallasse usando XRAnchor tracciati.');
-      if(!q.poseCoverageOk)throw new Error(`Servono almeno ${q.requiredPoseCount} pose diverse con almeno ${this.cfg.xrCalibrationMinPinsPerPose??3} pin XRAnchor visibili. Pose valide: ${q.poseCount}.`);
-      if(!q.commonView)throw new Error('Porta TUTTI i pin XRAnchor nella stessa inquadratura finale e mantieni il telefono fermo un istante.');
-      throw new Error(`Distribuisci meglio i pin nello spazio: span ${q.span.toFixed(2)} m, verticale ${q.vertical.toFixed(2)} m.`);
+      if(q.selected<this.cfg.xrCalibrationMinTargets)throw new Error(`Aggiungi almeno ${this.cfg.xrCalibrationMinTargets} pin.`);
+      if(q.readyTargets<this.cfg.xrCalibrationMinTargets)throw new Error(`Servono almeno ${this.cfg.xrCalibrationMinTargets} pin con viste utili. Ora sono pronti ${q.readyTargets}: fai piccoli spostamenti laterali attorno ai pin.`);
+      if(!q.commonView)throw new Error(`Porta almeno ${this.cfg.xrCalibrationMinTargets} pin utili nella stessa inquadratura finale.`);
+      throw new Error(`Distribuisci meglio almeno 3 pin: crea un triangolo visibile più ampio (span attuale ${q.span.toFixed(2)} m).`);
     }
 
+    // Freeze exactly the useful pins visible in this common frame. Extra pins
+    // that are incomplete or currently off-screen are ignored, never blockers.
+    const applyTargets=this.targets.filter(t=>t.ready&&t.visible);
     const anchors=[];
-    for(const t of this.targets)for(const p of t.points){
+    for(const t of applyTargets)for(const p of t.points){
       const vis=t.lastVisible.find(v=>v.point.id===p.id);if(!vis||!p.tracked)continue;
       anchors.push({id:p.id,objectId:t.id,p:[...p.p],seedUv:[...p.seedUv],uv:[...vis.uv],patch:vis.patch,patchSize:vis.patchSize,patchRel:vis.patchRel,variance:vis.variance,detail:vis.detail,hitStdM:p.hitStdM,realAnchor:true,persistentHandle:p.persistentHandle||null,observations:p.observations.map(o=>({...o,pose:o.pose?clonePose(o.pose):null}))});
     }
-    if(anchors.length<this.cfg.xrCalibrationMinCommonPoints)throw new Error('Vista comune persa nell’ultimo frame: tieni tutti i pin XRAnchor visibili e riprova.');
+    if(anchors.length<this.cfg.xrCalibrationMinCommonPoints)throw new Error('Vista comune persa nell’ultimo frame: tieni almeno 3 pin utili visibili e riprova.');
 
-    const result={format:'ROOMSCAN-V30-XR-CALIBRATION-2',createdAt:Date.now(),referenceSpace:'local-floor',coordinateConvention:'+X right +Y up +Z forward',mode:'user-selected-multiview-real-xranchors',realAnchors:true,anchors,objects:this.targets.map(t=>({id:t.id,seedUv:[...t.seedUv],points:t.points.map(p=>p.id),views:t.views,baselineM:t.maxBaselineM,maxAngleRad:t.maxAngleRad,roiViews:(t.roiViews||[]).map(v=>({...v,pose:clonePose(v.pose),worldCenter:[...v.worldCenter],uv:[...v.uv],scales:v.scales.map(s=>({...s,patch:[...s.patch]}))})),roiSectors:[...(t.roiSectors||[])]})),pose:clonePose(this.latestPose),intrinsicsNorm:{...this.latestIntrinsics},cameraSize:[...this.cameraSize],commonView:{pose:clonePose(this.latestPose),intrinsicsNorm:{...this.latestIntrinsics},cameraSize:[...this.cameraSize],anchorIds:anchors.map(a=>a.id)},poseCoverage:this.globalPoses.map(s=>({at:s.at,pose:clonePose(s.pose),targetIds:[...s.targetIds],anchorPointIds:[...s.anchorPointIds]})),quality:q};
+    const result={format:'ROOMSCAN-V30-XR-CALIBRATION-2',createdAt:Date.now(),referenceSpace:'local-floor',coordinateConvention:'+X right +Y up +Z forward',mode:'user-selected-multiview-real-xranchors',realAnchors:true,anchors,objects:applyTargets.map(t=>({id:t.id,seedUv:[...t.seedUv],points:t.points.map(p=>p.id),views:t.views,baselineM:t.maxBaselineM,maxAngleRad:t.maxAngleRad,roiViews:(t.roiViews||[]).map(v=>({...v,pose:clonePose(v.pose),worldCenter:[...v.worldCenter],uv:[...v.uv],scales:v.scales.map(s=>({...s,patch:[...s.patch]}))})),roiSectors:[...(t.roiSectors||[])]})),pose:clonePose(this.latestPose),intrinsicsNorm:{...this.latestIntrinsics},cameraSize:[...this.cameraSize],commonView:{pose:clonePose(this.latestPose),intrinsicsNorm:{...this.latestIntrinsics},cameraSize:[...this.cameraSize],anchorIds:anchors.map(a=>a.id)},poseCoverage:this.globalPoses.map(s=>({at:s.at,pose:clonePose(s.pose),targetIds:[...s.targetIds],anchorPointIds:[...s.anchorPointIds]})),quality:{...q,appliedTargetIds:applyTargets.map(t=>t.id)}};
     this.log?.info('xr-calibration-real-anchor-finished',{anchors:anchors.length,persistent:anchors.filter(a=>a.persistentHandle).length,poseCount:q.poseCount,quality:q});
     await this.stop({deleteAnchors:false});
     return result;

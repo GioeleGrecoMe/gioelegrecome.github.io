@@ -1,6 +1,6 @@
 {
-  "version": "30.11.0",
-  "id": "v30.11.0-20260819-minimal-xr-pins-lazy-boot",
-  "builtAt": "2026-08-19T15:00:00Z",
-  "notes": "Minimal WebXR pins; lazy UI-first boot; active service-worker version handshake."
+  "version": "30.11.1",
+  "id": "v30.11.1-20260819-three-useful-pins-apply",
+  "builtAt": "2026-08-19T15:44:00Z",
+  "notes": "Apply after any 3 useful WebXR pins in a common non-degenerate view; extra pins and global pose count no longer block calibration."
 }

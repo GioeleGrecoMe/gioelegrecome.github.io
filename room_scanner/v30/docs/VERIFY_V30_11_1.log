@@ -1,0 +1,234 @@
+
+> room-scanner-v30-11-1-three-pin-apply@30.11.1 verify
+> npm test && npm run check:layout && npm run check:deps && npm run check:mock
+
+
+> room-scanner-v30-11-1-three-pin-apply@30.11.1 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: minimal boot imports only the versioned core app
+ok 1 - minimal boot imports only the versioned core app
+  ---
+  duration_ms: 6.87315
+  type: 'test'
+  ...
+# Subtest: HTML handshakes with active service worker and removes stale V30 workers before modules
+ok 2 - HTML handshakes with active service worker and removes stale V30 workers before modules
+  ---
+  duration_ms: 0.394337
+  type: 'test'
+  ...
+# Subtest: service worker is atomic and cache-first for static runtime assets
+ok 3 - service worker is atomic and cache-first for static runtime assets
+  ---
+  duration_ms: 2.876691
+  type: 'test'
+  ...
+# Subtest: all published identities are V30.11.1
+ok 4 - all published identities are V30.11.1
+  ---
+  duration_ms: 3.270668
+  type: 'test'
+  ...
+# Subtest: real anchors are mandatory and one user pin maps to one XRAnchor
+ok 5 - real anchors are mandatory and one user pin maps to one XRAnchor
+  ---
+  duration_ms: 0.491251
+  type: 'test'
+  ...
+# Subtest: screen markers come from live XRAnchor projection and XR layer has a true 3D marker
+ok 6 - screen markers come from live XRAnchor projection and XR layer has a true 3D marker
+  ---
+  duration_ms: 0.358594
+  type: 'test'
+  ...
+# Subtest: minimal calibration UI replaces the old full panel
+ok 7 - minimal calibration UI replaces the old full panel
+  ---
+  duration_ms: 0.713031
+  type: 'test'
+  ...
+# Subtest: ROI atlas is retained and reused by measurement matching
+ok 8 - ROI atlas is retained and reused by measurement matching
+  ---
+  duration_ms: 0.503139
+  type: 'test'
+  ...
+# Subtest: Apply is ready after exactly three useful visible pins without global pose gate
+ok 9 - Apply is ready after exactly three useful visible pins without global pose gate
+  ---
+  duration_ms: 2.532589
+  type: 'test'
+  ...
+# Subtest: an extra incomplete fourth pin does not disable Apply
+ok 10 - an extra incomplete fourth pin does not disable Apply
+  ---
+  duration_ms: 1.353244
+  type: 'test'
+  ...
+# Subtest: three useful pins still require a coherent common view
+ok 11 - three useful pins still require a coherent common view
+  ---
+  duration_ms: 0.5111
+  type: 'test'
+  ...
+# Subtest: degenerate collinear pins do not enable Apply
+ok 12 - degenerate collinear pins do not enable Apply
+  ---
+  duration_ms: 0.375739
+  type: 'test'
+  ...
+# Subtest: runtime thresholds make one pin useful after four separated ROI views and 8 cm baseline
+ok 13 - runtime thresholds make one pin useful after four separated ROI views and 8 cm baseline
+  ---
+  duration_ms: 0.162823
+  type: 'test'
+  ...
+# Subtest: all recovered core runtime files are present and non-empty
+ok 14 - all recovered core runtime files are present and non-empty
+  ---
+  duration_ms: 1.628844
+  type: 'test'
+  ...
+# Subtest: slam_core.wasm is a real WebAssembly binary
+ok 15 - slam_core.wasm is a real WebAssembly binary
+  ---
+  duration_ms: 1.147528
+  type: 'test'
+  ...
+# Subtest: existing v3 + requested v2 never issues a downgrade open
+ok 16 - existing v3 + requested v2 never issues a downgrade open
+  ---
+  duration_ms: 4.020835
+  type: 'test'
+  ...
+# Subtest: older schema upgrades only after version probe
+ok 17 - older schema upgrades only after version probe
+  ---
+  duration_ms: 0.620564
+  type: 'test'
+  ...
+# Subtest: upgrade race VersionError recovers with versionless reopen
+ok 18 - upgrade race VersionError recovers with versionless reopen
+  ---
+  duration_ms: 0.353256
+  type: 'test'
+  ...
+# Subtest: core has no heavy static imports before UI binding
+ok 19 - core has no heavy static imports before UI binding
+  ---
+  duration_ms: 2.639744
+  type: 'test'
+  ...
+# Subtest: core marks UI interactive before detached background initialization
+ok 20 - core marks UI interactive before detached background initialization
+  ---
+  duration_ms: 34.807232
+  type: 'test'
+  ...
+# Subtest: calibration buttons are bound independently
+ok 21 - calibration buttons are bound independently
+  ---
+  duration_ms: 17.289579
+  type: 'test'
+  ...
+# Subtest: diagnostics and service worker are not startup gates
+ok 22 - diagnostics and service worker are not startup gates
+  ---
+  duration_ms: 55.404193
+  type: 'test'
+  ...
+# Subtest: manual hit-test preview exposes metric depth and becomes stable
+ok 23 - manual hit-test preview exposes metric depth and becomes stable
+  ---
+  duration_ms: 13.223321
+  type: 'test'
+  ...
+# Subtest: ROI atlas requires camera motion/new viewpoint and stores multiple scales
+ok 24 - ROI atlas requires camera motion/new viewpoint and stores multiple scales
+  ---
+  duration_ms: 0.882163
+  type: 'test'
+  ...
+# Subtest: metric GS helpers preserve metres and provide mesh-oriented samples
+ok 25 - metric GS helpers preserve metres and provide mesh-oriented samples
+  ---
+  duration_ms: 0.787001
+  type: 'test'
+  ...
+# Subtest: metric mesh worker creates metric faces from occupied Gaussian samples
+ok 26 - metric mesh worker creates metric faces from occupied Gaussian samples
+  ---
+  duration_ms: 2.178803
+  type: 'test'
+  ...
+# Subtest: world anchor stays fixed while screen projection changes with camera motion
+ok 27 - world anchor stays fixed while screen projection changes with camera motion
+  ---
+  duration_ms: 3.662472
+  type: 'test'
+  ...
+# Subtest: lost trackedAnchors hides marker instead of freezing seed UV on screen
+ok 28 - lost trackedAnchors hides marker instead of freezing seed UV on screen
+  ---
+  duration_ms: 0.962463
+  type: 'test'
+  ...
+# Subtest: three distinct poses require at least three visible anchored targets
+ok 29 - three distinct poses require at least three visible anchored targets
+  ---
+  duration_ms: 0.971346
+  type: 'test'
+  ...
+# Subtest: two visible pins cannot create a qualifying global pose
+ok 30 - two visible pins cannot create a qualifying global pose
+  ---
+  duration_ms: 16.920449
+  type: 'test'
+  ...
+# Subtest: projection helper moves opposite camera translation
+ok 31 - projection helper moves opposite camera translation
+  ---
+  duration_ms: 0.663267
+  type: 'test'
+  ...
+# Subtest: XR scene renderer consumes current anchor pose in raw WebXR coordinates
+ok 32 - XR scene renderer consumes current anchor pose in raw WebXR coordinates
+  ---
+  duration_ms: 1.940869
+  type: 'test'
+  ...
+1..32
+# tests 32
+# suites 0
+# pass 32
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1067.189403
+
+> room-scanner-v30-11-1-three-pin-apply@30.11.1 check:layout
+> node tools/check_v30_layout.mjs
+
+PASS v30-layout · 48 file sotto una sola radice v30/
+
+> room-scanner-v30-11-1-three-pin-apply@30.11.1 check:deps
+> node tools/check_dependencies.mjs
+
+PASS dependency-closure · 16 riferimenti locali risolti
+
+> room-scanner-v30-11-1-three-pin-apply@30.11.1 check:mock
+> node tools/mock_ui_boot.mjs
+
+[RoomScan:ui-interactive] { build: 'v30.11.1-20260819-three-useful-pins-apply' }
+[RoomScan:begin-calibration] {
+  message: 'WebXR non disponibile su questo browser',
+  stack: 'Error: WebXR non disponibile su questo browser\n' +
+    '    at XRMetricCalibrator.start (file:///mnt/data/v3011_apply_fix/v30/js/xr/xr_calibration.js?v=30.11.1:147:28)\n' +
+    '    at beginCalibration (file:///mnt/data/v3011_apply_fix/v30/js/app.js?mock=1787154497300:30:475)\n' +
+    '    at async El.<anonymous> (file:///mnt/data/v3011_apply_fix/v30/js/app.js?mock=1787154497300:20:59)'
+}
+PASS mock-ui-boot · controls bound · failed WebXR returns to Home · UI remains interactive
+[RoomScan:db-open] { message: 'IndexedDB is unavailable' }

@@ -4,7 +4,7 @@ import {V30Database,openVersionSafe} from './storage/db.js';
 import {triangulateRays,poseIdentity} from './slam/math.js';
 
 /*
- * V30.11 self-tests intentionally include regressions for the two phone failures
+ * V30.11.1 self-tests intentionally include regressions for the two phone failures
  * reported on V30.8: IndexedDB downgrade and fake/screen-space WebXR pins.
  */
 export async function runSelfTests(log){
@@ -45,6 +45,16 @@ export async function runSelfTests(log){
     return 'XRHitTestResult -> XRAnchor -> trackedAnchors -> anchorSpace -> WebGL XR scene marker';
   });
 
+
+  await run('three-pin-apply-contract',async()=>{
+    if(CONFIG.xrCalibrationMinTargets!==3)throw new Error(`min targets is ${CONFIG.xrCalibrationMinTargets}, expected 3`);
+    if(CONFIG.xrRoiMinViewsPerTarget>4)throw new Error(`ROI gate too strict: ${CONFIG.xrRoiMinViewsPerTarget}`);
+    if(CONFIG.xrCalibrationMinTargetBaselineM>.08)throw new Error(`baseline gate too strict: ${CONFIG.xrCalibrationMinTargetBaselineM}`);
+    const text=await fetch(`js/xr/xr_calibration.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.text();});
+    if(!text.includes('poseCoverageRequiredForApply:false'))throw new Error('global pose coverage still gates Apply');
+    if(!text.includes('applyTargets=this.targets.filter(t=>t.ready&&t.visible)'))throw new Error('Apply does not select useful visible pins');
+    return '3 useful pins + common view => Apply; extra/incomplete pins do not block';
+  });
 
   await run('manual-roi-contract',async()=>{const text=await fetch(`js/xr/xr_calibration.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.text();});for(const token of ['_ensureCenterAim()','confirmManualPin()','offsets=[[0,0]]','xr-pin-roi-view','roiViews','pin-rejected'])if(!text.includes(token))throw new Error(`missing V30.11 pin/ROI token: ${token}`);const html=await fetch(`room_scanner_v30.html?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());for(const id of ['calibAddPinBtn','calibUndoPinBtn','calibFinishBtn','calibCancelBtn'])if(!html.includes(`id=\"${id}\"`))throw new Error(`minimal control missing: ${id}`);if(html.includes('calibManualGuide'))throw new Error('old calibration panel still present');return 'center reticle -> add/remove one XRAnchor pin -> background multi-view ROI atlas';});
   await run('measurement-guidance',async()=>{const text=await fetch(`js/xr/measurement_guidance.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.text();});if(!text.includes('bridgePinGuidance')||!text.includes('RoomScanMetricContext'))throw new Error('measurement pin-area guidance missing');const geom=await fetch(`js/metric/metric_geometry.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());if(!geom.includes('metricizeGaussians')||!geom.includes('gaussianSurfaceSamples'))throw new Error('metric GS helper missing');return 'saved pin ROIs + metric camera context + GS surface extraction';});

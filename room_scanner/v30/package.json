@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-11-minimal-xr",
+  "name": "room-scanner-v30-11-1-three-pin-apply",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,6 +9,6 @@
     "verify": "npm test && npm run check:layout && npm run check:deps && npm run check:mock",
     "check:mock": "node tools/mock_ui_boot.mjs"
   },
-  "version": "30.11.0",
-  "description": "Single-folder V30.11.0 with UI-first lazy boot and minimal real WebXR pins."
+  "version": "30.11.1",
+  "description": "V30.11.1: Apply after any three useful real WebXR pins in a common view."
 }
