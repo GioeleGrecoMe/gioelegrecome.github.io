@@ -1,6 +1,6 @@
 {
-  "version": "30.11.2",
-  "id": "v30.11.2-20260819-nonblocking-metric-lock",
-  "builtAt": "2026-08-19T16:35:00Z",
-  "notes": "Fix metric-lock black/frozen screen: remove self-triggering MutationObserver, start camera before optional guidance, bound matcher workload, and transfer the live camera stream into scan without a black transition."
+  "version": "30.11.3",
+  "id": "v30.11.3-20260819-fullscreen-metric-preview",
+  "builtAt": "2026-08-19T17:29:00Z",
+  "notes": "Fix measurement preview geometry: remove full-screen bridge canvases, render pin guidance as DOM rings, and hard-size camera video to the live visual viewport in CSS and JS."
 }

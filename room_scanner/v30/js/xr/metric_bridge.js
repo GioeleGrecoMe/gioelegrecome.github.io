@@ -1,11 +1,62 @@
 /**
- * Room Scanner V30.11.2 conservative camera-only metric bridge.
+ * Room Scanner V30.11.3 conservative camera-only metric bridge.
  *
  * The bridge only accepts the saved WebXR metric frame after >=3 calibrated
  * pin regions are visually re-observed near their expected common-view image
  * positions. Matching is intentionally bounded so it cannot monopolise the
  * browser main thread on a phone.
  */
+function previewViewportSize(){
+  const vv=globalThis.visualViewport;
+  const doc=globalThis.document?.documentElement;
+  const width=Math.max(1,Math.round(vv?.width||globalThis.innerWidth||doc?.clientWidth||1));
+  const height=Math.max(1,Math.round(vv?.height||globalThis.innerHeight||doc?.clientHeight||1));
+  return {width,height};
+}
+
+function fitPreviewViewport(video){
+  if(!video)return {width:0,height:0};
+  const {width,height}=previewViewportSize();
+  const host=video.parentElement;
+  if(host){
+    host.style.setProperty('padding','0','important');
+    host.style.setProperty('overflow','hidden','important');
+    host.style.setProperty('width',width+'px','important');
+    host.style.setProperty('height',height+'px','important');
+    host.style.setProperty('min-height',height+'px','important');
+    host.style.setProperty('max-height',height+'px','important');
+  }
+  video.style.setProperty('position','absolute','important');
+  video.style.setProperty('left','0','important');
+  video.style.setProperty('top','0','important');
+  video.style.setProperty('right','auto','important');
+  video.style.setProperty('bottom','auto','important');
+  video.style.setProperty('width',width+'px','important');
+  video.style.setProperty('height',height+'px','important');
+  video.style.setProperty('min-width','0','important');
+  video.style.setProperty('min-height','0','important');
+  video.style.setProperty('max-width','none','important');
+  video.style.setProperty('max-height','none','important');
+  video.style.setProperty('object-fit','cover','important');
+  video.style.setProperty('object-position','center center','important');
+  video.style.setProperty('display','block','important');
+  video.style.setProperty('z-index','0','important');
+  return {width,height};
+}
+
+function waitForVideoGeometry(video,timeoutMs=1600){
+  if(!video)return Promise.resolve(false);
+  if(video.readyState>=2&&video.videoWidth>0&&video.videoHeight>0)return Promise.resolve(true);
+  return new Promise(resolve=>{
+    let done=false;
+    const finish=value=>{if(done)return;done=true;clearTimeout(timer);video.removeEventListener('loadedmetadata',onReady);video.removeEventListener('canplay',onReady);resolve(value);};
+    const onReady=()=>finish(video.videoWidth>0&&video.videoHeight>0);
+    const timer=setTimeout(()=>finish(false),timeoutMs);
+    video.addEventListener('loadedmetadata',onReady,{once:true});
+    video.addEventListener('canplay',onReady,{once:true});
+  });
+}
+
 export class MetricBridge extends EventTarget{
   constructor({video,calibration,log=null,analysisWidth=320,analysisHeight=480}={}){
     super();
@@ -18,12 +69,16 @@ export class MetricBridge extends EventTarget{
     this.canvas=document.createElement('canvas');this.canvas.width=this.w;this.canvas.height=this.h;
     this.ctx=this.canvas.getContext('2d',{willReadFrequently:true});
     this.running=false;this.cancelled=false;this.timer=0;this.result=null;this.stream=null;
+    this._resizeHandler=()=>fitPreviewViewport(this.video);this._lastGeometryCheck=0;
     this._groups=groupAnchors(calibration);
   }
   async start(){
     if(!this.video)throw new Error('bridge video missing');
     if(!this.calibration?.anchors?.length)throw new Error('calibration missing');
     this.cancelled=false;
+    fitPreviewViewport(this.video);
+    globalThis.addEventListener?.('resize',this._resizeHandler,{passive:true});
+    globalThis.visualViewport?.addEventListener?.('resize',this._resizeHandler,{passive:true});
     if(!this.video.srcObject){
       const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}});
       if(this.cancelled){for(const t of stream.getTracks?.()||[])try{t.stop()}catch{};return this;}
@@ -31,8 +86,10 @@ export class MetricBridge extends EventTarget{
       try{await this.video.play();}catch(err){this.stop();throw new Error(`Impossibile avviare anteprima camera: ${err?.message||err}`);}
     }
     if(this.cancelled)return this;
+    await waitForVideoGeometry(this.video);
+    const viewport=fitPreviewViewport(this.video);
     this.running=true;this._loop();
-    this.log?.info('metric-bridge-camera-ready',{analysis:[this.w,this.h],groups:this._groups.length});
+    this.log?.info('metric-bridge-camera-ready',{analysis:[this.w,this.h],groups:this._groups.length,viewport,videoIntrinsic:[this.video.videoWidth||0,this.video.videoHeight||0],videoRect:{width:this.video.getBoundingClientRect?.().width||0,height:this.video.getBoundingClientRect?.().height||0}});
     return this;
   }
   pause(){this.running=false;clearTimeout(this.timer);}
@@ -42,22 +99,31 @@ export class MetricBridge extends EventTarget{
     const stream=this.stream;
     this.stream=null;
     if(this.video)this.video.srcObject=null;
+    globalThis.removeEventListener?.('resize',this._resizeHandler);
+    globalThis.visualViewport?.removeEventListener?.('resize',this._resizeHandler);
     return stream;
   }
   async restoreStream(stream){
     if(!stream)return;
     this.cancelled=false;this.stream=stream;
-    if(this.video){this.video.srcObject=stream;try{await this.video.play();}catch{}}
+    if(this.video){fitPreviewViewport(this.video);this.video.srcObject=stream;try{await this.video.play();}catch{}await waitForVideoGeometry(this.video);fitPreviewViewport(this.video);globalThis.addEventListener?.('resize',this._resizeHandler,{passive:true});globalThis.visualViewport?.addEventListener?.('resize',this._resizeHandler,{passive:true});}
   }
   stop(){
     this.cancelled=true;this.pause();
     for(const t of this.stream?.getTracks?.()||[])try{t.stop()}catch{}
     if(this.stream&&this.video)this.video.srcObject=null;
+    globalThis.removeEventListener?.('resize',this._resizeHandler);
+    globalThis.visualViewport?.removeEventListener?.('resize',this._resizeHandler);
     this.stream=null;
   }
   _loop(){
     if(!this.running)return;
     const started=performance.now();
+    if(started-this._lastGeometryCheck>1000){
+      this._lastGeometryCheck=started;
+      const vp=fitPreviewViewport(this.video),rect=this.video?.getBoundingClientRect?.();
+      if(rect&&rect.height<vp.height*.72)this.log?.warn('metric-preview-layout',{viewport:vp,rect:{width:rect.width,height:rect.height},intrinsic:[this.video.videoWidth||0,this.video.videoHeight||0]});
+    }
     try{
       const r=this.evaluate();
       r.computeMs=performance.now()-started;
@@ -79,7 +145,7 @@ export class MetricBridge extends EventTarget{
     const rmse=inliers.length?Math.sqrt(inliers.reduce((s,m)=>s+m.shiftN*m.shiftN,0)/inliers.length):null;
     const locked=inliers.length>=3&&rmse<=.05;
     const common=this.calibration.commonView||{};
-    return {locked,found:matches.length,inliers:inliers.length,rmse,pose:locked?(common.pose||this.calibration.pose||null):null,intrinsicsNorm:common.intrinsicsNorm||this.calibration.intrinsicsNorm||null,cameraSize:common.cameraSize||this.calibration.cameraSize||null,unit:'m',method:'verified-common-view-template-lock-v30.11.2',matches};
+    return {locked,found:matches.length,inliers:inliers.length,rmse,pose:locked?(common.pose||this.calibration.pose||null):null,intrinsicsNorm:common.intrinsicsNorm||this.calibration.intrinsicsNorm||null,cameraSize:common.cameraSize||this.calibration.cameraSize||null,unit:'m',method:'verified-common-view-template-lock-v30.11.3',matches};
   }
 }
 

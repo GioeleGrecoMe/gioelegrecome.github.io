@@ -1,4 +1,4 @@
-# Room Scanner V30.11.2 — non-blocking metric lock
+# Room Scanner V30.11.3 — non-blocking metric lock
 
 ## Phone regression fixed
 V30.11.1 could freeze at **AGGANCIO METRICO** with a black camera view and dead buttons.

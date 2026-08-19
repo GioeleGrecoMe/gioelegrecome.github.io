@@ -1,4 +1,4 @@
-# Room Scanner V30.11.2
+# Room Scanner V30.11.3
 
 Runtime V30 con boot UI-first e calibrazione WebXR minimale.
 

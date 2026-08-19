@@ -1,6 +1,6 @@
-# Verifica V30.11.2
+# Verifica V30.11.3
 
-- Il badge deve mostrare `V30.11.2`.
+- Il badge deve mostrare `V30.11.3`.
 - La Home deve essere cliccabile subito.
 - In calibrazione devono esserci solo reticolo, stato, **Aggiungi pin**, **Togli pin**, **Applica**, **Esci**.
 - Ogni pin deve restare fermo nell'ambiente mentre il telefono si muove.

@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.11.2 core application.
+ * Room Scanner V30.11.3 core application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,8 +8,8 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.11.2';
-import {DiagnosticsLog} from './logger.js?v=30.11.2';
+import {BUILD,CONFIG} from './config.js?v=30.11.3';
+import {DiagnosticsLog} from './logger.js?v=30.11.3';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});

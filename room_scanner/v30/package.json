@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-11-2-nonblocking-metric-lock",
+  "name": "room-scanner-v30-11-3-fullscreen-metric-preview",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,6 +9,6 @@
     "verify": "npm test && npm run check:layout && npm run check:deps && npm run check:mock",
     "check:mock": "node tools/mock_ui_boot.mjs"
   },
-  "version": "30.11.2",
-  "description": "V30.11.2: non-blocking metric lock with event-driven guidance and camera-stream handoff."
+  "version": "30.11.3",
+  "description": "V30.11.3: full-screen metric camera preview with compositor-safe DOM pin guidance."
 }
