@@ -1,53 +1,74 @@
 <!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#080b10"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"><title>Room Scanner V30.10.2</title></head>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#080b10">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <link rel="manifest" href="manifest.webmanifest?v=30.11.0">
+  <link rel="stylesheet" href="styles.css?v=30.11.0">
+  <title>Room Scanner V30.11.0</title>
+</head>
 <body>
 <main id="app">
-<section id="home" class="screen active">
- <div class="hero"><div id="buildBadge" class="badge">V30.10.2 · BOOT</div><h1>Room Scanner V30</h1><p>Calibrazione WebXR con veri XRAnchor world-locked e landmark visuali scelti dall’utente, SLAM WASM camera-only, MVS geometrico e mappa 3D Gaussian. Nessun DeepAI, nessuna IMU necessaria.</p></div>
- <div class="card"><b>1 · Calibrazione metrica iniziale</b><p class="hint">Scegli tu 3–7 aree fisiche ben riconoscibili. Tocca la posizione esatta, controlla profondità/XYZ del reticolo WebXR e conferma. Ogni pin diventa un vero XRAnchor; poi acquisisco automaticamente la sua area da molte prospettive prima della calibrazione.</p><div id="calibSummary" class="status">Calibrazione non presente.</div><div class="actions inline"><button id="calibrateBtn" class="primary">Calibra con WebXR</button><button id="clearCalibrationBtn">Azzera calibrazione</button></div></div>
- <div class="card"><b>2 · Scansione camera-only</b><p class="hint">All'avvio ripunta per pochi secondi la stessa zona usata nella calibrazione. Il PnP WASM trasferisce la scala metrica alla camera normale; poi SLAM, triangolazione e MVS lavorano solo sulle immagini.</p><div class="actions inline"><button id="startBtn" class="primary" disabled>Avvia scansione</button><button id="loadPlyBtn">Apri PLY RGB / Gaussian</button><button id="loadR30Btn">Apri sessione .r30</button></div></div>
- <input id="filePly" type="file" accept=".ply" hidden><input id="fileR30" type="file" accept=".r30,application/octet-stream" hidden>
- <div id="homeStatus" class="status">Avvio V30.10.2…</div>
- <div id="updateBanner" class="card updateCard" hidden><b>Aggiornamento disponibile / cache incoerente</b><p id="updateText" class="hint"></p><button id="forceUpdateBtn" class="primary">Aggiorna ora e svuota cache V30</button></div>
- <div class="card"><b>Sessioni V30 locali</b><div id="savedSessions"><span class="muted">Apertura database…</span></div><div id="buildFoot" class="buildFoot"></div></div>
-</section>
-<section id="calibration" class="screen xrOverlay">
- <canvas id="calibOverlay" aria-label="Landmark visuali WebXR ancorati alla scena"></canvas>
- <div class="calibPanel"><div class="badge">WEBXR · REAL XRANCHOR · MULTI-VIEW</div><h2>Scegli riferimenti riconoscibili</h2><p id="calibCoach">Tocca la posizione esatta del pin. Prima di confermare vedrai profondità, XYZ e stabilità WebXR. Poi osserva ciascuna area da più prospettive.</p><div class="calibMeter"><div id="calibBar"></div></div><div class="stats calibStats"><span>pin <b id="calibTargets">0/3</b></span><span>pronti <b id="calibReady">0/0</b></span><span>vista comune <b id="calibCommon">NO</b></span><span>punti <b id="calibPoints">0</b></span><span>span <b id="calibSpan">0.00 m</b></span></div><div class="actions"><button id="calibUndoPinBtn">Rimuovi ultimo pin</button><button id="calibFinishBtn" class="primary" disabled>Blocca vista comune</button><button id="calibCancelBtn" class="danger">Annulla</button></div></div>
-</section>
-<section id="bridge" class="screen">
- <video id="bridgeCamera" autoplay muted playsinline></video><canvas id="bridgeMap"></canvas>
- <div class="bridgeCard"><div class="badge">AGGANCIO METRICO CAMERA</div><h2>Ripunta la zona di calibrazione</h2><p id="bridgeCoach">Le aree attese dei pin sono sovrapposte alla camera. Allineane almeno 3: uso l’atlas ROI multi-view per ritrovarle e trasferire la metrica alla camera normale.</p><div class="stats bridgeStats"><span>template <b id="bridgeFound">0</b></span><span>inlier <b id="bridgeInliers">0</b></span><span>RMSE <b id="bridgeRmse">—</b></span></div><div class="actions"><button id="bridgeRetryBtn">Riprova aggancio</button><button id="bridgeCancelBtn" class="danger">Annulla</button></div></div>
-</section>
-<section id="scan" class="screen">
- <video id="camera" autoplay muted playsinline></video><canvas id="miniMap"></canvas>
- <div class="topHud"><span id="slamState">INIT</span><span id="metricState">scala —</span><span id="mvsState">MVS —</span></div>
- <div class="stats"><span>feat <b id="statFeat">0</b></span><span>match <b id="statMatch">0</b></span><span>lm <b id="statLandmarks">0</b></span><span>KF <b id="statKf">0</b></span><span>GS <b id="statGs">0</b></span><span>tri <b id="statTri">0</b></span></div>
- <div id="coach" class="coach">Muoviti lentamente. Crea parallasse: osserva ogni zona da più posizioni e altezze.</div>
- <div class="scanButtons"><button id="pinBtn">◎ Pin repere</button><button id="finishBtn" class="danger">Salva / termina</button></div>
-</section>
-<section id="review" class="screen">
- <div class="reviewHead"><div><div class="badge">V30 REVIEW</div><h2>Gemello Gaussian metrico</h2></div><button id="backHomeBtn">Home</button></div>
- <canvas id="viewer"></canvas>
- <div class="viewerTools"><button id="orbitBtn">Orbita</button><button id="panBtn">Sposta</button><button id="fitBtn">Centra</button><label>Splat <input id="splatSize" type="range" min="0.5" max="3" value="1" step="0.1"></label></div>
- <div id="reviewStats" class="card compact"></div>
- <div class="actions wrap"><button id="exportPlyBtn" class="primary">Scarica PLY Gaussian RGB</button><button id="exportR30Btn">Scarica RAW .r30</button><button id="exportDiagBtn">Scarica diagnostica</button><button id="resumeBtn">Nuova scansione</button></div>
-</section>
+  <section id="home" class="screen active">
+    <div class="hero"><div id="buildBadge" class="badge">V30.11.0</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
+    <div class="card"><b>1 · Calibrazione</b><p class="hint">Inquadra un punto fisico con il reticolo e premi <b>Aggiungi pin</b>. Usa almeno 3 punti ben distribuiti e osserva ciascuno da più prospettive.</p><div id="calibSummary" class="status">Calibrazione non presente.</div><div class="actions inline"><button id="calibrateBtn" class="primary">Calibra con WebXR</button><button id="clearCalibrationBtn">Azzera calibrazione</button></div></div>
+    <div class="card"><b>2 · Misura / scansione</b><p class="hint">Ritrova almeno 3 aree dei pin, aggancia la camera alla metrica e avvia la scansione.</p><div class="actions inline"><button id="startBtn" class="primary" disabled>Avvia misura</button><button id="loadPlyBtn">Apri PLY</button><button id="loadR30Btn">Apri .r30</button></div></div>
+    <input id="filePly" type="file" accept=".ply" hidden><input id="fileR30" type="file" accept=".r30,application/octet-stream" hidden>
+    <div id="homeStatus" class="status">Interfaccia pronta.</div>
+    <div id="updateBanner" class="card updateCard" hidden><b>Cache/runtime non coerente</b><p id="updateText" class="hint"></p><button id="forceUpdateBtn" class="primary">Pulisci cache e ricarica</button></div>
+    <div class="card"><b>Sessioni locali</b><div id="savedSessions"><span class="muted">Caricamento in background…</span></div><div id="buildFoot" class="buildFoot"></div></div>
+  </section>
+
+  <section id="calibration" class="screen xrSimple" aria-label="Calibrazione WebXR">
+    <canvas id="calibOverlay" aria-label="Pin WebXR ancorati alla scena"></canvas>
+    <div class="xrStatusPill"><b id="calibStatus">0 pin</b><span id="calibDepth">Inquadra una superficie con il reticolo.</span></div>
+    <div class="xrBottomBar" role="toolbar" aria-label="Comandi calibrazione">
+      <button id="calibAddPinBtn" class="primary" disabled>＋ Aggiungi pin</button>
+      <button id="calibUndoPinBtn" disabled>− Togli pin</button>
+      <button id="calibFinishBtn" disabled>✓ Fine</button>
+      <button id="calibCancelBtn" class="danger">× Esci</button>
+    </div>
+  </section>
+
+  <section id="bridge" class="screen">
+    <video id="bridgeCamera" autoplay muted playsinline></video><canvas id="bridgeMap"></canvas>
+    <div class="bridgeCard compactBridge"><div class="badge">AGGANCIO METRICO</div><p id="bridgeCoach">Allinea almeno 3 aree dei pin. Parti dalla vista finale della calibrazione e fai piccoli spostamenti laterali.</p><div class="stats bridgeStats"><span>template <b id="bridgeFound">0</b></span><span>inlier <b id="bridgeInliers">0</b></span><span>RMSE <b id="bridgeRmse">—</b></span></div><div class="actions inline"><button id="bridgeRetryBtn">Riprova</button><button id="bridgeCancelBtn" class="danger">Esci</button></div></div>
+  </section>
+
+  <section id="scan" class="screen">
+    <video id="camera" autoplay muted playsinline></video><canvas id="miniMap"></canvas>
+    <div class="topHud"><span id="slamState">INIT</span><span id="metricState">scala —</span><span id="mvsState">MVS —</span></div>
+    <div class="stats scanStats"><span>feat <b id="statFeat">0</b></span><span>match <b id="statMatch">0</b></span><span>KF <b id="statKf">0</b></span><span>GS <b id="statGs">0</b></span><span>tri <b id="statTri">0</b></span></div>
+    <div id="coach" class="coach">Muoviti lentamente e crea parallasse.</div><div class="scanButtons"><button id="pinBtn">◎ Repere</button><button id="finishBtn" class="danger">Salva / termina</button></div>
+  </section>
+
+  <section id="review" class="screen">
+    <div class="reviewHead"><div><div class="badge">V30 REVIEW</div><h2>Gemello metrico</h2></div><button id="backHomeBtn">Home</button></div><canvas id="viewer"></canvas><div class="viewerTools"><button id="fitBtn">Centra</button><label>Splat <input id="splatSize" type="range" min="0.5" max="3" value="1" step="0.1"></label></div><div id="reviewStats" class="card compact"></div><div class="actions wrap"><button id="exportPlyBtn" class="primary">Scarica PLY</button><button id="exportR30Btn">Scarica .r30</button><button id="exportDiagBtn">Diagnostica</button><button id="resumeBtn">Nuova scansione</button></div>
+  </section>
 </main>
-<aside class="diagDock"><details id="diagPanel"><summary>Diagnostica / debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Scarica log</button><button id="diagCopyBtn">Copia log</button><button id="selfTestBtn">Esegui self-test</button><button id="diagForceUpdateBtn">Forza aggiornamento</button></div><div id="selfTestSummary" class="diagSummary">Self-test: asset, WASM, WebXR anchor contract, MVS worker, IndexedDB e service worker.</div><pre id="diagLive">Bootstrap…</pre></div></details></aside>
+
+<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.11.0</pre></div></details></aside>
+
 <script>
+/* Ask the ACTUAL controlling worker for its version before requesting modules.
+ * Old V30 workers do not answer GET_VERSION and are removed once. */
 (function(){
- const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),errors:[],ready:false,interactive:false};
- const rec=(type,data)=>boot.errors.push({time:Date.now(),type,...data});
- addEventListener('error',e=>rec('error',{message:e.message,src:e.filename,line:e.lineno,col:e.colno,stack:e.error?.stack||null}));
- addEventListener('unhandledrejection',e=>{const r=e.reason||{};rec('rejection',{name:r.name||null,message:String(r.message||r),stack:r.stack||null,source:'global-unhandledrejection'});});
- function downloadPreboot(){const blob=new Blob([JSON.stringify({format:'ROOMSCAN-V30-PREBOOT-2',url:location.href,userAgent:navigator.userAgent,...boot},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='roomscan-v30-preboot-diagnostics.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
- async function hardRefresh(){try{for(const r of await navigator.serviceWorker?.getRegistrations?.()||[])await r.unregister();for(const k of await caches.keys())if(k.startsWith('room-scanner-v30'))await caches.delete(k);}catch(err){rec('hard-refresh-error',{message:err?.message||String(err)});}location.replace(`${location.pathname}?v30reset=${Date.now()}`);}
- document.getElementById('diagDownloadBtn')?.addEventListener('click',e=>{if(document.documentElement.dataset.v30Interactive==='1')return;e.preventDefault();downloadPreboot();});
- document.getElementById('forceUpdateBtn')?.addEventListener('click',e=>{if(document.documentElement.dataset.v30Interactive==='1')return;e.preventDefault();hardRefresh();});
- document.getElementById('diagForceUpdateBtn')?.addEventListener('click',e=>{if(document.documentElement.dataset.v30Interactive==='1')return;e.preventDefault();hardRefresh();});
- setTimeout(()=>{if(document.documentElement.dataset.v30Interactive==='1')return;rec('interactive-timeout',{message:'core UI handlers were not bound within 5 s'});const st=document.getElementById('homeStatus');if(st){st.textContent='BOOT ERROR: interfaccia non collegata. Apri Diagnostica o usa Forza aggiornamento.';st.dataset.kind='error';}const d=document.getElementById('diagPanel');if(d)d.open=true;},5000);
+  const VERSION='30.11.0';
+  const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),version:VERSION,errors:[],interactive:false};
+  const rec=(type,data={})=>boot.errors.push({time:Date.now(),type,...data});
+  addEventListener('error',e=>rec('error',{message:e.message,src:e.filename,line:e.lineno,col:e.colno,stack:e.error?.stack||null}));
+  addEventListener('unhandledrejection',e=>{const r=e.reason||{};rec('rejection',{name:r.name||null,message:String(r.message||r),stack:r.stack||null});});
+  const loadModule=()=>{const s=document.createElement('script');s.type='module';s.src=`js/boot.js?v=${VERSION}`;s.onerror=()=>{rec('boot-script-load-failed',{src:s.src});const h=document.getElementById('homeStatus');if(h){h.dataset.kind='error';h.textContent='BOOT ERROR: js/boot.js non caricato.';}};document.body.appendChild(s);};
+  const ownRegistration=r=>{try{return new URL(r.scope).pathname.includes('/room_scanner/v30/')}catch{return false}};
+  const controllerVersion=controller=>new Promise(resolve=>{if(!controller)return resolve(null);if(typeof MessageChannel==='undefined')return resolve(null);const ch=new MessageChannel(),timer=setTimeout(()=>resolve(null),450);ch.port1.onmessage=e=>{clearTimeout(timer);resolve(e.data?.version||null)};try{controller.postMessage({type:'GET_VERSION'},[ch.port2])}catch{clearTimeout(timer);resolve(null)}});
+  const getAttempt=()=>{try{return Number(sessionStorage.getItem('roomscan-v30-sw-clean-attempt')||0)}catch{return 0}};
+  const setAttempt=n=>{try{sessionStorage.setItem('roomscan-v30-sw-clean-attempt',String(n))}catch{}};
+  const hardReload=()=>location.replace(`${location.pathname}?fresh=${VERSION}-${Date.now()}`);
+  (async()=>{const controller=navigator.serviceWorker?.controller;if(!controller){setAttempt(0);loadModule();return;}const activeVersion=await controllerVersion(controller);boot.controllerVersion=activeVersion;if(activeVersion===VERSION){setAttempt(0);loadModule();return;}const attempt=getAttempt();if(attempt>=2){rec('stale-sw-cleanup-exhausted',{activeVersion});loadModule();return;}setAttempt(attempt+1);const h=document.getElementById('homeStatus');if(h)h.textContent='Rimozione runtime precedente…';const watchdog=setTimeout(hardReload,1800);try{const regs=await navigator.serviceWorker.getRegistrations(),own=regs.filter(ownRegistration);await Promise.all(own.map(r=>r.unregister().catch(()=>false)));if(window.caches)for(const k of await caches.keys())if(k.startsWith('room-scanner-v30'))await caches.delete(k);}catch(err){rec('stale-sw-cleanup',{message:err?.message||String(err)});}clearTimeout(watchdog);hardReload();})().catch(err=>{rec('sw-handshake-error',{message:err?.message||String(err)});loadModule();});
 })();
 </script>
-<script type="module" src="js/boot.js?v=30.10.2"></script>
 </body></html>

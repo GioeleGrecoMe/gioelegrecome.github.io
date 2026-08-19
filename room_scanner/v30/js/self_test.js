@@ -4,7 +4,7 @@ import {V30Database,openVersionSafe} from './storage/db.js';
 import {triangulateRays,poseIdentity} from './slam/math.js';
 
 /*
- * V30.10 self-tests intentionally include regressions for the two phone failures
+ * V30.11 self-tests intentionally include regressions for the two phone failures
  * reported on V30.8: IndexedDB downgrade and fake/screen-space WebXR pins.
  */
 export async function runSelfTests(log){
@@ -12,10 +12,10 @@ export async function runSelfTests(log){
   const run=async(name,fn)=>{const t=performance.now();try{const detail=await fn();const r={name,ok:true,ms:performance.now()-t,detail};tests.push(r);log.info('self-test-pass',r);}catch(err){const r={name,ok:false,ms:performance.now()-t,error:err.message};tests.push(r);log.error('self-test-fail',{...r,stack:err.stack});}};
 
   await run('secure-context',()=>{if(!isSecureContext&&location.hostname!=='localhost')throw new Error('HTTPS required');return location.protocol;});
-  await run('required-dom',()=>{for(const id of ['calibrateBtn','calibOverlay','calibUndoPinBtn','startBtn','diagDownloadBtn','selfTestBtn','forceUpdateBtn','viewer','bridgeCamera'])if(!document.getElementById(id))throw new Error(`missing #${id}`);return 'ok';});
+  await run('required-dom',()=>{for(const id of ['calibrateBtn','calibOverlay','calibAddPinBtn','calibUndoPinBtn','calibFinishBtn','calibCancelBtn','startBtn','diagDownloadBtn','selfTestBtn','forceUpdateBtn','viewer','bridgeCamera'])if(!document.getElementById(id))throw new Error(`missing #${id}`);return 'ok';});
   await run('runtime-contract',()=>({webXR:!!navigator.xr,webAssembly:typeof WebAssembly==='object',camera:!!navigator.mediaDevices?.getUserMedia,imuRequired:false,deepAI:false,realAnchorsRequired:CONFIG.xrRequireRealAnchors!==false}));
 
-  await run('interactive-boot-order',async()=>{const text=await fetch(`js/boot.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.text();});const app=text.indexOf("await import('./app.js')"),diag=text.lastIndexOf('scheduleDiagnostics();');if(app<0||diag<0||app>diag)throw new Error('asset diagnostics still gate app.js import');if(/^import\s+\{?checkRuntimeAssets/m.test(text))throw new Error('preflight is still a static boot dependency');const core=await fetch(`js/app.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());if(!core.includes("dataset.v30Interactive='1'"))throw new Error('core does not signal interactive UI immediately after bind');if(!core.includes('ui-missing-control'))throw new Error('one missing DOM control can still abort all binding');return 'app.js/UI first; tolerant bind; DB/SW/preflight cannot hold buttons hostage';});
+  await run('interactive-boot-order',async()=>{const text=await fetch(`js/app.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.text();});if(!text.includes("dataset.v30Interactive='1'"))throw new Error('core does not signal interactive UI after bind');if(!text.includes('void initBackground()'))throw new Error('background initialization is still a boot gate');for(const heavy of ["from './camera.js'","from './storage/db.js'","from './xr/xr_calibration.js'"])if(text.includes(heavy))throw new Error(`heavy static import remains: ${heavy}`);return 'UI bound first; heavy runtime lazy-loaded';});
 
   await run('unhandled-rejections',()=>{const xs=(window.__ROOMSCAN_PREBOOT?.errors||[]).filter(e=>e.type==='rejection');if(xs.length){const e=xs[xs.length-1];throw new Error(`${e.name||'PromiseRejection'}: ${e.message||'reason unavailable'}${e.source?` [${e.source}]`:''}`);}return 'none observed since page bootstrap';});
 
@@ -41,12 +41,12 @@ export async function runSelfTests(log){
   await run('world-anchor-source',async()=>{
     const text=await fetch(`js/xr/xr_calibration.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.text();});
     for(const token of ['hit.createAnchor()','tracked.has(ray.anchor)','frame.getPose(ray.anchor.anchorSpace','realAnchor:true'])if(!text.includes(token))throw new Error(`missing real-anchor contract token: ${token}`);
-    if(!text.includes("seedUv:t.state==='tracking'"))throw new Error('live overlay projection contract missing');
-    return 'XRHitTestResult -> XRAnchor -> trackedAnchors -> anchorSpace -> live projection';
+    for(const token of ['_renderScenePins(frame,view)','view.transform.inverse.matrix','gl.drawArrays(gl.POINTS'])if(!text.includes(token))throw new Error(`missing 3D XR render token: ${token}`);
+    return 'XRHitTestResult -> XRAnchor -> trackedAnchors -> anchorSpace -> WebGL XR scene marker';
   });
 
 
-  await run('manual-roi-contract',async()=>{const text=await fetch(`js/xr/xr_calibration.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.text();});for(const token of ['setManualAim(uv)','confirmManualPin()','xr-pin-roi-view','roiViews','pin-rejected'])if(!text.includes(token))throw new Error(`missing V30.10 manual/ROI token: ${token}`);const ui=await fetch(`js/xr/xr_calibration_manual_ui.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());if(!ui.includes('Conferma pin')||!ui.includes('profondità'))throw new Error('manual XR reticle UI missing');return 'tap -> WebXR depth/XYZ preview -> confirm -> multi-view ROI atlas';});
+  await run('manual-roi-contract',async()=>{const text=await fetch(`js/xr/xr_calibration.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.text();});for(const token of ['_ensureCenterAim()','confirmManualPin()','offsets=[[0,0]]','xr-pin-roi-view','roiViews','pin-rejected'])if(!text.includes(token))throw new Error(`missing V30.11 pin/ROI token: ${token}`);const html=await fetch(`room_scanner_v30.html?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());for(const id of ['calibAddPinBtn','calibUndoPinBtn','calibFinishBtn','calibCancelBtn'])if(!html.includes(`id=\"${id}\"`))throw new Error(`minimal control missing: ${id}`);if(html.includes('calibManualGuide'))throw new Error('old calibration panel still present');return 'center reticle -> add/remove one XRAnchor pin -> background multi-view ROI atlas';});
   await run('measurement-guidance',async()=>{const text=await fetch(`js/xr/measurement_guidance.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.text();});if(!text.includes('bridgePinGuidance')||!text.includes('RoomScanMetricContext'))throw new Error('measurement pin-area guidance missing');const geom=await fetch(`js/metric/metric_geometry.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());if(!geom.includes('metricizeGaussians')||!geom.includes('gaussianSurfaceSamples'))throw new Error('metric GS helper missing');return 'saved pin ROIs + metric camera context + GS surface extraction';});
   await run('unhandled-rejection-regression',async()=>{const text=await fetch(`js/xr/xr_calibration.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());const a=text.indexOf('async pinNearestCandidate(uv){'),b=text.indexOf('async pinCandidate(candidate){',a);const part=a>=0&&b>a?text.slice(a,b):'';if(!part.includes('return false')||!part.includes('pin-rejected'))throw new Error('user tap can still escape as rejected Promise');return 'normal placement rejection is converted to handled UI event';});
 

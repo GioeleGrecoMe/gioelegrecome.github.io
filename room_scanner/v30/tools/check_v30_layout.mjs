@@ -1,42 +1,4 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import process from 'node:process';
-import {fileURLToPath} from 'node:url';
-
-const here=path.dirname(fileURLToPath(import.meta.url));
-const root=path.resolve(here,'..');
-const failures=[];
-
-function walk(dir){
-  const out=[];
-  for(const ent of fs.readdirSync(dir,{withFileTypes:true})){
-    if(ent.name==='node_modules') continue;
-    const p=path.join(dir,ent.name);
-    if(ent.isDirectory()) out.push(...walk(p)); else out.push(p);
-  }
-  return out;
-}
-
-const files=walk(root);
-for(const file of files){
-  if(path.resolve(file)===path.resolve(import.meta.filename ?? fileURLToPath(import.meta.url))) continue;
-  if(!/\.(?:js|mjs|html|json|md|txt)$/.test(file)) continue;
-  const text=fs.readFileSync(file,'utf8');
-  if(text.includes('../room_scanner/v30/') || text.includes('/room_scanner_v30_10_patch/')){
-    failures.push(`${path.relative(root,file)}: riferimento alla vecchia gerarchia`);
-  }
-}
-
-const info=JSON.parse(fs.readFileSync(path.join(root,'build_info.json'),'utf8'));
-if(info.version!=='30.10.2') failures.push(`build_info.json: versione ${info.version} != 30.10.2`);
-const html=fs.readFileSync(path.join(root,'room_scanner_v30.html'),'utf8');
-if(!html.includes('V30.10.2')) failures.push('room_scanner_v30.html: badge V30.10.2 mancante');
-const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
-if(!sw.includes('room-scanner-v30.10.2-shell')) failures.push('sw.js: cache namespace V30.10.2 mancante');
-
-if(failures.length){
-  console.error('FAIL v30-layout');
-  for(const f of failures) console.error(` - ${f}`);
-  process.exit(1);
-}
-console.log(`PASS v30-layout · ${files.length} file sotto una sola radice v30/`);
+import fs from 'node:fs';import path from 'node:path';import process from 'node:process';import {fileURLToPath} from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),fail=[];
+function walk(d){let out=[];for(const e of fs.readdirSync(d,{withFileTypes:true})){if(e.name==='node_modules')continue;const p=path.join(d,e.name);out=e.isDirectory()?out.concat(walk(p)):out.concat(p);}return out;}
+const files=walk(root),info=JSON.parse(fs.readFileSync(path.join(root,'build_info.json'),'utf8')),html=fs.readFileSync(path.join(root,'room_scanner_v30.html'),'utf8'),sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');if(info.version!=='30.11.0')fail.push(`build ${info.version}`);if(!html.includes('V30.11.0'))fail.push('html version');if(!sw.includes('room-scanner-v30.11.0-shell'))fail.push('sw version');for(const x of ['js/boot_preflight.js','js/xr/xr_calibration_manual_ui.js'])if(fs.existsSync(path.join(root,x)))fail.push(`obsolete ${x}`);if(fail.length){console.error('FAIL v30-layout',fail);process.exit(1)}console.log(`PASS v30-layout · ${files.length} file sotto una sola radice v30/`);

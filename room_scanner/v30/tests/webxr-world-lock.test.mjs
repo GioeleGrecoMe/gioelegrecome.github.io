@@ -58,3 +58,11 @@ test('projection helper moves opposite camera translation',()=>{
   assert.equal(projectSlamPointToUv({p:[0,0,0],q:[0,0,0,1]},p,K).u,.5);
   assert.ok(projectSlamPointToUv({p:[.5,0,0],q:[0,0,0,1]},p,K).u<.5);
 });
+
+test('XR scene renderer consumes current anchor pose in raw WebXR coordinates',()=>{
+  const c=makeCal(),{anchor,point,target}=makeTarget();c.targets=[target];let drawn=null;
+  c.gl={FRAMEBUFFER:1,COLOR_BUFFER_BIT:2,DEPTH_BUFFER_BIT:4,DEPTH_TEST:5,BLEND:6,SRC_ALPHA:7,ONE_MINUS_SRC_ALPHA:8,POINTS:9,bindFramebuffer(){},viewport(){},clearColor(){},clear(){},disable(){},enable(){},blendFunc(){},useProgram(){},uniform3f(_u,x,y,z){drawn=[x,y,z]},uniformMatrix4fv(){},uniform1f(){},uniform4fv(){},drawArrays(){}};
+  c.layer={framebuffer:{},getViewport:()=>({x:0,y:0,width:100,height:100})};c._scenePinProgram={};c._scenePinUniforms={point:1,projection:2,view:3,size:4,color:5};
+  const frame={trackedAnchors:new Set([anchor]),getPose:()=>({transform:{position:{x:.3,y:.4,z:-2}}})},view={projectionMatrix:new Float32Array(16),transform:{inverse:{matrix:new Float32Array(16)}}};
+  c._renderScenePins(frame,view);assert.deepEqual(drawn,[.3,.4,-2]);assert.deepEqual(point.xrP,[.3,.4,-2]);
+});

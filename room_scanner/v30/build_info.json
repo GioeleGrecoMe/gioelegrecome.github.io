@@ -1,11 +1,6 @@
 {
-  "version": "30.10.2",
-  "id": "v30.10.2-20260819-interactive-boot-fix",
-  "architecture": "manual WebXR hit-test preview + real XRAnchor pin ROIs -> multi-view visual atlas -> camera metric bridge -> camera-only WASM SLAM -> MVS -> metric Gaussian surface samples",
-  "calibration": "manual tap -> WebXR depth/XYZ/stability -> confirm XRAnchor area; >=3 pins, ROI multi-view coverage, >=3 poses with >=3 anchored pins, final common view",
-  "deepAI": false,
-  "imuRequired": false,
-  "updatedAt": "2026-08-19",
-  "measurement": "saved ROI guidance overlay + metric camera context + GS metric surface extraction helpers",
-  "boot": "core UI binds before IndexedDB/service worker/preflight; asset probes are bounded background diagnostics"
+  "version": "30.11.0",
+  "id": "v30.11.0-20260819-minimal-xr-pins-lazy-boot",
+  "builtAt": "2026-08-19T15:00:00Z",
+  "notes": "Minimal WebXR pins; lazy UI-first boot; active service-worker version handshake."
 }

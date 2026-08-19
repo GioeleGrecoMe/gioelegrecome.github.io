@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.10.2 runtime configuration.
+ * Room Scanner V30.11.0 runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.10.2',
-  id:'v30.10.2-20260819-interactive-boot-fix',
+  version:'30.11.0',
+  id:'v30.11.0-20260819-minimal-xr-pins-lazy-boot',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -33,18 +33,18 @@ export const CONFIG={
    */
   xrCalibrationMinTargets:3,
   xrCalibrationMaxTargets:7,
-  xrCalibrationMinPointsPerTarget:3,
-  xrCalibrationMinCommonPoints:9,
+  xrCalibrationMinPointsPerTarget:1,
+  xrCalibrationMinCommonPoints:3,
   xrCalibrationStableFrames:5,
   xrCalibrationHitStdM:0.025,
   xrCalibrationMinSpanM:0.45,
-  xrCalibrationMinVerticalSpanM:0.08,
+  xrCalibrationMinVerticalSpanM:0.05,
   xrCalibrationPatchFraction:0.065,
   xrCalibrationPatchSize:16,
   xrCalibrationMinPatchVariance:42,
   xrCalibrationMinPatchDetail:7.0,
   xrCalibrationClusterOffsetUv:0.024,
-  xrCalibrationClusterGrid:true,
+  xrCalibrationClusterGrid:false,
   xrManualAimStableFrames:6,
   xrManualAimHitStdM:0.018,
   xrManualAimRefreshMs:90,
@@ -108,7 +108,8 @@ export const CONFIG={
   gaussianSnapshot:90000,
   gaussianWorker:'workers/gaussian_worker.js',
   wasmCore:'wasm/slam_core.wasm',
-  // No Depth Anything / DeepAI and no IMU are required by the V30.10.2 runtime.
+  // No Depth Anything / DeepAI and no IMU are required by the V30.11.0 runtime.
   serviceWorker:'sw.js',
+  serviceWorkerRegisterDelayMs:2500,
   buildInfo:'build_info.json'
 };

@@ -1,10 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import path from 'node:path';
-import {fileURLToPath} from 'node:url';
-const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const read=p=>fs.readFileSync(path.join(root,p),'utf8');
-test('guarded bootstrap replaces independent static module tags',()=>{const h=read('room_scanner_v30.html');assert.match(h,/js\/boot\.js/);assert.doesNotMatch(h,/type="module" src="js\/app\.js"/);});
-test('preflight enumerates original core dependencies',()=>{const b=read('js/boot_preflight.js');for(const p of ['js/app.js','js/slam/wasm_frontend.js','workers/gaussian_worker.js','workers/mvs_worker.js','wasm/slam_core.wasm'])assert.ok(b.includes(`'${p}'`),p);});
-test('service worker install is atomic',()=>{const s=read('sw.js');assert.match(s,/throw new Error\(`V30 shell missing/);assert.doesNotMatch(s,/catch\{\}/);});
+const root=new URL('../',import.meta.url);const read=p=>fs.readFileSync(new URL(p,root),'utf8');
+test('minimal boot imports only the versioned core app',()=>{const b=read('js/boot.js');assert.match(b,/import\('\.\/app\.js\?v=30\.11\.0'\)/);for(const x of ['boot_preflight','V30Database','serviceWorker.register','gaussian_metric_tap'])assert.doesNotMatch(b,new RegExp(x));});
+test('HTML handshakes with active service worker and removes stale V30 workers before modules',()=>{const h=read('room_scanner_v30.html');assert.match(h,/GET_VERSION/);assert.match(h,/new MessageChannel\(\)/);assert.match(h,/getRegistrations\(\)/);assert.match(h,/roomscan-v30-sw-clean-attempt/);assert.match(h,/k\.startsWith\('room-scanner-v30'\)/);assert.match(h,/loadModule\(\)/);const s=read('sw.js');assert.match(s,/const VERSION='30\.11\.0'/);assert.match(s,/event\.data\?\.type==='GET_VERSION'/);});
+test('service worker is atomic and cache-first for static runtime assets',()=>{const s=read('sw.js');assert.match(s,/throw new Error\(`V30 shell missing/);assert.match(s,/Cache-first for versioned static assets/);assert.match(s,/caches\.match\(req,\{ignoreSearch:true\}\)/);});

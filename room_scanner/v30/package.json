@@ -1,12 +1,14 @@
 {
-  "name": "room-scanner-v30-10-2-interactive-fix",
+  "name": "room-scanner-v30-11-minimal-xr",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "check:layout": "node tools/check_v30_layout.mjs",
-    "verify": "npm test && npm run check:layout"
+    "check:deps": "node tools/check_dependencies.mjs",
+    "verify": "npm test && npm run check:layout && npm run check:deps && npm run check:mock",
+    "check:mock": "node tools/mock_ui_boot.mjs"
   },
-  "version": "30.10.2",
-  "description": "Single-folder V30.10.2 with non-blocking interactive boot, WebXR anchors and metric pipeline."
+  "version": "30.11.0",
+  "description": "Single-folder V30.11.0 with UI-first lazy boot and minimal real WebXR pins."
 }

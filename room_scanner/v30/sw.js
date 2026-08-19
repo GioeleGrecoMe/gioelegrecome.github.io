@@ -1,11 +1,22 @@
-/* Room Scanner V30.10.2 service worker.
- * Atomic shell install: a deployment missing app.js/WASM/workers cannot become
- * the active offline build. This prevents half-installed V30 folders.
+/* Room Scanner V30.11.0 service worker.
+ * Static runtime assets are cache-first once installed. Navigations use a short
+ * network-first path. The active worker exposes GET_VERSION so the HTML can
+ * remove an actually stale V30 controller before loading application modules.
  */
-const CACHE='room-scanner-v30.10.2-shell';
-const SHELL=['./','./index.html','./room_scanner_v30.html','./boot_diagnostic.html','./styles.css','./manifest.webmanifest','./icon.svg','./build_info.json','./js/boot.js','./js/boot_preflight.js','./js/app.js','./js/config.js','./js/logger.js','./js/camera.js','./js/formats.js','./js/self_test.js','./js/storage/db.js','./js/slam/math.js','./js/slam/wasm_frontend.js','./js/slam/slam_engine.js','./js/xr/xr_calibration.js','./js/xr/xr_calibration_manual_ui.js','./js/xr/measurement_guidance.js','./js/xr/metric_bridge.js','./js/metric/metric_geometry.js','./js/metric/gaussian_metric_tap.js','./js/metric/metric_mesh_ui.js','./workers/metric_mesh_worker.js','./js/gaussian/renderer.js','./workers/gaussian_worker.js','./workers/mvs_worker.js','./wasm/slam_core.wasm'];
-self.addEventListener('install',e=>e.waitUntil((async()=>{const c=await caches.open(CACHE);for(const url of SHELL){const r=await fetch(new Request(url,{cache:'reload'}));if(!r.ok)throw new Error(`V30 shell missing ${url}: HTTP ${r.status}`);await c.put(url,r.clone());}await self.skipWaiting();})()));
-self.addEventListener('activate',e=>e.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith('room-scanner-v30')&&k!==CACHE).map(k=>caches.delete(k)));await self.clients.claim();})()));
-self.addEventListener('message',e=>{if(e.data?.type==='SKIP_WAITING')self.skipWaiting();if(e.data?.type==='CLEAR_V30_CACHES')e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('room-scanner-v30')).map(k=>caches.delete(k)))));});
-async function fetchBounded(req,ms=3500){const c=new AbortController(),timer=setTimeout(()=>c.abort(),ms);try{return await fetch(new Request(req,{cache:'no-store',signal:c.signal}));}finally{clearTimeout(timer);}}
-self.addEventListener('fetch',e=>{const req=e.request,u=new URL(req.url);if(u.origin!==self.location.origin||req.method!=='GET')return;const code=req.mode==='navigate'||/\.(?:html|js|css|json|wasm|webmanifest)$/.test(u.pathname)||u.pathname.endsWith('/v30/');e.respondWith((async()=>{if(code){try{const fresh=await fetchBounded(req,3500);if(fresh.ok){const c=await caches.open(CACHE);await c.put(req,fresh.clone());}return fresh;}catch(err){const cached=await caches.match(req,{ignoreSearch:true});if(cached)return cached;if(req.mode==='navigate'){const fb=await caches.match('./room_scanner_v30.html');if(fb)return fb;}throw err;}}try{return await fetch(req);}catch(err){const cached=await caches.match(req,{ignoreSearch:true});if(cached)return cached;throw err;}})());});
+const VERSION='30.11.0';
+const CACHE='room-scanner-v30.11.0-shell';
+const SHELL=[
+  './','./index.html','./room_scanner_v30.html','./styles.css','./manifest.webmanifest','./icon.svg','./build_info.json',
+  './js/boot.js','./js/app.js','./js/config.js','./js/logger.js','./js/camera.js','./js/formats.js','./js/self_test.js','./js/storage/db.js',
+  './js/slam/math.js','./js/slam/wasm_frontend.js','./js/slam/slam_engine.js','./js/xr/xr_calibration.js','./js/xr/measurement_guidance.js','./js/xr/metric_bridge.js',
+  './js/metric/metric_geometry.js','./js/metric/gaussian_metric_tap.js','./js/metric/metric_mesh_ui.js','./js/gaussian/renderer.js',
+  './workers/metric_mesh_worker.js','./workers/gaussian_worker.js','./workers/mvs_worker.js','./wasm/slam_core.wasm'
+];
+self.addEventListener('install',event=>event.waitUntil((async()=>{const cache=await caches.open(CACHE);for(const url of SHELL){const response=await fetch(new Request(url,{cache:'reload'}));if(!response.ok)throw new Error(`V30 shell missing ${url}: HTTP ${response.status}`);await cache.put(url,response.clone());}await self.skipWaiting();})()));
+self.addEventListener('activate',event=>event.waitUntil((async()=>{for(const key of await caches.keys())if(key.startsWith('room-scanner-v30')&&key!==CACHE)await caches.delete(key);await self.clients.claim();})()));
+self.addEventListener('message',event=>{if(event.data?.type==='GET_VERSION'){event.ports?.[0]?.postMessage({version:VERSION,cache:CACHE});return;}if(event.data?.type==='SKIP_WAITING')self.skipWaiting();if(event.data?.type==='CLEAR_V30_CACHES')event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('room-scanner-v30')).map(k=>caches.delete(k)))));});
+async function networkWithTimeout(request,ms=1800){const c=new AbortController(),timer=setTimeout(()=>c.abort(),ms);try{return await fetch(new Request(request,{cache:'no-store',signal:c.signal}));}finally{clearTimeout(timer);}}
+self.addEventListener('fetch',event=>{const req=event.request,url=new URL(req.url);if(req.method!=='GET'||url.origin!==self.location.origin)return;if(req.mode==='navigate'){event.respondWith((async()=>{try{const fresh=await networkWithTimeout(req);if(fresh.ok){const cache=await caches.open(CACHE);await cache.put('./room_scanner_v30.html',fresh.clone());}return fresh;}catch{const cached=await caches.match('./room_scanner_v30.html');if(cached)return cached;throw new Error('offline navigation unavailable');}})());return;}
+  // Cache-first for versioned static assets: no boot-time network timeout.
+  event.respondWith((async()=>{const cached=await caches.match(req,{ignoreSearch:true});if(cached)return cached;const fresh=await fetch(req);if(fresh.ok){const cache=await caches.open(CACHE);await cache.put(req,fresh.clone());}return fresh;})());
+});

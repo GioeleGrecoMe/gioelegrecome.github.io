@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.10.2 - user-selected multi-view WebXR calibration with REAL
+ * Room Scanner V30.11.0 - minimal user-selected multi-view WebXR calibration with REAL
  * XRAnchor-backed pins.
  *
  * V30.8 bug fixed here
@@ -9,7 +9,7 @@
  * marker visible to the user was screen-space even while the underlying XYZ was
  * intended to represent the room.
  *
- * V30.10 contract
+ * V30.11 contract
  * --------------
  *  1. Every metric point must be created by XRHitTestResult.createAnchor().
  *  2. A point counts only while its XRAnchor is present in frame.trackedAnchors.
@@ -114,8 +114,8 @@ export class XRMetricCalibrator extends EventTarget{
     this.latestPose=null;this.latestIntrinsics=null;this.latestK=null;this.cameraSize=null;
     this._running=false;this._fbo=null;this._endPromise=null;this._missingTrackedAnchorsLogged=false;
     this.candidates=[];this.targets=[];this.globalPoses=[];this._targetSeq=0;this._lastCandidateScanAt=0;this._lastProgressAt=0;this._latestTexture=null;
-    this.manualAim={uv:[0.5,0.5],source:null,history:[],valid:false,stable:false,point:null,depthM:null,rmsM:null,lastHitAt:0};
-    this._manualAimRequestSeq=0;
+    this.manualAim={uv:[0.5,0.5],source:null,history:[],valid:false,stable:false,point:null,xrPoint:null,depthM:null,rmsM:null,lastHitAt:0};
+    this._manualAimRequestSeq=0;this._centerAimPending=false;this._scenePinProgram=null;this._scenePinUniforms=null;
     // Public, diagnostic-only handle used by the V30.10 DOM overlay. The XRAnchor
     // remains the authoritative source of pin position.
     if(typeof window!=='undefined'){window.__ROOMSCAN_ACTIVE_CALIBRATOR=this;window.dispatchEvent(new CustomEvent('roomscan:xr-calibrator-ready',{detail:{calibrator:this}}));}
@@ -133,8 +133,9 @@ export class XRMetricCalibrator extends EventTarget{
     if(!this.gl)throw new Error('WebGL XR context non disponibile');
     await this.gl.makeXRCompatible?.();
     this.binding=new XRWebGLBinding(this.session,this.gl);
-    this.layer=new XRWebGLLayer(this.session,this.gl,{alpha:true,antialias:false});
+    this.layer=new XRWebGLLayer(this.session,this.gl,{alpha:true,antialias:true});
     this.session.updateRenderState({baseLayer:this.layer});
+    this._initScenePinRenderer();
     this.refSpace=await this.session.requestReferenceSpace('local-floor');
     this.viewerSpace=await this.session.requestReferenceSpace('viewer');
     this._fbo=this.gl.createFramebuffer();
@@ -190,15 +191,39 @@ export class XRMetricCalibrator extends EventTarget{
 
   clearManualAim(){
     ++this._manualAimRequestSeq;try{this.manualAim.source?.cancel?.();}catch{}
-    this.manualAim={uv:[.5,.5],source:null,history:[],valid:false,stable:false,point:null,depthM:null,rmsM:null,lastHitAt:0};this._emitProgress(true);
+    this.manualAim={uv:[.5,.5],source:null,history:[],valid:false,stable:false,point:null,xrPoint:null,depthM:null,rmsM:null,lastHitAt:0};this._emitProgress(true);
+  }
+
+  _ensureCenterAim(){
+    if(this.manualAim?.source||this._centerAimPending||!this.viewerSpace||!this.latestK)return;
+    this._centerAimPending=true;
+    this.setManualAim([.5,.5]).catch(err=>this.log?.warn('xr-center-aim',{message:err?.message||String(err)})).finally(()=>{this._centerAimPending=false;});
+  }
+
+  _compileShader(type,source){const gl=this.gl,sh=gl.createShader(type);gl.shaderSource(sh,source);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS)){const msg=gl.getShaderInfoLog(sh)||'shader compile failed';gl.deleteShader(sh);throw new Error(msg);}return sh;}
+  _initScenePinRenderer(){
+    const gl=this.gl;if(!gl)return;
+    const vs=this._compileShader(gl.VERTEX_SHADER,'uniform vec3 u_point;uniform mat4 u_projection;uniform mat4 u_view;uniform float u_size;void main(){gl_Position=u_projection*u_view*vec4(u_point,1.0);gl_PointSize=u_size;}');
+    const fs=this._compileShader(gl.FRAGMENT_SHADER,'precision mediump float;uniform vec4 u_color;void main(){vec2 p=gl_PointCoord-vec2(0.5);float r=length(p);if(r>0.5)discard;float ring=smoothstep(0.38,0.48,r);vec4 c=mix(u_color,vec4(1.0,1.0,1.0,1.0),ring);gl_FragColor=c;}');
+    const program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);gl.deleteShader(vs);gl.deleteShader(fs);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program)||'pin shader link failed');
+    this._scenePinProgram=program;this._scenePinUniforms={point:gl.getUniformLocation(program,'u_point'),projection:gl.getUniformLocation(program,'u_projection'),view:gl.getUniformLocation(program,'u_view'),size:gl.getUniformLocation(program,'u_size'),color:gl.getUniformLocation(program,'u_color')};
+  }
+  _drawScenePoint(point,projection,viewMatrix,{size=22,color=[.1,.85,1,1]}={}){
+    const gl=this.gl,u=this._scenePinUniforms;if(!gl||!this._scenePinProgram||!point)return;gl.useProgram(this._scenePinProgram);gl.uniform3f(u.point,point[0],point[1],point[2]);gl.uniformMatrix4fv(u.projection,false,projection);gl.uniformMatrix4fv(u.view,false,viewMatrix);gl.uniform1f(u.size,size);gl.uniform4fv(u.color,color);gl.drawArrays(gl.POINTS,0,1);
+  }
+  _renderScenePins(frame,view){
+    const gl=this.gl;if(!gl||!this.layer||!view||!this._scenePinProgram)return;const vp=this.layer.getViewport(view);if(!vp)return;gl.bindFramebuffer(gl.FRAMEBUFFER,this.layer.framebuffer);gl.viewport(vp.x,vp.y,vp.width,vp.height);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.disable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);const tracked=this._trackedSet(frame),P=view.projectionMatrix,V=view.transform.inverse.matrix;
+    if(tracked)for(const t of this.targets)for(const p of t.points||[]){const a=p.runtimeAnchor;if(!a||!tracked.has(a))continue;let pose=null;try{pose=frame.getPose(a.anchorSpace,this.refSpace);}catch{}if(!pose)continue;const x=pose.transform.position;p.xrP=[x.x,x.y,x.z];this._drawScenePoint(p.xrP,P,V,{size:24,color:[.05,.78,1,1]});}
+    if(this.manualAim?.valid&&this.manualAim.xrPoint)this._drawScenePoint(this.manualAim.xrPoint,P,V,{size:this.manualAim.stable?18:12,color:this.manualAim.stable?[.2,1,.45,.95]:[1,.8,.2,.85]});
+    gl.disable(gl.BLEND);
   }
 
   _processManualAim(frame){
     const a=this.manualAim;if(!a?.source||!this.latestPose)return;
     let hits=[];try{hits=frame.getHitTestResults(a.source)||[];}catch{return;}
-    if(!hits.length){a.valid=false;a.stable=false;a.point=null;a.depthM=null;return;}
+    if(!hits.length){a.valid=false;a.stable=false;a.point=null;a.xrPoint=null;a.depthM=null;return;}
     const hp=hits[0].getPose(this.refSpace);if(!hp){a.valid=false;a.stable=false;return;}
-    const p=xrPointToSlam(hp.transform.position);a.history.push(p);while(a.history.length>(this.cfg.xrManualAimStableFrames||6))a.history.shift();
+    const raw=hp.transform.position,p=xrPointToSlam(raw);a.xrPoint=[raw.x,raw.y,raw.z];a.history.push(p);while(a.history.length>(this.cfg.xrManualAimStableFrames||6))a.history.shift();
     const st=stableStats(a.history),need=this.cfg.xrManualAimStableFrames||6;a.valid=true;a.point=p;a.depthM=dist(this.latestPose.p,p);a.rmsM=st?.rms??null;a.stable=!!st&&a.history.length>=need&&st.rms<=(this.cfg.xrManualAimHitStdM||.02);a.lastHitAt=performance.now();
   }
 
@@ -219,7 +244,7 @@ export class XRMetricCalibrator extends EventTarget{
 
   async pinCandidate(candidate){
     if(!this.latestK)throw new Error('Attendi il primo frame WebXR valido');
-    const id=`obj${++this._targetSeq}`,offset=this.cfg.xrCalibrationClusterOffsetUv,offsets=this.cfg.xrCalibrationClusterGrid!==false?[[0,0],[-offset,0],[offset,0],[0,-offset],[0,offset],[-offset,-offset],[offset,-offset],[-offset,offset],[offset,offset]]:[[0,0],[-offset,0],[offset,0],[0,-offset],[0,offset]],rays=[];
+    const id=`obj${++this._targetSeq}`,offsets=[[0,0]],rays=[];
     for(let i=0;i<offsets.length;i++){
       const uv=[clamp(candidate.uv[0]+offsets[i][0],.04,.96),clamp(candidate.uv[1]+offsets[i][1],.04,.86)];
       try{const source=await this.session.requestHitTestSource({space:this.viewerSpace,offsetRay:rayForUv(uv,this.latestK)});rays.push({id:`${id}:p${i}`,uv,source,history:[],anchor:null,anchorPending:false,persistentHandle:null,persistentHandlePending:false,pendingMeta:null,resolved:null});}
@@ -275,7 +300,7 @@ export class XRMetricCalibrator extends EventTarget{
     const tracked=this._trackedSet(frame);if(!tracked||!tracked.has(ray.anchor))return;
     const pose=frame.getPose(ray.anchor.anchorSpace,this.refSpace);if(!pose)return;
     const meta=ray.pendingMeta;if(!meta)return;
-    ray.resolved={id:ray.id,objectId:target.id,p:xrPointToSlam(pose.transform.position),seedUv:[...ray.uv],hitStdM:meta.hitStdM,reference:meta.reference,observations:[],persistentHandle:ray.persistentHandle||null,runtimeAnchor:ray.anchor,tracked:true,realAnchor:true};
+    ray.resolved={id:ray.id,objectId:target.id,p:xrPointToSlam(pose.transform.position),xrP:[pose.transform.position.x,pose.transform.position.y,pose.transform.position.z],seedUv:[...ray.uv],hitStdM:meta.hitStdM,reference:meta.reference,observations:[],persistentHandle:ray.persistentHandle||null,runtimeAnchor:ray.anchor,tracked:true,realAnchor:true};
     this.log?.info('xr-target-point-anchored',{objectId:target.id,id:ray.id,p:ray.resolved.p,hitStdM:meta.hitStdM,persistent:!!ray.persistentHandle});
   }
 
@@ -307,7 +332,7 @@ export class XRMetricCalibrator extends EventTarget{
     if(!anchor||!tracked||!tracked.has(anchor))return false;
     let pose;try{pose=frame.getPose(anchor.anchorSpace,this.refSpace);}catch(err){this.log?.warn('xr-anchor-getpose-failed',{id:point.id,message:err.message});return false;}
     if(!pose)return false;
-    point.p=xrPointToSlam(pose.transform.position);point.tracked=true;
+    point.p=xrPointToSlam(pose.transform.position);point.xrP=[pose.transform.position.x,pose.transform.position.y,pose.transform.position.z];point.tracked=true;
     // A handle may resolve after the point was promoted from its acquisition ray.
     return true;
   }
@@ -386,10 +411,10 @@ export class XRMetricCalibrator extends EventTarget{
         if(camera){
           const K=projectionToIntrinsics(view.projectionMatrix,camera.width,camera.height);this.latestK=K;this.latestIntrinsics={fxN:K.fx/K.width,fyN:K.fy/K.height,cxN:K.cx/K.width,cyN:K.cy/K.height};this.cameraSize=[camera.width,camera.height];this.latestPose=xrPoseToSlam(view.transform);
           let texture=null;try{texture=this.binding.getCameraImage(camera);this._latestTexture=texture;}catch(err){this.log?.warn('xr-camera-texture-failed',{message:err.message});}
+          this._ensureCenterAim();
           this._processManualAim(frame);
-          this._refreshCandidates(texture,K,time);
           for(const t of this.targets){if(t.state==='acquiring')this._processAcquiringTarget(t,frame,texture,K);else if(t.state==='tracking')this._processTrackingTarget(t,frame,texture,K);}
-          this._captureGlobalPoseIfEligible();this._emitProgress(false);
+          this._captureGlobalPoseIfEligible();this._renderScenePins(frame,view);this._emitProgress(false);
         }
       }
     }catch(err){this.log?.error('xr-calibration-frame-error',{message:err.message,stack:err.stack});}
