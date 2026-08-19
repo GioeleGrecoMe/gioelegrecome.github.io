@@ -1,6 +1,6 @@
-# Room Scanner V30.5.0 — Guided mesh reconstruction
+# Room Scanner V30.6.0 — Live visual-inertial mesh
 
-V30.5.0 is a self-contained GitHub Pages application. It does not import or
+V30.6.0 is a self-contained GitHub Pages application. It does not import or
 require any Room Scanner V20 HTML, JavaScript, worker, stylesheet, cache name or
 database.
 
@@ -22,8 +22,8 @@ can download an early diagnostics JSON even if the main ES module fails.
   matching and robust metric PnP;
 - JS keyframe/landmark SLAM graph with loop-closure candidates and markpoints;
 - optional Depth Anything V2 Small in an isolated Worker;
-- incremental low-poly mesh in an isolated Worker, triangulated with local
-  Delaunay patches from tracked image features;
+- incremental live low-poly mesh in an isolated Worker, triangulated with
+  local Delaunay patches from visual-inertial tracked features;
 - sparse Gaussian support map (not the primary geometric product);
 - dependency-free WebGL2 mesh/Gaussian viewer, initialized lazily only when needed;
 - incremental IndexedDB storage;
@@ -32,10 +32,10 @@ can download an early diagnostics JSON even if the main ES module fails.
 - `.r30` raw container using binary mesh and Gaussian payloads;
 - persistent diagnostics UI and downloadable logs.
 
-Depth is deliberately deferred by default. Camera capture, WASM feature tracking,
-keyframe storage, IMU collection, visual markpoints and diagnostics never wait
-for the neural model. The review screen can run `Ricostruisci mesh con Deep`
-on saved keyframes; the optional `Deep live` switch is retained for experiments.
+Deep AI is disabled from the scanning path. Camera capture, WASM feature
+tracking, keyframe storage, IMU collection, visual markpoints and diagnostics
+run without a neural model. The review screen can rebuild the mesh directly
+from the saved keypoint tracks and inertial motion priors.
 
 When a scan finishes, the app stops the Depth worker first, seals the mesh with
 a clearly low-confidence closure, drains all accepted Gaussian work, persists
@@ -90,23 +90,22 @@ A fully offline deployment can populate the local runtime/model assets later;
 they are not required for the UI, WASM SLAM, storage, diagnostics or PLY/R30
 viewer to bootstrap.
 
-Metric reconstruction remains an estimate on ordinary cameras. When the
-camera-height/floor bootstrap is reliable, the map uses that metric estimate.
-Otherwise V30.5.0 normalizes monocular depth to a stable relative unit `L` and
-still builds depth-backed landmarks and mesh patches. The HUD displays `scala
-L`; this is suitable for navigation, inspection and later rescaling, but not
-for direct dimensional measurement. Validate a known distance before using an
-exported model for measurements.
+This reconstruction uses visual parallax plus a deliberately conservative IMU
+motion prior. It always works in a stable relative unit `L`; it is suitable for
+navigation, inspection and later rescaling, not for direct dimensional
+measurement. Validate a known distance before using an exported model for
+measurements.
 
 ## Guided capture and confidence
 
-The scan HUD guides four steps: floor at the declared camera height, a slow
-turn toward a textured wall, a lateral movement that keeps floor and wall in
-view, then ceiling/corners coverage. Prefer edges, furniture and handles over
-blank walls. The mesh uses only tracked features with valid depth; vertices are
-red when weak, yellow when locally coherent, and green after repeated tracked
-observations. The final red shell is a deliberate closure estimate, not a
-measured surface; refine or remove it in post-processing where appropriate.
+The scan HUD guides four steps: observe a textured wall, make a slow lateral
+step while keeping the same details visible, continue with lateral arcs, then
+cover ceiling/corners. Prefer edges, furniture and handles over blank walls.
+The mesh uses only keypoints triangulated by visual parallax; vertices are red
+when weak, yellow when locally coherent, and green after repeated tracked
+observations. A live 3D preview is shown on the camera screen. The final red
+shell is a deliberate closure estimate, not a measured surface; refine or
+remove it in post-processing where appropriate.
 
 The browser's default rear camera is intentionally retained. A browser does not
 provide calibrated intrinsics for an automatically selected ultra-wide lens, so

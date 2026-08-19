@@ -1,6 +1,6 @@
-# V30.5.0 test report
+# V30.6.0 test report
 
-Build: `v30.5.0-20260819-feature-mesh-guided-scan`
+Build: `v30.6.0-20260819-visual-inertial-live-mesh`
 
 The following suite was run from the final project directory:
 
@@ -13,12 +13,12 @@ Result:
 ```
 PASS javascript_syntax
 PASS static_contract
-PASS bootstrap_contract ids=44
+PASS bootstrap_contract ids=45
 PASS wasm_frontend features=96 matches=24 portrait=500
 PASS camera_analysis_fit
 PASS math_depth_calibration
-PASS slam_markpoints_and_relative_map
-PASS mesh_worker_delaunay_and_seal
+PASS slam_markpoints_relative_and_visual_mesh
+PASS mesh_worker_delaunay_visual_and_seal
 PASS format_roundtrip
 PASS http_smoke
 PASS json_contracts
@@ -38,10 +38,9 @@ Verified contracts:
 - depth affine calibration and plane math pass synthetic tests;
 - visual markpoints are accepted before depth is available and are promoted
   when their track gains a relative-L depth landmark;
-- low-confidence monocular depth is normalized to relative unit L and fused,
-  instead of blocking the Gaussian map;
-- feature-guided Delaunay mesh generation and its explicit final closure pass
-  a deterministic worker test;
+- visual parallax plus IMU motion priors triangulate stable relative-L landmarks;
+- feature-guided Delaunay visual mesh generation and its explicit final closure
+  pass deterministic worker tests;
 - binary/CRLF ASCII Gaussian PLY import/export round-trips;
 - `.r30` binary mesh/Gaussian, JPEG, descriptors, keyframe index and extra entries round-trip;
 - static HTTP serving returns the entry page, JS, workers and WASM;

@@ -1,6 +1,6 @@
 export const BUILD={
-  version:'30.5.0',
-  id:'v30.5.0-20260819-feature-mesh-guided-scan',
+  version:'30.6.0',
+  id:'v30.6.0-20260819-visual-inertial-live-mesh',
   dbName:'room-scanner-v30',
   dbVersion:3
 };

@@ -1,5 +1,5 @@
 /* V30 standalone shell service worker. No V20 cache names or assets. */
-const CACHE='room-scanner-v30.5.0-shell';
+const CACHE='room-scanner-v30.6.0-shell';
 const SHELL=['./','./index.html','./room_scanner_v30.html','./styles.css','./manifest.webmanifest','./icon.svg','./build_info.json','./js/app.js','./js/config.js','./js/logger.js','./js/camera.js','./js/formats.js','./js/self_test.js','./js/imu.js','./js/storage/db.js','./js/slam/math.js','./js/slam/wasm_frontend.js','./js/slam/slam_engine.js','./js/depth/depth_calibration.js','./js/gaussian/renderer.js','./workers/gaussian_worker.js','./workers/mesh_worker.js','./workers/depth_worker.js','./wasm/slam_core.wasm'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('room-scanner-v30')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
