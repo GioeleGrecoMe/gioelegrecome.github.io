@@ -1,16 +1,16 @@
-# V30.11.3 — full-screen measurement preview
+# Room Scanner V30.11.3
 
-## Symptom fixed
-On some mobile browsers the metric-lock camera preview was visible only as a very thin strip at the top while the remainder of the screen stayed black.
+## Fix: metric lock -> scan constructor crash
 
-## Changes
-- Removed the unused full-screen `bridgeMap` canvas from the measurement screen.
-- Replaced the full-screen measurement guidance canvas with compositor-safe DOM pin rings.
-- `#bridge` and `#scan` are now unpadded, non-scrollable, viewport-sized camera stages.
-- `#bridgeCamera` and `#camera` are explicitly sized to `100dvh` in CSS.
-- `MetricBridge` also writes the current `visualViewport` dimensions in pixels to the video and host element. This avoids mobile percentage-height/dynamic-toolbar layout collapse.
-- Preview dimensions are refreshed on normal and `visualViewport` resize events.
-- Camera-start diagnostics now record viewport size, intrinsic video size and rendered video rectangle.
-- The scan camera uses the same explicit viewport sizing after the metric stream handoff.
+The phone-reported error was:
 
-No calibration thresholds or metric-lock matching thresholds were changed in this release.
+`Must call super constructor in derived class before accessing 'this' or returning from derived constructor.`
+
+Root cause: `SlamEngine` extends `EventTarget`, but its constructor assigned fields on `this` before calling `super()`.
+The crash happened immediately after a valid metric lock when `startScan()` constructed `new SlamEngine(...)`.
+
+V30.11.3 changes the constructor to call `super()` first.
+
+Regression coverage now checks every runtime class derived from `EventTarget` and directly constructs a `SlamEngine` followed by `setMetricScale(1)`.
+
+No calibration thresholds, anchor logic, metric matcher thresholds, or camera-stream handoff behavior were changed in this release.

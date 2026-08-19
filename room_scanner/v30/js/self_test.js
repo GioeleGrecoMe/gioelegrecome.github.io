@@ -2,6 +2,7 @@ import {CONFIG,BUILD} from './config.js';
 import {WasmVisionFrontend} from './slam/wasm_frontend.js';
 import {V30Database,openVersionSafe} from './storage/db.js';
 import {triangulateRays,poseIdentity} from './slam/math.js';
+import {SlamEngine} from './slam/slam_engine.js';
 
 /*
  * V30.11.3 self-tests intentionally include regressions for the two phone failures
@@ -20,6 +21,7 @@ export async function runSelfTests(log){
   await run('unhandled-rejections',()=>{const xs=(window.__ROOMSCAN_PREBOOT?.errors||[]).filter(e=>e.type==='rejection');if(xs.length){const e=xs[xs.length-1];throw new Error(`${e.name||'PromiseRejection'}: ${e.message||'reason unavailable'}${e.source?` [${e.source}]`:''}`);}return 'none observed since page bootstrap';});
 
   await run('wasm-core',async()=>{const f=new WasmVisionFrontend(CONFIG.wasmCore);await f.init();const w=96,h=72,a=new Uint8Array(w*h),b=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){a[y*w+x]=((x*13+y*7)^((x>>3)*37))&255;const xx=Math.max(0,x-2);b[y*w+x]=((xx*13+y*7)^((xx>>3)*37))&255;}const r1=f.process(a,w,h,{maxFeatures:180,threshold:12}),r2=f.process(b,w,h,{maxFeatures:180,threshold:12});if(r1.count<5||r2.matches.count<2)throw new Error(`weak WASM output ${r1.count}/${r2.matches.count}`);return {features:r2.count,matches:r2.matches.count,limits:f.limits};});
+  await run('derived-eventtarget-constructors',()=>{const frontend={process(){return {features:[],count:0,matches:{items:[],count:0}};}};const slam=new SlamEngine({frontend,K:{fx:300,fy:300,cx:160,cy:120},log});if(!(slam instanceof EventTarget))throw new Error('SlamEngine construction failed');return 'SlamEngine/EventTarget constructor calls super() before this';});
   await run('camera-only-triangulation',()=>{const K={fx:300,fy:300,cx:160,cy:120,width:320,height:240},a={pose:poseIdentity(),K,u:160,v:120},b={pose:{p:[.20,0,0],q:[0,0,0,1]},K,u:130,v:120},r=triangulateRays(a,b,{minAngleRad:.005,maxGapM:.15});if(!r.ok)throw new Error(r.reason);return {p:r.p,angle:r.angle,gap:r.gap};});
   await run('gaussian-worker',()=>workerReady(CONFIG.gaussianWorker,{voxel:.03,maxGaussians:1000,maxSnapshot:100}));
   await run('mvs-worker',()=>workerReady(CONFIG.mvsWorker,{near:.3,far:5,depthSteps:8,gridStep:8,maxPoints:200}));

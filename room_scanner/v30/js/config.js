@@ -11,7 +11,7 @@
  */
 export const BUILD={
   version:'30.11.3',
-  id:'v30.11.3-20260819-fullscreen-metric-preview',
+  id:'v30.11.3-20260819-slam-super-fix',
   dbName:'room-scanner-v30',
   dbVersion:3
 };

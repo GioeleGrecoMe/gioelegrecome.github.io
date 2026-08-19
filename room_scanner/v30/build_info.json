@@ -1,6 +1,6 @@
 {
   "version": "30.11.3",
-  "id": "v30.11.3-20260819-fullscreen-metric-preview",
-  "builtAt": "2026-08-19T17:29:00Z",
-  "notes": "Fix measurement preview geometry: remove full-screen bridge canvases, render pin guidance as DOM rings, and hard-size camera video to the live visual viewport in CSS and JS."
+  "id": "v30.11.3-20260819-slam-super-fix",
+  "builtAt": "2026-08-19T18:27:00Z",
+  "notes": "Fix metric-lock to scan crash: SlamEngine extends EventTarget and now calls super() before any this access; all derived EventTarget constructors are regression-tested."
 }

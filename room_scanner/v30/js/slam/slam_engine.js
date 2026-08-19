@@ -5,7 +5,7 @@ import {poseIdentity} from './math.js';
  * the metric bridge supplies a verified similarity transform.
  */
 export class SlamEngine extends EventTarget{
-  constructor({frontend,K=null,log=null,keyframeIntervalMs=950}={}){this.frontend=frontend;this.K=K;this.log=log;this.pose=poseIdentity();this.metricLocked=false;this.metricScale=1;this.lastAt=0;this.frameIndex=0;this.keyframes=[];this.keyframeIntervalMs=keyframeIntervalMs;}
+  constructor({frontend,K=null,log=null,keyframeIntervalMs=950}={}){super();this.frontend=frontend;this.K=K;this.log=log;this.pose=poseIdentity();this.metricLocked=false;this.metricScale=1;this.lastAt=0;this.frameIndex=0;this.keyframes=[];this.keyframeIntervalMs=keyframeIntervalMs;}
   setIntrinsics(K){this.K=K;}
   setMetricScale(scale=1){if(!Number.isFinite(scale)||scale<=0)throw new Error('metric scale must be positive');this.metricScale=scale;this.metricLocked=true;this.dispatchEvent(new CustomEvent('metric',{detail:{scale}}));}
   process(frame){const r=this.frontend.process(frame.gray,frame.width,frame.height,{maxFeatures:700,threshold:10}),ms=r.matches.items||[];if(ms.length){const dx=median(ms.map(m=>m.dx)),dy=median(ms.map(m=>m.dy));const fx=this.K?.fx||frame.width;/* image motion is opposite camera motion; translation is deliberately unscaled until metric lock */const step=this.metricLocked?.003*this.metricScale:.001;this.pose.p[0]+=(-dx/fx)*step*100;this.pose.p[1]+=(-dy/fx)*step*100;}

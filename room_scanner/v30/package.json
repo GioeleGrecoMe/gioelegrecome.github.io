@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-11-3-fullscreen-metric-preview",
+  "name": "room-scanner-v30-11-3-slam-super-fix",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,5 +10,5 @@
     "check:mock": "node tools/mock_ui_boot.mjs"
   },
   "version": "30.11.3",
-  "description": "V30.11.3: full-screen metric camera preview with compositor-safe DOM pin guidance."
+  "description": "V30.11.3: fix derived SlamEngine constructor and guard metric-lock to scan transition."
 }
