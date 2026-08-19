@@ -1,7 +1,14 @@
-# Third-party Notices
+# Third-party notes
 
-The application source in this archive does not bundle ONNX Runtime Web or a neural depth model.
+No third-party SLAM or Gaussian renderer source/binary is bundled in V30.0.0.
 
-Optional runtime/model downloads may be configured by the user. Their licenses, model cards, integrity hashes and redistribution conditions must be reviewed before deployment. For offline installation, place only legitimately obtained files under the documented `vendor/` and `models/` paths and retain their original notices.
+Optional runtime downloads used by the Deep worker:
 
-No external code is required for metric WebXR capture, append-only persistence, RAW export or the standard-library desktop RAW utility.
+- ONNX Runtime Web — see Microsoft ONNX Runtime project license.
+- Depth Anything V2 Small — upstream project states the Small model is Apache-2.0.
+
+The application does **not** bundle AlvaAR or ORB-SLAM3. Both are GPLv3 projects; V30 uses
+its own small WASM front-end so downstream licensing remains a deliberate choice.
+
+stella_vslam is a possible future adapter and is distributed under the 2-clause BSD
+license, but V30.0.0 does not bundle or claim to contain stella_vslam.

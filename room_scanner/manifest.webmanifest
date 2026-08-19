@@ -1,13 +1,9 @@
 {
-  "name": "Room Scanner V20.2",
-  "short_name": "RoomScan",
-  "description": "Adaptive metric RGB and acoustic-ready room capture",
-  "start_url": "./room_scanner_v12.html",
-  "scope": "./",
-  "display": "standalone",
-  "background_color": "#071014",
-  "theme_color": "#0b171d",
-  "icons": [
-    {"src":"assets/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
-  ]
+  "name":"Room Scanner V30",
+  "short_name":"RoomScan V30",
+  "start_url":"./room_scanner_v30.html",
+  "display":"standalone",
+  "background_color":"#090b10",
+  "theme_color":"#090b10",
+  "description":"WASM visual SLAM and incremental 3D Gaussian room reconstruction."
 }

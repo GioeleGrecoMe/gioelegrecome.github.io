@@ -1,3 +1,25 @@
-<!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Room Scanner</title></head>
-<body><script>location.replace('./room_scanner_v20.html'+location.search+location.hash);</script><noscript><a href="room_scanner_v20.html">Apri Room Scanner</a></noscript></body></html>
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#090b10"><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"><title>Room Scanner V30</title></head><body>
+<main id="app">
+<section id="home" class="screen active">
+ <div class="hero"><div class="badge">V30.0.0 · WASM SLAM + 3D GAUSSIANS</div><h1>Room Scanner V30</h1><p>Scansione libera da smartphone. Le Gaussian 3D sono la mappa primaria; superfici e mesh verranno derivate dopo.</p></div>
+ <div class="card"><label>Altezza camera dal pavimento <span id="heightLabel">1.35 m</span></label><input id="cameraHeight" type="range" min="0.7" max="2.0" step="0.01" value="1.35"><p class="hint">Serve solo per ancorare automaticamente la scala metrica sul primo pavimento ben visto.</p></div>
+ <div class="actions"><button id="startBtn" class="primary">Avvia scansione</button><button id="loadPlyBtn">Apri PLY RGB / Gaussian</button><button id="loadR30Btn">Apri sessione .r30</button></div>
+ <input id="filePly" type="file" accept=".ply" hidden><input id="fileR30" type="file" accept=".r30,application/octet-stream" hidden>
+ <div id="homeStatus" class="status"></div>
+</section>
+<section id="scan" class="screen">
+ <video id="camera" autoplay muted playsinline></video><canvas id="miniMap"></canvas>
+ <div class="topHud"><span id="slamState">INIT</span><span id="metricState">scala —</span><span id="deepState">Deep —</span></div>
+ <div class="stats"><span>feat <b id="statFeat">0</b></span><span>match <b id="statMatch">0</b></span><span>lm <b id="statLandmarks">0</b></span><span>KF <b id="statKf">0</b></span><span>GS <b id="statGs">0</b></span></div>
+ <div id="coach" class="coach">Muoviti lentamente e guarda prima il pavimento, poi pareti, soffitto e oggetti.</div>
+ <div class="scanButtons"><button id="pinBtn">◎ Pin</button><button id="pauseDeepBtn">Deep ON</button><button id="finishBtn" class="danger">Salva / termina</button></div>
+</section>
+<section id="review" class="screen">
+ <div class="reviewHead"><div><div class="badge">V30 REVIEW</div><h2>Gemello Gaussian</h2></div><button id="backHomeBtn">Home</button></div>
+ <canvas id="viewer"></canvas>
+ <div class="viewerTools"><button id="orbitBtn">Orbita</button><button id="panBtn">Sposta</button><button id="fitBtn">Centra</button><label>Splat <input id="splatSize" type="range" min="0.5" max="3" value="1" step="0.1"></label></div>
+ <div id="reviewStats" class="card compact"></div>
+ <div class="actions wrap"><button id="exportPlyBtn" class="primary">Scarica PLY Gaussian RGB</button><button id="exportR30Btn">Scarica RAW .r30</button><button id="exportDiagBtn">Diagnostica JSON</button><button id="resumeBtn">Nuova scansione</button></div>
+</section>
+</main>
+<script type="module" src="js/app.js"></script></body></html>
