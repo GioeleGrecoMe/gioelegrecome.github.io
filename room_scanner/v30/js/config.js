@@ -1,6 +1,6 @@
 export const BUILD={
-  version:'30.3.0',
-  id:'v30.3.0-20260819-deferred-deep-visual-markpoints',
+  version:'30.4.0',
+  id:'v30.4.0-20260819-relative-L-map',
   dbName:'room-scanner-v30',
   dbVersion:2
 };
@@ -20,6 +20,11 @@ export const CONFIG={
   gaussianSnapshot:65000,
   snapshotPersistIntervalMs:10000,
   minimumMetricConfidence:.30,
+  // If metric scale cannot be estimated reliably, map depths are normalized
+  // around this reference. L is an arbitrary, user-editable map unit.
+  relativeReferenceDepthL:1,
+  gaussianMinDepthL:.03,
+  gaussianMaxDepthL:16,
   depthWorker:'workers/depth_worker.js',
   gaussianWorker:'workers/gaussian_worker.js',
   wasmCore:'wasm/slam_core.wasm',

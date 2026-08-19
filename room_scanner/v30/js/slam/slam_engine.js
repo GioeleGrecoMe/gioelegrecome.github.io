@@ -7,8 +7,8 @@ import {calibrateDepthFromAnchors,estimateFloorScale,metricDepth} from '../depth
  * long-lived track IDs, metric landmarks, poses, and diagnostic quality.
  */
 export class SlamEngine{
- constructor(frontend,{cameraHeightM=1.35,fovDeg=62,keyframeIntervalMs=900,minMetricConfidence=.30}={}){this.frontend=frontend;this.cameraHeightM=cameraHeightM;this.fovDeg=fovDeg;this.keyframeIntervalMs=keyframeIntervalMs;this.minMetricConfidence=minMetricConfidence;this.reset();}
- reset(){this.pose=poseIdentity();this.prevPose=poseIdentity();this.prevTrackIds=[];this.nextTrackId=1;this.landmarks=new Map();this.frameSeq=0;this.keyframes=[];this.lastKeyframeAt=-Infinity;this.lastKeyframePose=poseIdentity();this.metricCalibration=null;this.status='BOOT';this.lastQuality={features:0,matches:0,landmarks:0,inliers:0,rmse:Infinity};this.markpoints=[];this.loopClosures=[];this.currentTracks=null;this.frontend?.reset?.();}
+ constructor(frontend,{cameraHeightM=1.35,fovDeg=62,keyframeIntervalMs=900,minMetricConfidence=.30,relativeReferenceDepthL=1}={}){this.frontend=frontend;this.cameraHeightM=cameraHeightM;this.fovDeg=fovDeg;this.keyframeIntervalMs=keyframeIntervalMs;this.minMetricConfidence=minMetricConfidence;this.relativeReferenceDepthL=relativeReferenceDepthL;this.reset();}
+ reset(){this.pose=poseIdentity();this.prevPose=poseIdentity();this.prevTrackIds=[];this.nextTrackId=1;this.landmarks=new Map();this.frameSeq=0;this.keyframes=[];this.lastKeyframeAt=-Infinity;this.lastKeyframePose=poseIdentity();this.metricCalibration=null;this.relativeCalibration=null;this.mapCalibration=null;this.status='BOOT';this.lastQuality={features:0,matches:0,landmarks:0,inliers:0,rmse:Infinity};this.markpoints=[];this.loopClosures=[];this.currentTracks=null;this.frontend?.reset?.();}
  processAnalysis(frame,{motionScore=0}={}){
   const feat=this.frontend.process(frame.gray,frame.width,frame.height,{maxFeatures:900,threshold:17});const K=intrinsicsFromSize(frame.width,frame.height,this.fovDeg),trackIds=Array(feat.count);for(let i=0;i<feat.count;i++)trackIds[i]=this.nextTrackId++;
   const flows=[];for(let m=0;m<feat.matches.count;m++){const ci=feat.matches.curr[m],pi=feat.matches.prev[m];if(pi>=0&&pi<this.prevTrackIds.length){trackIds[ci]=this.prevTrackIds[pi];flows.push([feat.xs[ci],feat.ys[ci],pi]);}}
@@ -31,12 +31,29 @@ export class SlamEngine{
   if(anchors.length>=6)cal=calibrateDepthFromAnchors(depth,width,height,anchors);
   if(!cal){const Kimage={...kf.K,width:kf.imageWidth,height:kf.imageHeight,fx:kf.K.fx*kf.imageWidth/kf.analysisWidth,fy:kf.K.fy*kf.imageHeight/kf.analysisHeight,cx:kf.imageWidth/2,cy:kf.imageHeight/2};cal=estimateFloorScale(depth,width,height,Kimage,this.cameraHeightM);if(cal)cal.source='floor-height';}
   if(!cal&&this.metricCalibration)cal={...this.metricCalibration,confidence:this.metricCalibration.confidence*.95,source:'carry'};
-  if(!cal){const finite=[];for(let i=0;i<depth.length;i+=17)if(Number.isFinite(depth[i])&&depth[i]>1e-6)finite.push(depth[i]);const med=median(finite)||1;cal={mode:'direct',a:2.2/med,b:0,confidence:.08,source:'nominal-unscaled'};}
-  if(cal.confidence>.25||!this.metricCalibration)this.metricCalibration={mode:cal.mode,a:cal.a,b:cal.b,confidence:cal.confidence,source:cal.source};kf.depth={width,height,data:depth};kf.depthCalibration=cal;const mappingAllowed=cal.confidence>=this.minMetricConfidence;
+  if(!cal){const finite=[];for(let i=0;i<depth.length;i+=17)if(Number.isFinite(depth[i])&&depth[i]>1e-6)finite.push(depth[i]);const med=median(finite)||1;cal={mode:'direct',a:1/med,b:0,confidence:.08,source:'nominal-unscaled'};}
+  /* A monocular network gives relative depth even where camera height / floor
+   * fitting is unreliable. Do not discard that geometry: normalize it to a
+   * stable map unit L, then use depth-backed tracks for visual PnP. */
+  const metricAllowed=cal.confidence>=this.minMetricConfidence&&cal.source!=='nominal-unscaled';
+  if(metricAllowed){this.metricCalibration={mode:cal.mode,a:cal.a,b:cal.b,confidence:cal.confidence,source:cal.source};cal={...cal,relative:false,scaleKind:'metric'};}
+  else cal=this._relativeCalibration(depth,width,height,cal,anchors);
+  this.mapCalibration=cal;kf.depth={width,height,data:depth};kf.depthCalibration=cal;const mappingAllowed=true;
   /* Attach 3D landmarks to tracked visual features. Once attached they let the
    * next frames estimate metric 6-DoF with reprojection PnP. */
-  let added=0;if(mappingAllowed)for(let i=0;i<kf.trackIds.length;i++){const u=kf.featureX[i]/kf.analysisWidth*width,v=kf.featureY[i]/kf.analysisHeight*height,x=Math.max(0,Math.min(width-1,Math.round(u))),y=Math.max(0,Math.min(height-1,Math.round(v))),raw=depth[y*width+x],z=metricDepth(raw,cal);if(!Number.isFinite(z)||z<.15||z>12)continue;const Kd={fx:kf.K.fx*width/kf.analysisWidth,fy:kf.K.fy*height/kf.analysisHeight,cx:width/2,cy:height/2,width,height},pc=backproject(u,v,z,Kd),pw=cameraToWorld(kf.pose,pc),id=kf.trackIds[i],old=this.landmarks.get(id);if(old){old.p=[old.p[0]*.7+pw[0]*.3,old.p[1]*.7+pw[1]*.3,old.p[2]*.7+pw[2]*.3];old.views++;}else{this.landmarks.set(id,{id,p:pw,views:1,firstKf:kf.id});added++;}}
-  return {calibration:cal,landmarksAdded:added,totalLandmarks:this.landmarks.size,mappingAllowed};
+  let added=0;for(let i=0;i<kf.trackIds.length;i++){const u=kf.featureX[i]/kf.analysisWidth*width,v=kf.featureY[i]/kf.analysisHeight*height,x=Math.max(0,Math.min(width-1,Math.round(u))),y=Math.max(0,Math.min(height-1,Math.round(v))),raw=depth[y*width+x],z=metricDepth(raw,cal);if(!Number.isFinite(z)||z<.03||z>16)continue;const Kd={fx:kf.K.fx*width/kf.analysisWidth,fy:kf.K.fy*height/kf.analysisHeight,cx:width/2,cy:height/2,width,height},pc=backproject(u,v,z,Kd),pw=cameraToWorld(kf.pose,pc),id=kf.trackIds[i],old=this.landmarks.get(id);if(old){old.p=[old.p[0]*.7+pw[0]*.3,old.p[1]*.7+pw[1]*.3,old.p[2]*.7+pw[2]*.3];old.views++;}else{this.landmarks.set(id,{id,p:pw,views:1,firstKf:kf.id});added++;}}
+  for(const mark of this.markpoints){if(mark.p)continue;const lm=this.landmarks.get(mark.trackId);if(lm){mark.p=[...lm.p];mark.views=lm.views;mark.kind=cal.relative?'relative-L':'metric';}}
+  return {calibration:cal,landmarksAdded:added,totalLandmarks:this.landmarks.size,mappingAllowed,relative:!!cal.relative,scaleKind:cal.scaleKind};
+ }
+
+ _relativeCalibration(depth,width,height,suggested,anchors){
+  const mode=suggested?.mode==='inverse'?'inverse':'direct';
+  /* Once landmarks exist, their depth is in L too: anchor fitting compensates
+   * frame-to-frame monocular-depth drift without claiming metric accuracy. */
+  let fitted=null;if(anchors.length>=6)fitted=calibrateDepthFromAnchors(depth,width,height,anchors);
+  if(fitted&&fitted.a>0&&Number.isFinite(fitted.a))this.relativeCalibration={...fitted,source:'relative-anchors-L',confidence:1,relative:true,scaleKind:'relative-L',referenceDepthL:this.relativeReferenceDepthL};
+  if(!this.relativeCalibration){const values=[];for(let i=0;i<depth.length;i+=17){const raw=depth[i],value=mode==='inverse'?1/Math.max(1e-6,raw):raw;if(Number.isFinite(value)&&value>1e-6)values.push(value);}const med=median(values)||1;this.relativeCalibration={mode,a:this.relativeReferenceDepthL/med,b:0,confidence:1,source:'relative-L-normalized',relative:true,scaleKind:'relative-L',referenceDepthL:this.relativeReferenceDepthL};}
+  return {...this.relativeCalibration};
  }
 
  _descriptorSignature(desc,db=16){const n=Math.floor(desc.length/db),sig=new Uint8Array(db);if(!n)return sig;for(let b=0;b<db;b++){for(let bit=0;bit<8;bit++){let ones=0;for(let i=0;i<n;i++)ones+=(desc[i*db+b]>>bit)&1;if(ones*2>=n)sig[b]|=1<<bit;}}return sig;}
@@ -47,7 +64,7 @@ export class SlamEngine{
  _worldToCamera(T,pw){const q=[-T.q[0],-T.q[1],-T.q[2],T.q[3]],d=[pw[0]-T.p[0],pw[1]-T.p[1],pw[2]-T.p[2]];const x=q[0],y=q[1],z=q[2],w=q[3],tx=2*(y*d[2]-z*d[1]),ty=2*(z*d[0]-x*d[2]),tz=2*(x*d[1]-y*d[0]);return [d[0]+w*tx+(y*tz-z*ty),d[1]+w*ty+(z*tx-x*tz),d[2]+w*tz+(x*ty-y*tx)];}
 
  pinCenter(){
-  const c=this.currentTracks;if(!c?.trackIds?.length)return {ok:false,reason:'no-tracks'};let best=-1,bd=Infinity;for(let i=0;i<c.trackIds.length;i++){const d=Math.hypot(c.xs[i]-c.K.cx,c.ys[i]-c.K.cy);if(d<bd){bd=d;best=i;}}if(best<0)return {ok:false,reason:'no-track'};const trackId=c.trackIds[best],lm=this.landmarks.get(trackId),descriptor=c.descriptors?.slice(best*c.descriptorBytes,(best+1)*c.descriptorBytes);const mark={id:`mark-${crypto.randomUUID()}`,trackId,createdAt:Date.now(),views:lm?.views||0,pixel:{u:c.xs[best]/c.K.width,v:c.ys[best]/c.K.height},pose:poseClone(this.pose),descriptor:descriptor?Array.from(descriptor):null,descriptorBytes:c.descriptorBytes||0};if(lm){mark.kind='metric';mark.p=[...lm.p];}else mark.kind='visual-pending-depth';this.markpoints.push(mark);return {ok:true,mark,metric:!!lm};
+  const c=this.currentTracks;if(!c?.trackIds?.length)return {ok:false,reason:'no-tracks'};let best=-1,bd=Infinity;for(let i=0;i<c.trackIds.length;i++){const d=Math.hypot(c.xs[i]-c.K.cx,c.ys[i]-c.K.cy);if(d<bd){bd=d;best=i;}}if(best<0)return {ok:false,reason:'no-track'};const trackId=c.trackIds[best],lm=this.landmarks.get(trackId),descriptor=c.descriptors?.slice(best*c.descriptorBytes,(best+1)*c.descriptorBytes),relative=!!this.mapCalibration?.relative;const mark={id:`mark-${crypto.randomUUID()}`,trackId,createdAt:Date.now(),views:lm?.views||0,pixel:{u:c.xs[best]/c.K.width,v:c.ys[best]/c.K.height},pose:poseClone(this.pose),descriptor:descriptor?Array.from(descriptor):null,descriptorBytes:c.descriptorBytes||0};if(lm){mark.kind=relative?'relative-L':'metric';mark.p=[...lm.p];}else mark.kind='visual-pending-depth';this.markpoints.push(mark);return {ok:true,mark,metric:!!lm&&!relative};
  }
- diagnostics(){return {frameSeq:this.frameSeq,pose:poseClone(this.pose),landmarks:this.landmarks.size,keyframes:this.keyframes.length,markpoints:this.markpoints,loopClosures:this.loopClosures,metricCalibration:this.metricCalibration,lastQuality:this.lastQuality};}
+ diagnostics(){return {frameSeq:this.frameSeq,pose:poseClone(this.pose),landmarks:this.landmarks.size,keyframes:this.keyframes.length,markpoints:this.markpoints,loopClosures:this.loopClosures,metricCalibration:this.metricCalibration,relativeCalibration:this.relativeCalibration,mapCalibration:this.mapCalibration,lastQuality:this.lastQuality};}
 }

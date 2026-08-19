@@ -1,6 +1,6 @@
-# Room Scanner V30.3.0 — Standalone resilient capture
+# Room Scanner V30.4.0 — Standalone resilient capture
 
-V30.3.0 is a self-contained GitHub Pages application. It does not import or
+V30.4.0 is a self-contained GitHub Pages application. It does not import or
 require any Room Scanner V20 HTML, JavaScript, worker, stylesheet, cache name or
 database.
 
@@ -87,10 +87,13 @@ A fully offline deployment can populate the local runtime/model assets later;
 they are not required for the UI, WASM SLAM, storage, diagnostics or PLY/R30
 viewer to bootstrap.
 
-Metric reconstruction remains an estimate on ordinary cameras: the application
-uses the supplied camera-height/floor bootstrap and refuses to fuse nominal
-low-confidence depth into the persistent Gaussian map. Validate a known
-distance in the exported model before using it for dimensional work.
+Metric reconstruction remains an estimate on ordinary cameras. When the
+camera-height/floor bootstrap is reliable, the map uses that metric estimate.
+Otherwise V30.4.0 normalizes monocular depth to a stable relative unit `L` and
+still fuses the Gaussian map and depth-backed landmarks. The HUD displays
+`scala L`; this is suitable for navigation, inspection and later rescaling, but
+not for direct dimensional measurement. Validate a known distance before using
+an exported model for measurements.
 
 The browser's default rear camera is intentionally retained. A browser does not
 provide calibrated intrinsics for an automatically selected ultra-wide lens, so
