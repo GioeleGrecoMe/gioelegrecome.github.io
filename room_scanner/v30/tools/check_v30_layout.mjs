@@ -28,11 +28,11 @@ for(const file of files){
 }
 
 const info=JSON.parse(fs.readFileSync(path.join(root,'build_info.json'),'utf8'));
-if(info.version!=='30.10.1') failures.push(`build_info.json: versione ${info.version} != 30.10.1`);
+if(info.version!=='30.10.2') failures.push(`build_info.json: versione ${info.version} != 30.10.2`);
 const html=fs.readFileSync(path.join(root,'room_scanner_v30.html'),'utf8');
-if(!html.includes('V30.10.1')) failures.push('room_scanner_v30.html: badge V30.10.1 mancante');
+if(!html.includes('V30.10.2')) failures.push('room_scanner_v30.html: badge V30.10.2 mancante');
 const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
-if(!sw.includes('room-scanner-v30.10.1-shell')) failures.push('sw.js: cache namespace V30.10.1 mancante');
+if(!sw.includes('room-scanner-v30.10.2-shell')) failures.push('sw.js: cache namespace V30.10.2 mancante');
 
 if(failures.length){
   console.error('FAIL v30-layout');

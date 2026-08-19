@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.10.1 core application bootstrap.
+ * Room Scanner V30.10.2 core application bootstrap.
  *
  * This file intentionally owns only orchestration. WebXR world anchors live in
  * xr_calibration.js; camera capture, SLAM, metric bridge, workers and rendering
@@ -44,15 +44,72 @@ function showReview(){show('review');if(!state.renderer)state.renderer=new Gauss
 
 async function renderSessions(){if(!state.db)return;const xs=(await state.db.getAll('sessions')).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0,8),el=$('savedSessions');if(!el)return;el.textContent='';if(!xs.length){el.innerHTML='<span class="muted">Nessuna sessione salvata.</span>';return;}for(const s of xs){const d=document.createElement('div');d.className='status';d.style.margin='.35rem 0';d.textContent=`${new Date(s.createdAt).toLocaleString()} · ${s.status||'sessione'} · KF ${s.counts?.keyframes||0} · GS ${s.counts?.gaussians||0}`;el.appendChild(d);}}
 async function runTests(){const out=await runSelfTests(log),ok=out.filter(x=>x.ok).length;$('selfTestSummary').textContent=`Self-test: ${ok}/${out.length} PASS`;$('diagLive').textContent=out.map(x=>`${x.ok?'PASS':'FAIL'} ${x.name}${x.ok?'':`: ${x.error}`}`).join('\n');$('diagPanel').open=true;}
-async function clearCachesAndReload(){try{const reg=await navigator.serviceWorker?.getRegistration?.();reg?.active?.postMessage({type:'CLEAR_V30_CACHES'});for(const k of await caches.keys())if(k.startsWith('room-scanner-v30'))await caches.delete(k);}catch{}location.reload();}
+async function clearCachesAndReload(){
+  try{
+    const regs=await navigator.serviceWorker?.getRegistrations?.()||[];
+    for(const reg of regs){try{reg.active?.postMessage({type:'CLEAR_V30_CACHES'});await reg.unregister();}catch{}}
+    for(const k of await caches.keys())if(k.startsWith('room-scanner-v30'))await caches.delete(k);
+  }catch(err){log.warn('force-update-cleanup',{message:err?.message||String(err)});}
+  location.replace(`${location.pathname}?v30reset=${Date.now()}`);
+}
 async function loadPly(file){const text=await file.text();state.gaussians=parsePly(text);showReview();}
 async function loadR30(file){const x=await decodeR30(file);state.gaussians=x.gaussians||x.snapshot?.gaussians||[];showReview();}
 
 function bind(){
- $('calibrateBtn').addEventListener('click',safe('begin-calibration',beginCalibration));$('clearCalibrationBtn').addEventListener('click',()=>{localStorage.removeItem(CONFIG.calibrationStorageKey);updateCalibrationUi();});$('calibUndoPinBtn').addEventListener('click',()=>state.calibrator?.undoLastTarget());$('calibFinishBtn').addEventListener('click',safe('finish-calibration',finishCalibration));$('calibCancelBtn').addEventListener('click',safe('cancel-calibration',cancelCalibration));$('startBtn').addEventListener('click',safe('begin-bridge',beginBridge));$('bridgeRetryBtn').addEventListener('click',safe('retry-bridge',beginBridge));$('bridgeCancelBtn').addEventListener('click',()=>{state.bridge?.stop();state.bridge=null;show('home')});$('finishBtn').addEventListener('click',safe('finish-scan',finishScan));$('backHomeBtn').addEventListener('click',()=>show('home'));$('resumeBtn').addEventListener('click',safe('resume-scan',beginBridge));$('fitBtn').addEventListener('click',()=>{state.renderer?.fit();state.renderer?.draw()});$('splatSize').addEventListener('input',e=>state.renderer?.setSplatSize(e.target.value));$('loadPlyBtn').addEventListener('click',()=>$('filePly').click());$('filePly').addEventListener('change',safe('load-ply',async e=>{if(e.target.files?.[0])await loadPly(e.target.files[0]);e.target.value=''}));$('loadR30Btn').addEventListener('click',()=>$('fileR30').click());$('fileR30').addEventListener('change',safe('load-r30',async e=>{if(e.target.files?.[0])await loadR30(e.target.files[0]);e.target.value=''}));$('exportPlyBtn').addEventListener('click',()=>downloadBlob(new Blob([gaussiansToPly(state.gaussians,BUILD.id)],{type:'application/octet-stream'}),`roomscan-${Date.now()}.ply`));$('exportR30Btn').addEventListener('click',()=>downloadBlob(encodeR30({build:BUILD,calibration:calibration(),gaussians:state.gaussians}),`roomscan-${Date.now()}.r30`));$('exportDiagBtn').addEventListener('click',()=>log.download());$('diagDownloadBtn').addEventListener('click',()=>log.download());$('diagCopyBtn').addEventListener('click',()=>navigator.clipboard?.writeText(log.text()).catch(()=>{}));$('selfTestBtn').addEventListener('click',safe('self-test',runTests));$('forceUpdateBtn').addEventListener('click',safe('force-update',clearCachesAndReload));$('diagForceUpdateBtn').addEventListener('click',safe('force-update',clearCachesAndReload));$('pinBtn').addEventListener('click',()=>log.info('manual-scan-pin',{pose:state.slam?.pose||null,note:'diagnostic scan repere only; calibration pins remain XRAnchor-backed'}));
- log.addEventListener('entry',()=>{const live=$('diagLive');if(live&&$('diagPanel')?.open)live.textContent=log.entries.slice(-80).map(x=>`${new Date(x.at).toLocaleTimeString()} ${x.level.toUpperCase()} ${x.event} ${JSON.stringify(x.data)}`).join('\n');});
+  const on=(id,type,handler,options)=>{
+    const el=$(id);
+    if(!el){log.warn('ui-missing-control',{id,type});return null;}
+    el.addEventListener(type,handler,options);return el;
+  };
+  on('calibrateBtn','click',safe('begin-calibration',beginCalibration));
+  on('clearCalibrationBtn','click',()=>{localStorage.removeItem(CONFIG.calibrationStorageKey);updateCalibrationUi();});
+  on('calibUndoPinBtn','click',()=>state.calibrator?.undoLastTarget());
+  on('calibFinishBtn','click',safe('finish-calibration',finishCalibration));
+  on('calibCancelBtn','click',safe('cancel-calibration',cancelCalibration));
+  on('startBtn','click',safe('begin-bridge',beginBridge));
+  on('bridgeRetryBtn','click',safe('retry-bridge',beginBridge));
+  on('bridgeCancelBtn','click',()=>{state.bridge?.stop();state.bridge=null;show('home')});
+  on('finishBtn','click',safe('finish-scan',finishScan));
+  on('backHomeBtn','click',()=>show('home'));
+  on('resumeBtn','click',safe('resume-scan',beginBridge));
+  on('fitBtn','click',()=>{state.renderer?.fit();state.renderer?.draw()});
+  on('splatSize','input',e=>state.renderer?.setSplatSize(e.target.value));
+  on('loadPlyBtn','click',()=>$('filePly')?.click());
+  on('filePly','change',safe('load-ply',async e=>{if(e.target.files?.[0])await loadPly(e.target.files[0]);e.target.value=''}));
+  on('loadR30Btn','click',()=>$('fileR30')?.click());
+  on('fileR30','change',safe('load-r30',async e=>{if(e.target.files?.[0])await loadR30(e.target.files[0]);e.target.value=''}));
+  on('exportPlyBtn','click',()=>downloadBlob(new Blob([gaussiansToPly(state.gaussians,BUILD.id)],{type:'application/octet-stream'}),`roomscan-${Date.now()}.ply`));
+  on('exportR30Btn','click',()=>downloadBlob(encodeR30({build:BUILD,calibration:calibration(),gaussians:state.gaussians}),`roomscan-${Date.now()}.r30`));
+  on('exportDiagBtn','click',()=>log.download());
+  on('diagDownloadBtn','click',()=>log.download());
+  on('diagCopyBtn','click',()=>navigator.clipboard?.writeText(log.text()).catch(()=>{}));
+  on('selfTestBtn','click',safe('self-test',runTests));
+  on('forceUpdateBtn','click',safe('force-update',clearCachesAndReload));
+  on('diagForceUpdateBtn','click',safe('force-update',clearCachesAndReload));
+  on('pinBtn','click',()=>log.info('manual-scan-pin',{pose:state.slam?.pose||null,note:'diagnostic scan repere only; calibration pins remain XRAnchor-backed'}));
+  log.addEventListener('entry',()=>{const live=$('diagLive');if(live&&$('diagPanel')?.open)live.textContent=log.entries.slice(-80).map(x=>`${new Date(x.at).toLocaleTimeString()} ${x.level.toUpperCase()} ${x.event} ${JSON.stringify(x.data)}`).join('\n');});
 }
 
-async function boot(){bind();$('buildBadge').textContent=`V${BUILD.version}`;$('buildFoot').textContent=`${BUILD.id} · DB target v${BUILD.dbVersion}`;updateCalibrationUi();try{state.db=await new V30Database().open();await renderSessions();}catch(err){log.error('db-open',{message:err.message});showError(`Database: ${err.message}`);}try{if('serviceWorker'in navigator)await navigator.serviceWorker.register(CONFIG.serviceWorker,{scope:'./'});}catch(err){log.warn('service-worker-register',{message:err.message});}$('homeStatus').textContent='Runtime pronto.';document.documentElement.dataset.v30Ready='1';if(window.__ROOMSCAN_PREBOOT){window.__ROOMSCAN_PREBOOT.ready=true;window.__ROOMSCAN_PREBOOT.readyAt=Date.now();}log.info('runtime-ready',{build:BUILD.id});}
+async function boot(){
+  // UI FIRST: no storage/service-worker/network await is allowed before this.
+  bind();
+  document.documentElement.dataset.v30Interactive='1';
+  if(window.__ROOMSCAN_PREBOOT){window.__ROOMSCAN_PREBOOT.interactive=true;window.__ROOMSCAN_PREBOOT.interactiveAt=Date.now();}
+  $('buildBadge').textContent=`V${BUILD.version}`;
+  $('buildFoot').textContent=`${BUILD.id} · DB target v${BUILD.dbVersion}`;
+  updateCalibrationUi();
+  $('homeStatus').textContent='Interfaccia pronta · inizializzazione storage…';
+  log.info('ui-interactive',{build:BUILD.id});
+  try{state.db=await new V30Database().open();await renderSessions();}
+  catch(err){log.error('db-open',{message:err.message});showError(`Database: ${err.message}`);}
+  try{if('serviceWorker'in navigator)await Promise.race([
+    navigator.serviceWorker.register(CONFIG.serviceWorker,{scope:'./'}),
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error('service-worker registration timeout')),3500))
+  ]);}catch(err){log.warn('service-worker-register',{message:err.message});}
+  $('homeStatus').textContent='Runtime pronto.';
+  document.documentElement.dataset.v30Ready='1';
+  if(window.__ROOMSCAN_PREBOOT){window.__ROOMSCAN_PREBOOT.ready=true;window.__ROOMSCAN_PREBOOT.readyAt=Date.now();}
+  log.info('runtime-ready',{build:BUILD.id});
+}
 
 await boot();

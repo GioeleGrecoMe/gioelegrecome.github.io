@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.10.1 - user-selected multi-view WebXR calibration with REAL
+ * Room Scanner V30.10.2 - user-selected multi-view WebXR calibration with REAL
  * XRAnchor-backed pins.
  *
  * V30.8 bug fixed here

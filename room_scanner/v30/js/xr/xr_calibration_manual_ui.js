@@ -1,4 +1,4 @@
-/* Room Scanner V30.10.1 manual WebXR pin placement UI.
+/* Room Scanner V30.10.2 manual WebXR pin placement UI.
  * This layer never owns a pin position. It visualizes the live hit-test preview
  * and the live projections reported by XRMetricCalibrator/XRAnchor.
  */

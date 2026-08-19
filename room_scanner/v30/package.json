@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-10-1-complete",
+  "name": "room-scanner-v30-10-2-interactive-fix",
   "private": true,
   "type": "module",
   "scripts": {
@@ -7,6 +7,6 @@
     "check:layout": "node tools/check_v30_layout.mjs",
     "verify": "npm test && npm run check:layout"
   },
-  "version": "30.10.1",
-  "description": "Complete single-folder V30.10.1 recovery runtime with WebXR anchors and all core assets."
+  "version": "30.10.2",
+  "description": "Single-folder V30.10.2 with non-blocking interactive boot, WebXR anchors and metric pipeline."
 }

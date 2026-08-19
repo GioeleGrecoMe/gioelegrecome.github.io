@@ -6,10 +6,10 @@ import {BUILD,CONFIG} from '../js/config.js';
 const root=new URL('../',import.meta.url);
 const read=p=>fs.readFileSync(new URL(p,root),'utf8');
 
-test('all published identities are V30.10.1',()=>{
+test('all published identities are V30.10.2',()=>{
   const info=JSON.parse(read('build_info.json')),html=read('room_scanner_v30.html'),sw=read('sw.js');
-  assert.equal(BUILD.version,'30.10.1');assert.equal(info.version,BUILD.version);assert.equal(info.id,BUILD.id);
-  assert.match(html,/V30\.10\.1/);assert.match(sw,/room-scanner-v30\.10\.1-shell/);
+  assert.equal(BUILD.version,'30.10.2');assert.equal(info.version,BUILD.version);assert.equal(info.id,BUILD.id);
+  assert.match(html,/V30\.10\.2/);assert.match(sw,/room-scanner-v30\.10\.2-shell/);
 });
 
 test('real anchors are mandatory and self-test detects stale source',()=>{

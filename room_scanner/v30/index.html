@@ -1,13 +1,13 @@
 <!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#080b10"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"><title>Room Scanner V30.10.1</title></head>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#080b10"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"><title>Room Scanner V30.10.2</title></head>
 <body>
 <main id="app">
 <section id="home" class="screen active">
- <div class="hero"><div id="buildBadge" class="badge">V30.10.1 · BOOT</div><h1>Room Scanner V30</h1><p>Calibrazione WebXR con veri XRAnchor world-locked e landmark visuali scelti dall’utente, SLAM WASM camera-only, MVS geometrico e mappa 3D Gaussian. Nessun DeepAI, nessuna IMU necessaria.</p></div>
+ <div class="hero"><div id="buildBadge" class="badge">V30.10.2 · BOOT</div><h1>Room Scanner V30</h1><p>Calibrazione WebXR con veri XRAnchor world-locked e landmark visuali scelti dall’utente, SLAM WASM camera-only, MVS geometrico e mappa 3D Gaussian. Nessun DeepAI, nessuna IMU necessaria.</p></div>
  <div class="card"><b>1 · Calibrazione metrica iniziale</b><p class="hint">Scegli tu 3–7 aree fisiche ben riconoscibili. Tocca la posizione esatta, controlla profondità/XYZ del reticolo WebXR e conferma. Ogni pin diventa un vero XRAnchor; poi acquisisco automaticamente la sua area da molte prospettive prima della calibrazione.</p><div id="calibSummary" class="status">Calibrazione non presente.</div><div class="actions inline"><button id="calibrateBtn" class="primary">Calibra con WebXR</button><button id="clearCalibrationBtn">Azzera calibrazione</button></div></div>
  <div class="card"><b>2 · Scansione camera-only</b><p class="hint">All'avvio ripunta per pochi secondi la stessa zona usata nella calibrazione. Il PnP WASM trasferisce la scala metrica alla camera normale; poi SLAM, triangolazione e MVS lavorano solo sulle immagini.</p><div class="actions inline"><button id="startBtn" class="primary" disabled>Avvia scansione</button><button id="loadPlyBtn">Apri PLY RGB / Gaussian</button><button id="loadR30Btn">Apri sessione .r30</button></div></div>
  <input id="filePly" type="file" accept=".ply" hidden><input id="fileR30" type="file" accept=".r30,application/octet-stream" hidden>
- <div id="homeStatus" class="status">Caricamento V30.10.1…</div>
+ <div id="homeStatus" class="status">Avvio V30.10.2…</div>
  <div id="updateBanner" class="card updateCard" hidden><b>Aggiornamento disponibile / cache incoerente</b><p id="updateText" class="hint"></p><button id="forceUpdateBtn" class="primary">Aggiorna ora e svuota cache V30</button></div>
  <div class="card"><b>Sessioni V30 locali</b><div id="savedSessions"><span class="muted">Apertura database…</span></div><div id="buildFoot" class="buildFoot"></div></div>
 </section>
@@ -37,10 +37,17 @@
 <aside class="diagDock"><details id="diagPanel"><summary>Diagnostica / debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Scarica log</button><button id="diagCopyBtn">Copia log</button><button id="selfTestBtn">Esegui self-test</button><button id="diagForceUpdateBtn">Forza aggiornamento</button></div><div id="selfTestSummary" class="diagSummary">Self-test: asset, WASM, WebXR anchor contract, MVS worker, IndexedDB e service worker.</div><pre id="diagLive">Bootstrap…</pre></div></details></aside>
 <script>
 (function(){
- const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),errors:[],ready:false};const rec=(type,data)=>boot.errors.push({time:Date.now(),type,...data});addEventListener('error',e=>rec('error',{message:e.message,src:e.filename,line:e.lineno,col:e.colno,stack:e.error?.stack||null}));addEventListener('unhandledrejection',e=>{const r=e.reason||{};rec('rejection',{name:r.name||null,message:String(r.message||r),stack:r.stack||null,source:'global-unhandledrejection'});});
- document.getElementById('diagDownloadBtn')?.addEventListener('click',()=>{if(document.documentElement.dataset.v30Ready==='1')return;const blob=new Blob([JSON.stringify({format:'ROOMSCAN-V30-PREBOOT-1',url:location.href,userAgent:navigator.userAgent,...boot},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='roomscan-v30-preboot-diagnostics.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});
- setTimeout(()=>{if(document.documentElement.dataset.v30Ready==='1')return;rec('bootstrap-timeout',{message:'main module did not signal readiness within 15 s'});const st=document.getElementById('homeStatus');if(st){st.textContent='Bootstrap V30 non completato. Apri Diagnostica e scarica i log.';st.dataset.kind='error';}},15000);
+ const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),errors:[],ready:false,interactive:false};
+ const rec=(type,data)=>boot.errors.push({time:Date.now(),type,...data});
+ addEventListener('error',e=>rec('error',{message:e.message,src:e.filename,line:e.lineno,col:e.colno,stack:e.error?.stack||null}));
+ addEventListener('unhandledrejection',e=>{const r=e.reason||{};rec('rejection',{name:r.name||null,message:String(r.message||r),stack:r.stack||null,source:'global-unhandledrejection'});});
+ function downloadPreboot(){const blob=new Blob([JSON.stringify({format:'ROOMSCAN-V30-PREBOOT-2',url:location.href,userAgent:navigator.userAgent,...boot},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='roomscan-v30-preboot-diagnostics.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
+ async function hardRefresh(){try{for(const r of await navigator.serviceWorker?.getRegistrations?.()||[])await r.unregister();for(const k of await caches.keys())if(k.startsWith('room-scanner-v30'))await caches.delete(k);}catch(err){rec('hard-refresh-error',{message:err?.message||String(err)});}location.replace(`${location.pathname}?v30reset=${Date.now()}`);}
+ document.getElementById('diagDownloadBtn')?.addEventListener('click',e=>{if(document.documentElement.dataset.v30Interactive==='1')return;e.preventDefault();downloadPreboot();});
+ document.getElementById('forceUpdateBtn')?.addEventListener('click',e=>{if(document.documentElement.dataset.v30Interactive==='1')return;e.preventDefault();hardRefresh();});
+ document.getElementById('diagForceUpdateBtn')?.addEventListener('click',e=>{if(document.documentElement.dataset.v30Interactive==='1')return;e.preventDefault();hardRefresh();});
+ setTimeout(()=>{if(document.documentElement.dataset.v30Interactive==='1')return;rec('interactive-timeout',{message:'core UI handlers were not bound within 5 s'});const st=document.getElementById('homeStatus');if(st){st.textContent='BOOT ERROR: interfaccia non collegata. Apri Diagnostica o usa Forza aggiornamento.';st.dataset.kind='error';}const d=document.getElementById('diagPanel');if(d)d.open=true;},5000);
 })();
 </script>
-<script type="module" src="js/boot.js"></script>
+<script type="module" src="js/boot.js?v=30.10.2"></script>
 </body></html>
