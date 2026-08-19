@@ -4,7 +4,7 @@ import {V30Database,openVersionSafe} from './storage/db.js';
 import {triangulateRays,poseIdentity} from './slam/math.js';
 
 /*
- * V30.11.4 self-tests intentionally include regressions for the two phone failures
+ * V30.12.0 self-tests intentionally include regressions for the two phone failures
  * reported on V30.8: IndexedDB downgrade and fake/screen-space WebXR pins.
  */
 export async function runSelfTests(log){
@@ -34,6 +34,12 @@ export async function runSelfTests(log){
     const r=slam.process({gray:new Uint8Array(640),width:320,height:2,at:1});
     if(!r.metricLocked||r.matches!==1||r.keyframes!==1)throw new Error('SlamEngine first metric frame failed');
     return {metricLocked:r.metricLocked,matches:r.matches,keyframes:r.keyframes};
+  });
+  await run('live-mvs-gaussian-pipeline',async()=>{
+    const app=await fetch(`js/app.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());
+    for(const token of ["queueMvsKeyframe(r.newKeyframe,frame,K)","type:'pair'","state.gaussianWorker?.postMessage({type:'add',points:d.points})"])if(!app.includes(token))throw new Error(`missing live MVS wiring: ${token}`);
+    const r=await mvsTriangulationProbe(CONFIG.mvsWorker);if(r.count<6)throw new Error(`MVS runtime returned only ${r.count} points`);
+    return {points:r.count,baseline:r.baseline,matches:r.matches,source:r.source};
   });
   await run('gaussian-worker',()=>workerReady(CONFIG.gaussianWorker,{voxel:.03,maxGaussians:1000,maxSnapshot:100}));
   await run('mvs-worker',()=>workerReady(CONFIG.mvsWorker,{near:.3,far:5,depthSteps:8,gridStep:8,maxPoints:200}));
@@ -94,3 +100,10 @@ export async function runSelfTests(log){
 
 function nativeOpen(name,version){return new Promise((resolve,reject)=>{const r=indexedDB.open(name,version);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
 function workerReady(url,config){return new Promise((resolve,reject)=>{const w=new Worker(url),timer=setTimeout(()=>{w.terminate();reject(new Error(`worker timeout: ${url}`));},3000);w.onmessage=e=>{if(e.data?.type==='ready'){clearTimeout(timer);w.terminate();resolve(e.data);}};w.onerror=e=>{clearTimeout(timer);w.terminate();reject(new Error(e.message||`worker error: ${url}`));};w.postMessage({type:'init',config});});}
+
+function mvsTriangulationProbe(url){return new Promise((resolve,reject)=>{
+  const K={fx:300,fy:300,cx:160,cy:120,width:320,height:240},a={pose:{p:[0,0,0],q:[0,0,0,1]},features:[],width:320,height:240},b={pose:{p:[.08,0,0],q:[0,0,0,1]},features:[],width:320,height:240,rgba:new Uint8ClampedArray(320*240*4)},pts=[[-.3,.1,1.5],[0,.15,2],[.25,-.1,2.5],[.1,.25,3],[-.15,-.2,1.8],[.35,.1,2.2],[-.25,.2,2.7],[.05,-.25,1.6]];
+  const proj=(pose,p)=>[K.fx*(p[0]-pose.p[0])/(p[2]-pose.p[2])+K.cx,K.cy-K.fy*(p[1]-pose.p[1])/(p[2]-pose.p[2])];
+  pts.forEach((p,i)=>{const A=proj(a.pose,p),B=proj(b.pose,p),desc=Array.from({length:8},(_,k)=>(i*23+k*11)%256);a.features.push({x:A[0],y:A[1],score:100-i,desc});b.features.push({x:B[0],y:B[1],score:100-i,desc:[...desc]});});
+  const w=new Worker(url),timer=setTimeout(()=>{w.terminate();reject(new Error('MVS pair timeout'));},3500);w.onmessage=e=>{const d=e.data||{};if(d.type==='ready'){w.postMessage({type:'pair',a,b,K});return;}if(d.type==='mvs-result'){clearTimeout(timer);w.terminate();resolve(d);}if(d.type==='mvs-error'){clearTimeout(timer);w.terminate();reject(new Error(d.message||'MVS error'));}};w.onerror=e=>{clearTimeout(timer);w.terminate();reject(new Error(e.message||'MVS worker error'));};w.postMessage({type:'init',config:{near:.3,far:5,minBaselineM:.03,maxBaselineM:1,maxPoints:100}});
+});}

@@ -1,6 +1,6 @@
 {
-  "version": "30.11.4",
-  "id": "v30.11.4-20260819-scan-super-constructor-fix",
-  "builtAt": "2026-08-19T21:00:00+02:00",
-  "notes": "Fix metric-lock -> Scan crash: SlamEngine now calls super() before accessing this; adds an actual runtime constructor/first-frame regression test while preserving the V30.11.3 full-screen measurement preview."
+  "version": "30.12.0",
+  "id": "v30.12.0-20260819-live-mvs-gs-mesh",
+  "builtAt": "2026-08-19T21:45:00+02:00",
+  "notes": "Connects metric SLAM keyframes to two-view geometric MVS, feeds triangulated points to the Gaussian accumulator, exposes live GS/triangulation diagnostics, and auto-builds a metric mesh in Review. Metric motion scale is initialised from the calibrated WebXR common-view pin depths."
 }

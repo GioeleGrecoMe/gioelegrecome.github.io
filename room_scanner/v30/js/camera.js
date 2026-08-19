@@ -10,7 +10,7 @@ function fitCameraViewport(video){
 
 /**
  * Camera-only capture helper. The scanner deliberately requests no IMU access.
- * V30.11.4 can adopt the already-open metric-bridge camera stream so metric
+ * V30.12.0 can adopt the already-open metric-bridge camera stream so metric
  * lock -> scan does not flash black or request a second camera session.
  */
 export class CameraController extends EventTarget{

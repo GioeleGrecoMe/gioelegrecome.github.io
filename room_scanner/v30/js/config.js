@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.11.4 runtime configuration.
+ * Room Scanner V30.12.0 runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.11.4',
-  id:'v30.11.4-20260819-scan-super-constructor-fix',
+  version:'30.12.0',
+  id:'v30.12.0-20260819-live-mvs-gs-mesh',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -102,13 +102,19 @@ export const CONFIG={
   // Camera-only multi-view densification. No monocular AI depth is involved.
   mvsWorker:'workers/mvs_worker.js',
   mvsEveryNthKeyframe:1,
-  mvsMinBaselineM:0.10,
+  // V30.12 feeds real metric keyframe pairs to the MVS worker. A 3 cm
+  // lateral baseline is usually enough for local triangulation at room scale,
+  // while still preserving strong visual overlap on a phone camera.
+  mvsMinBaselineM:0.03,
   mvsMaxBaselineM:1.25,
   mvsMaxAngleRad:0.55,
   mvsNearM:0.30,
   mvsFarM:9.0,
   mvsDepthSteps:36,
   mvsGridStep:7,
+  mvsMinParallaxPx:1.4,
+  mvsMaxRayGapM:0.10,
+  mvsMaxFeatures:420,
   mvsMaxPoints:5200,
 
   gaussianVoxelM:0.025,
@@ -116,7 +122,7 @@ export const CONFIG={
   gaussianSnapshot:90000,
   gaussianWorker:'workers/gaussian_worker.js',
   wasmCore:'wasm/slam_core.wasm',
-  // No Depth Anything / DeepAI and no IMU are required by the V30.11.4 runtime.
+  // No Depth Anything / DeepAI and no IMU are required by the V30.12.0 runtime.
   serviceWorker:'sw.js',
   serviceWorkerRegisterDelayMs:2500,
   buildInfo:'build_info.json'

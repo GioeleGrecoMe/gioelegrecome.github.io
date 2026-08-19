@@ -1,10 +1,10 @@
-/* Room Scanner V30.11.4 service worker.
+/* Room Scanner V30.12.0 service worker.
  * Static runtime assets are cache-first once installed. Navigations use a short
  * network-first path. The active worker exposes GET_VERSION so the HTML can
  * remove an actually stale V30 controller before loading application modules.
  */
-const VERSION='30.11.4';
-const CACHE='room-scanner-v30.11.4-shell';
+const VERSION='30.12.0';
+const CACHE='room-scanner-v30.12.0-shell';
 const SHELL=[
   './','./index.html','./room_scanner_v30.html','./styles.css','./manifest.webmanifest','./icon.svg','./build_info.json',
   './js/boot.js','./js/app.js','./js/config.js','./js/logger.js','./js/camera.js','./js/formats.js','./js/self_test.js','./js/storage/db.js',

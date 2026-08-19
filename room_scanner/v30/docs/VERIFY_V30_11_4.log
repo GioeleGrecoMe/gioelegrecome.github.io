@@ -1,9 +1,9 @@
 
-> room-scanner-v30-11-4-scan-super-fix@30.11.4 verify
+> room-scanner-v30-11-4-scan-super-fix@30.12.0 verify
 > npm test && npm run check:layout && npm run check:deps && npm run check:constructors && npm run check:mock
 
 
-> room-scanner-v30-11-4-scan-super-fix@30.11.4 test
+> room-scanner-v30-11-4-scan-super-fix@30.12.0 test
 > node --test tests/*.test.mjs
 
 TAP version 13
@@ -25,8 +25,8 @@ ok 3 - service worker is atomic and cache-first for static runtime assets
   duration_ms: 1.094611
   type: 'test'
   ...
-# Subtest: all published identities are V30.11.4
-ok 4 - all published identities are V30.11.4
+# Subtest: all published identities are V30.12.0
+ok 4 - all published identities are V30.12.0
   ---
   duration_ms: 1.802069
   type: 'test'
@@ -257,29 +257,29 @@ ok 40 - XR scene renderer consumes current anchor pose in raw WebXR coordinates
 # todo 0
 # duration_ms 130.514825
 
-> room-scanner-v30-11-4-scan-super-fix@30.11.4 check:layout
+> room-scanner-v30-11-4-scan-super-fix@30.12.0 check:layout
 > node tools/check_v30_layout.mjs
 
 PASS v30-layout · 57 file sotto una sola radice v30/
 
-> room-scanner-v30-11-4-scan-super-fix@30.11.4 check:deps
+> room-scanner-v30-11-4-scan-super-fix@30.12.0 check:deps
 > node tools/check_dependencies.mjs
 
 PASS dependency-closure · 17 riferimenti locali risolti
 
-> room-scanner-v30-11-4-scan-super-fix@30.11.4 check:constructors
+> room-scanner-v30-11-4-scan-super-fix@30.12.0 check:constructors
 > node tools/check_eventtarget_constructors.mjs
 
 PASS EventTarget constructors · 5/5 derived classes call super() first
 
-> room-scanner-v30-11-4-scan-super-fix@30.11.4 check:mock
+> room-scanner-v30-11-4-scan-super-fix@30.12.0 check:mock
 > node tools/mock_ui_boot.mjs
 
-[RoomScan:ui-interactive] { build: 'v30.11.4-20260819-scan-super-constructor-fix' }
+[RoomScan:ui-interactive] { build: 'v30.12.0-20260819-scan-super-constructor-fix' }
 [RoomScan:begin-calibration] {
   message: 'WebXR non disponibile su questo browser',
   stack: 'Error: WebXR non disponibile su questo browser\n' +
-    '    at XRMetricCalibrator.start (file:///mnt/data/v3011_4_work/js/xr/xr_calibration.js?v=30.11.4:147:28)\n' +
+    '    at XRMetricCalibrator.start (file:///mnt/data/v3011_4_work/js/xr/xr_calibration.js?v=30.12.0:147:28)\n' +
     '    at beginCalibration (file:///mnt/data/v3011_4_work/js/app.js?mock=1787166195326:30:475)\n' +
     '    at async El.<anonymous> (file:///mnt/data/v3011_4_work/js/app.js?mock=1787166195326:20:59)'
 }

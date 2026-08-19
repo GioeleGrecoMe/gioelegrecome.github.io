@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.11.4 conservative camera-only metric bridge.
+ * Room Scanner V30.12.0 conservative camera-only metric bridge.
  *
  * The bridge only accepts the saved WebXR metric frame after >=3 calibrated
  * pin regions are visually re-observed near their expected common-view image
@@ -145,7 +145,7 @@ export class MetricBridge extends EventTarget{
     const rmse=inliers.length?Math.sqrt(inliers.reduce((s,m)=>s+m.shiftN*m.shiftN,0)/inliers.length):null;
     const locked=inliers.length>=3&&rmse<=.05;
     const common=this.calibration.commonView||{};
-    return {locked,found:matches.length,inliers:inliers.length,rmse,pose:locked?(common.pose||this.calibration.pose||null):null,intrinsicsNorm:common.intrinsicsNorm||this.calibration.intrinsicsNorm||null,cameraSize:common.cameraSize||this.calibration.cameraSize||null,unit:'m',method:'verified-common-view-template-lock-v30.11.4',matches};
+    return {locked,found:matches.length,inliers:inliers.length,rmse,pose:locked?(common.pose||this.calibration.pose||null):null,intrinsicsNorm:common.intrinsicsNorm||this.calibration.intrinsicsNorm||null,cameraSize:common.cameraSize||this.calibration.cameraSize||null,unit:'m',method:'verified-common-view-template-lock-v30.12.0',matches};
   }
 }
 

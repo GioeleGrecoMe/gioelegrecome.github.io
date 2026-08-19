@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.11.4 core application.
+ * Room Scanner V30.12.0 core application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,12 +8,12 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.11.4';
-import {DiagnosticsLog} from './logger.js?v=30.11.4';
+import {BUILD,CONFIG} from './config.js?v=30.12.0';
+import {DiagnosticsLog} from './logger.js?v=30.12.0';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
-const state={db:null,calibrator:null,bridge:null,bridgeStable:0,bridgeEpoch:0,bridgeTransition:false,camera:null,frontend:null,slam:null,gaussianWorker:null,mvsWorker:null,gaussians:[],renderer:null,currentSession:null,scanStop:null};
+const state={db:null,calibrator:null,bridge:null,bridgeStable:0,bridgeEpoch:0,bridgeTransition:false,camera:null,frontend:null,slam:null,gaussianWorker:null,mvsWorker:null,mvsBusy:false,mvsBase:null,mvsInFlight:null,mvsPairs:0,mvsPointsTotal:0,mvsLastResult:null,gaussians:[],renderer:null,currentSession:null,scanStop:null};
 window.RoomScanV30={BUILD,CONFIG,state,log};
 const moduleCache=new Map();
 function lazy(path){if(!moduleCache.has(path))moduleCache.set(path,import(`${path}?v=${BUILD.version}`));return moduleCache.get(path);}
@@ -81,15 +81,28 @@ async function startScan(metric,epoch=state.bridgeEpoch,bridge=state.bridge){
   // transition and preserves a responsive Cancel button.
   bridge.pause?.();
   await lazy('./metric/gaussian_metric_tap.js').catch(err=>log.warn('gaussian-metric-tap',{message:err.message}));
+  // Install the live metric GS HUD before constructing workers. The module is
+  // non-blocking and only observes snapshots; meshing itself stays in a worker.
+  await lazy('./metric/metric_mesh_ui.js').catch(err=>log.warn('metric-mesh-ui',{message:err.message}));
   if(epoch!==state.bridgeEpoch)return;
   const [{CameraController},{WasmVisionFrontend},{SlamEngine}]=await Promise.all([lazy('./camera.js'),lazy('./slam/wasm_frontend.js'),lazy('./slam/slam_engine.js')]);
   if(epoch!==state.bridgeEpoch)return;
   const cal=calibration(),K=metric?.intrinsicsNorm&&metric?.cameraSize?{fx:metric.intrinsicsNorm.fxN*CONFIG.analysisWidth,fy:metric.intrinsicsNorm.fyN*CONFIG.analysisHeight,cx:metric.intrinsicsNorm.cxN*CONFIG.analysisWidth,cy:metric.intrinsicsNorm.cyN*CONFIG.analysisHeight,width:CONFIG.analysisWidth,height:CONFIG.analysisHeight}:{fx:CONFIG.analysisWidth*.9,fy:CONFIG.analysisWidth*.9,cx:CONFIG.analysisWidth/2,cy:CONFIG.analysisHeight/2,width:CONFIG.analysisWidth,height:CONFIG.analysisHeight};
   state.frontend=new WasmVisionFrontend(`${CONFIG.wasmCore}?v=${BUILD.version}`);await state.frontend.init();
   if(epoch!==state.bridgeEpoch)return;
-  state.slam=new SlamEngine({frontend:state.frontend,K,log,keyframeIntervalMs:CONFIG.keyframeIntervalMs});if(metric?.locked)state.slam.setMetricScale(1);
-  state.gaussianWorker=new Worker(`${CONFIG.gaussianWorker}?v=${BUILD.version}`);state.gaussianWorker.onmessage=e=>{const d=e.data||{};if(d.type==='snapshot'&&Array.isArray(d.gaussians)){state.gaussians=d.gaussians;const el=$('statGs');if(el)el.textContent=String(d.count??d.gaussians.length);}};state.gaussianWorker.postMessage({type:'init',config:{voxel:CONFIG.gaussianVoxelM,maxGaussians:CONFIG.gaussianMaxLive,maxSnapshot:CONFIG.gaussianSnapshot}});
-  state.mvsWorker=new Worker(`${CONFIG.mvsWorker}?v=${BUILD.version}`);state.mvsWorker.onmessage=e=>{if(e.data?.type==='ready'&&$('mvsState'))$('mvsState').textContent='MVS geometrico pronto';if(e.data?.type==='mvs-result'){if($('statTri'))$('statTri').textContent=String(e.data.count||0);if(e.data.points?.length)state.gaussianWorker?.postMessage({type:'add',points:e.data.points});}};state.mvsWorker.postMessage({type:'init',config:{near:CONFIG.mvsNearM,far:CONFIG.mvsFarM,depthSteps:CONFIG.mvsDepthSteps,gridStep:CONFIG.mvsGridStep,maxPoints:CONFIG.mvsMaxPoints}});
+  state.slam=new SlamEngine({frontend:state.frontend,K,log,keyframeIntervalMs:CONFIG.keyframeIntervalMs});
+  if(metric?.locked){
+    const metricPose=metric?.pose||cal?.commonView?.pose||cal?.pose||null;
+    const pinPoints=(cal?.anchors||[]).map(a=>a?.p).filter(p=>Array.isArray(p)&&p.length>=3);
+    state.slam.setMetricReference({pose:metricPose,points:pinPoints});
+  }
+  state.gaussians=[];state.mvsBusy=false;state.mvsBase=null;state.mvsInFlight=null;state.mvsPairs=0;state.mvsPointsTotal=0;state.mvsLastResult=null;
+  state.gaussianWorker=new Worker(`${CONFIG.gaussianWorker}?v=${BUILD.version}`);
+  state.gaussianWorker.onmessage=e=>{const d=e.data||{};if(d.type==='snapshot'&&Array.isArray(d.gaussians)){state.gaussians=d.gaussians;const el=$('statGs');if(el)el.textContent=String(d.count??d.gaussians.length);if(d.count>0&&$('slamState'))$('slamState').textContent='TRACKING + GS';}else if(d.type==='error'){log.warn('gaussian-worker',{message:d.message,stack:d.stack||null});}};
+  state.gaussianWorker.postMessage({type:'init',config:{voxel:CONFIG.gaussianVoxelM,maxGaussians:CONFIG.gaussianMaxLive,maxSnapshot:CONFIG.gaussianSnapshot}});
+  state.mvsWorker=new Worker(`${CONFIG.mvsWorker}?v=${BUILD.version}`);
+  state.mvsWorker.onmessage=e=>handleMvsMessage(e.data||{});
+  state.mvsWorker.postMessage({type:'init',config:{near:CONFIG.mvsNearM,far:CONFIG.mvsFarM,maxPoints:CONFIG.mvsMaxPoints,minBaselineM:CONFIG.mvsMinBaselineM,maxBaselineM:CONFIG.mvsMaxBaselineM,minParallaxPx:CONFIG.mvsMinParallaxPx,maxRayGapM:CONFIG.mvsMaxRayGapM,maxFeatures:CONFIG.mvsMaxFeatures}});
   if(epoch!==state.bridgeEpoch){state.gaussianWorker?.terminate();state.mvsWorker?.terminate();return;}
   const sharedStream=bridge.takeStream?.()||null;
   state.camera=new CameraController({video:$('camera'),width:CONFIG.analysisWidth,height:CONFIG.analysisHeight,fps:CONFIG.analysisFps,log,stream:sharedStream});
@@ -103,11 +116,50 @@ async function startScan(metric,epoch=state.bridgeEpoch,bridge=state.bridge){
   if(epoch!==state.bridgeEpoch){state.camera.stop();return;}
   state.bridge=null;show('scan');
   state.currentSession=await state.db?.createSession({calibrationBuild:cal?.createdAt||null,metricLocked:!!metric?.locked});if($('metricState'))$('metricState').textContent=metric?.locked?'scala METRIC · common-view lock':'scala — NON AGGANCIATA';if($('slamState'))$('slamState').textContent='TRACKING';
-  state.scanStop=state.camera.loop(frame=>{try{const r=state.slam.process(frame);if($('statFeat'))$('statFeat').textContent=String(r.features);if($('statMatch'))$('statMatch').textContent=String(r.matches);if($('statKf'))$('statKf').textContent=String(r.keyframes);if(state.currentSession&&r.keyframes%5===0)state.db?.updateSession(state.currentSession.id,{status:'scanning',counts:{keyframes:r.keyframes,gaussians:state.gaussians.length}}).catch(()=>{});}catch(err){log.warn('scan-frame',{message:err.message});}});
+  state.scanStop=state.camera.loop(frame=>{try{
+    const r=state.slam.process(frame);
+    if($('statFeat'))$('statFeat').textContent=String(r.features);if($('statMatch'))$('statMatch').textContent=String(r.matches);if($('statKf'))$('statKf').textContent=String(r.keyframes);
+    if(r.newKeyframe&&(r.keyframes%(CONFIG.mvsEveryNthKeyframe||1)===0))queueMvsKeyframe(r.newKeyframe,frame,K);
+    if(state.currentSession&&r.newKeyframe&&r.keyframes%5===0)state.db?.updateSession(state.currentSession.id,{status:'scanning',counts:{keyframes:r.keyframes,triangulated:state.mvsPointsTotal,gaussians:state.gaussians.length}}).catch(()=>{});
+  }catch(err){log.warn('scan-frame',{message:err.message,stack:err.stack||null});}});
 }
-function stopScan(){state.scanStop?.();state.scanStop=null;state.camera?.stop();state.camera=null;state.gaussianWorker?.terminate();state.gaussianWorker=null;state.mvsWorker?.terminate();state.mvsWorker=null;}
-async function finishScan(){if(state.gaussianWorker){const snap=await new Promise(resolve=>{const timer=setTimeout(()=>resolve(state.gaussians),600),handler=e=>{if(e.data?.type==='snapshot'){clearTimeout(timer);state.gaussianWorker.removeEventListener('message',handler);resolve(e.data.gaussians||state.gaussians);}};state.gaussianWorker.addEventListener('message',handler);state.gaussianWorker.postMessage({type:'snapshot',maxSnapshot:CONFIG.gaussianSnapshot});});state.gaussians=snap||state.gaussians;}stopScan();if(state.currentSession)await state.db?.updateSession(state.currentSession.id,{status:'finished',counts:{keyframes:state.slam?.keyframes?.length||0,gaussians:state.gaussians.length}});await showReview();}
-async function showReview(){show('review');const {GaussianRenderer}=await lazy('./gaussian/renderer.js');if(!state.renderer)state.renderer=new GaussianRenderer($('viewer'));state.renderer.setData(state.gaussians);if($('reviewStats'))$('reviewStats').textContent=`Gaussian: ${state.gaussians.length} · scala ${state.slam?.metricLocked?'metrica':'non confermata'} · keyframe ${state.slam?.keyframes?.length||0}`;await lazy('./metric/metric_mesh_ui.js').catch(err=>log.warn('metric-mesh-ui',{message:err.message}));}
+
+function stripMvsImage(kf){return kf?{id:kf.id,at:kf.at,pose:kf.pose,features:kf.features,width:kf.width,height:kf.height}:null;}
+function poseBaseline(a,b){return Math.hypot(a.pose.p[0]-b.pose.p[0],a.pose.p[1]-b.pose.p[1],a.pose.p[2]-b.pose.p[2]);}
+function queueMvsKeyframe(kf,frame,K){
+  if(!state.mvsWorker||!kf?.features?.length)return;
+  const current={id:kf.id,at:kf.at,pose:kf.pose,features:kf.features.slice(0,CONFIG.mvsMaxFeatures||420),width:frame.width,height:frame.height};
+  if(!state.mvsBase){state.mvsBase=current;if($('mvsState'))$('mvsState').textContent='MVS: acquisito riferimento · muoviti lateralmente';return;}
+  const baseline=poseBaseline(state.mvsBase,current),min=CONFIG.mvsMinBaselineM||.03,max=CONFIG.mvsMaxBaselineM||1.25;
+  if(baseline<min){if($('mvsState'))$('mvsState').textContent=`MVS: baseline ${(baseline*100).toFixed(1)} cm / ${(min*100).toFixed(0)} cm`;return;}
+  if(baseline>max){state.mvsBase=current;if($('mvsState'))$('mvsState').textContent='MVS: movimento troppo ampio · nuovo riferimento';return;}
+  if(state.mvsBusy){if($('mvsState'))$('mvsState').textContent='MVS: elaborazione coppia…';return;}
+  const rgba=new Uint8ClampedArray(frame.rgba||[]),b={...current,rgba};
+  state.mvsBusy=true;state.mvsInFlight={nextBase:current,baseline};
+  state.mvsWorker.postMessage({type:'pair',a:state.mvsBase,b,K,minBaselineM:min,maxBaselineM:max},rgba.buffer?[rgba.buffer]:[]);
+  if($('mvsState'))$('mvsState').textContent=`MVS: triangolo baseline ${(baseline*100).toFixed(1)} cm…`;
+}
+function handleMvsMessage(d){
+  if(d.type==='ready'){if($('mvsState'))$('mvsState').textContent='MVS pronto · muoviti lateralmente';return;}
+  if(d.type==='mvs-error'){state.mvsBusy=false;log.warn('mvs-worker',{message:d.message,stack:d.stack||null});if($('mvsState'))$('mvsState').textContent='MVS errore · continua lentamente';return;}
+  if(d.type!=='mvs-result')return;
+  const flight=state.mvsInFlight;state.mvsBusy=false;state.mvsInFlight=null;if(flight?.nextBase)state.mvsBase=flight.nextBase;state.mvsLastResult=d;
+  if(d.points?.length){
+    state.mvsPairs++;state.mvsPointsTotal+=d.points.length;
+    if($('statTri'))$('statTri').textContent=String(state.mvsPointsTotal);
+    if($('mvsState'))$('mvsState').textContent=`MVS ${state.mvsPairs} coppie · +${d.points.length} pt · ${(d.baseline*100).toFixed(1)} cm`;
+    state.gaussianWorker?.postMessage({type:'add',points:d.points});
+    log.info('mvs-pair',{points:d.points.length,total:state.mvsPointsTotal,baseline:d.baseline,matches:d.matches,triangulated:d.triangulated});
+  }else{
+    const reason=d.reason||`0/${d.matches||0} triangolati`;
+    if($('mvsState'))$('mvsState').textContent=`MVS: ${reason} · spostati lateralmente mantenendo overlap`;
+    log.info('mvs-empty',{reason,baseline:d.baseline,matches:d.matches,triangulated:d.triangulated});
+  }
+}
+async function waitForMvsIdle(timeoutMs=1600){const start=performance.now();while(state.mvsBusy&&performance.now()-start<timeoutMs)await new Promise(r=>setTimeout(r,30));}
+function stopScan(){state.scanStop?.();state.scanStop=null;state.camera?.stop();state.camera=null;state.gaussianWorker?.terminate();state.gaussianWorker=null;state.mvsWorker?.terminate();state.mvsWorker=null;state.mvsBusy=false;state.mvsInFlight=null;state.mvsBase=null;}
+async function finishScan(){await waitForMvsIdle();if(state.gaussianWorker){const snap=await new Promise(resolve=>{const timer=setTimeout(()=>resolve(state.gaussians),900),handler=e=>{if(e.data?.type==='snapshot'){clearTimeout(timer);state.gaussianWorker.removeEventListener('message',handler);resolve(e.data.gaussians||state.gaussians);}};state.gaussianWorker.addEventListener('message',handler);state.gaussianWorker.postMessage({type:'snapshot',maxSnapshot:CONFIG.gaussianSnapshot});});state.gaussians=snap||state.gaussians;}stopScan();if(state.currentSession)await state.db?.updateSession(state.currentSession.id,{status:'finished',counts:{keyframes:state.slam?.keyframes?.length||0,triangulated:state.mvsPointsTotal,gaussians:state.gaussians.length}});await showReview();}
+async function showReview(){show('review');const {GaussianRenderer}=await lazy('./gaussian/renderer.js');if(!state.renderer)state.renderer=new GaussianRenderer($('viewer'));state.renderer.setData(state.gaussians);if($('reviewStats'))$('reviewStats').textContent=`Gaussian: ${state.gaussians.length} · triangolati ${state.mvsPointsTotal} · scala ${state.slam?.metricLocked?'metrica':'non confermata'} · keyframe ${state.slam?.keyframes?.length||0}`;try{const mesh=await lazy('./metric/metric_mesh_ui.js');mesh.installMetricMeshUi?.();await mesh.prepareReviewMesh?.();}catch(err){log.warn('metric-mesh-ui',{message:err.message,stack:err.stack||null});}}
 async function renderSessions(){if(!state.db)return;const xs=(await state.db.getAll('sessions')).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0,8),el=$('savedSessions');if(!el)return;el.textContent='';if(!xs.length){el.innerHTML='<span class="muted">Nessuna sessione salvata.</span>';return;}for(const s of xs){const d=document.createElement('div');d.className='status';d.style.margin='.35rem 0';d.textContent=`${new Date(s.createdAt).toLocaleString()} · ${s.status||'sessione'} · KF ${s.counts?.keyframes||0} · GS ${s.counts?.gaussians||0}`;el.appendChild(d);}}
 async function runTests(){const {runSelfTests}=await lazy('./self_test.js');const out=await runSelfTests(log),ok=out.filter(x=>x.ok).length;if($('selfTestSummary'))$('selfTestSummary').textContent=`Self-test: ${ok}/${out.length} PASS`;if($('diagLive'))$('diagLive').textContent=out.map(x=>`${x.ok?'PASS':'FAIL'} ${x.name}${x.ok?'':`: ${x.error}`}`).join('\n');if($('diagPanel'))$('diagPanel').open=true;}
 async function clearCachesAndReload(){try{const regs=await navigator.serviceWorker?.getRegistrations?.()||[];for(const reg of regs){let own=false;try{own=new URL(reg.scope).pathname.includes('/room_scanner/v30/');}catch{}if(!own)continue;try{reg.active?.postMessage({type:'CLEAR_V30_CACHES'});await reg.unregister();}catch{}}if(window.caches)for(const k of await caches.keys())if(k.startsWith('room-scanner-v30'))await caches.delete(k);try{sessionStorage.removeItem('roomscan-v30-sw-clean-attempt');}catch{}}catch(err){log.warn('force-update-cleanup',{message:err?.message||String(err)});}location.replace(`${location.pathname}?v30reset=${BUILD.version}-${Date.now()}`);}

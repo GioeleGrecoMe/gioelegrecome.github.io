@@ -1,8 +1,8 @@
-# V30.11.4 — Apply after three useful pins
+# V30.12.0 — Apply after three useful pins
 
 The V30.11.0 Apply gate was too strict. It required every selected pin to be ready, 8 ROI views, 4 azimuth sectors, 14 cm baseline, three global poses with three pins visible, and all selected pins in the final common frame.
 
-V30.11.4 changes the acceptance rule:
+V30.12.0 changes the acceptance rule:
 
 - at least 3 useful XRAnchor-backed pins;
 - each useful pin: >=3 separated tracking views, >=4 ROI views and >=8 cm baseline;

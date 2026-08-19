@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-11-4-scan-super-fix",
+  "name": "room-scanner-v30-12-live-mvs-gs-mesh",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +10,6 @@
     "check:mock": "node tools/mock_ui_boot.mjs",
     "check:constructors": "node tools/check_eventtarget_constructors.mjs"
   },
-  "version": "30.11.4",
-  "description": "V30.11.4: fixes the metric-lock to Scan runtime constructor crash while preserving the full-screen measurement preview."
+  "version": "30.12.0",
+  "description": "V30.12.0: connects metric keyframes to real two-view MVS, live Gaussian accumulation, and automatic metric mesh generation."
 }

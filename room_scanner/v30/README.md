@@ -1,14 +1,11 @@
-# Room Scanner V30.11.4
+# Room Scanner V30.12.0
 
-Runtime V30 con boot UI-first e calibrazione WebXR minimale.
+Offline-capable WebXR room scanner with real XRAnchor calibration pins, visual metric relocalisation, camera-only metric tracking, two-view geometric MVS, live Gaussian accumulation and automatic metric mesh generation in Review.
 
-## Calibrazione
-1. Apri **Calibra con WebXR**.
-2. Porta il reticolo sul punto fisico desiderato.
-3. Quando profondita e stabilita sono disponibili, premi **Aggiungi pin**.
-4. Ripeti per almeno 3 pin ben distribuiti.
-5. Muoviti lateralmente e osserva i pin da piu prospettive: la ROI multi-view viene acquisita in background.
-6. Quando almeno 3 pin mostrano viste sufficienti, riportali insieme nell'inquadratura.
-7. Appena compare **PRONTO**, premi **Applica**. Le pose globali aggiuntive migliorano la diagnostica ma non bloccano piu il salvataggio.
+Run the local verification suite with:
 
-Ogni pin visuale corrisponde a un `XRAnchor`; non esiste fallback a coordinate 2D fisse.
+```bash
+npm run verify
+```
+
+During scanning, make small lateral motions while preserving overlap. `tri` should increase first, then `GS`. When the scan is finished, Review automatically builds the metric occupancy mesh and reports its vertex/face count.

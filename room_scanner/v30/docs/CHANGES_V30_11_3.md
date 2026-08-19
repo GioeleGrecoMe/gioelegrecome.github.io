@@ -1,4 +1,4 @@
-# V30.11.4 — full-screen measurement preview
+# V30.12.0 — full-screen measurement preview
 
 ## Symptom fixed
 On some mobile browsers the metric-lock camera preview was visible only as a very thin strip at the top while the remainder of the screen stayed black.

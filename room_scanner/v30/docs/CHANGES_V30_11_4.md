@@ -1,4 +1,4 @@
-# Room Scanner V30.11.4
+# Room Scanner V30.12.0
 
 ## Fix principale
 
@@ -8,7 +8,7 @@ La transizione `aggancio metrico -> scansione` falliva sul telefono con:
 
 La causa era `SlamEngine extends EventTarget`: il costruttore V30.11.3 accedeva a `this.frontend`, `this.K`, ecc. prima di chiamare `super()`.
 
-V30.11.4 chiama `super()` come prima istruzione del costruttore e mantiene invariato il comportamento metrico/SLAM successivo.
+V30.12.0 chiama `super()` come prima istruzione del costruttore e mantiene invariato il comportamento metrico/SLAM successivo.
 
 ## Regressioni aggiunte
 
@@ -19,4 +19,4 @@ V30.11.4 chiama `super()` come prima istruzione del costruttore e mantiene invar
 
 ## Cache/versioning
 
-Tutti i riferimenti runtime e il service worker sono stati portati a V30.11.4 per evitare il riuso del vecchio `slam_engine.js` dalla cache V30.11.3.
+Tutti i riferimenti runtime e il service worker sono stati portati a V30.12.0 per evitare il riuso del vecchio `slam_engine.js` dalla cache V30.11.3.
