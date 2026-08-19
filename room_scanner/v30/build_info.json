@@ -1,1 +1,8 @@
-{"version":"30.6.1","build":"v30.6.1-20260819-imu-parallax-live-mesh","family":"Room Scanner V30","runtime":"standalone","dependsOnV20":false}
+{
+  "version": "30.7.0",
+  "id": "v30.7.0-20260819-xr-metric-camera-slam-gs",
+  "architecture": "WebXR metric bootstrap -> camera-only WASM SLAM -> multi-view stereo -> 3D Gaussian map",
+  "deepAI": false,
+  "imuRequired": false,
+  "updatedAt": "2026-08-19"
+}

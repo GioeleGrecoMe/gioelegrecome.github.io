@@ -1,88 +1,54 @@
-import {backproject,cameraToWorld,intrinsicsFromSize,median,optimizePosePnP,poseClone,poseIdentity,qAngle,qRotate} from './math.js';
-import {calibrateDepthFromAnchors,estimateFloorScale,metricDepth} from '../depth/depth_calibration.js';
+import {intrinsicsFromSize,poseClone,poseIdentity,qAngle,median,triangulateRays} from './math.js';
 
 /*
- * Keyframe/landmark SLAM orchestrator.
- * Heavy feature extraction and descriptor matching are WASM. This layer keeps
- * long-lived track IDs, metric landmarks, poses, and diagnostic quality.
+ * V30.7 camera-only metric SLAM orchestrator.
+ *
+ * Metric scale is seeded exactly once by the WebXR visual bridge. Afterwards
+ * every pose update is image based: WASM FAST/BRIEF correspondences + robust
+ * 3D-to-2D PnP. New sparse landmarks are triangulated from tracked rays with
+ * metric camera baselines. Semi-dense geometry is supplied separately by MVS.
  */
 export class SlamEngine{
- constructor(frontend,{cameraHeightM=1.35,fovDeg=62,keyframeIntervalMs=900,minMetricConfidence=.30,relativeReferenceDepthL=1}={}){this.frontend=frontend;this.cameraHeightM=cameraHeightM;this.fovDeg=fovDeg;this.keyframeIntervalMs=keyframeIntervalMs;this.minMetricConfidence=minMetricConfidence;this.relativeReferenceDepthL=relativeReferenceDepthL;this.reset();}
- reset(){this.pose=poseIdentity();this.prevPose=poseIdentity();this.prevTrackIds=[];this.nextTrackId=1;this.landmarks=new Map();this.frameSeq=0;this.keyframes=[];this.lastKeyframeAt=-Infinity;this.lastKeyframePose=poseIdentity();this.metricCalibration=null;this.relativeCalibration=null;this.mapCalibration=null;this.visualCalibration={relative:true,scaleKind:'relative-L',source:'visual-inertial'};this.status='BOOT';this.lastQuality={features:0,matches:0,landmarks:0,inliers:0,rmse:Infinity};this.markpoints=[];this.loopClosures=[];this.currentTracks=null;this.frontend?.reset?.();}
- processAnalysis(frame,{motionScore=0}={}){
-  const feat=this.frontend.process(frame.gray,frame.width,frame.height,{maxFeatures:900,threshold:17});const K=intrinsicsFromSize(frame.width,frame.height,this.fovDeg),trackIds=Array(feat.count);for(let i=0;i<feat.count;i++)trackIds[i]=this.nextTrackId++;
-  const flows=[];for(let m=0;m<feat.matches.count;m++){const ci=feat.matches.curr[m],pi=feat.matches.prev[m];if(pi>=0&&pi<this.prevTrackIds.length){trackIds[ci]=this.prevTrackIds[pi];flows.push([feat.xs[ci],feat.ys[ci],pi]);}}
-  const corr=[];for(let i=0;i<feat.count;i++){const lm=this.landmarks.get(trackIds[i]);if(lm)corr.push({world:lm.p,u:feat.xs[i],v:feat.ys[i],trackId:trackIds[i]});}
-  this.prevPose=poseClone(this.pose);let solve={pose:this.pose,inliers:0,rmse:Infinity,ok:false};if(corr.length>=10)solve=this.frontend.optimizePose?.(this.pose,corr,K,{iterations:5,maxPoints:180})||optimizePosePnP(this.pose,corr,K,{iterations:5,maxPoints:140});
-  if(this._acceptPose(solve))this.pose=solve.pose;else if(feat.matches.count>=20){/* Fallback: tiny rotational visual odometry only. Translation waits for metric landmarks. */const dx=[],dy=[];for(let m=0;m<feat.matches.count;m++){const ci=feat.matches.curr[m],pi=feat.matches.prev[m];const prev=this._prevFeatureXY?.[pi];if(prev){dx.push(feat.xs[ci]-prev[0]);dy.push(feat.ys[ci]-prev[1]);}}if(dx.length){const yaw=-median(dx)/K.fx*.22,pitch=median(dy)/K.fy*.22;const inc={p:[0,0,0],q:[-pitch/2,yaw/2,0,1]};this.pose.q=[this.pose.q[0]+inc.q[0],this.pose.q[1]+inc.q[1],this.pose.q[2],this.pose.q[3]];const n=Math.hypot(...this.pose.q)||1;this.pose.q=this.pose.q.map(v=>v/n);}}
-  const flowMag=this._flowMagnitude(feat);
-  this._prevFeatureXY=Array.from({length:feat.count},(_,i)=>[feat.xs[i],feat.ys[i]]);this.prevTrackIds=trackIds;this.frameSeq++;
-  const angle=qAngle(this.pose.q,this.lastKeyframePose.q),trans=Math.hypot(this.pose.p[0]-this.lastKeyframePose.p[0],this.pose.p[1]-this.lastKeyframePose.p[1],this.pose.p[2]-this.lastKeyframePose.p[2]);
-  const due=frame.timestamp-this.lastKeyframeAt>=this.keyframeIntervalMs&&(this.keyframes.length===0||trans>.12||angle>.12||flowMag>3.2||motionScore>.7);
-  this.lastQuality={features:feat.count,matches:feat.matches.count,landmarks:corr.length,inliers:solve.inliers,rmse:solve.rmse,flowPx:flowMag,metric:!!this.metricCalibration};
-  this.currentTracks={K,trackIds,xs:feat.xs,ys:feat.ys,descriptors:feat.descriptors,descriptorBytes:feat.descriptorBytes};
-  return {pose:poseClone(this.pose),K,features:feat,trackIds,keyframeDue:due,quality:this.lastQuality};
- }
- _flowMagnitude(feat){const vals=[];for(let m=0;m<feat.matches.count;m++){const ci=feat.matches.curr[m],pi=feat.matches.prev[m],p=this._prevFeatureXY?.[pi];if(p)vals.push(Math.hypot(feat.xs[ci]-p[0],feat.ys[ci]-p[1]));}return vals.length?median(vals):0;}
- _acceptPose(solve){if(!solve?.ok||solve.inliers<10||!Number.isFinite(solve.rmse)||solve.rmse>5.5)return false;const p=solve.pose?.p,q=solve.pose?.q;if(!p?.every(Number.isFinite)||!q?.every(Number.isFinite))return false;return Math.hypot(p[0]-this.pose.p[0],p[1]-this.pose.p[1],p[2]-this.pose.p[2])<.8&&qAngle(q,this.pose.q)<.7;}
- createKeyframeSnapshot(analysis,cameraFrame,{motionPrior=null}={}){const kf={id:`kf-${crypto.randomUUID()}`,seq:this.keyframes.length,t:cameraFrame.timestamp,pose:poseClone(analysis.pose),K:{...analysis.K},analysisWidth:analysis.K.width,analysisHeight:analysis.K.height,imageWidth:cameraFrame.width,imageHeight:cameraFrame.height,trackIds:[...analysis.trackIds],featureX:Array.from(analysis.features.xs),featureY:Array.from(analysis.features.ys),featureScore:Array.from(analysis.features.scores),descriptors:analysis.features.descriptors,descriptorBytes:analysis.features.descriptorBytes,signature:this._descriptorSignature(analysis.features.descriptors,analysis.features.descriptorBytes),blob:cameraFrame.blob,depth:null,depthCalibration:null,motionPrior,visualPoints:[]};const loop=this._tryLoopClosure(kf);if(loop?.ok){kf.pose=poseClone(loop.pose);this.pose=poseClone(loop.pose);this.loopClosures.push({from:kf.id,to:loop.candidateId,inliers:loop.inliers,rmse:loop.rmse,t:Date.now()});}const visual=this._integrateVisualKeyframe(kf,motionPrior);kf.visual=visual;this.keyframes.push(kf);this.lastKeyframeAt=cameraFrame.timestamp;this.lastKeyframePose=poseClone(kf.pose);return kf;}
-
- _integrateVisualKeyframe(kf,motionPrior){
-  const prev=this.keyframes.at(-1);if(!prev)return {ok:false,reason:'first-keyframe',added:0};const old=new Map(prev.trackIds.map((id,i)=>[id,i])),flows=[];for(let i=0;i<kf.trackIds.length;i++){const j=old.get(kf.trackIds[i]);if(j!==undefined)flows.push([kf.featureX[i]-prev.featureX[j],kf.featureY[i]-prev.featureY[j]]);}if(flows.length<12)return {ok:false,reason:'few-tracks',added:0,matches:flows.length};
-  const dx=median(flows.map(p=>p[0])),dy=median(flows.map(p=>p[1])),flow=Math.hypot(dx,dy),imu=motionPrior||{},base=imu.translationL||0,visualBaseline=base>=.012?base:(flow>=4?Math.min(.075,.018+flow*.003):0);if(visualBaseline<.018)return {ok:false,reason:'need-lateral-motion',added:0,matches:flows.length,flow};
-  const fallback=visualBaseline,dir0=[-dx/Math.max(1,kf.K.fx),dy/Math.max(1,kf.K.fy),.16],n0=Math.hypot(...dir0)||1,dir=dir0.map(v=>v/n0),delta=qRotate(prev.pose.q,dir.map(v=>v*fallback));kf.pose={p:[prev.pose.p[0]+delta[0],prev.pose.p[1]+delta[1],prev.pose.p[2]+delta[2]],q:[...kf.pose.q]};this.pose=poseClone(kf.pose);
-  const rotationPenalty=Math.max(.28,1-Math.min(.72,(imu.rotationRad||0)/.9));let added=0;for(let i=0;i<kf.trackIds.length;i++){const id=kf.trackIds[i],j=old.get(id);if(j===undefined)continue;const a=this._ray(prev,prev.featureX[j],prev.featureY[j]),b=this._ray(kf,kf.featureX[i],kf.featureY[i]),p=this._triangulate(a,b);if(!p)continue;const oldLm=this.landmarks.get(id),conf=(Math.min(1,.18+Math.min(.45,flow/28)+Math.min(.35,(imu.confidence||0)*.5)))*rotationPenalty;if(oldLm){oldLm.p=oldLm.p.map((v,k)=>v*.65+p[k]*.35);oldLm.views++;oldLm.confidence=Math.max(oldLm.confidence||0,conf);}else{this.landmarks.set(id,{id,p,views:1,confidence:conf,firstKf:kf.id});added++;}const lm=this.landmarks.get(id);kf.visualPoints.push({x:kf.featureX[i],y:kf.featureY[i],p:[...lm.p],confidence:lm.confidence||conf,views:lm.views});}
-  this.mapCalibration=this.visualCalibration;for(const mark of this.markpoints){if(mark.p)continue;const lm=this.landmarks.get(mark.trackId);if(lm){mark.p=[...lm.p];mark.views=lm.views;mark.kind='relative-L';}}return {ok:true,added,matches:flows.length,flow,baselineL:fallback};
- }
- _ray(kf,u,v){const d=[(u-kf.K.cx)/kf.K.fx,-(v-kf.K.cy)/kf.K.fy,1],n=Math.hypot(...d)||1;return {o:[...kf.pose.p],d:qRotate(kf.pose.q,d.map(x=>x/n))};}
- _triangulate(a,b){const w=[a.o[0]-b.o[0],a.o[1]-b.o[1],a.o[2]-b.o[2]],ab=a.d[0]*b.d[0]+a.d[1]*b.d[1]+a.d[2]*b.d[2],den=1-ab*ab;if(den<.002)return null;const aw=-(a.d[0]*w[0]+a.d[1]*w[1]+a.d[2]*w[2]),bw=-(b.d[0]*w[0]+b.d[1]*w[1]+b.d[2]*w[2]),ta=(aw-ab*bw)/den,tb=(ab*aw-bw)/den;if(ta<.06||tb<.06||ta>12||tb>12)return null;const pa=a.o.map((v,i)=>v+a.d[i]*ta),pb=b.o.map((v,i)=>v+b.d[i]*tb);if(Math.hypot(pa[0]-pb[0],pa[1]-pb[1],pa[2]-pb[2])>.18)return null;return pa.map((v,i)=>(v+pb[i])*.5);}
- integrateDepth(kf,result){
-  const {depth,width,height}=result;const poseRefinement=this._refineKeyframePose(kf);let cal=null;const anchors=[];for(let i=0;i<kf.trackIds.length;i++){const lm=this.landmarks.get(kf.trackIds[i]);if(!lm)continue;const pc=this._worldToCamera(kf.pose,lm.p);if(pc[2]<=.05)continue;anchors.push({u:kf.featureX[i]/kf.analysisWidth,v:kf.featureY[i]/kf.analysisHeight,z:pc[2]});}
-  if(anchors.length>=6)cal=calibrateDepthFromAnchors(depth,width,height,anchors);
-  if(!cal){const Kimage={...kf.K,width:kf.imageWidth,height:kf.imageHeight,fx:kf.K.fx*kf.imageWidth/kf.analysisWidth,fy:kf.K.fy*kf.imageHeight/kf.analysisHeight,cx:kf.imageWidth/2,cy:kf.imageHeight/2};cal=estimateFloorScale(depth,width,height,Kimage,this.cameraHeightM);if(cal)cal.source='floor-height';}
-  if(!cal&&this.metricCalibration)cal={...this.metricCalibration,confidence:this.metricCalibration.confidence*.95,source:'carry'};
-  if(!cal){const finite=[];for(let i=0;i<depth.length;i+=17)if(Number.isFinite(depth[i])&&depth[i]>1e-6)finite.push(depth[i]);const med=median(finite)||1;cal={mode:'direct',a:1/med,b:0,confidence:.08,source:'nominal-unscaled'};}
-  /* A monocular network gives relative depth even where camera height / floor
-   * fitting is unreliable. Do not discard that geometry: normalize it to a
-   * stable map unit L, then use depth-backed tracks for visual PnP. */
-  const metricAllowed=cal.confidence>=this.minMetricConfidence&&cal.source!=='nominal-unscaled';
-  if(metricAllowed){this.metricCalibration={mode:cal.mode,a:cal.a,b:cal.b,confidence:cal.confidence,source:cal.source};cal={...cal,relative:false,scaleKind:'metric'};}
-  else cal=this._relativeCalibration(depth,width,height,cal,anchors);
-  this.mapCalibration=cal;kf.depth={width,height,data:depth};kf.depthCalibration=cal;const mappingAllowed=true;
-  /* Attach 3D landmarks to tracked visual features. Once attached they let the
-   * next frames estimate metric 6-DoF with reprojection PnP. */
-  let added=0;for(let i=0;i<kf.trackIds.length;i++){const u=kf.featureX[i]/kf.analysisWidth*width,v=kf.featureY[i]/kf.analysisHeight*height,x=Math.max(0,Math.min(width-1,Math.round(u))),y=Math.max(0,Math.min(height-1,Math.round(v))),raw=depth[y*width+x],z=metricDepth(raw,cal);if(!Number.isFinite(z)||z<.03||z>16)continue;const Kd={fx:kf.K.fx*width/kf.analysisWidth,fy:kf.K.fy*height/kf.analysisHeight,cx:width/2,cy:height/2,width,height},pc=backproject(u,v,z,Kd),pw=cameraToWorld(kf.pose,pc),id=kf.trackIds[i],old=this.landmarks.get(id);if(old){old.p=[old.p[0]*.7+pw[0]*.3,old.p[1]*.7+pw[1]*.3,old.p[2]*.7+pw[2]*.3];old.views++;}else{this.landmarks.set(id,{id,p:pw,views:1,firstKf:kf.id});added++;}}
-  for(const mark of this.markpoints){if(mark.p)continue;const lm=this.landmarks.get(mark.trackId);if(lm){mark.p=[...lm.p];mark.views=lm.views;mark.kind=cal.relative?'relative-L':'metric';}}
-  return {calibration:cal,landmarksAdded:added,totalLandmarks:this.landmarks.size,mappingAllowed,relative:!!cal.relative,scaleKind:cal.scaleKind,poseRefinement};
- }
-
- _refineKeyframePose(kf){
-  const corr=[];for(let i=0;i<kf.trackIds.length;i++){const lm=this.landmarks.get(kf.trackIds[i]);if(lm)corr.push({world:lm.p,u:kf.featureX[i],v:kf.featureY[i],trackId:kf.trackIds[i]});}
-  if(corr.length<10||!this.frontend?.optimizePose)return {ok:false,reason:corr.length<10?'few-landmarks':'pnp-unavailable',matches:corr.length};
-  const r=this.frontend.optimizePose(kf.pose,corr,kf.K,{iterations:9,maxPoints:220});const jump=r?.pose?.p?Math.hypot(r.pose.p[0]-kf.pose.p[0],r.pose.p[1]-kf.pose.p[1],r.pose.p[2]-kf.pose.p[2]):Infinity;
-  if(!r?.ok||r.inliers<10||!Number.isFinite(r.rmse)||r.rmse>5||jump>2.5)return {ok:false,reason:'pnp-rejected',matches:corr.length,inliers:r?.inliers||0,rmse:r?.rmse};
-  kf.pose=poseClone(r.pose);this.pose=poseClone(r.pose);return {ok:true,matches:corr.length,inliers:r.inliers,rmse:r.rmse};
- }
-
- _relativeCalibration(depth,width,height,suggested,anchors){
-  const mode=suggested?.mode==='inverse'?'inverse':'direct';
-  /* Once landmarks exist, their depth is in L too: anchor fitting compensates
-   * frame-to-frame monocular-depth drift without claiming metric accuracy. */
-  let fitted=null;if(anchors.length>=6)fitted=calibrateDepthFromAnchors(depth,width,height,anchors);
-  if(fitted&&fitted.a>0&&Number.isFinite(fitted.a))this.relativeCalibration={...fitted,source:'relative-anchors-L',confidence:1,relative:true,scaleKind:'relative-L',referenceDepthL:this.relativeReferenceDepthL};
-  if(!this.relativeCalibration){const values=[];for(let i=0;i<depth.length;i+=17){const raw=depth[i],value=mode==='inverse'?1/Math.max(1e-6,raw):raw;if(Number.isFinite(value)&&value>1e-6)values.push(value);}const med=median(values)||1;this.relativeCalibration={mode,a:this.relativeReferenceDepthL/med,b:0,confidence:1,source:'relative-L-normalized',relative:true,scaleKind:'relative-L',referenceDepthL:this.relativeReferenceDepthL};}
-  return {...this.relativeCalibration};
- }
-
- _descriptorSignature(desc,db=16){const n=Math.floor(desc.length/db),sig=new Uint8Array(db);if(!n)return sig;for(let b=0;b<db;b++){for(let bit=0;bit<8;bit++){let ones=0;for(let i=0;i<n;i++)ones+=(desc[i*db+b]>>bit)&1;if(ones*2>=n)sig[b]|=1<<bit;}}return sig;}
- _sigDistance(a,b){let d=0;for(let i=0;i<Math.min(a.length,b.length);i++){let v=a[i]^b[i];while(v){v&=v-1;d++;}}return d;}
- _tryLoopClosure(kf){if(kf.seq<10)return null;const candidates=this.keyframes.filter(x=>kf.seq-x.seq>=8&&x.signature&&this._sigDistance(kf.signature,x.signature)<=48).sort((a,b)=>this._sigDistance(kf.signature,a.signature)-this._sigDistance(kf.signature,b.signature)).slice(0,3);for(const old of candidates){const corr=this._matchKeyframesToLandmarks(kf,old);if(corr.length<14)continue;const r=this.frontend.optimizePose?.(kf.pose,corr,kf.K,{iterations:6,maxPoints:180})||optimizePosePnP(kf.pose,corr,kf.K,{iterations:6,maxPoints:140});if(r?.ok&&r.inliers>=14&&r.rmse<5.5)return {...r,candidateId:old.id};}return null;}
- _matchKeyframesToLandmarks(cur,old){const db=cur.descriptorBytes||16,ci=[...cur.trackIds.keys()].sort((a,b)=>(cur.featureScore[b]||0)-(cur.featureScore[a]||0)).slice(0,180),oi=[...old.trackIds.keys()].filter(i=>this.landmarks.has(old.trackIds[i])).sort((a,b)=>(old.featureScore?.[b]||0)-(old.featureScore?.[a]||0)).slice(0,220),out=[];for(const i of ci){let best=999,second=999,bj=-1;const co=i*db;for(const j of oi){const oo=j*db;let d=0;for(let k=0;k<db;k++){let v=cur.descriptors[co+k]^old.descriptors[oo+k];while(v){v&=v-1;d++;}}if(d<best){second=best;best=d;bj=j;}else if(d<second)second=d;}if(bj>=0&&best<50&&best*100<second*82){const lm=this.landmarks.get(old.trackIds[bj]);if(lm)out.push({world:lm.p,u:cur.featureX[i],v:cur.featureY[i]});}}return out;}
-
- _worldToCamera(T,pw){const q=[-T.q[0],-T.q[1],-T.q[2],T.q[3]],d=[pw[0]-T.p[0],pw[1]-T.p[1],pw[2]-T.p[2]];const x=q[0],y=q[1],z=q[2],w=q[3],tx=2*(y*d[2]-z*d[1]),ty=2*(z*d[0]-x*d[2]),tz=2*(x*d[1]-y*d[0]);return [d[0]+w*tx+(y*tz-z*ty),d[1]+w*ty+(z*tx-x*tz),d[2]+w*tz+(x*ty-y*tx)];}
-
- pinCenter(){
-  const c=this.currentTracks;if(!c?.trackIds?.length)return {ok:false,reason:'no-tracks'};let best=-1,bd=Infinity;for(let i=0;i<c.trackIds.length;i++){const d=Math.hypot(c.xs[i]-c.K.cx,c.ys[i]-c.K.cy);if(d<bd){bd=d;best=i;}}if(best<0)return {ok:false,reason:'no-track'};const trackId=c.trackIds[best],lm=this.landmarks.get(trackId),descriptor=c.descriptors?.slice(best*c.descriptorBytes,(best+1)*c.descriptorBytes),relative=!!this.mapCalibration?.relative;const mark={id:`mark-${crypto.randomUUID()}`,trackId,createdAt:Date.now(),views:lm?.views||0,pixel:{u:c.xs[best]/c.K.width,v:c.ys[best]/c.K.height},pose:poseClone(this.pose),descriptor:descriptor?Array.from(descriptor):null,descriptorBytes:c.descriptorBytes||0};if(lm){mark.kind=relative?'relative-L':'metric';mark.p=[...lm.p];}else mark.kind='visual-pending-depth';this.markpoints.push(mark);return {ok:true,mark,metric:!!lm&&!relative};
- }
- diagnostics(){return {frameSeq:this.frameSeq,pose:poseClone(this.pose),landmarks:this.landmarks.size,keyframes:this.keyframes.length,markpoints:this.markpoints,loopClosures:this.loopClosures,metricCalibration:this.metricCalibration,relativeCalibration:this.relativeCalibration,mapCalibration:this.mapCalibration,lastQuality:this.lastQuality};}
+  constructor(frontend,{fovDeg=62,keyframeIntervalMs=950,intrinsicsNorm=null}={}){this.frontend=frontend;this.fovDeg=fovDeg;this.keyframeIntervalMs=keyframeIntervalMs;this.intrinsicsNorm=intrinsicsNorm;this.reset();}
+  reset(){this.pose=poseIdentity();this.prevPose=poseIdentity();this.prevTrackIds=[];this.nextTrackId=1;this.landmarks=new Map();this.pending=new Map();this.frameSeq=0;this.keyframes=[];this.lastKeyframeAt=-Infinity;this.lastKeyframePose=poseIdentity();this.metricCalibration=null;this.status='BOOT';this.lastQuality={features:0,matches:0,landmarks:0,inliers:0,rmse:Infinity};this.markpoints=[];this.loopClosures=[];this.currentTracks=null;this._prevFeatureXY=null;this._trustedFrames=0;this.frontend?.reset?.();}
+  _K(width,height){const n=this.intrinsicsNorm;if(n)return {fx:n.fxN*width,fy:n.fyN*height,cx:n.cxN*width,cy:n.cyN*height,width,height};return intrinsicsFromSize(width,height,this.fovDeg);}
+  processAnalysis(frame){
+    const feat=this.frontend.process(frame.gray,frame.width,frame.height,{maxFeatures:950,threshold:16}),K=this._K(frame.width,frame.height),trackIds=Array(feat.count);
+    for(let i=0;i<feat.count;i++)trackIds[i]=this.nextTrackId++;
+    for(let m=0;m<feat.matches.count;m++){const ci=feat.matches.curr[m],pi=feat.matches.prev[m];if(pi>=0&&pi<this.prevTrackIds.length)trackIds[ci]=this.prevTrackIds[pi];}
+    const corr=[];for(let i=0;i<feat.count;i++){const lm=this.landmarks.get(trackIds[i]);if(lm)corr.push({world:lm.p,u:feat.xs[i],v:feat.ys[i],trackId:trackIds[i]});}
+    this.prevPose=poseClone(this.pose);let solve={pose:this.pose,inliers:0,rmse:Infinity,ok:false};
+    if(this.metricCalibration&&corr.length>=8)solve=this.frontend.optimizePose?.(this.pose,corr,K,{iterations:6,maxPoints:220,minInliers:Math.min(10,Math.max(8,corr.length-2))})||solve;
+    if(solve.ok){this.pose=solve.pose;this._trustedFrames=Math.min(12,this._trustedFrames+1);}else if(this.metricCalibration){this._trustedFrames=Math.max(0,this._trustedFrames-1);}
+    const flowMag=this._flowMagnitude(feat),trusted=!!this.metricCalibration&&(solve.ok||this._trustedFrames>0);
+    if(trusted)this._triangulateTracks(feat,trackIds,K);
+    this._prevFeatureXY=Array.from({length:feat.count},(_,i)=>[feat.xs[i],feat.ys[i]]);this.prevTrackIds=trackIds;this.frameSeq++;
+    const angle=qAngle(this.pose.q,this.lastKeyframePose.q),trans=Math.hypot(this.pose.p[0]-this.lastKeyframePose.p[0],this.pose.p[1]-this.lastKeyframePose.p[1],this.pose.p[2]-this.lastKeyframePose.p[2]);
+    const due=!!this.metricCalibration&&frame.timestamp-this.lastKeyframeAt>=this.keyframeIntervalMs&&(this.keyframes.length===0||trans>.10||angle>.10||flowMag>3.0);
+    this.lastQuality={features:feat.count,matches:feat.matches.count,landmarks:corr.length,inliers:solve.inliers,rmse:solve.rmse,flowPx:flowMag,metric:!!this.metricCalibration,trusted,triangulated:this.landmarks.size};
+    this.currentTracks={K,trackIds,xs:feat.xs,ys:feat.ys};
+    return {pose:poseClone(this.pose),K,features:feat,trackIds,keyframeDue:due,quality:this.lastQuality};
+  }
+  seedMetricFromWebXR({pose,analysis,bindings,rmse=Infinity,inliers=0,calibrationId='webxr'}){
+    this.pose=poseClone(pose);this.prevPose=poseClone(pose);this.lastKeyframePose=poseClone(pose);this._trustedFrames=5;let added=0;
+    for(const b of bindings||[]){const old=this.landmarks.get(b.trackId);if(old){old.p=[...b.anchor.p];old.views=Math.max(2,old.views||1);old.source='webxr-anchor';}else{this.landmarks.set(b.trackId,{id:b.trackId,p:[...b.anchor.p],views:2,source:'webxr-anchor',firstKf:null});added++;}}
+    this.metricCalibration={source:'webxr-visual-bridge',calibrationId,confidence:Math.max(.1,Math.min(1,(inliers/12)*Math.exp(-Math.max(0,rmse-1)/8))),inliers,rmse,createdAt:Date.now()};
+    this.currentTracks={K:analysis.K,trackIds:analysis.trackIds,xs:analysis.features.xs,ys:analysis.features.ys};return {added,total:this.landmarks.size,metricCalibration:this.metricCalibration};
+  }
+  _triangulateTracks(feat,trackIds,K){
+    const visible=new Set();for(let i=0;i<feat.count;i++){const id=trackIds[i];visible.add(id);const lm=this.landmarks.get(id);if(lm){lm.views=(lm.lastFrame===this.frameSeq)?lm.views:(lm.views||1)+1;lm.lastFrame=this.frameSeq;continue;}const obs={pose:poseClone(this.pose),K:{...K},u:feat.xs[i],v:feat.ys[i],frameSeq:this.frameSeq};const first=this.pending.get(id);if(!first){this.pending.set(id,obs);continue;}if(this.frameSeq-first.frameSeq<2)continue;const baseline=Math.hypot(this.pose.p[0]-first.pose.p[0],this.pose.p[1]-first.pose.p[1],this.pose.p[2]-first.pose.p[2]);if(baseline<.055)continue;const t=triangulateRays(first,obs,{minAngleRad:.012,maxGapM:.10,minDepthM:.16,maxDepthM:14});if(t.ok){this.landmarks.set(id,{id,p:t.p,views:2,source:'triangulated',firstFrame:first.frameSeq,lastFrame:this.frameSeq,angle:t.angle,gap:t.gap});this.pending.delete(id);}else if(this.frameSeq-first.frameSeq>45)this.pending.set(id,obs);}
+    if(this.pending.size>5000){const a=[...this.pending.entries()].sort((x,y)=>y[1].frameSeq-x[1].frameSeq).slice(0,3800);this.pending=new Map(a);}
+  }
+  _flowMagnitude(feat){const vals=[];for(let m=0;m<feat.matches.count;m++){const ci=feat.matches.curr[m],pi=feat.matches.prev[m],p=this._prevFeatureXY?.[pi];if(p)vals.push(Math.hypot(feat.xs[ci]-p[0],feat.ys[ci]-p[1]));}return vals.length?median(vals):0;}
+  createKeyframeSnapshot(analysis,cameraFrame,{analysisGray=null,analysisRgb=null}={}){
+    const kf={id:`kf-${crypto.randomUUID()}`,seq:this.keyframes.length,t:cameraFrame.timestamp,pose:poseClone(analysis.pose),K:{...analysis.K},analysisWidth:analysis.K.width,analysisHeight:analysis.K.height,imageWidth:cameraFrame.width,imageHeight:cameraFrame.height,trackIds:[...analysis.trackIds],featureX:Array.from(analysis.features.xs),featureY:Array.from(analysis.features.ys),featureScore:Array.from(analysis.features.scores),descriptors:analysis.features.descriptors.slice(),descriptorBytes:analysis.features.descriptorBytes,signature:this._descriptorSignature(analysis.features.descriptors,analysis.features.descriptorBytes),blob:cameraFrame.blob,analysisGray:analysisGray?.slice?.()||null,analysisRgb:analysisRgb?.slice?.()||null};
+    const loop=this._tryLoopClosure(kf);if(loop?.ok){kf.pose=poseClone(loop.pose);this.pose=poseClone(loop.pose);this.loopClosures.push({from:kf.id,to:loop.candidateId,inliers:loop.inliers,rmse:loop.rmse,t:Date.now()});}
+    this.keyframes.push(kf);this.lastKeyframeAt=cameraFrame.timestamp;this.lastKeyframePose=poseClone(kf.pose);if(this.keyframes.length>520)this.keyframes.splice(0,this.keyframes.length-520);return kf;
+  }
+  _descriptorSignature(desc,db=16){const n=Math.floor(desc.length/db),sig=new Uint8Array(db);if(!n)return sig;for(let b=0;b<db;b++)for(let bit=0;bit<8;bit++){let ones=0;for(let i=0;i<n;i++)ones+=(desc[i*db+b]>>bit)&1;if(ones*2>=n)sig[b]|=1<<bit;}return sig;}
+  _sigDistance(a,b){let d=0;for(let i=0;i<Math.min(a.length,b.length);i++){let v=a[i]^b[i];while(v){v&=v-1;d++;}}return d;}
+  _tryLoopClosure(kf){if(kf.seq<10)return null;const candidates=this.keyframes.filter(x=>kf.seq-x.seq>=8&&x.signature&&this._sigDistance(kf.signature,x.signature)<=48).sort((a,b)=>this._sigDistance(kf.signature,a.signature)-this._sigDistance(kf.signature,b.signature)).slice(0,3);for(const old of candidates){const corr=this._matchKeyframesToLandmarks(kf,old);if(corr.length<14)continue;const r=this.frontend.optimizePose?.(kf.pose,corr,kf.K,{iterations:7,maxPoints:220,minInliers:12});if(r?.ok&&r.inliers>=12&&r.rmse<5.5)return {...r,candidateId:old.id};}return null;}
+  _matchKeyframesToLandmarks(cur,old){const db=cur.descriptorBytes||16,ci=[...cur.trackIds.keys()].sort((a,b)=>(cur.featureScore[b]||0)-(cur.featureScore[a]||0)).slice(0,200),oi=[...old.trackIds.keys()].filter(i=>this.landmarks.has(old.trackIds[i])).sort((a,b)=>(old.featureScore?.[b]||0)-(old.featureScore?.[a]||0)).slice(0,240),out=[];for(const i of ci){let best=999,second=999,bj=-1,co=i*db;for(const j of oi){let d=0,oo=j*db;for(let k=0;k<db;k++){let v=cur.descriptors[co+k]^old.descriptors[oo+k];while(v){v&=v-1;d++;}}if(d<best){second=best;best=d;bj=j;}else if(d<second)second=d;}if(bj>=0&&best<50&&best*100<second*82){const lm=this.landmarks.get(old.trackIds[bj]);if(lm)out.push({world:lm.p,u:cur.featureX[i],v:cur.featureY[i]});}}return out;}
+  pinCenter(){const c=this.currentTracks;if(!c?.trackIds?.length)return {ok:false,reason:'no-tracks'};let best=-1,bd=Infinity;for(let i=0;i<c.trackIds.length;i++){const d=Math.hypot(c.xs[i]-c.K.cx,c.ys[i]-c.K.cy);if(d<bd){bd=d;best=i;}}if(best<0)return {ok:false,reason:'no-track'};const id=c.trackIds[best],lm=this.landmarks.get(id);if(!lm)return {ok:false,reason:'track-not-metric',trackId:id};const mark={id:`mark-${crypto.randomUUID()}`,trackId:id,p:[...lm.p],createdAt:Date.now(),views:lm.views,source:lm.source};this.markpoints.push(mark);return {ok:true,mark};}
+  diagnostics(){return {frameSeq:this.frameSeq,pose:poseClone(this.pose),landmarks:this.landmarks.size,pendingTriangulation:this.pending.size,keyframes:this.keyframes.length,markpoints:this.markpoints,loopClosures:this.loopClosures,metricCalibration:this.metricCalibration,lastQuality:this.lastQuality};}
 }

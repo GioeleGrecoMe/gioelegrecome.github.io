@@ -1,44 +1,48 @@
 <!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#080b10"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"><style>#liveMesh{position:fixed;z-index:4;right:10px;top:max(104px,calc(env(safe-area-inset-top) + 96px));width:min(42vw,220px);height:min(30vh,170px);border:1px solid rgba(255,255,255,.28);border-radius:12px;background:rgba(4,8,12,.78);pointer-events:none}</style><title>Room Scanner V30</title></head>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#080b10"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"><title>Room Scanner V30.7</title></head>
 <body>
 <main id="app">
 <section id="home" class="screen active">
- <div class="hero"><div id="buildBadge" class="badge">V30.6.1 · BOOT</div><h1>Room Scanner V30</h1><p>Mesh live visual-inerziale da keypoint, senza Deep AI.</p></div>
- <div class="card"><label>Altezza camera dal pavimento <span id="heightLabel">1.35 m</span></label><input id="cameraHeight" type="range" min="0.70" max="2.00" step="0.01" value="1.35"><p class="hint">Riferimento opzionale per la successiva riscalatura: la mesh live usa scala relativa L e keypoint.</p></div>
- <div class="actions"><button id="startBtn" class="primary">Avvia scansione guidata</button><button id="loadPlyBtn">Apri PLY RGB / Gaussian</button><button id="loadR30Btn">Apri sessione .r30</button></div>
+ <div class="hero"><div id="buildBadge" class="badge">V30.7.0 · BOOT</div><h1>Room Scanner V30</h1><p>Calibrazione metrica WebXR, SLAM WASM camera-only, MVS geometrico e mappa 3D Gaussian. Nessun DeepAI, nessuna IMU necessaria.</p></div>
+ <div class="card"><b>1 · Calibrazione metrica iniziale</b><p class="hint">Inquadra un angolo pavimento–pareti ricco di dettagli. WebXR misura riferimenti metrici e salva piccoli template visivi; terminata la calibrazione WebXR viene chiuso.</p><div id="calibSummary" class="status">Calibrazione non presente.</div><div class="actions inline"><button id="calibrateBtn" class="primary">Calibra con WebXR</button><button id="clearCalibrationBtn">Azzera calibrazione</button></div></div>
+ <div class="card"><b>2 · Scansione camera-only</b><p class="hint">All'avvio ripunta per pochi secondi la stessa zona usata nella calibrazione. Il PnP WASM trasferisce la scala metrica alla camera normale; poi SLAM, triangolazione e MVS lavorano solo sulle immagini.</p><div class="actions inline"><button id="startBtn" class="primary" disabled>Avvia scansione</button><button id="loadPlyBtn">Apri PLY RGB / Gaussian</button><button id="loadR30Btn">Apri sessione .r30</button></div></div>
  <input id="filePly" type="file" accept=".ply" hidden><input id="fileR30" type="file" accept=".r30,application/octet-stream" hidden>
  <div id="homeStatus" class="status">Caricamento V30…</div>
+ <div id="updateBanner" class="card updateCard" hidden><b>Aggiornamento disponibile / cache incoerente</b><p id="updateText" class="hint"></p><button id="forceUpdateBtn" class="primary">Aggiorna ora e svuota cache V30</button></div>
  <div class="card"><b>Sessioni V30 locali</b><div id="savedSessions"><span class="muted">Apertura database…</span></div><div id="buildFoot" class="buildFoot"></div></div>
 </section>
-<section id="scan" class="screen">
- <video id="camera" autoplay muted playsinline></video><canvas id="miniMap"></canvas><canvas id="liveMesh" aria-label="Anteprima mesh 3D live"></canvas>
- <div class="topHud"><span id="slamState">INIT</span><span id="metricState">scala —</span><span id="deepState">mesh —</span></div>
- <div class="stats"><span>feat <b id="statFeat">0</b></span><span>match <b id="statMatch">0</b></span><span>lm <b id="statLandmarks">0</b></span><span>KF <b id="statKf">0</b></span><span>mesh <b id="statMesh">0</b></span><span>parallasse <b id="statGs">0</b></span></div>
- <div id="coach" class="coach">Calibrazione 1/4: osserva una parete con spigoli e dettagli; poi muoviti lateralmente con calma.</div>
- <div class="scanButtons"><button id="pinBtn">◎ Pin repere</button><button id="pauseDeepBtn">Deep AI escluso</button><button id="finishBtn" class="danger">Salva / termina</button></div>
+
+<section id="calibration" class="screen xrOverlay">
+ <div class="calibPanel"><div class="badge">WEBXR METRIC BOOTSTRAP</div><h2>Calibrazione metrica</h2><p id="calibCoach">Muovi lentamente il telefono inquadrando pavimento e due pareti. Cerca dettagli, bordi e oggetti fermi.</p><div class="calibMeter"><div id="calibBar"></div></div><div class="stats"><span>anchor <b id="calibAnchors">0/12</b></span><span>span <b id="calibSpan">0.00 m</b></span><span>verticale <b id="calibVertical">0.00 m</b></span></div><div class="actions"><button id="calibFinishBtn" class="primary" disabled>Conferma calibrazione</button><button id="calibCancelBtn" class="danger">Annulla</button></div></div>
 </section>
+
+<section id="bridge" class="screen">
+ <video id="bridgeCamera" autoplay muted playsinline></video><canvas id="bridgeMap"></canvas>
+ <div class="bridgeCard"><div class="badge">AGGANCIO METRICO CAMERA</div><h2>Ripunta la zona di calibrazione</h2><p id="bridgeCoach">Mantieni il telefono vicino alla vista finale della calibrazione WebXR. Cerco automaticamente i riferimenti metrici.</p><div class="stats bridgeStats"><span>template <b id="bridgeFound">0</b></span><span>inlier <b id="bridgeInliers">0</b></span><span>RMSE <b id="bridgeRmse">—</b></span></div><div class="actions"><button id="bridgeRetryBtn">Riprova aggancio</button><button id="bridgeCancelBtn" class="danger">Annulla</button></div></div>
+</section>
+
+<section id="scan" class="screen">
+ <video id="camera" autoplay muted playsinline></video><canvas id="miniMap"></canvas>
+ <div class="topHud"><span id="slamState">INIT</span><span id="metricState">scala —</span><span id="mvsState">MVS —</span></div>
+ <div class="stats"><span>feat <b id="statFeat">0</b></span><span>match <b id="statMatch">0</b></span><span>lm <b id="statLandmarks">0</b></span><span>KF <b id="statKf">0</b></span><span>GS <b id="statGs">0</b></span><span>tri <b id="statTri">0</b></span></div>
+ <div id="coach" class="coach">Muoviti lentamente. Crea parallasse: osserva ogni zona da più posizioni e altezze.</div>
+ <div class="scanButtons"><button id="pinBtn">◎ Pin repere</button><button id="finishBtn" class="danger">Salva / termina</button></div>
+</section>
+
 <section id="review" class="screen">
- <div class="reviewHead"><div><div class="badge">V30 REVIEW</div><h2>Mesh di confidenza</h2></div><button id="backHomeBtn">Home</button></div>
+ <div class="reviewHead"><div><div class="badge">V30 REVIEW</div><h2>Gemello Gaussian metrico</h2></div><button id="backHomeBtn">Home</button></div>
  <canvas id="viewer"></canvas>
  <div class="viewerTools"><button id="orbitBtn">Orbita</button><button id="panBtn">Sposta</button><button id="fitBtn">Centra</button><label>Splat <input id="splatSize" type="range" min="0.5" max="3" value="1" step="0.1"></label></div>
  <div id="reviewStats" class="card compact"></div>
- <div class="actions wrap"><button id="processDeepBtn" class="primary">Rifinisci mesh da keypoint</button><button id="exportMeshBtn" class="primary">Scarica mesh PLY</button><button id="exportPlyBtn">Scarica PLY Gaussian RGB</button><button id="exportR30Btn">Scarica RAW .r30</button><button id="exportDiagBtn">Scarica diagnostica</button><button id="resumeBtn">Nuovo segmento</button></div>
+ <div class="actions wrap"><button id="exportPlyBtn" class="primary">Scarica PLY Gaussian RGB</button><button id="exportR30Btn">Scarica RAW .r30</button><button id="exportDiagBtn">Scarica diagnostica</button><button id="resumeBtn">Nuova scansione</button></div>
 </section>
 </main>
-<aside class="diagDock"><details id="diagPanel"><summary>Diagnostica / debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Scarica log</button><button id="diagCopyBtn">Copia log</button><button id="selfTestBtn">Esegui self-test</button></div><div id="selfTestSummary" class="diagSummary">I test non richiedono il permesso camera.</div><pre id="diagLive">Bootstrap…</pre></div></details></aside>
+<aside class="diagDock"><details id="diagPanel"><summary>Diagnostica / debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Scarica log</button><button id="diagCopyBtn">Copia log</button><button id="selfTestBtn">Esegui self-test</button><button id="diagForceUpdateBtn">Forza aggiornamento</button></div><div id="selfTestSummary" class="diagSummary">Self-test: asset, WASM, WebXR capability, MVS worker, IndexedDB e service worker.</div><pre id="diagLive">Bootstrap…</pre></div></details></aside>
 <script>
 (function(){
-  const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),errors:[],ready:false};
-  const record=(type,data)=>boot.errors.push({time:Date.now(),type,...data});
-  addEventListener('error',e=>record('error',{message:e.message,src:e.filename,line:e.lineno,column:e.colno}));
-  addEventListener('unhandledrejection',e=>record('rejection',{message:String(e.reason?.message||e.reason)}));
-  const h=document.getElementById('cameraHeight'),label=document.getElementById('heightLabel');
-  h?.addEventListener('input',()=>{label.textContent=Number(h.value).toFixed(2)+' m';});
-  document.getElementById('diagDownloadBtn')?.addEventListener('click',()=>{if(document.documentElement.dataset.v30Ready==='1')return;const blob=new Blob([JSON.stringify({format:'ROOMSCAN-V30-PREBOOT-1',url:location.href,userAgent:navigator.userAgent,...boot},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='roomscan-v30-preboot-diagnostics.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});
-  document.getElementById('startBtn')?.addEventListener('click',()=>{if(document.documentElement.dataset.v30Ready==='1')return;const st=document.getElementById('homeStatus');if(st){st.textContent='Il bootstrap V30 non è ancora pronto. Apri Diagnostica / debug e scarica i log.';st.dataset.kind='error';}});
-  document.getElementById('selfTestBtn')?.addEventListener('click',async()=>{if(document.documentElement.dataset.v30Ready==='1')return;const paths=['js/app.js','js/slam/math.js','wasm/slam_core.wasm','workers/gaussian_worker.js','workers/mesh_worker.js','workers/depth_worker.js','styles.css','manifest.webmanifest'],results=[];for(const p of paths){try{const r=await fetch(p,{cache:'no-store'});results.push((r.ok?'PASS ':'FAIL ')+p+' HTTP '+r.status);}catch(e){results.push('FAIL '+p+' '+e.message);}}document.getElementById('selfTestSummary').textContent=results.join(' · ');record('preboot-self-test',{results});});
-  document.getElementById('diagCopyBtn')?.addEventListener('click',async()=>{if(document.documentElement.dataset.v30Ready==='1')return;try{await navigator.clipboard.writeText(JSON.stringify({format:'ROOMSCAN-V30-PREBOOT-1',url:location.href,userAgent:navigator.userAgent,...boot},null,2));}catch(e){record('preboot-copy-failed',{message:e.message});}});
-  setTimeout(()=>{if(document.documentElement.dataset.v30Ready==='1')return;record('bootstrap-timeout',{message:'main module did not signal readiness within 5 s'});const st=document.getElementById('homeStatus');if(st){st.textContent='Bootstrap V30 non completato. Usa Diagnostica / debug per il log.';st.dataset.kind='error';}},5000);
+ const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),errors:[],ready:false};const rec=(type,data)=>boot.errors.push({time:Date.now(),type,...data});addEventListener('error',e=>rec('error',{message:e.message,src:e.filename,line:e.lineno}));addEventListener('unhandledrejection',e=>rec('rejection',{message:String(e.reason?.message||e.reason)}));
+ document.getElementById('diagDownloadBtn')?.addEventListener('click',()=>{if(document.documentElement.dataset.v30Ready==='1')return;const blob=new Blob([JSON.stringify({format:'ROOMSCAN-V30-PREBOOT-1',url:location.href,userAgent:navigator.userAgent,...boot},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='roomscan-v30-preboot-diagnostics.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});
+ setTimeout(()=>{if(document.documentElement.dataset.v30Ready==='1')return;rec('bootstrap-timeout',{message:'main module did not signal readiness within 5 s'});const st=document.getElementById('homeStatus');if(st){st.textContent='Bootstrap V30 non completato. Apri Diagnostica e scarica i log.';st.dataset.kind='error';}},5000);
 })();
 </script>
 <script type="module" src="js/app.js"></script>

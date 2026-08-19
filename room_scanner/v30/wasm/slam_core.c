@@ -12,6 +12,14 @@
 
 #include <stdint.h>
 
+/* Freestanding wasm: provide tiny libc primitives explicitly so optimized
+ * builds never acquire hidden env imports that GitHub Pages cannot satisfy. */
+void *memcpy(void *dst, const void *src, unsigned long n) {
+    uint8_t *d=(uint8_t*)dst; const uint8_t *s=(const uint8_t*)src;
+    for(unsigned long i=0;i<n;i++) d[i]=s[i];
+    return dst;
+}
+
 #define MAX_W 640
 #define MAX_H 480
 #define MAX_PIXELS (MAX_W * MAX_H)

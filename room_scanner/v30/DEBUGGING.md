@@ -1,32 +1,23 @@
-# V30.1 debugging
+# V30.7 Debugging
 
-## If controls do not react
+The diagnostics drawer must remain usable even when scanning fails.
 
-Open `Diagnostica / debug`. Even if the main ES module failed, the pre-bootstrap
-code keeps the camera-height slider alive and the diagnostics download button
-can export `roomscan-v30-preboot-diagnostics.json`.
+Important event groups:
 
-Check `homeStatus` for an explicit missing-asset path. V30 performs a startup
-fetch check for the app module, SLAM math module, WASM core and both workers.
+- `bootstrap-*`: asset/bootstrap failures.
+- `service-worker-*`, `build-mismatch`, `force-update-*`: stale-code/update problems.
+- `xr-calibration-*`, `xr-anchor-accepted`: WebXR metric bootstrap.
+- `metric-bridge-*`: Raw-Camera-template to getUserMedia hand-off.
+- `analysis-frame-*`: WASM tracking failures/recovery.
+- `keyframe-*`: persistent image capture.
+- `mvs-*`: camera-only semi-dense reconstruction.
+- `gaussian-*`: map worker state/errors.
+- `markpoint-*`: metric repere state.
 
-## Useful diagnostics events
+## Stale page recovery
 
-- `bootstrap-start`, `bootstrap-complete`
-- `preflight-assets-missing`
-- `scan-start-failed`
-- `camera-started`
-- `analysis-frame-failed`
-- `keyframe-captured`, `keyframe-persist-failed`
-- `depth-inference-failed`, `depth-integrated`
-- `gaussian-worker-error`
-- `markpoint-created`, `markpoint-rejected`
-- `finish-requested`, `finish-failed`
-- `window-error`, `unhandled-rejection`, `pagehide`
+Use **Forza aggiornamento** in diagnostics. It only removes registrations/caches whose scope/name belongs to `/v30/`; it does not touch V20 or unrelated sites.
 
-## Files to attach to a bug report
+## Calibration diagnostic thresholds
 
-Prefer all three when available:
-
-1. diagnostics JSON;
-2. raw `.r30`;
-3. RGB Gaussian `.ply` if the issue is visual/reconstruction-related.
+A calibration is accepted only with at least 10 stable anchors, sufficient XZ span, and sufficient vertical span. The visual bridge requires at least 8 located templates, robust PnP, and at least 6 bindings to current visual tracks.
