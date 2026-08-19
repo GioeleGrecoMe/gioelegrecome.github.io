@@ -27,6 +27,8 @@ export function wireCalibrationControls(manager, elements = {}) {
       `pin=${s.pins}`,
       `ancorati=${s.runtimeAnchors}`,
       `visibili=${frame?.visibleCount ?? 0}`,
+      `tracking=${frame ? (frame.realAnchorTrackingAvailable ? "XRAnchor" : "MANCANTE") : "n/a"}`,
+      `worldlock=${frame?.worldLockDiagnostic?.status ?? "n/a"}`,
       `pose=${s.coverage.qualifyingPoses}/${s.coverage.requiredPoses}`,
       `calibrata=${s.calibrated ? "si" : "no"}`,
     ].join(" | ");

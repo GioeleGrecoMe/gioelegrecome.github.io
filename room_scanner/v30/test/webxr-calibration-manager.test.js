@@ -159,6 +159,50 @@ test("projection follows the actual XRView pose instead of screen coordinates", 
   assert.ok(shifted.u < centered.u, `expected pin to move left, got ${shifted.u} >= ${centered.u}`);
 });
 
+test("world-lock diagnostic accepts moving XRView projections for a fixed world anchor", async () => {
+  const manager = new WebXRCalibrationManager({
+    storage: new MemoryStorage(),
+    worldLockMinTranslationM: 0.05,
+    worldLockMinProjectionDelta: 0.001,
+    worldLockMinCommonPins: 2,
+  });
+  const poseBySpace = new Map();
+  const anchors = [];
+  for (const [id,p] of [["a",[-0.3,0,-2]],["b",[0.3,0,-2]],["c",[0,0.3,-2]]]) {
+    anchors.push((await addAnchorPin(manager,id,p,poseBySpace)).anchor);
+  }
+  updateWithAnchors(manager, anchors, poseBySpace, viewerAt(0,0,0));
+  const second = updateWithAnchors(manager, anchors, poseBySpace, viewerAt(0.2,0,0));
+  assert.equal(second.worldLockDiagnostic.status, "ok");
+  assert.ok(second.worldLockDiagnostic.maxProjectionDelta > 0.001);
+});
+
+test("world-lock diagnostic catches a stale XRView/screen projection while reported viewer pose moves", async () => {
+  const manager = new WebXRCalibrationManager({
+    storage: new MemoryStorage(),
+    worldLockMinTranslationM: 0.05,
+    worldLockMinProjectionDelta: 0.001,
+    worldLockMinCommonPins: 2,
+  });
+  const poseBySpace = new Map();
+  const anchors = [];
+  for (const [id,p] of [["a",[-0.3,0,-2]],["b",[0.3,0,-2]],["c",[0,0.3,-2]]]) {
+    anchors.push((await addAnchorPin(manager,id,p,poseBySpace)).anchor);
+  }
+  const first = viewerAt(0,0,0);
+  updateWithAnchors(manager, anchors, poseBySpace, first);
+
+  const staleView = viewerAt(0,0,0).views[0];
+  const movedButStaleView = viewerAt(0.2,0,0);
+  movedButStaleView.views = [staleView];
+  let warnings = 0;
+  manager.addEventListener("worldlockwarning", () => { warnings += 1; });
+  const second = updateWithAnchors(manager, anchors, poseBySpace, movedButStaleView);
+  assert.equal(second.worldLockDiagnostic.status, "warning");
+  assert.equal(second.worldLockDiagnostic.reason, "camera-moved-but-anchor-projections-remained-static");
+  assert.equal(warnings, 1);
+});
+
 test("a pin cannot be added from a copied reticle pose", async () => {
   const manager = new WebXRCalibrationManager({ storage: new MemoryStorage() });
   await assert.rejects(
@@ -207,13 +251,27 @@ test("trackedAnchors is authoritative and tracking loss removes visibility", asy
   assert.equal(state.visible, false);
 });
 
-test("getPose fallback is diagnostic only when trackedAnchors is unavailable", async () => {
+test("trackedAnchors is mandatory by default; getPose alone cannot validate a real calibration anchor", async () => {
   const manager = new WebXRCalibrationManager({ storage: new MemoryStorage() });
   const poseBySpace = new Map();
-  const { anchor } = await addAnchorPin(manager, "a", [0,0,-2], poseBySpace);
+  await addAnchorPin(manager, "a", [0,0,-2], poseBySpace);
+  let getPoseCalls = 0;
+  const frame = { getPose: () => { getPoseCalls += 1; return poseAt(0,0,-2); } };
+  const summary = manager.updateFrame({ frame, referenceSpace: {}, viewerPose: viewerAt() });
+  assert.equal(summary.trackingSource, "trackedAnchors-required-missing");
+  assert.equal(summary.realAnchorTrackingAvailable, false);
+  assert.equal(summary.visibleCount, 0);
+  assert.equal(getPoseCalls, 0, "strict real-anchor mode must not promote getPose-only data");
+  assert.match(manager.getFramePinState()[0].trackingError, /trackedAnchors is unavailable/);
+});
+
+test("getPose-only compatibility can be explicitly enabled but is not the default", async () => {
+  const manager = new WebXRCalibrationManager({ storage: new MemoryStorage(), requireTrackedAnchors: false });
+  const poseBySpace = new Map();
+  await addAnchorPin(manager, "a", [0,0,-2], poseBySpace);
   const frame = { getPose: (space) => poseBySpace.get(space) };
   const summary = manager.updateFrame({ frame, referenceSpace: {}, viewerPose: viewerAt() });
-  assert.equal(summary.trackingSource, "getPose-fallback");
+  assert.equal(summary.trackingSource, "getPose-compatibility-fallback");
   assert.equal(summary.visibleCount, 1);
 });
 

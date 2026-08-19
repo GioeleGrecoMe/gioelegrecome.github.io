@@ -92,6 +92,19 @@ export class WebXRCalibrationManager extends EventTarget {
     this.minPoseTranslationM = options.minPoseTranslationM ?? 0.12;
     this.minPoseRotationDeg = options.minPoseRotationDeg ?? 10;
     this.visibilityMargin = options.visibilityMargin ?? 0.02;
+    // Calibration is intentionally strict: a pin is a real calibration anchor
+    // only when the Anchors API reports it in XRFrame.trackedAnchors. A getPose
+    // call by itself is not accepted as proof that the runtime still tracks it.
+    this.requireTrackedAnchors = options.requireTrackedAnchors ?? true;
+
+    // Debug watchdog thresholds. These do not decide calibration validity; they
+    // detect the classic integration bug where a camera moves but a screen-space
+    // marker is never refreshed from the current XRView projection.
+    this.worldLockMinTranslationM = options.worldLockMinTranslationM ?? 0.05;
+    this.worldLockMinRotationDeg = options.worldLockMinRotationDeg ?? 3;
+    this.worldLockMinProjectionDelta = options.worldLockMinProjectionDelta ?? 0.003;
+    this.worldLockMinCommonPins = options.worldLockMinCommonPins ?? 2;
+
     this.anchorGeometryRmseThresholdM = options.anchorGeometryRmseThresholdM ?? 0.025;
     this.anchorGeometryMaxErrorThresholdM = options.anchorGeometryMaxErrorThresholdM ?? 0.04;
     this.sessionAlignmentRmseThresholdM = options.sessionAlignmentRmseThresholdM ?? 0.025;
@@ -318,7 +331,13 @@ export class WebXRCalibrationManager extends EventTarget {
    */
   updateFrame({ frame, referenceSpace, viewerPose }) {
     this._observeReferenceSpace(referenceSpace);
-    this.framePinState.clear();
+
+    // Keep the previous frame immutable for the world-lock diagnostic. Reusing
+    // and clearing the same Map here would erase the evidence needed to catch a
+    // stale screen-space pin integration.
+    const previousFramePinState = this.framePinState;
+    const previousViewerPose = this.lastViewerPose;
+    this.framePinState = new Map();
     this.lastViewerPose = viewerPose ?? null;
 
     const views = viewerPose?.views ?? [];
@@ -341,7 +360,9 @@ export class WebXRCalibrationManager extends EventTarget {
         poseMatrix: null,
         position: null,
         projections: [],
-        trackingSource: hasTrackedSet ? "frame.trackedAnchors" : "getPose-fallback",
+        trackingSource: hasTrackedSet
+          ? "frame.trackedAnchors"
+          : (this.requireTrackedAnchors ? "trackedAnchors-required-missing" : "getPose-compatibility-fallback"),
         trackingError: null,
       };
 
@@ -350,8 +371,11 @@ export class WebXRCalibrationManager extends EventTarget {
         continue;
       }
 
-      state.tracked = hasTrackedSet ? trackedSet.has(anchor) : true;
+      state.tracked = hasTrackedSet ? trackedSet.has(anchor) : !this.requireTrackedAnchors;
       if (!state.tracked) {
+        if (!hasTrackedSet && this.requireTrackedAnchors) {
+          state.trackingError = "XRFrame.trackedAnchors is unavailable; real-anchor calibration refuses getPose-only fallback.";
+        }
         this.framePinState.set(pinId, state);
         continue;
       }
@@ -393,6 +417,13 @@ export class WebXRCalibrationManager extends EventTarget {
       this.framePinState.set(pinId, state);
     }
 
+    const worldLockDiagnostic = this._computeWorldLockDiagnostic({
+      previousViewerPose,
+      viewerPose,
+      previousFramePinState,
+      currentFramePinState: this.framePinState,
+    });
+
     this.lastFrameSummary = {
       timestamp: nowIso(),
       totalPins: this.pins.size,
@@ -403,11 +434,68 @@ export class WebXRCalibrationManager extends EventTarget {
       errorCount,
       minPinsPerPose: this.minPinsPerPose,
       poseEligible: visibleCount >= this.minPinsPerPose,
-      trackingSource: hasTrackedSet ? "frame.trackedAnchors" : "getPose-fallback",
+      trackingSource: hasTrackedSet
+        ? "frame.trackedAnchors"
+        : (this.requireTrackedAnchors ? "trackedAnchors-required-missing" : "getPose-compatibility-fallback"),
+      realAnchorTrackingAvailable: hasTrackedSet,
+      worldLockDiagnostic,
     };
 
+    if (worldLockDiagnostic?.status === "warning") {
+      this._emit("worldlockwarning", deepCloneJson(worldLockDiagnostic));
+    }
     this._emit("frameupdate", deepCloneJson(this.lastFrameSummary));
     return deepCloneJson(this.lastFrameSummary);
+  }
+
+  _computeWorldLockDiagnostic({ previousViewerPose, viewerPose, previousFramePinState, currentFramePinState }) {
+    const previousPosition = posePosition(previousViewerPose);
+    const currentPosition = posePosition(viewerPose);
+    const previousOrientation = poseOrientation(previousViewerPose);
+    const currentOrientation = poseOrientation(viewerPose);
+
+    if (!previousPosition || !currentPosition) {
+      return { status: "insufficient-history", commonPins: 0 };
+    }
+
+    const translationM = distance3(previousPosition, currentPosition);
+    let rotationDeg = 0;
+    if (previousOrientation && currentOrientation) {
+      rotationDeg = quaternionAngularDistanceRad(previousOrientation, currentOrientation) * 180 / Math.PI;
+    }
+    const cameraMoved =
+      translationM >= this.worldLockMinTranslationM ||
+      rotationDeg >= this.worldLockMinRotationDeg;
+
+    const deltas = [];
+    for (const [pinId, current] of currentFramePinState) {
+      const previous = previousFramePinState?.get?.(pinId);
+      if (!current?.tracked || !current?.locatable || !previous?.tracked || !previous?.locatable) continue;
+      const currentProjection = current.projections?.find((p) => p.viewIndex === 0 && Number.isFinite(p.u) && Number.isFinite(p.v));
+      const previousProjection = previous.projections?.find((p) => p.viewIndex === 0 && Number.isFinite(p.u) && Number.isFinite(p.v));
+      if (!currentProjection || !previousProjection) continue;
+      deltas.push(Math.hypot(
+        currentProjection.u - previousProjection.u,
+        currentProjection.v - previousProjection.v,
+      ));
+    }
+
+    const maxProjectionDelta = deltas.length ? Math.max(...deltas) : null;
+    const suspicious = Boolean(
+      cameraMoved &&
+      deltas.length >= this.worldLockMinCommonPins &&
+      maxProjectionDelta < this.worldLockMinProjectionDelta
+    );
+
+    return {
+      status: suspicious ? "warning" : (cameraMoved ? "ok" : "camera-static"),
+      reason: suspicious ? "camera-moved-but-anchor-projections-remained-static" : null,
+      translationM,
+      rotationDeg,
+      commonPins: deltas.length,
+      maxProjectionDelta,
+      minExpectedProjectionDelta: this.worldLockMinProjectionDelta,
+    };
   }
 
   getVisiblePins() {

@@ -1,14 +1,15 @@
 {
   "name": "webxr-calibration-patch",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "check:syntax": "node --check src/mat4.js && node --check src/webxr-calibration-manager.js && node --check src/calibration-controls.js && node --check src/calibration-overlay.js && node --check src/index.js",
+    "check:syntax": "node --check src/mat4.js && node --check src/webxr-calibration-manager.js && node --check src/calibration-controls.js && node --check src/calibration-overlay.js && node --check src/xr-anchor-scene-renderer.js && node --check src/indexeddb-safe-open.js && node --check src/index.js && node --check examples/host-integration.js",
     "test": "node --test",
     "test:stress": "node test/stress-test.mjs",
     "test:media": "sh scripts/build-tum-debug-replay.sh",
     "test:browser": "sh scripts/run-browser-test.sh",
-    "debug": "npm run check:syntax && npm test && npm run test:media"
+    "debug": "npm run check:syntax && npm test && npm run test:worldlock && npm run test:media",
+    "test:worldlock": "node test/world-lock-replay.mjs"
   }
 }

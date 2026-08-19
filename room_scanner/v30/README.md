@@ -31,6 +31,8 @@ Because calibration explicitly requires real `XRAnchor`s, requesting `anchors` a
 import {
   WebXRCalibrationManager,
   CalibrationVerificationOverlay,
+  XRAnchorScenePinRenderer,
+  openIndexedDBVersionSafe,
 } from "./src/index.js";
 
 const calibration = new WebXRCalibrationManager({
@@ -55,7 +57,17 @@ const calibration = new WebXRCalibrationManager({
   },
 });
 
+// DEBUG ONLY: screen-space projection of the live anchors.
 const overlay = new CalibrationVerificationOverlay(document.body);
+overlay.bind(calibration).show();
+
+// CANONICAL PIN VISUAL: a real scene object whose world matrix is updated from
+// XRAnchor.anchorSpace every XR frame. This example assumes Three.js-like
+// Object3D instances are already bundled by the application.
+const pinSceneRenderer = new XRAnchorScenePinRenderer(calibration, {
+  scene,
+  createObject: ({ pinId }) => createCalibrationPinMesh(pinId),
+});
 ```
 
 ### When the user places a pin
@@ -78,12 +90,23 @@ Do **not** create the calibration pin from `reticle.matrix`, a Three.js Object3D
 ```js
 const viewerPose = frame.getViewerPose(referenceSpace);
 if (viewerPose) {
+  // This single call updates authoritative XRAnchor poses. The scene renderer
+  // and bound debug overlay receive the synchronous frameupdate event and refresh
+  // from this exact frame; do not cache placement-time screen coordinates.
   calibration.updateFrame({ frame, referenceSpace, viewerPose });
-
-  // When verification mode is active:
-  overlay.update(calibration.getVerificationOverlay(0));
 }
 ```
+
+### Why the pin no longer stays fixed on the screen
+
+There are now two intentionally separate visual paths:
+
+- `XRAnchorScenePinRenderer`: the real calibration pin. It reads only the live 4x4 anchor pose matrix and applies it to a scene object. It never consumes `u`, `v`, CSS `left`, or CSS `top`. If tracking is lost, the object is hidden immediately.
+- `CalibrationVerificationOverlay`: a diagnostic DOM layer. It remains `position: fixed` by design, but `bind(calibration)` recomputes its `left/top` from the current `XRView` on every XR frame. It must never be treated as the world object.
+
+For a Three.js-style object the renderer sets `matrixAutoUpdate = false`; otherwise the engine could overwrite the anchor matrix on the next render pass. The reference space passed to `calibration.updateFrame()` must also be the reference space represented by the scene. If your engine has an extra world-root transform, pass it as `sceneFromReferenceMatrix`.
+
+The manager defaults to `requireTrackedAnchors: true`. If `frame.trackedAnchors` is absent, calibration reports zero real tracked pins instead of silently accepting `getPose()` as a compatibility fallback.
 
 ### Capture a calibration pose
 
@@ -160,6 +183,26 @@ await calibration.importProfile(file, { saveAs: "my-room" });
 
 Important: native persistent-anchor handles are origin/device/browser state. Importing the JSON elsewhere still restores the calibration numbers and observations, but the XR runtime may not recognize those handles. In that case the pins must be rebound/relocalized; the library never treats the old serialized matrices as live anchors.
 
+## IndexedDB version-safe startup
+
+If the host application has previously created an IndexedDB database at version 3, opening the same database with `indexedDB.open(name, 2)` fails with `VersionError`. Replace fixed-version startup with the helper below:
+
+```js
+const { db, version, newerThanTarget } = await openIndexedDBVersionSafe({
+  name: "YOUR_EXISTING_DB_NAME",
+  targetVersion: 2, // the schema this build knows how to create/migrate up to
+  onUpgrade: ({ db, oldVersion }) => {
+    // Keep the application's existing monotonic migrations here.
+    if (oldVersion < 1) { /* create v1 stores */ }
+    if (oldVersion < 2) { /* apply v2 migration */ }
+  },
+});
+
+console.debug("IndexedDB opened", { version, newerThanTarget });
+```
+
+The helper first calls `indexedDB.open(name)` without an explicit version. Therefore an already-installed v3 database is opened as v3 rather than being downgraded or rejected. It requests `targetVersion` only if the existing database is older.
+
 ## Suggested UI states
 
 - `empty`: no calibration.
@@ -189,6 +232,8 @@ Use `manager.getStatus()` and `manager.getFramePinState()` to inspect why calibr
 - `visible`: its 3D position is in the current XRView frustum;
 - `projections`: normalized image coordinates and the rejection reason if outside the frustum.
 
+`getStatus().frame.worldLockDiagnostic` also reports whether the viewer moved while the current projected anchor locations remained suspiciously unchanged. A `worldlockwarning` event is emitted for that integration failure. `getStatus().frame.realAnchorTrackingAvailable` tells you whether `XRFrame.trackedAnchors` was actually present.
+
 This makes a false 3x3 readiness condition directly diagnosable.
 
 ## Cross-session/reference-space safety (schema v5)
@@ -210,6 +255,6 @@ Run:
 npm run debug
 ```
 
-It performs syntax compilation checks, deterministic unit/integration tests, randomized rigid-alignment/frustum stress tests, public TUM RGB-D trajectory/intrinsic checks, and FFmpeg encode/decode validation of a small replay generated from the official TUM Freiburg1 RGB preview.
+It performs syntax compilation checks, deterministic unit/integration tests, a 120-frame world-lock replay (fixed 3D anchors + moving camera), randomized rigid-alignment/frustum stress tests, public TUM RGB-D trajectory/intrinsic checks, and FFmpeg encode/decode validation of a small replay generated from the official TUM Freiburg1 RGB preview.
 
 `npm run test:browser` is provided as an optional real-Chromium DOM harness. Some minimal containers cannot start Chromium because DBus/zygote services are missing; this does not affect the deterministic Node UI tests. A physical WebXR/ARCore device is still required to validate the browser/device implementation of native anchors, persistence and tracking stability. See `DEBUG_REPORT.md` for the exact results from this package build.

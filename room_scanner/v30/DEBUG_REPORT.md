@@ -1,38 +1,55 @@
 # WebXR calibration patch — debug verification report
 
-Build: package `webxr-calibration-patch` 1.1.0, profile schema v5.
+Build: package `webxr-calibration-patch` 1.2.0, profile schema v5.
 
-## Bugs found and corrected during verification
+## User-reported failures addressed in 1.2.0
 
-1. **Stale `XRFrame` after asynchronous anchor creation.** The old implementation awaited `XRHitTestResult.createAnchor()` and then queried the old frame. The fixed code never calls `frame.getPose()` after that `await`; the first authoritative anchor pose is acquired only by `updateFrame()` from a later active XR animation frame.
-2. **Insufficient cross-session validation.** Matching only pairwise pin distances cannot recover the new session reference frame. The manager now estimates the full rigid saved-reference -> current-reference transform from restored anchors and exposes it to the consumer/rebase callback.
-3. **`XRReferenceSpace.reset` mixing.** Poses captured before and after a reference-space discontinuity are no longer mixed. The manager automatically observes the active reference space; on reset it clears current pose collection and requires re-verification of an existing calibration.
-4. **Loaded-profile refinement mixing old and new XYZ.** Saved calibration observations are kept separately from current-session observations. Refinement requires a verified old->current alignment first.
-5. **Single bad anchor partially hidden by least-squares.** With >=4 common pins, alignment now includes leave-one-out prediction in addition to all-point RMSE, max residual and pairwise geometry checks.
-6. **NaN/Infinity propagation.** Non-finite 3D correspondences and invalid view matrices/points are rejected instead of producing a nominally successful transform containing NaNs.
+1. **Pins looked fixed to the screen instead of fixed to the room.** The old package exposed a CSS `position: fixed` verification overlay and did not include a canonical scene-object binder. The overlay was therefore easy to mistake for the actual pin visualization. Version 1.2.0 adds `XRAnchorScenePinRenderer`, which consumes only the live 4x4 `XRAnchor` pose from `frame.getPose(anchor.anchorSpace, referenceSpace)` and applies it to the renderable scene object on every manager `frameupdate`. It never reads screen `u/v` coordinates.
+2. **The DOM overlay could be stale if the host only refreshed it at placement/verification time.** `CalibrationVerificationOverlay.bind(manager)` now refreshes the debug projection synchronously on every `frameupdate`. The overlay remains explicitly debug-only.
+3. **`getPose()` fallback could make a pin appear valid without authoritative anchor tracking.** Real calibration mode now defaults to `requireTrackedAnchors: true`. If `XRFrame.trackedAnchors` is absent, visible/eligible real-anchor count is zero. A compatibility fallback exists only when explicitly opted in.
+4. **No automatic detector for the exact fixed-screen integration bug.** The manager now compares camera motion with successive live anchor projections and emits `worldlockwarning` when the reported viewer moves but common anchor projections remain suspiciously static.
+5. **IndexedDB startup failed after a newer DB had already been created.** The reported error (`requested version 2` while the installed DB is version `3`) is handled by `openIndexedDBVersionSafe()`. It probes with `indexedDB.open(name)` first, never requests a lower version, upgrades only when the existing DB is older, and recovers from an inter-tab version race.
+6. **Three.js-style renderables could overwrite a manually assigned anchor matrix.** The default scene adapter sets `matrixAutoUpdate = false`, applies the current anchor matrix with `matrix.fromArray()`, and marks `matrixWorldNeedsUpdate = true`.
+
+## Existing correctness fixes retained
+
+- No stale `XRFrame` query after asynchronous `XRHitTestResult.createAnchor()`.
+- Cross-session rigid saved-reference -> current-reference alignment from restored anchors.
+- `XRReferenceSpace.reset` invalidation and separation of pre/post-reset observations.
+- Loaded-profile observations are kept separate from current-session refinement observations.
+- >=4-pin leave-one-out validation catches a single drifting restored anchor.
+- NaN/Infinity and degenerate anchor geometry are rejected.
 
 ## Deterministic compiler/tests
 
-Environment used for this report:
+`npm run debug` completed with exit code **0**.
 
-- Node.js 22.16.0
-- npm 10.9.2
-- Chromium 144.0.7559.96 (binary present; see browser limitation below)
-- FFmpeg 7.1.5
+- JavaScript syntax compilation: PASS for every source module, including the new scene renderer and IndexedDB helper.
+- Node unit/integration suite: **39/39 PASS**.
+- Exact IndexedDB regression `existing v3 / target v2`: PASS; the fake factory records only an unversioned open, never `open(name, 2)`.
+- IndexedDB normal upgrade `v1 -> v3`: PASS.
+- IndexedDB version-race recovery: PASS.
+- `trackedAnchors` strict-authority regression: PASS; no `getPose()` call is made when authoritative tracking is unavailable.
+- Scene renderer uses anchor 4x4 matrix and ignores screen `u/v`: PASS.
+- Scene object hides immediately on anchor tracking loss: PASS.
+- Optional reference-space -> scene-space matrix composition: PASS.
+- Bound debug overlay changes CSS position on every `frameupdate`: PASS.
+- Stale-XRView/fixed-screen watchdog: PASS and emits one warning in the deliberately broken test.
+- Correct moving-XRView case: PASS with no false warning.
+- 3 poses x 3 real visible tracked pins: PASS.
+- Persistence/restore/reference-space reset/refinement gates: PASS.
 
-`npm run debug` completed with exit code 0.
+## 120-frame world-lock replay
 
-- JavaScript syntax compilation: PASS for every file under `src/`.
-- Node unit/integration suite: **28/28 PASS**.
-- Real-anchor eligibility: fake reticle rejected; `trackedAnchors` loss immediately removes pin visibility.
-- 3 poses x 3 real visible pins: PASS.
-- Duplicate-pose gate: PASS.
-- Persistent-anchor restore/missing/error paths: PASS.
-- Cross-session reference alignment/rebase handoff: PASS.
-- Loaded calibration blocked before verification: PASS.
-- Reference-space reset invalidation: PASS.
-- v3 -> v5 storage migration: PASS.
-- UI verification overlay and Save/Load/Verify/Improve wiring with a deterministic DOM stub: PASS.
+`npm run test:worldlock` simulates a camera moving laterally by 0.6 m in front of three real tracked anchor mocks at about 2 m distance. For all 120 frames:
+
+- 3/3 anchors remain in `trackedAnchors` and locatable.
+- The scene-object world transform is exactly the live anchor world/reference transform.
+- Measured scene anchor world drift: **0 m**.
+- Each pin moves by approximately **0.15 normalized viewport width**, which is the expected projection change for this geometry/FOV.
+- World-lock warnings in the correct replay: **0**.
+
+This directly tests the required behavior: the anchor remains fixed in the XR world while its screen projection changes as the camera moves.
 
 ## Randomized geometry stress test
 
@@ -44,8 +61,8 @@ Deterministic seed: `0x5eedc0de`.
   - p95 fit RMSE `0.0055861143 m`
   - maximum fit RMSE `0.0067888273 m`
 - Deliberate single-anchor displacement: **500 cases**, 8–18 cm corruption.
-  - all-point alignment checks alone rejected 486/500; this exposed why plain least-squares is insufficient.
-  - full verification (geometry + alignment + leave-one-out) rejected **500/500**.
+  - all-point alignment alone rejected 486/500;
+  - full verification rejected **500/500**.
 - Near-collinear anchor configurations: **100/100 rejected**.
 - Projection/frustum property checks: **20,000/20,000 PASS**.
 
@@ -53,28 +70,27 @@ Machine-readable numbers are in `test/debug-stress-report.json`.
 
 ## Public online data/media verification
 
-The external fixture is from the Technical University of Munich RGB-D SLAM Dataset and Benchmark (CC BY 4.0 unless otherwise noted by the dataset).
+The external fixture remains the Technical University of Munich RGB-D SLAM Dataset and Benchmark (CC BY 4.0 unless otherwise noted by the dataset).
 
-Used checks:
+- `freiburg1_rpy`: real ground-truth quaternion/translation excerpt drives pose-diversity checks.
+- Freiburg1 RGB intrinsics (`fx=517.3`, `fy=516.5`, `cx=318.6`, `cy=255.3` at 640x480): WebXR-style projection agrees with the direct pinhole projection check.
+- Official `freiburg1_xyz` RGB preview: 640x480 PNG fixture.
+- Generated replay: H.264, 640x480, 30 fps, 2.0 s; full FFmpeg decode PASS.
 
-- `freiburg1_rpy`: real public ground-truth quaternion/translation excerpt drives the pose-diversity test; it produces >=3 valid distinct rotational calibration poses.
-- Freiburg1 RGB published intrinsics (`fx=517.3`, `fy=516.5`, `cx=318.6`, `cy=255.3` at 640x480): WebXR-style projection agrees with the direct pinhole pixel formula to floating-point precision.
-- Official `freiburg1_xyz` RGB preview: downloaded and verified as a 640x480 RGB PNG.
-- A 2 s / 30 fps / 640x480 H.264 debug replay is generated locally from that official frame and decoded fully by FFmpeg: PASS.
-
-Attribution and source URLs are in `test/online-data/SOURCES.md`.
+Attribution/source information is in `test/online-data/SOURCES.md`.
 
 ## Browser/device limitation
 
-The optional `npm run test:browser` harness was attempted. In this execution container Chromium itself fails to complete even a trivial headless page because the minimal environment lacks working DBus/zygote services; the harness exits 2 with `BROWSER-HARNESS-UNAVAILABLE`. This is an environment failure, not a WebXR assertion failure, and `browser-debug.log` is included.
+The optional `npm run test:browser` harness was attempted again for this build. Chromium is present but the execution container cannot complete the headless page because the minimal Linux environment lacks working DBus/zygote services. The harness exits 2 with `BROWSER-HARNESS-UNAVAILABLE`; `browser-debug-v1.2.0.log` is included. This is an environment failure before a usable WebXR/browser assertion can execute.
 
-No container can truthfully replace the final physical-device check for ARCore/WebXR native anchor stability, persistent-anchor behavior across browser restarts, camera permission/lifecycle, thermal throttling, or real tracking relocalization. The package therefore includes `test/browser/browser-harness.html` and the browser script for a normal desktop/browser environment, while the native WebXR path should ultimately be exercised on the target phone.
+A physical WebXR/ARCore device is still the authoritative final test for native anchor stability, hit-test attachment, tracking relocalization and persistent-anchor restore. The new on-device status fields make that test diagnostic rather than visual-only: inspect `tracking=XRAnchor` and `worldlock=ok/camera-static`; `tracking=MANCANTE` or `worldlock=warning` must block calibration.
 
 ## Commands
 
 ```sh
 npm run debug
+npm run test:worldlock
 npm run test:stress
 npm run test:media
-npm run test:browser   # optional; requires a functioning Chromium environment
+npm run test:browser
 ```

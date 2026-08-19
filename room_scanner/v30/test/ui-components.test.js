@@ -88,6 +88,26 @@ test('verification overlay renders normalized WebXR pin positions without extern
   } finally { restore(); }
 });
 
+
+test('verification overlay bind refreshes projected positions on every frameupdate', () => {
+  const restore = installFakeDocument();
+  try {
+    class ProjectionManager extends EventTarget {
+      constructor() { super(); this.u = 0.2; }
+      getVerificationOverlay() { return [{pinId:'a',label:'A',u:this.u,v:0.5}]; }
+      next(u) { this.u = u; this.dispatchEvent(new Event('frameupdate')); }
+    }
+    const manager = new ProjectionManager();
+    const overlay = new CalibrationVerificationOverlay(document.body);
+    overlay.show();
+    overlay.bind(manager);
+    assert.equal(overlay.root.children[0].style.left,'20%');
+    manager.next(0.7);
+    assert.equal(overlay.root.children[0].style.left,'70%');
+    overlay.destroy();
+  } finally { restore(); }
+});
+
 test('save/load/verify/improve controls call the manager and expose diagnostic status', async () => {
   const manager = new FakeManager();
   const verifyButton = new FakeElement('button');
