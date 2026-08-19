@@ -1,4 +1,4 @@
-# Room Scanner V30.11.3
+# Room Scanner V30.11.4
 
 Runtime V30 con boot UI-first e calibrazione WebXR minimale.
 
@@ -12,7 +12,3 @@ Runtime V30 con boot UI-first e calibrazione WebXR minimale.
 7. Appena compare **PRONTO**, premi **Applica**. Le pose globali aggiuntive migliorano la diagnostica ma non bloccano piu il salvataggio.
 
 Ogni pin visuale corrisponde a un `XRAnchor`; non esiste fallback a coordinate 2D fisse.
-
-
-## V30.11.3
-Corregge il crash dopo un aggancio metrico valido: `SlamEngine` estende `EventTarget` e ora chiama `super()` prima di accedere a `this`. La suite verifica tutti i costruttori runtime derivati.

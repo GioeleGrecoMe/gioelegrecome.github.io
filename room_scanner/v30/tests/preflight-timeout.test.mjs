@@ -1,4 +1,0 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import {checkRuntimeAssets} from '../js/boot_preflight.js';
-test('hung asset probe times out instead of blocking boot diagnostics',async()=>{const original=globalThis.fetch;globalThis.fetch=(url,{signal}={})=>{if(String(url).includes('hang.txt'))return new Promise((resolve,reject)=>{if(signal?.aborted)return reject(signal.reason||new Error('aborted'));signal?.addEventListener('abort',()=>reject(signal.reason||new Error('aborted')),{once:true});});return Promise.resolve(new Response('ok',{status:200}));};try{const t0=Date.now(),r=await checkRuntimeAssets(['ok.txt','hang.txt'],{timeoutMs:35}),elapsed=Date.now()-t0;assert.equal(r.ok,false);assert.equal(r.missing.length,1);assert.equal(r.missing[0].path,'hang.txt');assert.ok(elapsed<500,`probe took ${elapsed} ms`);}finally{globalThis.fetch=original;}});

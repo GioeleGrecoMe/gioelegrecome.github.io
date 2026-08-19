@@ -1,279 +1,290 @@
-Room Scanner V30.11.3 verification
-UTC: 2026-08-19T18:27:00Z
+
+> room-scanner-v30-11-4-scan-super-fix@30.11.4 verify
+> npm test && npm run check:layout && npm run check:deps && npm run check:constructors && npm run check:mock
 
 
-> room-scanner-v30-11-3-slam-super-fix@30.11.3 verify
-> npm test && npm run check:layout && npm run check:deps && npm run check:mock
-
-
-> room-scanner-v30-11-3-slam-super-fix@30.11.3 test
+> room-scanner-v30-11-4-scan-super-fix@30.11.4 test
 > node --test tests/*.test.mjs
 
 TAP version 13
 # Subtest: minimal boot imports only the versioned core app
 ok 1 - minimal boot imports only the versioned core app
   ---
-  duration_ms: 0.933347
+  duration_ms: 1.143093
   type: 'test'
   ...
 # Subtest: HTML handshakes with active service worker and removes stale V30 workers before modules
 ok 2 - HTML handshakes with active service worker and removes stale V30 workers before modules
   ---
-  duration_ms: 0.295699
+  duration_ms: 0.324641
   type: 'test'
   ...
 # Subtest: service worker is atomic and cache-first for static runtime assets
 ok 3 - service worker is atomic and cache-first for static runtime assets
   ---
-  duration_ms: 1.232602
+  duration_ms: 1.094611
   type: 'test'
   ...
-# Subtest: all published identities are V30.11.3
-ok 4 - all published identities are V30.11.3
+# Subtest: all published identities are V30.11.4
+ok 4 - all published identities are V30.11.4
   ---
-  duration_ms: 2.363392
+  duration_ms: 1.802069
   type: 'test'
   ...
 # Subtest: real anchors are mandatory and one user pin maps to one XRAnchor
 ok 5 - real anchors are mandatory and one user pin maps to one XRAnchor
   ---
-  duration_ms: 0.334978
+  duration_ms: 0.651625
   type: 'test'
   ...
 # Subtest: screen markers come from live XRAnchor projection and XR layer has a true 3D marker
 ok 6 - screen markers come from live XRAnchor projection and XR layer has a true 3D marker
   ---
-  duration_ms: 0.213117
+  duration_ms: 0.234587
   type: 'test'
   ...
 # Subtest: minimal calibration UI replaces the old full panel
 ok 7 - minimal calibration UI replaces the old full panel
   ---
-  duration_ms: 0.337392
+  duration_ms: 0.386162
   type: 'test'
   ...
 # Subtest: ROI atlas is retained and reused by measurement matching
 ok 8 - ROI atlas is retained and reused by measurement matching
   ---
-  duration_ms: 0.449037
+  duration_ms: 0.601621
   type: 'test'
   ...
 # Subtest: Apply is ready after exactly three useful visible pins without global pose gate
 ok 9 - Apply is ready after exactly three useful visible pins without global pose gate
   ---
-  duration_ms: 1.364157
+  duration_ms: 1.329779
   type: 'test'
   ...
 # Subtest: an extra incomplete fourth pin does not disable Apply
 ok 10 - an extra incomplete fourth pin does not disable Apply
   ---
-  duration_ms: 0.774301
+  duration_ms: 1.06006
   type: 'test'
   ...
 # Subtest: three useful pins still require a coherent common view
 ok 11 - three useful pins still require a coherent common view
   ---
-  duration_ms: 0.443799
+  duration_ms: 0.354435
   type: 'test'
   ...
 # Subtest: degenerate collinear pins do not enable Apply
 ok 12 - degenerate collinear pins do not enable Apply
   ---
-  duration_ms: 0.304202
+  duration_ms: 0.273255
   type: 'test'
   ...
 # Subtest: runtime thresholds make one pin useful after four separated ROI views and 8 cm baseline
 ok 13 - runtime thresholds make one pin useful after four separated ROI views and 8 cm baseline
   ---
-  duration_ms: 0.139727
+  duration_ms: 0.111264
   type: 'test'
   ...
 # Subtest: all recovered core runtime files are present and non-empty
 ok 14 - all recovered core runtime files are present and non-empty
   ---
-  duration_ms: 1.510715
+  duration_ms: 0.980311
   type: 'test'
   ...
 # Subtest: slam_core.wasm is a real WebAssembly binary
 ok 15 - slam_core.wasm is a real WebAssembly binary
   ---
-  duration_ms: 0.724647
-  type: 'test'
-  ...
-# Subtest: every runtime derived EventTarget constructor calls super before this
-ok 16 - every runtime derived EventTarget constructor calls super before this
-  ---
-  duration_ms: 2.270925
-  type: 'test'
-  ...
-# Subtest: SlamEngine can be constructed after a valid metric lock
-ok 17 - SlamEngine can be constructed after a valid metric lock
-  ---
-  duration_ms: 6.916198
+  duration_ms: 0.93901
   type: 'test'
   ...
 # Subtest: existing v3 + requested v2 never issues a downgrade open
-ok 18 - existing v3 + requested v2 never issues a downgrade open
+ok 16 - existing v3 + requested v2 never issues a downgrade open
   ---
-  duration_ms: 4.112772
+  duration_ms: 2.084617
   type: 'test'
   ...
 # Subtest: older schema upgrades only after version probe
-ok 19 - older schema upgrades only after version probe
+ok 17 - older schema upgrades only after version probe
   ---
-  duration_ms: 0.290411
+  duration_ms: 0.305352
   type: 'test'
   ...
 # Subtest: upgrade race VersionError recovers with versionless reopen
-ok 20 - upgrade race VersionError recovers with versionless reopen
+ok 18 - upgrade race VersionError recovers with versionless reopen
   ---
-  duration_ms: 2.527346
+  duration_ms: 0.462185
   type: 'test'
   ...
 # Subtest: core has no heavy static imports before UI binding
-ok 21 - core has no heavy static imports before UI binding
+ok 19 - core has no heavy static imports before UI binding
   ---
-  duration_ms: 1.075498
+  duration_ms: 1.079388
   type: 'test'
   ...
 # Subtest: core marks UI interactive before detached background initialization
-ok 22 - core marks UI interactive before detached background initialization
+ok 20 - core marks UI interactive before detached background initialization
   ---
-  duration_ms: 1.005184
+  duration_ms: 1.219926
   type: 'test'
   ...
 # Subtest: calibration buttons are bound independently
-ok 23 - calibration buttons are bound independently
+ok 21 - calibration buttons are bound independently
   ---
-  duration_ms: 0.346054
+  duration_ms: 0.295838
   type: 'test'
   ...
 # Subtest: diagnostics and service worker are not startup gates
-ok 24 - diagnostics and service worker are not startup gates
+ok 22 - diagnostics and service worker are not startup gates
   ---
-  duration_ms: 0.39027
+  duration_ms: 0.309749
   type: 'test'
   ...
 # Subtest: manual hit-test preview exposes metric depth and becomes stable
-ok 25 - manual hit-test preview exposes metric depth and becomes stable
+ok 23 - manual hit-test preview exposes metric depth and becomes stable
   ---
-  duration_ms: 2.16678
+  duration_ms: 2.247438
   type: 'test'
   ...
 # Subtest: ROI atlas requires camera motion/new viewpoint and stores multiple scales
-ok 26 - ROI atlas requires camera motion/new viewpoint and stores multiple scales
+ok 24 - ROI atlas requires camera motion/new viewpoint and stores multiple scales
   ---
-  duration_ms: 0.526512
+  duration_ms: 0.647659
   type: 'test'
   ...
 # Subtest: metric GS helpers preserve metres and provide mesh-oriented samples
-ok 27 - metric GS helpers preserve metres and provide mesh-oriented samples
+ok 25 - metric GS helpers preserve metres and provide mesh-oriented samples
   ---
-  duration_ms: 0.440685
+  duration_ms: 0.461173
+  type: 'test'
+  ...
+# Subtest: metric preview has no unused full-screen bridge canvas
+ok 26 - metric preview has no unused full-screen bridge canvas
+  ---
+  duration_ms: 1.543375
+  type: 'test'
+  ...
+# Subtest: pin guidance uses DOM rings, not a full-screen canvas
+ok 27 - pin guidance uses DOM rings, not a full-screen canvas
+  ---
+  duration_ms: 2.230263
+  type: 'test'
+  ...
+# Subtest: bridge camera is forced to a real viewport-sized rectangle
+ok 28 - bridge camera is forced to a real viewport-sized rectangle
+  ---
+  duration_ms: 0.509234
   type: 'test'
   ...
 # Subtest: metric mesh worker creates metric faces from occupied Gaussian samples
-ok 28 - metric mesh worker creates metric faces from occupied Gaussian samples
+ok 29 - metric mesh worker creates metric faces from occupied Gaussian samples
   ---
-  duration_ms: 2.672101
+  duration_ms: 2.118848
   type: 'test'
   ...
 # Subtest: metric guidance cannot self-trigger a MutationObserver loop
-ok 29 - metric guidance cannot self-trigger a MutationObserver loop
+ok 30 - metric guidance cannot self-trigger a MutationObserver loop
   ---
-  duration_ms: 0.834199
+  duration_ms: 0.8646
   type: 'test'
   ...
 # Subtest: camera preview starts before optional measurement guidance
-ok 30 - camera preview starts before optional measurement guidance
+ok 31 - camera preview starts before optional measurement guidance
   ---
-  duration_ms: 1.334182
+  duration_ms: 1.111236
   type: 'test'
   ...
 # Subtest: metric matcher has an explicit bounded work budget
-ok 31 - metric matcher has an explicit bounded work budget
+ok 32 - metric matcher has an explicit bounded work budget
   ---
-  duration_ms: 0.220778
+  duration_ms: 0.221618
   type: 'test'
   ...
 # Subtest: metric lock hands the existing camera stream to scan
-ok 32 - metric lock hands the existing camera stream to scan
+ok 33 - metric lock hands the existing camera stream to scan
   ---
-  duration_ms: 0.40406
+  duration_ms: 0.304741
+  type: 'test'
+  ...
+# Subtest: SlamEngine derived constructor is runtime-safe after metric lock
+ok 34 - SlamEngine derived constructor is runtime-safe after metric lock
+  ---
+  duration_ms: 1.210463
   type: 'test'
   ...
 # Subtest: world anchor stays fixed while screen projection changes with camera motion
-ok 33 - world anchor stays fixed while screen projection changes with camera motion
+ok 35 - world anchor stays fixed while screen projection changes with camera motion
   ---
-  duration_ms: 4.272058
+  duration_ms: 2.124356
   type: 'test'
   ...
 # Subtest: lost trackedAnchors hides marker instead of freezing seed UV on screen
-ok 34 - lost trackedAnchors hides marker instead of freezing seed UV on screen
+ok 36 - lost trackedAnchors hides marker instead of freezing seed UV on screen
   ---
-  duration_ms: 0.591409
+  duration_ms: 0.613509
   type: 'test'
   ...
 # Subtest: three distinct poses require at least three visible anchored targets
-ok 35 - three distinct poses require at least three visible anchored targets
+ok 37 - three distinct poses require at least three visible anchored targets
   ---
-  duration_ms: 0.368558
+  duration_ms: 0.381145
   type: 'test'
   ...
 # Subtest: two visible pins cannot create a qualifying global pose
-ok 36 - two visible pins cannot create a qualifying global pose
+ok 38 - two visible pins cannot create a qualifying global pose
   ---
-  duration_ms: 0.185987
+  duration_ms: 0.18877
   type: 'test'
   ...
 # Subtest: projection helper moves opposite camera translation
-ok 37 - projection helper moves opposite camera translation
+ok 39 - projection helper moves opposite camera translation
   ---
-  duration_ms: 0.126398
+  duration_ms: 0.130313
   type: 'test'
   ...
 # Subtest: XR scene renderer consumes current anchor pose in raw WebXR coordinates
-ok 38 - XR scene renderer consumes current anchor pose in raw WebXR coordinates
+ok 40 - XR scene renderer consumes current anchor pose in raw WebXR coordinates
   ---
-  duration_ms: 0.485512
+  duration_ms: 1.139588
   type: 'test'
   ...
-1..38
-# tests 38
+1..40
+# tests 40
 # suites 0
-# pass 38
+# pass 40
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 140.970118
+# duration_ms 130.514825
 
-> room-scanner-v30-11-3-slam-super-fix@30.11.3 check:layout
+> room-scanner-v30-11-4-scan-super-fix@30.11.4 check:layout
 > node tools/check_v30_layout.mjs
 
-PASS v30-layout · 54 file sotto una sola radice v30/
+PASS v30-layout · 57 file sotto una sola radice v30/
 
-> room-scanner-v30-11-3-slam-super-fix@30.11.3 check:deps
+> room-scanner-v30-11-4-scan-super-fix@30.11.4 check:deps
 > node tools/check_dependencies.mjs
 
 PASS dependency-closure · 17 riferimenti locali risolti
 
-> room-scanner-v30-11-3-slam-super-fix@30.11.3 check:mock
+> room-scanner-v30-11-4-scan-super-fix@30.11.4 check:constructors
+> node tools/check_eventtarget_constructors.mjs
+
+PASS EventTarget constructors · 5/5 derived classes call super() first
+
+> room-scanner-v30-11-4-scan-super-fix@30.11.4 check:mock
 > node tools/mock_ui_boot.mjs
 
-[RoomScan:ui-interactive] { build: 'v30.11.3-20260819-slam-super-fix' }
+[RoomScan:ui-interactive] { build: 'v30.11.4-20260819-scan-super-constructor-fix' }
 [RoomScan:begin-calibration] {
   message: 'WebXR non disponibile su questo browser',
   stack: 'Error: WebXR non disponibile su questo browser\n' +
-    '    at XRMetricCalibrator.start (file:///mnt/data/v3011_2_work/v30/js/xr/xr_calibration.js?v=30.11.3:147:28)\n' +
-    '    at beginCalibration (file:///mnt/data/v3011_2_work/v30/js/app.js?mock=1787164174245:30:475)\n' +
-    '    at async El.<anonymous> (file:///mnt/data/v3011_2_work/v30/js/app.js?mock=1787164174245:20:59)'
+    '    at XRMetricCalibrator.start (file:///mnt/data/v3011_4_work/js/xr/xr_calibration.js?v=30.11.4:147:28)\n' +
+    '    at beginCalibration (file:///mnt/data/v3011_4_work/js/app.js?mock=1787166195326:30:475)\n' +
+    '    at async El.<anonymous> (file:///mnt/data/v3011_4_work/js/app.js?mock=1787166195326:20:59)'
 }
 [RoomScan:db-open] { message: 'IndexedDB is unavailable' }
 PASS mock-ui-boot · controls bound · failed WebXR returns to Home · UI remains interactive
+PASS wasm-instantiate · exports: noop
 
-JavaScript syntax:
-PASS javascript-syntax
-
-WebAssembly:
-PASS wasm-instantiate exports=noop
+PASS javascript-syntax · all JS/MJS parsed by node --check

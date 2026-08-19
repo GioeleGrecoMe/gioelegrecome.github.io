@@ -1,7 +1,7 @@
 {
-  "name": "Room Scanner V30.11.3",
+  "name": "Room Scanner V30.11.4",
   "short_name": "RoomScan V30.11",
-  "start_url": "./room_scanner_v30.html?v=30.11.3",
+  "start_url": "./room_scanner_v30.html?v=30.11.4",
   "scope": "./",
   "display": "standalone",
   "background_color": "#080b10",

@@ -1,20 +1,20 @@
-/* Room Scanner V30.11.3 metric-lock guidance.
+/* Room Scanner V30.11.4 metric-lock guidance.
  *
- * IMPORTANT: this module intentionally does NOT use MutationObserver.
- * V30.11.3 observed the entire bridge subtree and then changed textContent
- * inside its own observer callback. That created a self-triggering microtask
- * loop which could starve video painting and all button/touch events.
+ * The measurement preview deliberately uses NO full-screen canvas above the
+ * camera video. On several mobile GPU/compositor combinations, a hardware
+ * decoded <video> plus transparent full-screen canvases can be composited
+ * incorrectly (the camera appears only as a thin strip while the rest stays
+ * black). Pin guidance is therefore rendered as lightweight DOM rings.
  *
- * Guidance is now event-driven: app.js emits roomscan:metric-bridge-update
- * after each matcher update. DOM writes are idempotent and never drive the
- * matcher itself.
+ * Updates are event-driven from MetricBridge; there is no MutationObserver and
+ * no polling loop that can starve touch or paint events.
  */
 import {CONFIG,BUILD} from '../config.js';
 
 const $=id=>document.getElementById(id);
 const mean=a=>a.reduce((s,v)=>s+v,0)/Math.max(1,a.length);
 let installed=false;
-let canvas=null;
+let layer=null;
 let areas=[];
 let lastInstruction='';
 
@@ -78,13 +78,35 @@ function statusText(r={}){
   const rmse=Number.isFinite(r.rmse)?r.rmse.toFixed(4):'—';
   if(!areas.length)return 'Calibrazione ROI non trovata: salva prima almeno 3 pin WebXR.';
   if(r.locked||inliers>=3)return `Aggancio metrico valido: ${inliers} inlier, RMSE ${rmse}. Mantieni la camera stabile per l’avvio della scansione.`;
-  return `Allinea almeno 3 aree P1…P${areas.length} con i cerchi. Parti dalla vista finale della calibrazione e fai piccoli spostamenti laterali. Template ${found}, inlier ${inliers}.`;
+  return `Allinea almeno 3 aree P1…P${areas.length} con gli anelli. Parti dalla vista finale della calibrazione e fai piccoli spostamenti laterali. Template ${found}, inlier ${inliers}.`;
+}
+
+function renderRings(){
+  if(!layer)return;
+  layer.replaceChildren();
+  for(let i=0;i<areas.length;i++){
+    const a=areas[i];
+    const ring=document.createElement('div');
+    ring.className='bridgePinRing';
+    ring.style.left=`${Math.max(0,Math.min(1,a.uv[0]))*100}%`;
+    ring.style.top=`${Math.max(0,Math.min(1,a.uv[1]))*100}%`;
+    ring.style.setProperty('--pin-radius-n',String(Math.max(.045,Math.min(.18,a.radiusN||.07))));
+    ring.dataset.pinId=a.id;
+
+    const core=document.createElement('span');
+    core.className='bridgePinCore';
+    const label=document.createElement('span');
+    label.className='bridgePinLabel';
+    label.textContent=`P${i+1} · ${Number(a.depthM||0).toFixed(2)} m · ${a.roiViews} viste`;
+    ring.append(core,label);
+    layer.appendChild(ring);
+  }
 }
 
 export function updateMeasurementGuidance(result={}){
   if(!installed)installMeasurementGuidance();
-  draw(canvas,areas);
   setInstruction(statusText(result));
+  if(layer)layer.dataset.locked=result.locked?'1':'0';
 }
 
 export function installMeasurementGuidance(){
@@ -92,18 +114,17 @@ export function installMeasurementGuidance(){
   const bridge=$('bridge');
   if(!bridge)return;
   installed=true;
-  bridge.style.position=bridge.style.position||'relative';
-  canvas=$('bridgePinGuidance');
-  if(!canvas){
-    canvas=document.createElement('canvas');
-    canvas.id='bridgePinGuidance';
-    Object.assign(canvas.style,{position:'absolute',inset:'0',width:'100%',height:'100%',pointerEvents:'none',zIndex:'3'});
-    bridge.insertBefore(canvas,bridge.querySelector('.bridgeCard'));
+
+  layer=$('bridgePinGuidance');
+  if(!layer){
+    layer=document.createElement('div');
+    layer.id='bridgePinGuidance';
+    layer.setAttribute('aria-hidden','true');
+    bridge.insertBefore(layer,bridge.querySelector('.bridgeCard'));
   }
+
   const card=bridge.querySelector('.bridgeCard');
   if(card){
-    card.style.zIndex='5';
-    card.style.position='absolute';
     let d=$('bridgePinInstructions');
     if(!d){
       d=document.createElement('div');
@@ -113,26 +134,11 @@ export function installMeasurementGuidance(){
       card.appendChild(d);
     }
   }
+
   refreshContext();
-  draw(canvas,areas);
+  renderRings();
   setInstruction(statusText({}));
   window.addEventListener('roomscan:metric-bridge-update',e=>updateMeasurementGuidance(e.detail||{}));
-  window.addEventListener('resize',()=>draw(canvas,areas),{passive:true});
-}
-
-function draw(c,items){
-  if(!c)return;
-  const r=c.getBoundingClientRect();
-  if(r.width<1||r.height<1)return;
-  const dpr=Math.min(2,devicePixelRatio||1),w=Math.max(1,Math.round(r.width*dpr)),h=Math.max(1,Math.round(r.height*dpr));
-  if(c.width!==w||c.height!==h){c.width=w;c.height=h;}
-  const g=c.getContext('2d');
-  g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,r.width,r.height);
-  for(let i=0;i<items.length;i++){
-    const a=items[i],x=a.uv[0]*r.width,y=a.uv[1]*r.height,rad=Math.max(28,Math.min(r.width,r.height)*a.radiusN);
-    g.strokeStyle='#61d6ff';g.fillStyle='rgba(20,160,255,.08)';g.lineWidth=3;
-    g.beginPath();g.arc(x,y,rad,0,Math.PI*2);g.fill();g.stroke();
-    g.fillStyle='#fff';g.font='700 14px system-ui';g.fillText(`P${i+1}`,x+rad+6,y);
-    g.font='12px system-ui';g.fillText(`${Number(a.depthM||0).toFixed(2)} m · ${a.roiViews} viste`,x+rad+6,y+17);
-  }
+  window.addEventListener('resize',renderRings,{passive:true});
+  window.visualViewport?.addEventListener('resize',renderRings,{passive:true});
 }

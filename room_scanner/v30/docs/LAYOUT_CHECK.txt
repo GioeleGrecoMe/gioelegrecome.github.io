@@ -1,4 +1,0 @@
-
-> room-scanner-v30-10-1-bootfix-overlay@30.10.1 check:layout
-> node tools/check_v30_layout.mjs
-

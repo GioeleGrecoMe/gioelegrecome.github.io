@@ -1,6 +1,6 @@
 {
-  "version": "30.11.3",
-  "id": "v30.11.3-20260819-slam-super-fix",
-  "builtAt": "2026-08-19T18:27:00Z",
-  "notes": "Fix metric-lock to scan crash: SlamEngine extends EventTarget and now calls super() before any this access; all derived EventTarget constructors are regression-tested."
+  "version": "30.11.4",
+  "id": "v30.11.4-20260819-scan-super-constructor-fix",
+  "builtAt": "2026-08-19T21:00:00+02:00",
+  "notes": "Fix metric-lock -> Scan crash: SlamEngine now calls super() before accessing this; adds an actual runtime constructor/first-frame regression test while preserving the V30.11.3 full-screen measurement preview."
 }

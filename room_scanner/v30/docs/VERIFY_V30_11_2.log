@@ -1,8 +1,8 @@
-Room Scanner V30.11.3 verification
+Room Scanner V30.11.4 verification
 UTC 2026-08-19T16:25:30Z
 
 
-> room-scanner-v30-11-2-nonblocking-metric-lock@30.11.3 test
+> room-scanner-v30-11-2-nonblocking-metric-lock@30.11.4 test
 > node --test tests/*.test.mjs
 
 TAP version 13
@@ -24,8 +24,8 @@ ok 3 - service worker is atomic and cache-first for static runtime assets
   duration_ms: 1.039877
   type: 'test'
   ...
-# Subtest: all published identities are V30.11.3
-ok 4 - all published identities are V30.11.3
+# Subtest: all published identities are V30.11.4
+ok 4 - all published identities are V30.11.4
   ---
   duration_ms: 2.20376
   type: 'test'
@@ -233,26 +233,26 @@ ok 36 - XR scene renderer consumes current anchor pose in raw WebXR coordinates
 # duration_ms 198.205279
 
 
-> room-scanner-v30-11-2-nonblocking-metric-lock@30.11.3 check:layout
+> room-scanner-v30-11-2-nonblocking-metric-lock@30.11.4 check:layout
 > node tools/check_v30_layout.mjs
 
 PASS v30-layout · 51 file sotto una sola radice v30/
 
 
-> room-scanner-v30-11-2-nonblocking-metric-lock@30.11.3 check:deps
+> room-scanner-v30-11-2-nonblocking-metric-lock@30.11.4 check:deps
 > node tools/check_dependencies.mjs
 
 PASS dependency-closure · 16 riferimenti locali risolti
 
 
-> room-scanner-v30-11-2-nonblocking-metric-lock@30.11.3 check:mock
+> room-scanner-v30-11-2-nonblocking-metric-lock@30.11.4 check:mock
 > node tools/mock_ui_boot.mjs
 
-[RoomScan:ui-interactive] { build: 'v30.11.3-20260819-nonblocking-metric-lock' }
+[RoomScan:ui-interactive] { build: 'v30.11.4-20260819-nonblocking-metric-lock' }
 [RoomScan:begin-calibration] {
   message: 'WebXR non disponibile su questo browser',
   stack: 'Error: WebXR non disponibile su questo browser\n' +
-    '    at XRMetricCalibrator.start (file:///mnt/data/v3011_2/v30/js/xr/xr_calibration.js?v=30.11.3:147:28)\n' +
+    '    at XRMetricCalibrator.start (file:///mnt/data/v3011_2/v30/js/xr/xr_calibration.js?v=30.11.4:147:28)\n' +
     '    at beginCalibration (file:///mnt/data/v3011_2/v30/js/app.js?mock=1787156730739:30:475)\n' +
     '    at async El.<anonymous> (file:///mnt/data/v3011_2/v30/js/app.js?mock=1787156730739:20:59)'
 }

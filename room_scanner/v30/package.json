@@ -1,14 +1,15 @@
 {
-  "name": "room-scanner-v30-11-3-slam-super-fix",
+  "name": "room-scanner-v30-11-4-scan-super-fix",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "check:layout": "node tools/check_v30_layout.mjs",
     "check:deps": "node tools/check_dependencies.mjs",
-    "verify": "npm test && npm run check:layout && npm run check:deps && npm run check:mock",
-    "check:mock": "node tools/mock_ui_boot.mjs"
+    "verify": "npm test && npm run check:layout && npm run check:deps && npm run check:constructors && npm run check:mock",
+    "check:mock": "node tools/mock_ui_boot.mjs",
+    "check:constructors": "node tools/check_eventtarget_constructors.mjs"
   },
-  "version": "30.11.3",
-  "description": "V30.11.3: fix derived SlamEngine constructor and guard metric-lock to scan transition."
+  "version": "30.11.4",
+  "description": "V30.11.4: fixes the metric-lock to Scan runtime constructor crash while preserving the full-screen measurement preview."
 }

@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.11.3 runtime configuration.
+ * Room Scanner V30.11.4 runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.11.3',
-  id:'v30.11.3-20260819-slam-super-fix',
+  version:'30.11.4',
+  id:'v30.11.4-20260819-scan-super-constructor-fix',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -116,7 +116,7 @@ export const CONFIG={
   gaussianSnapshot:90000,
   gaussianWorker:'workers/gaussian_worker.js',
   wasmCore:'wasm/slam_core.wasm',
-  // No Depth Anything / DeepAI and no IMU are required by the V30.11.3 runtime.
+  // No Depth Anything / DeepAI and no IMU are required by the V30.11.4 runtime.
   serviceWorker:'sw.js',
   serviceWorkerRegisterDelayMs:2500,
   buildInfo:'build_info.json'
