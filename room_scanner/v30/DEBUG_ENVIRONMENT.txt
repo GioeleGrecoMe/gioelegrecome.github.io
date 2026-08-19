@@ -1,0 +1,4 @@
+v22.16.0
+10.9.2
+Chromium 144.0.7559.96 built on Debian GNU/Linux 13 (trixie)
+ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers

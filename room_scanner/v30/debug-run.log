@@ -1,0 +1,221 @@
+
+> webxr-calibration-patch@1.1.0 debug
+> npm run check:syntax && npm test && npm run test:media
+
+
+> webxr-calibration-patch@1.1.0 check:syntax
+> node --check src/mat4.js && node --check src/webxr-calibration-manager.js && node --check src/calibration-controls.js && node --check src/calibration-overlay.js && node --check src/index.js
+
+
+> webxr-calibration-patch@1.1.0 test
+> node --test
+
+TAP version 13
+# {
+#   "seed": "0x5eedc0de",
+#   "rigidFitExactCases": 2000,
+#   "rigidFitExactMaxRmseM": 1.6574518010108025e-14,
+#   "rigidFitNoiseSigmaM": 0.003,
+#   "rigidFitNoisyMedianRmseM": 0.0039305130424598204,
+#   "rigidFitNoisyP95RmseM": 0.005586114280635833,
+#   "rigidFitNoisyMaxRmseM": 0.006788827253897712,
+#   "deliberateOutlierCases": 500,
+#   "alignmentOnlyOutliersRejected": 486,
+#   "endToEndOutlierVerificationsRejected": 500,
+#   "collinearRejectedCases": 100,
+#   "frustumPropertyCases": 20000,
+#   "onlineTumPreviewBytes": 506503
+# }
+# Subtest: test/stress-test.mjs
+ok 1 - test/stress-test.mjs
+  ---
+  duration_ms: 317.255878
+  type: 'test'
+  ...
+# [calibration] verification { ok: true }
+# Subtest: verification overlay renders normalized WebXR pin positions without external DOM dependencies
+ok 2 - verification overlay renders normalized WebXR pin positions without external DOM dependencies
+  ---
+  duration_ms: 0.795752
+  type: 'test'
+  ...
+# Subtest: save/load/verify/improve controls call the manager and expose diagnostic status
+ok 3 - save/load/verify/improve controls call the manager and expose diagnostic status
+  ---
+  duration_ms: 2.496891
+  type: 'test'
+  ...
+# [calibration] restore failed for b Error: runtime-lost-anchor
+#     at Object.restorePersistentAnchor (file:///mnt/data/webxr_debug_work/webxr_calibration_patch/test/webxr-calibration-manager.test.js:381:36)
+#     at WebXRCalibrationManager.restorePersistentAnchors (file:///mnt/data/webxr_debug_work/webxr_calibration_patch/src/webxr-calibration-manager.js:295:38)
+#     at async TestContext.<anonymous> (file:///mnt/data/webxr_debug_work/webxr_calibration_patch/test/webxr-calibration-manager.test.js:378:18)
+#     at async Test.run (node:internal/test_runner/test:1054:7)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+# Subtest: projects front/behind/outside-frustum points correctly
+ok 4 - projects front/behind/outside-frustum points correctly
+  ---
+  duration_ms: 1.175907
+  type: 'test'
+  ...
+# Subtest: projection follows the actual XRView pose instead of screen coordinates
+ok 5 - projection follows the actual XRView pose instead of screen coordinates
+  ---
+  duration_ms: 0.247067
+  type: 'test'
+  ...
+# Subtest: a pin cannot be added from a copied reticle pose
+ok 6 - a pin cannot be added from a copied reticle pose
+  ---
+  duration_ms: 1.977178
+  type: 'test'
+  ...
+# Subtest: anchor creation never queries the stale frame after await
+ok 7 - anchor creation never queries the stale frame after await
+  ---
+  duration_ms: 8.215339
+  type: 'test'
+  ...
+# Subtest: trackedAnchors is authoritative and tracking loss removes visibility
+ok 8 - trackedAnchors is authoritative and tracking loss removes visibility
+  ---
+  duration_ms: 0.63283
+  type: 'test'
+  ...
+# Subtest: getPose fallback is diagnostic only when trackedAnchors is unavailable
+ok 9 - getPose fallback is diagnostic only when trackedAnchors is unavailable
+  ---
+  duration_ms: 0.2824
+  type: 'test'
+  ...
+# Subtest: inactive/getPose errors are isolated per pin and exposed for debugging
+ok 10 - inactive/getPose errors are isolated per pin and exposed for debugging
+  ---
+  duration_ms: 0.420726
+  type: 'test'
+  ...
+# Subtest: 3 distinct poses with 3 tracked visible anchors satisfy real 3x3 coverage
+ok 11 - 3 distinct poses with 3 tracked visible anchors satisfy real 3x3 coverage
+  ---
+  duration_ms: 1.650382
+  type: 'test'
+  ...
+# Subtest: near-duplicate calibration pose is rejected
+ok 12 - near-duplicate calibration pose is rejected
+  ---
+  duration_ms: 0.866298
+  type: 'test'
+  ...
+# Subtest: rigid alignment solver recovers rotation and translation
+ok 13 - rigid alignment solver recovers rotation and translation
+  ---
+  duration_ms: 0.995709
+  type: 'test'
+  ...
+# Subtest: rigid alignment rejects three collinear pins
+ok 14 - rigid alignment rejects three collinear pins
+  ---
+  duration_ms: 0.180328
+  type: 'test'
+  ...
+# Subtest: saved persistent anchors restore and recover old-reference to current-reference transform
+ok 15 - saved persistent anchors restore and recover old-reference to current-reference transform
+  ---
+  duration_ms: 2.972678
+  type: 'test'
+  ...
+# Subtest: loaded calibration remains unusable before anchor verification
+ok 16 - loaded calibration remains unusable before anchor verification
+  ---
+  duration_ms: 0.126317
+  type: 'test'
+  ...
+# Subtest: verification detects anchor geometry drift
+ok 17 - verification detects anchor geometry drift
+  ---
+  duration_ms: 0.293496
+  type: 'test'
+  ...
+# Subtest: verification rejects collinear saved pins even if pairwise distances match
+ok 18 - verification rejects collinear saved pins even if pairwise distances match
+  ---
+  duration_ms: 0.252916
+  type: 'test'
+  ...
+# Subtest: persistent restore handles missing, unsupported and thrown restores separately
+ok 19 - persistent restore handles missing, unsupported and thrown restores separately
+  ---
+  duration_ms: 1.394603
+  type: 'test'
+  ...
+# Subtest: refinement rejection preserves previous calibration
+ok 20 - refinement rejection preserves previous calibration
+  ---
+  duration_ms: 0.586201
+  type: 'test'
+  ...
+# Subtest: schema v3 profiles migrate to v5 using one captured pin snapshot
+ok 21 - schema v3 profiles migrate to v5 using one captured pin snapshot
+  ---
+  duration_ms: 0.263512
+  type: 'test'
+  ...
+# Subtest: TUM freiburg1_rpy public trajectory produces genuinely diverse rotation samples
+ok 22 - TUM freiburg1_rpy public trajectory produces genuinely diverse rotation samples
+  ---
+  duration_ms: 0.600182
+  type: 'test'
+  ...
+# Subtest: non-finite rigid-transform correspondences are rejected instead of producing NaN calibration
+ok 23 - non-finite rigid-transform correspondences are rejected instead of producing NaN calibration
+  ---
+  duration_ms: 0.08753
+  type: 'test'
+  ...
+# Subtest: XRReferenceSpace reset discards mixed-space pose collection and requires re-verification
+ok 24 - XRReferenceSpace reset discards mixed-space pose collection and requires re-verification
+  ---
+  duration_ms: 0.26919
+  type: 'test'
+  ...
+# Subtest: profile load keeps old observations separate from current-session refinement poses
+ok 25 - profile load keeps old observations separate from current-session refinement poses
+  ---
+  duration_ms: 0.239666
+  type: 'test'
+  ...
+# Subtest: four-pin leave-one-out alignment validation exposes a single drifting anchor
+ok 26 - four-pin leave-one-out alignment validation exposes a single drifting anchor
+  ---
+  duration_ms: 0.872957
+  type: 'test'
+  ...
+# Subtest: refinement after loaded calibration requires verified old-to-current alignment
+ok 27 - refinement after loaded calibration requires verified old-to-current alignment
+  ---
+  duration_ms: 0.380225
+  type: 'test'
+  ...
+# Subtest: TUM Freiburg1 public intrinsics agree with WebXR-style projection math
+ok 28 - TUM Freiburg1 public intrinsics agree with WebXR-style projection math
+  ---
+  duration_ms: 0.180468
+  type: 'test'
+  ...
+1..28
+# tests 28
+# suites 0
+# pass 28
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 330.107236
+
+> webxr-calibration-patch@1.1.0 test:media
+> sh scripts/build-tum-debug-replay.sh
+
+codec_name=h264
+width=640
+height=480
+r_frame_rate=30/1
+duration=2.000000

@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>WebXR calibration browser harness</title></head>
+<body>
+  <button id="verify">verify</button>
+  <button id="save">save</button>
+  <button id="load">load</button>
+  <span id="status"></span>
+  <pre id="result">RUNNING</pre>
+  <script type="module">
+    import {
+      WebXRCalibrationManager,
+      CalibrationVerificationOverlay,
+      wireCalibrationControls,
+    } from "../../src/index.js";
+
+    const failures = [];
+    const check = (condition, message) => { if (!condition) failures.push(message); };
+
+    try {
+      const manager = new WebXRCalibrationManager({ storage: localStorage });
+      manager.calibration = { browserHarness: true };
+      manager.referencePinPositions = {
+        a: [-0.25, -0.2, -2],
+        b: [ 0.35, -0.2, -2],
+        c: [-0.25,  0.4, -2],
+      };
+      manager.referencePinGeometry = [
+        {a:"a",b:"b",distanceM:0.6},
+        {a:"a",b:"c",distanceM:0.6},
+        {a:"b",b:"c",distanceM:Math.sqrt(0.72)},
+      ];
+      manager.pins.set("a", {id:"a",label:"A",persistentHandle:"ha"});
+      manager.pins.set("b", {id:"b",label:"B",persistentHandle:"hb"});
+      manager.pins.set("c", {id:"c",label:"C",persistentHandle:"hc"});
+      manager.framePinState = new Map([
+        ["a", {pinId:"a",label:"A",tracked:true,locatable:true,visible:true,position:[-0.25,-0.2,-2],projections:[{viewIndex:0,visible:true,u:0.42,v:0.55,ndc:{x:-0.16,y:-0.1,z:0}}]}],
+        ["b", {pinId:"b",label:"B",tracked:true,locatable:true,visible:true,position:[0.35,-0.2,-2],projections:[{viewIndex:0,visible:true,u:0.58,v:0.55,ndc:{x:0.16,y:-0.1,z:0}}]}],
+        ["c", {pinId:"c",label:"C",tracked:true,locatable:true,visible:true,position:[-0.25,0.4,-2],projections:[{viewIndex:0,visible:true,u:0.42,v:0.40,ndc:{x:-0.16,y:0.2,z:0}}]}],
+      ]);
+      manager.lastFrameSummary = { visibleCount:3 };
+
+      const overlay = new CalibrationVerificationOverlay(document.body);
+      overlay.show();
+      overlay.update(manager.getVerificationOverlay(0));
+      check(overlay.root.children.length === 3, "overlay did not create 3 projected pin markers");
+      check(overlay.root.querySelector('[data-pin-id="a"]')?.textContent === "A", "overlay pin label mismatch");
+
+      wireCalibrationControls(manager, {
+        verifyButton: document.querySelector("#verify"),
+        saveButton: document.querySelector("#save"),
+        loadButton: document.querySelector("#load"),
+        statusElement: document.querySelector("#status"),
+        profileName: "browser-harness",
+      });
+      document.querySelector("#save").click();
+      check(localStorage.getItem("webxr-calibration-profiles-v4")?.includes("browser-harness"), "save control did not persist profile");
+      check(document.querySelector("#status").textContent.includes("visibili=3"), "status UI did not render visibility count");
+
+      overlay.hide();
+      check(overlay.root.style.display === "none" && overlay.root.children.length === 0, "overlay hide did not clear DOM");
+      overlay.destroy();
+    } catch (error) {
+      failures.push(`${error.name}: ${error.message}\n${error.stack ?? ""}`);
+    }
+
+    const result = document.querySelector("#result");
+    if (failures.length) {
+      document.body.dataset.result = "FAIL";
+      result.textContent = `FAIL\n${failures.join("\n")}`;
+    } else {
+      document.body.dataset.result = "PASS";
+      result.textContent = "PASS: ES modules, DOM overlay, controls and localStorage";
+    }
+  </script>
+</body>
+</html>
