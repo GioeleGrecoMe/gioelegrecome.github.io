@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const read=p=>fs.readFileSync(path.join(root,p),'utf8');
+test('guarded bootstrap replaces independent static module tags',()=>{const h=read('room_scanner_v30.html');assert.match(h,/js\/boot\.js/);assert.doesNotMatch(h,/type="module" src="js\/app\.js"/);});
+test('preflight enumerates original core dependencies',()=>{const b=read('js/boot_preflight.js');for(const p of ['js/app.js','js/slam/wasm_frontend.js','workers/gaussian_worker.js','workers/mvs_worker.js','wasm/slam_core.wasm'])assert.ok(b.includes(`'${p}'`),p);});
+test('service worker install is atomic',()=>{const s=read('sw.js');assert.match(s,/throw new Error\(`V30 shell missing/);assert.doesNotMatch(s,/catch\{\}/);});

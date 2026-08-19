@@ -1,14 +1,14 @@
 
-> room-scanner-v30-10-single-folder@30.10.0 verify
+> room-scanner-v30-10-1-bootfix-overlay@30.10.1 verify
 > npm test && npm run check:layout
 
 
-> room-scanner-v30-10-single-folder@30.10.0 test
+> room-scanner-v30-10-1-bootfix-overlay@30.10.1 test
 > node --test tests/*.test.mjs
 
 TAP version 13
-# Subtest: all published identities are V30.10.0
-ok 1 - all published identities are V30.10.0
+# Subtest: all published identities are V30.10.1
+ok 1 - all published identities are V30.10.1
   ---
   duration_ms: 2.201041
   type: 'test'
@@ -113,7 +113,7 @@ ok 16 - projection helper moves opposite camera translation
 # todo 0
 # duration_ms 70.169338
 
-> room-scanner-v30-10-single-folder@30.10.0 check:layout
+> room-scanner-v30-10-1-bootfix-overlay@30.10.1 check:layout
 > node tools/check_v30_layout.mjs
 
 PASS v30-layout · 30 file sotto una sola radice v30/

@@ -1,4 +1,4 @@
-# V30.10.0 - manual pin ROI + metric measurement pipeline
+# V30.10.1 - manual pin ROI + metric measurement pipeline
 
 ## 1. Unhandled Promise rejection
 

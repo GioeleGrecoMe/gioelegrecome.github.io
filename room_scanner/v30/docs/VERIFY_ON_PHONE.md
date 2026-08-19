@@ -2,7 +2,7 @@
 
 ## Build
 
-Deve comparire `V30.10.0`. Nel self-test devono comparire almeno:
+Deve comparire `V30.10.1`. Nel self-test devono comparire almeno:
 
 - PASS indexeddb
 - PASS world-anchor-source

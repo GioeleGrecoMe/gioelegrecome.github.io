@@ -1,10 +1,10 @@
 
-> room-scanner-v30-10-single-folder@30.10.0 test
+> room-scanner-v30-10-1-bootfix-overlay@30.10.1 test
 > node --test tests/*.test.mjs
 
 TAP version 13
-# Subtest: all published identities are V30.10.0
-ok 1 - all published identities are V30.10.0
+# Subtest: all published identities are V30.10.1
+ok 1 - all published identities are V30.10.1
   ---
   duration_ms: 6.576904
   type: 'test'

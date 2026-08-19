@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-10-single-folder",
+  "name": "room-scanner-v30-10-1-bootfix-overlay",
   "private": true,
   "type": "module",
   "scripts": {
@@ -7,5 +7,5 @@
     "check:layout": "node tools/check_v30_layout.mjs",
     "verify": "npm test && npm run check:layout"
   },
-  "version": "30.10.0"
+  "version": "30.10.1"
 }

@@ -1,13 +1,13 @@
-# Room Scanner V30.10.0 - single-folder package
+# Room Scanner V30.10.1.1 - single-folder package
 
 Questo archivio ha una sola radice: `v30/`.
 
-Tutto il codice aggiunto/modificato per V30.10.0, i test e la documentazione sono contenuti sotto questa cartella; non ci sono directory `room_scanner_v30_10_patch/`, `room_scanner/` o file di supporto da copiare altrove.
+Tutto il codice aggiunto/modificato per V30.10.1, i test e la documentazione sono contenuti sotto questa cartella; non ci sono directory `room_scanner_v30_10_patch/`, `room_scanner/` o file di supporto da copiare altrove.
 
 ## Struttura
 
 - `room_scanner_v30.html`, `index.html`, `sw.js`, `build_info.json`: entrypoint/runtime aggiornati.
-- `js/`: moduli V30.10.0, inclusi XR manual ROI, guida misura, metric geometry e gestione IndexedDB.
+- `js/`: moduli V30.10.1, inclusi XR manual ROI, guida misura, metric geometry e gestione IndexedDB.
 - `workers/metric_mesh_worker.js`: mesher metrico diagnostico.
 - `tests/`: regression test Node eseguibili direttamente dalla cartella `v30`.
 - `docs/`: changelog, verifica su telefono e risultati di debug.
@@ -28,4 +28,4 @@ npm test
 node tools/check_v30_layout.mjs
 ```
 
-Il secondo comando verifica che nessun file del pacchetto dipenda dalla vecchia gerarchia `room_scanner/v30` e controlla la coerenza della build V30.10.0.
+Il secondo comando verifica che nessun file del pacchetto dipenda dalla vecchia gerarchia `room_scanner/v30` e controlla la coerenza della build V30.10.1.

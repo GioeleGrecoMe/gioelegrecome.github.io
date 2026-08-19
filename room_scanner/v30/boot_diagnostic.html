@@ -1,0 +1,4 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>V30 boot diagnostic</title>
+<style>body{font:15px system-ui;background:#0b0d12;color:#e9eef7;padding:20px}pre{white-space:pre-wrap;background:#151923;padding:14px;border-radius:10px}.ok{color:#71e39b}.bad{color:#ff8585}</style>
+<h1>Room Scanner V30.10.1 · Boot diagnostic</h1><p id="s">Controllo file…</p><pre id="o"></pre>
+<script type="module">import {checkRuntimeAssets} from './js/boot_preflight.js';const q=await checkRuntimeAssets();s.className=q.ok?'ok':'bad';s.textContent=q.ok?'PASS: runtime completo':'FAIL: runtime incompleto';o.textContent=q.results.map(x=>`${x.ok?'PASS':'FAIL'} ${x.path}${x.ok?'':` · ${x.reason}`}`).join('\n');</script>

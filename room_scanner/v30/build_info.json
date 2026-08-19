@@ -1,6 +1,6 @@
 {
-  "version": "30.10.0",
-  "id": "v30.10.0-20260819-manual-roi-metric-guidance",
+  "version": "30.10.1",
+  "id": "v30.10.1-20260819-manual-roi-metric-guidance",
   "architecture": "manual WebXR hit-test preview + real XRAnchor pin ROIs -> multi-view visual atlas -> camera metric bridge -> camera-only WASM SLAM -> MVS -> metric Gaussian surface samples",
   "calibration": "manual tap -> WebXR depth/XYZ/stability -> confirm XRAnchor area; >=3 pins, ROI multi-view coverage, >=3 poses with >=3 anchored pins, final common view",
   "deepAI": false,
