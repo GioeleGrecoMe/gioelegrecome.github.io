@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.11.1 core application.
+ * Room Scanner V30.11.2 core application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,12 +8,12 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.11.1';
-import {DiagnosticsLog} from './logger.js?v=30.11.1';
+import {BUILD,CONFIG} from './config.js?v=30.11.2';
+import {DiagnosticsLog} from './logger.js?v=30.11.2';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
-const state={db:null,calibrator:null,bridge:null,bridgeStable:0,camera:null,frontend:null,slam:null,gaussianWorker:null,mvsWorker:null,gaussians:[],renderer:null,currentSession:null,scanStop:null};
+const state={db:null,calibrator:null,bridge:null,bridgeStable:0,bridgeEpoch:0,bridgeTransition:false,camera:null,frontend:null,slam:null,gaussianWorker:null,mvsWorker:null,gaussians:[],renderer:null,currentSession:null,scanStop:null};
 window.RoomScanV30={BUILD,CONFIG,state,log};
 const moduleCache=new Map();
 function lazy(path){if(!moduleCache.has(path))moduleCache.set(path,import(`${path}?v=${BUILD.version}`));return moduleCache.get(path);}
@@ -32,8 +32,79 @@ async function addCalibrationPin(){const c=state.calibrator;if(!c)return;const o
 async function finishCalibration(){const c=state.calibrator;if(!c)return;const result=await c.finish();saveCalibration(result);state.calibrator=null;window.__ROOMSCAN_ACTIVE_CALIBRATOR=null;show('home');const s=$('homeStatus');if(s)s.textContent='Calibrazione WebXR salvata. Ora puoi avviare la misura.';}
 async function cancelCalibration(){if(state.calibrator)await state.calibrator.stop().catch(()=>{});state.calibrator=null;window.__ROOMSCAN_ACTIVE_CALIBRATOR=null;show('home');}
 
-async function beginBridge(){const cal=calibration();if(!cal)throw new Error('Calibrazione assente');show('bridge');await lazy('./xr/measurement_guidance.js').catch(err=>log.warn('measurement-guidance',{message:err.message}));const {MetricBridge}=await lazy('./xr/metric_bridge.js');state.bridgeStable=0;state.bridge?.stop();state.bridge=new MetricBridge({video:$('bridgeCamera'),calibration:cal,log,analysisWidth:CONFIG.analysisWidth,analysisHeight:CONFIG.analysisHeight});state.bridge.addEventListener('update',safe('metric-bridge-update',async e=>{const r=e.detail;const found=$('bridgeFound'),inliers=$('bridgeInliers'),rmse=$('bridgeRmse');if(found)found.textContent=String(r.found||0);if(inliers)inliers.textContent=String(r.inliers||0);if(rmse)rmse.textContent=r.rmse==null?'—':r.rmse.toFixed(4);if(r.locked)state.bridgeStable++;else state.bridgeStable=0;if(state.bridgeStable>=3)await startScan(r);}));await state.bridge.start();}
-async function startScan(metric){state.bridge?.stop();state.bridge=null;show('scan');await lazy('./metric/gaussian_metric_tap.js').catch(err=>log.warn('gaussian-metric-tap',{message:err.message}));const [{CameraController},{WasmVisionFrontend},{SlamEngine}]=await Promise.all([lazy('./camera.js'),lazy('./slam/wasm_frontend.js'),lazy('./slam/slam_engine.js')]);const cal=calibration(),K=metric?.intrinsicsNorm&&metric?.cameraSize?{fx:metric.intrinsicsNorm.fxN*CONFIG.analysisWidth,fy:metric.intrinsicsNorm.fyN*CONFIG.analysisHeight,cx:metric.intrinsicsNorm.cxN*CONFIG.analysisWidth,cy:metric.intrinsicsNorm.cyN*CONFIG.analysisHeight,width:CONFIG.analysisWidth,height:CONFIG.analysisHeight}:{fx:CONFIG.analysisWidth*.9,fy:CONFIG.analysisWidth*.9,cx:CONFIG.analysisWidth/2,cy:CONFIG.analysisHeight/2,width:CONFIG.analysisWidth,height:CONFIG.analysisHeight};state.frontend=new WasmVisionFrontend(`${CONFIG.wasmCore}?v=${BUILD.version}`);await state.frontend.init();state.slam=new SlamEngine({frontend:state.frontend,K,log,keyframeIntervalMs:CONFIG.keyframeIntervalMs});if(metric?.locked)state.slam.setMetricScale(1);state.gaussianWorker=new Worker(`${CONFIG.gaussianWorker}?v=${BUILD.version}`);state.gaussianWorker.onmessage=e=>{const d=e.data||{};if(d.type==='snapshot'&&Array.isArray(d.gaussians)){state.gaussians=d.gaussians;const el=$('statGs');if(el)el.textContent=String(d.count??d.gaussians.length);}};state.gaussianWorker.postMessage({type:'init',config:{voxel:CONFIG.gaussianVoxelM,maxGaussians:CONFIG.gaussianMaxLive,maxSnapshot:CONFIG.gaussianSnapshot}});state.mvsWorker=new Worker(`${CONFIG.mvsWorker}?v=${BUILD.version}`);state.mvsWorker.onmessage=e=>{if(e.data?.type==='ready'&&$('mvsState'))$('mvsState').textContent='MVS geometrico pronto';if(e.data?.type==='mvs-result'){if($('statTri'))$('statTri').textContent=String(e.data.count||0);if(e.data.points?.length)state.gaussianWorker?.postMessage({type:'add',points:e.data.points});}};state.mvsWorker.postMessage({type:'init',config:{near:CONFIG.mvsNearM,far:CONFIG.mvsFarM,depthSteps:CONFIG.mvsDepthSteps,gridStep:CONFIG.mvsGridStep,maxPoints:CONFIG.mvsMaxPoints}});state.camera=new CameraController({video:$('camera'),width:CONFIG.analysisWidth,height:CONFIG.analysisHeight,fps:CONFIG.analysisFps,log});await state.camera.start();state.currentSession=await state.db?.createSession({calibrationBuild:cal?.createdAt||null,metricLocked:!!metric?.locked});if($('metricState'))$('metricState').textContent=metric?.locked?'scala METRIC · common-view lock':'scala — NON AGGANCIATA';if($('slamState'))$('slamState').textContent='TRACKING';state.scanStop=state.camera.loop(frame=>{try{const r=state.slam.process(frame);if($('statFeat'))$('statFeat').textContent=String(r.features);if($('statMatch'))$('statMatch').textContent=String(r.matches);if($('statKf'))$('statKf').textContent=String(r.keyframes);if(state.currentSession&&r.keyframes%5===0)state.db?.updateSession(state.currentSession.id,{status:'scanning',counts:{keyframes:r.keyframes,gaussians:state.gaussians.length}}).catch(()=>{});}catch(err){log.warn('scan-frame',{message:err.message});}});}
+async function beginBridge(){
+  const cal=calibration();if(!cal)throw new Error('Calibrazione assente');
+  const epoch=++state.bridgeEpoch;
+  state.bridgeTransition=false;state.bridgeStable=0;
+  state.bridge?.stop();state.bridge=null;
+  show('bridge');
+  const coach=$('bridgeCoach');if(coach)coach.textContent='Avvio camera…';
+  try{
+    const {MetricBridge}=await lazy('./xr/metric_bridge.js');
+    if(epoch!==state.bridgeEpoch)return;
+    const bridge=new MetricBridge({video:$('bridgeCamera'),calibration:cal,log,analysisWidth:CONFIG.analysisWidth,analysisHeight:CONFIG.analysisHeight});
+    state.bridge=bridge;
+    bridge.addEventListener('update',safe('metric-bridge-update',async e=>{
+      if(epoch!==state.bridgeEpoch||state.bridge!==bridge)return;
+      const r=e.detail,found=$('bridgeFound'),inliers=$('bridgeInliers'),rmse=$('bridgeRmse');
+      if(found)found.textContent=String(r.found||0);if(inliers)inliers.textContent=String(r.inliers||0);if(rmse)rmse.textContent=r.rmse==null?'—':r.rmse.toFixed(4);
+      window.dispatchEvent(new CustomEvent('roomscan:metric-bridge-update',{detail:r}));
+      if(r.locked)state.bridgeStable++;else state.bridgeStable=0;
+      if(state.bridgeStable>=3&&!state.bridgeTransition){
+        state.bridgeTransition=true;
+        if(coach)coach.textContent='Aggancio metrico riuscito · preparo la scansione…';
+        try{
+          await startScan(r,epoch,bridge);
+        }catch(err){
+          if(epoch===state.bridgeEpoch&&state.bridge===bridge){
+            state.bridgeStable=0;bridge.resume?.();
+            if(coach)coach.textContent=`Aggancio valido ma avvio scansione fallito: ${err?.message||err}. Puoi riprovare o uscire.`;
+          }
+          throw err;
+        }finally{if(epoch===state.bridgeEpoch)state.bridgeTransition=false;}
+      }
+    }));
+    await bridge.start();
+    if(epoch!==state.bridgeEpoch){bridge.stop();return;}
+    if(coach)coach.textContent='Allinea almeno 3 aree dei pin. Parti dalla vista finale della calibrazione e fai piccoli spostamenti laterali.';
+    // Guidance is optional and is loaded only AFTER the camera preview is alive.
+    lazy('./xr/measurement_guidance.js').then(m=>m.installMeasurementGuidance?.()).catch(err=>log.warn('measurement-guidance',{message:err.message}));
+  }catch(err){
+    if(epoch===state.bridgeEpoch){state.bridge?.stop();state.bridge=null;show('home');}
+    throw err;
+  }
+}
+async function startScan(metric,epoch=state.bridgeEpoch,bridge=state.bridge){
+  if(epoch!==state.bridgeEpoch||!bridge)return;
+  // Stop matching immediately, but keep the already-open camera stream on the
+  // bridge video while heavier scan modules initialise. This avoids a black
+  // transition and preserves a responsive Cancel button.
+  bridge.pause?.();
+  await lazy('./metric/gaussian_metric_tap.js').catch(err=>log.warn('gaussian-metric-tap',{message:err.message}));
+  if(epoch!==state.bridgeEpoch)return;
+  const [{CameraController},{WasmVisionFrontend},{SlamEngine}]=await Promise.all([lazy('./camera.js'),lazy('./slam/wasm_frontend.js'),lazy('./slam/slam_engine.js')]);
+  if(epoch!==state.bridgeEpoch)return;
+  const cal=calibration(),K=metric?.intrinsicsNorm&&metric?.cameraSize?{fx:metric.intrinsicsNorm.fxN*CONFIG.analysisWidth,fy:metric.intrinsicsNorm.fyN*CONFIG.analysisHeight,cx:metric.intrinsicsNorm.cxN*CONFIG.analysisWidth,cy:metric.intrinsicsNorm.cyN*CONFIG.analysisHeight,width:CONFIG.analysisWidth,height:CONFIG.analysisHeight}:{fx:CONFIG.analysisWidth*.9,fy:CONFIG.analysisWidth*.9,cx:CONFIG.analysisWidth/2,cy:CONFIG.analysisHeight/2,width:CONFIG.analysisWidth,height:CONFIG.analysisHeight};
+  state.frontend=new WasmVisionFrontend(`${CONFIG.wasmCore}?v=${BUILD.version}`);await state.frontend.init();
+  if(epoch!==state.bridgeEpoch)return;
+  state.slam=new SlamEngine({frontend:state.frontend,K,log,keyframeIntervalMs:CONFIG.keyframeIntervalMs});if(metric?.locked)state.slam.setMetricScale(1);
+  state.gaussianWorker=new Worker(`${CONFIG.gaussianWorker}?v=${BUILD.version}`);state.gaussianWorker.onmessage=e=>{const d=e.data||{};if(d.type==='snapshot'&&Array.isArray(d.gaussians)){state.gaussians=d.gaussians;const el=$('statGs');if(el)el.textContent=String(d.count??d.gaussians.length);}};state.gaussianWorker.postMessage({type:'init',config:{voxel:CONFIG.gaussianVoxelM,maxGaussians:CONFIG.gaussianMaxLive,maxSnapshot:CONFIG.gaussianSnapshot}});
+  state.mvsWorker=new Worker(`${CONFIG.mvsWorker}?v=${BUILD.version}`);state.mvsWorker.onmessage=e=>{if(e.data?.type==='ready'&&$('mvsState'))$('mvsState').textContent='MVS geometrico pronto';if(e.data?.type==='mvs-result'){if($('statTri'))$('statTri').textContent=String(e.data.count||0);if(e.data.points?.length)state.gaussianWorker?.postMessage({type:'add',points:e.data.points});}};state.mvsWorker.postMessage({type:'init',config:{near:CONFIG.mvsNearM,far:CONFIG.mvsFarM,depthSteps:CONFIG.mvsDepthSteps,gridStep:CONFIG.mvsGridStep,maxPoints:CONFIG.mvsMaxPoints}});
+  if(epoch!==state.bridgeEpoch){state.gaussianWorker?.terminate();state.mvsWorker?.terminate();return;}
+  const sharedStream=bridge.takeStream?.()||null;
+  state.camera=new CameraController({video:$('camera'),width:CONFIG.analysisWidth,height:CONFIG.analysisHeight,fps:CONFIG.analysisFps,log,stream:sharedStream});
+  try{await state.camera.start();}
+  catch(err){
+    // Preserve the already-open stream on the bridge when scan video setup
+    // fails, rather than leaving a black screen that can no longer recover.
+    if(sharedStream){if(state.camera?.video)state.camera.video.srcObject=null;state.camera.stream=null;await bridge.restoreStream?.(sharedStream);}
+    throw err;
+  }
+  if(epoch!==state.bridgeEpoch){state.camera.stop();return;}
+  state.bridge=null;show('scan');
+  state.currentSession=await state.db?.createSession({calibrationBuild:cal?.createdAt||null,metricLocked:!!metric?.locked});if($('metricState'))$('metricState').textContent=metric?.locked?'scala METRIC · common-view lock':'scala — NON AGGANCIATA';if($('slamState'))$('slamState').textContent='TRACKING';
+  state.scanStop=state.camera.loop(frame=>{try{const r=state.slam.process(frame);if($('statFeat'))$('statFeat').textContent=String(r.features);if($('statMatch'))$('statMatch').textContent=String(r.matches);if($('statKf'))$('statKf').textContent=String(r.keyframes);if(state.currentSession&&r.keyframes%5===0)state.db?.updateSession(state.currentSession.id,{status:'scanning',counts:{keyframes:r.keyframes,gaussians:state.gaussians.length}}).catch(()=>{});}catch(err){log.warn('scan-frame',{message:err.message});}});
+}
 function stopScan(){state.scanStop?.();state.scanStop=null;state.camera?.stop();state.camera=null;state.gaussianWorker?.terminate();state.gaussianWorker=null;state.mvsWorker?.terminate();state.mvsWorker=null;}
 async function finishScan(){if(state.gaussianWorker){const snap=await new Promise(resolve=>{const timer=setTimeout(()=>resolve(state.gaussians),600),handler=e=>{if(e.data?.type==='snapshot'){clearTimeout(timer);state.gaussianWorker.removeEventListener('message',handler);resolve(e.data.gaussians||state.gaussians);}};state.gaussianWorker.addEventListener('message',handler);state.gaussianWorker.postMessage({type:'snapshot',maxSnapshot:CONFIG.gaussianSnapshot});});state.gaussians=snap||state.gaussians;}stopScan();if(state.currentSession)await state.db?.updateSession(state.currentSession.id,{status:'finished',counts:{keyframes:state.slam?.keyframes?.length||0,gaussians:state.gaussians.length}});await showReview();}
 async function showReview(){show('review');const {GaussianRenderer}=await lazy('./gaussian/renderer.js');if(!state.renderer)state.renderer=new GaussianRenderer($('viewer'));state.renderer.setData(state.gaussians);if($('reviewStats'))$('reviewStats').textContent=`Gaussian: ${state.gaussians.length} · scala ${state.slam?.metricLocked?'metrica':'non confermata'} · keyframe ${state.slam?.keyframes?.length||0}`;await lazy('./metric/metric_mesh_ui.js').catch(err=>log.warn('metric-mesh-ui',{message:err.message}));}
@@ -45,7 +116,7 @@ async function loadR30(file){const {decodeR30}=await lazy('./formats.js');const 
 async function exportPly(){const {gaussiansToPly,downloadBlob}=await lazy('./formats.js');downloadBlob(new Blob([gaussiansToPly(state.gaussians,BUILD.id)],{type:'application/octet-stream'}),`roomscan-${Date.now()}.ply`);}
 async function exportR30(){const {encodeR30,downloadBlob}=await lazy('./formats.js');downloadBlob(encodeR30({build:BUILD,calibration:calibration(),gaussians:state.gaussians}),`roomscan-${Date.now()}.r30`);}
 
-function bind(){on('calibrateBtn','click',safe('begin-calibration',beginCalibration));on('clearCalibrationBtn','click',()=>{localStorage.removeItem(CONFIG.calibrationStorageKey);updateCalibrationUi();});on('calibAddPinBtn','click',safe('add-calibration-pin',addCalibrationPin));on('calibUndoPinBtn','click',()=>{state.calibrator?.undoLastTarget();updateProgress(state.calibrator?.quality());});on('calibFinishBtn','click',safe('finish-calibration',finishCalibration));on('calibCancelBtn','click',safe('cancel-calibration',cancelCalibration));on('startBtn','click',safe('begin-bridge',beginBridge));on('bridgeRetryBtn','click',safe('retry-bridge',beginBridge));on('bridgeCancelBtn','click',()=>{state.bridge?.stop();state.bridge=null;show('home');});on('finishBtn','click',safe('finish-scan',finishScan));on('backHomeBtn','click',()=>show('home'));on('resumeBtn','click',safe('resume-scan',beginBridge));on('fitBtn','click',()=>{state.renderer?.fit();state.renderer?.draw();});on('splatSize','input',e=>state.renderer?.setSplatSize(e.target.value));on('loadPlyBtn','click',()=>$('filePly')?.click());on('filePly','change',safe('load-ply',async e=>{if(e.target.files?.[0])await loadPly(e.target.files[0]);e.target.value='';}));on('loadR30Btn','click',()=>$('fileR30')?.click());on('fileR30','change',safe('load-r30',async e=>{if(e.target.files?.[0])await loadR30(e.target.files[0]);e.target.value='';}));on('exportPlyBtn','click',safe('export-ply',exportPly));on('exportR30Btn','click',safe('export-r30',exportR30));on('exportDiagBtn','click',()=>log.download());on('diagDownloadBtn','click',()=>log.download());on('diagCopyBtn','click',()=>navigator.clipboard?.writeText(log.text()).catch(()=>{}));on('selfTestBtn','click',safe('self-test',runTests));on('forceUpdateBtn','click',safe('force-update',clearCachesAndReload));on('diagForceUpdateBtn','click',safe('force-update',clearCachesAndReload));on('pinBtn','click',()=>log.info('manual-scan-pin',{pose:state.slam?.pose||null}));log.addEventListener('entry',()=>{const live=$('diagLive');if(live&&$('diagPanel')?.open)live.textContent=log.entries.slice(-80).map(x=>`${new Date(x.at).toLocaleTimeString()} ${x.level.toUpperCase()} ${x.event} ${JSON.stringify(x.data)}`).join('\n');});}
+function bind(){on('calibrateBtn','click',safe('begin-calibration',beginCalibration));on('clearCalibrationBtn','click',()=>{localStorage.removeItem(CONFIG.calibrationStorageKey);updateCalibrationUi();});on('calibAddPinBtn','click',safe('add-calibration-pin',addCalibrationPin));on('calibUndoPinBtn','click',()=>{state.calibrator?.undoLastTarget();updateProgress(state.calibrator?.quality());});on('calibFinishBtn','click',safe('finish-calibration',finishCalibration));on('calibCancelBtn','click',safe('cancel-calibration',cancelCalibration));on('startBtn','click',safe('begin-bridge',beginBridge));on('bridgeRetryBtn','click',safe('retry-bridge',beginBridge));on('bridgeCancelBtn','click',()=>{state.bridgeEpoch++;state.bridgeTransition=false;state.bridge?.stop();state.bridge=null;show('home');});on('finishBtn','click',safe('finish-scan',finishScan));on('backHomeBtn','click',()=>show('home'));on('resumeBtn','click',safe('resume-scan',beginBridge));on('fitBtn','click',()=>{state.renderer?.fit();state.renderer?.draw();});on('splatSize','input',e=>state.renderer?.setSplatSize(e.target.value));on('loadPlyBtn','click',()=>$('filePly')?.click());on('filePly','change',safe('load-ply',async e=>{if(e.target.files?.[0])await loadPly(e.target.files[0]);e.target.value='';}));on('loadR30Btn','click',()=>$('fileR30')?.click());on('fileR30','change',safe('load-r30',async e=>{if(e.target.files?.[0])await loadR30(e.target.files[0]);e.target.value='';}));on('exportPlyBtn','click',safe('export-ply',exportPly));on('exportR30Btn','click',safe('export-r30',exportR30));on('exportDiagBtn','click',()=>log.download());on('diagDownloadBtn','click',()=>log.download());on('diagCopyBtn','click',()=>navigator.clipboard?.writeText(log.text()).catch(()=>{}));on('selfTestBtn','click',safe('self-test',runTests));on('forceUpdateBtn','click',safe('force-update',clearCachesAndReload));on('diagForceUpdateBtn','click',safe('force-update',clearCachesAndReload));on('pinBtn','click',()=>log.info('manual-scan-pin',{pose:state.slam?.pose||null}));log.addEventListener('entry',()=>{const live=$('diagLive');if(live&&$('diagPanel')?.open)live.textContent=log.entries.slice(-80).map(x=>`${new Date(x.at).toLocaleTimeString()} ${x.level.toUpperCase()} ${x.event} ${JSON.stringify(x.data)}`).join('\n');});}
 
 async function initBackground(){const dbJob=(async()=>{try{const {V30Database}=await lazy('./storage/db.js');state.db=await new V30Database().open();await renderSessions();log.info('db-ready',{});}catch(err){log.error('db-open',{message:err?.message||String(err)});const s=$('homeStatus');if(s&&s.dataset.kind!=='error')s.textContent='Interfaccia pronta · storage locale non disponibile.';}})();void dbJob;setTimeout(async()=>{try{if(!('serviceWorker'in navigator))return;await navigator.serviceWorker.register(`${CONFIG.serviceWorker}?v=${BUILD.version}`,{scope:'./'});await Promise.race([navigator.serviceWorker.ready,new Promise(resolve=>setTimeout(resolve,3500))]);log.info('service-worker-ready',{version:BUILD.version});}catch(err){log.warn('service-worker-register',{message:err?.message||String(err)});}},CONFIG.serviceWorkerRegisterDelayMs||2500);}
 

@@ -1,6 +1,6 @@
 {
-  "version": "30.11.1",
-  "id": "v30.11.1-20260819-three-useful-pins-apply",
-  "builtAt": "2026-08-19T15:44:00Z",
-  "notes": "Apply after any 3 useful WebXR pins in a common non-degenerate view; extra pins and global pose count no longer block calibration."
+  "version": "30.11.2",
+  "id": "v30.11.2-20260819-nonblocking-metric-lock",
+  "builtAt": "2026-08-19T16:35:00Z",
+  "notes": "Fix metric-lock black/frozen screen: remove self-triggering MutationObserver, start camera before optional guidance, bound matcher workload, and transfer the live camera stream into scan without a black transition."
 }
