@@ -1,6 +1,6 @@
-# Room Scanner V30.2.0 — Standalone resilient capture
+# Room Scanner V30.3.0 — Standalone resilient capture
 
-V30.2.0 is a self-contained GitHub Pages application. It does not import or
+V30.3.0 is a self-contained GitHub Pages application. It does not import or
 require any Room Scanner V20 HTML, JavaScript, worker, stylesheet, cache name or
 database.
 
@@ -30,9 +30,10 @@ can download an early diagnostics JSON even if the main ES module fails.
 - `.r30` raw container using binary Gaussian payloads;
 - persistent diagnostics UI and downloadable logs.
 
-Depth failure is deliberately non-fatal. Camera capture, WASM feature tracking,
-keyframe storage, IMU collection and diagnostics continue if the neural model or
-runtime cannot load.
+Depth is deliberately deferred by default. Camera capture, WASM feature tracking,
+keyframe storage, IMU collection, visual markpoints and diagnostics never wait
+for the neural model. The review screen can run `Elabora Deep dopo la scansione`
+on saved keyframes; the optional `Deep live` switch is retained for experiments.
 
 When a scan finishes, the app stops the Depth worker first, drains all accepted
 Gaussian work, persists the final snapshot, then opens review. Saved local
@@ -90,6 +91,11 @@ Metric reconstruction remains an estimate on ordinary cameras: the application
 uses the supplied camera-height/floor bootstrap and refuses to fuse nominal
 low-confidence depth into the persistent Gaussian map. Validate a known
 distance in the exported model before using it for dimensional work.
+
+The browser's default rear camera is intentionally retained. A browser does not
+provide calibrated intrinsics for an automatically selected ultra-wide lens, so
+V30 records lens/zoom capabilities in diagnostics but never silently switches
+to a wide camera with the fixed 62° calibration.
 
 ## Tests
 

@@ -1,6 +1,6 @@
 export const BUILD={
-  version:'30.2.0',
-  id:'v30.2.0-20260819-robust-session-recovery',
+  version:'30.3.0',
+  id:'v30.3.0-20260819-deferred-deep-visual-markpoints',
   dbName:'room-scanner-v30',
   dbVersion:2
 };
@@ -11,8 +11,10 @@ export const CONFIG={
   cameraFovDeg:62,
   keyframeIntervalMs:1100,
   maxKeyframes:360,
+  deepOnlineDefault:false,
   deepQueueMax:3,
   deepEveryNthKeyframe:1,
+  deferredDeepMaxKeyframes:96,
   gaussianVoxelM:0.028,
   gaussianMaxLive:180000,
   gaussianSnapshot:65000,

@@ -19,7 +19,9 @@ folder site data if an older V30 service worker was previously installed.
 3. On iOS, grant motion access if requested.
 4. `feat` should become non-zero on textured content.
 5. With slow motion, `match` should also become non-zero.
-6. A Deep download/model error must not close the camera or disable Finish.
+6. Expected default: `Deep live OFF` and no model download while measuring.
+   The optional live switch may be tested separately; any model issue must not
+   close the camera or disable Finish.
 
 ## C. Keyframes and metric bootstrap
 
@@ -45,6 +47,9 @@ specific rejection reason.
 6. Return Home and import the PLY and `.r30` again.
 7. Return Home, press `Apri` on the saved local session, then export `.r30`
    again. The keyframe count and Gaussian map must still be available.
+8. Press `Elabora Deep dopo la scansione`. The review remains available while
+   it runs and the button reports progress. If no reliable floor/scale is found,
+   it must finish with zero Gaussian rather than invent a metric map.
 
 ## F. Failure capture
 

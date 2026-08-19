@@ -20,7 +20,7 @@ export class SlamEngine{
   const angle=qAngle(this.pose.q,this.lastKeyframePose.q),trans=Math.hypot(this.pose.p[0]-this.lastKeyframePose.p[0],this.pose.p[1]-this.lastKeyframePose.p[1],this.pose.p[2]-this.lastKeyframePose.p[2]);
   const due=frame.timestamp-this.lastKeyframeAt>=this.keyframeIntervalMs&&(this.keyframes.length===0||trans>.12||angle>.12||flowMag>3.2||motionScore>.7);
   this.lastQuality={features:feat.count,matches:feat.matches.count,landmarks:corr.length,inliers:solve.inliers,rmse:solve.rmse,flowPx:flowMag,metric:!!this.metricCalibration};
-  this.currentTracks={K,trackIds,xs:feat.xs,ys:feat.ys};
+  this.currentTracks={K,trackIds,xs:feat.xs,ys:feat.ys,descriptors:feat.descriptors,descriptorBytes:feat.descriptorBytes};
   return {pose:poseClone(this.pose),K,features:feat,trackIds,keyframeDue:due,quality:this.lastQuality};
  }
  _flowMagnitude(feat){const vals=[];for(let m=0;m<feat.matches.count;m++){const ci=feat.matches.curr[m],pi=feat.matches.prev[m],p=this._prevFeatureXY?.[pi];if(p)vals.push(Math.hypot(feat.xs[ci]-p[0],feat.ys[ci]-p[1]));}return vals.length?median(vals):0;}
@@ -29,8 +29,8 @@ export class SlamEngine{
  integrateDepth(kf,result){
   const {depth,width,height}=result;let cal=null;const anchors=[];for(let i=0;i<kf.trackIds.length;i++){const lm=this.landmarks.get(kf.trackIds[i]);if(!lm)continue;const pc=this._worldToCamera(kf.pose,lm.p);if(pc[2]<=.05)continue;anchors.push({u:kf.featureX[i]/kf.analysisWidth,v:kf.featureY[i]/kf.analysisHeight,z:pc[2]});}
   if(anchors.length>=6)cal=calibrateDepthFromAnchors(depth,width,height,anchors);
-  if(!cal&&this.metricCalibration)cal={...this.metricCalibration,confidence:Math.max(.3,this.metricCalibration.confidence*.95),source:'carry'};
   if(!cal){const Kimage={...kf.K,width:kf.imageWidth,height:kf.imageHeight,fx:kf.K.fx*kf.imageWidth/kf.analysisWidth,fy:kf.K.fy*kf.imageHeight/kf.analysisHeight,cx:kf.imageWidth/2,cy:kf.imageHeight/2};cal=estimateFloorScale(depth,width,height,Kimage,this.cameraHeightM);if(cal)cal.source='floor-height';}
+  if(!cal&&this.metricCalibration)cal={...this.metricCalibration,confidence:this.metricCalibration.confidence*.95,source:'carry'};
   if(!cal){const finite=[];for(let i=0;i<depth.length;i+=17)if(Number.isFinite(depth[i])&&depth[i]>1e-6)finite.push(depth[i]);const med=median(finite)||1;cal={mode:'direct',a:2.2/med,b:0,confidence:.08,source:'nominal-unscaled'};}
   if(cal.confidence>.25||!this.metricCalibration)this.metricCalibration={mode:cal.mode,a:cal.a,b:cal.b,confidence:cal.confidence,source:cal.source};kf.depth={width,height,data:depth};kf.depthCalibration=cal;const mappingAllowed=cal.confidence>=this.minMetricConfidence;
   /* Attach 3D landmarks to tracked visual features. Once attached they let the
@@ -47,7 +47,7 @@ export class SlamEngine{
  _worldToCamera(T,pw){const q=[-T.q[0],-T.q[1],-T.q[2],T.q[3]],d=[pw[0]-T.p[0],pw[1]-T.p[1],pw[2]-T.p[2]];const x=q[0],y=q[1],z=q[2],w=q[3],tx=2*(y*d[2]-z*d[1]),ty=2*(z*d[0]-x*d[2]),tz=2*(x*d[1]-y*d[0]);return [d[0]+w*tx+(y*tz-z*ty),d[1]+w*ty+(z*tx-x*tz),d[2]+w*tz+(x*ty-y*tx)];}
 
  pinCenter(){
-  const c=this.currentTracks;if(!c?.trackIds?.length)return {ok:false,reason:'no-tracks'};let best=-1,bd=Infinity;for(let i=0;i<c.trackIds.length;i++){const d=Math.hypot(c.xs[i]-c.K.cx,c.ys[i]-c.K.cy);if(d<bd){bd=d;best=i;}}if(best<0)return {ok:false,reason:'no-track'};const trackId=c.trackIds[best],lm=this.landmarks.get(trackId);if(!lm)return {ok:false,reason:'track-has-no-depth',trackId};const mark={id:`mark-${crypto.randomUUID()}`,trackId,p:[...lm.p],createdAt:Date.now(),views:lm.views};this.markpoints.push(mark);return {ok:true,mark};
+  const c=this.currentTracks;if(!c?.trackIds?.length)return {ok:false,reason:'no-tracks'};let best=-1,bd=Infinity;for(let i=0;i<c.trackIds.length;i++){const d=Math.hypot(c.xs[i]-c.K.cx,c.ys[i]-c.K.cy);if(d<bd){bd=d;best=i;}}if(best<0)return {ok:false,reason:'no-track'};const trackId=c.trackIds[best],lm=this.landmarks.get(trackId),descriptor=c.descriptors?.slice(best*c.descriptorBytes,(best+1)*c.descriptorBytes);const mark={id:`mark-${crypto.randomUUID()}`,trackId,createdAt:Date.now(),views:lm?.views||0,pixel:{u:c.xs[best]/c.K.width,v:c.ys[best]/c.K.height},pose:poseClone(this.pose),descriptor:descriptor?Array.from(descriptor):null,descriptorBytes:c.descriptorBytes||0};if(lm){mark.kind='metric';mark.p=[...lm.p];}else mark.kind='visual-pending-depth';this.markpoints.push(mark);return {ok:true,mark,metric:!!lm};
  }
  diagnostics(){return {frameSeq:this.frameSeq,pose:poseClone(this.pose),landmarks:this.landmarks.size,keyframes:this.keyframes.length,markpoints:this.markpoints,loopClosures:this.loopClosures,metricCalibration:this.metricCalibration,lastQuality:this.lastQuality};}
 }

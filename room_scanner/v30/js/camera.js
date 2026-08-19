@@ -25,7 +25,8 @@ export class CameraSource{
   async start(){
     this.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
     this.video.srcObject=this.stream;await this.video.play();await new Promise(resolve=>{if(this.video.videoWidth)return resolve();this.video.addEventListener('loadedmetadata',resolve,{once:true});});
-    return {width:this.video.videoWidth,height:this.video.videoHeight,analysis:fitAnalysisSize(this.video.videoWidth,this.video.videoHeight,{maxWidth:this.analysisWidth,maxHeight:this.analysisHeight}),settings:this.stream.getVideoTracks()[0]?.getSettings?.()||{}};
+    const track=this.stream.getVideoTracks()[0],settings=track?.getSettings?.()||{},caps=track?.getCapabilities?.()||{};let rearInputs=[];try{rearInputs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput').map(d=>({label:d.label||'',deviceId:d.deviceId,groupId:d.groupId})).filter(d=>/(back|rear|environment|wide|ultra)/i.test(d.label));}catch{}const zoom=caps.zoom?{min:caps.zoom.min,max:caps.zoom.max,step:caps.zoom.step}:null;
+    return {width:this.video.videoWidth,height:this.video.videoHeight,analysis:fitAnalysisSize(this.video.videoWidth,this.video.videoHeight,{maxWidth:this.analysisWidth,maxHeight:this.analysisHeight}),settings,lens:{selected:'environment-default',wideAutoSelected:false,wideCandidate:!!(zoom&&zoom.min<1),zoom,rearInputs,calibration:'fixed-fov-unverified'}};
   }
   analysisFrame(timestamp=performance.now()){
     const vw=this.video.videoWidth,vh=this.video.videoHeight;if(!vw||!vh)return null;
