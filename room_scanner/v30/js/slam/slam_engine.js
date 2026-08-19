@@ -27,7 +27,7 @@ export class SlamEngine{
  _acceptPose(solve){if(!solve?.ok||solve.inliers<10||!Number.isFinite(solve.rmse)||solve.rmse>5.5)return false;const p=solve.pose?.p,q=solve.pose?.q;if(!p?.every(Number.isFinite)||!q?.every(Number.isFinite))return false;return Math.hypot(p[0]-this.pose.p[0],p[1]-this.pose.p[1],p[2]-this.pose.p[2])<.8&&qAngle(q,this.pose.q)<.7;}
  createKeyframeSnapshot(analysis,cameraFrame){const kf={id:`kf-${crypto.randomUUID()}`,seq:this.keyframes.length,t:cameraFrame.timestamp,pose:poseClone(analysis.pose),K:{...analysis.K},analysisWidth:analysis.K.width,analysisHeight:analysis.K.height,imageWidth:cameraFrame.width,imageHeight:cameraFrame.height,trackIds:[...analysis.trackIds],featureX:Array.from(analysis.features.xs),featureY:Array.from(analysis.features.ys),featureScore:Array.from(analysis.features.scores),descriptors:analysis.features.descriptors,descriptorBytes:analysis.features.descriptorBytes,signature:this._descriptorSignature(analysis.features.descriptors,analysis.features.descriptorBytes),blob:cameraFrame.blob,depth:null,depthCalibration:null};const loop=this._tryLoopClosure(kf);if(loop?.ok){kf.pose=poseClone(loop.pose);this.pose=poseClone(loop.pose);this.loopClosures.push({from:kf.id,to:loop.candidateId,inliers:loop.inliers,rmse:loop.rmse,t:Date.now()});}this.keyframes.push(kf);this.lastKeyframeAt=cameraFrame.timestamp;this.lastKeyframePose=poseClone(kf.pose);return kf;}
  integrateDepth(kf,result){
-  const {depth,width,height}=result;let cal=null;const anchors=[];for(let i=0;i<kf.trackIds.length;i++){const lm=this.landmarks.get(kf.trackIds[i]);if(!lm)continue;const pc=this._worldToCamera(kf.pose,lm.p);if(pc[2]<=.05)continue;anchors.push({u:kf.featureX[i]/kf.analysisWidth,v:kf.featureY[i]/kf.analysisHeight,z:pc[2]});}
+  const {depth,width,height}=result;const poseRefinement=this._refineKeyframePose(kf);let cal=null;const anchors=[];for(let i=0;i<kf.trackIds.length;i++){const lm=this.landmarks.get(kf.trackIds[i]);if(!lm)continue;const pc=this._worldToCamera(kf.pose,lm.p);if(pc[2]<=.05)continue;anchors.push({u:kf.featureX[i]/kf.analysisWidth,v:kf.featureY[i]/kf.analysisHeight,z:pc[2]});}
   if(anchors.length>=6)cal=calibrateDepthFromAnchors(depth,width,height,anchors);
   if(!cal){const Kimage={...kf.K,width:kf.imageWidth,height:kf.imageHeight,fx:kf.K.fx*kf.imageWidth/kf.analysisWidth,fy:kf.K.fy*kf.imageHeight/kf.analysisHeight,cx:kf.imageWidth/2,cy:kf.imageHeight/2};cal=estimateFloorScale(depth,width,height,Kimage,this.cameraHeightM);if(cal)cal.source='floor-height';}
   if(!cal&&this.metricCalibration)cal={...this.metricCalibration,confidence:this.metricCalibration.confidence*.95,source:'carry'};
@@ -43,7 +43,15 @@ export class SlamEngine{
    * next frames estimate metric 6-DoF with reprojection PnP. */
   let added=0;for(let i=0;i<kf.trackIds.length;i++){const u=kf.featureX[i]/kf.analysisWidth*width,v=kf.featureY[i]/kf.analysisHeight*height,x=Math.max(0,Math.min(width-1,Math.round(u))),y=Math.max(0,Math.min(height-1,Math.round(v))),raw=depth[y*width+x],z=metricDepth(raw,cal);if(!Number.isFinite(z)||z<.03||z>16)continue;const Kd={fx:kf.K.fx*width/kf.analysisWidth,fy:kf.K.fy*height/kf.analysisHeight,cx:width/2,cy:height/2,width,height},pc=backproject(u,v,z,Kd),pw=cameraToWorld(kf.pose,pc),id=kf.trackIds[i],old=this.landmarks.get(id);if(old){old.p=[old.p[0]*.7+pw[0]*.3,old.p[1]*.7+pw[1]*.3,old.p[2]*.7+pw[2]*.3];old.views++;}else{this.landmarks.set(id,{id,p:pw,views:1,firstKf:kf.id});added++;}}
   for(const mark of this.markpoints){if(mark.p)continue;const lm=this.landmarks.get(mark.trackId);if(lm){mark.p=[...lm.p];mark.views=lm.views;mark.kind=cal.relative?'relative-L':'metric';}}
-  return {calibration:cal,landmarksAdded:added,totalLandmarks:this.landmarks.size,mappingAllowed,relative:!!cal.relative,scaleKind:cal.scaleKind};
+  return {calibration:cal,landmarksAdded:added,totalLandmarks:this.landmarks.size,mappingAllowed,relative:!!cal.relative,scaleKind:cal.scaleKind,poseRefinement};
+ }
+
+ _refineKeyframePose(kf){
+  const corr=[];for(let i=0;i<kf.trackIds.length;i++){const lm=this.landmarks.get(kf.trackIds[i]);if(lm)corr.push({world:lm.p,u:kf.featureX[i],v:kf.featureY[i],trackId:kf.trackIds[i]});}
+  if(corr.length<10||!this.frontend?.optimizePose)return {ok:false,reason:corr.length<10?'few-landmarks':'pnp-unavailable',matches:corr.length};
+  const r=this.frontend.optimizePose(kf.pose,corr,kf.K,{iterations:9,maxPoints:220});const jump=r?.pose?.p?Math.hypot(r.pose.p[0]-kf.pose.p[0],r.pose.p[1]-kf.pose.p[1],r.pose.p[2]-kf.pose.p[2]):Infinity;
+  if(!r?.ok||r.inliers<10||!Number.isFinite(r.rmse)||r.rmse>5||jump>2.5)return {ok:false,reason:'pnp-rejected',matches:corr.length,inliers:r?.inliers||0,rmse:r?.rmse};
+  kf.pose=poseClone(r.pose);this.pose=poseClone(r.pose);return {ok:true,matches:corr.length,inliers:r.inliers,rmse:r.rmse};
  }
 
  _relativeCalibration(depth,width,height,suggested,anchors){

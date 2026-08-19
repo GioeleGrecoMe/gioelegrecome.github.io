@@ -47,7 +47,7 @@ specific rejection reason.
 6. Return Home and import the PLY and `.r30` again.
 7. Return Home, press `Apri` on the saved local session, then export `.r30`
    again. The keyframe count and Gaussian map must still be available.
-8. Press `Elabora Deep dopo la scansione`. The review remains available while
+8. Press `Ricostruisci mesh con Deep`. The review remains available while
    it runs and the button reports progress. If no reliable floor/scale is found,
    it must finish with zero Gaussian rather than invent a metric map.
 

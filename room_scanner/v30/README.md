@@ -1,6 +1,6 @@
-# Room Scanner V30.4.0 — Standalone resilient capture
+# Room Scanner V30.5.0 — Guided mesh reconstruction
 
-V30.4.0 is a self-contained GitHub Pages application. It does not import or
+V30.5.0 is a self-contained GitHub Pages application. It does not import or
 require any Room Scanner V20 HTML, JavaScript, worker, stylesheet, cache name or
 database.
 
@@ -22,21 +22,24 @@ can download an early diagnostics JSON even if the main ES module fails.
   matching and robust metric PnP;
 - JS keyframe/landmark SLAM graph with loop-closure candidates and markpoints;
 - optional Depth Anything V2 Small in an isolated Worker;
-- incremental 3D Gaussian map in an isolated Worker;
-- dependency-free WebGL2 Gaussian viewer, initialized lazily only when needed;
+- incremental low-poly mesh in an isolated Worker, triangulated with local
+  Delaunay patches from tracked image features;
+- sparse Gaussian support map (not the primary geometric product);
+- dependency-free WebGL2 mesh/Gaussian viewer, initialized lazily only when needed;
 - incremental IndexedDB storage;
-- recoverable local sessions with Gaussian checkpoints and keyframes;
-- binary RGB/Gaussian PLY import/export;
-- `.r30` raw container using binary Gaussian payloads;
+- recoverable local sessions with mesh and Gaussian checkpoints plus keyframes;
+- binary mesh PLY and RGB/Gaussian PLY export;
+- `.r30` raw container using binary mesh and Gaussian payloads;
 - persistent diagnostics UI and downloadable logs.
 
 Depth is deliberately deferred by default. Camera capture, WASM feature tracking,
 keyframe storage, IMU collection, visual markpoints and diagnostics never wait
-for the neural model. The review screen can run `Elabora Deep dopo la scansione`
+for the neural model. The review screen can run `Ricostruisci mesh con Deep`
 on saved keyframes; the optional `Deep live` switch is retained for experiments.
 
-When a scan finishes, the app stops the Depth worker first, drains all accepted
-Gaussian work, persists the final snapshot, then opens review. Saved local
+When a scan finishes, the app stops the Depth worker first, seals the mesh with
+a clearly low-confidence closure, drains all accepted Gaussian work, persists
+the final snapshots, then opens review. Saved local
 sessions can be reopened after a reload and exported again; a new segment always
 starts with clean worker, IMU and map state.
 
@@ -89,11 +92,21 @@ viewer to bootstrap.
 
 Metric reconstruction remains an estimate on ordinary cameras. When the
 camera-height/floor bootstrap is reliable, the map uses that metric estimate.
-Otherwise V30.4.0 normalizes monocular depth to a stable relative unit `L` and
-still fuses the Gaussian map and depth-backed landmarks. The HUD displays
-`scala L`; this is suitable for navigation, inspection and later rescaling, but
-not for direct dimensional measurement. Validate a known distance before using
-an exported model for measurements.
+Otherwise V30.5.0 normalizes monocular depth to a stable relative unit `L` and
+still builds depth-backed landmarks and mesh patches. The HUD displays `scala
+L`; this is suitable for navigation, inspection and later rescaling, but not
+for direct dimensional measurement. Validate a known distance before using an
+exported model for measurements.
+
+## Guided capture and confidence
+
+The scan HUD guides four steps: floor at the declared camera height, a slow
+turn toward a textured wall, a lateral movement that keeps floor and wall in
+view, then ceiling/corners coverage. Prefer edges, furniture and handles over
+blank walls. The mesh uses only tracked features with valid depth; vertices are
+red when weak, yellow when locally coherent, and green after repeated tracked
+observations. The final red shell is a deliberate closure estimate, not a
+measured surface; refine or remove it in post-processing where appropriate.
 
 The browser's default rear camera is intentionally retained. A browser does not
 provide calibrated intrinsics for an automatically selected ultra-wide lens, so

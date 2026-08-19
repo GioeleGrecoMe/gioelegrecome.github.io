@@ -1,6 +1,6 @@
-# V30.4.0 test report
+# V30.5.0 test report
 
-Build: `v30.4.0-20260819-relative-L-map`
+Build: `v30.5.0-20260819-feature-mesh-guided-scan`
 
 The following suite was run from the final project directory:
 
@@ -13,11 +13,12 @@ Result:
 ```
 PASS javascript_syntax
 PASS static_contract
-PASS bootstrap_contract ids=41
+PASS bootstrap_contract ids=44
 PASS wasm_frontend features=96 matches=24 portrait=500
 PASS camera_analysis_fit
 PASS math_depth_calibration
 PASS slam_markpoints_and_relative_map
+PASS mesh_worker_delaunay_and_seal
 PASS format_roundtrip
 PASS http_smoke
 PASS json_contracts
@@ -39,8 +40,10 @@ Verified contracts:
   when their track gains a relative-L depth landmark;
 - low-confidence monocular depth is normalized to relative unit L and fused,
   instead of blocking the Gaussian map;
+- feature-guided Delaunay mesh generation and its explicit final closure pass
+  a deterministic worker test;
 - binary/CRLF ASCII Gaussian PLY import/export round-trips;
-- `.r30` binary Gaussian, JPEG, descriptors, keyframe index and extra entries round-trip;
+- `.r30` binary mesh/Gaussian, JPEG, descriptors, keyframe index and extra entries round-trip;
 - static HTTP serving returns the entry page, JS, workers and WASM;
 - WASM is served with `application/wasm`;
 - manifest and build-info JSON parse.

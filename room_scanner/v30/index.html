@@ -3,9 +3,9 @@
 <body>
 <main id="app">
 <section id="home" class="screen active">
- <div class="hero"><div id="buildBadge" class="badge">V30.4.0 · BOOT</div><h1>Room Scanner V30</h1><p>SLAM WASM, Depth Anything opzionale e mappa 3D Gaussian indipendenti dalla linea V20.</p></div>
+ <div class="hero"><div id="buildBadge" class="badge">V30.5.0 · BOOT</div><h1>Room Scanner V30</h1><p>Scansione guidata, mesh 3D a bassa densità e Gaussiane di supporto.</p></div>
  <div class="card"><label>Altezza camera dal pavimento <span id="heightLabel">1.35 m</span></label><input id="cameraHeight" type="range" min="0.70" max="2.00" step="0.01" value="1.35"><p class="hint">Usata per il bootstrap metrico; se non è affidabile, la mappa prosegue automaticamente in scala relativa L.</p></div>
- <div class="actions"><button id="startBtn" class="primary">Avvia scansione</button><button id="loadPlyBtn">Apri PLY RGB / Gaussian</button><button id="loadR30Btn">Apri sessione .r30</button></div>
+ <div class="actions"><button id="startBtn" class="primary">Avvia scansione guidata</button><button id="loadPlyBtn">Apri PLY RGB / Gaussian</button><button id="loadR30Btn">Apri sessione .r30</button></div>
  <input id="filePly" type="file" accept=".ply" hidden><input id="fileR30" type="file" accept=".r30,application/octet-stream" hidden>
  <div id="homeStatus" class="status">Caricamento V30…</div>
  <div class="card"><b>Sessioni V30 locali</b><div id="savedSessions"><span class="muted">Apertura database…</span></div><div id="buildFoot" class="buildFoot"></div></div>
@@ -13,16 +13,16 @@
 <section id="scan" class="screen">
  <video id="camera" autoplay muted playsinline></video><canvas id="miniMap"></canvas>
  <div class="topHud"><span id="slamState">INIT</span><span id="metricState">scala —</span><span id="deepState">Deep —</span></div>
- <div class="stats"><span>feat <b id="statFeat">0</b></span><span>match <b id="statMatch">0</b></span><span>lm <b id="statLandmarks">0</b></span><span>KF <b id="statKf">0</b></span><span>GS <b id="statGs">0</b></span></div>
- <div id="coach" class="coach">Muoviti lentamente e guarda prima il pavimento, poi pareti, soffitto e oggetti.</div>
+ <div class="stats"><span>feat <b id="statFeat">0</b></span><span>match <b id="statMatch">0</b></span><span>lm <b id="statLandmarks">0</b></span><span>KF <b id="statKf">0</b></span><span>mesh <b id="statMesh">0</b></span><span>GS <b id="statGs">0</b></span></div>
+ <div id="coach" class="coach">Calibrazione 1/4: tieni il telefono all’altezza indicata e osserva il pavimento per 3 secondi.</div>
  <div class="scanButtons"><button id="pinBtn">◎ Pin repere</button><button id="pauseDeepBtn">Deep live OFF</button><button id="finishBtn" class="danger">Salva / termina</button></div>
 </section>
 <section id="review" class="screen">
- <div class="reviewHead"><div><div class="badge">V30 REVIEW</div><h2>Gemello Gaussian</h2></div><button id="backHomeBtn">Home</button></div>
+ <div class="reviewHead"><div><div class="badge">V30 REVIEW</div><h2>Mesh di confidenza</h2></div><button id="backHomeBtn">Home</button></div>
  <canvas id="viewer"></canvas>
  <div class="viewerTools"><button id="orbitBtn">Orbita</button><button id="panBtn">Sposta</button><button id="fitBtn">Centra</button><label>Splat <input id="splatSize" type="range" min="0.5" max="3" value="1" step="0.1"></label></div>
  <div id="reviewStats" class="card compact"></div>
- <div class="actions wrap"><button id="processDeepBtn" class="primary">Elabora Deep dopo la scansione</button><button id="exportPlyBtn">Scarica PLY Gaussian RGB</button><button id="exportR30Btn">Scarica RAW .r30</button><button id="exportDiagBtn">Scarica diagnostica</button><button id="resumeBtn">Nuovo segmento</button></div>
+ <div class="actions wrap"><button id="processDeepBtn" class="primary">Ricostruisci mesh con Deep</button><button id="exportMeshBtn" class="primary">Scarica mesh PLY</button><button id="exportPlyBtn">Scarica PLY Gaussian RGB</button><button id="exportR30Btn">Scarica RAW .r30</button><button id="exportDiagBtn">Scarica diagnostica</button><button id="resumeBtn">Nuovo segmento</button></div>
 </section>
 </main>
 <aside class="diagDock"><details id="diagPanel"><summary>Diagnostica / debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Scarica log</button><button id="diagCopyBtn">Copia log</button><button id="selfTestBtn">Esegui self-test</button></div><div id="selfTestSummary" class="diagSummary">I test non richiedono il permesso camera.</div><pre id="diagLive">Bootstrap…</pre></div></details></aside>
@@ -36,7 +36,7 @@
   h?.addEventListener('input',()=>{label.textContent=Number(h.value).toFixed(2)+' m';});
   document.getElementById('diagDownloadBtn')?.addEventListener('click',()=>{if(document.documentElement.dataset.v30Ready==='1')return;const blob=new Blob([JSON.stringify({format:'ROOMSCAN-V30-PREBOOT-1',url:location.href,userAgent:navigator.userAgent,...boot},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='roomscan-v30-preboot-diagnostics.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});
   document.getElementById('startBtn')?.addEventListener('click',()=>{if(document.documentElement.dataset.v30Ready==='1')return;const st=document.getElementById('homeStatus');if(st){st.textContent='Il bootstrap V30 non è ancora pronto. Apri Diagnostica / debug e scarica i log.';st.dataset.kind='error';}});
-  document.getElementById('selfTestBtn')?.addEventListener('click',async()=>{if(document.documentElement.dataset.v30Ready==='1')return;const paths=['js/app.js','js/slam/math.js','wasm/slam_core.wasm','workers/gaussian_worker.js','workers/depth_worker.js','styles.css','manifest.webmanifest'],results=[];for(const p of paths){try{const r=await fetch(p,{cache:'no-store'});results.push((r.ok?'PASS ':'FAIL ')+p+' HTTP '+r.status);}catch(e){results.push('FAIL '+p+' '+e.message);}}document.getElementById('selfTestSummary').textContent=results.join(' · ');record('preboot-self-test',{results});});
+  document.getElementById('selfTestBtn')?.addEventListener('click',async()=>{if(document.documentElement.dataset.v30Ready==='1')return;const paths=['js/app.js','js/slam/math.js','wasm/slam_core.wasm','workers/gaussian_worker.js','workers/mesh_worker.js','workers/depth_worker.js','styles.css','manifest.webmanifest'],results=[];for(const p of paths){try{const r=await fetch(p,{cache:'no-store'});results.push((r.ok?'PASS ':'FAIL ')+p+' HTTP '+r.status);}catch(e){results.push('FAIL '+p+' '+e.message);}}document.getElementById('selfTestSummary').textContent=results.join(' · ');record('preboot-self-test',{results});});
   document.getElementById('diagCopyBtn')?.addEventListener('click',async()=>{if(document.documentElement.dataset.v30Ready==='1')return;try{await navigator.clipboard.writeText(JSON.stringify({format:'ROOMSCAN-V30-PREBOOT-1',url:location.href,userAgent:navigator.userAgent,...boot},null,2));}catch(e){record('preboot-copy-failed',{message:e.message});}});
   setTimeout(()=>{if(document.documentElement.dataset.v30Ready==='1')return;record('bootstrap-timeout',{message:'main module did not signal readiness within 5 s'});const st=document.getElementById('homeStatus');if(st){st.textContent='Bootstrap V30 non completato. Usa Diagnostica / debug per il log.';st.dataset.kind='error';}},5000);
 })();

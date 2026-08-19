@@ -1,8 +1,8 @@
 export const BUILD={
-  version:'30.4.0',
-  id:'v30.4.0-20260819-relative-L-map',
+  version:'30.5.0',
+  id:'v30.5.0-20260819-feature-mesh-guided-scan',
   dbName:'room-scanner-v30',
-  dbVersion:2
+  dbVersion:3
 };
 export const CONFIG={
   analysisWidth:320,
@@ -18,6 +18,9 @@ export const CONFIG={
   gaussianVoxelM:0.028,
   gaussianMaxLive:180000,
   gaussianSnapshot:65000,
+  gaussianTargetPoints:900,
+  meshFeaturesPerKeyframe:180,
+  meshMaxEdgeL:.42,
   snapshotPersistIntervalMs:10000,
   minimumMetricConfidence:.30,
   // If metric scale cannot be estimated reliably, map depths are normalized
@@ -27,6 +30,7 @@ export const CONFIG={
   gaussianMaxDepthL:16,
   depthWorker:'workers/depth_worker.js',
   gaussianWorker:'workers/gaussian_worker.js',
+  meshWorker:'workers/mesh_worker.js',
   wasmCore:'wasm/slam_core.wasm',
   // Local files win. Remote fallback is optional and never blocks bootstrap.
   transformersLocal:'vendor/transformers/transformers.min.js',
