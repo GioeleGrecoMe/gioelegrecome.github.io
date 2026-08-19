@@ -1,0 +1,4 @@
+
+> room-scanner-v30-10-single-folder@30.10.0 check:layout
+> node tools/check_v30_layout.mjs
+

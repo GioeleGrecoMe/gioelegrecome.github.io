@@ -1,17 +1,17 @@
 /*
- * Room Scanner V30.9 runtime configuration.
+ * Room Scanner V30.10 runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
  *   which caused IndexedDB VersionError during bootstrap/self-test.
- * - V30.9 keeps the desired schema at v3, but db.js is version-safe and never
+ * - V30.10 keeps the desired schema at v3, but db.js is version-safe and never
  *   requests a downgrade if a newer schema is already installed.
  * - WebXR calibration now requires the Anchors feature. There is deliberately
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.9.0',
-  id:'v30.9.0-20260819-real-webxr-anchors-world-locked',
+  version:'30.10.0',
+  id:'v30.10.0-20260819-manual-roi-metric-guidance',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -25,14 +25,14 @@ export const CONFIG={
   maxKeyframes:520,
 
   /*
-   * V30.9 metric bootstrap.
+   * V30.10 metric bootstrap.
    *
    * A visual calibration pin is valid only after an XRHitTestResult has created
    * a real XRAnchor and that anchor is present in XRFrame.trackedAnchors.
    * The pin position is read again from anchor.anchorSpace on every XR frame.
    */
   xrCalibrationMinTargets:3,
-  xrCalibrationMaxTargets:5,
+  xrCalibrationMaxTargets:7,
   xrCalibrationMinPointsPerTarget:3,
   xrCalibrationMinCommonPoints:9,
   xrCalibrationStableFrames:5,
@@ -44,12 +44,25 @@ export const CONFIG={
   xrCalibrationMinPatchVariance:42,
   xrCalibrationMinPatchDetail:7.0,
   xrCalibrationClusterOffsetUv:0.024,
+  xrCalibrationClusterGrid:true,
+  xrManualAimStableFrames:6,
+  xrManualAimHitStdM:0.018,
+  xrManualAimRefreshMs:90,
+  xrRoiScales:[0.055,0.11,0.20],
+  xrRoiPatchSize:24,
+  xrRoiMaxViewsPerTarget:24,
+  xrRoiMinViewsPerTarget:8,
+  xrRoiMinAzimuthSectors:4,
+  xrRoiAzimuthSectors:8,
+  xrRoiElevationBands:3,
+  xrRoiCaptureStepM:0.055,
+  xrRoiCaptureStepAngleRad:0.055,
   xrCalibrationMinViewsPerTarget:3,
-  xrCalibrationMaxViewsPerTarget:7,
+  xrCalibrationMaxViewsPerTarget:16,
   xrCalibrationViewStepM:0.075,
   xrCalibrationViewStepAngleRad:0.07,
   xrCalibrationMinTargetBaselineM:0.14,
-  xrCalibrationMaxTemplatesPerPoint:6,
+  xrCalibrationMaxTemplatesPerPoint:12,
   xrCalibrationTrackingZncc:0.28,
 
   // Global coverage contract requested for calibration quality: at least three
@@ -95,7 +108,7 @@ export const CONFIG={
   gaussianSnapshot:90000,
   gaussianWorker:'workers/gaussian_worker.js',
   wasmCore:'wasm/slam_core.wasm',
-  // No Depth Anything / DeepAI and no IMU are required by the V30.9 runtime.
+  // No Depth Anything / DeepAI and no IMU are required by the V30.10 runtime.
   serviceWorker:'sw.js',
   buildInfo:'build_info.json'
 };

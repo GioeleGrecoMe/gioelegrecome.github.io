@@ -1,9 +1,10 @@
 {
-  "version": "30.9.0",
-  "id": "v30.9.0-20260819-real-webxr-anchors-world-locked",
-  "architecture": "real WebXR anchors + user-selected multi-view landmarks -> camera-only WASM SLAM -> multi-view stereo -> 3D Gaussian map",
-  "calibration": "XRHitTestResult.createAnchor, frame.trackedAnchors, per-frame anchorSpace pose, >=3 poses with >=3 anchored pins, final common view",
+  "version": "30.10.0",
+  "id": "v30.10.0-20260819-manual-roi-metric-guidance",
+  "architecture": "manual WebXR hit-test preview + real XRAnchor pin ROIs -> multi-view visual atlas -> camera metric bridge -> camera-only WASM SLAM -> MVS -> metric Gaussian surface samples",
+  "calibration": "manual tap -> WebXR depth/XYZ/stability -> confirm XRAnchor area; >=3 pins, ROI multi-view coverage, >=3 poses with >=3 anchored pins, final common view",
   "deepAI": false,
   "imuRequired": false,
-  "updatedAt": "2026-08-19"
+  "updatedAt": "2026-08-19",
+  "measurement": "saved ROI guidance overlay + metric camera context + GS metric surface extraction helpers"
 }

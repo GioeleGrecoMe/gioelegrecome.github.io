@@ -4,7 +4,7 @@ import {V30Database,openVersionSafe} from './storage/db.js';
 import {triangulateRays,poseIdentity} from './slam/math.js';
 
 /*
- * V30.9 self-tests intentionally include regressions for the two phone failures
+ * V30.10 self-tests intentionally include regressions for the two phone failures
  * reported on V30.8: IndexedDB downgrade and fake/screen-space WebXR pins.
  */
 export async function runSelfTests(log){
@@ -14,6 +14,8 @@ export async function runSelfTests(log){
   await run('secure-context',()=>{if(!isSecureContext&&location.hostname!=='localhost')throw new Error('HTTPS required');return location.protocol;});
   await run('required-dom',()=>{for(const id of ['calibrateBtn','calibOverlay','calibUndoPinBtn','startBtn','diagDownloadBtn','selfTestBtn','forceUpdateBtn','viewer','bridgeCamera'])if(!document.getElementById(id))throw new Error(`missing #${id}`);return 'ok';});
   await run('runtime-contract',()=>({webXR:!!navigator.xr,webAssembly:typeof WebAssembly==='object',camera:!!navigator.mediaDevices?.getUserMedia,imuRequired:false,deepAI:false,realAnchorsRequired:CONFIG.xrRequireRealAnchors!==false}));
+
+  await run('unhandled-rejections',()=>{const xs=(window.__ROOMSCAN_PREBOOT?.errors||[]).filter(e=>e.type==='rejection');if(xs.length){const e=xs[xs.length-1];throw new Error(`${e.name||'PromiseRejection'}: ${e.message||'reason unavailable'}${e.source?` [${e.source}]`:''}`);}return 'none observed since page bootstrap';});
 
   await run('wasm-core',async()=>{const f=new WasmVisionFrontend(CONFIG.wasmCore);await f.init();const w=96,h=72,a=new Uint8Array(w*h),b=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){a[y*w+x]=((x*13+y*7)^((x>>3)*37))&255;const xx=Math.max(0,x-2);b[y*w+x]=((xx*13+y*7)^((xx>>3)*37))&255;}const r1=f.process(a,w,h,{maxFeatures:180,threshold:12}),r2=f.process(b,w,h,{maxFeatures:180,threshold:12});if(r1.count<5||r2.matches.count<2)throw new Error(`weak WASM output ${r1.count}/${r2.matches.count}`);return {features:r2.count,matches:r2.matches.count,limits:f.limits};});
   await run('camera-only-triangulation',()=>{const K={fx:300,fy:300,cx:160,cy:120,width:320,height:240},a={pose:poseIdentity(),K,u:160,v:120},b={pose:{p:[.20,0,0],q:[0,0,0,1]},K,u:130,v:120},r=triangulateRays(a,b,{minAngleRad:.005,maxGapM:.15});if(!r.ok)throw new Error(r.reason);return {p:r.p,angle:r.angle,gap:r.gap};});
@@ -40,6 +42,11 @@ export async function runSelfTests(log){
     if(!text.includes("seedUv:t.state==='tracking'"))throw new Error('live overlay projection contract missing');
     return 'XRHitTestResult -> XRAnchor -> trackedAnchors -> anchorSpace -> live projection';
   });
+
+
+  await run('manual-roi-contract',async()=>{const text=await fetch(`js/xr/xr_calibration.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.text();});for(const token of ['setManualAim(uv)','confirmManualPin()','xr-pin-roi-view','roiViews','pin-rejected'])if(!text.includes(token))throw new Error(`missing V30.10 manual/ROI token: ${token}`);const ui=await fetch(`js/xr/xr_calibration_manual_ui.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());if(!ui.includes('Conferma pin')||!ui.includes('profondità'))throw new Error('manual XR reticle UI missing');return 'tap -> WebXR depth/XYZ preview -> confirm -> multi-view ROI atlas';});
+  await run('measurement-guidance',async()=>{const text=await fetch(`js/xr/measurement_guidance.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.text();});if(!text.includes('bridgePinGuidance')||!text.includes('RoomScanMetricContext'))throw new Error('measurement pin-area guidance missing');const geom=await fetch(`js/metric/metric_geometry.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());if(!geom.includes('metricizeGaussians')||!geom.includes('gaussianSurfaceSamples'))throw new Error('metric GS helper missing');return 'saved pin ROIs + metric camera context + GS surface extraction';});
+  await run('unhandled-rejection-regression',async()=>{const text=await fetch(`js/xr/xr_calibration.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());const a=text.indexOf('async pinNearestCandidate(uv){'),b=text.indexOf('async pinCandidate(candidate){',a);const part=a>=0&&b>a?text.slice(a,b):'';if(!part.includes('return false')||!part.includes('pin-rejected'))throw new Error('user tap can still escape as rejected Promise');return 'normal placement rejection is converted to handled UI event';});
 
   await run('service-worker-file',async()=>{const text=await fetch(`${CONFIG.serviceWorker}?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.text();});if(!text.includes(`room-scanner-v${BUILD.version}-shell`))throw new Error(`service worker cache is not ${BUILD.version}`);return BUILD.version;});
   await run('build-info-fresh',async()=>{const info=await fetch(`${CONFIG.buildInfo}?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json();});if(info.id!==BUILD.id||info.version!==BUILD.version)throw new Error(`published ${info.id||info.version} != runtime ${BUILD.id}`);return info.id;});
