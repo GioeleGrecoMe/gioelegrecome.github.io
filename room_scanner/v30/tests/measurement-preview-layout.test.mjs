@@ -23,7 +23,7 @@ test('bridge camera is forced to a real viewport-sized rectangle',()=>{
   assert.match(css,/#bridgeCamera,#camera\{[\s\S]*object-fit:cover!important/);
   assert.match(bridge,/function fitPreviewViewport\(video\)/);
   assert.match(bridge,/visualViewport/);
-  assert.match(bridge,/video\.style\.setProperty\('height',height\+'px','important'\)/);
+  assert.match(bridge,/height:height\+'px'/);assert.match(bridge,/video\.style\.setProperty\(k,v,'important'\)/);
   assert.match(bridge,/videoIntrinsic/);
   assert.match(bridge,/videoRect/);
 });

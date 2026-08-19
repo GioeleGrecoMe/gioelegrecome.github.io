@@ -1,8 +1,8 @@
 /*
- * V30.13 camera-only geometric MVS worker.
+ * V30.14 camera-only geometric MVS worker.
  *
  * Previous V30 builds initialised this worker but never sent it a keyframe pair;
- * even when called, the worker only forwarded already-3D points. V30.13 accepts
+ * even when called, the worker only forwarded already-3D points. V30.14 accepts
  * two calibrated metric keyframes, matches their feature descriptors off the UI
  * thread and triangulates actual 3-D points from the two camera rays.
  *

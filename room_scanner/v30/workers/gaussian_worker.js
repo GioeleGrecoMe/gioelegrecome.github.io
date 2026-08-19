@@ -1,5 +1,5 @@
 /*
- * V30.13 robust surfel/Gaussian accumulator.
+ * V30.14 robust surfel/Gaussian accumulator.
  *
  * Important terminology: this worker performs online multi-view fusion of MVS
  * surface samples into anisotropic splats. It is NOT the offline differentiable

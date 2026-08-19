@@ -4,7 +4,7 @@ import {V30Database,openVersionSafe} from './storage/db.js';
 import {triangulateRays,poseIdentity} from './slam/math.js';
 
 /*
- * V30.13.0 self-tests intentionally include regressions for the two phone failures
+ * V30.14.0 self-tests intentionally include regressions for the two phone failures
  * reported on V30.8: IndexedDB downgrade and fake/screen-space WebXR pins.
  */
 export async function runSelfTests(log){
@@ -19,8 +19,10 @@ export async function runSelfTests(log){
 
   await run('unhandled-rejections',()=>{const xs=(window.__ROOMSCAN_PREBOOT?.errors||[]).filter(e=>e.type==='rejection');if(xs.length){const e=xs[xs.length-1];throw new Error(`${e.name||'PromiseRejection'}: ${e.message||'reason unavailable'}${e.source?` [${e.source}]`:''}`);}return 'none observed since page bootstrap';});
 
-  await run('wasm-core',async()=>{const f=new WasmVisionFrontend(CONFIG.wasmCore);await f.init();const w=96,h=72,a=new Uint8Array(w*h),b=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){a[y*w+x]=((x*13+y*7)^((x>>3)*37))&255;const xx=Math.max(0,x-2);b[y*w+x]=((xx*13+y*7)^((xx>>3)*37))&255;}const r1=f.process(a,w,h,{maxFeatures:180,threshold:12}),r2=f.process(b,w,h,{maxFeatures:180,threshold:12});if(r1.count<5||r2.matches.count<2)throw new Error(`weak WASM output ${r1.count}/${r2.matches.count}`);return {features:r2.count,matches:r2.matches.count,limits:f.limits};});
-  await run('alvaar-source-contract',async()=>{const [front,slam,overlay]=await Promise.all([fetch(`js/slam/wasm_frontend.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),fetch(`js/slam/slam_engine.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),fetch(`js/gaussian/ar_overlay.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text())]);for(const t of ['AlvaAR.Initialize','findCameraPose','alvaar-wasm'])if(!front.includes(t))throw new Error(`AlvaAR frontend token missing: ${t}`);for(const t of ['alvaMatrixToPose','alvaar-metric-scale'])if(!slam.includes(t))throw new Error(`Alva metric alignment token missing: ${t}`);if(!overlay.includes('projectPoint')||!overlay.includes('analysisPixelToSource'))throw new Error('live AR overlay is not registered to the camera geometry');return {local:'vendor/alva_ar.js',remote:CONFIG.alvaRemoteUrl,mode:window.RoomScanV30?.state?.frontend?.mode||'not-started'};});
+  await run('wasm-core',async()=>{const f=new WasmVisionFrontend(CONFIG.wasmCore);await f.init({requireAlva:false});const w=96,h=72,a=new Uint8Array(w*h),b=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){a[y*w+x]=((x*13+y*7)^((x>>3)*37))&255;const xx=Math.max(0,x-2);b[y*w+x]=((xx*13+y*7)^((xx>>3)*37))&255;}const r1=f.process(a,w,h,{maxFeatures:180,threshold:12}),r2=f.process(b,w,h,{maxFeatures:180,threshold:12});if(r1.count<5||r2.matches.count<2)throw new Error(`weak WASM output ${r1.count}/${r2.matches.count}`);return {features:r2.count,matches:r2.matches.count,limits:f.limits};});
+  await run('alvaar-source-contract',async()=>{const [front,slam,overlay]=await Promise.all([fetch(`js/slam/wasm_frontend.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),fetch(`js/slam/slam_engine.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),fetch(`js/gaussian/ar_overlay.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text())]);for(const t of ['AlvaAR.Initialize','findCameraPose','alvaar-wasm'])if(!front.includes(t))throw new Error(`AlvaAR frontend token missing: ${t}`);for(const t of ['alvaMatrixToPose','setWorldTransform','alvaar-relocalized'])if(!slam.includes(t))throw new Error(`Alva autonomous tracking token missing: ${t}`);if(!overlay.includes('projectPoint')||!overlay.includes('analysisPixelToSource'))throw new Error('live AR overlay is not registered to the camera geometry');return {local:'vendor/alva_ar.js',remote:CONFIG.alvaRemoteUrl,mode:window.RoomScanV30?.state?.frontend?.mode||'not-started'};});
+  await run('alva-autonomous-world-contract',async()=>{const [app,slam,bridge,boot]=await Promise.all([fetch(`js/app.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),fetch(`js/slam/slam_engine.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),fetch(`js/xr/metric_bridge.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),fetch(`js/slam/alva_metric_bootstrap.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text())]);if(app.includes('SLAM FALLBACK'))throw new Error('optical tracking fallback still exposed');for(const t of ['same instance','setWorldTransform(metric.alvaTransform)','ALVA LOST','ALVA RELOCALIZED'])if(!app.includes(t))throw new Error(`app autonomous-Alva token missing: ${t}`);if(!slam.includes("trackingMode='alvaar-lost'")||!slam.includes('if(trackingValid&&'))throw new Error('lost Alva frames can still create trajectory/keyframes');if(!bridge.includes('short-lived-pin-pnp-bootstrap'))throw new Error('pin matcher is not short-lived PnP bootstrap');if(!boot.includes('one-shot-alva-metric-sim3'))throw new Error('fixed Sim3 bootstrap missing');return 'pins -> one-shot Sim3 -> detached autonomous Alva world';});
+
   await run('camera-crop-contract',async()=>{const text=await fetch(`js/camera.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());for(const t of ['coverCrop','intrinsicsForCrop','analysisPixelToSource','drawImage(this.video,g.sx,g.sy,g.sw,g.sh'])if(!text.includes(t))throw new Error(`camera crop token missing: ${t}`);return 'analysis frame is cropped, not stretched; K follows the crop';});
   await run('live-ar-reconstruction',async()=>{const html=await fetch(`room_scanner_v30.html?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),app=await fetch(`js/app.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());if(!html.includes('id="arModeBtn"')||!app.includes("new LiveReconstructionOverlay($('miniMap')"))throw new Error('live GS/mesh AR controls missing');if(!app.includes('state.liveOverlay?.draw({pose:r.pose,K,geometry:frame.geometry'))throw new Error('overlay is not rendered from the live SLAM pose');return 'camera + metric pose + GS/mesh overlay';});
 
@@ -32,11 +34,11 @@ export async function runSelfTests(log){
   // catches that class of failure on the actual browser runtime.
   await run('scan-runtime-constructor',async()=>{
     const {SlamEngine}=await import(`./slam/slam_engine.js?selftest=${Date.now()}`);
-    const frontend={process:()=>({count:3,features:[{x:1,y:1}],matches:{count:1,items:[{dx:2,dy:-1}]}})};
+    const frontend={processFrame:()=>({count:3,features:[{x:1,y:1,desc:[1]}],matches:{count:1,items:[]},cameraPose:[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],framePoints:[]})};
     const slam=new SlamEngine({frontend,K:{fx:320,fy:320,cx:160,cy:240,width:320,height:480},keyframeIntervalMs:1});
-    slam.setMetricScale(1);
-    const r=slam.process({gray:new Uint8Array(640),width:320,height:2,at:1});
-    if(!r.metricLocked||r.matches!==1||r.keyframes!==1)throw new Error('SlamEngine first metric frame failed');
+    slam.setWorldTransform({scale:1,qAlign:[0,0,0,1],translation:[0,0,0],source:'self-test'});
+    const r=slam.process({gray:new Uint8Array(640),imageData:{data:new Uint8ClampedArray(2560)},width:320,height:2,at:1});
+    if(!r.metricLocked||r.matches!==1||r.keyframes!==1||!r.trackingValid)throw new Error('SlamEngine first metric Alva frame failed');
     return {metricLocked:r.metricLocked,matches:r.matches,keyframes:r.keyframes};
   });
   await run('live-mvs-gaussian-pipeline',async()=>{

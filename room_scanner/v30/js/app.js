@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.13.0 core application.
+ * Room Scanner V30.14.0 core application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,12 +8,12 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.13.0';
-import {DiagnosticsLog} from './logger.js?v=30.13.0';
+import {BUILD,CONFIG} from './config.js?v=30.14.0';
+import {DiagnosticsLog} from './logger.js?v=30.14.0';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
-const state={db:null,calibrator:null,bridge:null,bridgeStable:0,bridgeEpoch:0,bridgeTransition:false,camera:null,frontend:null,slam:null,gaussianWorker:null,mvsWorker:null,mvsBusy:false,mvsBase:null,mvsInFlight:null,mvsPairs:0,mvsPointsTotal:0,mvsLastResult:null,gaussians:[],renderer:null,currentSession:null,scanStop:null,liveOverlay:null,scanK:null,lastFrameGeometry:null,lastTracking:null};
+const state={db:null,calibrator:null,bridge:null,bridgeStable:0,bridgeEpoch:0,bridgeTransition:false,alvaBootstrap:null,camera:null,frontend:null,slam:null,gaussianWorker:null,mvsWorker:null,mvsBusy:false,mvsBase:null,mvsInFlight:null,mvsPairs:0,mvsPointsTotal:0,mvsLastResult:null,gaussians:[],renderer:null,currentSession:null,scanStop:null,liveOverlay:null,scanK:null,lastFrameGeometry:null,lastTracking:null};
 window.RoomScanV30={BUILD,CONFIG,state,log};
 const moduleCache=new Map();
 function lazy(path){if(!moduleCache.has(path))moduleCache.set(path,import(`${path}?v=${BUILD.version}`));return moduleCache.get(path);}
@@ -23,7 +23,8 @@ function show(id){for(const el of document.querySelectorAll('.screen'))el.classL
 function showError(message){const s=$('homeStatus');if(s){s.dataset.kind='error';s.textContent=message;}const d=$('diagPanel');if(d)d.open=true;}
 function calibration(){try{const x=JSON.parse(localStorage.getItem(CONFIG.calibrationStorageKey)||'null');return x?.calibration||x?.value||x;}catch{return null;}}
 function saveCalibration(c){localStorage.setItem(CONFIG.calibrationStorageKey,JSON.stringify({format:'ROOMSCAN-V30-CALIBRATION-PROFILE-1',savedAt:Date.now(),build:BUILD.id,calibration:c}));updateCalibrationUi();}
-function updateCalibrationUi(){const c=calibration(),summary=$('calibSummary'),start=$('startBtn');if(!c){if(summary)summary.textContent='Calibrazione non presente.';if(start)start.disabled=true;return;}const ids=new Set((c.anchors||[]).filter(a=>a.realAnchor).map(a=>a.objectId)),n=c.objects?.length||ids.size,p=c.poseCoverage?.length||c.quality?.poseCount||0;if(summary)summary.textContent=`Calibrazione salvata: ${n} pin 3D · ${p} pose · ${c.cameraSize?.join('×')||'camera n/d'}.`;if(start)start.disabled=n<3||ids.size<3;}
+function metricCalibrationInfo(c=calibration()){const ids=new Set((c?.anchors||[]).filter(a=>a?.realAnchor&&Array.isArray(a?.p)).map(a=>a.objectId));const n=c?.objects?.length||ids.size;return {calibration:c,ids,n,valid:!!c&&ids.size>=3&&n>=3};}
+function updateCalibrationUi(){const {calibration:c,ids,n,valid}=metricCalibrationInfo(),summary=$('calibSummary'),start=$('startBtn');if(!c){if(summary)summary.textContent='Nessuna scala metrica: AlvaAR può comunque partire e mantenere il proprio mondo in scala libera.';if(start){start.disabled=false;start.textContent='Avvia AlvaAR';}return;}const p=c.poseCoverage?.length||c.quality?.poseCount||0;if(summary)summary.textContent=valid?`Bootstrap metrico disponibile: ${n} pin 3D · ${p} pose. Dopo l’aggancio AlvaAR prosegue autonomamente.`:`Calibrazione incompleta (${ids.size}/3 pin metrici). AlvaAR può comunque partire in scala libera.`;if(start){start.disabled=false;start.textContent=valid?'Avvia misura metrica':'Avvia AlvaAR';}}
 function updateProgress(q){if(!q)return;const aim=q.manualAim||{},status=$('calibStatus'),depth=$('calibDepth'),add=$('calibAddPinBtn'),undo=$('calibUndoPinBtn'),finish=$('calibFinishBtn');if(status){const views=(q.targets||[]).slice(0,5).map((t,i)=>`P${i+1}:${t.roiViews||0}v`).join(' · ');status.textContent=q.ready?`✓ PRONTO · ${q.commonVisibleReadyTargets||0} pin utili visibili · Applica`:`${q.selected||0} pin · utili ${q.readyTargets||0}/${q.target||3}${views?` · ${views}`:''}`;}if(depth){if(q.ready)depth.textContent='Calibrazione sufficiente: premi Applica. Puoi continuare a muoverti solo se vuoi più viste.';else if(q.blocker)depth.textContent=q.blocker;else if(aim.valid)depth.textContent=`${Number(aim.depthM||0).toFixed(2)} m · ${aim.stable?'reticolo stabile':'tieni fermo il reticolo'}`;else depth.textContent='Inquadra una superficie con il reticolo.';}if(add)add.disabled=!aim.valid||!aim.stable||q.selected>=q.maxTargets;if(undo)undo.disabled=q.selected<1;if(finish){finish.disabled=!q.ready;finish.textContent=q.ready?'✓ Applica':'✓ Applica';}drawCalibrationOverlay(q);}
 function drawCalibrationOverlay(q){const c=$('calibOverlay');if(!c)return;const r=c.getBoundingClientRect(),dpr=Math.min(2,devicePixelRatio||1),w=Math.max(1,Math.round(r.width*dpr)),h=Math.max(1,Math.round(r.height*dpr));if(c.width!==w||c.height!==h){c.width=w;c.height=h;}const g=c.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,r.width,r.height);const cx=r.width/2,cy=r.height/2,ok=!!q?.manualAim?.stable;g.strokeStyle=ok?'#5cff8d':'#ffffff';g.lineWidth=2;g.beginPath();g.arc(cx,cy,15,0,Math.PI*2);g.moveTo(cx-24,cy);g.lineTo(cx-8,cy);g.moveTo(cx+8,cy);g.lineTo(cx+24,cy);g.moveTo(cx,cy-24);g.lineTo(cx,cy-8);g.moveTo(cx,cy+8);g.lineTo(cx,cy+24);g.stroke();for(let i=0;i<(q?.targets||[]).length;i++){const t=q.targets[i];if(t.state!=='tracking'||!t.visible||!Array.isArray(t.seedUv))continue;const x=t.seedUv[0]*r.width,y=t.seedUv[1]*r.height;g.fillStyle='#61d6ff';g.strokeStyle='#00131c';g.lineWidth=3;g.beginPath();g.arc(x,y,10,0,Math.PI*2);g.fill();g.stroke();g.fillStyle='#fff';g.font='700 13px system-ui';g.fillText(`P${i+1}`,x+14,y+4);}}
 
@@ -32,92 +33,129 @@ async function addCalibrationPin(){const c=state.calibrator;if(!c)return;const o
 async function finishCalibration(){const c=state.calibrator;if(!c)return;const result=await c.finish();saveCalibration(result);state.calibrator=null;window.__ROOMSCAN_ACTIVE_CALIBRATOR=null;show('home');const s=$('homeStatus');if(s)s.textContent='Calibrazione WebXR salvata. Ora puoi avviare la misura.';}
 async function cancelCalibration(){if(state.calibrator)await state.calibrator.stop().catch(()=>{});state.calibrator=null;window.__ROOMSCAN_ACTIVE_CALIBRATOR=null;show('home');}
 
+async function createAlvaFrontend(K){
+  const {WasmVisionFrontend}=await lazy('./slam/wasm_frontend.js');
+  const fovDeg=2*Math.atan((K?.width||CONFIG.analysisWidth)/(2*Math.max(1,K?.fx||CONFIG.analysisWidth)))*180/Math.PI;
+  const frontend=new WasmVisionFrontend({sentinelUrl:`${CONFIG.wasmCore}?v=${BUILD.version}`});
+  await frontend.init({width:CONFIG.analysisWidth,height:CONFIG.analysisHeight,fovDeg,alvaLocalUrl:new URL('../vendor/alva_ar.js',import.meta.url).href,alvaRemoteUrl:CONFIG.alvaRemoteUrl||null,requireAlva:true});
+  log.info('alva-runtime-ready',{mode:frontend.mode,fovDeg,K,source:frontend.alvaModule?'module':'injected'});
+  return frontend;
+}
+
+/**
+ * Bootstrap path only. WebXR/pin calibration is consumed here to estimate one
+ * fixed Alva-world -> metric-world Sim(3). After Scan starts, the bridge is
+ * discarded and it never corrects/steers AlvaAR again.
+ */
 async function beginBridge(){
-  const cal=calibration();if(!cal)throw new Error('Calibrazione assente');
-  const epoch=++state.bridgeEpoch;
-  state.bridgeTransition=false;state.bridgeStable=0;
+  const info=metricCalibrationInfo(),cal=info.valid?info.calibration:null,epoch=++state.bridgeEpoch;
+  state.bridgeTransition=false;state.bridgeStable=0;state.alvaBootstrap=null;
   state.bridge?.stop();state.bridge=null;
-  show('bridge');
-  const coach=$('bridgeCoach');if(coach)coach.textContent='Avvio camera…';
+
+  // AlvaAR is useful even without a metric bootstrap. In this mode the world
+  // remains persistent but its scale is explicitly labelled as free/non-metric.
+  if(!cal){
+    await startScan({locked:false,alvaTransform:null,scaleFree:true,method:'alvaar-scale-free'},epoch,null);
+    return;
+  }
+
+  show('bridge');const coach=$('bridgeCoach');if(coach)coach.textContent='Avvio camera e AlvaAR…';
   try{
-    const {MetricBridge}=await lazy('./xr/metric_bridge.js');
+    const [{MetricBridge},{AlvaMetricBootstrap},{alvaMatrixToPose}]=await Promise.all([lazy('./xr/metric_bridge.js'),lazy('./slam/alva_metric_bootstrap.js'),lazy('./slam/slam_engine.js')]);
     if(epoch!==state.bridgeEpoch)return;
     const bridge=new MetricBridge({video:$('bridgeCamera'),calibration:cal,log,analysisWidth:CONFIG.analysisWidth,analysisHeight:CONFIG.analysisHeight});
-    state.bridge=bridge;
+    state.bridge=bridge;state.alvaBootstrap=new AlvaMetricBootstrap({minSamples:CONFIG.alvaBootstrapMinSamples||5,minMetricBaselineM:CONFIG.alvaBootstrapMinBaselineM||.07,maxPositionRmseM:CONFIG.alvaBootstrapMaxPositionRmseM||.045,maxOrientationRmseRad:CONFIG.alvaBootstrapMaxOrientationRmseRad||.20});
+
     bridge.addEventListener('update',safe('metric-bridge-update',async e=>{
       if(epoch!==state.bridgeEpoch||state.bridge!==bridge)return;
       const r=e.detail,found=$('bridgeFound'),inliers=$('bridgeInliers'),rmse=$('bridgeRmse');
       if(found)found.textContent=String(r.found||0);if(inliers)inliers.textContent=String(r.inliers||0);if(rmse)rmse.textContent=r.rmse==null?'—':r.rmse.toFixed(4);
       window.dispatchEvent(new CustomEvent('roomscan:metric-bridge-update',{detail:r}));
-      if(r.locked)state.bridgeStable++;else state.bridgeStable=0;
-      if(state.bridgeStable>=3&&!state.bridgeTransition){
+
+      let bs=state.alvaBootstrap.status();
+      const tr=bridge.latestAlva,dt=Math.abs((tr?.at||0)-(r?.at||0));
+      if(r.locked&&r.pose&&tr?.cameraPose&&dt<=Math.max(140,1000/(bridge.trackingFps||12)*2)){
+        try{bs=state.alvaBootstrap.add(alvaMatrixToPose(tr.cameraPose),r.pose,r.at||performance.now());}
+        catch(err){log.warn('alva-metric-bootstrap-sample',{message:err.message});}
+      }
+      if(coach){const base=`Alva ${bs.samples}/${state.alvaBootstrap.minSamples} · baseline ${(bs.metricBaselineM*100).toFixed(1)}/${(state.alvaBootstrap.minMetricBaselineM*100).toFixed(0)} cm`;coach.textContent=bs.ready?'✓ Riferimento metrico fissato · AlvaAR continuerà autonomamente.':r.locked?`${base} · muovi lentamente il telefono di lato mantenendo 3 pin visibili.`:'Allinea almeno 3 pin. Servono solo per fissare una volta scala e riferimento di AlvaAR.';}
+
+      if(r.locked&&bs.ready&&!state.bridgeTransition){
         state.bridgeTransition=true;
-        if(coach)coach.textContent='Aggancio metrico riuscito · preparo la scansione…';
         try{
-          await startScan(r,epoch,bridge);
+          const metric={...r,locked:true,alvaTransform:bs.result,method:'one-shot-pins-to-alva-sim3'};
+          await startScan(metric,epoch,bridge);
         }catch(err){
-          if(epoch===state.bridgeEpoch&&state.bridge===bridge){
-            state.bridgeStable=0;bridge.resume?.();
-            if(coach)coach.textContent=`Aggancio valido ma avvio scansione fallito: ${err?.message||err}. Puoi riprovare o uscire.`;
-          }
+          if(epoch===state.bridgeEpoch&&state.bridge===bridge){bridge.resume?.();if(coach)coach.textContent=`Bootstrap metrico valido ma avvio scansione fallito: ${err?.message||err}. Puoi riprovare o uscire.`;}
           throw err;
         }finally{if(epoch===state.bridgeEpoch)state.bridgeTransition=false;}
       }
     }));
-    await bridge.start();
+
+    // Start the camera first so K is known, then initialize exactly ONE AlvaAR
+    // instance and hand that same instance from bridge to Scan without reset.
+    await bridge.start();if(epoch!==state.bridgeEpoch){bridge.stop();return;}
+    // Preserve an existing Alva world across Review -> Resume or a later
+    // measurement in the same page. Recreate the tracker only if none exists.
+    if(!state.frontend?.alva)state.frontend=await createAlvaFrontend(bridge.K);else state.frontend.resetLocalFeatures?.();
     if(epoch!==state.bridgeEpoch){bridge.stop();return;}
-    if(coach)coach.textContent='Allinea almeno 3 aree dei pin. Parti dalla vista finale della calibrazione e fai piccoli spostamenti laterali.';
-    // Guidance is optional and is loaded only AFTER the camera preview is alive.
+    bridge.setFrontend(state.frontend);
+    if(coach)coach.textContent='AlvaAR attivo. Allinea 3 pin e fai una breve traslazione laterale: la calibrazione verrà poi sganciata.';
     lazy('./xr/measurement_guidance.js').then(m=>m.installMeasurementGuidance?.()).catch(err=>log.warn('measurement-guidance',{message:err.message}));
-  }catch(err){
-    if(epoch===state.bridgeEpoch){state.bridge?.stop();state.bridge=null;show('home');}
-    throw err;
-  }
+  }catch(err){if(epoch===state.bridgeEpoch){state.bridge?.stop();state.bridge=null;state.frontend=null;show('home');}throw err;}
 }
-async function startScan(metric,epoch=state.bridgeEpoch,bridge=state.bridge){
-  if(epoch!==state.bridgeEpoch||!bridge)return;
-  bridge.pause?.();
+
+async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
+  if(epoch!==state.bridgeEpoch)return;
+  bridge?.pause?.();
   await lazy('./metric/gaussian_metric_tap.js').catch(err=>log.warn('gaussian-metric-tap',{message:err.message}));
   await lazy('./metric/metric_mesh_ui.js').catch(err=>log.warn('metric-mesh-ui',{message:err.message}));
-  const [{CameraController,intrinsicsForCrop},{WasmVisionFrontend},{SlamEngine},{LiveReconstructionOverlay}]=await Promise.all([lazy('./camera.js'),lazy('./slam/wasm_frontend.js'),lazy('./slam/slam_engine.js'),lazy('./gaussian/ar_overlay.js')]);
+  const [{CameraController,intrinsicsForCrop},{SlamEngine},{LiveReconstructionOverlay}]=await Promise.all([lazy('./camera.js'),lazy('./slam/slam_engine.js'),lazy('./gaussian/ar_overlay.js')]);
   if(epoch!==state.bridgeEpoch)return;
 
-  // Transfer the already-open camera first. The live preview remains visible
-  // while AlvaAR initializes, rather than hiding expensive SLAM startup behind a
-  // black transition.
-  const sharedStream=bridge.takeStream?.()||null;
+  // If the metric bootstrap was used, transfer its stream. AlvaAR itself is NOT
+  // re-created: state.frontend is intentionally the same world tracker.
+  const sharedStream=bridge?.takeStream?.()||null;
   state.camera=new CameraController({video:$('camera'),width:CONFIG.analysisWidth,height:CONFIG.analysisHeight,fps:CONFIG.analysisFps,log,stream:sharedStream});
-  try{await state.camera.start();}catch(err){if(sharedStream){if(state.camera?.video)state.camera.video.srcObject=null;state.camera.stream=null;await bridge.restoreStream?.(sharedStream);}throw err;}
+  try{await state.camera.start();}catch(err){if(sharedStream&&bridge){if(state.camera?.video)state.camera.video.srcObject=null;state.camera.stream=null;await bridge.restoreStream?.(sharedStream);}throw err;}
   if(epoch!==state.bridgeEpoch){state.camera.stop();return;}
-  state.bridge=null;show('scan');if($('coach'))$('coach').textContent='Inizializzo AlvaAR SLAM… mantieni la camera stabile per un istante.';
+  show('scan');if($('coach'))$('coach').textContent='AlvaAR inizializza e mantiene il mondo. Muoviti lentamente, con texture e parallasse.';
 
   const cal=calibration(),geometry=state.camera.geometry;
-  const K=intrinsicsForCrop(metric?.intrinsicsNorm||cal?.commonView?.intrinsicsNorm||cal?.intrinsicsNorm,geometry,{fallbackFovDeg:CONFIG.cameraFovDeg});
+  const K=metric?.K||intrinsicsForCrop(metric?.intrinsicsNorm||cal?.commonView?.intrinsicsNorm||cal?.intrinsicsNorm,geometry,{fallbackFovDeg:CONFIG.cameraFovDeg});
   state.scanK=K;state.lastFrameGeometry=geometry;
-  const fovDeg=2*Math.atan(K.width/(2*Math.max(1,K.fx)))*180/Math.PI;
-  state.frontend=new WasmVisionFrontend(`${CONFIG.wasmCore}?v=${BUILD.version}`);
-  await state.frontend.init({width:CONFIG.analysisWidth,height:CONFIG.analysisHeight,fovDeg,alvaLocalUrl:new URL('../vendor/alva_ar.js',import.meta.url).href,alvaRemoteUrl:CONFIG.alvaRemoteUrl||null});
-  log.info('slam-frontend',{mode:state.frontend.mode,alvaError:state.frontend.alvaLoadError?.message||null,fovDeg,K,geometry});
-  if($('slamState'))$('slamState').textContent=state.frontend.mode==='alvaar-wasm'?'ALVA SLAM · INIT':'SLAM FALLBACK';
-  if($('coach'))$('coach').textContent=state.frontend.mode==='alvaar-wasm'?'AlvaAR attivo · muoviti lentamente e copri pareti e oggetti da più lati.':'AlvaAR non disponibile: fallback ottico attivo · qualità ridotta.';
+  if(!state.frontend?.alva){state.frontend=await createAlvaFrontend(K);}else{state.frontend.resetLocalFeatures?.();}
+  if(epoch!==state.bridgeEpoch){state.camera.stop();return;}
+  if($('slamState'))$('slamState').textContent='ALVA TRACKING · INIT';
+  log.info('slam-frontend-reused',{mode:state.frontend.mode,fromMetricBootstrap:!!bridge,metricTransform:!!metric?.alvaTransform});
 
   state.slam=new SlamEngine({frontend:state.frontend,K,log,keyframeIntervalMs:CONFIG.keyframeIntervalMs});
-  if(metric?.locked){const metricPose=metric?.pose||cal?.commonView?.pose||cal?.pose||null,pinPoints=(cal?.anchors||[]).map(a=>a?.p).filter(p=>Array.isArray(p)&&p.length>=3);state.slam.setMetricReference({pose:metricPose,points:pinPoints});}
+  if(metric?.alvaTransform)state.slam.setWorldTransform(metric.alvaTransform);
 
   state.liveOverlay=new LiveReconstructionOverlay($('miniMap'),{maxSplats:CONFIG.liveOverlayMaxSplats||3200});state.liveOverlay.setMode('gs');
   window.addEventListener('roomscan:metric-mesh',()=>{state.liveOverlay?.setMesh(window.__ROOMSCAN_METRIC_MESH||null);},{signal:makeScanAbortSignal()});
   state.gaussians=[];state.mvsBusy=false;state.mvsBase=null;state.mvsInFlight=null;state.mvsPairs=0;state.mvsPointsTotal=0;state.mvsLastResult=null;
   state.gaussianWorker=new Worker(`${CONFIG.gaussianWorker}?v=${BUILD.version}`);
-  state.gaussianWorker.onmessage=e=>{const d=e.data||{};if(d.type==='snapshot'&&Array.isArray(d.gaussians)){state.gaussians=d.gaussians;state.liveOverlay?.setGaussians(d.gaussians);const el=$('statGs');if(el)el.textContent=String(d.visibleCount??d.gaussians.length);if(d.count>0&&$('slamState'))$('slamState').textContent=`${state.lastTracking?.trackingMode==='alvaar-wasm'?'ALVA SLAM':'SLAM FALLBACK'} + GS`;lazy('./metric/metric_mesh_ui.js').then(m=>m.requestLiveMesh?.()).catch(()=>{});}else if(d.type==='error')log.warn('gaussian-worker',{message:d.message,stack:d.stack||null});};
+  state.gaussianWorker.onmessage=e=>{const d=e.data||{};if(d.type==='snapshot'&&Array.isArray(d.gaussians)){state.gaussians=d.gaussians;state.liveOverlay?.setGaussians(d.gaussians);const el=$('statGs');if(el)el.textContent=String(d.visibleCount??d.gaussians.length);lazy('./metric/metric_mesh_ui.js').then(m=>m.requestLiveMesh?.()).catch(()=>{});}else if(d.type==='error')log.warn('gaussian-worker',{message:d.message,stack:d.stack||null});};
   state.gaussianWorker.postMessage({type:'init',config:{voxel:CONFIG.gaussianVoxelM,maxGaussians:CONFIG.gaussianMaxLive,maxSnapshot:CONFIG.gaussianSnapshot,minSupport:CONFIG.gaussianMinSupport||2}});
   state.mvsWorker=new Worker(`${CONFIG.mvsWorker}?v=${BUILD.version}`);state.mvsWorker.onmessage=e=>handleMvsMessage(e.data||{});state.mvsWorker.postMessage({type:'init',config:{near:CONFIG.mvsNearM,far:CONFIG.mvsFarM,maxPoints:CONFIG.mvsMaxPoints,minBaselineM:CONFIG.mvsMinBaselineM,maxBaselineM:CONFIG.mvsMaxBaselineM,minParallaxPx:CONFIG.mvsMinParallaxPx,maxRayGapM:CONFIG.mvsMaxRayGapM,maxFeatures:CONFIG.mvsMaxFeatures}});
-  state.currentSession=await state.db?.createSession({calibrationBuild:cal?.createdAt||null,metricLocked:!!metric?.locked});if($('metricState'))$('metricState').textContent=metric?.locked?'scala METRIC · common-view lock':'scala — NON AGGANCIATA';
+  state.currentSession=await state.db?.createSession({calibrationBuild:cal?.createdAt||null,metricLocked:!!state.slam.metricLocked});
+  if($('metricState'))$('metricState').textContent=state.slam.metricLocked?`scala METRIC · Alva×${state.slam.metricScale?.toFixed?.(3)||'?'}`:'ALVA WORLD · scala libera';
+  if(!state.slam.metricLocked&&$('mvsState'))$('mvsState').textContent='MVS sospeso · serve una scala metrica';
+
+  // The bridge has no further authority over tracking after this line.
+  if(bridge===state.bridge)state.bridge=null;
+  state.alvaBootstrap=null;
 
   state.scanStop=state.camera.loop(frame=>{try{
     state.lastFrameGeometry=frame.geometry;const r=state.slam.process(frame);state.lastTracking=r;
     if($('statFeat'))$('statFeat').textContent=String(r.features);if($('statMatch'))$('statMatch').textContent=String(r.matches);if($('statKf'))$('statKf').textContent=String(r.keyframes);
-    if($('slamState'))$('slamState').textContent=`${r.trackingMode==='alvaar-wasm'?'ALVA SLAM':'SLAM FALLBACK'}${r.alvaScale?` · ${(r.alvaScale).toFixed(3)} m/u`:''}${state.gaussians.length?' + GS':''}`;
-    if(r.newKeyframe&&(r.keyframes%(CONFIG.mvsEveryNthKeyframe||1)===0))queueMvsKeyframe(r.newKeyframe,frame,K);
+    const status=r.trackingMode==='alvaar-relocalized'?'ALVA RELOCALIZED':r.trackingValid?'ALVA TRACKING':'ALVA LOST';
+    if($('slamState'))$('slamState').textContent=`${status}${state.gaussians.length?' + GS':''}`;
+    if($('coach'))$('coach').textContent=r.trackingValid?'AlvaAR stabile · muoviti lentamente e torna anche su zone già viste per favorire la relocalizzazione.':'Tracking Alva perso · fermati o torna verso una zona già osservata; la mappa è congelata.';
+    // Metric MVS is downstream of Alva. Lost frames and scale-free frames never
+    // create geometry, preventing a secondary tracker from bending the map.
+    if(r.newKeyframe&&r.metricLocked&&(r.keyframes%(CONFIG.mvsEveryNthKeyframe||1)===0))queueMvsKeyframe(r.newKeyframe,frame,K);
     state.liveOverlay?.draw({pose:r.pose,K,geometry:frame.geometry,video:state.camera.video});
     if(state.currentSession&&r.newKeyframe&&r.keyframes%5===0)state.db?.updateSession(state.currentSession.id,{status:'scanning',counts:{keyframes:r.keyframes,triangulated:state.mvsPointsTotal,gaussians:state.gaussians.length}}).catch(()=>{});
   }catch(err){log.warn('scan-frame',{message:err.message,stack:err.stack||null});}});

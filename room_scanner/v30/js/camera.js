@@ -44,7 +44,7 @@ export function sourcePixelToViewport({sourceWidth,sourceHeight},x,y,viewportWid
 /**
  * Camera-only capture helper.
  *
- * V30.13 keeps the image geometry consistent end-to-end: the analysis frame is
+ * V30.14 keeps the image geometry consistent end-to-end: the analysis frame is
  * center-cropped with object-fit:cover semantics instead of stretching a 16:9
  * phone feed into the 2:3 analysis canvas. The crop metadata is attached to
  * every frame so the live AR splat overlay can map analysis pixels back onto

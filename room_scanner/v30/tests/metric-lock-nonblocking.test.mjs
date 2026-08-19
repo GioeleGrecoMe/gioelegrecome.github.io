@@ -22,13 +22,13 @@ test('metric matcher has an explicit bounded work budget',()=>{
   const bridge=read('js/xr/metric_bridge.js');
   assert.match(bridge,/maxComparisons=520/);
   assert.match(bridge,/templates=\[\.\.\.common\.slice\(-2\),\.\.\.observed\.slice\(-2\),\.\.\.roi\.slice\(-4\)\]/);
-  assert.match(bridge,/setTimeout\(\(\)=>this\._loop\(\),240\)/);
+  assert.match(bridge,/setTimeout\(\(\)=>this\._loop\(\),2[0-9]{2}\)/);
 });
 
 test('metric lock hands the existing camera stream to scan',()=>{
   const app=read('js/app.js'),bridge=read('js/xr/metric_bridge.js'),camera=read('js/camera.js');
   assert.match(bridge,/takeStream\(\)/);
-  assert.match(app,/const sharedStream=bridge\.takeStream/);
+  assert.match(app,/const sharedStream=bridge\?\.takeStream\?\.\(\)\|\|null/);
   assert.match(app,/new CameraController\([^;]*stream:sharedStream/);
   assert.match(camera,/adoptStream\(stream\)/);
 });

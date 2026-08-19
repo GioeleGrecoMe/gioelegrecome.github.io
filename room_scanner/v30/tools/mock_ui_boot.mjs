@@ -12,7 +12,7 @@ globalThis.sessionStorage={m:new Map(),getItem(k){return this.m.get(k)??null},se
 Object.defineProperty(globalThis,'navigator',{value:{userAgent:'mock',mediaDevices:{}},configurable:true});Object.defineProperty(globalThis,'location',{value:{pathname:'/room_scanner/v30/room_scanner_v30.html',replace(){}},configurable:true});globalThis.devicePixelRatio=1;
 await import(`../js/app.js?mock=${Date.now()}`);
 if(document.documentElement.dataset.v30Interactive!=='1')throw new Error('UI did not become interactive');
-if(els.get('buildBadge').textContent!=='V30.13.0')throw new Error('wrong badge');
+if(els.get('buildBadge').textContent!=='V30.14.0')throw new Error('wrong badge');
 els.get('calibrateBtn').click();
 await new Promise(r=>setTimeout(r,30));
 if(!els.get('home').classList.contains('active'))throw new Error('failed WebXR did not return to Home');

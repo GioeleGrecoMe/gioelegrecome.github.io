@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.13.0 runtime configuration.
+ * Room Scanner V30.14.0 runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.13.0',
-  id:'v30.13.0-20260819-alvaar-live-ar-splats',
+  version:'30.14.0',
+  id:'v30.14.0-20260819-alvaar-autonomous-world-tracking',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -102,7 +102,7 @@ export const CONFIG={
   // Camera-only multi-view densification. No monocular AI depth is involved.
   mvsWorker:'workers/mvs_worker.js',
   mvsEveryNthKeyframe:1,
-  // V30.13 feeds real metric keyframe pairs to the MVS worker. A 3 cm
+  // V30.14 feeds only AlvaAR-tracked metric keyframe pairs to MVS. A 3 cm
   // lateral baseline is usually enough for local triangulation at room scale,
   // while still preserving strong visual overlap on a phone camera.
   mvsMinBaselineM:0.03,
@@ -117,6 +117,15 @@ export const CONFIG={
   mvsMaxFeatures:620,
   mvsMaxPoints:5200,
 
+
+  // One-shot AlvaAR -> metric-world bootstrap. These samples are collected only
+  // while the three calibrated pins are being re-observed. Once locked, this
+  // transform is immutable and the pin matcher is disconnected from tracking.
+  alvaBootstrapMinSamples:5,
+  alvaBootstrapMinBaselineM:0.07,
+  alvaBootstrapMaxPositionRmseM:0.045,
+  alvaBootstrapMaxOrientationRmseRad:0.20,
+
   gaussianVoxelM:0.022,
   gaussianMaxLive:240000,
   gaussianSnapshot:90000,
@@ -128,7 +137,7 @@ export const CONFIG={
   // bundle; the CDN path is the online fallback.
   alvaRemoteUrl:'https://cdn.jsdelivr.net/gh/alanross/AlvaAR@main/dist/alva_ar.js',
   wasmCore:'wasm/slam_core.wasm',
-  // No Depth Anything / DeepAI and no IMU are required by the V30.13.0 runtime.
+  // No Depth Anything / DeepAI and no IMU are required by the V30.14.0 runtime.
   serviceWorker:'sw.js',
   serviceWorkerRegisterDelayMs:2500,
   buildInfo:'build_info.json'

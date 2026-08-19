@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-13-alvaar-live-ar-splats",
+  "name": "room-scanner-v30-14-alvaar-autonomous-world",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +10,6 @@
     "check:mock": "node tools/mock_ui_boot.mjs",
     "check:constructors": "node tools/check_eventtarget_constructors.mjs"
   },
-  "version": "30.13.0",
-  "description": "V30.13.0: AlvaAR-first metric camera tracking, robust online splat fusion, live AR GS/mesh overlay, and improved 3D review navigation."
+  "version": "30.14.0",
+  "description": "V30.14.0: AlvaAR-only long-lived world tracking with one-shot optional metric bootstrap, freeze-on-loss, relocalization-safe MVS/GS, and live AR reconstruction."
 }

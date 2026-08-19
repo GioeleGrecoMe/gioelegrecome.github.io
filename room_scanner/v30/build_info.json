@@ -1,6 +1,6 @@
 {
-  "version": "30.13.0",
-  "id": "v30.13.0-20260819-alvaar-live-ar-splats",
-  "builtAt": "2026-08-19T22:34:00+02:00",
-  "notes": "Restores AlvaAR WASM as the primary visual-SLAM pose source when available, aligns it to the WebXR metric calibration, fixes camera crop/intrinsic geometry, adds robust multi-view splat fusion, live GS/mesh overlay over the camera, and a simpler navigable review viewer."
+  "version": "30.14.0",
+  "id": "v30.14.0-20260819-alvaar-autonomous-world-tracking",
+  "builtAt": "2026-08-19T23:25:00+02:00",
+  "notes": "AlvaAR is the sole long-lived world tracker. WebXR pin calibration is used only for a short one-shot Alva-to-metric Sim(3) bootstrap, then disconnected. Lost Alva frames freeze the map and suspend MVS; relocalization resumes the same world. AlvaAR can also run without calibration in explicitly scale-free mode."
 }

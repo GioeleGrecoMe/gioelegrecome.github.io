@@ -1,9 +1,13 @@
-# AlvaAR runtime dependency
+# Optional local AlvaAR runtime
 
-Room Scanner V30.13 tries `vendor/alva_ar.js` first. For a fully self-contained/offline deployment, copy the **official** AlvaAR `dist/alva_ar.js` file here with exactly that name.
+V30.14.0 uses AlvaAR as the sole long-lived camera/world tracker.
 
-Upstream: `alanross/AlvaAR`, `dist/alva_ar.js` (GPL-3.0).
+For a self-contained/offline deployment copy the official AlvaAR distribution file:
 
-If the local file is absent, Room Scanner attempts the configured jsDelivr URL. If that also fails, scanning continues with the explicitly labelled low-quality JavaScript optical-flow fallback rather than pretending that the 34-byte sentinel WASM is SLAM.
+    dist/alva_ar.js
 
-AlvaAR and its OV2SLAM / ORB-SLAM2-derived components are GPLv3; preserve the upstream license and notices when vendoring/distributing the file.
+into this directory as:
+
+    v30/vendor/alva_ar.js
+
+If the local file is absent the application tries the configured CDN URL. There is intentionally no optical-flow pose fallback when AlvaAR is unavailable or loses tracking: silently substituting another trajectory would destroy world persistence and corrupt downstream MVS/GS geometry.

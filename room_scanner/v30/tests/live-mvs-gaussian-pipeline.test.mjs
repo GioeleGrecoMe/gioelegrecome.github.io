@@ -24,15 +24,15 @@ function syntheticPair(){
   return {K,a,b,pts};
 }
 
-test('metric SLAM reference depth comes from calibrated WebXR pins',()=>{
-  const frontend={process:()=>({count:2,features:[{x:160,y:120,score:10,desc:[1,2]},{x:150,y:120,score:9,desc:[3,4]}],matches:{count:1,items:[{dx:-3,dy:0}]}})};
+test('metric MVS is driven by a fixed Alva world transform, not flow-derived motion',()=>{
+  let i=0;
+  const frontend={processFrame(){const x=.04*i++;return {count:2,features:[{x:160,y:120,score:10,desc:[1,2]},{x:150,y:120,score:9,desc:[3,4]}],matches:{count:1,items:[{dx:-3,dy:0}]},cameraPose:[1,0,0,0,0,1,0,0,0,0,1,0,x,0,0,1],framePoints:[]};}};
   const K={fx:300,fy:300,cx:160,cy:120,width:320,height:240};
   const slam=new SlamEngine({frontend,K,keyframeIntervalMs:1});
-  const ref=slam.setMetricReference({pose:{p:[0,0,0],q:[0,0,0,1]},points:[[0,0,2],[-.2,.1,2.2],[.2,-.1,1.8]]});
-  assert.ok(Math.abs(ref.referenceDepthM-2)<1e-9);
-  const r=slam.process({gray:new Uint8Array(320*240),width:320,height:240,at:1});
-  assert.ok(r.pose.p[0]>0.015&&r.pose.p[0]<0.025,'3 px flow at ~2m should become centimetric metric motion');
-  assert.ok(r.newKeyframe?.features?.length===2);
+  slam.setWorldTransform({scale:2,qAlign:[0,0,0,1],translation:[1,0,0],source:'test'});
+  const r=slam.process({gray:new Uint8Array(320*240),imageData:{data:new Uint8ClampedArray(320*240*4)},width:320,height:240,at:1});
+  assert.equal(r.metricLocked,true);assert.equal(r.trackingMode,'alvaar-wasm');assert.ok(r.newKeyframe?.features?.length===2);
+  assert.ok(Math.abs(r.pose.p[0]-1)<1e-9,'first Alva world pose must be mapped only by the fixed Sim3');
 });
 
 test('two-view MVS triangulates metric points and feeds Gaussian accumulator',()=>{

@@ -1,14 +1,14 @@
-/* Room Scanner V30.13.0 service worker.
+/* Room Scanner V30.14.0 service worker.
  * Static runtime assets are cache-first once installed. Navigations use a short
  * network-first path. The active worker exposes GET_VERSION so the HTML can
  * remove an actually stale V30 controller before loading application modules.
  */
-const VERSION='30.13.0';
-const CACHE='room-scanner-v30.13.0-shell';
+const VERSION='30.14.0';
+const CACHE='room-scanner-v30.14.0-shell';
 const SHELL=[
   './','./index.html','./room_scanner_v30.html','./styles.css','./manifest.webmanifest','./icon.svg','./build_info.json',
   './js/boot.js','./js/app.js','./js/config.js','./js/logger.js','./js/camera.js','./js/formats.js','./js/self_test.js','./js/storage/db.js',
-  './js/slam/math.js','./js/slam/wasm_frontend.js','./js/slam/slam_engine.js','./js/xr/xr_calibration.js','./js/xr/measurement_guidance.js','./js/xr/metric_bridge.js',
+  './js/slam/math.js','./js/slam/wasm_frontend.js','./js/slam/slam_engine.js','./js/slam/alva_metric_bootstrap.js','./js/metric/pnp_pose.js','./js/xr/xr_calibration.js','./js/xr/measurement_guidance.js','./js/xr/metric_bridge.js',
   './js/metric/metric_geometry.js','./js/metric/gaussian_metric_tap.js','./js/metric/metric_mesh_ui.js','./js/gaussian/renderer.js','./js/gaussian/ar_overlay.js',
   './workers/metric_mesh_worker.js','./workers/gaussian_worker.js','./workers/mvs_worker.js','./wasm/slam_core.wasm'
 ];
