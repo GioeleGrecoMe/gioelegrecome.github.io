@@ -1,35 +1,30 @@
-# V30.7 Architecture
+# V30.8 architecture
 
-## Coordinate contract
+## Stage A - WebXR metric landmark calibration
 
-V30 mapping code uses +X right, +Y up, +Z forward. WebXR local-floor uses the WebXR viewer -Z-forward convention; the calibration boundary converts position with z reflection and orientation with `S R S`, `S=diag(1,1,-1)`.
+Raw Camera Access is sampled only through small patches. A lightweight texture
+score proposes stable-looking visual regions. The user selects which physical
+details are trustworthy.
 
-## Metric bootstrap
+Each user target owns a cluster of nearby WebXR hit-test points. After the metric
+positions become stable, the hit-test sources are cancelled. The fixed points are
+reprojected into subsequent WebXR views and collect multiple image templates from
+poses separated by translation and/or rotation.
 
-WebXR is not the long-term tracker. It is a short calibration oracle:
+A target is ready only after enough multi-view observations and metric baseline.
+The entire calibration is ready only when all chosen targets are visible together
+in a final common view with sufficient spatial spread.
 
-- `local-floor`: metric floor-relative frame;
-- `hit-test`: stable metric 3D reference points;
-- `camera-access`: raw-camera patches attached to those 3D points.
+## Stage B - metric bridge
 
-The app requests a grid of hit-test rays. A point is retained only after repeated stable results. Low-texture raw-camera patches are rejected. Calibration requires both overall spatial span and vertical span.
+WebXR is closed. `getUserMedia()` starts. Each metric point is searched around its
+final common-view image coordinate. The bridge tries the common-view template
+first and then a few strong historical templates. Unique 3D-to-2D correspondences
+feed the WASM PnP solver. Accepted matches are bound to unique SLAM tracks.
 
-## Visual hand-off
+## Stage C - camera-only mapping
 
-After XR ends, normal camera frames locate the stored templates. Their known metric 3D coordinates and current 2D locations form a 3D-to-2D PnP problem solved in WASM. The scan is blocked until this metric hand-off passes an inlier/RMSE gate.
-
-## Camera-only SLAM
-
-The frontend performs FAST/BRIEF and descriptor matching in WASM. Once metric landmarks exist, all pose updates come from 3D-to-2D PnP. Unmapped persistent tracks are triangulated across metric camera baselines.
-
-## Camera-only dense geometry
-
-The MVS worker selects pairs with sufficient baseline and limited view-angle change. It evaluates inverse-depth hypotheses with zero-mean patch correlation, rejects weak/ambiguous matches, outputs RGB metric points, and triangulates only locally consistent neighboring samples.
-
-## Gaussian map
-
-The Gaussian worker fuses WebXR seed anchors, sparse triangulated landmarks and MVS points into fine metric voxels. Each cell stores running mean/covariance, RGB, normal, view count and confidence. The Gaussian map is primary; local mesh is derived.
-
-## No AI depth / no IMU
-
-V30.7 contains no Depth Anything/DeepAI worker or ONNX runtime. It also contains no IMU runtime module. This makes scale provenance explicit: WebXR seeds metric scale once; camera geometry maintains it afterwards.
+After the bridge succeeds, WebXR is no longer required. Camera-only WASM SLAM,
+triangulation and MVS add sparse and semi-dense metric points to the same RGB
+Gaussian map. Local mesh chunks remain derived geometry; Gaussian evidence and
+raw session data remain primary.

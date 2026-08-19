@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.7 service worker.
+ * Room Scanner V30.8 service worker.
  *
  * Update policy is deliberately hostile to stale code:
  *   - navigation, JS, CSS, JSON and WASM are fetched NETWORK FIRST with
@@ -12,7 +12,7 @@
  * This prevents the "refresh shows the old app until site data is deleted"
  * failure mode that makes iterative GitHub Pages deployment painful.
  */
-const CACHE='room-scanner-v30.7.0-shell';
+const CACHE='room-scanner-v30.8.0-shell';
 const SHELL=['./','./index.html','./room_scanner_v30.html','./styles.css','./manifest.webmanifest','./icon.svg','./build_info.json','./js/app.js','./js/config.js','./js/logger.js','./js/camera.js','./js/formats.js','./js/self_test.js','./js/storage/db.js','./js/slam/math.js','./js/slam/wasm_frontend.js','./js/slam/slam_engine.js','./js/xr/xr_calibration.js','./js/xr/metric_bridge.js','./js/gaussian/renderer.js','./workers/gaussian_worker.js','./workers/mvs_worker.js','./wasm/slam_core.wasm'];
 self.addEventListener('install',e=>e.waitUntil((async()=>{const c=await caches.open(CACHE);for(const url of SHELL){try{const r=await fetch(new Request(url,{cache:'reload'}));if(r.ok)await c.put(url,r.clone());}catch{}}await self.skipWaiting();})()));
 self.addEventListener('activate',e=>e.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith('room-scanner-v30')&&k!==CACHE).map(k=>caches.delete(k)));await self.clients.claim();})()));

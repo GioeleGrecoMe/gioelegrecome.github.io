@@ -1,15 +1,19 @@
-# V30.7 Phone Test
+# V30.8 phone test
 
-1. Load `/room_scanner/v30/room_scanner_v30.html` online.
-2. Normal refresh twice: build badge must remain current; it must not require clearing site data.
-3. Open Diagnostics and run self-test. Save log if anything fails.
-4. Calibrate WebXR while looking at a textured floor/wall corner. Verify anchor/span/vertical counters rise.
-5. Confirm; XR must close.
-6. Start scan and repoint the calibration view. Verify template count, PnP inliers and RMSE appear; scan must not begin until metric bridge passes.
-7. During scan verify FEATURE, MATCH, LM, KF, GS and TRI increase.
-8. Walk sideways/vertically to create baseline. TRI and GS should increase more strongly than with pure rotation.
-9. Create a markpoint on a previously mapped detail.
-10. Finish, orbit/pan the Gaussian model, export PLY and diagnostics.
-11. Reopen the exported PLY to verify persistence independent of IndexedDB.
-
-Hardware-only items not reproducible in container: ARCore WebXR hit-test quality, Raw Camera Access texture readback, permissions, thermal throttling and device camera intrinsics.
+1. Open the V30 page and run Self-test.
+2. Start WebXR calibration.
+3. Wait for blue candidate circles.
+4. Tap a distinctive fixed detail. Hold still briefly while its metric cluster is
+   acquired.
+5. Repeat for at least 3 well-separated details (for example picture-frame corner,
+   door handle, socket, furniture corner). Avoid blank walls and reflective/moving
+   objects.
+6. Move sideways and slightly vertically while keeping the pins visible. The label
+   on each pin should progress through several views.
+7. When all pins are mature, frame every pin together. `vista comune` must become
+   `SI`.
+8. Press `Blocca vista comune` without changing framing.
+9. Start the camera-only scan and reproduce the same final composition.
+10. Verify that template count reaches at least 8, PnP inliers become >= 8 and the
+    bridge enters the normal scan screen.
+11. Export diagnostics after the test even if successful.

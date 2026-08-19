@@ -1,23 +1,27 @@
-# V30.7 Debugging
+# V30.8 debugging
 
-The diagnostics drawer must remain usable even when scanning fails.
+The diagnostics drawer is always available and can export the full log.
 
-Important event groups:
+Calibration events of interest:
 
-- `bootstrap-*`: asset/bootstrap failures.
-- `service-worker-*`, `build-mismatch`, `force-update-*`: stale-code/update problems.
-- `xr-calibration-*`, `xr-anchor-accepted`: WebXR metric bootstrap.
-- `metric-bridge-*`: Raw-Camera-template to getUserMedia hand-off.
-- `analysis-frame-*`: WASM tracking failures/recovery.
-- `keyframe-*`: persistent image capture.
-- `mvs-*`: camera-only semi-dense reconstruction.
-- `gaussian-*`: map worker state/errors.
-- `markpoint-*`: metric repere state.
+- `xr-candidates-updated`
+- `xr-user-target-pinned`
+- `xr-target-point-acquired`
+- `xr-target-metric-ready`
+- `xr-target-view-added`
+- `xr-calibration-common-view-captured`
+- `xr-calibration-saved`
 
-## Stale page recovery
+Bridge events of interest:
 
-Use **Forza aggiornamento** in diagnostics. It only removes registrations/caches whose scope/name belongs to `/v30/`; it does not touch V20 or unrelated sites.
+- `metric-bridge-progress`
+- `metric-bridge-success`
+- `metric-bridge-attempt-failed`
 
-## Calibration diagnostic thresholds
+For a good calibration, each selected target should reach at least 3 views and
+~0.14 m maximum pose baseline. Before pressing the final calibration button,
+`vista comune` must be `SI` and at least 10 metric micro-points should be visible.
 
-A calibration is accepted only with at least 10 stable anchors, sufficient XZ span, and sufficient vertical span. The visual bridge requires at least 8 located templates, robust PnP, and at least 6 bindings to current visual tracks.
+If the bridge fails, export diagnostics before clearing site data. The important
+numbers are recognised template count, PnP inliers, RMSE and whether calibration
+was `ROOMSCAN-V30-XR-CALIBRATION-2`.

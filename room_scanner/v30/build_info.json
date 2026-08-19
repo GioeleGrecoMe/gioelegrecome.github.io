@@ -1,7 +1,8 @@
 {
-  "version": "30.7.0",
-  "id": "v30.7.0-20260819-xr-metric-camera-slam-gs",
-  "architecture": "WebXR metric bootstrap -> camera-only WASM SLAM -> multi-view stereo -> 3D Gaussian map",
+  "version": "30.8.0",
+  "id": "v30.8.0-20260819-user-selected-multiview-xr-landmarks",
+  "architecture": "user-selected multi-view WebXR landmarks -> camera-only WASM SLAM -> multi-view stereo -> 3D Gaussian map",
+  "calibration": "user-selected visual landmark groups with multi-view templates and final common view",
   "deepAI": false,
   "imuRequired": false,
   "updatedAt": "2026-08-19"

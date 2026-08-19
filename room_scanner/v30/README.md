@@ -1,55 +1,32 @@
-# Room Scanner V30.7.0
+# Room Scanner V30.8.0
 
-Standalone GitHub Pages room scanner. This directory has no runtime dependency on V20.
+Standalone GitHub Pages room scanner using:
 
-## Pipeline
+- WebXR only for an initial metric bootstrap;
+- user-selected multi-view visual landmarks for the WebXR -> normal-camera hand-off;
+- camera-only WASM feature tracking / metric PnP afterwards;
+- geometric triangulation and MVS without DeepAI;
+- incremental RGB 3D Gaussian map and local mesh chunks;
+- persistent diagnostics, self-test, PLY/R30 export and aggressive anti-stale service-worker policy.
 
-1. **Guided WebXR metric bootstrap** (`local-floor` + hit-test + raw camera access).
-2. Stable metric hit-test anchors are paired with small raw-camera grayscale templates.
-3. WebXR is ended.
-4. `getUserMedia()` starts normal camera capture.
-5. Stored templates are reacquired and the WASM PnP solver transfers the WebXR metric frame to camera-only SLAM.
-6. FAST/BRIEF matching + PnP maintain 6-DoF from camera data only.
-7. Persistent tracks are triangulated into metric sparse landmarks.
-8. A camera-only MVS worker plane-sweeps valid keyframe pairs to generate semi-dense RGB points and local mesh triangles.
-9. The RGB points are fused into the persistent 3D Gaussian map.
+## Why V30.8
 
-There is **no DeepAI / Depth Anything runtime path** in V30.7 and no IMU is required.
+V30.7 automatically stored small templates from generic hit-test rays. They were
+metric, but often not visually distinctive enough to survive the transition from
+WebXR Raw Camera Access to a new `getUserMedia()` stream.
 
-## Update/cache policy
+V30.8 makes calibration intentional:
 
-V30.7 fixes stale GitHub Pages/PWA updates:
+1. WebXR continuously scores small camera regions and highlights visually rich
+   candidates.
+2. The user taps 3-5 fixed, recognisable details.
+3. Each selected detail creates a small cluster of WebXR metric points.
+4. The same cluster is observed from several camera poses and stores multiple
+   appearance templates.
+5. Calibration finishes only when all selected details are mature and visible
+   simultaneously in one final common view.
+6. After WebXR ends, the normal camera is asked to reproduce that common view;
+   multi-template matching and WASM PnP transfer metric scale/pose to camera-only
+   SLAM.
 
-- service-worker registration uses `updateViaCache: 'none'`;
-- HTML/JS/CSS/JSON/WASM are network-first with request `cache: 'no-store'`;
-- caches are versioned (`room-scanner-v30.7.0-shell`);
-- old V30 caches are deleted during activation;
-- `skipWaiting()` and `clients.claim()` are enabled;
-- diagnostics contains **Forza aggiornamento**, which unregisters V30 service workers, deletes only V30 caches, and reloads with a cache-busting query.
-
-After this build is installed, a normal refresh should request current code while online. Cache is only an offline fallback.
-
-## Deploy
-
-Copy **the contents of this directory** directly into the GitHub Pages `/room_scanner/v30/` directory. Do not mix it with V20 files.
-
-Entry points:
-
-- `index.html`
-- `room_scanner_v30.html`
-
-## First use
-
-1. Open diagnostics and run the self-test.
-2. Press **Calibra con WebXR**.
-3. Point at a textured floor/wall corner and slowly vary pose until anchors, horizontal span and vertical span are sufficient.
-4. Confirm calibration. The XR session ends.
-5. Press **Avvia scansione**.
-6. Repoint the same calibration area for a few seconds. The visual bridge must reach enough PnP inliers before scanning starts.
-7. Scan normally. From this point onward the reconstruction is camera-only.
-
-## Debug
-
-The diagnostics drawer is always available and records bootstrap, service-worker state, WebXR calibration anchors, visual bridge matches/inliers/RMSE, SLAM tracking, keyframes, MVS pair statistics, Gaussian counts, IndexedDB and errors.
-
-Use **Scarica log** whenever a phone behaves differently from the tests.
+No IMU or monocular AI depth is required by this path.
