@@ -1,8 +1,8 @@
 {
-  "version": "30.8.0",
-  "id": "v30.8.0-20260819-user-selected-multiview-xr-landmarks",
-  "architecture": "user-selected multi-view WebXR landmarks -> camera-only WASM SLAM -> multi-view stereo -> 3D Gaussian map",
-  "calibration": "user-selected visual landmark groups with multi-view templates and final common view",
+  "version": "30.9.0",
+  "id": "v30.9.0-20260819-real-webxr-anchors-world-locked",
+  "architecture": "real WebXR anchors + user-selected multi-view landmarks -> camera-only WASM SLAM -> multi-view stereo -> 3D Gaussian map",
+  "calibration": "XRHitTestResult.createAnchor, frame.trackedAnchors, per-frame anchorSpace pose, >=3 poses with >=3 anchored pins, final common view",
   "deepAI": false,
   "imuRequired": false,
   "updatedAt": "2026-08-19"

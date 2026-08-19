@@ -1,8 +1,19 @@
+/*
+ * Room Scanner V30.9 runtime configuration.
+ *
+ * Debugging note:
+ * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
+ *   which caused IndexedDB VersionError during bootstrap/self-test.
+ * - V30.9 keeps the desired schema at v3, but db.js is version-safe and never
+ *   requests a downgrade if a newer schema is already installed.
+ * - WebXR calibration now requires the Anchors feature. There is deliberately
+ *   no screen-space/static-coordinate fallback for calibration pins.
+ */
 export const BUILD={
-  version:'30.8.0',
-  id:'v30.8.0-20260819-user-selected-multiview-xr-landmarks',
+  version:'30.9.0',
+  id:'v30.9.0-20260819-real-webxr-anchors-world-locked',
   dbName:'room-scanner-v30',
-  dbVersion:2
+  dbVersion:3
 };
 
 export const CONFIG={
@@ -14,17 +25,16 @@ export const CONFIG={
   maxKeyframes:520,
 
   /*
-   * V30.8 metric bootstrap.
+   * V30.9 metric bootstrap.
    *
-   * WebXR is still used ONLY during calibration. The important difference is
-   * that references are no longer generic automatic rays: the camera proposes
-   * visually distinctive regions and the user explicitly pins the physical
-   * details that should survive the WebXR -> getUserMedia transition.
+   * A visual calibration pin is valid only after an XRHitTestResult has created
+   * a real XRAnchor and that anchor is present in XRFrame.trackedAnchors.
+   * The pin position is read again from anchor.anchorSpace on every XR frame.
    */
   xrCalibrationMinTargets:3,
   xrCalibrationMaxTargets:5,
   xrCalibrationMinPointsPerTarget:3,
-  xrCalibrationMinCommonPoints:10,
+  xrCalibrationMinCommonPoints:9,
   xrCalibrationStableFrames:5,
   xrCalibrationHitStdM:0.025,
   xrCalibrationMinSpanM:0.45,
@@ -42,6 +52,18 @@ export const CONFIG={
   xrCalibrationMaxTemplatesPerPoint:6,
   xrCalibrationTrackingZncc:0.28,
 
+  // Global coverage contract requested for calibration quality: at least three
+  // distinct camera poses, each with at least three real anchored pins visible.
+  xrCalibrationMinGlobalPoses:3,
+  xrCalibrationMinPinsPerPose:3,
+  xrCalibrationGlobalPoseStepM:0.075,
+  xrCalibrationGlobalPoseStepAngleRad:0.07,
+
+  // Strict world-lock mode. If the browser cannot provide WebXR Anchors, the
+  // calibration is rejected instead of silently reverting to 2D/fake pins.
+  xrRequireRealAnchors:true,
+  xrRequestPersistentHandles:true,
+
   // Lightweight Raw Camera candidate detector. It performs only small patch
   // readbacks; no semantic AI model is loaded during calibration.
   xrCandidateRefreshMs:700,
@@ -50,6 +72,10 @@ export const CONFIG={
   xrCandidateMinVariance:55,
   xrCandidateMinDetail:8.0,
   xrCandidateMaxVisible:8,
+
+  // Keep the V30.8 storage key so an existing visual calibration remains
+  // inspectable/bridge-compatible. New results carry realAnchor=true and
+  // persistentHandle metadata for forward migration/verification.
   calibrationStorageKey:'room-scanner-v30-xr-calibration-v2',
 
   // Camera-only multi-view densification. No monocular AI depth is involved.
@@ -69,8 +95,7 @@ export const CONFIG={
   gaussianSnapshot:90000,
   gaussianWorker:'workers/gaussian_worker.js',
   wasmCore:'wasm/slam_core.wasm',
-
-  // No Depth Anything / DeepAI and no IMU are required by the V30.8 runtime.
+  // No Depth Anything / DeepAI and no IMU are required by the V30.9 runtime.
   serviceWorker:'sw.js',
   buildInfo:'build_info.json'
 };

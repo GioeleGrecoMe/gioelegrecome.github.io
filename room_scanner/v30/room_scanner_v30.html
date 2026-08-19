@@ -1,27 +1,24 @@
 <!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#080b10"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"><title>Room Scanner V30.8</title></head>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#080b10"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"><title>Room Scanner V30.9</title></head>
 <body>
 <main id="app">
 <section id="home" class="screen active">
- <div class="hero"><div id="buildBadge" class="badge">V30.8.0 · BOOT</div><h1>Room Scanner V30</h1><p>Calibrazione WebXR con landmark visuali scelti dall’utente, SLAM WASM camera-only, MVS geometrico e mappa 3D Gaussian. Nessun DeepAI, nessuna IMU necessaria.</p></div>
- <div class="card"><b>1 · Calibrazione metrica iniziale</b><p class="hint">WebXR evidenzia dettagli visivi distintivi. Seleziona e pinna 3–5 oggetti/dettagli fissi, osservali da più pose e termina con tutti i pin nella stessa inquadratura.</p><div id="calibSummary" class="status">Calibrazione non presente.</div><div class="actions inline"><button id="calibrateBtn" class="primary">Calibra con WebXR</button><button id="clearCalibrationBtn">Azzera calibrazione</button></div></div>
+ <div class="hero"><div id="buildBadge" class="badge">V30.9.0 · BOOT</div><h1>Room Scanner V30</h1><p>Calibrazione WebXR con veri XRAnchor world-locked e landmark visuali scelti dall’utente, SLAM WASM camera-only, MVS geometrico e mappa 3D Gaussian. Nessun DeepAI, nessuna IMU necessaria.</p></div>
+ <div class="card"><b>1 · Calibrazione metrica iniziale</b><p class="hint">WebXR evidenzia dettagli visivi distintivi. Seleziona e pinna 3–5 dettagli fissi: ogni pin viene convertito in un vero XRAnchor e aggiornato dalla scena 3D mentre ti muovi. Servono almeno 3 pose valide con almeno 3 pin visibili.</p><div id="calibSummary" class="status">Calibrazione non presente.</div><div class="actions inline"><button id="calibrateBtn" class="primary">Calibra con WebXR</button><button id="clearCalibrationBtn">Azzera calibrazione</button></div></div>
  <div class="card"><b>2 · Scansione camera-only</b><p class="hint">All'avvio ripunta per pochi secondi la stessa zona usata nella calibrazione. Il PnP WASM trasferisce la scala metrica alla camera normale; poi SLAM, triangolazione e MVS lavorano solo sulle immagini.</p><div class="actions inline"><button id="startBtn" class="primary" disabled>Avvia scansione</button><button id="loadPlyBtn">Apri PLY RGB / Gaussian</button><button id="loadR30Btn">Apri sessione .r30</button></div></div>
  <input id="filePly" type="file" accept=".ply" hidden><input id="fileR30" type="file" accept=".r30,application/octet-stream" hidden>
- <div id="homeStatus" class="status">Caricamento V30…</div>
+ <div id="homeStatus" class="status">Caricamento V30.9…</div>
  <div id="updateBanner" class="card updateCard" hidden><b>Aggiornamento disponibile / cache incoerente</b><p id="updateText" class="hint"></p><button id="forceUpdateBtn" class="primary">Aggiorna ora e svuota cache V30</button></div>
  <div class="card"><b>Sessioni V30 locali</b><div id="savedSessions"><span class="muted">Apertura database…</span></div><div id="buildFoot" class="buildFoot"></div></div>
 </section>
-
 <section id="calibration" class="screen xrOverlay">
- <canvas id="calibOverlay" aria-label="Landmark visuali WebXR"></canvas>
- <div class="calibPanel"><div class="badge">WEBXR · LANDMARK MULTI-VIEW</div><h2>Scegli riferimenti riconoscibili</h2><p id="calibCoach">Tocca i cerchi blu su dettagli fissi e distintivi. Dopo ogni pin osserva la zona da più posizioni.</p><div class="calibMeter"><div id="calibBar"></div></div><div class="stats calibStats"><span>pin <b id="calibTargets">0/3</b></span><span>pronti <b id="calibReady">0/0</b></span><span>vista comune <b id="calibCommon">NO</b></span><span>punti <b id="calibPoints">0</b></span><span>span <b id="calibSpan">0.00 m</b></span></div><div class="actions"><button id="calibUndoPinBtn">Rimuovi ultimo pin</button><button id="calibFinishBtn" class="primary" disabled>Blocca vista comune</button><button id="calibCancelBtn" class="danger">Annulla</button></div></div>
+ <canvas id="calibOverlay" aria-label="Landmark visuali WebXR ancorati alla scena"></canvas>
+ <div class="calibPanel"><div class="badge">WEBXR · REAL XRANCHOR · MULTI-VIEW</div><h2>Scegli riferimenti riconoscibili</h2><p id="calibCoach">Tocca i cerchi blu su dettagli fissi e distintivi. Dopo ogni pin osserva la zona da più posizioni.</p><div class="calibMeter"><div id="calibBar"></div></div><div class="stats calibStats"><span>pin <b id="calibTargets">0/3</b></span><span>pronti <b id="calibReady">0/0</b></span><span>vista comune <b id="calibCommon">NO</b></span><span>punti <b id="calibPoints">0</b></span><span>span <b id="calibSpan">0.00 m</b></span></div><div class="actions"><button id="calibUndoPinBtn">Rimuovi ultimo pin</button><button id="calibFinishBtn" class="primary" disabled>Blocca vista comune</button><button id="calibCancelBtn" class="danger">Annulla</button></div></div>
 </section>
-
 <section id="bridge" class="screen">
  <video id="bridgeCamera" autoplay muted playsinline></video><canvas id="bridgeMap"></canvas>
  <div class="bridgeCard"><div class="badge">AGGANCIO METRICO CAMERA</div><h2>Ripunta la zona di calibrazione</h2><p id="bridgeCoach">Riproduci la vista comune finale con gli stessi oggetti pinnati. Uso i template multi-view per il PnP metrico.</p><div class="stats bridgeStats"><span>template <b id="bridgeFound">0</b></span><span>inlier <b id="bridgeInliers">0</b></span><span>RMSE <b id="bridgeRmse">—</b></span></div><div class="actions"><button id="bridgeRetryBtn">Riprova aggancio</button><button id="bridgeCancelBtn" class="danger">Annulla</button></div></div>
 </section>
-
 <section id="scan" class="screen">
  <video id="camera" autoplay muted playsinline></video><canvas id="miniMap"></canvas>
  <div class="topHud"><span id="slamState">INIT</span><span id="metricState">scala —</span><span id="mvsState">MVS —</span></div>
@@ -29,7 +26,6 @@
  <div id="coach" class="coach">Muoviti lentamente. Crea parallasse: osserva ogni zona da più posizioni e altezze.</div>
  <div class="scanButtons"><button id="pinBtn">◎ Pin repere</button><button id="finishBtn" class="danger">Salva / termina</button></div>
 </section>
-
 <section id="review" class="screen">
  <div class="reviewHead"><div><div class="badge">V30 REVIEW</div><h2>Gemello Gaussian metrico</h2></div><button id="backHomeBtn">Home</button></div>
  <canvas id="viewer"></canvas>
@@ -38,7 +34,7 @@
  <div class="actions wrap"><button id="exportPlyBtn" class="primary">Scarica PLY Gaussian RGB</button><button id="exportR30Btn">Scarica RAW .r30</button><button id="exportDiagBtn">Scarica diagnostica</button><button id="resumeBtn">Nuova scansione</button></div>
 </section>
 </main>
-<aside class="diagDock"><details id="diagPanel"><summary>Diagnostica / debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Scarica log</button><button id="diagCopyBtn">Copia log</button><button id="selfTestBtn">Esegui self-test</button><button id="diagForceUpdateBtn">Forza aggiornamento</button></div><div id="selfTestSummary" class="diagSummary">Self-test: asset, WASM, WebXR capability, MVS worker, IndexedDB e service worker.</div><pre id="diagLive">Bootstrap…</pre></div></details></aside>
+<aside class="diagDock"><details id="diagPanel"><summary>Diagnostica / debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Scarica log</button><button id="diagCopyBtn">Copia log</button><button id="selfTestBtn">Esegui self-test</button><button id="diagForceUpdateBtn">Forza aggiornamento</button></div><div id="selfTestSummary" class="diagSummary">Self-test: asset, WASM, WebXR anchor contract, MVS worker, IndexedDB e service worker.</div><pre id="diagLive">Bootstrap…</pre></div></details></aside>
 <script>
 (function(){
  const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),errors:[],ready:false};const rec=(type,data)=>boot.errors.push({time:Date.now(),type,...data});addEventListener('error',e=>rec('error',{message:e.message,src:e.filename,line:e.lineno}));addEventListener('unhandledrejection',e=>rec('rejection',{message:String(e.reason?.message||e.reason)}));
