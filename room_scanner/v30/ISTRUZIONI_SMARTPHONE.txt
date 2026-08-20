@@ -1,0 +1,25 @@
+ROOM SCANNER V30.18.8 - SOLO FILE DA COMMITTARE
+
+Non eseguire node/npm/patcher.
+Carica sul repository i file contenuti nella cartella room_scanner/v30/ mantenendo esattamente i percorsi.
+
+File nuovi/sostituiti:
+- room_scanner/v30/index.html
+- room_scanner/v30/room_scanner_v30.html
+- room_scanner/v30/sw.js
+- room_scanner/v30/build_info.json
+- room_scanner/v30/js/boot.js
+- room_scanner/v30/js/config.js
+- room_scanner/v30/js/deep_live_controller.js
+- room_scanner/v30/js/deep_diagnostic_controller.js   (NUOVO)
+- room_scanner/v30/workers/deep_depth_worker.js
+
+NON serve modificare app.js.
+NON serve caricare il modello ONNX: Q4 viene cercato localmente e poi scaricato/cacheato dal worker come prima.
+
+Dopo il deploy premi Prova inferenza. Compariranno 6 riquadri diagnostici.
+La distinzione fondamentale e':
+- CAMERA normale + TENSOR NCHW normale = input/stride camera corretti.
+- DEPTH ROW a colonne ma DEPTH COLUMN corretta = output interpretato column-major.
+- 224 a colonne + RIFERIMENTO 518 corretto = input troppo piccolo / degenerazione modello.
+- TENSOR NCHW gia' a colonne = preprocessing/layout input realmente errato.

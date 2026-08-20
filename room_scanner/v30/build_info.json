@@ -1,6 +1,6 @@
 {
-  "version": "30.18.7",
-  "id": "v30.18.7-20260820-q4-gpu-readback-depth-layout",
-  "builtAt": "2026-08-20T16:30:00+02:00",
-  "notes": "Smartphone commit-only release. Q4 is the default Depth Anything V2 Small model. The camera input path now uses ONNX Runtime Tensor.fromImage(ImageData) for authoritative RGBA->RGB/NCHW packing and ImageNet normalization; the predicted_depth output is read with Tensor.getData() so WebGPU gpu-buffer outputs are explicitly downloaded to CPU. The worker follows the official [batch,height,width] depth layout with no heuristic transpose/last-plane interpretation. The neural preview keeps an independent approximately 1 Hz ticker and the official Q4 model is downloaded/cached at runtime when not present locally."
+  "version": "30.18.8",
+  "id": "v30.18.8-20260820-depth-raster-authoritative-diagnostic",
+  "builtAt": "2026-08-20T16:44:00+02:00",
+  "notes": "Serious smartphone-only Depth Anything diagnostic. Fixes Q4/Q4F16 session identity collision and missing awaits in the WASM diagnostic. Uses Q4 as default, correctness-first 224px short-side live input, and during the explicit test exposes the exact camera RGBA, the exact ONNX NCHW tensor reconstructed back to RGB, an NHWC counter-interpretation, official row-major depth, column-major counter-interpretation, horizontal-flip equivariance, and an aspect-preserving 518px reference when striping is detected. No app.js or command-line step is required."
 }

@@ -1,0 +1,13 @@
+V30.18.8 INTERNAL CHECKS
+
+PASS node --check room_scanner/v30/js/boot.js
+PASS node --check room_scanner/v30/js/config.js
+PASS node --check room_scanner/v30/js/deep_diagnostic_controller.js
+PASS node --check room_scanner/v30/js/deep_live_controller.js
+PASS node --check room_scanner/v30/workers/deep_depth_worker.js
+PASS deterministic NCHW inverse preview
+PASS RGBA/depth horizontal flip roundtrip
+PASS vertical-column detector
+PASS model session key includes ID + URL + byte length + byte signature
+PASS WASM prepareInput awaits present
+PASS build_info.id == CONFIG.BUILD.id

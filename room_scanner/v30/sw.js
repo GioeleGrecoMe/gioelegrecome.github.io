@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.18.7 service worker.
+ * Room Scanner V30.18.8 service worker.
  *
  * WHY THIS VERSION EXISTS
  * -----------------------
@@ -10,24 +10,24 @@
  *   published build_info = 30.18.5
  *   runtime BUILD         = 30.18.0
  *
- * V30.18.7 fixes the *handover*, not the reconstruction pipeline:
+ * V30.18.8 fixes the *handover*, not the reconstruction pipeline:
  *  1. the new worker installs from network with cache:'reload';
  *  2. skipWaiting() promotes it immediately;
  *  3. activate() claims existing tabs;
  *  4. any Room Scanner tab that has not yet crossed this handover is navigated
- *     once to the same URL with v30sw=30.18.7.  This forces the document itself
+ *     once to the same URL with v30sw=30.18.8.  This forces the document itself
  *     to come through the new network-first navigation path.
  *
  * The large Depth Anything model cache is intentionally NOT deleted here.
  */
-const VERSION='30.18.7';
-const CACHE='room-scanner-v30.18.7-shell';
+const VERSION='30.18.8';
+const CACHE='room-scanner-v30.18.8-shell';
 const HANDOVER_PARAM='v30sw';
 const HANDOVER_VALUE=VERSION;
 
 const SHELL=[
   './','./index.html','./room_scanner_v30.html','./styles.css','./manifest.webmanifest','./icon.svg','./build_info.json',
-  './js/boot.js','./js/app.js','./js/deep_live_controller.js','./js/config.js','./js/logger.js','./js/camera.js','./js/formats.js','./js/self_test.js','./js/storage/db.js',
+  './js/boot.js','./js/app.js','./js/deep_live_controller.js','./js/deep_diagnostic_controller.js','./js/config.js','./js/logger.js','./js/camera.js','./js/formats.js','./js/self_test.js','./js/storage/db.js',
   './js/slam/math.js','./js/slam/alva_runtime_loader.js','./js/slam/wasm_frontend.js','./js/slam/slam_engine.js','./js/slam/alva_metric_bootstrap.js','./js/dense/keyframe_manager.js','./js/dense/deep_keyframe_selector.js','./js/dense/deep_metric.js','./js/dense/sparse_depth_anchors.js','./js/dense/plane_sweep_core.js','./js/dense/fusion_core.js','./js/metric/pnp_pose.js','./js/xr/xr_calibration.js','./js/xr/measurement_guidance.js','./js/xr/metric_bridge.js',
   './js/metric/metric_geometry.js','./js/metric/gaussian_metric_tap.js','./js/metric/metric_mesh_ui.js','./js/gaussian/renderer.js','./js/gaussian/ar_overlay.js',
   './workers/metric_mesh_worker.js','./workers/gaussian_worker.js','./workers/mvs_worker.js','./workers/deep_depth_worker.js','./workers/dense_depth_worker.js','./workers/dense_fusion_worker.js','./wasm/slam_core.wasm'
