@@ -7,22 +7,22 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="manifest" href="manifest.webmanifest?v=30.18.8">
-  <link rel="stylesheet" href="styles.css?v=30.18.8">
-  <title>Room Scanner V30.18.8</title>
+  <link rel="manifest" href="manifest.webmanifest?v=30.18.9">
+  <link rel="stylesheet" href="styles.css?v=30.18.9">
+  <title>Room Scanner V30.18.9</title>
 
 <style id="deepDiagStyle">
-.deepDiagGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin-top:.7rem}.deepDiagGrid figure{margin:0;min-width:0}.deepDiagGrid figcaption{font-size:.72rem;opacity:.75;margin:0 0 .25rem}.deepDiagGrid canvas{display:block;width:100%;min-height:100px;background:#05070a;border:1px solid rgba(255,255,255,.15);border-radius:8px;object-fit:contain}.deepDiagReport{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.72rem;line-height:1.35;max-height:none;background:rgba(0,0,0,.28);padding:.65rem;border-radius:8px;margin:.7rem 0 0}@media(max-width:680px){.deepDiagGrid{grid-template-columns:1fr}}
+.deepDiagGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin-top:.7rem}.deepDiagGrid figure{margin:0;min-width:0}.deepDiagGrid figure[hidden]{display:none}.deepDiagGrid figcaption{font-size:.72rem;opacity:.75;margin:0 0 .25rem}.deepDiagGrid canvas{display:block;width:100%;min-height:100px;background:#05070a;border:1px solid rgba(255,255,255,.15);border-radius:8px;object-fit:contain}.deepDiagReport{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.72rem;line-height:1.35;max-height:none;background:rgba(0,0,0,.28);padding:.65rem;border-radius:8px;margin:.7rem 0 0}@media(max-width:680px){.deepDiagGrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <main id="app">
   <section id="home" class="screen active">
-    <div class="hero"><div id="buildBadge" class="badge">V30.18.8</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
+    <div class="hero"><div id="buildBadge" class="badge">V30.18.9</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
     <div class="card"><b>1 · Calibrazione</b><p class="hint">Inquadra un punto fisico con il reticolo e premi <b>Aggiungi pin</b>. Usa 3 punti ben distribuiti. Dopo poche viste utili per ciascun pin, riportane almeno 3 nella stessa inquadratura e premi Applica.</p><div id="calibSummary" class="status">Calibrazione non presente.</div><div class="actions inline"><button id="calibrateBtn" class="primary">Calibra con WebXR</button><button id="clearCalibrationBtn">Azzera calibrazione</button></div></div>
-    <div class="card"><b>2 · Modello depth</b><p class="hint">Non serve caricare il modello su GitHub: il browser prova prima <code>models/depth_anything_v2_small_q4.onnx</code>; se manca, scarica una sola volta il Q4 ufficiale da Hugging Face e lo conserva nella cache locale. Puoi comunque scegliere manualmente un file ONNX.</p><div class="actions inline"><button id="chooseDeepModelBtn">Scegli ONNX</button><button id="testDeepBtn" class="primary">Prova inferenza</button></div><input id="deepModelFile" type="file" accept=".onnx,application/octet-stream" hidden><div id="deepModelStatus" class="status">Depth Anything V2 Small Q4: locale se presente, altrimenti download automatico.</div><canvas id="deepTestPreview" class="depthTestPreview" aria-label="Anteprima depth map"></canvas></div>
+    <div class="card"><b>2 · Modello depth</b><p class="hint">Il modello locale <code>models/model_q4.onnx</code> viene caricato dal sito. Se manca o non è pubblicato, viene mostrato un errore chiaro: non parte più alcun download remoto infinito. Puoi comunque scegliere manualmente un file ONNX.</p><div class="actions inline"><button id="chooseDeepModelBtn">Scegli ONNX</button><button id="testDeepBtn" class="primary">Prova inferenza</button></div><input id="deepModelFile" type="file" accept=".onnx,application/octet-stream" hidden><div id="deepModelStatus" class="status">Depth Anything V2 Small Q4 locale, pronto per il test.</div><canvas id="deepTestPreview" class="depthTestPreview" aria-label="Anteprima depth map"></canvas></div>
 
-    <div id="deepDiagCard" class="card" hidden><b>Depth diagnostic · memoria / layout</b><p class="hint">Questi riquadri vengono prodotti dallo stesso frame del test. Servono a separare definitivamente camera, packing NCHW, lettura H×W e risoluzione del modello.</p><div class="deepDiagGrid"><figure><figcaption>1 · CAMERA RGBA</figcaption><canvas id="deepDiagSource"></canvas></figure><figure><figcaption>2 · TENSOR NCHW reale</figcaption><canvas id="deepDiagNchw"></canvas></figure><figure><figcaption>3 · TENSOR NHWC alternativo</figcaption><canvas id="deepDiagNhwc"></canvas></figure><figure><figcaption>4 · DEPTH row-major ufficiale</figcaption><canvas id="deepDiagDepthRow"></canvas></figure><figure><figcaption>5 · DEPTH column-major candidato</figcaption><canvas id="deepDiagDepthCol"></canvas></figure><figure><figcaption>6 · RIFERIMENTO 518 (se necessario)</figcaption><canvas id="deepDiagReference"></canvas></figure></div><pre id="deepDiagReport" class="deepDiagReport">Esegui “Prova inferenza”.</pre></div>
+    <div id="deepDiagCard" class="card" hidden><b>Depth diagnostic · memoria / layout</b><p class="hint">Questi riquadri vengono prodotti dallo stesso frame del test. Servono a separare definitivamente camera, packing NCHW e lettura H×W del modello.</p><div class="deepDiagGrid"><figure><figcaption>1 · CAMERA RGBA</figcaption><canvas id="deepDiagSource"></canvas></figure><figure><figcaption>2 · TENSOR NCHW reale</figcaption><canvas id="deepDiagNchw"></canvas></figure><figure><figcaption>3 · TENSOR NHWC alternativo</figcaption><canvas id="deepDiagNhwc"></canvas></figure><figure><figcaption>4 · DEPTH row-major ufficiale</figcaption><canvas id="deepDiagDepthRow"></canvas></figure><figure><figcaption>5 · DEPTH column-major candidato</figcaption><canvas id="deepDiagDepthCol"></canvas></figure><figure hidden><figcaption>6 · RIFERIMENTO AGGIUNTIVO</figcaption><canvas id="deepDiagReference"></canvas></figure></div><pre id="deepDiagReport" class="deepDiagReport">Esegui “Prova inferenza”.</pre></div>
     <div class="card"><b>3 · Misura / scansione</b><p class="hint">AlvaAR mantiene autonomamente il mondo. La depth preview usa un clock proprio di circa 1 Hz; i keyframe utili vengono ancora verificati con punti Alva, parallasse e ray/multi-view prima della fusione 3D.</p><div class="actions inline"><button id="startBtn" class="primary">Avvia AlvaAR</button><button id="loadPlyBtn">Apri PLY</button><button id="loadR30Btn">Apri .r30</button></div></div>
     <input id="filePly" type="file" accept=".ply" hidden><input id="fileR30" type="file" accept=".r30,application/octet-stream" hidden>
     <div id="homeStatus" class="status">Interfaccia pronta.</div>
@@ -59,72 +59,30 @@
   </section>
 </main>
 
-<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.18.8</pre></div></details></aside>
+<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.18.9</pre></div></details></aside>
 
 <script>
-/* Ask the ACTUAL controlling worker for its version before requesting modules.
- * Old V30 workers do not answer GET_VERSION and are removed once. */
+/* Load the UI immediately. A service-worker handover may reload the page once,
+ * but it must never hold the application in a stale-controller wait loop. */
 (function(){
-  const VERSION='30.18.8';
+  const VERSION='30.18.9';
   const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),version:VERSION,errors:[],interactive:false};
   const rec=(type,data={})=>boot.errors.push({time:Date.now(),type,...data});
   addEventListener('error',e=>rec('error',{message:e.message,src:e.filename,line:e.lineno,col:e.colno,stack:e.error?.stack||null}));
   addEventListener('unhandledrejection',e=>{const r=e.reason||{};rec('rejection',{name:r.name||null,message:String(r.message||r),stack:r.stack||null});});
-  const loadModule=()=>{const s=document.createElement('script');s.type='module';s.src=`js/boot.js?v=${VERSION}`;s.onerror=()=>{rec('boot-script-load-failed',{src:s.src});const h=document.getElementById('homeStatus');if(h){h.dataset.kind='error';h.textContent='BOOT ERROR: js/boot.js non caricato.';}};document.body.appendChild(s);};
-  const ownRegistration=r=>{try{return new URL(r.scope).pathname.includes('/room_scanner/v30/')}catch{return false}};
-  const controllerVersion=controller=>new Promise(resolve=>{if(!controller)return resolve(null);if(typeof MessageChannel==='undefined')return resolve(null);const ch=new MessageChannel(),timer=setTimeout(()=>resolve(null),450);ch.port1.onmessage=e=>{clearTimeout(timer);resolve(e.data?.version||null)};try{controller.postMessage({type:'GET_VERSION'},[ch.port2])}catch{clearTimeout(timer);resolve(null)}});
-  const getAttempt=()=>{try{return Number(sessionStorage.getItem('roomscan-v30-sw-clean-attempt')||0)}catch{return 0}};
-  const setAttempt=n=>{try{sessionStorage.setItem('roomscan-v30-sw-clean-attempt',String(n))}catch{}};
-  const hardReload=()=>location.replace(`${location.pathname}?fresh=${VERSION}-${Date.now()}`);
+  let loaded=false,reloaded=false;
+  const loadModule=()=>{if(loaded)return;loaded=true;const s=document.createElement('script');s.type='module';s.src=`js/boot.js?v=${VERSION}`;s.onerror=()=>{rec('boot-script-load-failed',{src:s.src});const h=document.getElementById('homeStatus');if(h){h.dataset.kind='error';h.textContent='BOOT ERROR: js/boot.js non caricato.';}};document.body.appendChild(s);};
+  const reloadForNewController=()=>{if(reloaded)return;reloaded=true;location.replace(`${location.pathname}?fresh=${VERSION}-${Date.now()}`);};
   (async()=>{
-    // Register/update the worker before importing application modules.
-    // updateViaCache:'none' is important on Android/GitHub Pages because the
-    // service-worker script must never be satisfied by an HTTP cache entry.
-    let reg=null;
     if('serviceWorker' in navigator){
       try{
-        reg=await navigator.serviceWorker.register(`sw.js?v=${VERSION}`,{scope:'./',updateViaCache:'none'});
+        const reg=await navigator.serviceWorker.register('sw.js',{scope:'./',updateViaCache:'none'});
         await reg.update().catch(()=>{});
+        if(reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'});
+        navigator.serviceWorker.addEventListener('controllerchange',reloadForNewController,{once:true});
       }catch(err){rec('sw-register-preboot',{message:err?.message||String(err)});}
     }
-
-    const controller=navigator.serviceWorker?.controller;
-    if(!controller){
-      // First visit: modules may start immediately.  Once the just-installed
-      // worker activates it will claim/navigate this tab exactly once.
-      setAttempt(0);
-      loadModule();
-      return;
-    }
-
-    const activeVersion=await controllerVersion(controller);
-    boot.controllerVersion=activeVersion;
-    if(activeVersion===VERSION){setAttempt(0);loadModule();return;}
-
-    // A stale controller is still holding this document.  Prefer allowing the
-    // newly registered worker a brief moment to activate; V30.18.8 activate()
-    // will then perform the one-time client.navigate() handover itself.
-    const h=document.getElementById('homeStatus');
-    if(h)h.textContent=`Aggiornamento runtime ${activeVersion||'precedente'} → ${VERSION}…`;
-    const attempt=getAttempt();
-    if(attempt>=2){
-      rec('stale-sw-cleanup-exhausted',{activeVersion});
-      loadModule();
-      return;
-    }
-    setAttempt(attempt+1);
-    const watchdog=setTimeout(async()=>{
-      try{
-        const regs=await navigator.serviceWorker.getRegistrations();
-        const own=regs.filter(ownRegistration);
-        await Promise.all(own.map(r=>r.update().catch(()=>null)));
-      }catch{}
-      hardReload();
-    },2200);
-    navigator.serviceWorker.addEventListener('controllerchange',()=>{
-      clearTimeout(watchdog);
-      hardReload();
-    },{once:true});
+    loadModule();
   })().catch(err=>{rec('sw-handshake-error',{message:err?.message||String(err)});loadModule();});
 })();
 </script>

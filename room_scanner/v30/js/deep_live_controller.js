@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.18.7 live Depth Anything preview controller.
+ * Room Scanner V30.18.9 live Depth Anything preview controller.
  *
  * This module intentionally does NOT modify AlvaAR, keyframe selection or the
  * dense mapper. It only gives the neural preview its own ~1 Hz clock using the
@@ -86,11 +86,11 @@ function modelForPreview(state, config) {
   }
   if (selected?.url) return { id: selected.id, label: selected.label, url: selected.url };
 
-  // Keep the same legacy default ID used by app.js so a model warmed by the
-  // pre-scan test is reused instead of creating a second ONNX session.
+  // Keep the same default ID used by app.js so a model warmed by the pre-scan
+  // test is reused instead of creating a second ONNX session.
   return {
-    id: 'bundled-depth-anything-v2-small-q4f16',
-    label: config.deepModelLabel || 'Depth Anything V2 Small Q4 automatico',
+    id: 'bundled-depth-anything-v2-small-q4',
+    label: config.deepModelLabel || 'Depth Anything V2 Small Q4 locale',
     url: new URL(`../${config.deepModelUrl}`, import.meta.url).href,
   };
 }
@@ -112,11 +112,11 @@ function attachWorker(worker) {
       const mb = (Number(d.received || 0) / 1048576).toFixed(1);
       const total = d.total ? ` / ${(d.total / 1048576).toFixed(1)} MB` : '';
       const pct = Number.isFinite(d.pct) ? ` · ${d.pct}%` : '';
-      setModelStatus(`Scarico Q4 ufficiale una sola volta: ${mb}${total}${pct}…`);
+      setModelStatus(`${d.label || 'Carico modello locale'}: ${mb}${total}${pct}…`);
       return;
     }
     if (d.type === 'deep-model-cache-hit') {
-      setModelStatus('Q4 ufficiale trovato nella cache locale del browser. Avvio inferenza…');
+      setModelStatus('Modello ONNX trovato nella cache locale del browser. Avvio inferenza…');
       return;
     }
     if (d.type === 'deep-diag' && d.event === 'webgpu-disabled') {

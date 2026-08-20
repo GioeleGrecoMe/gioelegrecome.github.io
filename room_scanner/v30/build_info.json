@@ -1,6 +1,6 @@
 {
-  "version": "30.18.8",
-  "id": "v30.18.8-20260820-depth-raster-authoritative-diagnostic",
-  "builtAt": "2026-08-20T16:44:00+02:00",
-  "notes": "Serious smartphone-only Depth Anything diagnostic. Fixes Q4/Q4F16 session identity collision and missing awaits in the WASM diagnostic. Uses Q4 as default, correctness-first 224px short-side live input, and during the explicit test exposes the exact camera RGBA, the exact ONNX NCHW tensor reconstructed back to RGB, an NHWC counter-interpretation, official row-major depth, column-major counter-interpretation, horizontal-flip equivariance, and an aspect-preserving 518px reference when striping is detected. No app.js or command-line step is required."
+  "version": "30.18.9",
+  "id": "v30.18.9-20260820-local-q4-consistent-runtime",
+  "builtAt": "2026-08-20T18:10:00+02:00",
+  "notes": "Single consistent runtime build. The bundled Depth Anything V2 Small Q4 model is models/model_q4.onnx; missing local assets now produce a clear error instead of an automatic remote download. The live input preserves portrait geometry at 224px short side, uses authoritative row-major HxW output readback, and releases per-frame tensors. The service worker is network-first for current assets to avoid mixed-version boot graphs."
 }

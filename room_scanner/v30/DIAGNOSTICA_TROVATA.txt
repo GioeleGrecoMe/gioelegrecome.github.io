@@ -1,44 +1,25 @@
-ROOM SCANNER V30.18.7 -> V30.18.8: PROBLEMI REALI TROVATI
+ROOM SCANNER V30.18.9 - DIAGNOSTICA DEPTH E BOOTSTRAP
 
-1) COLLISIONE IDENTITA' MODELLO/SESSIONE
-   deep_live_controller.js chiamava ancora il Q4 con ID storico
-   "bundled-depth-anything-v2-small-q4f16".
-   deep_depth_worker.js riutilizzava una sessione confrontando prima source.id.
-   Conseguenza: un cambio apparente Q4F16 -> Q4 poteva non ricreare la sessione.
-   V30.18.8 usa ID Q4 corretto e una chiave sessione composta da ID + URL +
-   byteLength + firma campionata dei byte quando il file viene caricato manualmente.
+Cause verificate del comportamento "download perenne" e delle mappe incoerenti:
 
-2) TEST WASM A/B ROTTO
-   runWasmDiagnostic() chiamava prepareInput(), che e' async, senza await in due
-   punti. Il Promise veniva passato a runPrepared() come se fosse il tensore.
-   Il precedente A/B WebGPU/WASM quindi non era una validazione affidabile.
-   V30.18.8 corregge entrambi gli await e rende l'A/B esplicitamente opt-in.
+1. La pagina 18.8 dichiarava quella versione, ma il bootstrap importava 18.7 e
+   app.js importava config/logger 18.0. Il service worker cache-first ignorava
+   inoltre il query string degli import. Una pagina poteva dunque mischiare tre
+   build differenti.
 
-3) INPUT 140 TROPPO AGGRESSIVO PER UNA DIAGNOSTICA DI CORRETTEZZA
-   Il modello ufficiale Depth Anything V2 usa preprocessing aspect-preserving con
-   target 518 e dimensioni multiple di 14. 140/168 sono stati utili per misurare
-   la velocita', ma non sono un riferimento valido per stabilire se uno striping
-   e' dovuto alla memoria. V30.18.8 usa 224 nel live e, se il test rileva striping
-   o scarsa risposta al flip, esegue UNA reference aspect-preserving a 518.
+2. CONFIG cercava models/depth_anything_v2_small_q4.onnx, file assente. Il
+   worker riceveva il 404 e avviava un fallback remoto non controllato. Ora il
+   nome configurato e' models/model_q4.onnx, che esiste nella cartella models,
+   e l'assenza genera un errore leggibile.
 
-4) MANCAVA LA PROVA DEL TENSORE REALE
-   I test precedenti mostravano source probe e depth, ma non ricostruivano il
-   Float32Array effettivamente dato a pixel_values. V30.18.8 mostra:
-   - CAMERA RGBA esatta;
-   - TENSOR NCHW reale, invertendo la normalizzazione ImageNet;
-   - lo stesso buffer interpretato volutamente NHWC;
-   - depth row-major ufficiale;
-   - candidato column-major;
-   - reference 518 se necessaria.
+3. Il raster live era definito a 140 px di lato corto e non veniva neppure
+   passato dall'app al worker. Ora e' 224 px, aspect-preserving e multiplo dei
+   patch ViT; la mappa ONNX e' copiata dal primo piano [H,W] row-major dopo il
+   readback getData(false).
 
-5) SESSIONI RIPETUTE: BUFFER GPU
-   V30.18.8 rilascia input/output ONNX dopo ogni run una volta copiati i dati,
-   evitando l'accumulo di buffer WebGPU durante il preview 1 Hz.
+4. L'A/B WASM passava due Promise al runner perche' mancavano await. Ora gli
+   await sono presenti, la chiave modello distingue gli upload byte-per-byte e
+   input/output temporanei vengono rilasciati durante il loop live.
 
-COME INTERPRETARE I 6 RIQUADRI
-- CAMERA normale, NCHW normale: il percorso camera -> tensor NON e' il problema.
-- NCHW a colonne e NHWC normale: layout input realmente sbagliato.
-- NCHW normale, DEPTH ROW a colonne, DEPTH COLUMN normale: lettura output column-major.
-- NCHW normale, 224 a colonne, 518 normale: raster troppo piccolo / degenerazione dinamica.
-- NCHW normale, ROW e COLUMN entrambi a colonne, 518 a colonne: il problema e' dentro
-  inferenza/runtime/export; non nel renderer o nel packing camera.
+Il test esplicito invia anche un diagnostico del frame e del tensor NCHW; il loop
+live da 1 Hz non invia questi buffer aggiuntivi.

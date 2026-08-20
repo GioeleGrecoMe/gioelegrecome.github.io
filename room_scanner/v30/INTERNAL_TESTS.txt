@@ -1,13 +1,14 @@
-V30.18.8 INTERNAL CHECKS
+V30.18.9 INTERNAL CHECKS
 
-PASS node --check room_scanner/v30/js/boot.js
-PASS node --check room_scanner/v30/js/config.js
-PASS node --check room_scanner/v30/js/deep_diagnostic_controller.js
-PASS node --check room_scanner/v30/js/deep_live_controller.js
-PASS node --check room_scanner/v30/workers/deep_depth_worker.js
-PASS deterministic NCHW inverse preview
-PASS RGBA/depth horizontal flip roundtrip
-PASS vertical-column detector
-PASS model session key includes ID + URL + byte length + byte signature
-PASS WASM prepareInput awaits present
-PASS build_info.id == CONFIG.BUILD.id
+PASS npm run verify
+PASS 77 test di contratto applicativo
+PASS sintassi di app, bootstrap, worker e service worker
+PASS identita' coerente: HTML, BUILD, build_info, manifest e worker 30.18.9
+PASS modello locale configurato: models/model_q4.onnx
+PASS output ONNX letto dal primo piano HxW row-major con getData(false)
+PASS rivelatore automatico delle colonne e test del packing NCHW di fallback
+PASS cache applicativa network-first: nessun cache-first ignoreSearch sul percorso corrente
+PASS chiave sessione distinta per ID/URL o firma dei byte del modello caricato
+
+Il test hardware finale richiede una camera autorizzata su telefono: controlla
+che "Prova inferenza" mostri una scena continua nella preview invece di colonne.

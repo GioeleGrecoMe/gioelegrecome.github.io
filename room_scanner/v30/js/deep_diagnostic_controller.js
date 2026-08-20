@@ -1,11 +1,12 @@
 /**
- * Room Scanner V30.18.8 - deterministic Depth Anything raster diagnostic.
+ * Room Scanner V30.18.9 - deterministic Depth Anything raster diagnostic.
  *
  * No app.js modification is required. This listener observes the normal
  * deep-test-result and renders the exact camera bytes, the exact NCHW tensor
  * inverted back to RGB, an intentionally wrong NHWC interpretation, the
- * official row-major depth, a column-major candidate, and (when needed) the
- * 518px reference inference.
+ * official row-major depth and a column-major counter-reading. The ONNX worker
+ * includes the actual test input tensor only for an explicit test, never for
+ * the 1 Hz live loop.
  */
 let attached = null;
 const $ = id => document.getElementById(id);
@@ -68,7 +69,8 @@ function render(d){
   drawDepth($('deepDiagDepthRow'),d.rawDepth,d.rawWidth,d.rawHeight,false);
   drawDepth($('deepDiagDepthCol'),d.rawDepth,d.rawWidth,d.rawHeight,true);
   const ref=d.referenceDiagnostic;
-  if(ref?.rawDepth?.length) drawDepth($('deepDiagReference'),ref.rawDepth,ref.width,ref.height,false);
+  const refCanvas=$('deepDiagReference'),refFigure=refCanvas?.closest?.('figure');
+  if(ref?.rawDepth?.length){if(refFigure)refFigure.hidden=false;drawDepth(refCanvas,ref.rawDepth,ref.width,ref.height,false);}else if(refFigure)refFigure.hidden=true;
   const report=$('deepDiagReport');
   if(report){
     const rd=d.rasterDiagnosis||{}; const pc=d.flipComparison||{}; const ps=rd.primaryStripe||{}; const rs=rd.referenceStripe||{};
@@ -78,7 +80,7 @@ function render(d){
       `input: ${d.preprocessBackend||'?'} · output: ${d.outputReadback||'?'} @ ${d.outputLocation||'?'}`,
       `stripe principale: ${ps.orientation||'?'} ratio ${n(ps.ratio,2)}`,
       `flip-equivariance: corr ${n(pc.correlation,3)} · NRMSE ${n(pc.nrmse,3)}`,
-      ref?.rawDepth?.length ? `riferimento 518: ${ref.inputPlan?.width||'?'}x${ref.inputPlan?.height||'?'} · stripe ${rs.orientation||'?'} ratio ${n(rs.ratio,2)} · ${n(ref.steadyMs,0)} ms` : `riferimento 518: ${ref?.error||'non necessario'}`,
+      ref?.rawDepth?.length ? `riferimento: ${ref.inputPlan?.width||'?'}x${ref.inputPlan?.height||'?'} · stripe ${rs.orientation||'?'} ratio ${n(rs.ratio,2)} · ${n(ref.steadyMs,0)} ms` : `riferimento aggiuntivo: ${ref?.error||'non eseguito'}`,
       `src ${d.frameSignature||'--------'} -> z ${d.depthSignature||'--------'}`,
       '',
       'COME LEGGERLO:',
@@ -86,7 +88,7 @@ function render(d){
       '2. TENSOR NCHW deve essere la stessa scena ridimensionata. Se qui è normale, RGBA/NCHW è corretto.',
       '3. TENSOR NHWC è volutamente l’interpretazione alternativa: se questa fosse normale e NCHW no, il layout sarebbe sbagliato.',
       '4. DEPTH ROW è il contratto ufficiale [H,W]. DEPTH COLUMN è la lettura column-major alternativa.',
-      '5. Se 224 è a colonne ma il riferimento 518 è normale, il problema è il raster troppo piccolo, non lo stride.',
+      '5. Il riquadro di riferimento viene mostrato solo se il worker produce un confronto aggiuntivo.',
     ].join('\n');
   }
 }

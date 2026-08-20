@@ -7,12 +7,17 @@ const read=p=>fs.readFileSync(new URL(`../${p}`,import.meta.url),'utf8');
 test('bundled local ONNX model and 1 Hz worker path are explicit',()=>{
   assert.equal(CONFIG.analysisFps,8);
   assert.equal(CONFIG.deepInferenceIntervalMs,1000);
-  assert.equal(CONFIG.deepModelUrl,'models/depth_anything_v2_small_q4f16.onnx');
-  assert.ok(fs.statSync(new URL('../models/depth_anything_v2_small_q4f16.onnx',import.meta.url)).size>10_000_000);
+  assert.equal(CONFIG.deepModelUrl,'models/model_q4.onnx');
+  assert.equal(CONFIG.deepModelRemoteUrl,null);
+  assert.equal(CONFIG.deepOrtLocal,null);
+  assert.equal(CONFIG.deepPreferredShortSide,224);
+  assert.ok(fs.statSync(new URL('../models/model_q4.onnx',import.meta.url)).size>10_000_000);
   const worker=read('workers/deep_depth_worker.js');
   assert.match(worker,/InferenceSession\.create/);
   assert.match(worker,/executionProviders/);
   assert.match(worker,/pixel/);
+  assert.match(worker,/RGBA row-major/);
+  assert.match(worker,/getData\(false\)/);
   assert.doesNotMatch(worker,/pipeline\('depth-estimation'/);
 });
 test('pre-scan test and live depth overlay are wired in both entry pages',()=>{

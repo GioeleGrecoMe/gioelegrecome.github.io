@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
-const workerPath = new URL('../room_scanner/v30/workers/deep_depth_worker.js', import.meta.url);
+const workerPath = new URL('../workers/deep_depth_worker.js', import.meta.url);
 let src = fs.readFileSync(workerPath, 'utf8');
-src += `\n;globalThis.__diag={sampledByteSignature,sampledFloatSignature,depthSpatialStats,stripeDiagnosis,compareDepthMaps,readOutput};`;
-const context={console,performance:{now:()=>0},navigator:{},postMessage(){},self:{},Uint8ClampedArray,Uint16Array,Float32Array,Int32Array,Math,Number,Array,Object,String,Set,Map,Error,TypeError,Infinity,NaN};
+src += `\n;globalThis.__diag={sampledByteSignature,sampledFloatSignature,depthSpatialStats,stripeDiagnosis,compareDepthMaps,readOutput,modelSourceKey,prepareInput};`;
+const context={console,performance:{now:()=>0},navigator:{},postMessage(){},self:{},Uint8Array,Uint8ClampedArray,Uint16Array,Float32Array,Int32Array,Math,Number,Array,Object,String,Set,Map,Error,TypeError,Infinity,NaN};
 vm.createContext(context);vm.runInContext(src,context,{filename:'deep_depth_worker.js'});
 const d=context.__diag;
 function assert(ok,msg){if(!ok)throw new Error(msg);}
@@ -16,4 +16,15 @@ const ss=d.stripeDiagnosis(d.depthSpatialStats(smooth,8,8));const cs=d.stripeDia
 assert(!ss.suspicious,'normal 2-D gradient should not be flagged as stripes');
 assert(cs.suspicious&&cs.orientation==='vertical-columns','vertical column raster must be detected');
 const cmp=d.compareDepthMaps(smooth,smooth.slice());assert(cmp.comparable&&Math.abs(cmp.correlation-1)<1e-6,'identical maps must correlate 1');
-console.log(JSON.stringify({frameHashA:d.sampledByteSignature(a,4,4),frameHashB:d.sampledByteSignature(b,4,4),smoothStripe:ss,columnStripe:cs,identicalComparison:cmp},null,2));
+const read=await d.readOutput({predicted_depth:{dims:[1,2,3],type:'float32',data:new Float32Array([1,2,3,4,5,6])}},{width:3,height:2},{outputNames:['predicted_depth']});
+assert(read.width===3&&read.height===2,'output HxW must come from the ONNX tensor');
+assert(read.rawDepth[0]===1&&read.rawDepth[5]===6,'output must use the first row-major batch plane');
+const keyA=d.modelSourceKey({id:'uploaded',bytes:new Uint8Array([1,2,3,4]).buffer});
+const keyB=d.modelSourceKey({id:'uploaded',bytes:new Uint8Array([1,2,3,5]).buffer});
+assert(keyA!==keyB,'different uploaded model bytes must not reuse the same ONNX session');
+class FakeTensor{constructor(type,data,dims){this.type=type;this.data=data;this.dims=dims;}}
+const pixels=new Uint8ClampedArray([255,0,0,255, 0,255,0,255, 0,0,255,255, 255,255,255,255]);
+const prepared=await d.prepareInput(pixels,2,2,{type:'float32'},{width:2,height:2},null,{Tensor:FakeTensor},true);
+assert(prepared.inputRasterDiagnostic.tensorNchwPreview[0]===255&&prepared.inputRasterDiagnostic.tensorNchwPreview[1]===0,'NCHW preview must retain the top-left red pixel');
+assert(prepared.inputRasterDiagnostic.tensorNchwPreview[4]===0&&prepared.inputRasterDiagnostic.tensorNchwPreview[5]===255,'NCHW preview must retain row-major top-right green pixel');
+console.log(JSON.stringify({frameHashA:d.sampledByteSignature(a,4,4),frameHashB:d.sampledByteSignature(b,4,4),smoothStripe:ss,columnStripe:cs,rowMajorOutput:[...read.rawDepth],nchwPreviewFirstPixels:[...prepared.inputRasterDiagnostic.tensorNchwPreview.slice(0,8)],modelKeysDiffer:keyA!==keyB,identicalComparison:cmp},null,2));

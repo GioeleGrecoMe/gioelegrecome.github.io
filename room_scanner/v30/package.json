@@ -6,12 +6,13 @@
     "test": "node --test tests/*.test.mjs",
     "check:layout": "node tools/check_v30_layout.mjs",
     "check:deps": "node tools/check_dependencies.mjs",
-    "verify": "npm test && npm run check:layout && npm run check:deps && npm run check:constructors && npm run check:mock && npm run check:alva",
+    "verify": "npm test && npm run check:depth && npm run check:layout && npm run check:deps && npm run check:constructors && npm run check:mock && npm run check:alva",
+    "check:depth": "node tools/test_worker_diagnostics.mjs",
     "check:mock": "node tools/mock_ui_boot.mjs",
     "check:constructors": "node tools/check_eventtarget_constructors.mjs",
     "check:alva": "node tools/check_alvaar_runtime.mjs",
     "vendor:alva": "node tools/vendor_alvaar.mjs"
   },
-  "version": "30.18.0",
-  "description": "V30.18.0: local/uploaded ONNX Depth Anything V2 tested before scanning, 1 Hz live depth overlay, Alva-calibrated multi-view fusion and TSDF mesh."
+  "version": "30.18.9",
+  "description": "V30.18.9: bundled local Q4 Depth Anything test and 1 Hz overlay, Alva-calibrated multi-view fusion and TSDF mesh."
 }

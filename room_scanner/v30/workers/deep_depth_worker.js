@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.18.7 - authoritative WebGPU readback Depth Anything worker.
+ * Room Scanner V30.18.9 - authoritative WebGPU readback Depth Anything worker.
  *
  * GPU READBACK + AUTHORITATIVE DEPTH LAYOUT + Q4 DEFAULT
  * -------------------------
@@ -12,7 +12,7 @@
  *      tensor: RRR... GGG... BBB... (NCHW, planar)
  *
  * 2) Dynamic Depth Anything inputs preserve camera aspect ratio.  For the
- *    Room Scanner 320x480 analysis frame the first mobile plan is 168x252,
+ *    Room Scanner 320x480 analysis frame the first mobile plan is 224x336,
  *    both multiples of the ViT patch size (14).  The old code stretched the
  *    portrait frame to 518x518 before inference and then stretched the depth
  *    back to portrait, which was geometrically inconsistent with Alva pixels.
@@ -31,8 +31,10 @@
  */
 
 let cfg = {
-  modelUrl: 'models/depth_anything_v2_small_q4.onnx',
-  modelRemoteUrl: 'https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model_q4.onnx',
+  modelUrl: 'models/model_q4.onnx',
+  // A remote model may be explicitly configured by a deployment, but the
+  // shipped app never switches to one invisibly after a local 404.
+  modelRemoteUrl: null,
   modelCacheName: 'room-scanner-depth-models-v1',
   ortLocal: '../vendor/onnxruntime-web/ort.all.min.mjs',
   // Keep the project-configured runtime only as a last-resort compatibility fallback.
@@ -43,11 +45,11 @@ let cfg = {
   // Compatibility ceiling/fallback used by the existing V30 config.
   inputMaxSide: 518,
 
-  // Mobile inference target.  168 is 12 * 14.  A 320x480 frame therefore
-  // becomes 168x252 (18 * 14) without changing its 2:3 aspect ratio.
+  // Mobile inference target. 224 is 16 * 14. A 320x480 frame therefore
+  // becomes 224x336 (24 * 14) without changing its 2:3 aspect ratio.
   // Depth is a geometric prior here; Alva + multi-view verification retain
   // metric/structural authority, so this lower raster is a good speed tradeoff.
-  preferredShortSide: 140,
+  preferredShortSide: 224,
   patchSize: 14,
 
   // Used when onnxruntime-web exposes inputNames but not inputMetadata.
@@ -191,7 +193,7 @@ async function importOrt() {
   if (ort) return ort;
 
   // Prefer a current WebGPU runtime before the project's historical 1.20.1
-  // fallback.  The q4f16 graph uses modern quantized WebGPU kernels and old
+  // fallback. The Q4 graph uses modern quantized WebGPU kernels and old
   // builds have had dynamic-shape/correctness issues.
   const sources = Array.from(new Set([
     cfg.ortLocal,
@@ -222,11 +224,32 @@ async function importOrt() {
 async function responseToArrayBufferWithProgress(response, label) {
   const total = Number(response.headers.get('content-length')) || 0;
   postMessage({ type:'deep-download-progress', label, received:0, total, pct:0 });
-  // arrayBuffer() avoids retaining a JS array of download chunks, which matters
-  // on smartphones because the ONNX session itself already consumes RAM.
-  const buffer = await response.arrayBuffer();
-  postMessage({ type:'deep-download-progress', label, received:buffer.byteLength, total:total || buffer.byteLength, pct:100 });
-  return buffer;
+  if (!response.body?.getReader) {
+    const buffer = await response.arrayBuffer();
+    postMessage({ type:'deep-download-progress', label, received:buffer.byteLength, total:total || buffer.byteLength, pct:100 });
+    return buffer;
+  }
+  const reader = response.body.getReader();
+  const chunks = [];
+  let received = 0;
+  let lastReported = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value?.byteLength) continue;
+    chunks.push(value);
+    received += value.byteLength;
+    // Updating about four times per MiB remains visible without flooding the UI.
+    if (received - lastReported >= 262144) {
+      lastReported = received;
+      postMessage({ type:'deep-download-progress', label, received, total, pct:total ? Math.floor(received / total * 100) : null });
+    }
+  }
+  const joined = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) { joined.set(chunk, offset); offset += chunk.byteLength; }
+  postMessage({ type:'deep-download-progress', label, received, total:total || received, pct:100 });
+  return joined.buffer;
 }
 
 async function fetchUrlModel(url, { cacheable = false, label = 'modello' } = {}) {
@@ -265,8 +288,6 @@ async function fetchModel(source) {
   const remote = cfg.modelRemoteUrl;
   const errors = [];
 
-  // First try the future local Q4 filename. If it is not present on GitHub yet,
-  // fall through to the official Apache-2.0 ONNX Community file and cache it.
   if (requested) {
     try { return await fetchUrlModel(requested, { cacheable:false, label:'modello Q4 locale' }); }
     catch (err) { errors.push(`locale: ${err?.message || err}`); }
@@ -275,11 +296,26 @@ async function fetchModel(source) {
     try { return await fetchUrlModel(remote, { cacheable:true, label:'Depth Anything V2 Small Q4 ufficiale' }); }
     catch (err) { errors.push(`remoto: ${err?.message || err}`); }
   }
-  fail(`modello Q4 non disponibile. ${errors.join(' | ')}`);
+  fail(`modello Q4 non disponibile. ${errors.join(' | ')}. Verifica che ${cfg.modelUrl} sia pubblicato insieme al sito.`);
+}
+
+function modelBytesSignature(bytes) {
+  const values = new Uint8Array(bytes);
+  let h = 2166136261 >>> 0;
+  const step = Math.max(1, Math.floor(values.length / 256));
+  for (let i = 0; i < values.length; i += step) { h ^= values[i]; h = Math.imul(h, 16777619) >>> 0; }
+  h ^= values.length; h = Math.imul(h, 16777619) >>> 0;
+  return h.toString(16).padStart(8, '0');
+}
+
+function modelSourceKey(source) {
+  const id = String(source?.id || 'default');
+  if (source?.bytes) return `bytes:${id}:${source.bytes.byteLength}:${modelBytesSignature(source.bytes)}`;
+  return `url:${id}:${String(source?.url || cfg.modelUrl)}`;
 }
 
 async function ensureSession(source) {
-  const sourceKey = source?.id || source?.url || cfg.modelUrl;
+  const sourceKey = modelSourceKey(source);
   if (session && sessionKey === sourceKey) return session;
 
   const sessionStarted = performance.now();
@@ -401,7 +437,7 @@ function inputPlans(spec, sourceWidth, sourceHeight) {
     return [{ width: spec.width, height: spec.height, mode: 'metadata-fixed' }];
   }
 
-  const preferred = positiveNumber(cfg.preferredShortSide, 140);
+  const preferred = positiveNumber(cfg.preferredShortSide, 224);
   const plans = [
     adaptiveInputGeometry(sourceWidth, sourceHeight, preferred),
     // Medium fallback: useful if a custom dynamic export dislikes very small
@@ -482,6 +518,36 @@ function sourceRgbProbe(rgba, width, height) {
   };
 }
 
+function tensorRgbPreview(values, width, height, layout = 'nchw') {
+  const n = width * height;
+  if (!values?.length || values.length < n * 3) return null;
+  const out = new Uint8ClampedArray(n * 4);
+  const mean = [0.485, 0.456, 0.406];
+  const std = [0.229, 0.224, 0.225];
+  for (let i = 0; i < n; i++) {
+    for (let c = 0; c < 3; c++) {
+      const index = layout === 'nchw' ? c * n + i : i * 3 + c;
+      const rgb = (Number(values[index]) * std[c] + mean[c]) * 255;
+      out[i * 4 + c] = Math.max(0, Math.min(255, Math.round(rgb)));
+    }
+    out[i * 4 + 3] = 255;
+  }
+  return out;
+}
+
+async function makeInputRasterDiagnostic(source, sourceWidth, sourceHeight, tensor, width, height) {
+  const cpu = await tensorCpuData(tensor);
+  return {
+    sourcePreview: source.slice(0, sourceWidth * sourceHeight * 4),
+    sourceWidth,
+    sourceHeight,
+    tensorNchwPreview: tensorRgbPreview(cpu.data, width, height, 'nchw'),
+    tensorNhwcPreview: tensorRgbPreview(cpu.data, width, height, 'nhwc'),
+    tensorWidth: width,
+    tensorHeight: height,
+  };
+}
+
 /**
  * Explicit RGBA row-major -> RGB NCHW conversion with bilinear resize.
  *
@@ -489,7 +555,7 @@ function sourceRgbProbe(rgba, width, height) {
  * always ((y * sourceWidth + x) * 4 + channel), while the tensor index is
  * (channel * targetWidth * targetHeight + y * targetWidth + x).
  */
-async function prepareInput(rgba, width, height, spec, plan, forcedType = null, runtime = ort) {
+async function prepareInput(rgba, width, height, spec, plan, forcedType = null, runtime = ort, captureDiagnostic = false) {
   const started = performance.now();
   const srcWidth = width | 0;
   const srcHeight = height | 0;
@@ -536,6 +602,11 @@ async function prepareInput(rgba, width, height, spec, plan, forcedType = null, 
         try { tensor.dispose?.(); } catch {}
         fail(`Tensor.fromImage shape inattesa: ${JSON.stringify(dims)}, atteso [1,3,${targetHeight},${targetWidth}]`);
       }
+      let inputRasterDiagnostic = null;
+      if (captureDiagnostic) {
+        try { inputRasterDiagnostic = await makeInputRasterDiagnostic(src, srcWidth, srcHeight, tensor, targetWidth, targetHeight); }
+        catch (err) { postMessage({ type:'deep-diag', level:'warn', event:'tensor-diagnostic-unavailable', message:err?.message || String(err) }); }
+      }
       return {
         tensor,
         dims,
@@ -544,6 +615,7 @@ async function prepareInput(rgba, width, height, spec, plan, forcedType = null, 
         preprocessBackend: 'ort.Tensor.fromImage(ImageData)',
         plan,
         rasterProbe: sourceRgbProbe(src, srcWidth, srcHeight),
+        inputRasterDiagnostic,
       };
     } catch (err) {
       postMessage({ type:'deep-diag', level:'warn', event:'tensor-from-image-fallback', message:err?.message || String(err) });
@@ -595,14 +667,24 @@ async function prepareInput(rgba, width, height, spec, plan, forcedType = null, 
     }
   }
   const dims = [1, 3, targetHeight, targetWidth];
+  const tensor = new runtime.Tensor('float32', values, dims);
   return {
-    tensor: new runtime.Tensor('float32', values, dims),
+    tensor,
     dims,
     type: 'float32',
     preprocessMs: performance.now() - started,
     preprocessBackend: 'manual-rgba-nchw-fallback',
     plan,
     rasterProbe: sourceRgbProbe(src, srcWidth, srcHeight),
+    inputRasterDiagnostic: captureDiagnostic ? {
+      sourcePreview: src.slice(0, required),
+      sourceWidth: srcWidth,
+      sourceHeight: srcHeight,
+      tensorNchwPreview: tensorRgbPreview(values, targetWidth, targetHeight, 'nchw'),
+      tensorNhwcPreview: tensorRgbPreview(values, targetWidth, targetHeight, 'nhwc'),
+      tensorWidth: targetWidth,
+      tensorHeight: targetHeight,
+    } : null,
   };
 }
 
@@ -724,26 +806,36 @@ async function readOutput(result, expectedPlan, activeSession = session) {
 }
 
 async function runPrepared(spec, prepared, activeSession = session) {
-  const runStarted = performance.now();
-  const result = await activeSession.run({ [spec.name]: prepared.tensor });
-  const runMs = performance.now() - runStarted;
+  let result = null;
+  try {
+    const runStarted = performance.now();
+    result = await activeSession.run({ [spec.name]: prepared.tensor });
+    const runMs = performance.now() - runStarted;
 
-  const outputStarted = performance.now();
-  const output = await readOutput(result, prepared.plan, activeSession);
-  const outputMs = performance.now() - outputStarted;
+    const outputStarted = performance.now();
+    const output = await readOutput(result, prepared.plan, activeSession);
+    const outputMs = performance.now() - outputStarted;
 
-  return {
-    ...output,
-    runMs,
-    outputMs,
-    preprocessMs: prepared.preprocessMs,
-    inputType: prepared.type,
-    inputDims: prepared.dims,
-    inputPlan: prepared.plan,
-    rasterProbe: prepared.rasterProbe,
-    preprocessBackend: prepared.preprocessBackend || 'unknown',
-    steadyMs: prepared.preprocessMs + runMs + outputMs,
-  };
+    return {
+      ...output,
+      runMs,
+      outputMs,
+      preprocessMs: prepared.preprocessMs,
+      inputType: prepared.type,
+      inputDims: prepared.dims,
+      inputPlan: prepared.plan,
+      rasterProbe: prepared.rasterProbe,
+      inputRasterDiagnostic: prepared.inputRasterDiagnostic || null,
+      preprocessBackend: prepared.preprocessBackend || 'unknown',
+      steadyMs: prepared.preprocessMs + runMs + outputMs,
+    };
+  } finally {
+    // WebGPU tensors otherwise accumulate across the 1 Hz live loop.
+    try { prepared.tensor?.dispose?.(); } catch {}
+    for (const tensor of Object.values(result || {})) {
+      try { tensor?.dispose?.(); } catch {}
+    }
+  }
 }
 
 
@@ -812,9 +904,9 @@ async function runWasmDiagnostic(d, reference) {
     const loadMs = performance.now() - started;
     const spec = inputSpec(wasmSession);
     const plan = reference.inputPlan;
-    const preparedCold = prepareInput(d.rgba, d.width, d.height, spec, plan, reference.inputType || spec.type, runtime);
+    const preparedCold = await prepareInput(d.rgba, d.width, d.height, spec, plan, reference.inputType || spec.type, runtime);
     const cold = await runPrepared(spec, preparedCold, wasmSession);
-    const preparedWarm = prepareInput(d.rgba, d.width, d.height, spec, plan, cold.inputType, runtime);
+    const preparedWarm = await prepareInput(d.rgba, d.width, d.height, spec, plan, cold.inputType, runtime);
     const warm = await runPrepared(spec, preparedWarm, wasmSession);
     return { ...warm, loadMs, coldRunMs: cold.runMs, summary: finiteSummary(warm.rawDepth), stripe: stripeDiagnosis(warm.spatialStats) };
   } finally {
@@ -845,7 +937,7 @@ async function providerABDiagnostic(d, webgpuResult) {
     return {
       attempted: true,
       webgpuLikelyCorrupt,
-      recommendation: webgpuLikelyCorrupt ? 'q4-webgpu-or-wasm-q4f16' : 'keep-webgpu-q4f16',
+      recommendation: webgpuLikelyCorrupt ? 'use-wasm-safe-fallback' : 'keep-current-provider',
       webgpu: { ms: webgpuResult.steadyMs, summary: finiteSummary(webgpuResult.rawDepth), stripe: webgpuStripe },
       wasm: { ms: wasm.steadyMs, loadMs: wasm.loadMs, summary: wasm.summary, stripe: wasmStripe, depthSignature: sampledFloatSignature(wasm.rawDepth, wasm.width, wasm.height) },
       comparison,
@@ -877,7 +969,7 @@ async function infer(d, { benchmark = false } = {}) {
   for (const plan of plans) {
     for (const tensorType of typeCandidates) {
       try {
-        const firstPrepared = await prepareInput(d.rgba, d.width, d.height, spec, plan, tensorType);
+        const firstPrepared = await prepareInput(d.rgba, d.width, d.height, spec, plan, tensorType, ort, benchmark);
         const first = await runPrepared(spec, firstPrepared);
 
         successfulInputPlan = { ...plan };
@@ -886,7 +978,7 @@ async function infer(d, { benchmark = false } = {}) {
         // pays graph/shader compilation on the first session.run().  Repeating
         // the SAME shape/type gives the number that matters during Scan.
         if (benchmark) {
-          const warmPrepared = await prepareInput(d.rgba, d.width, d.height, spec, successfulInputPlan, first.inputType);
+          const warmPrepared = await prepareInput(d.rgba, d.width, d.height, spec, successfulInputPlan, first.inputType, ort, false);
           const warm = await runPrepared(spec, warmPrepared);
           return {
             ...warm,
@@ -894,6 +986,7 @@ async function infer(d, { benchmark = false } = {}) {
             sessionLoadMs: lastSessionLoadMs,
             coldRunMs: first.runMs,
             coldSteadyMs: first.steadyMs,
+            inputRasterDiagnostic: first.inputRasterDiagnostic || null,
             contractFallback: !!spec.contractFallback,
             benchmarkWarm: true,
             frameSignature,
@@ -949,8 +1042,7 @@ async function handleWorkerMessage(d) {
 
   if (d.type === 'init') {
     cfg = { ...cfg, ...(d.config || {}) };
-    // app.js V30.18.0 does not yet forward this optional setting; keep the
-    // worker's 140-pixel mobile default unless a future caller provides it.
+    // The page forwards this setting; preserve a safe value for external calls.
     if (Number(d.config?.preferredShortSide) > 0) cfg.preferredShortSide = Number(d.config.preferredShortSide);
     postMessage({
       type: 'deep-ready',
@@ -1059,6 +1151,7 @@ async function handleWorkerMessage(d) {
       rasterContract: raw.preprocessBackend || 'RGBA -> RGB/NCHW',
       preprocessBackend: raw.preprocessBackend || null,
       rasterProbe: raw.rasterProbe || null,
+      inputRasterDiagnostic: d.type === 'test' ? raw.inputRasterDiagnostic || null : null,
       frameSignature: raw.frameSignature || null,
       depthSignature: finalDepthSignature,
       contractFallback: !!raw.contractFallback,

@@ -1,4 +1,4 @@
-# Room Scanner V30.18.0
+# Room Scanner V30.18.9
 
 Room Scanner uses **AlvaAR as the autonomous persistent visual SLAM tracker**.
 Calibration is optional and only fixes a one-shot metric transform. It never
@@ -59,8 +59,8 @@ surfel/TSDF maps retain hard memory caps.
 
 ## Depth Anything
 
-V30.18 reads the supplied local file
-`models/depth_anything_v2_small_q4f16.onnx` directly with ONNX Runtime Web; it
+V30.18.9 reads the supplied local file
+`models/model_q4.onnx` directly with ONNX Runtime Web; it
 does not silently download/replace it with a Transformers.js model. On the home
 screen, choose an alternative `.onnx` file if needed, then press **Prova
 inferenza**. It captures one camera frame and reports the real backend (WebGPU

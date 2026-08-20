@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.18.7 mobile commit-only ONNX geometry-prior runtime configuration.
+ * Room Scanner V30.18.9 mobile ONNX geometry-prior runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.18.7',
-  id:'v30.18.7-20260820-q4-gpu-readback-depth-layout',
+  version:'30.18.9',
+  id:'v30.18.9-20260820-local-q4-consistent-runtime',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -152,16 +152,20 @@ export const CONFIG={
    */
   deepDepthEnabled:true,
   deepDepthWorker:'workers/deep_depth_worker.js',
-  // Preferred local filename. It is intentionally allowed to be absent from
-  // GitHub: the worker then downloads the official Q4 model from Hugging Face
-  // once and stores it in Cache Storage. If this file is added later, it wins.
-  deepModelUrl:'models/depth_anything_v2_small_q4.onnx',
-  deepModelLabel:'Depth Anything V2 Small Q4 automatico (cache locale)',
+  // This is the actual bundled model.  Do not silently fall back to a remote
+  // download: a typo or an offline phone must fail clearly instead of looking
+  // like an endless download.
+  deepModelUrl:'models/model_q4.onnx',
+  deepModelRemoteUrl:null,
+  deepModelLabel:'Depth Anything V2 Small Q4 locale',
   deepInferenceIntervalMs:1000,
-  // 140 = 10 ViT patches. The worker preserves aspect ratio and multiples of 14.
-  deepPreferredShortSide:140,
+  // 224 = 16 ViT patches. It preserves camera aspect ratio and avoids the
+  // overly coarse 140 px raster that made room edges look column-like.
+  deepPreferredShortSide:224,
   deepInputMaxSide:518,
-  deepOrtLocal:'../vendor/onnxruntime-web/ort.all.min.mjs',
+  // No local ORT bundle is currently shipped; avoid a guaranteed initial 404.
+  // Add an actual matching ESM file here only for a fully offline deployment.
+  deepOrtLocal:null,
   deepOrtRemote:'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.all.min.mjs',
   deepMinAnchors:7,
   deepMinAnchorCells:3,

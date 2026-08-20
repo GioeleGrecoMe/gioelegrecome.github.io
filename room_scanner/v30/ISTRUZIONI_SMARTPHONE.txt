@@ -1,25 +1,19 @@
-ROOM SCANNER V30.18.8 - SOLO FILE DA COMMITTARE
+ROOM SCANNER V30.18.9 - PUBBLICAZIONE E TEST TELEFONO
 
-Non eseguire node/npm/patcher.
-Carica sul repository i file contenuti nella cartella room_scanner/v30/ mantenendo esattamente i percorsi.
+Pubblica l'intera cartella room_scanner/v30/, incluso models/model_q4.onnx.
+Il modello predefinito e' locale: se non viene pubblicato, il test mostra un
+errore esplicito anziche' passare a un download remoto indefinito.
 
-File nuovi/sostituiti:
-- room_scanner/v30/index.html
-- room_scanner/v30/room_scanner_v30.html
-- room_scanner/v30/sw.js
-- room_scanner/v30/build_info.json
-- room_scanner/v30/js/boot.js
-- room_scanner/v30/js/config.js
-- room_scanner/v30/js/deep_live_controller.js
-- room_scanner/v30/js/deep_diagnostic_controller.js   (NUOVO)
-- room_scanner/v30/workers/deep_depth_worker.js
+Dopo il deploy:
+1. Apri room_scanner_v30.html e verifica il badge V30.18.9.
+2. Premi "Prova inferenza" e autorizza la camera. Il caricamento del modello
+   mostra avanzamento in MB; alla fine deve comparire backend, tempo e preview.
+3. Nel pannello Depth diagnostic, CAMERA e TENSOR NCHW devono rappresentare la
+   stessa scena. DEPTH ROW e' la lettura realmente usata; DEPTH COLUMN e' solo
+   il confronto per riconoscere uno stride errato.
+4. Aggiorna normalmente la pagina: il service worker e' network-first e puo'
+   effettuare una sola ricarica quando una nuova versione prende il controllo.
 
-NON serve modificare app.js.
-NON serve caricare il modello ONNX: Q4 viene cercato localmente e poi scaricato/cacheato dal worker come prima.
-
-Dopo il deploy premi Prova inferenza. Compariranno 6 riquadri diagnostici.
-La distinzione fondamentale e':
-- CAMERA normale + TENSOR NCHW normale = input/stride camera corretti.
-- DEPTH ROW a colonne ma DEPTH COLUMN corretta = output interpretato column-major.
-- 224 a colonne + RIFERIMENTO 518 corretto = input troppo piccolo / degenerazione modello.
-- TENSOR NCHW gia' a colonne = preprocessing/layout input realmente errato.
+Per testare un modello differente usa "Scegli ONNX". Deve avere un input immagine
+NCHW chiamato normalmente pixel_values e un output depth denso. I file MobileSAM
+non sono modelli di profondita'.
