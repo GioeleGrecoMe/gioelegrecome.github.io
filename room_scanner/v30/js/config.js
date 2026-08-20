@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.18.0 real-time local-ONNX geometry-prior runtime configuration.
+ * Room Scanner V30.18.7 mobile commit-only ONNX geometry-prior runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,15 +10,14 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.18.0',
-  id:'v30.18.0-20260820-local-onnx-1hz-depth-overlay',
+  version:'30.18.7',
+  id:'v30.18.7-20260820-q4-gpu-readback-depth-layout',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
 
 export const CONFIG={
-  // Keep tracking inexpensive so a mobile GPU/CPU has enough time for one
-  // complete neural depth inference per second in a separate worker.
+  // Mobile budget: Alva stays responsive while neural depth runs separately.
   analysisWidth:256,
   analysisHeight:384,
   analysisFps:8,
@@ -153,18 +152,17 @@ export const CONFIG={
    */
   deepDepthEnabled:true,
   deepDepthWorker:'workers/deep_depth_worker.js',
-  // This is the actual file distributed in v30/models.  The old V30.17
-  // Transformers.js model ID deliberately is not used: it silently fetched a
-  // different model and therefore never exercised the local ONNX asset.
-  deepModelUrl:'models/depth_anything_v2_small_q4f16.onnx',
-  deepModelLabel:'Depth Anything V2 Small Q4F16 locale',
+  // Preferred local filename. It is intentionally allowed to be absent from
+  // GitHub: the worker then downloads the official Q4 model from Hugging Face
+  // once and stores it in Cache Storage. If this file is added later, it wins.
+  deepModelUrl:'models/depth_anything_v2_small_q4.onnx',
+  deepModelLabel:'Depth Anything V2 Small Q4 automatico (cache locale)',
   deepInferenceIntervalMs:1000,
+  // 140 = 10 ViT patches. The worker preserves aspect ratio and multiples of 14.
+  deepPreferredShortSide:140,
   deepInputMaxSide:518,
-  // A local ORT bundle can be dropped into vendor/onnxruntime-web.  Until it
-  // is bundled, this official CDN module is loaded lazily only by the explicit
-  // model test or by a started scan; the model itself remains local/uploaded.
   deepOrtLocal:'../vendor/onnxruntime-web/ort.all.min.mjs',
-  deepOrtRemote:'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.all.min.mjs',
+  deepOrtRemote:'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.all.min.mjs',
   deepMinAnchors:7,
   deepMinAnchorCells:3,
   deepMinIntervalMs:2600,
