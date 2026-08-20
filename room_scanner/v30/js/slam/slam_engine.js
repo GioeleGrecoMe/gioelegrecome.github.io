@@ -12,8 +12,8 @@ import {applySimilarityPose} from './alva_metric_bootstrap.js';
  * tracker that would bend the map.
  */
 export class SlamEngine extends EventTarget{
-  constructor({frontend,K=null,log=null,keyframeIntervalMs=950}={}){
-    super();this.frontend=frontend;this.K=K;this.log=log;this.pose=poseIdentity();this.metricLocked=false;this.metricScale=null;this.worldTransform=null;this.lastAt=0;this.frameIndex=0;this.keyframes=[];this.keyframeIntervalMs=keyframeIntervalMs;this.alvaTrackedFrames=0;this.alvaLostFrames=0;this.wasLost=false;this.referenceDepthM=null;
+  constructor({frontend,K=null,log=null,keyframeIntervalMs=950,observationIntervalMs=900,maxObservations=12}={}){
+    super();this.frontend=frontend;this.K=K;this.log=log;this.pose=poseIdentity();this.metricLocked=false;this.metricScale=null;this.worldTransform=null;this.lastAt=0;this.lastObservationAt=0;this.frameIndex=0;this.keyframes=[];this.observations=[];this.keyframeIntervalMs=keyframeIntervalMs;this.observationIntervalMs=Math.max(250,observationIntervalMs|0);this.maxObservations=Math.max(2,maxObservations|0);this.alvaTrackedFrames=0;this.alvaLostFrames=0;this.wasLost=false;this.referenceDepthM=null;
   }
   setIntrinsics(K){this.K=K;}
   setWorldTransform(sim){
@@ -31,20 +31,27 @@ export class SlamEngine extends EventTarget{
   process(frame){
     const r=this.frontend.processFrame(frame,{maxFeatures:850,threshold:9});
     const raw=r.cameraPose?alvaMatrixToPose(r.cameraPose):null;
-    let trackingMode='alvaar-lost',trackingValid=false,relocalized=false;
+    let trackingMode=r.trackingMode==='alvaar-initializing'?'alvaar-initializing':'alvaar-lost',trackingValid=false,relocalized=false;
     if(raw){
       trackingValid=true;relocalized=this.wasLost&&this.alvaTrackedFrames>0;this.wasLost=false;this.alvaLostFrames=0;this.alvaTrackedFrames++;
       this.pose=this.worldTransform?applySimilarityPose(this.worldTransform,raw):raw;
       trackingMode=relocalized?'alvaar-relocalized':'alvaar-wasm';
     }else{this.alvaLostFrames++;this.wasLost=true;}
 
-    const now=frame.at||performance.now();let newKeyframe=null;
+    const now=frame.at||performance.now();let newKeyframe=null,newObservation=null;
+    // A 1 Hz observation clock is intentionally independent of pose validity.
+    // Alva itself still receives every analysis frame; this bounded history gives
+    // diagnostics/recovery/alignment a camera sample even while initialization is pending.
+    if(!this.lastObservationAt||now-this.lastObservationAt>=this.observationIntervalMs){
+      newObservation={id:`obs-${this.frameIndex}`,at:now,trackingValid,trackingMode,rawPose:raw?clonePose(raw):null,width:frame.width,height:frame.height,features:r.count||0,matches:r.matches?.count||0,alvaPoints:r.framePoints?.length||0,geometry:frame.geometry||null};
+      this.observations.push(newObservation);this.lastObservationAt=now;if(this.observations.length>this.maxObservations)this.observations.shift();
+    }
     if(trackingValid&&(!this.lastAt||now-this.lastAt>=this.keyframeIntervalMs)){
       newKeyframe={id:`kf-${this.frameIndex}`,at:now,pose:clonePose(this.pose),rawPose:clonePose(raw),features:(r.features||[]).map(f=>({x:+f.x,y:+f.y,score:+(f.score||0),desc:Array.from(f.desc||[])})),width:frame.width,height:frame.height,trackingMode,metricLocked:this.metricLocked,geometry:frame.geometry||null};
       this.keyframes.push(newKeyframe);this.lastAt=now;if(this.keyframes.length>520)this.keyframes.shift();
     }
-    const detail={frame:this.frameIndex++,pose:clonePose(this.pose),rawPose:raw?clonePose(raw):null,features:r.count||0,matches:r.matches?.count||0,keyframes:this.keyframes.length,newKeyframe,metricLocked:this.metricLocked,metricScale:this.metricScale,trackingMode,trackingValid,relocalized,alvaPoints:r.framePoints?.length||0,framePoints:Array.from(r.framePoints||[]),lostFrames:this.alvaLostFrames};
-    this.dispatchEvent(new CustomEvent('tracking',{detail}));if(newKeyframe)this.dispatchEvent(new CustomEvent('keyframe',{detail:newKeyframe}));return detail;
+    const detail={frame:this.frameIndex++,pose:clonePose(this.pose),rawPose:raw?clonePose(raw):null,features:r.count||0,matches:r.matches?.count||0,keyframes:this.keyframes.length,newKeyframe,observations:this.observations.length,newObservation,metricLocked:this.metricLocked,metricScale:this.metricScale,trackingMode,trackingValid,relocalized,alvaPoints:r.framePoints?.length||0,framePoints:Array.from(r.framePoints||[]),lostFrames:this.alvaLostFrames};
+    this.dispatchEvent(new CustomEvent('tracking',{detail}));if(newObservation)this.dispatchEvent(new CustomEvent('observation',{detail:newObservation}));if(newKeyframe)this.dispatchEvent(new CustomEvent('keyframe',{detail:newKeyframe}));return detail;
   }
 }
 

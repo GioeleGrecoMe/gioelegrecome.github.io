@@ -47,3 +47,13 @@ test('SlamEngine never synthesizes motion when Alva loses tracking and resumes o
   assert.equal(frames[4].trackingMode,'alvaar-relocalized');assert.ok(frames[4].newKeyframe,'relocalized Alva pose may resume keyframes');
   assert.equal(frames[5].trackingMode,'alvaar-wasm');
 });
+
+test('SlamEngine emits ~1 Hz observations even before Alva has an initial pose',()=>{
+  const frontend={processFrame(){return {count:120,features:[],matches:{count:40,items:[]},cameraPose:null,framePoints:[],trackingMode:'alvaar-initializing'};}};
+  const slam=new SlamEngine({frontend,K:{fx:300,fy:300,cx:160,cy:120,width:320,height:240},keyframeIntervalMs:950,observationIntervalMs:900,maxObservations:4});
+  const a=slam.process({gray:new Uint8Array(1),imageData:{data:new Uint8ClampedArray(4)},width:1,height:1,at:1000});
+  const b=slam.process({gray:new Uint8Array(1),imageData:{data:new Uint8ClampedArray(4)},width:1,height:1,at:1500});
+  const c=slam.process({gray:new Uint8Array(1),imageData:{data:new Uint8ClampedArray(4)},width:1,height:1,at:1950});
+  assert.ok(a.newObservation);assert.equal(b.newObservation,null);assert.ok(c.newObservation);
+  assert.equal(c.trackingMode,'alvaar-initializing');assert.equal(c.newKeyframe,null);assert.equal(c.observations,2);
+});

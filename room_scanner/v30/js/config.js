@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.21.0 ultra-low-budget ONNX geometry-prior runtime configuration.
+ * Room Scanner V30.22.0 ultra-low-budget ONNX geometry-prior runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.21.0',
-  id:'v30.21.0-20260820-ultra-low-budget-depth',
+  version:'30.22.0',
+  id:'v30.22.0-20260820-depth-quality-alva-heartbeat',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -23,6 +23,11 @@ export const CONFIG={
   analysisFps:8,
   cameraFovDeg:62,
   keyframeIntervalMs:950,
+  // Independent tracking heartbeat: keep one compact camera observation per second even
+  // before Alva has produced its first pose. Dense geometry still requires a valid pose.
+  alvaObservationIntervalMs:900,
+  alvaHeartbeatBufferFrames:8,
+  alvaHeartbeatPersistMaxSide:160,
   maxKeyframes:520,
 
   /*
@@ -163,14 +168,17 @@ export const CONFIG={
   deepInferenceIntervalMs:1000,
   // ULTRA-LOW-BUDGET PROFILE. Depth Anything is not the metric reconstruction:
   // Alva owns pose/scale and the multi-view stage rejects inconsistent geometry.
-  // Therefore the neural map can be intentionally very coarse. 112 px is eight
-  // ViT/14 patches and is the smallest target we allow by default. On the normal
-  // 256x384 analysis frame this becomes 112x168 instead of 266x392: about 82%
-  // fewer input pixels before considering the larger attention/token saving.
-  deepPreferredShortSide:112,
-  // If an unusual dynamic export rejects 112 px, try 196 before paying for the
-  // classic 518-px compatibility path. The bundled Q4 model normally stays at 112.
+  // Therefore the neural map can be intentionally very coarse. 168 px is twelve
+  // ViT/14 patches on the short side. 112 px (8 patches) proved too aggressive on
+  // real phones and can collapse the DPT decoder into broad stripes. 168 remains
+  // far below the native 518 target while restoring enough spatial token support.
+  deepPreferredShortSide:168,
+  // If an unusual dynamic export rejects 168 px, try 196 before paying for the
+  // classic 518-px compatibility path. The bundled Q4 model normally stays at 168.
   deepCompatibilityShortSide:196,
+  // If the fast 168px map is stripe-like/incoherent, retry once at 196px on the SAME provider.
+  // This distinguishes resolution collapse from a genuine WebGPU/Q4 runtime failure.
+  deepQualityRescueShortSide:196,
   deepInputMaxSide:518,
   // 0 restores ONNX Runtime Web's automatic WASM thread budget. V30.20 forced
   // one thread, which unnecessarily serialized CPU inference on isolated sites.

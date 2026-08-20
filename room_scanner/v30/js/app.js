@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.21.0 ultra-low-budget local-ONNX Alva mapping application.
+ * Room Scanner V30.22.0 ultra-low-budget local-ONNX Alva mapping application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,12 +8,12 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.21.0';
-import {DiagnosticsLog} from './logger.js?v=30.21.0';
+import {BUILD,CONFIG} from './config.js?v=30.22.0';
+import {DiagnosticsLog} from './logger.js?v=30.22.0';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
-const state={db:null,calibrator:null,bridge:null,bridgeStable:0,bridgeEpoch:0,bridgeTransition:false,alvaBootstrap:null,camera:null,frontend:null,slam:null,denseManager:null,denseDepthWorker:null,denseFusionWorker:null,deepDepthWorker:null,deepWorkerModelId:null,deepSelector:null,deepPending:null,deepModel:null,deepDisabled:false,deepCalls:0,deepAccepted:0,denseBusy:false,denseJobs:0,denseDepthSamples:0,denseDepthHint:null,densePixelStep:null,denseSourceLimit:null,surfaceStats:null,mesh:null,gaussians:[],renderer:null,currentSession:null,scanStop:null,liveOverlay:null,scanK:null,lastFrameGeometry:null,lastTracking:null,geometryAnchors:[]};
+const state={db:null,calibrator:null,bridge:null,bridgeStable:0,bridgeEpoch:0,bridgeTransition:false,alvaBootstrap:null,camera:null,frontend:null,slam:null,denseManager:null,denseDepthWorker:null,denseFusionWorker:null,deepDepthWorker:null,deepWorkerModelId:null,deepSelector:null,deepPending:null,deepModel:null,deepDisabled:false,deepCalls:0,deepAccepted:0,denseBusy:false,denseJobs:0,denseDepthSamples:0,denseDepthHint:null,densePixelStep:null,denseSourceLimit:null,surfaceStats:null,mesh:null,gaussians:[],renderer:null,currentSession:null,scanStop:null,liveOverlay:null,scanK:null,lastFrameGeometry:null,lastTracking:null,geometryAnchors:[],alvaHeartbeatFrames:[],alvaHeartbeatCount:0};
 window.RoomScanV30={BUILD,CONFIG,state,log};
 const moduleCache=new Map();
 function lazy(path){if(!moduleCache.has(path))moduleCache.set(path,import(`${path}?v=${BUILD.version}`));return moduleCache.get(path);}
@@ -35,7 +35,7 @@ function calibration(){try{const x=JSON.parse(localStorage.getItem(CONFIG.calibr
 function saveCalibration(c){localStorage.setItem(CONFIG.calibrationStorageKey,JSON.stringify({format:'ROOMSCAN-V30-CALIBRATION-PROFILE-1',savedAt:Date.now(),build:BUILD.id,calibration:c}));updateCalibrationUi();}
 function defaultDeepModel(){return {id:'bundled-depth-anything-v2-small-q4',label:CONFIG.deepModelLabel||'Depth Anything V2 Small Q4 locale',url:new URL(`../${CONFIG.deepModelUrl}`,import.meta.url).href};}
 function selectedDeepModel(){return state.deepModel||defaultDeepModel();}
-function deepWorkerConfig(){return {modelUrl:selectedDeepModel().url||CONFIG.deepModelUrl,modelRemoteUrl:CONFIG.deepModelRemoteUrl||null,ortLocal:CONFIG.deepOrtLocal,ortRemote:CONFIG.deepOrtRemote,inputMaxSide:CONFIG.deepInputMaxSide||518,preferredShortSide:CONFIG.deepPreferredShortSide||112,compatibilityShortSide:CONFIG.deepCompatibilityShortSide||196,wasmNumThreads:Number.isFinite(CONFIG.deepWasmThreads)?CONFIG.deepWasmThreads:0,testFlipCheck:CONFIG.deepTestFlipCheck===true};}
+function deepWorkerConfig(){return {modelUrl:selectedDeepModel().url||CONFIG.deepModelUrl,modelRemoteUrl:CONFIG.deepModelRemoteUrl||null,ortLocal:CONFIG.deepOrtLocal,ortRemote:CONFIG.deepOrtRemote,inputMaxSide:CONFIG.deepInputMaxSide||518,preferredShortSide:CONFIG.deepPreferredShortSide||168,compatibilityShortSide:CONFIG.deepCompatibilityShortSide||196,qualityRescueShortSide:CONFIG.deepQualityRescueShortSide||196,wasmNumThreads:Number.isFinite(CONFIG.deepWasmThreads)?CONFIG.deepWasmThreads:0,testFlipCheck:CONFIG.deepTestFlipCheck===true};}
 function updateDeepModelUi(message=null,kind=''){const el=$('deepModelStatus');if(!el)return;el.dataset.kind=kind;el.textContent=message||`Modello: ${selectedDeepModel().label}.`;}
 function modelForWorker(){const m=selectedDeepModel();return m.bytes?(state.deepWorkerModelId===m.id?{id:m.id,label:m.label}:{id:m.id,label:m.label,bytes:m.bytes.slice(0)}):{id:m.id,label:m.label,url:m.url};}
 function ensureDeepWorker(){if(state.deepDepthWorker)return state.deepDepthWorker;const worker=new Worker(`${CONFIG.deepDepthWorker}?v=${BUILD.version}`,{type:'module'});state.deepDepthWorker=worker;state.deepWorkerModelId=null;worker.postMessage({type:'init',config:deepWorkerConfig()});return worker;}
@@ -160,11 +160,11 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
   if($('slamState'))$('slamState').textContent='ALVA TRACKING · INIT';
   log.info('slam-frontend-reused',{mode:state.frontend.mode,fromMetricBootstrap:!!bridge,metricTransform:!!metric?.alvaTransform});
 
-  state.slam=new SlamEngine({frontend:state.frontend,K,log,keyframeIntervalMs:CONFIG.keyframeIntervalMs});
+  state.slam=new SlamEngine({frontend:state.frontend,K,log,keyframeIntervalMs:CONFIG.keyframeIntervalMs,observationIntervalMs:CONFIG.alvaObservationIntervalMs||900,maxObservations:CONFIG.alvaHeartbeatBufferFrames||8});
   if(metric?.alvaTransform)state.slam.setWorldTransform(metric.alvaTransform);
 
   state.liveOverlay=new LiveReconstructionOverlay($('miniMap'),{maxSplats:CONFIG.liveOverlayMaxSplats||4200});state.liveOverlay.setMode('both');
-  state.gaussians=[];state.mesh=null;window.__ROOMSCAN_METRIC_MESH=null;state.denseBusy=false;state.denseJobs=0;state.denseDepthSamples=0;state.denseDepthHint=null;state.densePixelStep=CONFIG.densePixelStep||4;state.denseSourceLimit=Math.min(CONFIG.denseInitialSourceLimit||2,CONFIG.denseMaxSourceViews||4);state.surfaceStats=null;state.geometryAnchors=[];state.deepPending=null;state.deepDisabled=false;state.deepCalls=0;state.deepAccepted=0;
+  state.gaussians=[];state.mesh=null;window.__ROOMSCAN_METRIC_MESH=null;state.alvaHeartbeatFrames=[];state.alvaHeartbeatCount=0;state.denseBusy=false;state.denseJobs=0;state.denseDepthSamples=0;state.denseDepthHint=null;state.densePixelStep=CONFIG.densePixelStep||4;state.denseSourceLimit=Math.min(CONFIG.denseInitialSourceLimit||2,CONFIG.denseMaxSourceViews||4);state.surfaceStats=null;state.geometryAnchors=[];state.deepPending=null;state.deepDisabled=false;state.deepCalls=0;state.deepAccepted=0;
   const metricWorld=!!state.slam.metricLocked;
   state.denseManager=new DenseKeyframeManager({
     width:CONFIG.denseWidth||160,height:CONFIG.denseHeight||240,maxFrames:CONFIG.denseMaxKeyframes||8,
@@ -208,13 +208,28 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
   state.scanStop=state.camera.loop(frame=>{try{
     state.lastFrameGeometry=frame.geometry;const r=state.slam.process(frame);state.lastTracking=r;
     if($('statFeat'))$('statFeat').textContent=String(r.features);if($('statMatch'))$('statMatch').textContent=String(r.matches);if($('statKf'))$('statKf').textContent=String(r.keyframes);if($('alvaPtsState'))$('alvaPtsState').textContent=`ALVA pts ${r.alvaPoints||0}`;
-    const status=r.trackingMode==='alvaar-relocalized'?'ALVA RELOCALIZED':r.trackingValid?'ALVA TRACKING':'ALVA LOST';
+    const status=r.trackingMode==='alvaar-relocalized'?'ALVA RELOCALIZED':r.trackingValid?'ALVA TRACKING':r.trackingMode==='alvaar-initializing'?'ALVA INIT':'ALVA LOST';
     if($('slamState'))$('slamState').textContent=`${status}${state.gaussians.length?' + SURFACE':''}`;
-    if($('coach'))$('coach').textContent=r.trackingValid?'AlvaAR stabile · trasla lentamente, mantieni overlap e torna sulle zone già viste.':'Tracking Alva perso · fermati o torna verso una zona già osservata; dense mapping sospeso.';
+    if($('coach'))$('coach').textContent=r.trackingValid?'AlvaAR stabile · trasla lentamente, mantieni overlap e torna sulle zone già viste.':r.trackingMode==='alvaar-initializing'?'AlvaAR INIT · muovi lentamente il telefono di lato mantenendo texture e luce stabili; salvo 1 frame/s anche prima del primo pose.':'Tracking Alva perso · continuo a salvare 1 frame/s per diagnosi/recovery; torna verso una zona già osservata.';
+    if(r.newObservation)recordAlvaHeartbeat(r.newObservation,frame,K);
     if(r.newKeyframe&&r.trackingValid)queueDenseKeyframe(r.newKeyframe,frame,K);
     state.liveOverlay?.draw({pose:r.pose,K,geometry:frame.geometry,video:state.camera.video,framePoints:r.framePoints||[]});
     if(state.currentSession&&r.newKeyframe&&r.keyframes%5===0)state.db?.updateSession(state.currentSession.id,{status:'scanning',counts:{keyframes:r.keyframes,denseSamples:state.denseDepthSamples,surfels:state.surfaceStats?.confirmed||0,gaussians:state.gaussians.length,meshFaces:state.mesh?.faces?.length?state.mesh.faces.length/3:0}}).catch(()=>{});
   }catch(err){log.warn('scan-frame',{message:err.message,stack:err.stack||null});}});
+}
+
+function compactGrayHeartbeat(gray,width,height,maxSide=160){
+  const scale=Math.min(1,Math.max(32,Number(maxSide)||160)/Math.max(width,height)),w=Math.max(1,Math.round(width*scale)),h=Math.max(1,Math.round(height*scale)),out=new Uint8Array(w*h);
+  for(let y=0;y<h;y++){const sy=Math.min(height-1,Math.floor((y+.5)*height/h));for(let x=0;x<w;x++){const sx=Math.min(width-1,Math.floor((x+.5)*width/w));out[y*w+x]=gray[sy*width+sx];}}
+  return {gray:out,width:w,height:h};
+}
+function recordAlvaHeartbeat(observation,frame,K){
+  // Alva is already fed every analysis frame (~8 Hz). This independent 1 Hz
+  // heartbeat does NOT throttle or duplicate SLAM calls; it preserves a bounded
+  // visual history even while the monocular initializer has no pose yet.
+  const thumb=compactGrayHeartbeat(frame.gray,frame.width,frame.height,CONFIG.alvaHeartbeatPersistMaxSide||160),entry={...observation,K:{...K},thumbWidth:thumb.width,thumbHeight:thumb.height,gray:thumb.gray};
+  state.alvaHeartbeatFrames.push(entry);while(state.alvaHeartbeatFrames.length>(CONFIG.alvaHeartbeatBufferFrames||8))state.alvaHeartbeatFrames.shift();state.alvaHeartbeatCount++;
+  if(state.currentSession&&state.db)state.db.put('events',{id:`${state.currentSession.id}-${observation.id}`,sessionId:state.currentSession.id,seq:state.alvaHeartbeatCount,kind:'alva-heartbeat',at:observation.at,trackingValid:observation.trackingValid,trackingMode:observation.trackingMode,width:thumb.width,height:thumb.height,gray:thumb.gray,features:observation.features,matches:observation.matches,alvaPoints:observation.alvaPoints}).catch(err=>log.warn('alva-heartbeat-store',{message:err?.message||String(err)}));
 }
 
 let scanAbortController=null;

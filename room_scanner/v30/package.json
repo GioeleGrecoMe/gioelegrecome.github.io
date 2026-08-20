@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-21-ultra-low-budget-depth",
+  "name": "room-scanner-v30-22-depth-quality-alva-heartbeat",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,6 @@
     "check:alva": "node tools/check_alvaar_runtime.mjs",
     "vendor:alva": "node tools/vendor_alvaar.mjs"
   },
-  "version": "30.21.0",
-  "description": "V30.21.0: ultra-low-budget 112px Depth Anything Q4, single-pass diagnostic, automatic WASM threading, Alva metric calibration and reduced-cost multi-view refinement."
+  "version": "30.22.0",
+  "description": "V30.22.0: 168px fast Depth Anything with 196px quality rescue, calibrated AlvaAR FOV propagation, and independent 1 Hz tracking heartbeat observations."
 }

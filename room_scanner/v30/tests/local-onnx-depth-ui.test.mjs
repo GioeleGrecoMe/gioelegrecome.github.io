@@ -10,7 +10,8 @@ test('bundled local ONNX model and mobile worker path are explicit',()=>{
   assert.equal(CONFIG.deepModelUrl,'models/model_q4.onnx');
   assert.equal(CONFIG.deepModelRemoteUrl,null);
   assert.equal(CONFIG.deepOrtLocal,null);
-  assert.equal(CONFIG.deepPreferredShortSide,112);
+  assert.equal(CONFIG.deepPreferredShortSide,168);
+  assert.equal(CONFIG.deepQualityRescueShortSide,196);
   assert.equal(CONFIG.deepCompatibilityShortSide,196);
   assert.equal(CONFIG.deepWasmThreads,0);
   assert.equal(CONFIG.deepPriorDepthSteps,10);
@@ -25,6 +26,7 @@ test('bundled local ONNX model and mobile worker path are explicit',()=>{
   assert.doesNotMatch(worker,/Tensor\.fromImage\(image/);
   assert.doesNotMatch(worker,/pipeline\('depth-estimation'/);
   assert.match(worker,/testSinglePass/);
+  assert.match(worker,/maybeResolutionRescue/);
   assert.match(worker,/wasm\.numThreads = Number/);
 });
 test('pre-scan test and selected-keyframe depth overlay are wired in both entry pages',()=>{

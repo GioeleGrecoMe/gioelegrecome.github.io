@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.21.0 - ultra-low-budget WebGPU/WASM Depth Anything worker.
+ * Room Scanner V30.22.0 - ultra-low-budget WebGPU/WASM Depth Anything worker.
  *
  * GPU READBACK + AUTHORITATIVE DEPTH LAYOUT + Q4 DEFAULT
  * -------------------------
@@ -15,7 +15,7 @@
  * 2) Dynamic Depth Anything inputs use the DPT processor contract: ImageNet
  *    RGB normalization, aspect-preserving resize and dimensions rounded to ViT
  *    patches (14). Upstream defaults to 518 px; the app may request a smaller
- *    ultra-low-budget target (112 px in V30.21) because Alva supplies metric anchors and
+ *    low-budget target (168 px in V30.22) because Alva supplies metric anchors and
  *    multi-view verification. The input is never stretched to a square.
  *
  * 3) If the ONNX export is fixed-shape, the worker automatically falls back to
@@ -49,8 +49,12 @@ let cfg = {
   // Extreme mobile target: 8 ViT patches on the short side. This is deliberately
   // coarse because Deep supplies only relative shape; Alva supplies pose/scale and
   // multi-view photometric geometry remains the acceptance gate.
-  preferredShortSide: 112,
+  preferredShortSide: 168,
   compatibilityShortSide: 196,
+  // One same-provider retry at 196px is used only when the fast 168px map
+  // fails the spatial-quality gate. This avoids misdiagnosing low-resolution
+  // DPT collapse as a WebGPU/Q4 corruption.
+  qualityRescueShortSide: 196,
   patchSize: 14,
   // 0 = let ORT Web choose its thread count. V30.20 forced one WASM thread.
   wasmNumThreads: 0,
@@ -447,15 +451,15 @@ function adaptiveInputGeometry(sourceWidth, sourceHeight, shortSide) {
   return { width, height, mode: `dpt-aspect-${target}` };
 }
 
-function inputPlans(spec, sourceWidth, sourceHeight, targetSide = null) {
-  if (successfulInputPlan) return [successfulInputPlan];
+function inputPlans(spec, sourceWidth, sourceHeight, targetSide = null, { ignoreCached = false } = {}) {
+  if (successfulInputPlan && !ignoreCached) return [successfulInputPlan];
 
   // If metadata states a concrete spatial shape, obey it exactly.
   if (spec.spatialFixed) {
     return [{ width: spec.width, height: spec.height, mode: 'metadata-fixed' }];
   }
 
-  const preferred = positiveNumber(targetSide, positiveNumber(cfg.preferredShortSide, 112));
+  const preferred = positiveNumber(targetSide, positiveNumber(cfg.preferredShortSide, 168));
   const plans = [
     adaptiveInputGeometry(sourceWidth, sourceHeight, preferred),
     // Do not jump directly from the 112-px fast path to 518 if an unusual export
@@ -1023,7 +1027,32 @@ async function providerABDiagnostic(d, webgpuResult, { flipCheck = false } = {})
   }
 }
 
-async function infer(d, { benchmark = false } = {}) {
+async function maybeResolutionRescue(d, primary) {
+  const quality = depthQualityDiagnosis(primary.spatialStats);
+  const shortSide = Math.min(Number(primary.inputPlan?.width)||Infinity, Number(primary.inputPlan?.height)||Infinity);
+  const rescueSide = positiveNumber(cfg.qualityRescueShortSide, 196);
+  if (!quality.suspicious || !Number.isFinite(shortSide) || shortSide >= rescueSide || primary.inputPlan?.mode === 'metadata-fixed') {
+    return { result: primary, attempted:false, accepted:false, primaryQuality:quality };
+  }
+  try {
+    // Same model + same execution provider, only more ViT patches. 112px on real
+    // phones can produce broad stripe fields despite numerically valid output;
+    // this one-time retry separates that resolution collapse from provider bugs.
+    const rescued = await infer({ ...d, targetSide: rescueSide }, { benchmark:false, ignoreCachedPlan:true });
+    const rescuedQuality = depthQualityDiagnosis(rescued.spatialStats);
+    const primaryScore = (quality.suspicious?0:10) + Math.min(6,quality.coherenceRatio||0) - Math.max(0,(quality.stripe?.ratio||1)-1)*.15;
+    const rescuedScore = (rescuedQuality.suspicious?0:10) + Math.min(6,rescuedQuality.coherenceRatio||0) - Math.max(0,(rescuedQuality.stripe?.ratio||1)-1)*.15;
+    const accepted = !rescuedQuality.suspicious || rescuedScore > primaryScore + .35;
+    if (accepted) successfulInputPlan = { ...rescued.inputPlan };
+    else successfulInputPlan = { ...primary.inputPlan };
+    return { result: accepted ? rescued : primary, attempted:true, accepted, primaryQuality:quality, rescuedQuality, primaryMs:primary.steadyMs, rescuedMs:rescued.steadyMs, primaryPlan:primary.inputPlan, rescuedPlan:rescued.inputPlan };
+  } catch (err) {
+    successfulInputPlan = { ...primary.inputPlan };
+    return { result:primary, attempted:true, accepted:false, failed:true, message:err?.message||String(err), primaryQuality:quality };
+  }
+}
+
+async function infer(d, { benchmark = false, ignoreCachedPlan = false } = {}) {
   if (!d.rgba?.length || !(d.width > 1 && d.height > 1)) {
     fail('fotogramma RGBA non valido');
   }
@@ -1036,7 +1065,7 @@ async function infer(d, { benchmark = false } = {}) {
 
   const typeCandidates = ['float32'];
 
-  const plans = inputPlans(spec, d.width, d.height, d.targetSide || null);
+  const plans = inputPlans(spec, d.width, d.height, d.targetSide || null, { ignoreCached: ignoreCachedPlan });
   const errors = [];
 
   for (const plan of plans) {
@@ -1103,12 +1132,14 @@ async function handleWorkerMessage(d) {
     // The page forwards this setting; preserve a safe value for external calls.
     if (Number(d.config?.preferredShortSide) > 0) cfg.preferredShortSide = Number(d.config.preferredShortSide);
     if (Number(d.config?.compatibilityShortSide) > 0) cfg.compatibilityShortSide = Number(d.config.compatibilityShortSide);
+    if (Number(d.config?.qualityRescueShortSide) > 0) cfg.qualityRescueShortSide = Number(d.config.qualityRescueShortSide);
     postMessage({
       type: 'deep-ready',
       provider,
       modelUrl: cfg.modelUrl,
       modelRemoteUrl: cfg.modelRemoteUrl,
       preferredShortSide: cfg.preferredShortSide,
+      qualityRescueShortSide: cfg.qualityRescueShortSide,
       rasterContract: 'RGBA-row-major -> RGB-NCHW-planar',
     });
     return;
@@ -1179,10 +1210,15 @@ async function handleWorkerMessage(d) {
       return;
     }
 
-    const raw = await infer(d, { benchmark: d.type === 'test' });
-    // Fast test: one inference is enough when the map is healthy. The optional
-    // flip check is disabled by default; WASM is created only when WebGPU already
-    // looks spatially incoherent/striped (or when explicitly requested).
+    const firstRaw = await infer(d, { benchmark: d.type === 'test' });
+    // V30.22: first distinguish an over-aggressive low-resolution collapse from
+    // a genuine WebGPU/Q4 problem. The screenshot failure at 112px was strongly
+    // striped; a same-provider 196px retry is much cheaper than immediately
+    // creating a second WASM runtime and it is paid only once when needed.
+    const resolutionRescue = await maybeResolutionRescue(d, firstRaw);
+    const raw = resolutionRescue.result;
+    // Fast test: one inference is enough when the map is healthy. WASM is created
+    // only after the chosen resolution is still spatially suspicious.
     const diagnostic = d.type === 'test'
       ? await providerABDiagnostic(d, raw, { flipCheck:cfg.testFlipCheck === true })
       : (provider === 'webgpu' && !providerValidated
@@ -1237,6 +1273,7 @@ async function handleWorkerMessage(d) {
       rasterDiagnosis: diagnostic?.rasterDiagnosis || null,
       flipComparison: diagnostic?.flipComparison || null,
       automaticSafeFallback: useSafeWasm,
+      resolutionRescue: resolutionRescue ? { ...resolutionRescue, result:undefined } : null,
     };
 
     const transfer = finalDepth?.buffer ? [finalDepth.buffer] : [];

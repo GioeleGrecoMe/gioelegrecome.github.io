@@ -9,3 +9,11 @@ test('MVS descriptors are extracted preferentially at Alva-tracked frame points'
   const r=f.processFrame({gray,width:w,height:h,imageData:{data:new Uint8ClampedArray(w*h*4)},at:1},{maxFeatures:40,threshold:10});
   assert.equal(r.alvaFeatureCount,3);assert.ok(r.features.filter(x=>x.source==='alva-track').length===3);assert.equal(r.trackingMode,'alvaar-wasm');
 });
+
+test('Alva frontend preserves the calibrated FOV used by the tracker',async()=>{
+  const w=64,h=48,alva={findCameraPose(){return null;},getFramePoints(){return [];}};
+  const f=new WasmVisionFrontend({alva});await f.init({width:w,height:h,fovDeg:62});
+  assert.equal(f.fovDeg,62);
+  const r=f.trackPose({imageData:{data:new Uint8ClampedArray(w*h*4)},at:1});
+  assert.equal(r.trackingMode,'alvaar-initializing');
+});

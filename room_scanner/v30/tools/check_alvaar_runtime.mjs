@@ -9,5 +9,5 @@ const config=fs.readFileSync('js/config.js','utf8');
 for(const token of ['raw.githubusercontent.com/alanross/AlvaAR','alanross.github.io/AlvaAR','cdn.jsdelivr.net/gh/alanross/AlvaAR'])if(!config.includes(token))throw new Error(`official Alva source missing ${token}`);
 
 const frontend=fs.readFileSync('js/slam/wasm_frontend.js','utf8');
-if(!frontend.includes('AlvaAR.Initialize(width,height)'))throw new Error('frontend is not using official Initialize(width,height) API');
+if(!/AlvaAR\.Initialize\(width,height(?:,this\.fovDeg)?\)/.test(frontend))throw new Error('frontend is not using official Initialize(width,height[,fov]) API');
 console.log('PASS alvaar-runtime-contract');

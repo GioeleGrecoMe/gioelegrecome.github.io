@@ -1,6 +1,6 @@
 {
-  "version": "30.21.0",
-  "id": "v30.21.0-20260820-ultra-low-budget-depth",
-  "builtAt": "2026-08-20T18:51:00+02:00",
-  "notes": "Ultra-low-budget profile: Depth Anything uses a 112 px short-side target (8 ViT patches), the explicit test is single-pass unless the WebGPU quality gate requires one WASM reference, WASM thread selection is returned to ORT automatic mode, local model caching is enabled, and the Deep-guided multi-view refinement starts with fewer depth hypotheses/sources."
+  "version": "30.22.0",
+  "id": "v30.22.0-20260820-depth-quality-alva-heartbeat",
+  "builtAt": "2026-08-20T19:45:00+02:00",
+  "notes": "Depth fast path raised from 112px to 168px to avoid DPT stripe collapse, with one same-provider 196px quality rescue only when needed. AlvaAR now receives the computed camera FOV instead of silently using its 45deg default. Scan keeps an independent compact 1 Hz heartbeat observation even before the first valid Alva pose."
 }

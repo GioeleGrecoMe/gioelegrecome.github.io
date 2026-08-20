@@ -12,12 +12,12 @@ import {loadAlvaModule,getAlvaRuntimeStatus} from './alva_runtime_loader.js';
 export class WasmVisionFrontend{
   constructor(options={}){
     if(typeof options==='string')options={sentinelUrl:options};
-    this.options=options||{};this.instance=null;this.alva=null;this.alvaModule=null;this.alvaLoadError=null;this.previous=null;this.width=0;this.height=0;this.mode='uninitialized';this.lastPoseAt=0;
+    this.options=options||{};this.instance=null;this.alva=null;this.alvaModule=null;this.alvaLoadError=null;this.previous=null;this.width=0;this.height=0;this.fovDeg=45;this.mode='uninitialized';this.lastPoseAt=0;
     this.limits={maxFeatures:4096,descriptorBytes:16,implementation:'AlvaAR-WASM+local-MVS-descriptors'};
   }
 
   async init({width=320,height=480,fovDeg=45,alvaLocalUrl=null,alvaRemoteUrl=null,alvaRemoteUrls=null,requireAlva=true}={}){
-    this.width=width;this.height=height;
+    this.width=width;this.height=height;this.fovDeg=Math.max(20,Math.min(100,Number(fovDeg)||45));
     // The tiny local wasm_core.wasm is only a deployment/syntax sentinel. It is
     // never accepted as SLAM. Keeping this probe helps diagnose corrupt builds.
     if(this.options.sentinelUrl){
@@ -30,8 +30,13 @@ export class WasmVisionFrontend{
       const cacheKey=new URL('../../vendor/alva_ar.cached.js',import.meta.url).href;
       const mod=await loadAlvaModule({localUrl:alvaLocalUrl,cacheKey,sources});
       this.alvaModule=mod;
-      // Follow the official AlvaAR public API exactly: Initialize(width,height).
-      this.alva=await mod.AlvaAR.Initialize(width,height);
+      // Use AlvaAR's public Initialize(width,height,fov) overload so its internal intrinsics match our exact camera crop.
+      // IMPORTANT: AlvaAR.Initialize accepts FOV as its third argument. V30.21
+      // computed the calibrated/cropped FOV in app.js but accidentally dropped it
+      // here, forcing Alva's 45deg default even when the camera crop is ~62deg.
+      // That intrinsics mismatch can prevent the monocular initializer from ever
+      // accepting its first map.
+      this.alva=await mod.AlvaAR.Initialize(width,height,this.fovDeg);
       if(!this.alva||typeof this.alva.findCameraPose!=='function')throw new Error('AlvaAR.Initialize non ha restituito un tracker valido');
       this.mode='alvaar-wasm';this.alvaLoadError=null;this.alvaRuntimeStatus=getAlvaRuntimeStatus();
     }catch(err){this.alvaLoadError=err;this.mode='alvaar-unavailable';}
@@ -46,7 +51,7 @@ export class WasmVisionFrontend{
     let cameraPose=null,framePoints=[];
     try{const p=this.alva.findCameraPose(frame.imageData);if(p&&p.length>=16){cameraPose=Array.from(p).slice(0,16).map(Number);this.lastPoseAt=frame.at||performance.now();}framePoints=this.alva.getFramePoints?.()||[];}
     catch(err){this.alvaLoadError=err;}
-    return {cameraPose,framePoints,trackingMode:cameraPose?'alvaar-wasm':'alvaar-lost'};
+    return {cameraPose,framePoints,trackingMode:cameraPose?'alvaar-wasm':(this.lastPoseAt?'alvaar-lost':'alvaar-initializing')};
   }
 
   /** Full path: Alva pose + lightweight descriptors for MVS only. */
@@ -73,7 +78,7 @@ export class WasmVisionFrontend{
   }
 
   resetLocalFeatures(){this.previous=null;}
-  resetAll(){this.previous=null;try{this.alva?.reset?.();}catch{}}
+  resetAll(){this.previous=null;this.lastPoseAt=0;try{this.alva?.reset?.();}catch{}}
   reset(){this.resetLocalFeatures();}
 }
 
