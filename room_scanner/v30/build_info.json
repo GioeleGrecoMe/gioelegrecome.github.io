@@ -1,6 +1,6 @@
 {
-  "version": "30.18.0",
-  "id": "v30.18.0-20260820-local-onnx-1hz-depth-overlay",
-  "builtAt": "2026-08-20T11:43:00+02:00",
-  "notes": "AlvaAR remains the only camera-pose authority. The local/uploaded Depth Anything V2 ONNX model is explicitly tested before Scan, runs in an isolated ONNX Runtime Web worker at no more than 1 Hz, and its live relative depth map is shown over the camera. AI depth is calibrated into the current Alva world scale and accepted for surfel/TSDF/gaussian fusion only after Alva anchors and multi-view verification."
+  "version": "30.18.5",
+  "id": "v30.18.5-20260820-q4-auto-cache-live-depth-ticker",
+  "builtAt": "2026-08-20T16:12:00+02:00",
+  "notes": "Smartphone commit-only release. Depth Anything V2 Small Q4 is loaded from models/depth_anything_v2_small_q4.onnx when present; otherwise the official ONNX Community model_q4.onnx is downloaded at runtime and retained in a dedicated Cache Storage bucket. The neural preview has an independent approximately 1 Hz ticker using the latest CameraController frame, while AlvaAR remains the pose authority and selected keyframe depth is still validated by sparse anchors and multi-view geometry before 3D fusion. Preferred neural short side is 140 pixels (multiples of ViT patch size 14), with automatic larger-raster fallbacks."
 }
