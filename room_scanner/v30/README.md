@@ -1,4 +1,4 @@
-# Room Scanner V30.15.0
+# Room Scanner V30.16.0
 
 Room Scanner uses **AlvaAR as the autonomous persistent visual SLAM tracker**.
 Calibration is optional and only fixes a one-shot metric transform. It never
@@ -50,7 +50,7 @@ job is slow. Sparse surfel/TSDF maps have hard memory caps.
 Depth Anything is not active in V30.15. The planned fallback is deliberately
 small: infer depth only on a few selected difficult keyframes and use it as a
 search prior for plane sweep. Alva remains the tracker and multi-view geometry
-remains the final consistency test. See `docs/CHANGES_V30_15_0.md`.
+remains the final consistency test. See `docs/CHANGES_V30_16_0.md`.
 
 ## AlvaAR runtime
 

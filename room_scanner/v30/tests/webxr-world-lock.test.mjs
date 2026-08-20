@@ -30,9 +30,9 @@ function frameFor(anchor,tracked=true){return {trackedAnchors:new Set(tracked?[a
 test('world anchor stays fixed while screen projection changes with camera motion',()=>{
   const c=makeCal(),{anchor,target}=makeTarget(),frame=frameFor(anchor,true);c.targets=[target];
   c._processTrackingTarget(target,frame,{},c.latestK);const u0=target.displayUv[0];
-  assert.ok(Math.abs(u0-.5)<1e-9);assert.deepEqual(target.points[0].p,[0,0,2]);
+  assert.ok(Math.abs(u0-.5)<1e-9);assert.equal(target.points[0].p[0],0);assert.equal(Math.abs(target.points[0].p[1]),0);assert.equal(target.points[0].p[2],2);
   c.latestPose={p:[.5,0,0],q:[0,0,0,1]};c._processTrackingTarget(target,frame,{},c.latestK);const u1=target.displayUv[0];
-  assert.ok(u1<u0,'screen projection must move when camera moves');assert.deepEqual(target.points[0].p,[0,0,2],'room-space point remains fixed');
+  assert.ok(u1<u0,'screen projection must move when camera moves');assert.equal(target.points[0].p[0],0);assert.equal(Math.abs(target.points[0].p[1]),0);assert.equal(target.points[0].p[2],2,'room-space point remains fixed');
 });
 
 test('lost trackedAnchors hides marker instead of freezing seed UV on screen',()=>{

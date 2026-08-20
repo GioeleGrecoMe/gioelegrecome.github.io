@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.15.0 dense Alva mapping application.
+ * Room Scanner V30.16.0 dense Alva mapping application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,12 +8,12 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.15.0';
-import {DiagnosticsLog} from './logger.js?v=30.15.0';
+import {BUILD,CONFIG} from './config.js?v=30.16.0';
+import {DiagnosticsLog} from './logger.js?v=30.16.0';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
-const state={db:null,calibrator:null,bridge:null,bridgeStable:0,bridgeEpoch:0,bridgeTransition:false,alvaBootstrap:null,camera:null,frontend:null,slam:null,denseManager:null,denseDepthWorker:null,denseFusionWorker:null,denseBusy:false,denseJobs:0,denseDepthSamples:0,denseDepthHint:null,densePixelStep:null,denseSourceLimit:null,surfaceStats:null,mesh:null,gaussians:[],renderer:null,currentSession:null,scanStop:null,liveOverlay:null,scanK:null,lastFrameGeometry:null,lastTracking:null};
+const state={db:null,calibrator:null,bridge:null,bridgeStable:0,bridgeEpoch:0,bridgeTransition:false,alvaBootstrap:null,camera:null,frontend:null,slam:null,denseManager:null,denseDepthWorker:null,denseFusionWorker:null,denseBusy:false,denseJobs:0,denseDepthSamples:0,denseDepthHint:null,densePixelStep:null,denseSourceLimit:null,surfaceStats:null,mesh:null,gaussians:[],renderer:null,currentSession:null,scanStop:null,liveOverlay:null,scanK:null,lastFrameGeometry:null,lastTracking:null,geometryAnchors:[]};
 window.RoomScanV30={BUILD,CONFIG,state,log};
 const moduleCache=new Map();
 function lazy(path){if(!moduleCache.has(path))moduleCache.set(path,import(`${path}?v=${BUILD.version}`));return moduleCache.get(path);}
@@ -21,7 +21,17 @@ function safe(name,fn){return async(...args)=>{try{return await fn(...args)}catc
 function on(id,type,handler,options){const el=$(id);if(!el){log.warn('ui-missing-control',{id,type});return null;}el.addEventListener(type,handler,options);return el;}
 function show(id){for(const el of document.querySelectorAll('.screen'))el.classList.toggle('active',el.id===id);document.body.classList.toggle('immersive-ui',id!=='home'&&id!=='review');}
 function showError(message){const s=$('homeStatus');if(s){s.dataset.kind='error';s.textContent=message;}const d=$('diagPanel');if(d)d.open=true;}
-function calibration(){try{const x=JSON.parse(localStorage.getItem(CONFIG.calibrationStorageKey)||'null');return x?.calibration||x?.value||x;}catch{return null;}}
+function migrateLegacyCalibration(c){
+  if(!c||c.coordinateConvention!==' +X right +Y up +Z forward'.trim())return c;
+  const flipP=a=>Array.isArray(a)&&a.length>=3?[+a[0],-a[1],+a[2]]:a;
+  const flipQ=q=>Array.isArray(q)&&q.length>=4?[-q[0],q[1],-q[2],q[3]]:q;
+  const pose=o=>{if(o?.p)o.p=flipP(o.p);if(o?.q)o.q=flipQ(o.q);return o;};
+  for(const a of c.anchors||[]){a.p=flipP(a.p);for(const o of a.observations||[])pose(o.pose);}
+  for(const o of c.objects||[])for(const v of o.roiViews||[]){v.worldCenter=flipP(v.worldCenter);pose(v.pose);}
+  pose(c.pose);pose(c.commonView?.pose);for(const x of c.poseCoverage||[])pose(x.pose);
+  c.coordinateConvention='+X right +Y down +Z forward (RH/CV)';c.migratedFrom='+X right +Y up +Z forward';return c;
+}
+function calibration(){try{const x=JSON.parse(localStorage.getItem(CONFIG.calibrationStorageKey)||'null'),c=x?.calibration||x?.value||x;return migrateLegacyCalibration(c);}catch{return null;}}
 function saveCalibration(c){localStorage.setItem(CONFIG.calibrationStorageKey,JSON.stringify({format:'ROOMSCAN-V30-CALIBRATION-PROFILE-1',savedAt:Date.now(),build:BUILD.id,calibration:c}));updateCalibrationUi();}
 function metricCalibrationInfo(c=calibration()){const ids=new Set((c?.anchors||[]).filter(a=>a?.realAnchor&&Array.isArray(a?.p)).map(a=>a.objectId));const n=c?.objects?.length||ids.size,geometryValid=!!c&&ids.size>=3&&n>=3,bridgeReady=geometryValid&&c?.visualBridgeReady!==false;return {calibration:c,ids,n,geometryValid,bridgeReady,valid:bridgeReady};}
 function updateCalibrationUi(){const {calibration:c,ids,n,geometryValid,bridgeReady,valid}=metricCalibrationInfo(),summary=$('calibSummary'),start=$('startBtn');if(!c){if(summary)summary.textContent='Nessuna scala metrica: AlvaAR può comunque partire e mantenere il proprio mondo in scala libera.';if(start){start.disabled=false;start.textContent='Avvia AlvaAR';}return;}const p=c.poseCoverage?.length||c.quality?.poseCount||0;if(summary)summary.textContent=bridgeReady?`Bootstrap metrico disponibile: ${n} pin 3D · ${p} pose. Dopo l’aggancio AlvaAR prosegue autonomamente.`:geometryValid?`3D WebXR valido (${n} pin), ma il browser non ha fornito texture raw per il matcher: AlvaAR partirà in scala libera.`:`Calibrazione incompleta (${ids.size}/3 pin metrici). AlvaAR può comunque partire in scala libera.`;if(start){start.disabled=false;start.textContent=bridgeReady?'Avvia misura metrica':'Avvia AlvaAR';}}
@@ -134,7 +144,7 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
   if(metric?.alvaTransform)state.slam.setWorldTransform(metric.alvaTransform);
 
   state.liveOverlay=new LiveReconstructionOverlay($('miniMap'),{maxSplats:CONFIG.liveOverlayMaxSplats||4200});state.liveOverlay.setMode('both');
-  state.gaussians=[];state.mesh=null;window.__ROOMSCAN_METRIC_MESH=null;state.denseBusy=false;state.denseJobs=0;state.denseDepthSamples=0;state.denseDepthHint=null;state.densePixelStep=CONFIG.densePixelStep||3;state.denseSourceLimit=Math.min(3,CONFIG.denseMaxSourceViews||4);state.surfaceStats=null;
+  state.gaussians=[];state.mesh=null;window.__ROOMSCAN_METRIC_MESH=null;state.denseBusy=false;state.denseJobs=0;state.denseDepthSamples=0;state.denseDepthHint=null;state.densePixelStep=CONFIG.densePixelStep||3;state.denseSourceLimit=Math.min(3,CONFIG.denseMaxSourceViews||4);state.surfaceStats=null;state.geometryAnchors=[];
   const metricWorld=!!state.slam.metricLocked;
   state.denseManager=new DenseKeyframeManager({
     width:CONFIG.denseWidth||160,height:CONFIG.denseHeight||240,maxFrames:CONFIG.denseMaxKeyframes||8,
@@ -179,19 +189,31 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
 let scanAbortController=null;
 function makeScanAbortSignal(){scanAbortController?.abort();scanAbortController=new AbortController();return scanAbortController.signal;}
 
-function queueDenseKeyframe(kf,frame,K){
+async function queueDenseKeyframe(kf,frame,K){
   if(!state.denseManager||!state.denseDepthWorker)return;
   state.denseManager.add(kf,frame,K,{metricLocked:!!state.slam?.metricLocked});
   if(state.denseBusy)return;
   const job=state.denseManager.nextJob();if(!job)return;
-  state.denseBusy=true;state.denseJobs++;
-  const baselines=job.baselines||[],b=baselines.length?baselines.reduce((a,x)=>a+x,0)/baselines.length:0,metric=!!state.slam?.metricLocked;
-  let near,far;if(metric&&state.denseDepthHint){near=Math.max(CONFIG.denseNearM||.28,state.denseDepthHint*.42);far=Math.min(CONFIG.denseFarM||8.5,Math.max(near*3,state.denseDepthHint*2.4));}else if(metric){near=CONFIG.denseNearM||.28;far=CONFIG.denseFarM||8.5;}else if(state.denseDepthHint){near=Math.max(.02,state.denseDepthHint*.35);far=Math.max(near*3,state.denseDepthHint*2.8);}else{near=Math.max(.03,b*1.4);far=Math.max(near*5,b*55);}
-  const selectedSources=job.sources.slice(0,state.denseSourceLimit||3);const payload={type:'depth',jobId:`dense-${state.denseJobs}`,ref:cloneDenseFrame(job.ref),sources:selectedSources.map(cloneDenseFrame),K:job.ref.K,near,far,config:{depthSteps:CONFIG.denseDepthSteps||56,pixelStep:state.densePixelStep||CONFIG.densePixelStep||3,minTexture:CONFIG.denseMinTexture||.018,minDistinctiveness:CONFIG.denseMinDistinctiveness||.025,minViews:Math.min(CONFIG.denseMinSourceViews||2,selectedSources.length)}};
-  state.denseDepthWorker.postMessage(payload);
-  if($('mvsState'))$('mvsState').textContent=`DENSE ${state.denseJobs}: ${job.sources.length+1} viste · baseline ${metric?`${(b*100).toFixed(1)} cm`:b.toFixed(3)+' u'}`;
+  state.denseBusy=true;
+  const payload=await makeDensePayload(job);if(!payload){state.denseBusy=false;state.denseManager.release?.(job.ref.id);if($('mvsState'))$('mvsState').textContent='GEOM: attendo più feature Alva/parallasse';return;}
+  state.denseJobs++;payload.jobId=`dense-${state.denseJobs}`;state.denseDepthWorker.postMessage(payload);
+  if($('mvsState'))$('mvsState').textContent=`GEOM ${state.denseJobs}: ${payload.sources.length+1} viste · ${payload.sparseSeeds.length} anchor depth · ${payload.near.toFixed(2)}…${payload.far.toFixed(2)} ${state.slam?.metricLocked?'m':'u'}`;
 }
-function cloneDenseFrame(f){return {id:f.id,at:f.at,pose:f.pose,K:f.K,width:f.width,height:f.height,gray:f.gray,rgba:f.rgba};}
+async function makeDensePayload(job){
+  const {buildSparseDepthAnchors}=await lazy('./dense/sparse_depth_anchors.js');
+  const selectedSources=job.sources.slice(0,state.denseSourceLimit||3),metric=!!state.slam?.metricLocked;
+  const sparse=buildSparseDepthAnchors(job.ref,selectedSources,{maxReprojectionPx:CONFIG.denseSeedMaxReprojectionPx||2.8,minAngleRad:CONFIG.denseSeedMinAngleRad||.010,maxGapBaselineRatio:CONFIG.denseSeedMaxGapBaselineRatio||.14});
+  // Dense depth is allowed only after sparse Alva-guided geometry proves where
+  // the scene is. This deliberately prefers a temporary hole over a fake sheet.
+  if(!sparse.range||sparse.seeds.length<(CONFIG.denseMinSparseSeeds||5)){log.info('dense-waiting-sparse-geometry',{ref:job.ref.id,...sparse.stats});return null;}
+  let near=sparse.range.near,far=sparse.range.far;
+  if(metric){near=Math.max(CONFIG.denseNearM||.20,near);far=Math.min(CONFIG.denseFarM||10,far);}
+  if(!(far>near*1.35))return null;
+  state.denseDepthHint=sparse.range.median;
+  state.geometryAnchors=sparse.seeds.slice(0,120).map(x=>({p:x.p,confidence:x.confidence,reprojectionPx:x.reprojectionPx}));state.liveOverlay?.setGeometryAnchors(state.geometryAnchors);
+  return {type:'depth',ref:cloneDenseFrame(job.ref),sources:selectedSources.map(cloneDenseFrame),K:job.ref.K,near,far,sparseSeeds:sparse.seeds.map(x=>({u:x.u,v:x.v,depth:x.depth,confidence:x.confidence})),config:{depthSteps:CONFIG.denseDepthSteps||64,pixelStep:state.densePixelStep||CONFIG.densePixelStep||3,minTexture:CONFIG.denseMinTexture||.018,minDistinctiveness:CONFIG.denseMinDistinctiveness||.025,minViews:Math.min(CONFIG.denseMinSourceViews||2,selectedSources.length),seedRadiusPx:CONFIG.denseSeedRadiusPx||22,seedMaxRelativeError:CONFIG.denseSeedMaxRelativeError||.48}};
+}
+function cloneDenseFrame(f){return {id:f.id,at:f.at,pose:f.pose,K:f.K,width:f.width,height:f.height,gray:f.gray,rgba:f.rgba,features:f.features||[]};}
 function handleDenseDepthMessage(d){
   if(d.type==='ready'){if($('mvsState'))$('mvsState').textContent='DENSE pronto · raccogli viste';return;}
   if(d.type==='depth-error'){state.denseBusy=false;log.warn('dense-depth',{jobId:d.jobId,message:d.message,stack:d.stack||null});if($('mvsState'))$('mvsState').textContent='DENSE depth fallita · continua lentamente';return;}
@@ -202,7 +224,7 @@ function handleDenseDepthMessage(d){
   if(d.samples?.length){state.denseFusionWorker?.postMessage({type:'integrate',samples:d.samples,origin:d.origin||[0,0,0],frameId:d.refId});log.info('dense-depth-result',{jobId:d.jobId,samples:d.samples.length,coverage:d.coverage,medianDepth:d.medianDepth,ms:d.ms});}
   // Immediately schedule another already-buffered reference if available. This
   // keeps dense work busy without ever slowing the Alva frame loop.
-  const next=state.denseManager?.nextJob();if(next){state.denseBusy=true;state.denseJobs++;const bs=next.baselines||[],b=bs.length?bs.reduce((a,x)=>a+x,0)/bs.length:0,metric=!!state.slam?.metricLocked,near=metric?(state.denseDepthHint?Math.max(CONFIG.denseNearM||.28,state.denseDepthHint*.42):(CONFIG.denseNearM||.28)):Math.max(.02,(state.denseDepthHint||b*8)*.35),far=metric?(state.denseDepthHint?Math.min(CONFIG.denseFarM||8.5,Math.max(near*3,state.denseDepthHint*2.4)):(CONFIG.denseFarM||8.5)):Math.max(near*3,(state.denseDepthHint||b*8)*2.8);const selected=next.sources.slice(0,state.denseSourceLimit||3);state.denseDepthWorker?.postMessage({type:'depth',jobId:`dense-${state.denseJobs}`,ref:cloneDenseFrame(next.ref),sources:selected.map(cloneDenseFrame),K:next.ref.K,near,far,config:{depthSteps:CONFIG.denseDepthSteps||56,pixelStep:state.densePixelStep||CONFIG.densePixelStep||3,minTexture:CONFIG.denseMinTexture||.018,minDistinctiveness:CONFIG.denseMinDistinctiveness||.025,minViews:Math.min(CONFIG.denseMinSourceViews||2,selected.length)}});}
+  const next=state.denseManager?.nextJob();if(next){state.denseBusy=true;void (async()=>{const payload=await makeDensePayload(next);if(!payload){state.denseBusy=false;state.denseManager.release?.(next.ref.id);return;}state.denseJobs++;payload.jobId=`dense-${state.denseJobs}`;state.denseDepthWorker?.postMessage(payload);})();}
 }
 function handleDenseFusionMessage(d){
   if(d.type==='ready'){if($('metricPipelineHud'))$('metricPipelineHud').textContent='Surface mapper pronto · attendo depth map.';return;}

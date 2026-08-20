@@ -48,9 +48,21 @@ export class SlamEngine extends EventTarget{
   }
 }
 
-/** AlvaAR 4x4 camera pose -> Room Scanner (+X right,+Y up,+Z forward) pose. */
+/**
+ * AlvaAR camera matrix -> Room Scanner right-handed CV pose.
+ *
+ * Alva's examples feed the estimated pose to ThreeJS. Three/WebGL cameras use
+ * +X right,+Y up,-Z forward. We rotate BOTH world and camera bases by 180°
+ * around X: C=diag(1,-1,-1). This gives +X right,+Y down,+Z forward while
+ * preserving handedness. The old code transformed position with C but
+ * transformed the quaternion as a reflection, so translation and orientation
+ * did not describe the same camera. That is the classic cause of a dense
+ * reconstruction collapsing into a sheet in front of the view.
+ */
 export function alvaMatrixToPose(a){
-  if(!a||a.length<16)throw new TypeError('Alva 4x4 pose required');const r=matrixQuaternion(a);return {p:[+a[12],-a[13],-a[14]],q:qNormalize([-r[0],r[1],r[2],r[3]])};
+  if(!a||a.length<16)throw new TypeError('Alva 4x4 pose required');
+  const r=matrixQuaternion(a);
+  return {p:[+a[12],-a[13],-a[14]],q:qNormalize([r[0],-r[1],-r[2],r[3]])};
 }
 function matrixQuaternion(te){const m11=+te[0],m12=+te[4],m13=+te[8],m21=+te[1],m22=+te[5],m23=+te[9],m31=+te[2],m32=+te[6],m33=+te[10],trace=m11+m22+m33;let x,y,z,w,s;if(trace>0){s=.5/Math.sqrt(trace+1);w=.25/s;x=(m32-m23)*s;y=(m13-m31)*s;z=(m21-m12)*s;}else if(m11>m22&&m11>m33){s=2*Math.sqrt(1+m11-m22-m33);w=(m32-m23)/s;x=.25*s;y=(m12+m21)/s;z=(m13+m31)/s;}else if(m22>m33){s=2*Math.sqrt(1+m22-m11-m33);w=(m13-m31)/s;x=(m12+m21)/s;y=.25*s;z=(m23+m32)/s;}else{s=2*Math.sqrt(1+m33-m11-m22);w=(m21-m12)/s;x=(m13-m31)/s;y=(m23+m32)/s;z=.25*s;}return qNormalize([x,y,z,w]);}
 function clonePose(p){return {p:p.p.slice(0,3).map(Number),q:qNormalize(p.q.slice(0,4).map(Number))};}

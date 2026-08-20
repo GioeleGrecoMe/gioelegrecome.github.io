@@ -1,4 +1,4 @@
-/* Room Scanner V30.15.0 metric-lock guidance.
+/* Room Scanner V30.16.0 metric-lock guidance.
  *
  * The measurement preview deliberately uses NO full-screen canvas above the
  * camera video. On several mobile GPU/compositor combinations, a hardware
@@ -23,7 +23,9 @@ function loadCalibration(){
     const raw=localStorage.getItem(CONFIG.calibrationStorageKey);
     if(!raw)return null;
     const x=JSON.parse(raw);
-    return x?.calibration||x?.value||x;
+    const c=x?.calibration||x?.value||x;
+    if(c?.coordinateConvention==='+X right +Y up +Z forward'){const fp=a=>Array.isArray(a)&&a.length>=3?[+a[0],-a[1],+a[2]]:a,fq=q=>Array.isArray(q)&&q.length>=4?[-q[0],q[1],-q[2],q[3]]:q,pose=o=>{if(o?.p)o.p=fp(o.p);if(o?.q)o.q=fq(o.q);};for(const a of c.anchors||[])a.p=fp(a.p);pose(c.pose);pose(c.commonView?.pose);c.coordinateConvention='+X right +Y down +Z forward (RH/CV)';}
+    return c;
   }catch{return null;}
 }
 

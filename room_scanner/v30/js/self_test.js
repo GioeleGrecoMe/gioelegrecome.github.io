@@ -4,7 +4,7 @@ import {V30Database,openVersionSafe} from './storage/db.js';
 import {triangulateRays,poseIdentity} from './slam/math.js';
 
 /*
- * V30.15.0 self-tests intentionally include regressions for the two phone failures
+ * V30.16.0 self-tests intentionally include regressions for the two phone failures
  * reported on V30.8: IndexedDB downgrade and fake/screen-space WebXR pins.
  */
 export async function runSelfTests(log){
@@ -57,6 +57,17 @@ export async function runSelfTests(log){
     return 'WebXR geometry-only pins + static visual hosts + live Alva points + bound mesh UI';
   });
 
+  await run('alva-geometry-anchors',async()=>{
+    const [slamText,mathText,sparseText]=await Promise.all([
+      fetch(`js/slam/slam_engine.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),
+      fetch(`js/slam/math.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),
+      fetch(`js/dense/sparse_depth_anchors.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text())
+    ]);
+    if(!slamText.includes('qNormalize([r[0],-r[1],-r[2],r[3]])'))throw new Error('Alva quaternion is not using the proper RH/CV basis rotation');
+    if(!mathText.includes('(v-K.cy)/K.fy'))throw new Error('camera rays are not +Y-down CV rays');
+    for(const t of ['buildSparseDepthAnchors','triangulateRays','maxReprojectionPx','robustDepthRange'])if(!sparseText.includes(t))throw new Error(`sparse geometry gate missing: ${t}`);
+    return 'Alva pose -> reprojection-verified sparse depth anchors -> bounded dense search';
+  });
   await run('camera-only-triangulation',()=>{const K={fx:300,fy:300,cx:160,cy:120,width:320,height:240},a={pose:poseIdentity(),K,u:160,v:120},b={pose:{p:[.20,0,0],q:[0,0,0,1]},K,u:130,v:120},r=triangulateRays(a,b,{minAngleRad:.005,maxGapM:.15});if(!r.ok)throw new Error(r.reason);return {p:r.p,angle:r.angle,gap:r.gap};});
 
   // Runtime regression: V30.11.3 parsed correctly but crashed only when Scan
@@ -88,7 +99,7 @@ export async function runSelfTests(log){
   await run('dense-depth-worker',()=>workerReadyModule(CONFIG.denseDepthWorker,{depthSteps:16,pixelStep:4,minViews:1,maxSamples:1000}));
   await run('dense-fusion-worker',()=>workerReadyModule(CONFIG.denseFusionWorker,{voxel:.06,truncation:.18,minSupport:2,maxSurfels:5000,maxTsdf:20000}));
   // Legacy workers stay packaged for backward-compatible imports/old sessions,
-  // but V30.15 does not use them as the primary reconstruction path.
+  // but V30.16 does not use them as the primary reconstruction path.
   await run('gaussian-worker-compat',()=>workerReady(CONFIG.gaussianWorker,{voxel:.03,maxGaussians:1000,maxSnapshot:100}));
   await run('mvs-worker-compat',()=>workerReady(CONFIG.mvsWorker,{near:.3,far:5,depthSteps:8,gridStep:8,maxPoints:200}));
 

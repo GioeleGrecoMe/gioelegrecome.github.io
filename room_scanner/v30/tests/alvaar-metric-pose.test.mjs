@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {alvaMatrixToPose,SlamEngine} from '../js/slam/slam_engine.js';
 import {AlvaMetricBootstrap,applySimilarityPose} from '../js/slam/alva_metric_bootstrap.js';
-import {qNormalize} from '../js/slam/math.js';
+import {qNormalize,qRotate} from '../js/slam/math.js';
 
 function alvaMatrixAt(x=0,y=0,z=0){return [1,0,0,0, 0,1,0,0, 0,0,1,0, x,-y,-z,1];}
 
@@ -10,6 +10,18 @@ test('AlvaAR matrix conversion matches Room Scanner signs',()=>{
   const p=alvaMatrixToPose([1,0,0,0, 0,1,0,0, 0,0,1,0, 1,2,3,1]);
   assert.deepEqual(p.p,[1,-2,-3]);
   assert.ok(Math.abs(p.q[0])<1e-9&&Math.abs(p.q[1])<1e-9&&Math.abs(p.q[2])<1e-9&&Math.abs(p.q[3]-1)<1e-9);
+});
+
+
+test('Alva pose uses one proper 180deg-X basis rotation for position AND orientation',()=>{
+  // Native OpenGL/Three camera rotated +90deg about Y. Column-major c2w.
+  const a=[0,0,-1,0, 0,1,0,0, 1,0,0,0, 1,2,3,1];
+  const p=alvaMatrixToPose(a);
+  assert.deepEqual(p.p,[1,-2,-3]);
+  // In CV basis the local +Z forward direction must rotate coherently with the
+  // converted quaternion, never as the old mirrored orientation.
+  const f=qRotate(p.q,[0,0,1]);
+  assert.ok(f[0]<-.999&&Math.abs(f[1])<1e-8&&Math.abs(f[2])<1e-8,`forward ${f}`);
 });
 
 test('one-shot bootstrap recovers a fixed Alva->metric Sim3',()=>{

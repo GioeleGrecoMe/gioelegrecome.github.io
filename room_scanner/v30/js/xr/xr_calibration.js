@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.15.0 - minimal user-selected multi-view WebXR calibration with REAL
+ * Room Scanner V30.16.0 - minimal user-selected multi-view WebXR calibration with REAL
  * XRAnchor-backed pins.
  *
  * V30.8 bug fixed here
@@ -53,26 +53,28 @@ export function projectionToIntrinsics(proj,width,height){
   return {fx:width*.5*proj[0],fy:height*.5*proj[5],cx:(1-proj[8])*width*.5,cy:(1-proj[9])*height*.5,width,height};
 }
 
-/* WebXR camera/world uses -Z forward. V30 SLAM uses +Z forward. Reflection S
- * = diag(1,1,-1) is applied to position and to both sides of the rotation. */
+/*
+ * WebXR/Three uses +X right,+Y up,-Z forward. V30.16 uses the right-handed
+ * CV basis +X right,+Y down,+Z forward. The conversion is the proper rotation
+ * C=diag(1,-1,-1), i.e. 180° around X, applied on both sides of R.
+ */
 function xrPoseToSlam(transform){
   const M=transform?.matrix;
   if(M?.length>=16){
     const r00=M[0],r01=M[4],r02=M[8],r10=M[1],r11=M[5],r12=M[9],r20=M[2],r21=M[6],r22=M[10];
-    const q=mat3ToQuat([r00,r01,-r02,r10,r11,-r12,-r20,-r21,r22]);
-    return {p:[M[12],M[13],-M[14]],q};
+    const q=mat3ToQuat([r00,-r01,-r02,-r10,r11,r12,-r20,r21,r22]);
+    return {p:[M[12],-M[13],-M[14]],q};
   }
   const p=transform.position,o=transform.orientation;
-  // Fallback uses the equivalent quaternion reflection for S*R*S.
-  return {p:[p.x,p.y,-p.z],q:qNormalize([-o.x,-o.y,o.z,o.w])};
+  return {p:[p.x,-p.y,-p.z],q:qNormalize([o.x,-o.y,-o.z,o.w])};
 }
-function xrPointToSlam(p){return [p.x,p.y,-p.z];}
+function xrPointToSlam(p){return [p.x,-p.y,-p.z];}
 
 export function projectSlamPointToUv(pose,p,K){
   if(!pose||!p||!K)return null;
   const rel=[p[0]-pose.p[0],p[1]-pose.p[1],p[2]-pose.p[2]],cam=qRotate(qConj(pose.q),rel),z=cam[2];
   if(!(z>1e-4))return null;
-  const px=K.fx*cam[0]/z+K.cx,py=K.cy-K.fy*cam[1]/z;
+  const px=K.fx*cam[0]/z+K.cx,py=K.cy+K.fy*cam[1]/z;
   return {u:px/K.width,v:py/K.height,z,px,py};
 }
 
@@ -503,7 +505,7 @@ export class XRMetricCalibrator extends EventTarget{
     }
     if(anchors.length<this.cfg.xrCalibrationMinCommonPoints)throw new Error('Vista comune persa nell’ultimo frame: tieni almeno 3 pin utili visibili e riprova.');
 
-    const result={format:'ROOMSCAN-V30-XR-CALIBRATION-2',visualBridgeReady:this.rawCameraAvailable&&anchors.filter(a=>a.patch?.length).length>=this.cfg.xrCalibrationMinCommonPoints,createdAt:Date.now(),referenceSpace:'local-floor',coordinateConvention:'+X right +Y up +Z forward',mode:'user-selected-multiview-real-xranchors',realAnchors:true,anchors,objects:applyTargets.map(t=>({id:t.id,seedUv:[...t.seedUv],points:t.points.map(p=>p.id),views:t.views,baselineM:t.maxBaselineM,maxAngleRad:t.maxAngleRad,roiViews:(t.roiViews||[]).map(v=>({...v,pose:clonePose(v.pose),worldCenter:[...v.worldCenter],uv:[...v.uv],scales:v.scales.map(s=>({...s,patch:[...s.patch]}))})),roiSectors:[...(t.roiSectors||[])]})),pose:clonePose(this.latestPose),intrinsicsNorm:{...this.latestIntrinsics},cameraSize:[...this.cameraSize],commonView:{pose:clonePose(this.latestPose),intrinsicsNorm:{...this.latestIntrinsics},cameraSize:[...this.cameraSize],anchorIds:anchors.map(a=>a.id)},poseCoverage:this.globalPoses.map(s=>({at:s.at,pose:clonePose(s.pose),targetIds:[...s.targetIds],anchorPointIds:[...s.anchorPointIds]})),quality:{...q,appliedTargetIds:applyTargets.map(t=>t.id)}};
+    const result={format:'ROOMSCAN-V30-XR-CALIBRATION-2',visualBridgeReady:this.rawCameraAvailable&&anchors.filter(a=>a.patch?.length).length>=this.cfg.xrCalibrationMinCommonPoints,createdAt:Date.now(),referenceSpace:'local-floor',coordinateConvention:'+X right +Y down +Z forward (RH/CV)',mode:'user-selected-multiview-real-xranchors',realAnchors:true,anchors,objects:applyTargets.map(t=>({id:t.id,seedUv:[...t.seedUv],points:t.points.map(p=>p.id),views:t.views,baselineM:t.maxBaselineM,maxAngleRad:t.maxAngleRad,roiViews:(t.roiViews||[]).map(v=>({...v,pose:clonePose(v.pose),worldCenter:[...v.worldCenter],uv:[...v.uv],scales:v.scales.map(s=>({...s,patch:[...s.patch]}))})),roiSectors:[...(t.roiSectors||[])]})),pose:clonePose(this.latestPose),intrinsicsNorm:{...this.latestIntrinsics},cameraSize:[...this.cameraSize],commonView:{pose:clonePose(this.latestPose),intrinsicsNorm:{...this.latestIntrinsics},cameraSize:[...this.cameraSize],anchorIds:anchors.map(a=>a.id)},poseCoverage:this.globalPoses.map(s=>({at:s.at,pose:clonePose(s.pose),targetIds:[...s.targetIds],anchorPointIds:[...s.anchorPointIds]})),quality:{...q,appliedTargetIds:applyTargets.map(t=>t.id)}};
     this.log?.info('xr-calibration-real-anchor-finished',{anchors:anchors.length,persistent:anchors.filter(a=>a.persistentHandle).length,poseCount:q.poseCount,quality:q});
     await this.stop({deleteAnchors:false});
     return result;

@@ -8,7 +8,7 @@ const cfg={xrManualAimStableFrames:3,xrManualAimHitStdM:.02,xrRoiScales:[.05,.1,
 test('manual hit-test preview exposes metric depth and becomes stable',()=>{
  const c=new XRMetricCalibrator({overlayRoot:null,config:cfg,log:null});c.latestPose={p:[0,0,0],q:[0,0,0,1]};c.refSpace={};c.manualAim={uv:[.5,.5],source:{},history:[],valid:false,stable:false,point:null,depthM:null,rmsM:null,lastHitAt:0};
  const hit={getPose:()=>({transform:{position:{x:0.2,y:0.1,z:-2}}})};const frame={getHitTestResults:()=>[hit]};
- for(let i=0;i<3;i++)c._processManualAim(frame);assert.equal(c.manualAim.valid,true);assert.equal(c.manualAim.stable,true);assert.ok(Math.abs(c.manualAim.depthM-Math.hypot(.2,.1,2))<1e-9);assert.deepEqual(c.manualAim.point,[.2,.1,2]);
+ for(let i=0;i<3;i++)c._processManualAim(frame);assert.equal(c.manualAim.valid,true);assert.equal(c.manualAim.stable,true);assert.ok(Math.abs(c.manualAim.depthM-Math.hypot(.2,.1,2))<1e-9);assert.deepEqual(c.manualAim.point,[.2,-.1,2]);
 });
 
 test('ROI atlas requires camera motion/new viewpoint and stores multiple scales',()=>{

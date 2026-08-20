@@ -11,7 +11,7 @@ export class DenseKeyframeManager{
   }
   add(kf,frame,K,{metricLocked=false}={}){
     if(!kf?.pose||!frame?.gray||!K)return null;if(this.lastAcceptedAt&&kf.at-this.lastAcceptedAt<this.minIntervalMs)return null;
-    const dense=downsampleFrame(frame,K,this.width,this.height);const item={id:kf.id,at:kf.at,pose:clonePose(kf.pose),rawPose:kf.rawPose?clonePose(kf.rawPose):null,K:dense.K,width:this.width,height:this.height,gray:dense.gray,rgba:dense.rgba,metricLocked};
+    const dense=downsampleFrame(frame,K,this.width,this.height);const item={id:kf.id,at:kf.at,pose:clonePose(kf.pose),rawPose:kf.rawPose?clonePose(kf.rawPose):null,K:dense.K,width:this.width,height:this.height,gray:dense.gray,rgba:dense.rgba,features:scaleFeatures(kf.features||[],frame.width,frame.height,this.width,this.height),metricLocked};
     this.frames.push(item);this.lastAcceptedAt=kf.at;while(this.frames.length>this.maxFrames){const old=this.frames.shift();this.processed.delete(old.id);}return item;
   }
   /** Return a reference + 2..4 geometrically useful neighbours, or null. */
@@ -28,6 +28,7 @@ export class DenseKeyframeManager{
     }
     return null;
   }
+  release(id){if(id)this.processed.delete(id);}
   reset(){this.frames.length=0;this.processed.clear();this.lastAcceptedAt=0;}
 }
 
@@ -38,3 +39,5 @@ export function downsampleFrame(frame,K,width,height){
 }
 function quatAngle(a,b){a=qNormalize(a);b=qNormalize(b);const d=Math.min(1,Math.abs(a[0]*b[0]+a[1]*b[1]+a[2]*b[2]+a[3]*b[3]));return 2*Math.acos(d);}
 function clonePose(p){return {p:p.p.slice(0,3).map(Number),q:p.q.slice(0,4).map(Number)};}
+
+function scaleFeatures(fs,sw,sh,dw,dh){const sx=dw/sw,sy=dh/sh;return (fs||[]).filter(f=>Number.isFinite(f?.x)&&Number.isFinite(f?.y)&&Array.isArray(f?.desc)).map(f=>({x:f.x*sx,y:f.y*sy,score:+(f.score||0),source:f.source||'mvs',desc:Array.from(f.desc)}));}

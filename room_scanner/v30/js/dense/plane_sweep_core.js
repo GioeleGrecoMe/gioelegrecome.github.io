@@ -9,7 +9,7 @@
  * - Return only points with a clear depth minimum and multi-view agreement.
  *
  * Coordinate convention matches Room Scanner:
- *   camera/world +X right, +Y up, +Z forward, image +v down.
+ *   camera/world +X right, +Y down, +Z forward (right-handed CV).
  */
 
 const EPS=1e-9;
@@ -26,9 +26,10 @@ export function estimateDenseDepth(job){
     pixelStep:Math.max(1,job.pixelStep|0||3),margin:Math.max(2,job.margin|0||3),
     maxCost:Number(job.maxCost??0.22),minConfidence:Number(job.minConfidence??0.11),
     minViews:Math.max(1,job.minViews|0||Math.min(2,sources.length)),maxSamples:Math.max(500,job.maxSamples|0||14000),
-    minTexture:Number(job.minTexture??0.018),minDistinctiveness:Number(job.minDistinctiveness??0.025),depthSmoothRel:Number(job.depthSmoothRel??0.16)
+    minTexture:Number(job.minTexture??0.018),minDistinctiveness:Number(job.minDistinctiveness??0.025),depthSmoothRel:Number(job.depthSmoothRel??0.16),seedRadiusPx:Number(job.seedRadiusPx??22),seedMaxRelativeError:Number(job.seedMaxRelativeError??0.48)
   };
   if(!(cfg.near>0&&cfg.far>cfg.near))throw new Error(`invalid plane sweep depth range ${cfg.near}..${cfg.far}`);
+  const sparseSeeds=(job.sparseSeeds||[]).filter(s=>Number.isFinite(s?.u)&&Number.isFinite(s?.v)&&Number.isFinite(s?.depth)&&s.depth>0);
 
   const refGrad=gradients(ref.gray,width,height),src=sources.map(s=>({
     ...s,grad:gradients(s.gray,s.width|0,s.height|0),Rcw:rotationFromQuat(s.pose.q),Rwc:null
@@ -49,7 +50,7 @@ export function estimateDenseDepth(job){
       if(Math.hypot(refGx,refGy)<cfg.minTexture)continue;
       let best=Infinity,second=Infinity,bestZ=0,bestViews=0;
       for(const z of depthHyp){
-        const xc=(u-K.cx)/K.fx*z,yc=(K.cy-v)/K.fy*z;
+        const xc=(u-K.cx)/K.fx*z,yc=(v-K.cy)/K.fy*z;
         const wr=rotateMat(Rref,[xc,yc,z]);
         const world=[ref.pose.p[0]+wr[0],ref.pose.p[1]+wr[1],ref.pose.p[2]+wr[2]];
         const costs=[];
@@ -73,7 +74,11 @@ export function estimateDenseDepth(job){
       const distinct=Number.isFinite(second)?clamp((second-best)/(Math.max(.025,second)),0,1):0;
       const photo=clamp(1-best/Math.max(.03,cfg.maxCost),0,1);
       const confidence=.62*distinct+.38*photo;
-      if(best<=cfg.maxCost&&distinct>=cfg.minDistinctiveness&&confidence>=cfg.minConfidence){depthGrid[gi]=bestZ;confGrid[gi]=confidence;costGrid[gi]=best;}
+      if(best<=cfg.maxCost&&distinct>=cfg.minDistinctiveness&&confidence>=cfg.minConfidence){
+        const seed=findNearestSparseSeed(sparseSeeds,u,v,cfg.seedRadiusPx);
+        if(seed&&Math.abs(bestZ-seed.depth)/Math.max(1e-6,seed.depth)>cfg.seedMaxRelativeError)continue;
+        depthGrid[gi]=bestZ;confGrid[gi]=seed?Math.min(1,confidence*.78+Number(seed.confidence||.5)*.22):confidence;costGrid[gi]=best;
+      }
     }
   }
 
@@ -88,7 +93,7 @@ export function estimateDenseDepth(job){
 
   const points=new Array(depthGrid.length);
   for(let i=0;i<depthGrid.length;i++)if(valid[i]){
-    const z=depthGrid[i],u=pxGrid[i],v=pyGrid[i],xc=(u-K.cx)/K.fx*z,yc=(K.cy-v)/K.fy*z,wv=rotateMat(Rref,[xc,yc,z]);
+    const z=depthGrid[i],u=pxGrid[i],v=pyGrid[i],xc=(u-K.cx)/K.fx*z,yc=(v-K.cy)/K.fy*z,wv=rotateMat(Rref,[xc,yc,z]);
     points[i]=[ref.pose.p[0]+wv[0],ref.pose.p[1]+wv[1],ref.pose.p[2]+wv[2]];
   }
 
@@ -113,7 +118,7 @@ export function projectWorld(pose,K,p,width=K.width,height=K.height){
   const R=rotationFromQuat(pose.q),dx=p[0]-pose.p[0],dy=p[1]-pose.p[1],dz=p[2]-pose.p[2];
   // camera coordinates = R^T * (world-camera)
   const x=R[0]*dx+R[3]*dy+R[6]*dz,y=R[1]*dx+R[4]*dy+R[7]*dz,z=R[2]*dx+R[5]*dy+R[8]*dz;
-  if(z<=1e-5)return null;const u=K.fx*x/z+K.cx,v=K.cy-K.fy*y/z;if(!Number.isFinite(u+v))return null;return {u,v,z,inside:u>=0&&v>=0&&u<width&&v<height};
+  if(z<=1e-5)return null;const u=K.fx*x/z+K.cx,v=K.fy*y/z+K.cy;if(!Number.isFinite(u+v))return null;return {u,v,z,inside:u>=0&&v>=0&&u<width&&v<height};
 }
 
 export function rotationFromQuat(q){
@@ -128,3 +133,5 @@ function gradients(gray,w,h){const gx=new Float32Array(gray.length),gy=new Float
 function bilinear(a,w,h,x,y){const x0=Math.floor(x),y0=Math.floor(y),x1=Math.min(w-1,x0+1),y1=Math.min(h-1,y0+1),tx=x-x0,ty=y-y0;return (a[y0*w+x0]*(1-tx)+a[y0*w+x1]*tx)*(1-ty)+(a[y1*w+x0]*(1-tx)+a[y1*w+x1]*tx)*ty;}
 function sampleRgb(rgba,w,h,x,y){if(!rgba?.length)return [180,200,220];const xx=clamp(Math.round(x),0,w-1),yy=clamp(Math.round(y),0,h-1),i=(yy*w+xx)*4;return [rgba[i]||0,rgba[i+1]||0,rgba[i+2]||0];}
 function sub(a,b){return [a[0]-b[0],a[1]-b[1],a[2]-b[2]];}function cross(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}function dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}function normalize(v){const n=Math.hypot(...v)||1;return v.map(x=>x/n);}
+
+function findNearestSparseSeed(seeds,u,v,radius){let best=null,bd=radius*radius;for(const s of seeds||[]){const dx=s.u-u,dy=s.v-v,d=dx*dx+dy*dy;if(d<bd){bd=d;best=s;}}return best;}

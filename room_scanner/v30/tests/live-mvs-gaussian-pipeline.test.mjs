@@ -9,7 +9,7 @@ import {SparseDenseFusion} from '../js/dense/fusion_core.js';
 function texturedPlaneFrame(px,{w=96,h=72,z=2}={}){
   const K={fx:85,fy:85,cx:w/2,cy:h/2,width:w,height:h},gray=new Uint8Array(w*h),rgba=new Uint8ClampedArray(w*h*4);
   const tex=(x,y)=>Math.max(0,Math.min(255,128+(Math.sin(x*17)+Math.sin(y*23)+Math.sin((x+y)*31)+Math.sin((x*2-y)*11))*25));
-  for(let v=0;v<h;v++)for(let u=0;u<w;u++){const x=px+(u-K.cx)/K.fx*z,y=(K.cy-v)/K.fy*z,val=tex(x,y),i=v*w+u;gray[i]=val;rgba[i*4]=val;rgba[i*4+1]=Math.min(255,val+12);rgba[i*4+2]=Math.max(0,val-12);rgba[i*4+3]=255;}
+  for(let v=0;v<h;v++)for(let u=0;u<w;u++){const x=px+(u-K.cx)/K.fx*z,y=(v-K.cy)/K.fy*z,val=tex(x,y),i=v*w+u;gray[i]=val;rgba[i*4]=val;rgba[i*4+1]=Math.min(255,val+12);rgba[i*4+2]=Math.max(0,val-12);rgba[i*4+3]=255;}
   return {id:`f-${px}`,at:1000+px*1000,pose:{p:[px,0,0],q:[0,0,0,1]},rawPose:{p:[px,0,0],q:[0,0,0,1]},K,width:w,height:h,gray,rgba};
 }
 

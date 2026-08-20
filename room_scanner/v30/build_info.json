@@ -1,6 +1,6 @@
 {
-  "version": "30.15.0",
-  "id": "v30.15.0-20260820-alva-dense-plane-sweep-tsdf",
-  "builtAt": "2026-08-20T10:32:00+02:00",
-  "notes": "AlvaAR remains the autonomous tracker. Dense mapping now uses low-frequency multi-view plane sweep, robust depth filtering, surfel fusion and sparse TSDF meshing. Live splats are derived from confirmed surfaces, not sparse SLAM features. Depth Anything is not enabled in this release; hooks remain optional for a later sparse prior."
+  "version": "30.16.0",
+  "id": "v30.16.0-20260820-alva-geometry-anchored-dense",
+  "builtAt": "2026-08-20T11:30:00+02:00",
+  "notes": "AlvaAR remains the autonomous tracker. V30.16 fixes the camera-pose handedness mismatch by using one proper right-handed CV basis (+X right,+Y down,+Z forward) for translation and rotation. Dense mapping starts only after reprojection-verified Alva feature matches provide sparse depth anchors; those anchors bound and locally constrain plane sweep before surfel/TSDF fusion. Legacy V30 calibration profiles are migrated automatically. Depth Anything remains disabled."
 }

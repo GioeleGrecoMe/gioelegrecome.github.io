@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-15-alva-dense-tsdf",
+  "name": "room-scanner-v30-16-alva-geometry-anchored-dense",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,6 +12,6 @@
     "check:alva": "node tools/check_alvaar_runtime.mjs",
     "vendor:alva": "node tools/vendor_alvaar.mjs"
   },
-  "version": "30.15.0",
-  "description": "V30.15.0: autonomous AlvaAR tracking plus low-frequency pose-guided dense plane sweep, surfel fusion, sparse TSDF and live mesh."
+  "version": "30.16.0",
+  "description": "V30.16.0: autonomous AlvaAR tracking plus low-frequency pose-guided dense plane sweep, surfel fusion, sparse TSDF and live mesh."
 }

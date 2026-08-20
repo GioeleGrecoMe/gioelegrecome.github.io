@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.15.0 dense mapping runtime configuration.
+ * Room Scanner V30.16.0 dense mapping runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.15.0',
-  id:'v30.15.0-20260820-alva-dense-plane-sweep-tsdf',
+  version:'30.16.0',
+  id:'v30.16.0-20260820-alva-geometry-anchored-dense',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -126,6 +126,12 @@ export const CONFIG={
   denseMinConfidence:0.11,
   denseMinTexture:0.018,
   denseMinDistinctiveness:0.025,
+  denseMinSparseSeeds:5,
+  denseSeedMaxReprojectionPx:2.8,
+  denseSeedMinAngleRad:0.010,
+  denseSeedMaxGapBaselineRatio:0.14,
+  denseSeedRadiusPx:22,
+  denseSeedMaxRelativeError:0.48,
   denseMaxSamplesPerDepth:14000,
   denseTsdfVoxelM:0.035,
   denseTsdfVoxelAlva:0.030,
@@ -185,7 +191,7 @@ export const CONFIG={
   // Kept as a compatibility alias for diagnostics from older V30 modules.
   alvaRemoteUrl:'https://raw.githubusercontent.com/alanross/AlvaAR/main/dist/alva_ar.js',
   wasmCore:'wasm/slam_core.wasm',
-  // No Depth Anything / DeepAI and no IMU are required by the V30.15.0 runtime.
+  // No Depth Anything / DeepAI and no IMU are required by the V30.16.0 runtime.
   serviceWorker:'sw.js',
   serviceWorkerRegisterDelayMs:2500,
   buildInfo:'build_info.json'
