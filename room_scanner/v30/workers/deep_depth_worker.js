@@ -1,7 +1,7 @@
 /*
- * Room Scanner V30.18.2 - Local ONNX Depth Anything worker.
+ * Room Scanner V30.18.3 - Local ONNX Depth Anything worker.
  *
- * CAMERA RASTER + SPEED FIX
+ * OUTPUT LAYOUT + WEBGPU RUNTIME + SPEED FIX
  * -------------------------
  * 1) The camera RGBA buffer is now converted to the ONNX RGB/NCHW tensor
  *    explicitly in JavaScript.  No OffscreenCanvas, ImageData re-upload or
@@ -12,7 +12,7 @@
  *      tensor: RRR... GGG... BBB... (NCHW, planar)
  *
  * 2) Dynamic Depth Anything inputs preserve camera aspect ratio.  For the
- *    Room Scanner 320x480 analysis frame the first mobile plan is 224x336,
+ *    Room Scanner 320x480 analysis frame the first mobile plan is 168x252,
  *    both multiples of the ViT patch size (14).  The old code stretched the
  *    portrait frame to 518x518 before inference and then stretched the depth
  *    back to portrait, which was geometrically inconsistent with Alva pixels.
@@ -33,14 +33,19 @@
 let cfg = {
   modelUrl: 'models/depth_anything_v2_small_q4f16.onnx',
   ortLocal: '../vendor/onnxruntime-web/ort.all.min.mjs',
+  // Keep the project-configured runtime only as a last-resort compatibility fallback.
   ortRemote: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.all.min.mjs',
+  ortCurrentWebGpu: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.webgpu.min.mjs',
+  ortCurrentAll: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.all.min.mjs',
 
   // Compatibility ceiling/fallback used by the existing V30 config.
   inputMaxSide: 518,
 
-  // Mobile inference target.  224 is 16 * 14.  A 320x480 frame therefore
-  // becomes 224x336 (24 * 14) without changing its 2:3 aspect ratio.
-  preferredShortSide: 224,
+  // Mobile inference target.  168 is 12 * 14.  A 320x480 frame therefore
+  // becomes 168x252 (18 * 14) without changing its 2:3 aspect ratio.
+  // Depth is a geometric prior here; Alva + multi-view verification retain
+  // metric/structural authority, so this lower raster is a good speed tradeoff.
+  preferredShortSide: 168,
   patchSize: 14,
 
   // Used when onnxruntime-web exposes inputNames but not inputMetadata.
@@ -179,7 +184,15 @@ function fromFloat16(value) {
 async function importOrt() {
   if (ort) return ort;
 
-  const sources = [cfg.ortLocal, cfg.ortRemote].filter(Boolean);
+  // Prefer a current WebGPU runtime before the project's historical 1.20.1
+  // fallback.  The q4f16 graph uses modern quantized WebGPU kernels and old
+  // builds have had dynamic-shape/correctness issues.
+  const sources = Array.from(new Set([
+    cfg.ortLocal,
+    cfg.ortCurrentWebGpu,
+    cfg.ortCurrentAll,
+    cfg.ortRemote,
+  ].filter(Boolean)));
   const errors = [];
 
   for (const source of sources) {
@@ -331,7 +344,7 @@ function inputPlans(spec, sourceWidth, sourceHeight) {
     return [{ width: spec.width, height: spec.height, mode: 'metadata-fixed' }];
   }
 
-  const preferred = positiveNumber(cfg.preferredShortSide, 224);
+  const preferred = positiveNumber(cfg.preferredShortSide, 168);
   const plans = [
     adaptiveInputGeometry(sourceWidth, sourceHeight, preferred),
     // Medium fallback: useful if a custom dynamic export dislikes very small
@@ -470,34 +483,112 @@ function prepareInput(rgba, width, height, spec, plan, forcedType = null) {
   };
 }
 
-function readOutput(result) {
+function tensorScalar(tensor, index) {
+  const src = tensor.data;
+  const isF16 = String(tensor.type || '').toLowerCase().includes('float16');
+  if (isF16 && src instanceof Uint16Array) return fromFloat16(src[index]);
+  return Number(src[index]);
+}
+
+function depthSpatialStats(depth, width, height) {
+  let dx = 0, dy = 0, nx = 0, ny = 0, finite = 0;
+  for (let y = 0; y < height; y++) {
+    const row = y * width;
+    for (let x = 0; x < width; x++) {
+      const i = row + x;
+      const v = depth[i];
+      if (Number.isFinite(v)) finite++;
+      if (x + 1 < width && Number.isFinite(v) && Number.isFinite(depth[i + 1])) { dx += Math.abs(v - depth[i + 1]); nx++; }
+      if (y + 1 < height && Number.isFinite(v) && Number.isFinite(depth[i + width])) { dy += Math.abs(v - depth[i + width]); ny++; }
+    }
+  }
+  const meanDx = nx ? dx / nx : 0;
+  const meanDy = ny ? dy / ny : 0;
+  return {
+    finiteRatio: depth.length ? finite / depth.length : 0,
+    meanDx,
+    meanDy,
+    directionalRatio: Math.max(meanDx, meanDy) / Math.max(1e-12, Math.min(meanDx, meanDy)),
+  };
+}
+
+function readOutput(result, expectedPlan) {
   const outputNames = Array.from(session?.outputNames || []);
-  const name = outputNames[0];
-  const tensor = result?.[name] || result?.[Object.keys(result || {})[0]];
+  // Depth Anything V2 exports `predicted_depth`.  Prefer it explicitly instead
+  // of assuming that the first property returned by the runtime is depth.
+  const name = result?.predicted_depth
+    ? 'predicted_depth'
+    : outputNames.find((n) => /predicted[_-]?depth/i.test(n))
+      || outputNames[0]
+      || Object.keys(result || {})[0];
+  const tensor = result?.[name];
 
   if (!tensor?.data?.length) {
-    fail(`il modello non ha restituito una depth map; outputNames=${JSON.stringify(outputNames)}`);
+    fail(`il modello non ha restituito una depth map; outputNames=${JSON.stringify(outputNames)}, resultKeys=${JSON.stringify(Object.keys(result || {}))}`);
   }
 
-  const dims = tensor.dims || [];
-  const height = Number(dims[dims.length - 2]);
-  const width = Number(dims[dims.length - 1]);
+  const dims = Array.from(tensor.dims || []);
+  const logicalHeight = Number(dims[dims.length - 2]);
+  const logicalWidth = Number(dims[dims.length - 1]);
+  const expectedWidth = Number(expectedPlan?.width);
+  const expectedHeight = Number(expectedPlan?.height);
 
-  if (!(width > 1 && height > 1 && width * height <= tensor.data.length)) {
-    fail(`output ONNX non supportato: ${JSON.stringify(dims)}`);
+  if (!(logicalWidth > 1 && logicalHeight > 1 && logicalWidth * logicalHeight <= tensor.data.length)) {
+    fail(`output ONNX non supportato: name=${name}, dims=${JSON.stringify(dims)}, type=${tensor.type || typeof tensor.data}`);
   }
 
-  const src = tensor.data;
-  const offset = src.length - width * height;
-  const out = new Float32Array(width * height);
+  const planeLength = logicalWidth * logicalHeight;
+  const offset = tensor.data.length - planeLength;
+  let width = logicalWidth;
+  let height = logicalHeight;
+  let layoutFix = 'none';
+  let out;
 
-  // ONNX Runtime exposes tensors in row-major logical order.  For a depth
-  // tensor [..., H, W], i = y * W + x.  Do not transpose or interleave here.
-  for (let i = 0; i < out.length; i++) {
-    out[i] = src instanceof Uint16Array ? fromFloat16(src[offset + i]) : Number(src[offset + i]);
+  if (logicalWidth === expectedWidth && logicalHeight === expectedHeight) {
+    out = new Float32Array(planeLength);
+    for (let i = 0; i < planeLength; i++) out[i] = tensorScalar(tensor, offset + i);
+  } else if (logicalWidth === expectedHeight && logicalHeight === expectedWidth) {
+    // Some dynamic WebGPU paths have historically surfaced swapped spatial
+    // dimensions.  Respect the tensor's row-major logical layout, then
+    // transpose into the SAME HxW raster used by the camera/Alva input.
+    width = expectedWidth;
+    height = expectedHeight;
+    out = new Float32Array(width * height);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const srcIndex = offset + x * logicalWidth + y;
+        out[y * width + x] = tensorScalar(tensor, srcIndex);
+      }
+    }
+    layoutFix = 'transpose-swapped-HW';
+  } else if (Number.isFinite(expectedWidth) && Number.isFinite(expectedHeight) &&
+             expectedWidth * expectedHeight === planeLength) {
+    // Metadata may be absent/wrong while the element count is correct.  Since
+    // Depth Anything V2 is 1:1 spatially with pixel_values, use the exact input
+    // raster as the authoritative shape rather than inventing dimensions.
+    width = expectedWidth;
+    height = expectedHeight;
+    out = new Float32Array(planeLength);
+    for (let i = 0; i < planeLength; i++) out[i] = tensorScalar(tensor, offset + i);
+    layoutFix = 'reshape-to-input-HW';
+  } else {
+    out = new Float32Array(planeLength);
+    for (let i = 0; i < planeLength; i++) out[i] = tensorScalar(tensor, offset + i);
+    layoutFix = 'unexpected-output-HW';
   }
 
-  return { rawDepth: out, width, height };
+  return {
+    rawDepth: out,
+    width,
+    height,
+    outputName: name,
+    outputDims: dims,
+    outputType: tensor.type || null,
+    logicalWidth,
+    logicalHeight,
+    layoutFix,
+    spatialStats: depthSpatialStats(out, width, height),
+  };
 }
 
 async function runPrepared(spec, prepared) {
@@ -506,7 +597,7 @@ async function runPrepared(spec, prepared) {
   const runMs = performance.now() - runStarted;
 
   const outputStarted = performance.now();
-  const output = readOutput(result);
+  const output = readOutput(result, prepared.plan);
   const outputMs = performance.now() - outputStarted;
 
   return {
@@ -672,6 +763,11 @@ self.onmessage = async (event) => {
         inputType: raw.inputType || null,
         inputDims: raw.inputDims || null,
         inputPlan: raw.inputPlan || null,
+        outputName: raw.outputName || null,
+        outputDims: raw.outputDims || null,
+        outputType: raw.outputType || null,
+        layoutFix: raw.layoutFix || 'none',
+        spatialStats: raw.spatialStats || null,
         rasterContract: 'RGBA-row-major-interleaved -> RGB-NCHW-planar',
         rasterProbe: raw.rasterProbe || null,
         contractFallback: !!raw.contractFallback,
