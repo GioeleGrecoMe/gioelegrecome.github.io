@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.20.0 - authoritative WebGPU readback Depth Anything worker.
+ * Room Scanner V30.21.0 - ultra-low-budget WebGPU/WASM Depth Anything worker.
  *
  * GPU READBACK + AUTHORITATIVE DEPTH LAYOUT + Q4 DEFAULT
  * -------------------------
@@ -15,17 +15,17 @@
  * 2) Dynamic Depth Anything inputs use the DPT processor contract: ImageNet
  *    RGB normalization, aspect-preserving resize and dimensions rounded to ViT
  *    patches (14). Upstream defaults to 518 px; the app may request a smaller
- *    mobile target (392 px in V30.20) because Alva supplies metric anchors and
+ *    ultra-low-budget target (112 px in V30.21) because Alva supplies metric anchors and
  *    multi-view verification. The input is never stretched to a square.
  *
  * 3) If the ONNX export is fixed-shape, the worker automatically falls back to
  *    the classic 518x518 contract.  A successful plan is cached for all later
  *    frames, so compatibility probing is paid only once.
  *
- * 4) The pre-scan "test" now performs one compatibility/cold run and one warm
- *    run.  `ms` is the steady-state preprocess + session.run + output read time,
- *    NOT model download/session creation/first WebGPU compilation.  Additional
- *    timing fields are returned for diagnostics without changing app.js.
+ * 4) The pre-scan "test" is single-pass on a healthy provider. The old warm
+ *    duplicate and unconditional horizontal-flip inference are removed. A second
+ *    WASM inference is paid only if the first WebGPU depth fails the spatial
+ *    coherence gate. This makes test time representative of actual scan latency.
  *
  * Drop-in replacement for:
  *   room_scanner/v30/workers/deep_depth_worker.js
@@ -46,11 +46,15 @@ let cfg = {
   // Compatibility ceiling/fallback used by the existing V30 config.
   inputMaxSide: 518,
 
-  // Mobile inference target. Upstream DPT uses 518, but Deep is only a relative
-  // shape prior here: Alva + multi-view own pose/metric geometry. Keeping 392
-  // (28 ViT patches) cuts the raster substantially while preserving patch alignment.
-  preferredShortSide: 392,
+  // Extreme mobile target: 8 ViT patches on the short side. This is deliberately
+  // coarse because Deep supplies only relative shape; Alva supplies pose/scale and
+  // multi-view photometric geometry remains the acceptance gate.
+  preferredShortSide: 112,
+  compatibilityShortSide: 196,
   patchSize: 14,
+  // 0 = let ORT Web choose its thread count. V30.20 forced one WASM thread.
+  wasmNumThreads: 0,
+  testFlipCheck: false,
 
   // Used when onnxruntime-web exposes inputNames but not inputMetadata.
   inputType: 'float32',
@@ -295,7 +299,7 @@ async function fetchModel(source) {
   const errors = [];
 
   if (requested) {
-    try { return await fetchUrlModel(requested, { cacheable:false, label:'modello Q4 locale' }); }
+    try { return await fetchUrlModel(requested, { cacheable:true, label:'modello Q4 locale' }); }
     catch (err) { errors.push(`locale: ${err?.message || err}`); }
   }
   if (remote && remote !== requested) {
@@ -320,18 +324,26 @@ function modelSourceKey(source) {
   return `url:${id}:${String(source?.url || cfg.modelUrl)}`;
 }
 
+function configureWasmRuntime(runtime) {
+  // ONNX Runtime Web uses 0 as the automatic thread policy. In a normal page it
+  // safely remains single-threaded when WASM threads/cross-origin isolation are
+  // unavailable; on correctly isolated deployments it can use multiple cores.
+  // Keeping this decision inside the worker also avoids blocking the UI thread.
+  try {
+    runtime.env.wasm.numThreads = Number.isFinite(Number(cfg.wasmNumThreads)) ? Number(cfg.wasmNumThreads) : 0;
+    runtime.env.wasm.simd = true;
+  } catch {
+    // Older runtime builds may expose read-only/partial env flags.
+  }
+}
+
 async function ensureSession(source) {
   const sourceKey = modelSourceKey(source);
   if (session && sessionKey === sourceKey) return session;
 
   const sessionStarted = performance.now();
   const runtime = await importOrt();
-  try {
-    runtime.env.wasm.numThreads = 1;
-    runtime.env.wasm.simd = true;
-  } catch {
-    // Optional runtime flags.
-  }
+  configureWasmRuntime(runtime);
 
   if (session) {
     try {
@@ -443,11 +455,14 @@ function inputPlans(spec, sourceWidth, sourceHeight, targetSide = null) {
     return [{ width: spec.width, height: spec.height, mode: 'metadata-fixed' }];
   }
 
-  const preferred = positiveNumber(targetSide, positiveNumber(cfg.preferredShortSide, 392));
+  const preferred = positiveNumber(targetSide, positiveNumber(cfg.preferredShortSide, 112));
   const plans = [
     adaptiveInputGeometry(sourceWidth, sourceHeight, preferred),
-    // An explicitly configured compatibility target is useful for a custom
-    // dynamic export, but does not replace the official first attempt above.
+    // Do not jump directly from the 112-px fast path to 518 if an unusual export
+    // has a minimum dynamic shape. 196 px is still far cheaper and is tried only
+    // after the fast plan actually fails.
+    adaptiveInputGeometry(sourceWidth, sourceHeight, positiveNumber(cfg.compatibilityShortSide, 196)),
+    // Final dynamic compatibility target for historical/custom exports.
     adaptiveInputGeometry(sourceWidth, sourceHeight, positiveNumber(cfg.inputMaxSide, 518)),
     // Last compatibility fallback for old/static exports whose metadata is not
     // visible in onnxruntime-web.
@@ -629,7 +644,9 @@ async function prepareInput(rgba, width, height, spec, plan, forcedType = null, 
       sourceWidth: srcWidth,
       sourceHeight: srcHeight,
       tensorNchwPreview: tensorRgbPreview(values, targetWidth, targetHeight, 'nchw'),
-      tensorNhwcPreview: tensorRgbPreview(values, targetWidth, targetHeight, 'nhwc'),
+      // V30.21 no longer spends another full raster pass constructing the hidden
+      // intentionally-wrong NHWC forensic image during the timing test.
+      tensorNhwcPreview: null,
       tensorWidth: targetWidth,
       tensorHeight: targetHeight,
     } : null,
@@ -918,7 +935,7 @@ async function importDiagnosticOrt() {
 
 async function runWasmDiagnostic(d, reference) {
   const runtime = await importDiagnosticOrt();
-  try { runtime.env.wasm.numThreads = 1; runtime.env.wasm.simd = true; } catch {}
+  configureWasmRuntime(runtime);
   const modelBytes = sessionModelBytes || await fetchModel(d.model);
   let wasmSession = null;
   const started = performance.now();
@@ -1030,34 +1047,19 @@ async function infer(d, { benchmark = false } = {}) {
 
         successfulInputPlan = { ...plan };
 
-        // The explicit pre-scan test is also a warm benchmark.  WebGPU often
-        // pays graph/shader compilation on the first session.run().  Repeating
-        // the SAME shape/type gives the number that matters during Scan.
-        if (benchmark) {
-          const warmPrepared = await prepareInput(d.rgba, d.width, d.height, spec, successfulInputPlan, first.inputType, ort, false);
-          const warm = await runPrepared(spec, warmPrepared);
-          return {
-            ...warm,
-            sessionMs,
-            sessionLoadMs: lastSessionLoadMs,
-            coldRunMs: first.runMs,
-            coldSteadyMs: first.steadyMs,
-            inputRasterDiagnostic: first.inputRasterDiagnostic || null,
-            contractFallback: !!spec.contractFallback,
-            benchmarkWarm: true,
-            frameSignature,
-            depthSignature: sampledFloatSignature(warm.rawDepth, warm.width, warm.height),
-          };
-        }
-
+        // The V30.20 test executed the model twice here (cold + warm), then a
+        // third time for flip-equivariance. On a 10 s phone this alone explained
+        // the >30 s diagnostic. V30.21 keeps the first successful inference and
+        // reports it directly; the same warm session is then reused by Scan.
         return {
           ...first,
           sessionMs,
           sessionLoadMs: lastSessionLoadMs,
-          coldRunMs: null,
-          coldSteadyMs: null,
+          coldRunMs: benchmark ? first.runMs : null,
+          coldSteadyMs: benchmark ? first.steadyMs : null,
           contractFallback: !!spec.contractFallback,
           benchmarkWarm: false,
+          testSinglePass: !!benchmark,
           frameSignature,
           depthSignature: sampledFloatSignature(first.rawDepth, first.width, first.height),
         };
@@ -1100,6 +1102,7 @@ async function handleWorkerMessage(d) {
     cfg = { ...cfg, ...(d.config || {}) };
     // The page forwards this setting; preserve a safe value for external calls.
     if (Number(d.config?.preferredShortSide) > 0) cfg.preferredShortSide = Number(d.config.preferredShortSide);
+    if (Number(d.config?.compatibilityShortSide) > 0) cfg.compatibilityShortSide = Number(d.config.compatibilityShortSide);
     postMessage({
       type: 'deep-ready',
       provider,
@@ -1177,11 +1180,11 @@ async function handleWorkerMessage(d) {
     }
 
     const raw = await infer(d, { benchmark: d.type === 'test' });
-    // Explicit test: add a horizontal-flip self-consistency check. Normal scan:
-    // validate WebGPU only once, and only create the expensive WASM reference if
-    // the first map already looks spatially incoherent/striped.
+    // Fast test: one inference is enough when the map is healthy. The optional
+    // flip check is disabled by default; WASM is created only when WebGPU already
+    // looks spatially incoherent/striped (or when explicitly requested).
     const diagnostic = d.type === 'test'
-      ? await providerABDiagnostic(d, raw, { flipCheck:true })
+      ? await providerABDiagnostic(d, raw, { flipCheck:cfg.testFlipCheck === true })
       : (provider === 'webgpu' && !providerValidated
         ? await providerABDiagnostic(d, raw, { flipCheck:false })
         : null);
@@ -1220,6 +1223,7 @@ async function handleWorkerMessage(d) {
       depthSignature: finalDepthSignature,
       contractFallback: !!raw.contractFallback,
       benchmarkWarm: !!raw.benchmarkWarm,
+      testSinglePass: !!raw.testSinglePass,
       preprocessMs: raw.preprocessMs,
       runMs: useSafeWasm ? diagnostic.wasm?.ms : raw.runMs,
       outputMs: raw.outputMs,

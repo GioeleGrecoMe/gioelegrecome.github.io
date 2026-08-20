@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.20.0 local-ONNX Alva mapping application.
+ * Room Scanner V30.21.0 ultra-low-budget local-ONNX Alva mapping application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,8 +8,8 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.20.0';
-import {DiagnosticsLog} from './logger.js?v=30.20.0';
+import {BUILD,CONFIG} from './config.js?v=30.21.0';
+import {DiagnosticsLog} from './logger.js?v=30.21.0';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
@@ -35,13 +35,22 @@ function calibration(){try{const x=JSON.parse(localStorage.getItem(CONFIG.calibr
 function saveCalibration(c){localStorage.setItem(CONFIG.calibrationStorageKey,JSON.stringify({format:'ROOMSCAN-V30-CALIBRATION-PROFILE-1',savedAt:Date.now(),build:BUILD.id,calibration:c}));updateCalibrationUi();}
 function defaultDeepModel(){return {id:'bundled-depth-anything-v2-small-q4',label:CONFIG.deepModelLabel||'Depth Anything V2 Small Q4 locale',url:new URL(`../${CONFIG.deepModelUrl}`,import.meta.url).href};}
 function selectedDeepModel(){return state.deepModel||defaultDeepModel();}
-function deepWorkerConfig(){return {modelUrl:selectedDeepModel().url||CONFIG.deepModelUrl,modelRemoteUrl:CONFIG.deepModelRemoteUrl||null,ortLocal:CONFIG.deepOrtLocal,ortRemote:CONFIG.deepOrtRemote,inputMaxSide:CONFIG.deepInputMaxSide||518,preferredShortSide:CONFIG.deepPreferredShortSide||392};}
+function deepWorkerConfig(){return {modelUrl:selectedDeepModel().url||CONFIG.deepModelUrl,modelRemoteUrl:CONFIG.deepModelRemoteUrl||null,ortLocal:CONFIG.deepOrtLocal,ortRemote:CONFIG.deepOrtRemote,inputMaxSide:CONFIG.deepInputMaxSide||518,preferredShortSide:CONFIG.deepPreferredShortSide||112,compatibilityShortSide:CONFIG.deepCompatibilityShortSide||196,wasmNumThreads:Number.isFinite(CONFIG.deepWasmThreads)?CONFIG.deepWasmThreads:0,testFlipCheck:CONFIG.deepTestFlipCheck===true};}
 function updateDeepModelUi(message=null,kind=''){const el=$('deepModelStatus');if(!el)return;el.dataset.kind=kind;el.textContent=message||`Modello: ${selectedDeepModel().label}.`;}
 function modelForWorker(){const m=selectedDeepModel();return m.bytes?(state.deepWorkerModelId===m.id?{id:m.id,label:m.label}:{id:m.id,label:m.label,bytes:m.bytes.slice(0)}):{id:m.id,label:m.label,url:m.url};}
 function ensureDeepWorker(){if(state.deepDepthWorker)return state.deepDepthWorker;const worker=new Worker(`${CONFIG.deepDepthWorker}?v=${BUILD.version}`,{type:'module'});state.deepDepthWorker=worker;state.deepWorkerModelId=null;worker.postMessage({type:'init',config:deepWorkerConfig()});return worker;}
 function heatColor(t){const x=Math.max(0,Math.min(1,t)),r=Math.round(255*Math.max(0,Math.min(1,1.8-Math.abs(4*x-3)))),g=Math.round(255*Math.max(0,Math.min(1,1.8-Math.abs(4*x-2)))),b=Math.round(255*Math.max(0,Math.min(1,1.8-Math.abs(4*x-1))));return [r,g,b];}
 function drawDepth(canvas,raw,width,height){if(!canvas||!raw?.length||!(width>1&&height>1))return;const values=[];for(const v of raw)if(Number.isFinite(v))values.push(v);if(values.length<8)return;values.sort((a,b)=>a-b);const lo=values[Math.floor(values.length*.03)],hi=values[Math.floor(values.length*.97)];if(!(hi>lo))return;const rect=canvas.getBoundingClientRect(),dpr=Math.min(2,globalThis.devicePixelRatio||1),cw=Math.max(1,Math.round(rect.width*dpr)||width),ch=Math.max(1,Math.round(rect.height*dpr)||height);if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch;}const tiny=document.createElement('canvas');tiny.width=width;tiny.height=height;const tg=tiny.getContext('2d'),image=tg.createImageData(width,height);for(let i=0;i<raw.length&&i<width*height;i++){const c=heatColor((raw[i]-lo)/(hi-lo)),j=i*4;image.data[j]=c[0];image.data[j+1]=c[1];image.data[j+2]=c[2];image.data[j+3]=Number.isFinite(raw[i])?220:0;}tg.putImageData(image,0,0);const g=canvas.getContext('2d');g.clearRect(0,0,cw,ch);g.imageSmoothingEnabled=true;g.drawImage(tiny,0,0,cw,ch);}
-async function captureDepthTestFrame(){const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:640},height:{ideal:480},frameRate:{ideal:12,max:15}}}),video=document.createElement('video');video.muted=true;video.playsInline=true;video.srcObject=stream;try{await video.play();const until=performance.now()+2200;while(!(video.videoWidth>1&&video.videoHeight>1)&&performance.now()<until)await new Promise(resolve=>setTimeout(resolve,40));if(!(video.videoWidth>1&&video.videoHeight>1))throw new Error('la camera non ha fornito un fotogramma per il test');const w=video.videoWidth,h=video.videoHeight,canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const g=canvas.getContext('2d',{willReadFrequently:true});g.drawImage(video,0,0,w,h);const image=g.getImageData(0,0,w,h);return {rgba:image.data,width:w,height:h};}finally{video.pause();video.srcObject=null;for(const t of stream.getTracks())try{t.stop()}catch{}}}
+async function captureDepthTestFrame(){
+  const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:640},height:{ideal:480},frameRate:{ideal:12,max:15}}}),video=document.createElement('video');video.muted=true;video.playsInline=true;video.srcObject=stream;
+  try{
+    await video.play();const until=performance.now()+2200;while(!(video.videoWidth>1&&video.videoHeight>1)&&performance.now()<until)await new Promise(resolve=>setTimeout(resolve,40));if(!(video.videoWidth>1&&video.videoHeight>1))throw new Error('la camera non ha fornito un fotogramma per il test');
+    // The diagnostic does not need the native sensor raster. Downsample before
+    // getImageData so a 1080p/4K camera cannot spend memory/time copying pixels
+    // that the 112-px neural input would immediately discard anyway.
+    const vw=video.videoWidth,vh=video.videoHeight,maxSide=Math.max(112,CONFIG.deepTestCaptureMaxSide||320),scale=Math.min(1,maxSide/Math.max(vw,vh)),w=Math.max(2,Math.round(vw*scale)),h=Math.max(2,Math.round(vh*scale)),canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const g=canvas.getContext('2d',{willReadFrequently:true});g.drawImage(video,0,0,w,h);const image=g.getImageData(0,0,w,h);return {rgba:image.data,width:w,height:h};
+  }finally{video.pause();video.srcObject=null;for(const t of stream.getTracks())try{t.stop()}catch{}}
+}
 async function testDeepModel(){const button=$('testDeepBtn');if(button)button.disabled=true;updateDeepModelUi('Apro la camera e carico il modello ONNX…');try{const frame=await captureDepthTestFrame(),worker=ensureDeepWorker(),jobId=`test-${Date.now()}`,result=await workerRequest(worker,{type:'test',jobId,model:modelForWorker(),...frame},d=>(d.type==='deep-test-result'||d.type==='deep-error')&&d.jobId===jobId,90000);if(!result)throw new Error('timeout inferenza ONNX (90 s)');if(result.type==='deep-error')throw new Error(result.message||'inferenza ONNX fallita');state.deepWorkerModelId=(result.automaticSafeFallback&&selectedDeepModel().bytes)?null:selectedDeepModel().id;drawDepth($('deepTestPreview'),result.rawDepth,result.rawWidth,result.rawHeight);const total=Number(result.totalMs||result.ms||0),steady=Number(result.ms||0);updateDeepModelUi(`✓ ${selectedDeepModel().label} verificato · ${result.provider} · ${result.rawWidth}×${result.rawHeight} · inferenza ${steady.toFixed(0)} ms · test totale ${total.toFixed(0)} ms`,'ok');log.info('deep-model-test',{model:selectedDeepModel().label,provider:result.provider,ms:result.ms,totalMs:result.totalMs,automaticSafeFallback:!!result.automaticSafeFallback,output:[result.rawWidth,result.rawHeight]});}catch(err){updateDeepModelUi(`Modello non utilizzabile: ${err?.message||err}`,'error');throw err;}finally{if(button)button.disabled=false;}}
 async function chooseDeepModel(file){if(!file)return;const bytes=await file.arrayBuffer();if(bytes.byteLength<1024)throw new Error('file ONNX troppo piccolo');state.deepModel={id:`upload-${file.name}-${file.size}-${file.lastModified}`,label:file.name,bytes};state.deepDepthWorker?.terminate();state.deepDepthWorker=null;updateDeepModelUi(`Modello selezionato: ${file.name} (${(file.size/1048576).toFixed(1)} MB). Premi “Prova inferenza”.`);log.info('deep-model-selected',{name:file.name,bytes:file.size});}
 function metricCalibrationInfo(c=calibration()){const ids=new Set((c?.anchors||[]).filter(a=>a?.realAnchor&&Array.isArray(a?.p)).map(a=>a.objectId));const n=c?.objects?.length||ids.size,geometryValid=!!c&&ids.size>=3&&n>=3,bridgeReady=geometryValid&&c?.visualBridgeReady!==false;return {calibration:c,ids,n,geometryValid,bridgeReady,valid:bridgeReady};}
@@ -155,7 +164,7 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
   if(metric?.alvaTransform)state.slam.setWorldTransform(metric.alvaTransform);
 
   state.liveOverlay=new LiveReconstructionOverlay($('miniMap'),{maxSplats:CONFIG.liveOverlayMaxSplats||4200});state.liveOverlay.setMode('both');
-  state.gaussians=[];state.mesh=null;window.__ROOMSCAN_METRIC_MESH=null;state.denseBusy=false;state.denseJobs=0;state.denseDepthSamples=0;state.denseDepthHint=null;state.densePixelStep=CONFIG.densePixelStep||3;state.denseSourceLimit=Math.min(3,CONFIG.denseMaxSourceViews||4);state.surfaceStats=null;state.geometryAnchors=[];state.deepPending=null;state.deepDisabled=false;state.deepCalls=0;state.deepAccepted=0;
+  state.gaussians=[];state.mesh=null;window.__ROOMSCAN_METRIC_MESH=null;state.denseBusy=false;state.denseJobs=0;state.denseDepthSamples=0;state.denseDepthHint=null;state.densePixelStep=CONFIG.densePixelStep||4;state.denseSourceLimit=Math.min(CONFIG.denseInitialSourceLimit||2,CONFIG.denseMaxSourceViews||4);state.surfaceStats=null;state.geometryAnchors=[];state.deepPending=null;state.deepDisabled=false;state.deepCalls=0;state.deepAccepted=0;
   const metricWorld=!!state.slam.metricLocked;
   state.denseManager=new DenseKeyframeManager({
     width:CONFIG.denseWidth||160,height:CONFIG.denseHeight||240,maxFrames:CONFIG.denseMaxKeyframes||8,

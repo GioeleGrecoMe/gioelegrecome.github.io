@@ -7,8 +7,8 @@ const context={console,performance:{now:()=>0},navigator:{},postMessage(){},self
 vm.createContext(context);vm.runInContext(src,context,{filename:'deep_depth_worker.js'});
 const d=context.__diag;
 function assert(ok,msg){if(!ok)throw new Error(msg);}
-const dptPortrait=d.adaptiveInputGeometry(320,480,392);
-assert(dptPortrait.width===266&&dptPortrait.height===392,'mobile DPT resize must preserve portrait aspect at the 392px target');
+const dptPortrait=d.adaptiveInputGeometry(320,480,112);
+assert(dptPortrait.width===112&&dptPortrait.height===168,'ultra-light DPT resize must preserve portrait aspect at the 112px target');
 const a=new Uint8ClampedArray(4*4*4);for(let i=0;i<a.length;i++)a[i]=(i*17)&255;
 const b=a.slice();b[8]^=127;
 assert(d.sampledByteSignature(a,4,4)!==d.sampledByteSignature(b,4,4),'frame fingerprint must react to changed camera bytes');

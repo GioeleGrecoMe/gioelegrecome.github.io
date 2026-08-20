@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-20-sparse-depth-quality-gate",
+  "name": "room-scanner-v30-21-ultra-low-budget-depth",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,6 @@
     "check:alva": "node tools/check_alvaar_runtime.mjs",
     "vendor:alva": "node tools/vendor_alvaar.mjs"
   },
-  "version": "30.20.0",
-  "description": "V30.20.0: sparse Alva-selected Depth Anything Q4, spatial-noise/WebGPU quality gate, 392px mobile inference, robust Deep-to-Alva calibration, multi-view fusion and TSDF mesh."
+  "version": "30.21.0",
+  "description": "V30.21.0: ultra-low-budget 112px Depth Anything Q4, single-pass diagnostic, automatic WASM threading, Alva metric calibration and reduced-cost multi-view refinement."
 }

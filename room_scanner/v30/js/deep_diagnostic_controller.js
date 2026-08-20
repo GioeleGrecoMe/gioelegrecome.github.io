@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.20.0 - deterministic Depth Anything raster diagnostic.
+ * Room Scanner V30.21.0 - deterministic Depth Anything raster diagnostic.
  *
  * No app.js modification is required. This listener observes the normal
  * deep-test-result and renders the exact camera bytes, the exact NCHW tensor
@@ -82,7 +82,7 @@ function render(d){
       `input: ${d.preprocessBackend||'?'} · output: ${d.outputReadback||'?'} @ ${d.outputLocation||'?'}`,
       `stripe principale: ${ps.orientation||'?'} ratio ${n(ps.ratio,2)}`,
       `coerenza spaziale: ${n(rd.primaryCoherence,2)} (rumore isotropo ≈ 1)` ,
-      `flip-equivariance: corr ${n(pc.correlation,3)} · NRMSE ${n(pc.nrmse,3)}`,
+      pc.comparable ? `flip-equivariance opzionale: corr ${n(pc.correlation,3)} · NRMSE ${n(pc.nrmse,3)}` : 'flip-equivariance: saltata nel test rapido',
       pd.wasm ? `A/B WASM: corr ${n(pd.comparison?.correlation,3)} · coerenza ${n(rd.referenceCoherence,2)} · ${n(pd.wasm?.ms,0)} ms` : `A/B WASM: ${pd.failed?(pd.message||'fallito'):'non necessario'}`,
       `src ${d.frameSignature||'--------'} -> z ${d.depthSignature||'--------'}`,
       '',

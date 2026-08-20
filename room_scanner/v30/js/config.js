@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.20.0 mobile ONNX geometry-prior runtime configuration.
+ * Room Scanner V30.21.0 ultra-low-budget ONNX geometry-prior runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.20.0',
-  id:'v30.20.0-20260820-sparse-depth-quality-gate',
+  version:'30.21.0',
+  id:'v30.21.0-20260820-ultra-low-budget-depth',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -122,7 +122,9 @@ export const CONFIG={
   denseNearM:0.28,
   denseFarM:8.5,
   denseDepthSteps:56,
-  densePixelStep:3,
+  // Start sparse on low-budget devices; the existing runtime can tighten this on fast frames.
+  densePixelStep:4,
+  denseInitialSourceLimit:2,
   denseMaxPhotoCost:0.22,
   denseMinConfidence:0.11,
   denseMinTexture:0.018,
@@ -159,28 +161,42 @@ export const CONFIG={
   deepModelRemoteUrl:null,
   deepModelLabel:'Depth Anything V2 Small Q4 locale',
   deepInferenceIntervalMs:1000,
-  // The upstream DPT processor defaults to 518 px. For this mobile app the
-  // relative map is only a shape prior anchored by Alva and verified again by
-  // multi-view geometry, so 392 (= 28 ViT patches) is a better latency/quality
-  // operating point. Aspect ratio is preserved and both dimensions remain
-  // multiples of 14; custom/fixed-shape ONNX exports still obey their metadata.
-  deepPreferredShortSide:392,
+  // ULTRA-LOW-BUDGET PROFILE. Depth Anything is not the metric reconstruction:
+  // Alva owns pose/scale and the multi-view stage rejects inconsistent geometry.
+  // Therefore the neural map can be intentionally very coarse. 112 px is eight
+  // ViT/14 patches and is the smallest target we allow by default. On the normal
+  // 256x384 analysis frame this becomes 112x168 instead of 266x392: about 82%
+  // fewer input pixels before considering the larger attention/token saving.
+  deepPreferredShortSide:112,
+  // If an unusual dynamic export rejects 112 px, try 196 before paying for the
+  // classic 518-px compatibility path. The bundled Q4 model normally stays at 112.
+  deepCompatibilityShortSide:196,
   deepInputMaxSide:518,
+  // 0 restores ONNX Runtime Web's automatic WASM thread budget. V30.20 forced
+  // one thread, which unnecessarily serialized CPU inference on isolated sites.
+  deepWasmThreads:0,
+  // The explicit test is a single inference on the healthy path. A second WASM
+  // pass is created only when the spatial quality gate suspects corrupt WebGPU.
+  deepTestFlipCheck:false,
+  // Camera diagnostic source is downsampled before getImageData/worker transfer.
+  deepTestCaptureMaxSide:320,
   // No local ORT bundle is currently shipped; avoid a guaranteed initial 404.
   // Add an actual matching ESM file here only for a fully offline deployment.
   deepOrtLocal:null,
   deepOrtRemote:'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.all.min.mjs',
   deepMinAnchors:7,
   deepMinAnchorCells:3,
-  deepMinIntervalMs:2600,
-  deepMaxIntervalMs:8000,
+  // Lower neural duty cycle on very slow phones; Alva tracking remains continuous.
+  deepMinIntervalMs:4000,
+  deepMaxIntervalMs:12000,
   deepMinTranslationM:0.20,
   deepMinTranslationAlva:0.10,
   deepMinRotationRad:0.16,
   deepDepthNovelty:0.22,
   deepCalibrationMaxMedianRelativeError:0.18,
   deepPriorRelRange:0.18,
-  deepPriorDepthSteps:18,
+  // Coarse Deep prior means the local multi-view search can also use fewer hypotheses.
+  deepPriorDepthSteps:10,
   deepPriorWeight:0.10,
   deepPriorMinConfidence:0.28,
   deepPriorMinTexture:0.006,
