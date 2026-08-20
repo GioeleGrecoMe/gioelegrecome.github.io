@@ -13,8 +13,22 @@ test('Depth Anything relative output is robustly calibrated to Alva world depth'
   // Remaining Alva descriptor mismatches must not move the scale.
   seeds[2]={...seeds[2],depth:4.8};seeds[9]={...seeds[9],depth:.65};
   const c=calibrateRelativeDepth({rawDepth:raw,rawWidth:w,rawHeight:h,outWidth:w,outHeight:h,sparseSeeds:seeds,near:.5,far:6,minAnchors:7,minCells:3,maxMedianRelativeError:.18});
-  assert.equal(c.ok,true,c.reason);assert.equal(c.mode,'inverse');assert.ok(c.inlierRatio>.8,`inliers ${c.inlierRatio}`);assert.ok(c.medianRelativeError<.025,`rel error ${c.medianRelativeError}`);
+  assert.equal(c.ok,true,c.reason);assert.equal(c.mode,'inverse-raw');assert.ok(c.inlierRatio>.8,`inliers ${c.inlierRatio}`);assert.ok(c.medianRelativeError<.025,`rel error ${c.medianRelativeError}`);
   const probes=[[20,15],[50,31],[68,46]];for(const [x,y] of probes){const i=y*w+x;assert.ok(Math.abs(c.depth[i]-truth[i])<.06,`${x},${y}: ${c.depth[i]} vs ${truth[i]}`);}
+});
+
+test('Depth Anything disparity-like output is mapped into the Alva common scale',()=>{
+  const w=84,h=56,raw=new Float32Array(w*h),truth=new Float32Array(w*h);
+  // Synthetic disparity convention: 1/z = a*raw + b. This is the projective
+  // relation that the previous direct/inverse-raw-only fit could not represent
+  // exactly over a wide room-depth interval.
+  const a=.42,b=.075;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const z=1.1+.023*x+.010*y,i=y*w+x;truth[i]=z;raw[i]=(1/z-b)/a;}
+  const seeds=[];for(let y=5;y<h-4;y+=8)for(let x=6;x<w-5;x+=10){const i=y*w+x;seeds.push({u:x,v:y,depth:truth[i],confidence:.95});}
+  seeds[3]={...seeds[3],depth:4.7};
+  const c=calibrateRelativeDepth({rawDepth:raw,rawWidth:w,rawHeight:h,outWidth:w,outHeight:h,sparseSeeds:seeds,near:.5,far:6,minAnchors:7,minCells:3,maxMedianRelativeError:.18});
+  assert.equal(c.ok,true,c.reason);assert.equal(c.mode,'inverse-depth');assert.ok(c.medianRelativeError<.012,`rel error ${c.medianRelativeError}`);
+  for(const [x,y] of [[12,10],[43,28],[75,48]]){const i=y*w+x;assert.ok(Math.abs(c.depth[i]-truth[i])<.035,`${x},${y}: ${c.depth[i]} vs ${truth[i]}`);}
 });
 
 test('sparse AI selector skips duplicate photos and requests a new spatial context',()=>{

@@ -1,9 +1,9 @@
-V30.19.0 INTERNAL CHECKS
+V30.20.0 INTERNAL CHECKS
 
 PASS npm run verify
 PASS 77 test di contratto applicativo
 PASS sintassi di app, bootstrap, worker e service worker
-PASS identita' coerente: HTML, BUILD, build_info, manifest e worker 30.19.0
+PASS identita' coerente: HTML, BUILD, build_info, manifest e worker 30.20.0
 PASS modello locale configurato: models/model_q4.onnx
 PASS output ONNX letto dal primo piano HxW row-major con getData(false)
 PASS rivelatore automatico delle colonne e packing RGB/NCHW manuale

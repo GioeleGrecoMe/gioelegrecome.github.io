@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.19.0 mobile ONNX geometry-prior runtime configuration.
+ * Room Scanner V30.20.0 mobile ONNX geometry-prior runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.19.0',
-  id:'v30.19.0-20260820-manual-nchw-dpt-processor',
+  version:'30.20.0',
+  id:'v30.20.0-20260820-sparse-depth-quality-gate',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -159,10 +159,12 @@ export const CONFIG={
   deepModelRemoteUrl:null,
   deepModelLabel:'Depth Anything V2 Small Q4 locale',
   deepInferenceIntervalMs:1000,
-  // Official Depth Anything V2 Small processor size. The dynamically-shaped
-  // ONNX graph keeps the camera aspect ratio and rounds both sides to 14 px
-  // ViT patches; 518 is therefore a processor target, not a forced square.
-  deepPreferredShortSide:518,
+  // The upstream DPT processor defaults to 518 px. For this mobile app the
+  // relative map is only a shape prior anchored by Alva and verified again by
+  // multi-view geometry, so 392 (= 28 ViT patches) is a better latency/quality
+  // operating point. Aspect ratio is preserved and both dimensions remain
+  // multiples of 14; custom/fixed-shape ONNX exports still obey their metadata.
+  deepPreferredShortSide:392,
   deepInputMaxSide:518,
   // No local ORT bundle is currently shipped; avoid a guaranteed initial 404.
   // Add an actual matching ESM file here only for a fully offline deployment.

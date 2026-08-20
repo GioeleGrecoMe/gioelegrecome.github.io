@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.19.0 service worker.
+ * Room Scanner V30.20.0 service worker.
  *
  * The shell is deliberately network-first. An earlier cache-first strategy
  * ignored query strings, so app.js?v=old could be served together with
@@ -7,13 +7,13 @@
  * different builds. Offline fallback remains available, but it is never used
  * while the network responds.
  */
-const VERSION = '30.19.0';
+const VERSION = '30.20.0';
 const CACHE = `room-scanner-v30.${VERSION}-shell`;
 const ENTRY = './room_scanner_v30.html';
 
 const SHELL = [
   './', './index.html', ENTRY, './styles.css', './manifest.webmanifest', './icon.svg', './build_info.json',
-  './js/boot.js', './js/app.js', './js/deep_live_controller.js', './js/deep_diagnostic_controller.js', './js/config.js', './js/logger.js', './js/camera.js', './js/formats.js', './js/self_test.js', './js/storage/db.js',
+  './js/boot.js', './js/app.js', './js/deep_diagnostic_controller.js', './js/config.js', './js/logger.js', './js/camera.js', './js/formats.js', './js/self_test.js', './js/storage/db.js',
   './js/slam/math.js', './js/slam/alva_runtime_loader.js', './js/slam/wasm_frontend.js', './js/slam/slam_engine.js', './js/slam/alva_metric_bootstrap.js', './js/dense/keyframe_manager.js', './js/dense/deep_keyframe_selector.js', './js/dense/deep_metric.js', './js/dense/sparse_depth_anchors.js', './js/dense/plane_sweep_core.js', './js/dense/fusion_core.js', './js/metric/pnp_pose.js', './js/xr/xr_calibration.js', './js/xr/measurement_guidance.js', './js/xr/metric_bridge.js',
   './js/metric/metric_geometry.js', './js/metric/gaussian_metric_tap.js', './js/metric/metric_mesh_ui.js', './js/gaussian/renderer.js', './js/gaussian/ar_overlay.js',
   './workers/metric_mesh_worker.js', './workers/gaussian_worker.js', './workers/mvs_worker.js', './workers/deep_depth_worker.js', './workers/dense_depth_worker.js', './workers/dense_fusion_worker.js', './wasm/slam_core.wasm'

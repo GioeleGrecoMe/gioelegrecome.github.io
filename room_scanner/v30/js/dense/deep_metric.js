@@ -8,9 +8,11 @@
  * Alva-tracked features provide the scale/offset in the current Alva world
  * (metres when the one-shot metric bootstrap is locked, Alva units otherwise).
  *
- * The model output has changed conventions across runtimes, so we fit both a
- * direct raw-depth relation and an inverse-raw relation, robustly reject sparse
- * anchor outliers, then keep the model with the lower median metric residual.
+ * The model output has changed conventions across runtimes, so we test three
+ * low-cost monotonic calibrations: metric depth affine in raw output, metric
+ * depth affine in 1/raw, and (important for disparity-like networks) inverse
+ * metric depth affine in raw output. Sparse Alva anchors reject outliers and
+ * select the calibration with the lowest median metric residual.
  */
 const EPS=1e-8;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -28,7 +30,11 @@ export function calibrateRelativeDepth({rawDepth,rawWidth,rawHeight,outWidth,out
   const cells=countCoverageCells(pairs,outWidth,outHeight,4,6);
   if(cells<minCells)return {ok:false,reason:'anchors-too-clustered',anchorCount:pairs.length,cells};
 
-  const candidates=[fitRobustAffine(pairs,p=>p.raw,'direct'),fitRobustAffine(pairs,p=>1/Math.max(EPS,Math.abs(p.raw)),'inverse')].filter(Boolean);
+  const candidates=[
+    fitRobustAffine(pairs,p=>p.raw,'direct'),
+    fitRobustAffine(pairs,p=>1/Math.max(EPS,Math.abs(p.raw)),'inverse-raw'),
+    fitRobustInverseDepth(pairs),
+  ].filter(Boolean);
   if(!candidates.length)return {ok:false,reason:'fit-failed',anchorCount:pairs.length,cells};
   candidates.sort((a,b)=>a.medianRelativeError-b.medianRelativeError||b.inlierRatio-a.inlierRatio);
   const fit=candidates[0];
@@ -39,7 +45,7 @@ export function calibrateRelativeDepth({rawDepth,rawWidth,rawHeight,outWidth,out
   for(let y=0;y<outHeight;y++)for(let x=0;x<outWidth;x++){
     const rx=(x/(outWidth-1))*(rawWidth-1),ry=(y/(outHeight-1))*(rawHeight-1),r=bilinear(rawDepth,rawWidth,rawHeight,rx,ry);
     if(!Number.isFinite(r)||Math.abs(r)<EPS)continue;
-    const feature=fit.mode==='inverse'?1/Math.max(EPS,Math.abs(r)):r,z=fit.a*feature+fit.b;
+    const z=predictMetricDepth(fit,r);
     if(!Number.isFinite(z)||z<=0||z<near||z>far)continue;depth[y*outWidth+x]=z;valid++;
   }
   const validRatio=valid/Math.max(1,depth.length);
@@ -67,6 +73,33 @@ function fitRobustAffine(pairs,feature,mode){
   const depthMed=median(pairs.map(p=>p.depth)),threshold=Math.max(depthMed*.035,median(allResiduals)+3*Math.max(median(allResiduals.map(r=>Math.abs(r-median(allResiduals)))),depthMed*.004));
   const inliers=allResiduals.filter(r=>r<=threshold).length;
   return {mode,a:fit.a,b:fit.b,inliers,inlierRatio:inliers/pairs.length,medianError:median(allResiduals),medianRelativeError:median(rel)};
+}
+function fitRobustInverseDepth(pairs){
+  // Many relative-depth networks are better described as disparity predictors:
+  //     1 / z_metric = a * raw + b
+  // Fitting z directly to raw (or 1/raw) can look acceptable at the sparse
+  // anchors yet curve incorrectly between them. This third candidate preserves
+  // the correct projective shape while Alva supplies the common scale/offset.
+  let active=pairs.map((p,i)=>({p,i,x:p.raw,y:1/Math.max(EPS,p.depth),w:p.confidence})).filter(o=>Number.isFinite(o.x+o.y)&&o.y>0);
+  if(active.length<4)return null;let fit=weightedLeastSquares(active);if(!fit)return null;
+  for(let pass=0;pass<3;pass++){
+    const scored=active.map(o=>({o,r:metricResidualFromInverseFit(fit,o.p)})).filter(s=>Number.isFinite(s.r));
+    if(scored.length<4)return null;
+    const residuals=scored.map(s=>s.r),med=median(residuals),mad=median(residuals.map(r=>Math.abs(r-med))),depthMed=median(scored.map(s=>s.o.p.depth));
+    const threshold=Math.max(depthMed*.025,med+2.8*Math.max(mad,depthMed*.004));
+    const kept=scored.filter(s=>s.r<=threshold).map(s=>s.o);if(kept.length<4||kept.length===active.length)break;active=kept;fit=weightedLeastSquares(active);if(!fit)return null;
+  }
+  const allResiduals=pairs.map(p=>metricResidualFromInverseFit(fit,p)),rel=pairs.map((p,i)=>allResiduals[i]/Math.max(.05,p.depth));
+  const finiteResiduals=allResiduals.filter(Number.isFinite);if(finiteResiduals.length<4)return null;
+  const depthMed=median(pairs.map(p=>p.depth)),med=median(finiteResiduals),threshold=Math.max(depthMed*.035,med+3*Math.max(median(finiteResiduals.map(r=>Math.abs(r-med))),depthMed*.004));
+  const inliers=allResiduals.filter(r=>Number.isFinite(r)&&r<=threshold).length;
+  return {mode:'inverse-depth',a:fit.a,b:fit.b,inliers,inlierRatio:inliers/pairs.length,medianError:median(allResiduals),medianRelativeError:median(rel)};
+}
+function metricResidualFromInverseFit(fit,p){const z=predictMetricDepth({mode:'inverse-depth',a:fit.a,b:fit.b},p.raw);return Number.isFinite(z)?Math.abs(z-p.depth):Infinity;}
+function predictMetricDepth(fit,raw){
+  if(fit.mode==='inverse-raw')return fit.a*(1/Math.max(EPS,Math.abs(raw)))+fit.b;
+  if(fit.mode==='inverse-depth'){const inv=fit.a*raw+fit.b;return inv>EPS?1/inv:NaN;}
+  return fit.a*raw+fit.b;
 }
 function weightedLeastSquares(a){let sw=0,sx=0,sy=0,sxx=0,sxy=0;for(const o of a){const w=o.w||1;sw+=w;sx+=w*o.x;sy+=w*o.y;sxx+=w*o.x*o.x;sxy+=w*o.x*o.y;}const den=sw*sxx-sx*sx;if(Math.abs(den)<EPS)return null;const aa=(sw*sxy-sx*sy)/den,bb=(sy-aa*sx)/sw;return Number.isFinite(aa+bb)?{a:aa,b:bb}:null;}
 function median(a){if(!a.length)return Infinity;const b=a.slice().sort((x,y)=>x-y),m=b.length>>1;return b.length%2?b[m]:(b[m-1]+b[m])*.5;}

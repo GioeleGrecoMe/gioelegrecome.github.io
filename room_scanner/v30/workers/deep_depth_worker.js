@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.19.0 - authoritative WebGPU readback Depth Anything worker.
+ * Room Scanner V30.20.0 - authoritative WebGPU readback Depth Anything worker.
  *
  * GPU READBACK + AUTHORITATIVE DEPTH LAYOUT + Q4 DEFAULT
  * -------------------------
@@ -12,10 +12,11 @@
  *      source: RGBA RGBA RGBA ... (row-major, interleaved)
  *      tensor: RRR... GGG... BBB... (NCHW, planar)
  *
- * 2) Dynamic Depth Anything inputs use the shipped DPT processor contract:
- *    ImageNet RGB normalization, aspect-preserving resize toward 518 px and
- *    dimensions rounded to ViT patches (14).  The input is never stretched
- *    to a square before it is aligned back to Alva pixels.
+ * 2) Dynamic Depth Anything inputs use the DPT processor contract: ImageNet
+ *    RGB normalization, aspect-preserving resize and dimensions rounded to ViT
+ *    patches (14). Upstream defaults to 518 px; the app may request a smaller
+ *    mobile target (392 px in V30.20) because Alva supplies metric anchors and
+ *    multi-view verification. The input is never stretched to a square.
  *
  * 3) If the ONNX export is fixed-shape, the worker automatically falls back to
  *    the classic 518x518 contract.  A successful plan is cached for all later
@@ -45,9 +46,10 @@ let cfg = {
   // Compatibility ceiling/fallback used by the existing V30 config.
   inputMaxSide: 518,
 
-  // DPTImageProcessor target from the shipped model's preprocessor_config.
-  // This is a target canvas size, not a requirement to create a square tensor.
-  preferredShortSide: 518,
+  // Mobile inference target. Upstream DPT uses 518, but Deep is only a relative
+  // shape prior here: Alva + multi-view own pose/metric geometry. Keeping 392
+  // (28 ViT patches) cuts the raster substantially while preserving patch alignment.
+  preferredShortSide: 392,
   patchSize: 14,
 
   // Used when onnxruntime-web exposes inputNames but not inputMetadata.
@@ -58,6 +60,7 @@ let ort = null;
 let ortSource = '';
 let session = null;
 let sessionKey = '';
+let sessionModelBytes = null;
 let provider = 'unloaded';
 let busy = false;
 
@@ -67,6 +70,11 @@ let successfulInputPlan = null;
 let lastSessionLoadMs = 0;
 let diagnosticOrt = null;
 let forceWasm = false;
+// A WebGPU session is treated as untrusted until either the explicit test or
+// the first geometry inference produces a spatially coherent depth map. This
+// matters because a corrupted Q4 shader can return finite, isotropic "snow"
+// that passes simple NaN/shape/stripe checks.
+let providerValidated = false;
 let queuedPriorityInfer = null;
 let queuedPreviewInfer = null;
 
@@ -333,10 +341,15 @@ async function ensureSession(source) {
     }
     session = null;
     sessionKey = '';
+    sessionModelBytes = null;
   }
 
   successfulInputPlan = null;
   const bytes = await fetchModel(source);
+  // Keep the already-fetched bytes only while the provider is being validated.
+  // If WebGPU looks suspicious, the one-shot WASM reference can reuse these
+  // bytes instead of downloading/reading the 27 MB model a second time.
+  sessionModelBytes = bytes;
   const providerAttempts = forceWasm
     ? [['wasm']]
     : globalThis.navigator?.gpu
@@ -354,6 +367,7 @@ async function ensureSession(source) {
 
       sessionKey = sourceKey;
       provider = executionProviders[0];
+      providerValidated = provider !== 'webgpu';
       lastSessionLoadMs = performance.now() - sessionStarted;
 
       const spec = inputSpec();
@@ -387,6 +401,7 @@ async function ensureSession(source) {
       }
       session = null;
       sessionKey = '';
+      sessionModelBytes = null;
       successfulInputPlan = null;
     }
   }
@@ -420,7 +435,7 @@ function adaptiveInputGeometry(sourceWidth, sourceHeight, shortSide) {
   return { width, height, mode: `dpt-aspect-${target}` };
 }
 
-function inputPlans(spec, sourceWidth, sourceHeight) {
+function inputPlans(spec, sourceWidth, sourceHeight, targetSide = null) {
   if (successfulInputPlan) return [successfulInputPlan];
 
   // If metadata states a concrete spatial shape, obey it exactly.
@@ -428,7 +443,7 @@ function inputPlans(spec, sourceWidth, sourceHeight) {
     return [{ width: spec.width, height: spec.height, mode: 'metadata-fixed' }];
   }
 
-  const preferred = positiveNumber(cfg.preferredShortSide, 518);
+  const preferred = positiveNumber(targetSide, positiveNumber(cfg.preferredShortSide, 392));
   const plans = [
     adaptiveInputGeometry(sourceWidth, sourceHeight, preferred),
     // An explicitly configured compatibility target is useful for a custom
@@ -669,11 +684,48 @@ function depthSpatialStats(depth, width, height) {
   }
   const meanDx = nx ? dx / nx : 0;
   const meanDy = ny ? dy / ny : 0;
+
+  // Compare local variation with deterministic long-range variation. A real
+  // monocular depth map is piecewise smooth: nearby pixels normally differ
+  // much less than pixels sampled far apart in the image. White/noisy output
+  // has almost the same difference at both distances, so this ratio tends to 1.
+  // This catches the isotropic "confetti" failure that a stripe-only detector
+  // cannot see.
+  let farDiff = 0, farPairs = 0;
+  const sampleCount = Math.min(1024, Math.max(1, width * height));
+  for (let k = 0; k < sampleCount; k++) {
+    const i = Math.min(width * height - 1, Math.floor(k * (width * height - 1) / Math.max(1, sampleCount - 1)));
+    const x = i % width, y = Math.floor(i / width);
+    const x2 = (x + Math.max(1, Math.floor(width * 0.37))) % width;
+    const y2 = (y + Math.max(1, Math.floor(height * 0.41))) % height;
+    const a = depth[i], b = depth[y2 * width + x2];
+    if (Number.isFinite(a) && Number.isFinite(b)) { farDiff += Math.abs(a - b); farPairs++; }
+  }
+  const meanNeighborDiff = (nx + ny) ? (dx + dy) / (nx + ny) : 0;
+  const meanFarDiff = farPairs ? farDiff / farPairs : 0;
+  const coherenceRatio = meanFarDiff / Math.max(1e-12, meanNeighborDiff);
   return {
     finiteRatio: depth.length ? finite / depth.length : 0,
     meanDx,
     meanDy,
     directionalRatio: Math.max(meanDx, meanDy) / Math.max(1e-12, Math.min(meanDx, meanDy)),
+    meanNeighborDiff,
+    meanFarDiff,
+    coherenceRatio,
+  };
+}
+
+function depthQualityDiagnosis(spatialStats) {
+  const stripe = stripeDiagnosis(spatialStats);
+  const coherenceRatio = Number(spatialStats?.coherenceRatio);
+  // Values near one mean "adjacent pixels are as unrelated as distant pixels".
+  // Keep the threshold conservative: the fallback is only a one-time A/B check.
+  const incoherent = !Number.isFinite(coherenceRatio) || coherenceRatio < 1.28;
+  return {
+    stripe,
+    coherenceRatio,
+    incoherent,
+    suspicious: stripe.suspicious || incoherent,
   };
 }
 
@@ -763,7 +815,7 @@ async function runPrepared(spec, prepared, activeSession = session) {
       steadyMs: prepared.preprocessMs + runMs + outputMs,
     };
   } finally {
-    // WebGPU tensors otherwise accumulate across the 1 Hz live loop.
+    // WebGPU tensors otherwise accumulate across repeated selected-keyframe runs.
     try { prepared.tensor?.dispose?.(); } catch {}
     for (const tensor of Object.values(result || {})) {
       try { tensor?.dispose?.(); } catch {}
@@ -800,6 +852,44 @@ function compareDepthMaps(a, b) {
   return { comparable: true, correlation, nrmse: Math.sqrt(se / n) / scale, samples: n };
 }
 
+function flipRgbaHorizontal(rgba, width, height) {
+  const src = rgba instanceof Uint8ClampedArray ? rgba : new Uint8ClampedArray(rgba);
+  const out = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const si = (y * width + x) * 4;
+      const di = (y * width + (width - 1 - x)) * 4;
+      out[di] = src[si]; out[di + 1] = src[si + 1]; out[di + 2] = src[si + 2]; out[di + 3] = src[si + 3];
+    }
+  }
+  return out;
+}
+
+function flipDepthHorizontal(depth, width, height) {
+  const out = new Float32Array(width * height);
+  for (let y = 0; y < height; y++) {
+    const row = y * width;
+    for (let x = 0; x < width; x++) out[row + (width - 1 - x)] = Number(depth[row + x]);
+  }
+  return out;
+}
+
+async function runFlipDiagnostic(d, reference) {
+  const spec = inputSpec();
+  const rgba = flipRgbaHorizontal(d.rgba, d.width, d.height);
+  const prepared = await prepareInput(rgba, d.width, d.height, spec, reference.inputPlan, reference.inputType || spec.type, ort, false);
+  const flipped = await runPrepared(spec, prepared);
+  if (flipped.width !== reference.width || flipped.height !== reference.height) {
+    return { comparable:false, reason:'shape-mismatch', reference:[reference.width,reference.height], flipped:[flipped.width,flipped.height] };
+  }
+  const restored = flipDepthHorizontal(flipped.rawDepth, flipped.width, flipped.height);
+  return {
+    ...compareDepthMaps(reference.rawDepth, restored),
+    ms: flipped.steadyMs,
+    depthSignature: sampledFloatSignature(restored, flipped.width, flipped.height),
+  };
+}
+
 function stripeDiagnosis(spatialStats) {
   const dx = Number(spatialStats?.meanDx) || 0;
   const dy = Number(spatialStats?.meanDy) || 0;
@@ -829,7 +919,7 @@ async function importDiagnosticOrt() {
 async function runWasmDiagnostic(d, reference) {
   const runtime = await importDiagnosticOrt();
   try { runtime.env.wasm.numThreads = 1; runtime.env.wasm.simd = true; } catch {}
-  const modelBytes = await fetchModel(d.model);
+  const modelBytes = sessionModelBytes || await fetchModel(d.model);
   let wasmSession = null;
   const started = performance.now();
   try {
@@ -837,48 +927,81 @@ async function runWasmDiagnostic(d, reference) {
     const loadMs = performance.now() - started;
     const spec = inputSpec(wasmSession);
     const plan = reference.inputPlan;
-    const preparedCold = await prepareInput(d.rgba, d.width, d.height, spec, plan, reference.inputType || spec.type, runtime);
-    const cold = await runPrepared(spec, preparedCold, wasmSession);
-    const preparedWarm = await prepareInput(d.rgba, d.width, d.height, spec, plan, cold.inputType, runtime);
-    const warm = await runPrepared(spec, preparedWarm, wasmSession);
-    return { ...warm, loadMs, coldRunMs: cold.runMs, summary: finiteSummary(warm.rawDepth), stripe: stripeDiagnosis(warm.spatialStats) };
+    // One run is enough for a correctness reference. V30.19 performed two WASM
+    // passes even though this branch exists only to decide whether WebGPU is
+    // trustworthy, doubling the worst-case phone diagnostic time.
+    const prepared = await prepareInput(d.rgba, d.width, d.height, spec, plan, reference.inputType || spec.type, runtime);
+    const one = await runPrepared(spec, prepared, wasmSession);
+    return { ...one, loadMs, summary: finiteSummary(one.rawDepth), quality: depthQualityDiagnosis(one.spatialStats) };
   } finally {
     try { await wasmSession?.release?.(); } catch {}
   }
 }
 
-async function providerABDiagnostic(d, webgpuResult) {
-  if (provider !== 'webgpu') return { attempted: false, reason: `primary-provider-${provider}` };
-  const webgpuStripe = stripeDiagnosis(webgpuResult.spatialStats);
-  // Q4 is expected to be stable. A second WASM session is expensive on phones,
-  // so run the A/B solver only when the WebGPU map actually shows the column/row
-  // pathology we are debugging.
-  if (!webgpuStripe.suspicious) return { attempted:false, reason:'webgpu-not-striped', webgpu:{ ms:webgpuResult.steadyMs, stripe:webgpuStripe } };
+async function providerABDiagnostic(d, webgpuResult, { flipCheck = false } = {}) {
+  if (provider !== 'webgpu') {
+    providerValidated = true;
+    sessionModelBytes = null;
+    return { attempted: false, reason: `primary-provider-${provider}` };
+  }
+  const webgpuQuality = depthQualityDiagnosis(webgpuResult.spatialStats);
+  let flipComparison = null;
+  if (flipCheck) {
+    try { flipComparison = await runFlipDiagnostic(d, webgpuResult); }
+    catch (err) { flipComparison = { comparable:false, error:err?.message || String(err) }; }
+  }
+  const flipSuspicious = !!(flipComparison?.comparable && Number(flipComparison.correlation) < 0.78);
+  const primarySuspicious = webgpuQuality.suspicious || flipSuspicious;
+
+  // Healthy maps stay on WebGPU without creating a second runtime/session.
+  if (!primarySuspicious) {
+    providerValidated = true;
+    sessionModelBytes = null;
+    return {
+      attempted:false,
+      reason:'webgpu-quality-ok',
+      rasterDiagnosis:{ verdict:'webgpu-structured', primaryStripe:webgpuQuality.stripe, primaryCoherence:webgpuQuality.coherenceRatio },
+      flipComparison,
+      webgpu:{ ms:webgpuResult.steadyMs, stripe:webgpuQuality.stripe, coherenceRatio:webgpuQuality.coherenceRatio },
+    };
+  }
   try {
     const wasm = await runWasmDiagnostic(d, webgpuResult);
-    const wasmStripe = wasm.stripe;
     const comparison = compareDepthMaps(webgpuResult.rawDepth, wasm.rawDepth);
-    const gpuMuchMoreStriped = webgpuStripe.suspicious && webgpuStripe.ratio > Math.max(4, wasmStripe.ratio * 1.8);
+    const wasmQuality = wasm.quality || depthQualityDiagnosis(wasm.spatialStats);
     const providerMismatch = comparison.comparable && (comparison.correlation < 0.90 || comparison.nrmse > 0.75);
-    const webgpuLikelyCorrupt = gpuMuchMoreStriped && providerMismatch && !wasmStripe.suspicious;
+    const webgpuLikelyCorrupt = primarySuspicious && providerMismatch && !wasmQuality.suspicious;
     if (webgpuLikelyCorrupt) {
       forceWasm = true;
+      providerValidated = true;
       try { await session?.release?.(); } catch {}
       session = null; sessionKey = ''; successfulInputPlan = null;
-      postMessage({ type:'deep-diag', level:'warn', event:'webgpu-disabled', message:'Q4 WebGPU incoerente rispetto a WASM: uso WASM sicuro nelle inferenze successive.' });
+      postMessage({ type:'deep-diag', level:'warn', event:'webgpu-disabled', message:'Q4 WebGPU incoerente/rumoroso rispetto a WASM: uso WASM sicuro nelle inferenze successive.' });
+    } else {
+      providerValidated = true;
     }
+    sessionModelBytes = null;
     return {
       attempted: true,
       webgpuLikelyCorrupt,
       recommendation: webgpuLikelyCorrupt ? 'use-wasm-safe-fallback' : 'keep-current-provider',
-      webgpu: { ms: webgpuResult.steadyMs, summary: finiteSummary(webgpuResult.rawDepth), stripe: webgpuStripe },
-      wasm: { ms: wasm.steadyMs, loadMs: wasm.loadMs, summary: wasm.summary, stripe: wasmStripe, depthSignature: sampledFloatSignature(wasm.rawDepth, wasm.width, wasm.height) },
+      rasterDiagnosis:{
+        verdict:webgpuLikelyCorrupt?'webgpu-corrupt-use-wasm':'provider-difference-not-conclusive',
+        primaryStripe:webgpuQuality.stripe,
+        primaryCoherence:webgpuQuality.coherenceRatio,
+        referenceStripe:wasmQuality.stripe,
+        referenceCoherence:wasmQuality.coherenceRatio,
+      },
+      flipComparison,
+      webgpu: { ms: webgpuResult.steadyMs, summary: finiteSummary(webgpuResult.rawDepth), stripe: webgpuQuality.stripe, coherenceRatio:webgpuQuality.coherenceRatio },
+      wasm: { ms: wasm.steadyMs, loadMs: wasm.loadMs, summary: wasm.summary, stripe: wasmQuality.stripe, coherenceRatio:wasmQuality.coherenceRatio, spatialStats:wasm.spatialStats, depthSignature: sampledFloatSignature(wasm.rawDepth, wasm.width, wasm.height) },
       comparison,
       wasmPreviewDepth: wasm.rawDepth,
       wasmPreviewWidth: wasm.width,
       wasmPreviewHeight: wasm.height,
     };
   } catch (err) {
+    sessionModelBytes = null;
     return { attempted: true, failed: true, message: err?.message || String(err) };
   }
 }
@@ -896,7 +1019,7 @@ async function infer(d, { benchmark = false } = {}) {
 
   const typeCandidates = ['float32'];
 
-  const plans = inputPlans(spec, d.width, d.height);
+  const plans = inputPlans(spec, d.width, d.height, d.targetSide || null);
   const errors = [];
 
   for (const plan of plans) {
@@ -1001,6 +1124,7 @@ async function handleWorkerMessage(d) {
       successfulInputPlan,
       sessionLoadMs: lastSessionLoadMs,
       forceWasm,
+      providerValidated,
       queuedPriority: !!queuedPriorityInfer,
       queuedPreview: !!queuedPreviewInfer,
     });
@@ -1053,7 +1177,14 @@ async function handleWorkerMessage(d) {
     }
 
     const raw = await infer(d, { benchmark: d.type === 'test' });
-    const diagnostic = d.type === 'test' ? await providerABDiagnostic(d, raw) : null;
+    // Explicit test: add a horizontal-flip self-consistency check. Normal scan:
+    // validate WebGPU only once, and only create the expensive WASM reference if
+    // the first map already looks spatially incoherent/striped.
+    const diagnostic = d.type === 'test'
+      ? await providerABDiagnostic(d, raw, { flipCheck:true })
+      : (provider === 'webgpu' && !providerValidated
+        ? await providerABDiagnostic(d, raw, { flipCheck:false })
+        : null);
     const useSafeWasm = !!(diagnostic?.webgpuLikelyCorrupt && diagnostic?.wasmPreviewDepth?.length);
     const finalDepth = useSafeWasm ? diagnostic.wasmPreviewDepth : raw.rawDepth;
     const finalWidth = useSafeWasm ? diagnostic.wasmPreviewWidth : raw.width;
@@ -1080,7 +1211,7 @@ async function handleWorkerMessage(d) {
       outputReadback: raw.outputReadback || null,
       shapeMatchesInput: raw.shapeMatchesInput !== false,
       layoutFix: raw.layoutFix || 'none',
-      spatialStats: useSafeWasm ? diagnostic.wasm?.stripe || raw.spatialStats : raw.spatialStats || null,
+      spatialStats: useSafeWasm ? diagnostic.wasm?.spatialStats || raw.spatialStats : raw.spatialStats || null,
       rasterContract: raw.preprocessBackend || 'RGBA -> RGB/NCHW',
       preprocessBackend: raw.preprocessBackend || null,
       rasterProbe: raw.rasterProbe || null,
@@ -1099,6 +1230,8 @@ async function handleWorkerMessage(d) {
       ms: useSafeWasm ? diagnostic.wasm?.ms : raw.steadyMs,
       totalMs: performance.now() - totalStarted,
       providerDiagnostic: diagnostic ? { ...diagnostic, wasmPreviewDepth: undefined } : null,
+      rasterDiagnosis: diagnostic?.rasterDiagnosis || null,
+      flipComparison: diagnostic?.flipComparison || null,
       automaticSafeFallback: useSafeWasm,
     };
 

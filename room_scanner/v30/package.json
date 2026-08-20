@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-19-local-onnx-depth-overlay",
+  "name": "room-scanner-v30-20-sparse-depth-quality-gate",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,6 @@
     "check:alva": "node tools/check_alvaar_runtime.mjs",
     "vendor:alva": "node tools/vendor_alvaar.mjs"
   },
-  "version": "30.19.0",
-  "description": "V30.19.0: verified manual NCHW DPT preprocessing, local Q4 depth test and 1 Hz overlay, Alva-calibrated multi-view fusion and TSDF mesh."
+  "version": "30.20.0",
+  "description": "V30.20.0: sparse Alva-selected Depth Anything Q4, spatial-noise/WebGPU quality gate, 392px mobile inference, robust Deep-to-Alva calibration, multi-view fusion and TSDF mesh."
 }

@@ -1,4 +1,4 @@
-# Room Scanner V30.19.0
+# Room Scanner V30.20.0
 
 Room Scanner uses **AlvaAR as the autonomous persistent visual SLAM tracker**.
 Calibration is optional and only fixes a one-shot metric transform. It never
@@ -15,10 +15,10 @@ camera -> AlvaAR pose/world tracking
               +--> local ONNX Depth Anything V2
               |             |
               |             v
-              |  pre-scan inference test + 1 Hz live depth overlay
+              |  quality gate + selected Alva keyframes only
               |             |
               |             v
-              |    robust Alva-depth calibration
+              |    robust Deep -> Alva calibration
               |             |
               +-------------+
               |
@@ -53,13 +53,14 @@ Textureless areas are rejected rather than hallucinated.
 
 Alva runs at 256×384 / 8 fps from a low-resolution 640×480 camera stream. Dense
 reconstruction remains in workers and keeps at most 8 downsampled 160×240
-keyframes. Depth inference is separately rate-limited to one image per second;
-if an inference takes longer, frames are dropped rather than queued. Sparse
-surfel/TSDF maps retain hard memory caps.
+keyframes. Depth Anything has no free-running preview clock: it is requested
+only after a keyframe has enough triangulated Alva anchors and contributes new
+position/view/depth context (2.6 s minimum selector interval, 8 s forced refresh
+ceiling). Sparse surfel/TSDF maps retain hard memory caps.
 
 ## Depth Anything
 
-V30.19.0 reads the supplied local file
+V30.20.0 reads the supplied local file
 `models/model_q4.onnx` directly with ONNX Runtime Web; it
 does not silently download/replace it with a Transformers.js model. On the home
 screen, choose an alternative `.onnx` file if needed, then press **Prova
@@ -79,12 +80,23 @@ The camera path deliberately performs the resize and RGB/NCHW packing itself.
 `Tensor.fromImage(ImageData)` is not used: with resize dimensions it can crop
 the ImageData buffer instead of resampling it. The local Q4 graph is dynamic,
 so the worker follows the model's DPT processor contract (ImageNet
-normalization, 518 px aspect-preserving target, 14 px patch multiples) and
-reads the first `[batch, height, width]` output plane row-major.
+normalization, aspect-preserving resize, 14 px patch multiples) but overrides
+the upstream 518 px default with a 392 px mobile target. In portrait this is
+typically about 266×392 instead of 350×518, reducing the neural raster by about
+42% while Alva anchors and multi-view verification retain geometric authority.
+The first `[batch, height, width]` output plane is read row-major.
 
-Raw AI depth is **not metric and is never fused directly**. It is first shown as
-the color overlay, then robustly calibrated against reprojection-verified Alva
-triangulated depths and accepted only after multi-view plane sweep verification.
+Finite output is not automatically considered valid. A spatial-coherence test
+detects isotropic "snow" maps (adjacent pixels as unrelated as distant pixels),
+and the explicit pre-scan test also checks horizontal-flip equivariance. If a
+suspicious WebGPU Q4 result disagrees with a structured one-shot WASM reference,
+the worker disables WebGPU for that session and uses the safe WASM result.
+
+Raw AI depth is **not metric and is never fused directly**. The color overlay is
+now the same selected-keyframe result used by the geometry path. It is robustly
+calibrated against reprojection-verified Alva triangulated depths using direct,
+inverse-raw and disparity-like inverse-metric-depth fits, then accepted only
+after multi-view plane-sweep verification.
 This is what allows the resulting surfels, TSDF mesh and Gaussian display to
 benefit from AI without creating a camera-facing monocular sheet.
 
@@ -107,6 +119,7 @@ npm run verify
 For a browser/WebGPU regression without requesting camera access, open
 `test/browser/depth-stock-harness.html` from a local static server. It runs the
 shipped worker and `models/model_q4.onnx` against a public stock room image and
-fails if the map has stripe/column signatures or an invalid tensor contract.
+fails if the map has stripe/column signatures, isotropic-noise signatures or an
+invalid tensor contract.
 
 See `docs/DENSE_MAPPING_GUIDE.md` for scan instructions.

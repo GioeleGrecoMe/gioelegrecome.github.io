@@ -2,21 +2,24 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const workerPath = new URL('../workers/deep_depth_worker.js', import.meta.url);
 let src = fs.readFileSync(workerPath, 'utf8');
-src += `\n;globalThis.__diag={sampledByteSignature,sampledFloatSignature,depthSpatialStats,stripeDiagnosis,compareDepthMaps,readOutput,modelSourceKey,prepareInput,adaptiveInputGeometry};`;
+src += `\n;globalThis.__diag={sampledByteSignature,sampledFloatSignature,depthSpatialStats,stripeDiagnosis,depthQualityDiagnosis,compareDepthMaps,readOutput,modelSourceKey,prepareInput,adaptiveInputGeometry};`;
 const context={console,performance:{now:()=>0},navigator:{},postMessage(){},self:{},Uint8Array,Uint8ClampedArray,Uint16Array,Float32Array,Int32Array,Math,Number,Array,Object,String,Set,Map,Error,TypeError,Infinity,NaN};
 vm.createContext(context);vm.runInContext(src,context,{filename:'deep_depth_worker.js'});
 const d=context.__diag;
 function assert(ok,msg){if(!ok)throw new Error(msg);}
-const dptPortrait=d.adaptiveInputGeometry(320,480,518);
-assert(dptPortrait.width===350&&dptPortrait.height===518,'DPT aspect resize must target the nearest 518px axis, not enlarge portrait width to 518');
+const dptPortrait=d.adaptiveInputGeometry(320,480,392);
+assert(dptPortrait.width===266&&dptPortrait.height===392,'mobile DPT resize must preserve portrait aspect at the 392px target');
 const a=new Uint8ClampedArray(4*4*4);for(let i=0;i<a.length;i++)a[i]=(i*17)&255;
 const b=a.slice();b[8]^=127;
 assert(d.sampledByteSignature(a,4,4)!==d.sampledByteSignature(b,4,4),'frame fingerprint must react to changed camera bytes');
 const smooth=new Float32Array(8*8);for(let y=0;y<8;y++)for(let x=0;x<8;x++)smooth[y*8+x]=x+y;
 const columns=new Float32Array(8*8);for(let y=0;y<8;y++)for(let x=0;x<8;x++)columns[y*8+x]=x%2?10:0;
+const noise=new Float32Array(64*64);let seed=123456789;for(let i=0;i<noise.length;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;noise[i]=(seed&0xffff)/65535;}
 const ss=d.stripeDiagnosis(d.depthSpatialStats(smooth,8,8));const cs=d.stripeDiagnosis(d.depthSpatialStats(columns,8,8));
 assert(!ss.suspicious,'normal 2-D gradient should not be flagged as stripes');
 assert(cs.suspicious&&cs.orientation==='vertical-columns','vertical column raster must be detected');
+const nq=d.depthQualityDiagnosis(d.depthSpatialStats(noise,64,64));
+assert(nq.incoherent&&nq.suspicious,'isotropic random depth must be rejected even without stripes');
 const cmp=d.compareDepthMaps(smooth,smooth.slice());assert(cmp.comparable&&Math.abs(cmp.correlation-1)<1e-6,'identical maps must correlate 1');
 const read=await d.readOutput({predicted_depth:{dims:[1,2,3],type:'float32',data:new Float32Array([1,2,3,4,5,6])}},{width:3,height:2},{outputNames:['predicted_depth']});
 assert(read.width===3&&read.height===2,'output HxW must come from the ONNX tensor');
@@ -32,4 +35,4 @@ assert(prepared.inputRasterDiagnostic.tensorNchwPreview[4]===0&&prepared.inputRa
 const resized=await d.prepareInput(pixels,2,2,{type:'float32'},{width:4,height:4},null,{Tensor:FakeTensor,fromImage(){throw new Error('must not be called');}},true);
 assert(resized.preprocessBackend==='manual-rgba-nchw-bilinear','manual NCHW preprocessing must be the only production path');
 assert(resized.inputRasterDiagnostic.tensorNchwPreview.length===4*4*4,'manual resize must produce the requested full tensor raster');
-console.log(JSON.stringify({dptPortrait,frameHashA:d.sampledByteSignature(a,4,4),frameHashB:d.sampledByteSignature(b,4,4),smoothStripe:ss,columnStripe:cs,rowMajorOutput:[...read.rawDepth],nchwPreviewFirstPixels:[...prepared.inputRasterDiagnostic.tensorNchwPreview.slice(0,8)],modelKeysDiffer:keyA!==keyB,identicalComparison:cmp},null,2));
+console.log(JSON.stringify({dptPortrait,frameHashA:d.sampledByteSignature(a,4,4),frameHashB:d.sampledByteSignature(b,4,4),smoothStripe:ss,columnStripe:cs,noiseQuality:nq,rowMajorOutput:[...read.rawDepth],nchwPreviewFirstPixels:[...prepared.inputRasterDiagnostic.tensorNchwPreview.slice(0,8)],modelKeysDiffer:keyA!==keyB,identicalComparison:cmp},null,2));

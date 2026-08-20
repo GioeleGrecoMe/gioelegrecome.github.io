@@ -1,6 +1,6 @@
 {
-  "version": "30.19.0",
-  "id": "v30.19.0-20260820-manual-nchw-dpt-processor",
-  "builtAt": "2026-08-20T18:04:20+02:00",
-  "notes": "The bundled Depth Anything V2 Small Q4 model is models/model_q4.onnx. Camera RGBA is explicitly resized and converted to ImageNet-normalized RGB/NCHW; Tensor.fromImage is not used because it does not resample ImageData buffers. Dynamic input follows the DPT 518px aspect-preserving processor contract and output is read as authoritative row-major HxW. The shell is network-first and versioned to prevent mixed-build boot graphs."
+  "version": "30.20.0",
+  "id": "v30.20.0-20260820-sparse-depth-quality-gate",
+  "builtAt": "2026-08-20T18:25:00+02:00",
+  "notes": "Depth Anything V2 Small Q4 remains a relative shape prior anchored to Alva geometry. V30.20 removes the unconditional 1 Hz neural preview loops, runs depth only on Alva-selected keyframes, uses a 392px mobile dynamic target, detects isotropic noisy WebGPU output via spatial coherence plus an explicit flip-equivariance test, and falls back to a one-shot WASM reference when needed. Deep-to-Alva calibration now also supports inverse-metric-depth affine in raw disparity so all accepted maps are placed in the same Alva/metric world before multi-view verification and fusion."
 }

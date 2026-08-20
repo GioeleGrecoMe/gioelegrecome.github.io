@@ -1,11 +1,11 @@
-ROOM SCANNER V30.19.0 - PUBBLICAZIONE E TEST TELEFONO
+ROOM SCANNER V30.20.0 - PUBBLICAZIONE E TEST TELEFONO
 
 Pubblica l'intera cartella room_scanner/v30/, incluso models/model_q4.onnx.
 Il modello predefinito e' locale: se non viene pubblicato, il test mostra un
 errore esplicito anziche' passare a un download remoto indefinito.
 
 Dopo il deploy:
-1. Apri room_scanner_v30.html e verifica il badge V30.19.0.
+1. Apri room_scanner_v30.html e verifica il badge V30.20.0.
 2. Premi "Prova inferenza" e autorizza la camera. Il caricamento del modello
    mostra avanzamento in MB; alla fine deve comparire backend, tempo e preview.
 3. Nel pannello Depth diagnostic, CAMERA e TENSOR RGB/NCHW devono rappresentare

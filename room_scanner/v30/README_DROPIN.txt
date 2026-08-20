@@ -1,4 +1,4 @@
-Room Scanner V30.19.0 — AlvaAR + local ONNX depth mapping
+Room Scanner V30.20.0 — AlvaAR + local ONNX depth mapping
 
 Deploy the complete v30 directory, including sw.js and models/. The service
 worker is network-first for current assets, so a refresh cannot combine an old
