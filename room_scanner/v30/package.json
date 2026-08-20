@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-17-alva-deep-prior-sparse-inference",
+  "name": "room-scanner-v30-18-local-onnx-depth-overlay",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,6 +12,6 @@
     "check:alva": "node tools/check_alvaar_runtime.mjs",
     "vendor:alva": "node tools/vendor_alvaar.mjs"
   },
-  "version": "30.17.0",
-  "description": "V30.17.0: AlvaAR tracking plus sparse Depth Anything V2 priors calibrated by Alva geometry, multi-view refinement, surfel fusion and TSDF mesh."
+  "version": "30.18.0",
+  "description": "V30.18.0: local/uploaded ONNX Depth Anything V2 tested before scanning, 1 Hz live depth overlay, Alva-calibrated multi-view fusion and TSDF mesh."
 }

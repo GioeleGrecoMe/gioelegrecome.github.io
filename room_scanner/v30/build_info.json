@@ -1,6 +1,6 @@
 {
-  "version": "30.17.0",
-  "id": "v30.17.0-20260820-alva-deep-prior-sparse-inference",
+  "version": "30.18.0",
+  "id": "v30.18.0-20260820-local-onnx-1hz-depth-overlay",
   "builtAt": "2026-08-20T11:43:00+02:00",
-  "notes": "AlvaAR remains the only camera-pose authority. Depth Anything V2 Small is restored as a lazy sparse keyframe prior: only spatially novel views with enough Alva-triangulated anchors trigger inference. Relative AI depth is robustly calibrated into the current Alva world scale, then used only to narrow multi-view plane-sweep search before surfel/TSDF fusion. Near-duplicate unprioritized frames are skipped to prevent camera-facing depth sheets. The neural model is not a scan-startup dependency."
+  "notes": "AlvaAR remains the only camera-pose authority. The local/uploaded Depth Anything V2 ONNX model is explicitly tested before Scan, runs in an isolated ONNX Runtime Web worker at no more than 1 Hz, and its live relative depth map is shown over the camera. AI depth is calibrated into the current Alva world scale and accepted for surfel/TSDF/gaussian fusion only after Alva anchors and multi-view verification."
 }

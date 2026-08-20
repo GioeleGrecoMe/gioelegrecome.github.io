@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.17.0 sparse-AI geometry-prior runtime configuration.
+ * Room Scanner V30.18.0 real-time local-ONNX geometry-prior runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,16 +10,18 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.17.0',
-  id:'v30.17.0-20260820-alva-deep-prior-sparse-inference',
+  version:'30.18.0',
+  id:'v30.18.0-20260820-local-onnx-1hz-depth-overlay',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
 
 export const CONFIG={
-  analysisWidth:320,
-  analysisHeight:480,
-  analysisFps:12,
+  // Keep tracking inexpensive so a mobile GPU/CPU has enough time for one
+  // complete neural depth inference per second in a separate worker.
+  analysisWidth:256,
+  analysisHeight:384,
+  analysisFps:8,
   cameraFovDeg:62,
   keyframeIntervalMs:950,
   maxKeyframes:520,
@@ -151,10 +153,18 @@ export const CONFIG={
    */
   deepDepthEnabled:true,
   deepDepthWorker:'workers/deep_depth_worker.js',
-  deepModelId:'onnx-community/depth-anything-v2-small',
-  deepDtype:'q4',
-  deepTransformersLocal:'../vendor/transformers/transformers.min.js',
-  deepTransformersRemote:'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.2/+esm',
+  // This is the actual file distributed in v30/models.  The old V30.17
+  // Transformers.js model ID deliberately is not used: it silently fetched a
+  // different model and therefore never exercised the local ONNX asset.
+  deepModelUrl:'models/depth_anything_v2_small_q4f16.onnx',
+  deepModelLabel:'Depth Anything V2 Small Q4F16 locale',
+  deepInferenceIntervalMs:1000,
+  deepInputMaxSide:518,
+  // A local ORT bundle can be dropped into vendor/onnxruntime-web.  Until it
+  // is bundled, this official CDN module is loaded lazily only by the explicit
+  // model test or by a started scan; the model itself remains local/uploaded.
+  deepOrtLocal:'../vendor/onnxruntime-web/ort.all.min.mjs',
+  deepOrtRemote:'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.all.min.mjs',
   deepMinAnchors:7,
   deepMinAnchorCells:3,
   deepMinIntervalMs:2600,

@@ -57,7 +57,7 @@ export class CameraController extends EventTarget{
   }
   adoptStream(stream){if(this.stream&&this.stream!==stream)for(const t of this.stream.getTracks?.()||[])try{t.stop()}catch{}this.stream=stream||null;return this;}
   async start(){
-    if(!this.stream){const constraints={audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30,max:60}}};this.stream=await navigator.mediaDevices.getUserMedia(constraints);}
+    if(!this.stream){const constraints={audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:640},height:{ideal:480},frameRate:{ideal:12,max:15}}};this.stream=await navigator.mediaDevices.getUserMedia(constraints);}
     if(this.video){fitCameraViewport(this.video);globalThis.addEventListener?.('resize',this._resizeHandler,{passive:true});globalThis.visualViewport?.addEventListener?.('resize',this._resizeHandler,{passive:true});if(this.video.srcObject!==this.stream)this.video.srcObject=this.stream;try{await this.video.play();}catch(err){throw new Error(`Impossibile avviare video scansione: ${err?.message||err}`);}await waitVideoDimensions(this.video);this.geometry=coverCrop(this.video.videoWidth||this.width,this.video.videoHeight||this.height,this.width,this.height);}
     this.running=true;this.log?.info('camera-started',{adopted:!!this.stream,geometry:this.geometry,tracks:this.stream.getVideoTracks().map(t=>({label:t.label,settings:t.getSettings?.()}))});this.dispatchEvent(new Event('started'));return this;
   }

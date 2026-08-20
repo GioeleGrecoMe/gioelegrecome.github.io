@@ -1,4 +1,4 @@
-# Room Scanner V30.17.0
+# Room Scanner V30.18.0
 
 Room Scanner uses **AlvaAR as the autonomous persistent visual SLAM tracker**.
 Calibration is optional and only fixes a one-shot metric transform. It never
@@ -12,11 +12,10 @@ camera -> AlvaAR pose/world tracking
               v
        local keyframe graph
               |
-              +--> spatial/anchor novelty gate
+              +--> local ONNX Depth Anything V2
               |             |
               |             v
-              |    Depth Anything V2 Small
-              |      (selected frames only)
+              |  pre-scan inference test + 1 Hz live depth overlay
               |             |
               |             v
               |    robust Alva-depth calibration
@@ -52,27 +51,39 @@ Textureless areas are rejected rather than hallucinated.
 
 ## Mobile resource budget
 
-Dense reconstruction runs separately from Alva in module workers. It keeps at
-most 8 downsampled 160x240 keyframes and processes one dense job at a time.
-Depth Anything inference is intentionally sparse: a new call normally requires
-at least 7 Alva depth anchors distributed over the image plus a new camera
-position/view/depth context and at least 2.6 s from the previous request. Sparse
+Alva runs at 256×384 / 8 fps from a low-resolution 640×480 camera stream. Dense
+reconstruction remains in workers and keeps at most 8 downsampled 160×240
+keyframes. Depth inference is separately rate-limited to one image per second;
+if an inference takes longer, frames are dropped rather than queued. Sparse
 surfel/TSDF maps retain hard memory caps.
 
 ## Depth Anything
 
-V30.17 uses `onnx-community/depth-anything-v2-small` through Transformers.js.
-The q4 model is loaded lazily on the first useful keyframe, preferring WebGPU and
-falling back to WASM. Its raw output is **not metric and is never fused directly**.
-Instead, Room Scanner robustly calibrates it against reprojection-verified Alva
-triangulated depths (metres when the metric bootstrap is locked), and uses the
-result only to narrow the multi-view plane-sweep interval at each pixel.
-Near-duplicate unprioritized views are skipped, preventing the old wide-search
-camera-facing sheet from being fused just to fill holes.
+V30.18 reads the supplied local file
+`models/depth_anything_v2_small_q4f16.onnx` directly with ONNX Runtime Web; it
+does not silently download/replace it with a Transformers.js model. On the home
+screen, choose an alternative `.onnx` file if needed, then press **Prova
+inferenza**. It captures one camera frame and reports the real backend (WebGPU
+or WASM), output shape and execution time before a scan begins.
+
+The supplied Q4F16 file is the right first choice: compact enough for mobile
+and it exposes the expected `pixel_values` image input. It requires a browser
+where the loaded ONNX Runtime Web build supports its Q4 MatMul operators. If the
+pre-scan test reports an unsupported operator, use **Depth Anything V2 Small
+FP16/FP32 exported for ONNX Runtime**, with one `pixel_values` NCHW input and
+one depth output (not a MobileSAM encoder/decoder). The FP16 version is larger
+but is the compatibility fallback; MobileSAM files in `models/` are segmentation
+components and cannot produce a depth map on their own.
+
+Raw AI depth is **not metric and is never fused directly**. It is first shown as
+the color overlay, then robustly calibrated against reprojection-verified Alva
+triangulated depths and accepted only after multi-view plane sweep verification.
+This is what allows the resulting surfels, TSDF mesh and Gaussian display to
+benefit from AI without creating a camera-facing monocular sheet.
 
 The static shell and Alva tracking do not depend on the neural model. If the
 Depth Anything runtime/model is unavailable in a scan, tracking remains active
-and unsafe dense frames are dropped. See `docs/CHANGES_V30_17_0.md`.
+and unsafe dense frames are dropped.
 
 ## AlvaAR runtime
 

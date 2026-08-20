@@ -1,47 +1,22 @@
-/**
- * Lazy Depth Anything V2 Small worker.
+/*
+ * Local ONNX Depth Anything worker.
  *
- * The neural runtime/model is NOT loaded at scan startup. The first inference
- * request loads a quantized model, preferring WebGPU and falling back to WASM.
- * Later requests reuse the same pipeline/browser cache. This keeps Alva tracking
- * independent from neural-depth availability and avoids inference on video frames.
+ * The model is selected before Scan and loaded once here. Unlike the former
+ * Transformers.js path, it never substitutes a remote Hugging Face model for
+ * the file chosen by the user. All inference runs off the UI/Alva thread.
  */
-let pipe=null,provider='unloaded',busy=false,cfg={
-  modelId:'onnx-community/depth-anything-v2-small',dtype:'q4',
-  transformersLocal:'../vendor/transformers/transformers.min.js',
-  transformersRemote:'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.2/+esm'
-};
-async function importTransformers(){
-  if(cfg.transformersLocal){try{return await import(cfg.transformersLocal);}catch(err){postMessage({type:'deep-diag',level:'info',event:'local-transformers-unavailable',message:err?.message||String(err)});}}
-  return import(cfg.transformersRemote);
-}
-async function ensurePipe(){
-  if(pipe)return pipe;const T=await importTransformers(),opts={dtype:cfg.dtype||'q4'};
-  if(globalThis.navigator?.gpu){try{pipe=await T.pipeline('depth-estimation',cfg.modelId,{...opts,device:'webgpu'});provider='webgpu';return pipe;}catch(err){postMessage({type:'deep-diag',level:'warn',event:'webgpu-depth-fallback',message:err?.message||String(err)});}}
-  pipe=await T.pipeline('depth-estimation',cfg.modelId,{...opts,device:'wasm'});provider='wasm';return pipe;
-}
-async function rgbaObjectUrl(rgba,width,height){
-  if(typeof OffscreenCanvas==='undefined')throw new Error('OffscreenCanvas unavailable for Depth Anything input');
-  const canvas=new OffscreenCanvas(width,height),ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw new Error('2D OffscreenCanvas unavailable');
-  const data=rgba instanceof Uint8ClampedArray?rgba:new Uint8ClampedArray(rgba),image=ctx.createImageData(width,height);image.data.set(data);ctx.putImageData(image,0,0);
-  const blob=await canvas.convertToBlob({type:'image/jpeg',quality:.82});return URL.createObjectURL(blob);
-}
-function tensorToRaw(result){
-  const t=result?.predicted_depth||result?.predictedDepth||result?.depth?.tensor||null;
-  if(t?.data?.length){const dims=t.dims||t.shape||[],h=Number(dims[dims.length-2]||0),w=Number(dims[dims.length-1]||0);if(w>1&&h>1&&w*h<=t.data.length)return {rawDepth:Float32Array.from(t.data.slice(t.data.length-w*h)),width:w,height:h};}
-  const im=result?.depth;if(im?.data?.length&&im.width>1&&im.height>1){const n=im.width*im.height,src=im.data,out=new Float32Array(n),channels=Math.max(1,Math.round(src.length/n));for(let i=0;i<n;i++)out[i]=src[i*channels];return {rawDepth:out,width:im.width,height:im.height};}
-  throw new Error('Depth Anything returned no readable depth tensor');
-}
-self.onmessage=async e=>{
-  const d=e.data||{};
-  if(d.type==='init'){cfg={...cfg,...(d.config||{})};postMessage({type:'deep-ready',provider:'lazy',modelId:cfg.modelId});return;}
-  if(d.type==='status'){postMessage({type:'deep-status',provider,busy,loaded:!!pipe,modelId:cfg.modelId});return;}
-  if(d.type!=='infer')return;if(busy){postMessage({type:'deep-error',jobId:d.jobId,message:'Depth Anything worker already busy'});return;}
-  busy=true;let url=null;const t0=performance.now();
-  try{
-    if(!d.rgba?.length||!(d.width>1&&d.height>1))throw new Error('invalid RGBA inference frame');
-    const p=await ensurePipe();url=await rgbaObjectUrl(d.rgba,d.width,d.height);const result=await p(url),raw=tensorToRaw(result);
-    postMessage({type:'deep-result',jobId:d.jobId,refId:d.refId,provider,rawDepth:raw.rawDepth,rawWidth:raw.width,rawHeight:raw.height,ms:performance.now()-t0},[raw.rawDepth.buffer]);
-  }catch(err){postMessage({type:'deep-error',jobId:d.jobId,message:err?.message||String(err),stack:err?.stack||null,provider,ms:performance.now()-t0});}
-  finally{if(url)URL.revokeObjectURL(url);busy=false;}
-};
+let cfg={modelUrl:'models/depth_anything_v2_small_q4f16.onnx',ortLocal:'../vendor/onnxruntime-web/ort.all.min.mjs',ortRemote:'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.all.min.mjs',inputMaxSide:518};
+let ort=null,session=null,sessionKey='',provider='unloaded',busy=false;
+
+function fail(message){throw new Error(message);}
+function numberShape(shape,fallback){return shape.map((v,i)=>Number.isFinite(Number(v))&&Number(v)>0?Number(v):(i===0?1:fallback));}
+function toFloat16(value){if(!Number.isFinite(value))return 0;const sign=value<0?0x8000:0,x=Math.abs(value);if(x===0)return sign;if(x>=65504)return sign|0x7bff;if(x<6.103515625e-5)return sign|Math.round(x/5.960464477539063e-8);const exp=Math.floor(Math.log2(x)),mant=Math.round((x/Math.pow(2,exp)-1)*1024);return sign|((exp+15)<<10)|(mant&1023);}
+function fromFloat16(value){const sign=(value&0x8000)?-1:1,exp=(value>>10)&31,mant=value&1023;if(exp===0)return sign*mant*5.960464477539063e-8;if(exp===31)return mant?NaN:sign*Infinity;return sign*(1+mant/1024)*Math.pow(2,exp-15);}
+async function importOrt(){if(ort)return ort;const sources=[cfg.ortLocal,cfg.ortRemote].filter(Boolean),errors=[];for(const source of sources){try{const mod=await import(source),candidate=mod.default||mod;if(candidate?.InferenceSession){ort=candidate;return ort;}errors.push(`${source}: InferenceSession mancante`);}catch(err){errors.push(`${source}: ${err?.message||err}`);}}fail(`ONNX Runtime Web non disponibile. ${errors.join(' | ')}`);}
+async function fetchModel(source){if(source?.bytes)return source.bytes;const url=source?.url||cfg.modelUrl;if(!url)fail('nessun modello ONNX selezionato');const response=await fetch(url,{cache:'no-store'});if(!response.ok)fail(`modello ONNX non leggibile: HTTP ${response.status}`);return response.arrayBuffer();}
+function inputSpec(){if(!session)fail('sessione ONNX non inizializzata');const name=session.inputNames?.[0],meta=session.inputMetadata?.[name];if(!name||!meta)fail('il modello ONNX non espone un input');const dims=numberShape(meta.dimensions||[1,3,cfg.inputMaxSide,cfg.inputMaxSide],cfg.inputMaxSide);if(dims.length!==4||dims[1]!==3)fail(`input ONNX non supportato: ${JSON.stringify(meta.dimensions)}`);return {name,type:String(meta.type||'float32').toLowerCase(),dims,width:dims[3],height:dims[2]};}
+async function ensureSession(source){const sourceKey=source?.id||source?.url||cfg.modelUrl;if(session&&sessionKey===sourceKey)return session;const runtime=await importOrt();try{runtime.env.wasm.numThreads=1;runtime.env.wasm.simd=true;}catch{}const bytes=await fetchModel(source),providers=globalThis.navigator?.gpu?['webgpu','wasm']:['wasm'];let last=null;for(const executionProviders of [providers,['wasm']]){try{session=await runtime.InferenceSession.create(bytes,{executionProviders,graphOptimizationLevel:'all'});sessionKey=sourceKey;provider=executionProviders[0];const spec=inputSpec();postMessage({type:'deep-loaded',provider,input:{name:spec.name,type:spec.type,dims:spec.dims},model:source?.label||sourceKey});return session;}catch(err){last=err;session=null;}}throw last||new Error('creazione sessione ONNX fallita');}
+function prepareInput(rgba,width,height,spec){if(typeof OffscreenCanvas==='undefined')fail('OffscreenCanvas non disponibile');const source=new OffscreenCanvas(width,height),sctx=source.getContext('2d',{alpha:false}),target=new OffscreenCanvas(spec.width,spec.height),tctx=target.getContext('2d',{alpha:false});if(!sctx||!tctx)fail('canvas 2D non disponibile nel worker');const image=sctx.createImageData(width,height);image.data.set(rgba instanceof Uint8ClampedArray?rgba:new Uint8ClampedArray(rgba));sctx.putImageData(image,0,0);tctx.drawImage(source,0,0,spec.width,spec.height);const pixels=tctx.getImageData(0,0,spec.width,spec.height).data,n=spec.width*spec.height,values=spec.type.includes('float16')?new Uint16Array(n*3):new Float32Array(n*3),mean=[.485,.456,.406],std=[.229,.224,.225];for(let i=0;i<n;i++)for(let c=0;c<3;c++){const v=(pixels[i*4+c]/255-mean[c])/std[c],j=c*n+i;values[j]=values instanceof Uint16Array?toFloat16(v):v;}return new ort.Tensor(spec.type.includes('float16')?'float16':'float32',values,spec.dims);}
+function readOutput(result){const name=session.outputNames?.[0],tensor=result?.[name]||result?.[Object.keys(result||{})[0]];if(!tensor?.data?.length)fail('il modello non ha restituito una depth map');const dims=tensor.dims||[],height=Number(dims[dims.length-2]),width=Number(dims[dims.length-1]);if(!(width>1&&height>1&&width*height<=tensor.data.length))fail(`output ONNX non supportato: ${JSON.stringify(dims)}`);const src=tensor.data,offset=src.length-width*height,out=new Float32Array(width*height);for(let i=0;i<out.length;i++)out[i]=src instanceof Uint16Array?fromFloat16(src[offset+i]):Number(src[offset+i]);return {rawDepth:out,width,height};}
+async function infer(d){if(!d.rgba?.length||!(d.width>1&&d.height>1))fail('fotogramma RGBA non valido');await ensureSession(d.model);const spec=inputSpec(),feeds={[spec.name]:prepareInput(d.rgba,d.width,d.height,spec)},result=await session.run(feeds);return readOutput(result);}
+self.onmessage=async event=>{const d=event.data||{};if(d.type==='init'){cfg={...cfg,...(d.config||{})};postMessage({type:'deep-ready',provider,modelUrl:cfg.modelUrl});return;}if(d.type==='status'){postMessage({type:'deep-status',provider,busy,loaded:!!session,model:sessionKey||cfg.modelUrl});return;}if(d.type==='load'||d.type==='test'||d.type==='infer'){if(busy){postMessage({type:'deep-error',jobId:d.jobId||null,stage:d.type,message:'inferenza precedente ancora in corso',provider});return;}busy=true;const started=performance.now();try{if(d.type==='load'){await ensureSession(d.model);postMessage({type:'deep-load-result',ok:true,provider,model:d.model?.label||d.model?.url||cfg.modelUrl,ms:performance.now()-started});}else{const raw=await infer(d);postMessage({type:d.type==='test'?'deep-test-result':'deep-result',jobId:d.jobId||null,refId:d.refId||null,provider,rawDepth:raw.rawDepth,rawWidth:raw.width,rawHeight:raw.height,ms:performance.now()-started},[raw.rawDepth.buffer]);}}catch(err){postMessage({type:'deep-error',jobId:d.jobId||null,stage:d.type,message:err?.message||String(err),stack:err?.stack||null,provider,ms:performance.now()-started});}finally{busy=false;}}};

@@ -1,9 +1,12 @@
-Room Scanner V30.6.1 live visual-inertial mesh without Deep AI
+Room Scanner V30.18.0 — AlvaAR + local ONNX depth mapping
 
-Copy/overwrite this directory's contents into the existing /room_scanner/v30/ GitHub Pages directory.
-Includes portrait WASM sizing, visual markpoints that work without a neural
-depth model, real-time relative-scale-L reconstruction from
-tracked keypoints plus IMU priors, Delaunay patches with red/yellow/green
-confidence, live 3D preview, explicit final closure estimate, IndexedDB mesh
-checkpoints, openable local sessions, and non-destructive R30 import/export.
-Replace sw.js too, so an older cached runtime is not reused.
+Deploy the complete v30 directory, including sw.js and models/. The service
+worker build ID changes to V30.18.0, so old V30 shells are discarded on the next
+open. Before scanning, use “Prova inferenza” to load the local
+depth_anything_v2_small_q4f16.onnx model (or an uploaded compatible ONNX) and
+confirm the actual WebGPU/WASM backend. During Scan, the camera runs at low
+resolution/8 fps and Depth Anything is requested at most once per second in a
+worker. Its heat map is overlaid live; only depth calibrated to Alva anchors and
+confirmed by multi-view geometry is fused into surfels, mesh and Gaussian view.
+
+MobileSAM files are segmentation components, not depth-model replacements.
