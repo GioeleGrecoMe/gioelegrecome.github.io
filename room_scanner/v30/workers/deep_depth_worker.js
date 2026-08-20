@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.18.3 - Local ONNX Depth Anything worker.
+ * Room Scanner V30.18.4 - Local ONNX Depth Anything worker.
  *
  * OUTPUT LAYOUT + WEBGPU RUNTIME + SPEED FIX
  * -------------------------
@@ -63,6 +63,7 @@ let busy = false;
 // resolutions/types on every frame and makes the live path deterministic.
 let successfulInputPlan = null;
 let lastSessionLoadMs = 0;
+let diagnosticOrt = null;
 
 function fail(message) {
   throw new Error(message);
@@ -92,16 +93,16 @@ function metadataEntry(metadata, name, index = 0) {
   return null;
 }
 
-function inputSpec() {
-  if (!session) fail('sessione ONNX non inizializzata');
+function inputSpec(activeSession = session) {
+  if (!activeSession) fail('sessione ONNX non inizializzata');
 
-  const inputNames = Array.from(session.inputNames || []);
+  const inputNames = Array.from(activeSession.inputNames || []);
   const name = inputNames[0];
   if (!name) {
     fail(`il modello ONNX non espone nomi di input (inputNames=${JSON.stringify(inputNames)})`);
   }
 
-  const meta = metadataEntry(session.inputMetadata, name, 0);
+  const meta = metadataEntry(activeSession.inputMetadata, name, 0);
 
   // Several onnxruntime-web builds expose inputNames but no metadata.  That is
   // a runtime API limitation, not evidence that the model has no input.
@@ -147,11 +148,11 @@ function inputSpec() {
   };
 }
 
-function outputDebugSpec() {
-  if (!session) return null;
-  const outputNames = Array.from(session.outputNames || []);
+function outputDebugSpec(activeSession = session) {
+  if (!activeSession) return null;
+  const outputNames = Array.from(activeSession.outputNames || []);
   const name = outputNames[0] || null;
-  const meta = name ? metadataEntry(session.outputMetadata, name, 0) : null;
+  const meta = name ? metadataEntry(activeSession.outputMetadata, name, 0) : null;
   const rawShape = meta?.shape || meta?.dimensions || null;
   return {
     name,
@@ -370,6 +371,44 @@ function inputPlans(spec, sourceWidth, sourceHeight) {
   });
 }
 
+
+function sampledByteSignature(rgba, width, height) {
+  const src = rgba instanceof Uint8ClampedArray ? rgba : new Uint8ClampedArray(rgba);
+  let h = 2166136261 >>> 0;
+  const pixels = Math.max(1, (width | 0) * (height | 0));
+  const samples = Math.min(257, pixels);
+  for (let k = 0; k < samples; k++) {
+    const p = Math.min(pixels - 1, Math.floor(k * (pixels - 1) / Math.max(1, samples - 1)));
+    const i = p * 4;
+    for (let c = 0; c < 3; c++) { h ^= src[i + c] || 0; h = Math.imul(h, 16777619) >>> 0; }
+  }
+  h ^= width | 0; h = Math.imul(h, 16777619) >>> 0; h ^= height | 0; h = Math.imul(h, 16777619) >>> 0;
+  return h.toString(16).padStart(8, '0');
+}
+
+function sampledFloatSignature(values, width, height) {
+  let h = 2166136261 >>> 0;
+  const n = values?.length || 0;
+  if (!n) return '00000000';
+  const samples = Math.min(257, n);
+  const tmp = new Array(samples);
+  for (let k = 0; k < samples; k++) {
+    const i = Math.min(n - 1, Math.floor(k * (n - 1) / Math.max(1, samples - 1)));
+    tmp[k] = Number(values[i]);
+  }
+  const finite = tmp.filter(Number.isFinite).sort((a,b)=>a-b);
+  const lo = finite.length ? finite[Math.floor(finite.length * .03)] : 0;
+  const hi = finite.length ? finite[Math.floor(finite.length * .97)] : 1;
+  const range = hi > lo ? hi - lo : 1;
+  for (const v0 of tmp) {
+    const v = Number.isFinite(v0) ? Math.max(0, Math.min(65535, Math.round((v0 - lo) / range * 65535))) : 65535;
+    h ^= v & 255; h = Math.imul(h, 16777619) >>> 0;
+    h ^= (v >>> 8) & 255; h = Math.imul(h, 16777619) >>> 0;
+  }
+  h ^= width | 0; h = Math.imul(h, 16777619) >>> 0; h ^= height | 0; h = Math.imul(h, 16777619) >>> 0;
+  return h.toString(16).padStart(8, '0');
+}
+
 function sourceRgbProbe(rgba, width, height) {
   const src = rgba instanceof Uint8ClampedArray ? rgba : new Uint8ClampedArray(rgba);
   const at = (x, y) => {
@@ -394,7 +433,7 @@ function sourceRgbProbe(rgba, width, height) {
  * always ((y * sourceWidth + x) * 4 + channel), while the tensor index is
  * (channel * targetWidth * targetHeight + y * targetWidth + x).
  */
-function prepareInput(rgba, width, height, spec, plan, forcedType = null) {
+function prepareInput(rgba, width, height, spec, plan, forcedType = null, runtime = ort) {
   const started = performance.now();
   const srcWidth = width | 0;
   const srcHeight = height | 0;
@@ -474,7 +513,7 @@ function prepareInput(rgba, width, height, spec, plan, forcedType = null) {
 
   const dims = [1, 3, targetHeight, targetWidth];
   return {
-    tensor: new ort.Tensor(float16Input ? 'float16' : 'float32', values, dims),
+    tensor: new runtime.Tensor(float16Input ? 'float16' : 'float32', values, dims),
     dims,
     type: float16Input ? 'float16' : 'float32',
     preprocessMs: performance.now() - started,
@@ -512,8 +551,8 @@ function depthSpatialStats(depth, width, height) {
   };
 }
 
-function readOutput(result, expectedPlan) {
-  const outputNames = Array.from(session?.outputNames || []);
+function readOutput(result, expectedPlan, activeSession = session) {
+  const outputNames = Array.from(activeSession?.outputNames || []);
   // Depth Anything V2 exports `predicted_depth`.  Prefer it explicitly instead
   // of assuming that the first property returned by the runtime is depth.
   const name = result?.predicted_depth
@@ -591,13 +630,13 @@ function readOutput(result, expectedPlan) {
   };
 }
 
-async function runPrepared(spec, prepared) {
+async function runPrepared(spec, prepared, activeSession = session) {
   const runStarted = performance.now();
-  const result = await session.run({ [spec.name]: prepared.tensor });
+  const result = await activeSession.run({ [spec.name]: prepared.tensor });
   const runMs = performance.now() - runStarted;
 
   const outputStarted = performance.now();
-  const output = readOutput(result, prepared.plan);
+  const output = readOutput(result, prepared.plan, activeSession);
   const outputMs = performance.now() - outputStarted;
 
   return {
@@ -613,11 +652,114 @@ async function runPrepared(spec, prepared) {
   };
 }
 
+
+
+function finiteSummary(depth) {
+  let n = 0, sum = 0, sum2 = 0, min = Infinity, max = -Infinity;
+  for (const value of depth || []) {
+    const v = Number(value);
+    if (!Number.isFinite(v)) continue;
+    n++; sum += v; sum2 += v * v; min = Math.min(min, v); max = Math.max(max, v);
+  }
+  const mean = n ? sum / n : NaN;
+  const variance = n ? Math.max(0, sum2 / n - mean * mean) : NaN;
+  return { count: n, finiteRatio: depth?.length ? n / depth.length : 0, min: n ? min : NaN, max: n ? max : NaN, mean, std: n ? Math.sqrt(variance) : NaN };
+}
+
+function compareDepthMaps(a, b) {
+  if (!a?.length || !b?.length || a.length !== b.length) return { comparable: false, correlation: null, nrmse: null };
+  let n = 0, sa = 0, sb = 0, saa = 0, sbb = 0, sab = 0, se = 0;
+  for (let i = 0; i < a.length; i++) {
+    const x = Number(a[i]), y = Number(b[i]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    n++; sa += x; sb += y; saa += x * x; sbb += y * y; sab += x * y; const e = x - y; se += e * e;
+  }
+  if (n < 16) return { comparable: false, correlation: null, nrmse: null, samples: n };
+  const va = Math.max(0, saa - sa * sa / n), vb = Math.max(0, sbb - sb * sb / n);
+  const correlation = va > 0 && vb > 0 ? (sab - sa * sb / n) / Math.sqrt(va * vb) : 0;
+  const scale = Math.sqrt(Math.max(1e-20, vb / n));
+  return { comparable: true, correlation, nrmse: Math.sqrt(se / n) / scale, samples: n };
+}
+
+function stripeDiagnosis(spatialStats) {
+  const dx = Number(spatialStats?.meanDx) || 0;
+  const dy = Number(spatialStats?.meanDy) || 0;
+  const ratio = Math.max(dx, dy) / Math.max(1e-12, Math.min(dx, dy));
+  return {
+    ratio,
+    orientation: dx > dy ? 'vertical-columns' : dy > dx ? 'horizontal-rows' : 'isotropic',
+    suspicious: ratio >= 4.0,
+  };
+}
+
+async function importDiagnosticOrt() {
+  if (diagnosticOrt) return diagnosticOrt;
+  const sources = Array.from(new Set([cfg.ortCurrentAll, cfg.ortRemote].filter(Boolean)));
+  const errors = [];
+  for (const source of sources) {
+    try {
+      const mod = await import(source);
+      const candidate = mod.default || mod;
+      if (candidate?.InferenceSession) { diagnosticOrt = candidate; return diagnosticOrt; }
+      errors.push(`${source}: InferenceSession mancante`);
+    } catch (err) { errors.push(`${source}: ${err?.message || err}`); }
+  }
+  fail(`runtime WASM diagnostico non disponibile. ${errors.join(' | ')}`);
+}
+
+async function runWasmDiagnostic(d, reference) {
+  const runtime = await importDiagnosticOrt();
+  try { runtime.env.wasm.numThreads = 1; runtime.env.wasm.simd = true; } catch {}
+  const modelBytes = await fetchModel(d.model);
+  let wasmSession = null;
+  const started = performance.now();
+  try {
+    wasmSession = await runtime.InferenceSession.create(modelBytes, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
+    const loadMs = performance.now() - started;
+    const spec = inputSpec(wasmSession);
+    const plan = reference.inputPlan;
+    const preparedCold = prepareInput(d.rgba, d.width, d.height, spec, plan, reference.inputType || spec.type, runtime);
+    const cold = await runPrepared(spec, preparedCold, wasmSession);
+    const preparedWarm = prepareInput(d.rgba, d.width, d.height, spec, plan, cold.inputType, runtime);
+    const warm = await runPrepared(spec, preparedWarm, wasmSession);
+    return { ...warm, loadMs, coldRunMs: cold.runMs, summary: finiteSummary(warm.rawDepth), stripe: stripeDiagnosis(warm.spatialStats) };
+  } finally {
+    try { await wasmSession?.release?.(); } catch {}
+  }
+}
+
+async function providerABDiagnostic(d, webgpuResult) {
+  if (provider !== 'webgpu') return { attempted: false, reason: `primary-provider-${provider}` };
+  try {
+    const wasm = await runWasmDiagnostic(d, webgpuResult);
+    const webgpuStripe = stripeDiagnosis(webgpuResult.spatialStats);
+    const wasmStripe = wasm.stripe;
+    const comparison = compareDepthMaps(webgpuResult.rawDepth, wasm.rawDepth);
+    const gpuMuchMoreStriped = webgpuStripe.suspicious && webgpuStripe.ratio > Math.max(4, wasmStripe.ratio * 1.8);
+    const providerMismatch = comparison.comparable && (comparison.correlation < 0.90 || comparison.nrmse > 0.75);
+    const webgpuLikelyCorrupt = gpuMuchMoreStriped && providerMismatch && !wasmStripe.suspicious;
+    return {
+      attempted: true,
+      webgpuLikelyCorrupt,
+      recommendation: webgpuLikelyCorrupt ? 'q4-webgpu-or-wasm-q4f16' : 'keep-webgpu-q4f16',
+      webgpu: { ms: webgpuResult.steadyMs, summary: finiteSummary(webgpuResult.rawDepth), stripe: webgpuStripe },
+      wasm: { ms: wasm.steadyMs, loadMs: wasm.loadMs, summary: wasm.summary, stripe: wasmStripe, depthSignature: sampledFloatSignature(wasm.rawDepth, wasm.width, wasm.height) },
+      comparison,
+      wasmPreviewDepth: wasm.rawDepth,
+      wasmPreviewWidth: wasm.width,
+      wasmPreviewHeight: wasm.height,
+    };
+  } catch (err) {
+    return { attempted: true, failed: true, message: err?.message || String(err) };
+  }
+}
+
 async function infer(d, { benchmark = false } = {}) {
   if (!d.rgba?.length || !(d.width > 1 && d.height > 1)) {
     fail('fotogramma RGBA non valido');
   }
 
+  const frameSignature = sampledByteSignature(d.rgba, d.width, d.height);
   const sessionStarted = performance.now();
   await ensureSession(d.model);
   const sessionMs = performance.now() - sessionStarted;
@@ -652,6 +794,8 @@ async function infer(d, { benchmark = false } = {}) {
             coldSteadyMs: first.steadyMs,
             contractFallback: !!spec.contractFallback,
             benchmarkWarm: true,
+            frameSignature,
+            depthSignature: sampledFloatSignature(warm.rawDepth, warm.width, warm.height),
           };
         }
 
@@ -663,6 +807,8 @@ async function infer(d, { benchmark = false } = {}) {
           coldSteadyMs: null,
           contractFallback: !!spec.contractFallback,
           benchmarkWarm: false,
+          frameSignature,
+          depthSignature: sampledFloatSignature(first.rawDepth, first.width, first.height),
         };
       } catch (err) {
         errors.push(`${plan.width}x${plan.height}/${tensorType}: ${err?.message || err}`);
@@ -746,6 +892,7 @@ self.onmessage = async (event) => {
     }
 
     const raw = await infer(d, { benchmark: d.type === 'test' });
+    const diagnostic = d.type === 'test' ? await providerABDiagnostic(d, raw) : null;
 
     // Backward compatibility: app.js already renders `result.ms`.  From this
     // revision it intentionally means STEADY inference latency rather than cold
@@ -770,6 +917,8 @@ self.onmessage = async (event) => {
         spatialStats: raw.spatialStats || null,
         rasterContract: 'RGBA-row-major-interleaved -> RGB-NCHW-planar',
         rasterProbe: raw.rasterProbe || null,
+        frameSignature: raw.frameSignature || null,
+        depthSignature: raw.depthSignature || null,
         contractFallback: !!raw.contractFallback,
         benchmarkWarm: !!raw.benchmarkWarm,
         preprocessMs: raw.preprocessMs,
@@ -781,8 +930,12 @@ self.onmessage = async (event) => {
         sessionLoadMs: raw.sessionLoadMs,
         ms: raw.steadyMs,
         totalMs: performance.now() - totalStarted,
+        providerDiagnostic: diagnostic ? { ...diagnostic, wasmPreviewDepth: undefined } : null,
+        wasmPreviewDepth: diagnostic?.wasmPreviewDepth || null,
+        wasmPreviewWidth: diagnostic?.wasmPreviewWidth || null,
+        wasmPreviewHeight: diagnostic?.wasmPreviewHeight || null,
       },
-      [raw.rawDepth.buffer],
+      [raw.rawDepth.buffer, ...(diagnostic?.wasmPreviewDepth?.buffer ? [diagnostic.wasmPreviewDepth.buffer] : [])],
     );
   } catch (err) {
     postMessage({
