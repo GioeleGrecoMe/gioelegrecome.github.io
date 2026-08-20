@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.25.0 - ultra-low-budget WebGPU/WASM Depth Anything worker.
+ * Room Scanner V30.26.0 - ultra-low-budget WebGPU/WASM Depth Anything worker.
  *
  * GPU READBACK + AUTHORITATIVE DEPTH LAYOUT + Q4 DEFAULT
  * -------------------------

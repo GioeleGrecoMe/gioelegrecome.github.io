@@ -108,3 +108,22 @@
 #scan .deepLivePreview{position:absolute!important;right:12px!important;top:205px!important;width:min(42vw,190px)!important;z-index:6!important;padding:6px!important;border-radius:12px!important;background:rgba(5,10,18,.78)!important;border:1px solid rgba(120,205,255,.45)!important;box-shadow:0 8px 24px rgba(0,0,0,.35)!important;pointer-events:none!important}#scan .deepLivePreview #deepLiveState{font-size:.66rem!important;line-height:1.2!important;color:#dff7ff!important;margin:0 0 5px!important;white-space:normal!important}#scan #depthOverlay{display:block!important;position:static!important;width:100%!important;height:auto!important;aspect-ratio:2/3!important;border-radius:8px!important;background:#05070a!important;opacity:1!important;mix-blend-mode:normal!important;image-rendering:auto!important;}
 #scan #miniMap{z-index:2!important}
 .depthTestPreview{display:block;width:100%;max-width:260px;aspect-ratio:4/3;margin-top:.7rem;border:1px solid var(--line);border-radius:10px;background:#05080c;}
+
+/* V30.26 post-scan review: keep the 3D viewport visible while controls live in
+ * one bounded, scrollable panel.  Optimisation runs in a Worker, so the panel
+ * stays responsive even on low-budget phones. */
+#review{overflow:hidden!important;padding:0!important;background:#020407!important}
+#review .reviewHead{position:absolute;top:max(10px,env(safe-area-inset-top));left:12px;right:12px;z-index:7;pointer-events:none;display:flex;align-items:center;justify-content:space-between}
+#review .reviewHead button{pointer-events:auto}
+#review .viewerTools{top:5.4rem!important;right:12px;max-width:calc(100vw - 24px)}
+#review .reviewPanel{position:absolute;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:6;max-height:min(43vh,440px);overflow:auto;padding:.15rem .45rem .55rem;background:#07101bd9;border:1px solid var(--line);border-radius:14px;backdrop-filter:blur(10px);overscroll-behavior:contain}
+#review .reviewPanel .card{margin:.45rem 0;box-shadow:none}
+#review .reviewPanel .actions{margin:.5rem 0 0}
+.optimizerControls{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}
+.optimizerControls label{display:flex;align-items:center;gap:.4rem;color:#c6d6e9}
+.optimizerControls input{width:5.4rem;padding:.55rem .6rem;border:1px solid var(--line);border-radius:10px;background:#09111b;color:var(--text)}
+.optimizerCard progress{display:block;width:100%;height:.8rem;margin:.65rem 0;accent-color:var(--accent)}
+.savedSessionRow{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin:.4rem 0!important}
+.savedSessionRow span{min-width:0;line-height:1.35}
+.savedSessionRow button{flex:0 0 auto;padding:.55rem .7rem}
+@media(max-width:560px){#review .reviewPanel{max-height:46vh}.optimizerControls{display:grid;grid-template-columns:1fr 1fr}.optimizerControls label{grid-column:1/-1}.savedSessionRow{align-items:flex-start;flex-direction:column}.savedSessionRow button{align-self:flex-end}}

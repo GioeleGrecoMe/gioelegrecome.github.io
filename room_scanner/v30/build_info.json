@@ -1,6 +1,6 @@
 {
-  "version": "30.25.0",
-  "id": "v30.25.0-20260820-feature-gaussian-map",
-  "builtAt": "2026-08-20T22:44:00+02:00",
-  "notes": "Feature-track metric landmarks and multi-view proxy depth now update a continuous information-form 3D Gaussian map. Full 3x3 centre covariance drives Mahalanobis association and Bayesian fusion, a separate surface covariance preserves splat extent, correlated/replayed camera evidence cannot over-shrink uncertainty, and the spatial hash is acceleration only so multiple hypotheses may coexist in one cell. Deep fills gaps after local track-based calibration; TSDF/mesh is derived from confirmed Gaussians rather than being the persistent map."
+  "version": "30.26.0",
+  "id": "v30.26.0-20260820-saved-batch-gaussian-opt",
+  "builtAt": "2026-08-20T23:11:00+02:00",
+  "notes": "End-of-scan sessions now persist the confirmed Gaussian map, current mesh and a bounded multi-view observation reservoir in IndexedDB. Review can reload saved sessions from Home and run user-budgeted post-scan Gaussian geometry optimisation in a dedicated worker. Robust covariance-weighted observation terms plus tangent-preserving local plane regularisation refine centres without collapsing edges; preview updates are batched and optimization progress is re-saved locally."
 }

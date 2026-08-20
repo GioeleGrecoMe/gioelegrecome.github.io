@@ -8,7 +8,7 @@
  */
 export class GaussianRenderer{
   constructor(canvas){this.canvas=canvas;this.ctx=canvas.getContext('2d');this.items=[];this.mesh=null;this.yaw=.55;this.pitch=-.28;this.distance=4;this.center=[0,0,0];this.pan=[0,0];this.splat=1;this._pointers=new Map();this._gesture=null;this._bind();this.resize();}
-  setData(items){this.items=normalize(items);this.fit();this.draw();}
+  setData(items,{fit=true}={}){this.items=normalize(items);if(fit)this.fit();this.draw();}
   setMesh(mesh){this.mesh=mesh||null;this.draw();}
   setSplatSize(v){this.splat=Number(v)||1;this.draw();}
   setPreset(name){if(name==='top'){this.yaw=0;this.pitch=-Math.PI/2+.02;}else if(name==='front'){this.yaw=0;this.pitch=0;}else if(name==='side'){this.yaw=Math.PI/2;this.pitch=0;}else{this.yaw=.55;this.pitch=-.28;}this.draw();}

@@ -1,12 +1,12 @@
-# Room Scanner V30.25.0
+# Room Scanner V30.26.0
 
 Room Scanner combines **AlvaAR metric camera motion**, **Depth Anything V2
 relative depth** and **multi-view feature geometry** into a compact online 3D
 Gaussian map intended for mobile browsers.
 
-## What changed in V30.25
+## What changed in V30.26
 
-The persistent map is no longer one surfel per voxel.  V30.25 uses continuous
+The persistent map is no longer one surfel per voxel.  V30.26 uses continuous
 anisotropic 3D Gaussians and keeps the grid only as a spatial lookup structure.
 Several surface hypotheses can therefore coexist in the same small volume.
 
@@ -79,3 +79,22 @@ de-duplication, multiple continuous hypotheses inside one hash cell, information
 fusion/replay protection, full-covariance PLY persistence, anisotropic rendering,
 TSDF unknown-space/voxel-centre regressions, Depth Anything diagnostics and the
 AlvaAR runtime contract.
+
+## V30.26 saved sessions and iterative review
+
+A finished scan is now automatically saved locally with its Gaussian map and a
+small multi-view optimisation reservoir. From **Sessioni locali** on the main
+screen, `Apri 3D` reloads a compatible scan without repeating capture.
+
+In 3D review, choose a total iteration target (default 30, maximum 300) and press
+`Ottimizza`. Optimisation runs in a worker and can be stopped. The preview is
+updated every iteration for short runs and at an adaptive cadence for long runs
+(about 16 visual updates maximum), so rendering/structured-clone overhead does
+not dominate the geometry update. Completed or stopped states are persisted and
+can be reopened and continued later.
+
+Saved local V30.26 sessions retain the compact multi-view constraints required by
+the geometric optimiser. Generic PLY/R30 imports can still be viewed and mildly
+regularised, but they do not contain that private IndexedDB observation reservoir.
+If optimisation moves the Gaussian map, the old TSDF mesh is intentionally
+marked stale until a future surface-meshing pass regenerates it.

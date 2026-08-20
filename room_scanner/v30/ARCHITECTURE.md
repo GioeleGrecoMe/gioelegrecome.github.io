@@ -1,8 +1,8 @@
-# Room Scanner V30.25.0 architecture
+# Room Scanner V30.26.0 architecture
 
 ## Design goal
 
-V30.25 treats the persistent 3D scene as a **continuous anisotropic Gaussian
+V30.26 treats the persistent 3D scene as a **continuous anisotropic Gaussian
 map**, not as a voxel cloud and not as a stack of monocular depth meshes.  The
 spatial hash exists only to find nearby hypotheses cheaply; it does not quantise
 the Gaussian centres and it may contain several incompatible surfaces in one
@@ -112,3 +112,32 @@ Jacobian and draw rotated anisotropic ellipses. PLY export preserves the packed
 The TSDF is secondary derived geometry. It is rebuilt from the current confirmed
 Gaussian map, so corrected centres can replace earlier estimates. Unknown TSDF
 voxels never act as free space and voxel values are interpreted at voxel centres.
+
+## V30.26 post-scan optimisation and persistence
+
+The online mapper still prioritises capture latency. At scan completion the fusion
+worker exports a compact persistent state rather than raw video: confirmed
+Gaussians plus a bounded, view-diverse reservoir of multi-view observations per
+Gaussian. Each observation stores camera origin, measured 3D point, its full
+position covariance and confidence. The reservoir is intentionally capped so
+storage grows with the surface map rather than with recording duration.
+
+The saved state is written to IndexedDB (`snapshots`, with the current derived
+mesh in `meshes`) and can be reopened from the main screen. Post-scan refinement
+runs in a dedicated module worker. The user chooses a **total iteration target**;
+the worker yields between iterations and sends at most roughly 16 full preview
+snapshots for a long run. Small runs therefore update every iteration while long
+runs avoid spending most of their time serialising and repainting the cloud.
+
+Each optimisation iteration combines covariance-weighted multi-view observation
+constraints, a weak prior to the online estimate and robust local point-to-plane
+regularisation. The latter acts along compatible surface normals only, so it does
+not deliberately shrink tangential spacing across a wall or pull different sides
+of a corner into one sheet. Centre covariance is updated from the local
+information matrix and the physical surface covariance is sharpened only along
+the estimated normal.
+
+The TSDF mesh is a derived product. Once Gaussian centres change after post-scan
+optimisation, the pre-optimisation mesh is marked stale and hidden instead of
+pretending that it still represents the refined map. Whole-room surface meshing
+from the optimised Gaussian field remains a separate reconstruction stage.

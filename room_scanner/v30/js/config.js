@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.25.0 online feature-track + probabilistic 3DGS runtime configuration.
+ * Room Scanner V30.26.0 saved-session + batch 3DGS optimisation runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.25.0',
-  id:'v30.25.0-20260820-feature-gaussian-map',
+  version:'30.26.0',
+  id:'v30.26.0-20260820-saved-batch-gaussian-opt',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -290,6 +290,21 @@ export const CONFIG={
   gaussianWorker:'workers/gaussian_worker.js',
   gaussianMinSupport:2,
   liveOverlayMaxSplats:3200,
+
+  // Post-scan optimisation is deliberately decoupled from acquisition.  The
+  // fusion map saves only a bounded multi-view observation reservoir per
+  // Gaussian, then a Worker refines the map in user-selected iteration batches.
+  // At most postOptimizePreviewUpdates snapshots are pushed to the main thread,
+  // so a 100-iteration run does not serialize the whole cloud 100 times.
+  postOptimizeWorker:'workers/gaussian_opt_worker.js',
+  postOptimizeDefaultIterations:30,
+  postOptimizeMaxIterations:300,
+  postOptimizePreviewUpdates:16,
+  postOptimizeMaxGaussians:70000,
+  postOptimizeObservationReservoir:4,
+  postOptimizePriorWeight:0.18,
+  postOptimizePlaneWeight:0.10,
+  postOptimizeDamping:0.68,
   // Official AlvaAR ESM distribution. A physical vendor/alva_ar.js is used
   // first. If absent, the browser downloads one official/mirrored copy once,
   // validates the real AlvaAR API and stores it in CacheStorage for offline use.

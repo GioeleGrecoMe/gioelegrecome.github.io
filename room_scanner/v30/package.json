@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-25-feature-gaussian-map",
+  "name": "room-scanner-v30-26-saved-batch-gaussian-opt",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,6 @@
     "check:alva": "node tools/check_alvaar_runtime.mjs",
     "vendor:alva": "node tools/vendor_alvaar.mjs"
   },
-  "version": "30.25.0",
-  "description": "V30.25.0: feature-track proxy depth and continuous information-form 3D Gaussian map with full covariance."
+  "version": "30.26.0",
+  "description": "V30.26.0: persistent scan sessions and user-budgeted batch refinement of multi-view 3D Gaussian geometry."
 }

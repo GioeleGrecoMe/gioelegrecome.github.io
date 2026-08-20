@@ -19,7 +19,7 @@ export class SparseDenseFusion{
   constructor({
     voxel=.035,hashVoxel=null,truncation=null,maxSurfels=180000,maxTsdf=450000,minSupport=2,
     minConfirmBaseline=null,maxRaySigma=3.0,maxMahalanobis2=11.34,maxNormalAngleRad=1.25,
-    tsdfMinSupport=null,tsdfMaxSurfels=70000,provisionalMaxAge=18
+    tsdfMinSupport=null,tsdfMaxSurfels=70000,provisionalMaxAge=18,observationReservoir=4
   }={}){
     this.voxel=voxel;this.hashVoxel=Math.max(voxel*.28,Number(hashVoxel)||voxel*.60);this.truncation=truncation||voxel*3;
     this.maxSurfels=maxSurfels;this.maxTsdf=maxTsdf;this.minSupport=Math.max(2,minSupport|0);
@@ -27,7 +27,7 @@ export class SparseDenseFusion{
     this.maxRaySigma=Math.max(1.5,Number(maxRaySigma)||3);this.maxMahalanobis2=Math.max(6,Number(maxMahalanobis2)||11.34);
     this.minNormalDot=Math.cos(Math.max(.2,Math.min(Math.PI/2,Number(maxNormalAngleRad)||1.25)));
     this.tsdfMinSupport=Math.max(this.minSupport,tsdfMinSupport|0||this.minSupport);this.tsdfMaxSurfels=Math.max(1000,tsdfMaxSurfels|0||70000);
-    this.provisionalMaxAge=Math.max(8,provisionalMaxAge|0||18);
+    this.provisionalMaxAge=Math.max(8,provisionalMaxAge|0||18);this.observationReservoir=Math.max(2,Math.min(8,observationReservoir|0||4));
     this.surfels=new Map();       // id -> Gaussian. No quantisation of centres.
     this.spatial=new Map();       // hash cell -> Set<id>, candidate lookup only.
     this.tsdf=new Map();this.nextId=1;this.frames=0;this.samplesIn=0;this.rejected=0;this.matched=0;this.created=0;this.pruned=0;this.lastMeshAtFrame=0;
@@ -83,7 +83,11 @@ export class SparseDenseFusion{
       radius:s.radius,confidence:s.confidence,weight:s.weight,sigmaDepth:s.sigmaDepth,sigmaLateral:s.sigmaLateral,support,observations:1,
       viewMaskLo:s.viewMaskLo,viewMaskHi:s.viewMaskHi,firstOrigin:[...s.origin],lastOrigin:[...s.origin],firstRay:[...s.ray],maxBaseline:0,maxViewAngle:0,lastSeenFrame:this.frames,
       deepWeight:s.sourceKind==='deep'?s.weight:0,verifiedWeight:s.sourceKind==='verified'?s.weight:0,trackWeight:s.sourceKind==='track'?s.weight:0,
-      sourceMask:s.sourceKind==='deep'?1:(s.sourceKind==='verified'?2:4),anchorSupport:s.anchorSupport||0,geometricSupport:s.geometricSupport||0,trackHits:s.trackId?1:0,colorM2:[0,0,0]
+      sourceMask:s.sourceKind==='deep'?1:(s.sourceKind==='verified'?2:4),anchorSupport:s.anchorSupport||0,geometricSupport:s.geometricSupport||0,trackHits:s.trackId?1:0,colorM2:[0,0,0],
+      // Keep only a tiny, view-diverse reservoir.  These rays are the compact
+      // sufficient data used by the post-scan batch optimiser; image history
+      // itself is still discarded.
+      optObservations:[compactOptimObservation(s)]
     };
   }
 
@@ -113,9 +117,24 @@ export class SparseDenseFusion{
     a.anchorSupport=Math.max(a.anchorSupport||0,s.anchorSupport||0);a.geometricSupport=Math.max(a.geometricSupport||0,s.geometricSupport||0);if(s.trackId)a.trackHits++;
     a.viewMaskLo=(a.viewMaskLo|s.viewMaskLo)>>>0;a.viewMaskHi=(a.viewMaskHi|s.viewMaskHi)>>>0;a.support=popcountPair(a.viewMaskLo,a.viewMaskHi);
     a.lastOrigin=[...s.origin];a.maxBaseline=Math.max(a.maxBaseline,Math.hypot(...sub(s.origin,a.firstOrigin)));a.maxViewAngle=Math.max(a.maxViewAngle,viewAngle);
+    this._rememberOptimObservation(a,s);
   }
 
-  _index(id,p){const key=voxelKey(p,this.hashVoxel);let ids=this.spatial.get(key);if(!ids)this.spatial.set(key,ids=new Set());ids.add(id);return key;}
+  _rememberOptimObservation(a,s){
+    const item=compactOptimObservation(s),list=a.optObservations||(a.optObservations=[]);
+    // Same/near-identical camera centres add almost no independent geometric
+    // information. Replace the weakest nearby sample instead of growing history.
+    let near=-1,nearD=Infinity;for(let i=0;i<list.length;i++){const d=Math.hypot(...sub(list[i].origin,item.origin));if(d<nearD){nearD=d;near=i;}}
+    const duplicateGate=Math.max(this.hashVoxel*.45,Math.min(.03,a.radius*1.5));
+    if(near>=0&&nearD<duplicateGate){if(item.confidence>(list[near].confidence||0))list[near]=item;return;}
+    if(list.length<this.observationReservoir){list.push(item);return;}
+    // Bounded farthest-point reservoir: preserve angular/baseline diversity,
+    // because those observations most strongly condition depth along the ray.
+    let replace=0,worst=Infinity;for(let i=0;i<list.length;i++){let sep=Infinity;for(let j=0;j<list.length;j++){if(i===j)continue;sep=Math.min(sep,Math.hypot(...sub(list[i].origin,list[j].origin)));}const quality=sep*(.45+.55*(list[i].confidence||.1));if(quality<worst){worst=quality;replace=i;}}
+    let newSep=Infinity;for(const old of list)newSep=Math.min(newSep,Math.hypot(...sub(old.origin,item.origin)));const newQuality=newSep*(.45+.55*item.confidence);if(newQuality>worst*1.02)list[replace]=item;
+  }
+
+    _index(id,p){const key=voxelKey(p,this.hashVoxel);let ids=this.spatial.get(key);if(!ids)this.spatial.set(key,ids=new Set());ids.add(id);return key;}
   _unindex(id,key){const ids=this.spatial.get(key);if(!ids)return;ids.delete(id);if(!ids.size)this.spatial.delete(key);}
   _relocate(id,s){const old=s.hashKey||null,next=voxelKey(s.p,this.hashVoxel);if(!old){s.hashKey=next;const ids=this.spatial.get(next);if(!ids?.has(id))this._index(id,s.p);return;}if(old===next)return;this._unindex(id,old);this._index(id,s.p);s.hashKey=next;}
   _delete(id,s){this._unindex(id,s.hashKey||voxelKey(s.p,this.hashVoxel));this.surfels.delete(id);this.pruned++;}
@@ -132,17 +151,29 @@ export class SparseDenseFusion{
   _confirmedCount(){let n=0;for(const s of this.surfels.values())if(this._isConfirmed(s))n++;return n;}
   confirmedSurfels({max=50000}={}){const arr=[];for(const s of this.surfels.values())if(this._isConfirmed(s))arr.push(s);arr.sort((a,b)=>surfaceRank(b)-surfaceRank(a));return arr.slice(0,max);}
 
-  splats(opts={}){
-    return this.confirmedSurfels(opts).map(s=>{
-      const n=norm(s.n),[t1,t2]=tangentBasis(n),positionSigma=Math.sqrt(Math.max(1e-12,traceCov(s.positionCov)/3));
-      let cov=regularizeCov(s.surfaceCov,Math.max(.0006,this.hashVoxel*.015));
-      // Keep the physical Gaussian thin along the estimated normal, but never
-      // thinner than residual centre uncertainty. Tangential axes are read from
-      // the actual 3D covariance, not an axis-aligned radius approximation.
-      const normalVar=quadPacked(cov,n),wanted=Math.max(.0008**2,Math.min((s.radius*.34)**2,(positionSigma*.55+this.hashVoxel*.025)**2));if(normalVar<wanted)cov=addCov(cov,scaleCov(outerPacked(n),wanted-normalVar));
-      const scale=[Math.sqrt(Math.max(1e-12,quadPacked(cov,t1))),Math.sqrt(Math.max(1e-12,quadPacked(cov,t2))),Math.sqrt(Math.max(1e-12,quadPacked(cov,n)))],mixed=(s.sourceMask&3)===3;
-      return {position:s.p,normal:n,color:s.color.map(v=>Math.round(clamp(v,0,255))),scale,covariance:cov,positionCovariance:[...s.positionCov],basis:[t1,t2,n],opacity:clamp(.12+.075*Math.min(6,s.support)+.38*s.confidence+(mixed?.06:0)+Math.min(.10,(s.anchorSupport||0)*.025),.18,.96),confidence:s.confidence,support:s.support,observations:s.observations,maxBaseline:s.maxBaseline,positionSigma,anchorSupport:s.anchorSupport||0,geometricSupport:s.geometricSupport||0,mixedEvidence:mixed};
-    });
+  _splatOf(s,id=null){
+    const n=norm(s.n),[t1,t2]=tangentBasis(n),positionSigma=Math.sqrt(Math.max(1e-12,traceCov(s.positionCov)/3));
+    let cov=regularizeCov(s.surfaceCov,Math.max(.0006,this.hashVoxel*.015));
+    // Keep the physical Gaussian thin along the estimated normal, but never
+    // thinner than residual centre uncertainty. Tangential axes are read from
+    // the actual 3D covariance, not an axis-aligned radius approximation.
+    const normalVar=quadPacked(cov,n),wanted=Math.max(.0008**2,Math.min((s.radius*.34)**2,(positionSigma*.55+this.hashVoxel*.025)**2));if(normalVar<wanted)cov=addCov(cov,scaleCov(outerPacked(n),wanted-normalVar));
+    const scale=[Math.sqrt(Math.max(1e-12,quadPacked(cov,t1))),Math.sqrt(Math.max(1e-12,quadPacked(cov,t2))),Math.sqrt(Math.max(1e-12,quadPacked(cov,n)))],mixed=(s.sourceMask&3)===3;
+    return {id:id??undefined,position:s.p,normal:n,color:s.color.map(v=>Math.round(clamp(v,0,255))),scale,covariance:cov,positionCovariance:[...s.positionCov],basis:[t1,t2,n],opacity:clamp(.12+.075*Math.min(6,s.support)+.38*s.confidence+(mixed?.06:0)+Math.min(.10,(s.anchorSupport||0)*.025),.18,.96),confidence:s.confidence,support:s.support,observations:s.observations,maxBaseline:s.maxBaseline,positionSigma,anchorSupport:s.anchorSupport||0,geometricSupport:s.geometricSupport||0,mixedEvidence:mixed};
+  }
+  splats(opts={}){return this.confirmedSurfels(opts).map(s=>this._splatOf(s));}
+
+  /**
+   * Export a compact, reloadable post-processing snapshot.  The spatial hash
+   * and TSDF are intentionally omitted because both are derived data.  Gaussian
+   * order and observation offsets are kept aligned so IndexedDB can restore a
+   * post-scan optimisation job without saving source photographs.
+   */
+  exportPersistentState({maxSurfels=90000,maxObservationsPerSurfel=this.observationReservoir}={}){
+    const entries=[];for(const [id,s] of this.surfels)if(this._isConfirmed(s))entries.push([id,s]);entries.sort((a,b)=>surfaceRank(b[1])-surfaceRank(a[1]));if(entries.length>maxSurfels)entries.length=maxSurfels;
+    const gaussians=[],offsets=new Uint32Array(entries.length+1),rows=[];let obsCount=0;
+    for(let i=0;i<entries.length;i++){const [id,s]=entries[i];gaussians.push(this._splatOf(s,id));offsets[i]=obsCount;const list=(s.optObservations||[]).slice(0,maxObservationsPerSurfel);for(const o of list){rows.push(...o.origin,...o.p,...o.covariance,o.confidence);obsCount++;}}offsets[entries.length]=obsCount;
+    return {format:'ROOMSCAN-GS-OPT-1',version:1,voxel:this.voxel,hashVoxel:this.hashVoxel,frames:this.frames,stats:{surfels:this.surfels.size,confirmed:entries.length,samplesIn:this.samplesIn,rejected:this.rejected,matched:this.matched,created:this.created,pruned:this.pruned},gaussians,observations:{stride:13,count:obsCount,offsets,data:new Float32Array(rows)}};
   }
 
   mesh({maxTriangles=90000,maxSurfels=this.tsdfMaxSurfels}={}){this.tsdf=this._buildTsdfFromConsensus(maxSurfels);this.lastMeshAtFrame=this.frames;return extractTsdfMesh(this.tsdf,this.voxel,maxTriangles);}
@@ -153,6 +184,8 @@ export class SparseDenseFusion{
     }return map;
   }
 }
+
+function compactOptimObservation(s){return {origin:s.origin.slice(0,3),p:s.p.slice(0,3),covariance:s.cov.slice(0,6),confidence:clamp(Number(s.confidence)||.15,.02,1)};}
 
 function normaliseObservation(s,origin,hashVoxel,mode,frameId){
   const p=s.p.slice(0,3).map(Number),o=finite3(origin)?origin.slice(0,3).map(Number):[0,0,0],v=sub(p,o),depth=Number.isFinite(s.depth)&&s.depth>0?s.depth:Math.hypot(...v),ray=norm(v),radius=Math.max(hashVoxel*.08,Number(s.radius)||hashVoxel*.48),source=s.source||(/deep/i.test(mode)?'deep-proxy':'proxy-verified');
