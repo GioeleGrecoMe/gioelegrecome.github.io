@@ -7,14 +7,14 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="manifest" href="manifest.webmanifest?v=30.14.0">
-  <link rel="stylesheet" href="styles.css?v=30.14.0">
-  <title>Room Scanner V30.14.0</title>
+  <link rel="manifest" href="manifest.webmanifest?v=30.14.1">
+  <link rel="stylesheet" href="styles.css?v=30.14.1">
+  <title>Room Scanner V30.14.1</title>
 </head>
 <body>
 <main id="app">
   <section id="home" class="screen active">
-    <div class="hero"><div id="buildBadge" class="badge">V30.14.0</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
+    <div class="hero"><div id="buildBadge" class="badge">V30.14.1</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
     <div class="card"><b>1 · Calibrazione</b><p class="hint">Inquadra un punto fisico con il reticolo e premi <b>Aggiungi pin</b>. Usa 3 punti ben distribuiti. Dopo poche viste utili per ciascun pin, riportane almeno 3 nella stessa inquadratura e premi Applica.</p><div id="calibSummary" class="status">Calibrazione non presente.</div><div class="actions inline"><button id="calibrateBtn" class="primary">Calibra con WebXR</button><button id="clearCalibrationBtn">Azzera calibrazione</button></div></div>
     <div class="card"><b>2 · Misura / scansione</b><p class="hint">AlvaAR mantiene autonomamente il mondo. Se hai una calibrazione, i pin servono solo per fissare una volta scala e riferimento metrici.</p><div class="actions inline"><button id="startBtn" class="primary">Avvia AlvaAR</button><button id="loadPlyBtn">Apri PLY</button><button id="loadR30Btn">Apri .r30</button></div></div>
     <input id="filePly" type="file" accept=".ply" hidden><input id="fileR30" type="file" accept=".r30,application/octet-stream" hidden>
@@ -51,13 +51,13 @@
   </section>
 </main>
 
-<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.14.0</pre></div></details></aside>
+<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.14.1</pre></div></details></aside>
 
 <script>
 /* Ask the ACTUAL controlling worker for its version before requesting modules.
  * Old V30 workers do not answer GET_VERSION and are removed once. */
 (function(){
-  const VERSION='30.14.0';
+  const VERSION='30.14.1';
   const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),version:VERSION,errors:[],interactive:false};
   const rec=(type,data={})=>boot.errors.push({time:Date.now(),type,...data});
   addEventListener('error',e=>rec('error',{message:e.message,src:e.filename,line:e.lineno,col:e.colno,stack:e.error?.stack||null}));

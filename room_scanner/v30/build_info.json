@@ -1,6 +1,6 @@
 {
-  "version": "30.14.0",
-  "id": "v30.14.0-20260819-alvaar-autonomous-world-tracking",
-  "builtAt": "2026-08-19T23:25:00+02:00",
-  "notes": "AlvaAR is the sole long-lived world tracker. WebXR pin calibration is used only for a short one-shot Alva-to-metric Sim(3) bootstrap, then disconnected. Lost Alva frames freeze the map and suspend MVS; relocalization resumes the same world. AlvaAR can also run without calibration in explicitly scale-free mode."
+  "version": "30.14.1",
+  "id": "v30.14.1-20260819-official-alvaar-runtime-bootstrap",
+  "builtAt": "2026-08-19T23:58:00+02:00",
+  "notes": "Official AlvaAR dist runtime is mandatory. The app prefers v30/vendor/alva_ar.js; when absent it fetches the official ~4.13 MB bundle once, validates AlvaAR.Initialize/findCameraPose/getFramePoints, caches it for offline reuse, and never treats the local WASM sentinel as SLAM."
 }

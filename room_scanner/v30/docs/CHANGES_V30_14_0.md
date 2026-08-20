@@ -1,8 +1,8 @@
-# Room Scanner V30.14.0 — AlvaAR autonomous world tracking
+# Room Scanner V30.14.1 — AlvaAR autonomous world tracking
 
 ## Architectural correction
 
-V30.14.0 restores a strict separation between **tracking** and **metric calibration**.
+V30.14.1 restores a strict separation between **tracking** and **metric calibration**.
 
 - **AlvaAR owns the camera trajectory and persistent world for the whole session.**
 - WebXR calibration, when available, is used only during a short bootstrap to estimate a fixed similarity transform from the Alva world to metric room coordinates.
@@ -42,7 +42,7 @@ There is deliberately no `SLAM FALLBACK` tracking state.
 
 The same Alva frontend instance is preserved from the metric bootstrap into Scan and is not reset when leaving Scan for Review/Resume inside the same page session. This allows Alva's own world/relocalization state to survive those UI transitions.
 
-Reloading the page still creates a new Alva session; persistent serialization of the internal Alva world map is not implemented in V30.14.0.
+Reloading the page still creates a new Alva session; persistent serialization of the internal Alva world map is not implemented in V30.14.1.
 
 ## Offline Alva runtime
 
@@ -54,7 +54,7 @@ The rest of the V30 shell remains local/offline-capable.
 
 ## Verification added
 
-V30.14.0 adds deterministic regression coverage for:
+V30.14.1 adds deterministic regression coverage for:
 
 - raw Alva matrix → camera pose convention;
 - one-shot Alva→metric Sim(3) recovery;

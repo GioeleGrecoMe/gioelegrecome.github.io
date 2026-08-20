@@ -1,4 +1,4 @@
-/* Room Scanner V30.14.0 metric-lock guidance.
+/* Room Scanner V30.14.1 metric-lock guidance.
  *
  * The measurement preview deliberately uses NO full-screen canvas above the
  * camera video. On several mobile GPU/compositor combinations, a hardware

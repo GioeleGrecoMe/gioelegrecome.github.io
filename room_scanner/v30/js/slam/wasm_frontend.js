@@ -1,3 +1,4 @@
+import {loadAlvaModule,getAlvaRuntimeStatus} from './alva_runtime_loader.js';
 /**
  * AlvaAR-first vision frontend.
  *
@@ -15,7 +16,7 @@ export class WasmVisionFrontend{
     this.limits={maxFeatures:4096,descriptorBytes:16,implementation:'AlvaAR-WASM+local-MVS-descriptors'};
   }
 
-  async init({width=320,height=480,fovDeg=45,alvaLocalUrl=null,alvaRemoteUrl=null,requireAlva=true}={}){
+  async init({width=320,height=480,fovDeg=45,alvaLocalUrl=null,alvaRemoteUrl=null,alvaRemoteUrls=null,requireAlva=true}={}){
     this.width=width;this.height=height;
     // The tiny local wasm_core.wasm is only a deployment/syntax sentinel. It is
     // never accepted as SLAM. Keeping this probe helps diagnose corrupt builds.
@@ -23,11 +24,18 @@ export class WasmVisionFrontend{
       try{const r=await fetch(this.options.sentinelUrl,{cache:'no-store'});if(r.ok){const bytes=await r.arrayBuffer();if(bytes.byteLength>=8){const m=new Uint8Array(bytes,0,4);if(m[0]===0&&m[1]===0x61&&m[2]===0x73&&m[3]===0x6d)this.instance=(await WebAssembly.instantiate(bytes,{})).instance;}}}catch{}
     }
     if(this.options.alva){this.alva=this.options.alva;this.mode='alvaar-wasm';return this;}
-    const urls=[];if(alvaLocalUrl)urls.push(alvaLocalUrl);if(alvaRemoteUrl)urls.push(alvaRemoteUrl);
-    for(const url of urls){
-      try{const mod=await import(/* webpackIgnore: true */ url);if(!mod?.AlvaAR?.Initialize)throw new Error('AlvaAR export missing');this.alvaModule=mod;this.alva=await mod.AlvaAR.Initialize(width,height,fovDeg);this.mode='alvaar-wasm';this.alvaLoadError=null;break;}catch(err){this.alvaLoadError=err;}
-    }
-    if(!this.alva){this.mode='alvaar-unavailable';if(requireAlva)throw new Error(`AlvaAR non disponibile: ${this.alvaLoadError?.message||'runtime non caricato'}`);}
+    try{
+      const sources=[...(Array.isArray(alvaRemoteUrls)?alvaRemoteUrls:[]),alvaRemoteUrl].filter(Boolean);
+      if(!alvaLocalUrl&&!sources.length&&!requireAlva){this.mode='alvaar-unavailable';return this;}
+      const cacheKey=new URL('../../vendor/alva_ar.cached.js',import.meta.url).href;
+      const mod=await loadAlvaModule({localUrl:alvaLocalUrl,cacheKey,sources});
+      this.alvaModule=mod;
+      // Follow the official AlvaAR public API exactly: Initialize(width,height).
+      this.alva=await mod.AlvaAR.Initialize(width,height);
+      if(!this.alva||typeof this.alva.findCameraPose!=='function')throw new Error('AlvaAR.Initialize non ha restituito un tracker valido');
+      this.mode='alvaar-wasm';this.alvaLoadError=null;this.alvaRuntimeStatus=getAlvaRuntimeStatus();
+    }catch(err){this.alvaLoadError=err;this.mode='alvaar-unavailable';}
+    if(!this.alva&&requireAlva)throw new Error(`AlvaAR non disponibile: ${this.alvaLoadError?.message||'runtime non caricato'}`);
     return this;
   }
 

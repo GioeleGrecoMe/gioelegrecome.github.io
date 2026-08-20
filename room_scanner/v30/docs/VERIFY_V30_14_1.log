@@ -1,0 +1,412 @@
+
+> room-scanner-v30-14-1-official-alvaar-runtime@30.14.1 verify
+> npm test && npm run check:layout && npm run check:deps && npm run check:constructors && npm run check:mock && npm run check:alva
+
+
+> room-scanner-v30-14-1-official-alvaar-runtime@30.14.1 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: MVS descriptors are extracted preferentially at Alva-tracked frame points
+ok 1 - MVS descriptors are extracted preferentially at Alva-tracked frame points
+  ---
+  duration_ms: 5.112551
+  type: 'test'
+  ...
+# Subtest: AlvaAR matrix conversion matches Room Scanner signs
+ok 2 - AlvaAR matrix conversion matches Room Scanner signs
+  ---
+  duration_ms: 1.608081
+  type: 'test'
+  ...
+# Subtest: one-shot bootstrap recovers a fixed Alva->metric Sim3
+ok 3 - one-shot bootstrap recovers a fixed Alva->metric Sim3
+  ---
+  duration_ms: 2.073441
+  type: 'test'
+  ...
+# Subtest: SlamEngine never synthesizes motion when Alva loses tracking and resumes on relocalization
+ok 4 - SlamEngine never synthesizes motion when Alva loses tracking and resumes on relocalization
+  ---
+  duration_ms: 2.401877
+  type: 'test'
+  ...
+# Subtest: official Alva source validator rejects the tiny wasm/sentinel path
+ok 5 - official Alva source validator rejects the tiny wasm/sentinel path
+  ---
+  duration_ms: 0.743581
+  type: 'test'
+  ...
+# Subtest: official Alva source validator accepts a full-size bundle with the public API
+ok 6 - official Alva source validator accepts a full-size bundle with the public API
+  ---
+  duration_ms: 3.066671
+  type: 'test'
+  ...
+# Subtest: runtime downloads once and reuses CacheStorage offline
+ok 7 - runtime downloads once and reuses CacheStorage offline
+  ---
+  duration_ms: 45.223959
+  type: 'test'
+  ...
+# Subtest: minimal boot imports only the versioned core app
+ok 8 - minimal boot imports only the versioned core app
+  ---
+  duration_ms: 0.980261
+  type: 'test'
+  ...
+# Subtest: HTML handshakes with active service worker and removes stale V30 workers before modules
+ok 9 - HTML handshakes with active service worker and removes stale V30 workers before modules
+  ---
+  duration_ms: 0.554681
+  type: 'test'
+  ...
+# Subtest: service worker is atomic and cache-first for static runtime assets
+ok 10 - service worker is atomic and cache-first for static runtime assets
+  ---
+  duration_ms: 0.890158
+  type: 'test'
+  ...
+# Subtest: AlvaAR official runtime is managed by its dedicated validated cache without gating shell install
+ok 11 - AlvaAR official runtime is managed by its dedicated validated cache without gating shell install
+  ---
+  duration_ms: 0.258533
+  type: 'test'
+  ...
+# Subtest: all published identities are V30.14.1
+ok 12 - all published identities are V30.14.1
+  ---
+  duration_ms: 1.497548
+  type: 'test'
+  ...
+# Subtest: real anchors are mandatory and one user pin maps to one XRAnchor
+ok 13 - real anchors are mandatory and one user pin maps to one XRAnchor
+  ---
+  duration_ms: 0.299644
+  type: 'test'
+  ...
+# Subtest: screen markers come from live XRAnchor projection and XR layer has a true 3D marker
+ok 14 - screen markers come from live XRAnchor projection and XR layer has a true 3D marker
+  ---
+  duration_ms: 0.234948
+  type: 'test'
+  ...
+# Subtest: minimal calibration UI replaces the old full panel
+ok 15 - minimal calibration UI replaces the old full panel
+  ---
+  duration_ms: 0.468264
+  type: 'test'
+  ...
+# Subtest: ROI atlas is retained and reused by measurement matching
+ok 16 - ROI atlas is retained and reused by measurement matching
+  ---
+  duration_ms: 0.525378
+  type: 'test'
+  ...
+# Subtest: Apply is ready after exactly three useful visible pins without global pose gate
+ok 17 - Apply is ready after exactly three useful visible pins without global pose gate
+  ---
+  duration_ms: 2.185176
+  type: 'test'
+  ...
+# Subtest: an extra incomplete fourth pin does not disable Apply
+ok 18 - an extra incomplete fourth pin does not disable Apply
+  ---
+  duration_ms: 1.057456
+  type: 'test'
+  ...
+# Subtest: three useful pins still require a coherent common view
+ok 19 - three useful pins still require a coherent common view
+  ---
+  duration_ms: 0.504036
+  type: 'test'
+  ...
+# Subtest: degenerate collinear pins do not enable Apply
+ok 20 - degenerate collinear pins do not enable Apply
+  ---
+  duration_ms: 0.408114
+  type: 'test'
+  ...
+# Subtest: runtime thresholds make one pin useful after four separated ROI views and 8 cm baseline
+ok 21 - runtime thresholds make one pin useful after four separated ROI views and 8 cm baseline
+  ---
+  duration_ms: 0.157263
+  type: 'test'
+  ...
+# Subtest: camera analysis uses a central cover crop instead of stretching 16:9 into portrait
+ok 22 - camera analysis uses a central cover crop instead of stretching 16:9 into portrait
+  ---
+  duration_ms: 0.916617
+  type: 'test'
+  ...
+# Subtest: intrinsics and AR viewport mapping follow the same crop geometry
+ok 23 - intrinsics and AR viewport mapping follow the same crop geometry
+  ---
+  duration_ms: 0.444167
+  type: 'test'
+  ...
+# Subtest: all recovered core runtime files are present and non-empty
+ok 24 - all recovered core runtime files are present and non-empty
+  ---
+  duration_ms: 1.023395
+  type: 'test'
+  ...
+# Subtest: slam_core.wasm is a real WebAssembly binary
+ok 25 - slam_core.wasm is a real WebAssembly binary
+  ---
+  duration_ms: 0.809038
+  type: 'test'
+  ...
+# Subtest: online splat fusion records independent multi-view support and anisotropic uncertainty
+ok 26 - online splat fusion records independent multi-view support and anisotropic uncertainty
+  ---
+  duration_ms: 3.143395
+  type: 'test'
+  ...
+# Subtest: isolated one-view floaters are hidden until spatial or multi-view support exists
+ok 27 - isolated one-view floaters are hidden until spatial or multi-view support exists
+  ---
+  duration_ms: 2.022665
+  type: 'test'
+  ...
+# Subtest: existing v3 + requested v2 never issues a downgrade open
+ok 28 - existing v3 + requested v2 never issues a downgrade open
+  ---
+  duration_ms: 2.619469
+  type: 'test'
+  ...
+# Subtest: older schema upgrades only after version probe
+ok 29 - older schema upgrades only after version probe
+  ---
+  duration_ms: 0.318923
+  type: 'test'
+  ...
+# Subtest: upgrade race VersionError recovers with versionless reopen
+ok 30 - upgrade race VersionError recovers with versionless reopen
+  ---
+  duration_ms: 0.270221
+  type: 'test'
+  ...
+# Subtest: core has no heavy static imports before UI binding
+ok 31 - core has no heavy static imports before UI binding
+  ---
+  duration_ms: 2.021473
+  type: 'test'
+  ...
+# Subtest: core marks UI interactive before detached background initialization
+ok 32 - core marks UI interactive before detached background initialization
+  ---
+  duration_ms: 0.473942
+  type: 'test'
+  ...
+# Subtest: calibration buttons are bound independently
+ok 33 - calibration buttons are bound independently
+  ---
+  duration_ms: 0.459351
+  type: 'test'
+  ...
+# Subtest: diagnostics and service worker are not startup gates
+ok 34 - diagnostics and service worker are not startup gates
+  ---
+  duration_ms: 0.487522
+  type: 'test'
+  ...
+# Subtest: scan draws splats/mesh over camera from the live metric pose
+ok 35 - scan draws splats/mesh over camera from the live metric pose
+  ---
+  duration_ms: 1.719026
+  type: 'test'
+  ...
+# Subtest: review viewer exposes orbit pan pinch and fixed orientation presets
+ok 36 - review viewer exposes orbit pan pinch and fixed orientation presets
+  ---
+  duration_ms: 0.358791
+  type: 'test'
+  ...
+# Subtest: metric MVS is driven by a fixed Alva world transform, not flow-derived motion
+ok 37 - metric MVS is driven by a fixed Alva world transform, not flow-derived motion
+  ---
+  duration_ms: 2.785114
+  type: 'test'
+  ...
+# Subtest: two-view MVS triangulates metric points and feeds Gaussian accumulator
+ok 38 - two-view MVS triangulates metric points and feeds Gaussian accumulator
+  ---
+  duration_ms: 10.9942
+  type: 'test'
+  ...
+# Subtest: triangulated Gaussians produce a non-empty metric mesh
+ok 39 - triangulated Gaussians produce a non-empty metric mesh
+  ---
+  duration_ms: 5.326268
+  type: 'test'
+  ...
+# Subtest: MVS rejects repeated-texture descriptor lookalikes away from the epipolar line
+ok 40 - MVS rejects repeated-texture descriptor lookalikes away from the epipolar line
+  ---
+  duration_ms: 6.302453
+  type: 'test'
+  ...
+# Subtest: manual hit-test preview exposes metric depth and becomes stable
+ok 41 - manual hit-test preview exposes metric depth and becomes stable
+  ---
+  duration_ms: 2.117225
+  type: 'test'
+  ...
+# Subtest: ROI atlas requires camera motion/new viewpoint and stores multiple scales
+ok 42 - ROI atlas requires camera motion/new viewpoint and stores multiple scales
+  ---
+  duration_ms: 0.568272
+  type: 'test'
+  ...
+# Subtest: metric GS helpers preserve metres and provide mesh-oriented samples
+ok 43 - metric GS helpers preserve metres and provide mesh-oriented samples
+  ---
+  duration_ms: 0.682261
+  type: 'test'
+  ...
+# Subtest: metric preview has no unused full-screen bridge canvas
+ok 44 - metric preview has no unused full-screen bridge canvas
+  ---
+  duration_ms: 2.32272
+  type: 'test'
+  ...
+# Subtest: pin guidance uses DOM rings, not a full-screen canvas
+ok 45 - pin guidance uses DOM rings, not a full-screen canvas
+  ---
+  duration_ms: 0.301677
+  type: 'test'
+  ...
+# Subtest: bridge camera is forced to a real viewport-sized rectangle
+ok 46 - bridge camera is forced to a real viewport-sized rectangle
+  ---
+  duration_ms: 0.492188
+  type: 'test'
+  ...
+# Subtest: metric mesh worker creates metric faces from occupied Gaussian samples
+ok 47 - metric mesh worker creates metric faces from occupied Gaussian samples
+  ---
+  duration_ms: 2.649383
+  type: 'test'
+  ...
+# Subtest: metric guidance cannot self-trigger a MutationObserver loop
+ok 48 - metric guidance cannot self-trigger a MutationObserver loop
+  ---
+  duration_ms: 1.08074
+  type: 'test'
+  ...
+# Subtest: camera preview starts before optional measurement guidance
+ok 49 - camera preview starts before optional measurement guidance
+  ---
+  duration_ms: 1.267457
+  type: 'test'
+  ...
+# Subtest: metric matcher has an explicit bounded work budget
+ok 50 - metric matcher has an explicit bounded work budget
+  ---
+  duration_ms: 0.287967
+  type: 'test'
+  ...
+# Subtest: metric lock hands the existing camera stream to scan
+ok 51 - metric lock hands the existing camera stream to scan
+  ---
+  duration_ms: 0.490406
+  type: 'test'
+  ...
+# Subtest: short-lived pin PnP recovers metric camera pose from >=3 known 3D pins
+ok 52 - short-lived pin PnP recovers metric camera pose from >=3 known 3D pins
+  ---
+  duration_ms: 3.915498
+  type: 'test'
+  ...
+# Subtest: SlamEngine derived constructor is runtime-safe with fixed metric transform
+ok 53 - SlamEngine derived constructor is runtime-safe with fixed metric transform
+  ---
+  duration_ms: 1.166267
+  type: 'test'
+  ...
+# Subtest: world anchor stays fixed while screen projection changes with camera motion
+ok 54 - world anchor stays fixed while screen projection changes with camera motion
+  ---
+  duration_ms: 2.183513
+  type: 'test'
+  ...
+# Subtest: lost trackedAnchors hides marker instead of freezing seed UV on screen
+ok 55 - lost trackedAnchors hides marker instead of freezing seed UV on screen
+  ---
+  duration_ms: 0.564906
+  type: 'test'
+  ...
+# Subtest: three distinct poses require at least three visible anchored targets
+ok 56 - three distinct poses require at least three visible anchored targets
+  ---
+  duration_ms: 0.359482
+  type: 'test'
+  ...
+# Subtest: two visible pins cannot create a qualifying global pose
+ok 57 - two visible pins cannot create a qualifying global pose
+  ---
+  duration_ms: 0.186627
+  type: 'test'
+  ...
+# Subtest: projection helper moves opposite camera translation
+ok 58 - projection helper moves opposite camera translation
+  ---
+  duration_ms: 0.129182
+  type: 'test'
+  ...
+# Subtest: XR scene renderer consumes current anchor pose in raw WebXR coordinates
+ok 59 - XR scene renderer consumes current anchor pose in raw WebXR coordinates
+  ---
+  duration_ms: 0.401925
+  type: 'test'
+  ...
+1..59
+# tests 59
+# suites 0
+# pass 59
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 208.117897
+
+> room-scanner-v30-14-1-official-alvaar-runtime@30.14.1 check:layout
+> node tools/check_v30_layout.mjs
+
+PASS v30-layout · 73 file sotto una sola radice v30/
+
+> room-scanner-v30-14-1-official-alvaar-runtime@30.14.1 check:deps
+> node tools/check_dependencies.mjs
+
+PASS dependency-closure · 20 riferimenti locali risolti
+
+> room-scanner-v30-14-1-official-alvaar-runtime@30.14.1 check:constructors
+> node tools/check_eventtarget_constructors.mjs
+
+PASS EventTarget constructors · 5/5 derived classes call super() first
+
+> room-scanner-v30-14-1-official-alvaar-runtime@30.14.1 check:mock
+> node tools/mock_ui_boot.mjs
+
+[RoomScan:ui-interactive] { build: 'v30.14.1-20260819-official-alvaar-runtime-bootstrap' }
+[RoomScan:begin-calibration] {
+  message: 'WebXR non disponibile su questo browser',
+  stack: 'Error: WebXR non disponibile su questo browser\n' +
+    '    at XRMetricCalibrator.start (file:///mnt/data/v3014_1_work/v30/js/xr/xr_calibration.js?v=30.14.1:147:28)\n' +
+    '    at beginCalibration (file:///mnt/data/v3014_1_work/v30/js/app.js?mock=1787176419380:31:475)\n' +
+    '    at async El.<anonymous> (file:///mnt/data/v3014_1_work/v30/js/app.js?mock=1787176419380:20:59)'
+}
+[RoomScan:db-open] { message: 'IndexedDB is unavailable' }
+PASS mock-ui-boot · controls bound · failed WebXR returns to Home · UI remains interactive
+[RoomScan:alva-runtime-prefetch] {
+  message: 'AlvaAR ufficiale non disponibile. vendor: fetch failed | https://raw.githubusercontent.com/alanross/AlvaAR/main/dist/alva_ar.js: fetch failed | https://alanross.github.io/AlvaAR/dist/alva_ar.js: fetch failed | https://cdn.jsdelivr.net/gh/alanross/AlvaAR@main/dist/alva_ar.js: fetch failed'
+}
+
+> room-scanner-v30-14-1-official-alvaar-runtime@30.14.1 check:alva
+> node tools/check_alvaar_runtime.mjs
+
+PASS alvaar-runtime-contract
+--- syntax ---
+PASS javascript-syntax
+PASS wasm-sentinel-instantiate · exports=noop

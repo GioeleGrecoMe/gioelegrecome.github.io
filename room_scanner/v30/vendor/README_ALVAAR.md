@@ -1,6 +1,6 @@
 # Optional local AlvaAR runtime
 
-V30.14.0 uses AlvaAR as the sole long-lived camera/world tracker.
+V30.14.1 uses AlvaAR as the sole long-lived camera/world tracker.
 
 For a self-contained/offline deployment copy the official AlvaAR distribution file:
 

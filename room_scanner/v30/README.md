@@ -1,4 +1,4 @@
-# Room Scanner V30.14.0
+# Room Scanner V30.14.1
 
 Room scanner with **AlvaAR as the autonomous long-lived visual SLAM/world tracker**. WebXR calibration is optional and is used only to bootstrap a fixed metric transform; after that, AlvaAR owns the trajectory. Metric MVS, robust live splat fusion and mesh extraction remain downstream consumers of the Alva pose.
 

@@ -1,15 +1,17 @@
 {
-  "name": "room-scanner-v30-14-alvaar-autonomous-world",
+  "name": "room-scanner-v30-14-1-official-alvaar-runtime",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "check:layout": "node tools/check_v30_layout.mjs",
     "check:deps": "node tools/check_dependencies.mjs",
-    "verify": "npm test && npm run check:layout && npm run check:deps && npm run check:constructors && npm run check:mock",
+    "verify": "npm test && npm run check:layout && npm run check:deps && npm run check:constructors && npm run check:mock && npm run check:alva",
     "check:mock": "node tools/mock_ui_boot.mjs",
-    "check:constructors": "node tools/check_eventtarget_constructors.mjs"
+    "check:constructors": "node tools/check_eventtarget_constructors.mjs",
+    "check:alva": "node tools/check_alvaar_runtime.mjs",
+    "vendor:alva": "node tools/vendor_alvaar.mjs"
   },
-  "version": "30.14.0",
-  "description": "V30.14.0: AlvaAR-only long-lived world tracking with one-shot optional metric bootstrap, freeze-on-loss, relocalization-safe MVS/GS, and live AR reconstruction."
+  "version": "30.14.1",
+  "description": "V30.14.1: autonomous AlvaAR world tracking with mandatory official runtime loading, validated one-time upstream bootstrap/cache, optional physical vendoring, and one-shot metric calibration."
 }
