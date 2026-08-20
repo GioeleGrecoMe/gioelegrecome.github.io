@@ -1,4 +1,4 @@
-# Room Scanner V30.16.0
+# Room Scanner V30.17.0
 
 Room Scanner uses **AlvaAR as the autonomous persistent visual SLAM tracker**.
 Calibration is optional and only fixes a one-shot metric transform. It never
@@ -12,8 +12,19 @@ camera -> AlvaAR pose/world tracking
               v
        local keyframe graph
               |
+              +--> spatial/anchor novelty gate
+              |             |
+              |             v
+              |    Depth Anything V2 Small
+              |      (selected frames only)
+              |             |
+              |             v
+              |    robust Alva-depth calibration
+              |             |
+              +-------------+
+              |
               v
-  multi-view plane-sweep depth
+  AI-prior multi-view plane sweep
               |
               v
     surfel + sparse TSDF fusion
@@ -31,7 +42,8 @@ surfels; the mesh is derived from the TSDF.
 - `ALVA TRACKING`: tracking valid; keyframes/dense mapping may advance.
 - `ALVA LOST`: world is frozen and dense mapping pauses.
 - `ALVA RELOCALIZED`: Alva resumes in the same persistent world.
-- `DEPTH`: accepted dense depth samples from multi-view plane sweep.
+- `AI→ALVA`: relative AI depth has passed robust calibration on Alva anchors.
+- `DEPTH AI+ALVA`: accepted dense depth samples after local-prior multi-view verification.
 - `surf`: confirmed surface splats with multi-view support.
 - The live mesh is shown over the camera after enough TSDF observations.
 
@@ -41,16 +53,26 @@ Textureless areas are rejected rather than hallucinated.
 ## Mobile resource budget
 
 Dense reconstruction runs separately from Alva in module workers. It keeps at
-most 8 downsampled 160x240 keyframes, processes one dense job at a time, uses
-2–4 source views, and automatically reduces sampling density/source count if a
-job is slow. Sparse surfel/TSDF maps have hard memory caps.
+most 8 downsampled 160x240 keyframes and processes one dense job at a time.
+Depth Anything inference is intentionally sparse: a new call normally requires
+at least 7 Alva depth anchors distributed over the image plus a new camera
+position/view/depth context and at least 2.6 s from the previous request. Sparse
+surfel/TSDF maps retain hard memory caps.
 
 ## Depth Anything
 
-Depth Anything is not active in V30.15. The planned fallback is deliberately
-small: infer depth only on a few selected difficult keyframes and use it as a
-search prior for plane sweep. Alva remains the tracker and multi-view geometry
-remains the final consistency test. See `docs/CHANGES_V30_16_0.md`.
+V30.17 uses `onnx-community/depth-anything-v2-small` through Transformers.js.
+The q4 model is loaded lazily on the first useful keyframe, preferring WebGPU and
+falling back to WASM. Its raw output is **not metric and is never fused directly**.
+Instead, Room Scanner robustly calibrates it against reprojection-verified Alva
+triangulated depths (metres when the metric bootstrap is locked), and uses the
+result only to narrow the multi-view plane-sweep interval at each pixel.
+Near-duplicate unprioritized views are skipped, preventing the old wide-search
+camera-facing sheet from being fused just to fill holes.
+
+The static shell and Alva tracking do not depend on the neural model. If the
+Depth Anything runtime/model is unavailable in a scan, tracking remains active
+and unsafe dense frames are dropped. See `docs/CHANGES_V30_17_0.md`.
 
 ## AlvaAR runtime
 

@@ -1,4 +1,4 @@
-/* V30.16.0 non-invasive Gaussian worker observer.
+/* V30.17.0 non-invasive Gaussian worker observer.
  * It does NOT change Gaussian worker messages. It mirrors recognizable Gaussian
  * snapshots in either metric or scale-free Alva world, then derives surface
  * samples/bounds for meshing and diagnostics.

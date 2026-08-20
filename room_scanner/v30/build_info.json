@@ -1,6 +1,6 @@
 {
-  "version": "30.16.0",
-  "id": "v30.16.0-20260820-alva-geometry-anchored-dense",
-  "builtAt": "2026-08-20T11:30:00+02:00",
-  "notes": "AlvaAR remains the autonomous tracker. V30.16 fixes the camera-pose handedness mismatch by using one proper right-handed CV basis (+X right,+Y down,+Z forward) for translation and rotation. Dense mapping starts only after reprojection-verified Alva feature matches provide sparse depth anchors; those anchors bound and locally constrain plane sweep before surfel/TSDF fusion. Legacy V30 calibration profiles are migrated automatically. Depth Anything remains disabled."
+  "version": "30.17.0",
+  "id": "v30.17.0-20260820-alva-deep-prior-sparse-inference",
+  "builtAt": "2026-08-20T11:43:00+02:00",
+  "notes": "AlvaAR remains the only camera-pose authority. Depth Anything V2 Small is restored as a lazy sparse keyframe prior: only spatially novel views with enough Alva-triangulated anchors trigger inference. Relative AI depth is robustly calibrated into the current Alva world scale, then used only to narrow multi-view plane-sweep search before surfel/TSDF fusion. Near-duplicate unprioritized frames are skipped to prevent camera-facing depth sheets. The neural model is not a scan-startup dependency."
 }

@@ -1,5 +1,5 @@
 /**
- * Official AlvaAR runtime loader for Room Scanner V30.16.0+.
+ * Official AlvaAR runtime loader for Room Scanner V30.17.0+.
  *
  * Why this exists:
  * - AlvaAR's official dist/alva_ar.js is a ~4.13 MB single-file ES module.

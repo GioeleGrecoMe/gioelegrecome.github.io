@@ -1,0 +1,47 @@
+Room Scanner V30.17.0 release audit
+==================================
+Build: v30.17.0-20260820-alva-deep-prior-sparse-inference
+
+User-visible geometry change
+----------------------------
+- AlvaAR remains the only pose/world tracker.
+- Depth Anything V2 Small runs lazily only on selected spatially novel keyframes.
+- A keyframe needs >=7 Alva-triangulated depth anchors across >=3 screen cells.
+- Default minimum AI interval: 2.6 s.
+- Default spatial trigger: >=0.20 m in metric mode (>=0.10 Alva units otherwise),
+  >=0.16 rad view rotation, >=22% anchored depth-context change, or an 8 s refresh.
+- Raw relative AI depth is robustly calibrated against Alva depth anchors.
+- Both direct and inverse raw-depth models are fitted; bad/outlier calibrations are rejected.
+- Calibrated AI depth only narrows per-pixel plane-sweep search (default +/-18%).
+- Alva-pose multi-view photometric evidence remains mandatory before TSDF fusion.
+- Near-duplicate views without an AI prior are skipped instead of running wide unconstrained plane sweep.
+
+Runtime/resource behavior
+-------------------------
+- Deep model is not loaded at scan startup.
+- One dense/AI job at a time.
+- q4 model preference, WebGPU first, WASM fallback.
+- Static V30.17 shell/service worker contains the new selector/calibration/worker modules.
+- If Deep Anything is unavailable, Alva tracking remains active and unsafe dense frames are dropped.
+
+Verification
+------------
+- npm test: 75/75 passed.
+- npm run check:layout: PASS.
+- npm run check:deps: PASS.
+- npm run check:constructors: PASS.
+- npm run check:mock: PASS.
+- npm run check:alva: PASS.
+- Full console transcript: docs/VERIFY_V30_17_0.log
+
+Primary changed/new files
+-------------------------
+- js/app.js
+- js/config.js
+- js/dense/deep_keyframe_selector.js
+- js/dense/deep_metric.js
+- js/dense/plane_sweep_core.js
+- workers/deep_depth_worker.js
+- sw.js
+- tests/deep-prior.test.mjs
+- docs/CHANGES_V30_17_0.md

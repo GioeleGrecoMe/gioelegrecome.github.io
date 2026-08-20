@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-16-alva-geometry-anchored-dense",
+  "name": "room-scanner-v30-17-alva-deep-prior-sparse-inference",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,6 +12,6 @@
     "check:alva": "node tools/check_alvaar_runtime.mjs",
     "vendor:alva": "node tools/vendor_alvaar.mjs"
   },
-  "version": "30.16.0",
-  "description": "V30.16.0: autonomous AlvaAR tracking plus low-frequency pose-guided dense plane sweep, surfel fusion, sparse TSDF and live mesh."
+  "version": "30.17.0",
+  "description": "V30.17.0: AlvaAR tracking plus sparse Depth Anything V2 priors calibrated by Alva geometry, multi-view refinement, surfel fusion and TSDF mesh."
 }

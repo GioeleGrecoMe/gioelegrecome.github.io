@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.16.0 dense mapping runtime configuration.
+ * Room Scanner V30.17.0 sparse-AI geometry-prior runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.16.0',
-  id:'v30.16.0-20260820-alva-geometry-anchored-dense',
+  version:'30.17.0',
+  id:'v30.17.0-20260820-alva-deep-prior-sparse-inference',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -143,7 +143,38 @@ export const CONFIG={
   denseMeshEvery:5,
   denseMaxMeshTriangles:90000,
 
-  // Camera-only multi-view densification. No monocular AI depth is involved.
+  /*
+   * Sparse Depth Anything V2 guidance. The model runs only on spatially novel
+   * Alva keyframes that already contain enough triangulated depth anchors. Its
+   * relative output is calibrated to Alva world depth and used ONLY to narrow
+   * plane-sweep search; multi-view geometry remains the acceptance test.
+   */
+  deepDepthEnabled:true,
+  deepDepthWorker:'workers/deep_depth_worker.js',
+  deepModelId:'onnx-community/depth-anything-v2-small',
+  deepDtype:'q4',
+  deepTransformersLocal:'../vendor/transformers/transformers.min.js',
+  deepTransformersRemote:'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.2/+esm',
+  deepMinAnchors:7,
+  deepMinAnchorCells:3,
+  deepMinIntervalMs:2600,
+  deepMaxIntervalMs:8000,
+  deepMinTranslationM:0.20,
+  deepMinTranslationAlva:0.10,
+  deepMinRotationRad:0.16,
+  deepDepthNovelty:0.22,
+  deepCalibrationMaxMedianRelativeError:0.18,
+  deepPriorRelRange:0.18,
+  deepPriorDepthSteps:18,
+  deepPriorWeight:0.10,
+  deepPriorMinConfidence:0.28,
+  deepPriorMinTexture:0.006,
+  // Correctness first: non-selected near-duplicate frames are skipped instead of
+  // reintroducing unconstrained plane-sweep sheets. A later novel view will fill
+  // the same surface with one calibrated AI call.
+  deepSkipUnprioritized:true,
+
+  // Legacy camera-only MVS remains available for diagnostics/fallback tooling.
   mvsWorker:'workers/mvs_worker.js',
   mvsEveryNthKeyframe:1,
   // V30.14 feeds only AlvaAR-tracked metric keyframe pairs to MVS. A 3 cm
@@ -191,7 +222,8 @@ export const CONFIG={
   // Kept as a compatibility alias for diagnostics from older V30 modules.
   alvaRemoteUrl:'https://raw.githubusercontent.com/alanross/AlvaAR/main/dist/alva_ar.js',
   wasmCore:'wasm/slam_core.wasm',
-  // No Depth Anything / DeepAI and no IMU are required by the V30.16.0 runtime.
+  // Depth Anything is lazy/optional: Alva tracking still works if the model is
+  // not yet cached or a neural backend is unavailable. No IMU is required.
   serviceWorker:'sw.js',
   serviceWorkerRegisterDelayMs:2500,
   buildInfo:'build_info.json'

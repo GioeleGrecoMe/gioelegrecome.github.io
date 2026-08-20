@@ -26,10 +26,15 @@ export function estimateDenseDepth(job){
     pixelStep:Math.max(1,job.pixelStep|0||3),margin:Math.max(2,job.margin|0||3),
     maxCost:Number(job.maxCost??0.22),minConfidence:Number(job.minConfidence??0.11),
     minViews:Math.max(1,job.minViews|0||Math.min(2,sources.length)),maxSamples:Math.max(500,job.maxSamples|0||14000),
-    minTexture:Number(job.minTexture??0.018),minDistinctiveness:Number(job.minDistinctiveness??0.025),depthSmoothRel:Number(job.depthSmoothRel??0.16),seedRadiusPx:Number(job.seedRadiusPx??22),seedMaxRelativeError:Number(job.seedMaxRelativeError??0.48)
+    minTexture:Number(job.minTexture??0.018),minDistinctiveness:Number(job.minDistinctiveness??0.025),depthSmoothRel:Number(job.depthSmoothRel??0.16),seedRadiusPx:Number(job.seedRadiusPx??22),seedMaxRelativeError:Number(job.seedMaxRelativeError??0.48),
+    // A calibrated Depth Anything map is a SEARCH PRIOR, never final geometry.
+    // Every accepted point must still win the Alva-pose multi-view photo test.
+    priorRelRange:Number(job.priorRelRange??0.18),priorDepthSteps:Math.max(8,job.priorDepthSteps|0||18),priorWeight:Number(job.priorWeight??0.10),priorMinConfidence:Number(job.priorMinConfidence??0.28),priorMinTexture:Number(job.priorMinTexture??0.006)
   };
   if(!(cfg.near>0&&cfg.far>cfg.near))throw new Error(`invalid plane sweep depth range ${cfg.near}..${cfg.far}`);
   const sparseSeeds=(job.sparseSeeds||[]).filter(s=>Number.isFinite(s?.u)&&Number.isFinite(s?.v)&&Number.isFinite(s?.depth)&&s.depth>0);
+  const prior=job.depthPrior?.depth?.length===width*height?job.depthPrior:null;
+  const priorConfidence=prior?clamp(Number(prior.confidence??0),0,1):0;
 
   const refGrad=gradients(ref.gray,width,height),src=sources.map(s=>({
     ...s,grad:gradients(s.gray,s.width|0,s.height|0),Rcw:rotationFromQuat(s.pose.q),Rwc:null
@@ -47,9 +52,14 @@ export function estimateDenseDepth(job){
     for(let gx=0;gx<gridW;gx++,gi++){
       const u=cfg.margin+gx*cfg.pixelStep;pxGrid[gi]=u;pyGrid[gi]=v;
       const refI=ref.gray[v*width+u]/255,refGx=refGrad.gx[v*width+u],refGy=refGrad.gy[v*width+u];
-      if(Math.hypot(refGx,refGy)<cfg.minTexture)continue;
+      const texture=Math.hypot(refGx,refGy),priorZ=prior?.depth?.[v*width+u]||0,hasPrior=priorZ>cfg.near&&priorZ<cfg.far&&priorConfidence>=cfg.priorMinConfidence;
+      // Strong calibrated priors let us retain lower-texture furniture/walls, but
+      // completely flat pixels are still rejected because they cannot be checked
+      // against another Alva view.
+      if(texture<(hasPrior?cfg.priorMinTexture:cfg.minTexture))continue;
       let best=Infinity,second=Infinity,bestZ=0,bestViews=0;
-      for(const z of depthHyp){
+      const hypotheses=hasPrior?localDepths(priorZ,cfg.near,cfg.far,cfg.priorRelRange,cfg.priorDepthSteps):depthHyp;
+      for(const z of hypotheses){
         const xc=(u-K.cx)/K.fx*z,yc=(v-K.cy)/K.fy*z;
         const wr=rotateMat(Rref,[xc,yc,z]);
         const world=[ref.pose.p[0]+wr[0],ref.pose.p[1]+wr[1],ref.pose.p[2]+wr[2]];
@@ -68,13 +78,19 @@ export function estimateDenseDepth(job){
         costs.sort((a,b)=>a-b);
         const keep=Math.min(costs.length,Math.max(cfg.minViews,2));
         let c=0;for(let i=0;i<keep;i++)c+=costs[i];c/=keep;
+        // Keep the search close to the AI shape without letting the network win
+        // against photometric evidence. The penalty is zero at the calibrated
+        // prior and grows smoothly towards the local search boundary.
+        if(hasPrior){const rel=Math.abs(Math.log(z/priorZ))/Math.max(.03,Math.log(1+cfg.priorRelRange));c+=cfg.priorWeight*clamp(rel,0,1.5);}
         if(c<best){second=best;best=c;bestZ=z;bestViews=costs.length;}else if(c<second)second=c;
       }
       if(!Number.isFinite(best)||!bestZ||bestViews<cfg.minViews)continue;
       const distinct=Number.isFinite(second)?clamp((second-best)/(Math.max(.025,second)),0,1):0;
       const photo=clamp(1-best/Math.max(.03,cfg.maxCost),0,1);
-      const confidence=.62*distinct+.38*photo;
-      if(best<=cfg.maxCost&&distinct>=cfg.minDistinctiveness&&confidence>=cfg.minConfidence){
+      const confidence=hasPrior?(.40*distinct+.34*photo+.26*priorConfidence):(.62*distinct+.38*photo);
+      const minDistinct=hasPrior?cfg.minDistinctiveness*.42:cfg.minDistinctiveness;
+      const maxCost=hasPrior?cfg.maxCost+cfg.priorWeight*.42:cfg.maxCost;
+      if(best<=maxCost&&distinct>=minDistinct&&confidence>=cfg.minConfidence){
         const seed=findNearestSparseSeed(sparseSeeds,u,v,cfg.seedRadiusPx);
         if(seed&&Math.abs(bestZ-seed.depth)/Math.max(1e-6,seed.depth)>cfg.seedMaxRelativeError)continue;
         depthGrid[gi]=bestZ;confGrid[gi]=seed?Math.min(1,confidence*.78+Number(seed.confidence||.5)*.22):confidence;costGrid[gi]=best;
@@ -129,6 +145,7 @@ export function rotationFromQuat(q){
 }
 function rotateMat(R,v){return [R[0]*v[0]+R[1]*v[1]+R[2]*v[2],R[3]*v[0]+R[4]*v[1]+R[5]*v[2],R[6]*v[0]+R[7]*v[1]+R[8]*v[2]];}
 function inverseDepths(near,far,n){const a=1/far,b=1/near,out=[];for(let i=0;i<n;i++){const t=i/(n-1);out.push(1/(a+(b-a)*t));}return out;}
+function localDepths(prior,near,far,rel,n){const lo=Math.max(near,prior*(1-rel)),hi=Math.min(far,prior*(1+rel));if(!(hi>lo*1.002))return [clamp(prior,near,far)];return inverseDepths(lo,hi,n);}
 function gradients(gray,w,h){const gx=new Float32Array(gray.length),gy=new Float32Array(gray.length);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;gx[i]=(gray[i+1]-gray[i-1])/510;gy[i]=(gray[i+w]-gray[i-w])/510;}return {gx,gy};}
 function bilinear(a,w,h,x,y){const x0=Math.floor(x),y0=Math.floor(y),x1=Math.min(w-1,x0+1),y1=Math.min(h-1,y0+1),tx=x-x0,ty=y-y0;return (a[y0*w+x0]*(1-tx)+a[y0*w+x1]*tx)*(1-ty)+(a[y1*w+x0]*(1-tx)+a[y1*w+x1]*tx)*ty;}
 function sampleRgb(rgba,w,h,x,y){if(!rgba?.length)return [180,200,220];const xx=clamp(Math.round(x),0,w-1),yy=clamp(Math.round(y),0,h-1),i=(yy*w+xx)*4;return [rgba[i]||0,rgba[i+1]||0,rgba[i+2]||0];}
