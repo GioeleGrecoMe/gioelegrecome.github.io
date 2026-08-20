@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.18.5 mobile commit-only ONNX geometry-prior runtime configuration.
+ * Room Scanner V30.18.7 mobile commit-only ONNX geometry-prior runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.18.5',
-  id:'v30.18.5-20260820-q4-auto-cache-live-depth-ticker',
+  version:'30.18.7',
+  id:'v30.18.7-20260820-q4-gpu-readback-depth-layout',
   dbName:'room-scanner-v30',
   dbVersion:3
 };

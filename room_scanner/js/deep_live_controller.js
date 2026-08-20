@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.18.5 live Depth Anything preview controller.
+ * Room Scanner V30.18.7 live Depth Anything preview controller.
  *
  * This module intentionally does NOT modify AlvaAR, keyframe selection or the
  * dense mapper. It only gives the neural preview its own ~1 Hz clock using the
@@ -135,7 +135,8 @@ function attachWorker(worker) {
       if (hud) {
         const src = d.frameSignature || '--------';
         const z = d.depthSignature || '--------';
-        hud.textContent = `AI LIVE ${d.provider} · ${d.rawWidth}x${d.rawHeight} · ${Number(d.ms || 0).toFixed(0)} ms · src ${src} -> z ${z}`;
+        const io = `${d.preprocessBackend?.includes('fromImage') ? 'ORT-img' : 'manual-img'}/${d.outputReadback || 'read'}`;
+        hud.textContent = `AI LIVE ${d.provider} · ${d.rawWidth}x${d.rawHeight} · ${Number(d.ms || 0).toFixed(0)} ms · ${io} · src ${src} -> z ${z}`;
       }
       return;
     }
