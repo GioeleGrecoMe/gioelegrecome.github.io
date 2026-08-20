@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.18 - Local ONNX Depth Anything worker.
+ * Room Scanner V30.18.1 - Local ONNX Depth Anything worker.
  *
  * Fix in this revision:
  * ONNX Runtime Web exposes `inputMetadata` / `outputMetadata` as arrays of
@@ -22,6 +22,10 @@ let cfg = {
   // compatibility can be diagnosed separately from the metadata bug.
   ortRemote: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.all.min.mjs',
   inputMaxSide: 518,
+  // Used only when the runtime does not expose input metadata. The q4f16
+  // Depth Anything V2 browser export normally accepts float32 pixel_values.
+  // Inference also probes float16 automatically if float32 is rejected.
+  inputType: 'float32',
 };
 
 let ort = null;
@@ -82,12 +86,25 @@ function inputSpec() {
   }
 
   const meta = metadataEntry(session.inputMetadata, name, 0);
+
+  // IMPORTANT: some onnxruntime-web builds expose inputNames/outputNames but do
+  // not expose inputMetadata at runtime. That does NOT mean that the ONNX model
+  // has no input. Depth Anything V2 has a documented contract:
+  //   pixel_values: float tensor, NCHW [batch, 3, height, width]
+  // The official processor uses 518x518. If metadata is unavailable we use that
+  // contract instead of rejecting an otherwise valid session.
   if (!meta) {
-    fail(
-      `metadata input ONNX non disponibile per ${name}; ` +
-      `inputNames=${JSON.stringify(inputNames)}, ` +
-      `metadataType=${Object.prototype.toString.call(session.inputMetadata)}`,
-    );
+    const side = positiveNumber(cfg.inputMaxSide, 518);
+    return {
+      name,
+      type: String(cfg.inputType || 'float32').toLowerCase(),
+      dims: [1, 3, side, side],
+      width: side,
+      height: side,
+      rawShape: null,
+      metadataAvailable: false,
+      contractFallback: true,
+    };
   }
 
   // ONNX Runtime Web ValueMetadata uses `shape`. `dimensions` is retained only
@@ -104,11 +121,13 @@ function inputSpec() {
 
   return {
     name,
-    type: String(meta.type || 'float32').toLowerCase(),
+    type: String(meta.type || cfg.inputType || 'float32').toLowerCase(),
     dims,
     width: dims[3],
     height: dims[2],
     rawShape: Array.from(rawShape),
+    metadataAvailable: true,
+    contractFallback: false,
   };
 }
 
@@ -234,6 +253,8 @@ async function ensureSession(source) {
           type: spec.type,
           dims: spec.dims,
           rawShape: spec.rawShape,
+          metadataAvailable: spec.metadataAvailable,
+          contractFallback: spec.contractFallback,
         },
         output,
         model: source?.label || sourceKey,
@@ -255,7 +276,7 @@ async function ensureSession(source) {
   fail(`creazione/sessione ONNX fallita. ${errors.join(' | ')}`);
 }
 
-function prepareInput(rgba, width, height, spec) {
+function prepareInput(rgba, width, height, spec, forcedType = null) {
   if (typeof OffscreenCanvas === 'undefined') {
     fail('OffscreenCanvas non disponibile');
   }
@@ -273,7 +294,8 @@ function prepareInput(rgba, width, height, spec) {
 
   const pixels = tctx.getImageData(0, 0, spec.width, spec.height).data;
   const n = spec.width * spec.height;
-  const float16Input = spec.type.includes('float16');
+  const tensorType = String(forcedType || spec.type || 'float32').toLowerCase();
+  const float16Input = tensorType.includes('float16');
   const values = float16Input ? new Uint16Array(n * 3) : new Float32Array(n * 3);
   const mean = [0.485, 0.456, 0.406];
   const std = [0.229, 0.224, 0.225];
@@ -324,11 +346,36 @@ async function infer(d) {
 
   await ensureSession(d.model);
   const spec = inputSpec();
-  const feeds = {
-    [spec.name]: prepareInput(d.rgba, d.width, d.height, spec),
-  };
-  const result = await session.run(feeds);
-  return readOutput(result);
+
+  // If metadata exists, trust the declared tensor type. If metadata is absent,
+  // probe float32 first (the standard Depth Anything V2 JS preprocessing path)
+  // and then float16. This converts a runtime API limitation into a one-time
+  // compatibility probe instead of a false "model has no input" failure.
+  const typeCandidates = spec.metadataAvailable
+    ? [spec.type]
+    : Array.from(new Set([spec.type || 'float32', 'float32', 'float16']));
+  const errors = [];
+
+  for (const tensorType of typeCandidates) {
+    try {
+      const feeds = {
+        [spec.name]: prepareInput(d.rgba, d.width, d.height, spec, tensorType),
+      };
+      const result = await session.run(feeds);
+      const output = readOutput(result);
+      output.inputType = tensorType;
+      output.inputDims = spec.dims;
+      output.contractFallback = !!spec.contractFallback;
+      return output;
+    } catch (err) {
+      errors.push(`${tensorType}: ${err?.message || err}`);
+    }
+  }
+
+  fail(
+    `inferenza ONNX fallita per ${spec.name} ${JSON.stringify(spec.dims)}. ` +
+    `Tentativi tipo input: ${errors.join(' | ')}`,
+  );
 }
 
 self.onmessage = async (event) => {
@@ -395,6 +442,9 @@ self.onmessage = async (event) => {
         rawDepth: raw.rawDepth,
         rawWidth: raw.width,
         rawHeight: raw.height,
+        inputType: raw.inputType || null,
+        inputDims: raw.inputDims || null,
+        contractFallback: !!raw.contractFallback,
         ms: performance.now() - started,
       },
       [raw.rawDepth.buffer],
