@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.18.4 - Local ONNX Depth Anything worker.
+ * Room Scanner V30.18.5 - Mobile Q4 auto-download/cache Depth Anything worker.
  *
  * OUTPUT LAYOUT + WEBGPU RUNTIME + SPEED FIX
  * -------------------------
@@ -31,10 +31,12 @@
  */
 
 let cfg = {
-  modelUrl: 'models/depth_anything_v2_small_q4f16.onnx',
+  modelUrl: 'models/depth_anything_v2_small_q4.onnx',
+  modelRemoteUrl: 'https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model_q4.onnx',
+  modelCacheName: 'room-scanner-depth-models-v1',
   ortLocal: '../vendor/onnxruntime-web/ort.all.min.mjs',
   // Keep the project-configured runtime only as a last-resort compatibility fallback.
-  ortRemote: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.all.min.mjs',
+  ortRemote: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.all.min.mjs',
   ortCurrentWebGpu: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.webgpu.min.mjs',
   ortCurrentAll: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.all.min.mjs',
 
@@ -45,7 +47,7 @@ let cfg = {
   // becomes 168x252 (18 * 14) without changing its 2:3 aspect ratio.
   // Depth is a geometric prior here; Alva + multi-view verification retain
   // metric/structural authority, so this lower raster is a good speed tradeoff.
-  preferredShortSide: 168,
+  preferredShortSide: 140,
   patchSize: 14,
 
   // Used when onnxruntime-web exposes inputNames but not inputMetadata.
@@ -64,6 +66,9 @@ let busy = false;
 let successfulInputPlan = null;
 let lastSessionLoadMs = 0;
 let diagnosticOrt = null;
+let forceWasm = false;
+let queuedPriorityInfer = null;
+let queuedPreviewInfer = null;
 
 function fail(message) {
   throw new Error(message);
@@ -214,14 +219,63 @@ async function importOrt() {
   fail(`ONNX Runtime Web non disponibile. ${errors.join(' | ')}`);
 }
 
+async function responseToArrayBufferWithProgress(response, label) {
+  const total = Number(response.headers.get('content-length')) || 0;
+  postMessage({ type:'deep-download-progress', label, received:0, total, pct:0 });
+  // arrayBuffer() avoids retaining a JS array of download chunks, which matters
+  // on smartphones because the ONNX session itself already consumes RAM.
+  const buffer = await response.arrayBuffer();
+  postMessage({ type:'deep-download-progress', label, received:buffer.byteLength, total:total || buffer.byteLength, pct:100 });
+  return buffer;
+}
+
+async function fetchUrlModel(url, { cacheable = false, label = 'modello' } = {}) {
+  const cacheName = cfg.modelCacheName || 'room-scanner-depth-models-v1';
+  if (cacheable && globalThis.caches) {
+    try {
+      const cache = await caches.open(cacheName);
+      const cached = await cache.match(url);
+      if (cached?.ok) {
+        postMessage({ type:'deep-model-cache-hit', url, cache:cacheName });
+        return cached.arrayBuffer();
+      }
+    } catch {}
+  }
+
+  const response = await fetch(url, { mode:'cors', cache:'no-store', redirect:'follow' });
+  if (!response.ok) fail(`${label} non leggibile: HTTP ${response.status}`);
+
+  // Clone before consuming the body so the official Q4 model survives page
+  // reloads without ever being committed to GitHub. This cache is deliberately
+  // separate from the versioned shell cache and is not deleted on app updates.
+  if (cacheable && globalThis.caches) {
+    try {
+      const cache = await caches.open(cacheName);
+      await cache.put(url, response.clone());
+    } catch (err) {
+      postMessage({ type:'deep-diag', level:'warn', event:'model-cache-store', message:err?.message || String(err) });
+    }
+  }
+  return responseToArrayBufferWithProgress(response, label);
+}
+
 async function fetchModel(source) {
   if (source?.bytes) return source.bytes;
-  const url = source?.url || cfg.modelUrl;
-  if (!url) fail('nessun modello ONNX selezionato');
+  const requested = source?.url || cfg.modelUrl;
+  const remote = cfg.modelRemoteUrl;
+  const errors = [];
 
-  const response = await fetch(url, { cache: 'no-store' });
-  if (!response.ok) fail(`modello ONNX non leggibile: HTTP ${response.status}`);
-  return response.arrayBuffer();
+  // First try the future local Q4 filename. If it is not present on GitHub yet,
+  // fall through to the official Apache-2.0 ONNX Community file and cache it.
+  if (requested) {
+    try { return await fetchUrlModel(requested, { cacheable:false, label:'modello Q4 locale' }); }
+    catch (err) { errors.push(`locale: ${err?.message || err}`); }
+  }
+  if (remote && remote !== requested) {
+    try { return await fetchUrlModel(remote, { cacheable:true, label:'Depth Anything V2 Small Q4 ufficiale' }); }
+    catch (err) { errors.push(`remoto: ${err?.message || err}`); }
+  }
+  fail(`modello Q4 non disponibile. ${errors.join(' | ')}`);
 }
 
 async function ensureSession(source) {
@@ -249,9 +303,11 @@ async function ensureSession(source) {
 
   successfulInputPlan = null;
   const bytes = await fetchModel(source);
-  const providerAttempts = globalThis.navigator?.gpu
-    ? [['webgpu', 'wasm'], ['wasm']]
-    : [['wasm']];
+  const providerAttempts = forceWasm
+    ? [['wasm']]
+    : globalThis.navigator?.gpu
+      ? [['webgpu', 'wasm'], ['wasm']]
+      : [['wasm']];
 
   const errors = [];
 
@@ -345,7 +401,7 @@ function inputPlans(spec, sourceWidth, sourceHeight) {
     return [{ width: spec.width, height: spec.height, mode: 'metadata-fixed' }];
   }
 
-  const preferred = positiveNumber(cfg.preferredShortSide, 168);
+  const preferred = positiveNumber(cfg.preferredShortSide, 140);
   const plans = [
     adaptiveInputGeometry(sourceWidth, sourceHeight, preferred),
     // Medium fallback: useful if a custom dynamic export dislikes very small
@@ -730,14 +786,24 @@ async function runWasmDiagnostic(d, reference) {
 
 async function providerABDiagnostic(d, webgpuResult) {
   if (provider !== 'webgpu') return { attempted: false, reason: `primary-provider-${provider}` };
+  const webgpuStripe = stripeDiagnosis(webgpuResult.spatialStats);
+  // Q4 is expected to be stable. A second WASM session is expensive on phones,
+  // so run the A/B solver only when the WebGPU map actually shows the column/row
+  // pathology we are debugging.
+  if (!webgpuStripe.suspicious) return { attempted:false, reason:'webgpu-not-striped', webgpu:{ ms:webgpuResult.steadyMs, stripe:webgpuStripe } };
   try {
     const wasm = await runWasmDiagnostic(d, webgpuResult);
-    const webgpuStripe = stripeDiagnosis(webgpuResult.spatialStats);
     const wasmStripe = wasm.stripe;
     const comparison = compareDepthMaps(webgpuResult.rawDepth, wasm.rawDepth);
     const gpuMuchMoreStriped = webgpuStripe.suspicious && webgpuStripe.ratio > Math.max(4, wasmStripe.ratio * 1.8);
     const providerMismatch = comparison.comparable && (comparison.correlation < 0.90 || comparison.nrmse > 0.75);
     const webgpuLikelyCorrupt = gpuMuchMoreStriped && providerMismatch && !wasmStripe.suspicious;
+    if (webgpuLikelyCorrupt) {
+      forceWasm = true;
+      try { await session?.release?.(); } catch {}
+      session = null; sessionKey = ''; successfulInputPlan = null;
+      postMessage({ type:'deep-diag', level:'warn', event:'webgpu-disabled', message:'Q4 WebGPU incoerente rispetto a WASM: uso WASM sicuro nelle inferenze successive.' });
+    }
     return {
       attempted: true,
       webgpuLikelyCorrupt,
@@ -829,15 +895,32 @@ async function infer(d, { benchmark = false } = {}) {
   );
 }
 
-self.onmessage = async (event) => {
-  const d = event.data || {};
+function isPreviewJob(d) {
+  return d?.type === 'infer' && String(d?.jobId || '').startsWith('preview-ticker-');
+}
+
+function scheduleQueuedInference() {
+  if (busy) return;
+  const next = queuedPriorityInfer || queuedPreviewInfer;
+  if (!next) return;
+  if (queuedPriorityInfer) queuedPriorityInfer = null;
+  else queuedPreviewInfer = null;
+  queueMicrotask(() => void handleWorkerMessage(next));
+}
+
+async function handleWorkerMessage(d) {
+  d = d || {};
 
   if (d.type === 'init') {
     cfg = { ...cfg, ...(d.config || {}) };
+    // app.js V30.18.0 does not yet forward this optional setting; keep the
+    // worker's 140-pixel mobile default unless a future caller provides it.
+    if (Number(d.config?.preferredShortSide) > 0) cfg.preferredShortSide = Number(d.config.preferredShortSide);
     postMessage({
       type: 'deep-ready',
       provider,
       modelUrl: cfg.modelUrl,
+      modelRemoteUrl: cfg.modelRemoteUrl,
       preferredShortSide: cfg.preferredShortSide,
       rasterContract: 'RGBA-row-major -> RGB-NCHW-planar',
     });
@@ -856,6 +939,9 @@ self.onmessage = async (event) => {
       outputNames: Array.from(session?.outputNames || []),
       successfulInputPlan,
       sessionLoadMs: lastSessionLoadMs,
+      forceWasm,
+      queuedPriority: !!queuedPriorityInfer,
+      queuedPreview: !!queuedPreviewInfer,
     });
     return;
   }
@@ -863,6 +949,19 @@ self.onmessage = async (event) => {
   if (!['load', 'test', 'infer'].includes(d.type)) return;
 
   if (busy) {
+    if (d.type === 'infer') {
+      // Never report a benign scheduling collision as deep-error: app.js treats
+      // any deep-error as a reason to disable AI for the whole scan. Keyframe
+      // depth gets priority; live preview keeps only one pending frame.
+      if (isPreviewJob(d)) {
+        if (!queuedPreviewInfer) queuedPreviewInfer = d;
+        postMessage({ type:'deep-preview-queued', jobId:d.jobId || null });
+      } else if (!queuedPriorityInfer) {
+        queuedPriorityInfer = d;
+        postMessage({ type:'deep-queued', jobId:d.jobId || null });
+      }
+      return;
+    }
     postMessage({
       type: 'deep-error',
       jobId: d.jobId || null,
@@ -875,6 +974,7 @@ self.onmessage = async (event) => {
 
   busy = true;
   const totalStarted = performance.now();
+  const previewJob = isPreviewJob(d);
 
   try {
     if (d.type === 'load') {
@@ -893,53 +993,56 @@ self.onmessage = async (event) => {
 
     const raw = await infer(d, { benchmark: d.type === 'test' });
     const diagnostic = d.type === 'test' ? await providerABDiagnostic(d, raw) : null;
+    const useSafeWasm = !!(diagnostic?.webgpuLikelyCorrupt && diagnostic?.wasmPreviewDepth?.length);
+    const finalDepth = useSafeWasm ? diagnostic.wasmPreviewDepth : raw.rawDepth;
+    const finalWidth = useSafeWasm ? diagnostic.wasmPreviewWidth : raw.width;
+    const finalHeight = useSafeWasm ? diagnostic.wasmPreviewHeight : raw.height;
+    const effectiveProvider = useSafeWasm ? 'wasm-safe' : provider;
+    const finalDepthSignature = sampledFloatSignature(finalDepth, finalWidth, finalHeight);
 
-    // Backward compatibility: app.js already renders `result.ms`.  From this
-    // revision it intentionally means STEADY inference latency rather than cold
-    // model/session setup.  `totalMs` preserves the complete wall-clock value.
-    postMessage(
-      {
-        type: d.type === 'test' ? 'deep-test-result' : 'deep-result',
-        jobId: d.jobId || null,
-        refId: d.refId || null,
-        provider,
-        runtime: ortSource,
-        rawDepth: raw.rawDepth,
-        rawWidth: raw.width,
-        rawHeight: raw.height,
-        inputType: raw.inputType || null,
-        inputDims: raw.inputDims || null,
-        inputPlan: raw.inputPlan || null,
-        outputName: raw.outputName || null,
-        outputDims: raw.outputDims || null,
-        outputType: raw.outputType || null,
-        layoutFix: raw.layoutFix || 'none',
-        spatialStats: raw.spatialStats || null,
-        rasterContract: 'RGBA-row-major-interleaved -> RGB-NCHW-planar',
-        rasterProbe: raw.rasterProbe || null,
-        frameSignature: raw.frameSignature || null,
-        depthSignature: raw.depthSignature || null,
-        contractFallback: !!raw.contractFallback,
-        benchmarkWarm: !!raw.benchmarkWarm,
-        preprocessMs: raw.preprocessMs,
-        runMs: raw.runMs,
-        outputMs: raw.outputMs,
-        coldRunMs: raw.coldRunMs,
-        coldSteadyMs: raw.coldSteadyMs,
-        sessionMs: raw.sessionMs,
-        sessionLoadMs: raw.sessionLoadMs,
-        ms: raw.steadyMs,
-        totalMs: performance.now() - totalStarted,
-        providerDiagnostic: diagnostic ? { ...diagnostic, wasmPreviewDepth: undefined } : null,
-        wasmPreviewDepth: diagnostic?.wasmPreviewDepth || null,
-        wasmPreviewWidth: diagnostic?.wasmPreviewWidth || null,
-        wasmPreviewHeight: diagnostic?.wasmPreviewHeight || null,
-      },
-      [raw.rawDepth.buffer, ...(diagnostic?.wasmPreviewDepth?.buffer ? [diagnostic.wasmPreviewDepth.buffer] : [])],
-    );
+    const message = {
+      type: d.type === 'test' ? 'deep-test-result' : 'deep-result',
+      jobId: d.jobId || null,
+      refId: d.refId || null,
+      provider: effectiveProvider,
+      runtime: ortSource,
+      rawDepth: finalDepth,
+      rawWidth: finalWidth,
+      rawHeight: finalHeight,
+      inputType: raw.inputType || null,
+      inputDims: raw.inputDims || null,
+      inputPlan: raw.inputPlan || null,
+      outputName: raw.outputName || null,
+      outputDims: raw.outputDims || null,
+      outputType: raw.outputType || null,
+      layoutFix: raw.layoutFix || 'none',
+      spatialStats: useSafeWasm ? diagnostic.wasm?.stripe || raw.spatialStats : raw.spatialStats || null,
+      rasterContract: 'RGBA-row-major-interleaved -> RGB-NCHW-planar',
+      rasterProbe: raw.rasterProbe || null,
+      frameSignature: raw.frameSignature || null,
+      depthSignature: finalDepthSignature,
+      contractFallback: !!raw.contractFallback,
+      benchmarkWarm: !!raw.benchmarkWarm,
+      preprocessMs: raw.preprocessMs,
+      runMs: useSafeWasm ? diagnostic.wasm?.ms : raw.runMs,
+      outputMs: raw.outputMs,
+      coldRunMs: raw.coldRunMs,
+      coldSteadyMs: raw.coldSteadyMs,
+      sessionMs: raw.sessionMs,
+      sessionLoadMs: raw.sessionLoadMs,
+      ms: useSafeWasm ? diagnostic.wasm?.ms : raw.steadyMs,
+      totalMs: performance.now() - totalStarted,
+      providerDiagnostic: diagnostic ? { ...diagnostic, wasmPreviewDepth: undefined } : null,
+      automaticSafeFallback: useSafeWasm,
+    };
+
+    const transfer = finalDepth?.buffer ? [finalDepth.buffer] : [];
+    postMessage(message, transfer);
   } catch (err) {
+    // Preview errors must not disable the reconstruction pipeline. The dedicated
+    // controller displays them and simply tries a later frame.
     postMessage({
-      type: 'deep-error',
+      type: previewJob ? 'deep-preview-error' : 'deep-error',
       jobId: d.jobId || null,
       stage: d.type,
       message: err?.message || String(err),
@@ -950,5 +1053,8 @@ self.onmessage = async (event) => {
     });
   } finally {
     busy = false;
+    scheduleQueuedInference();
   }
-};
+}
+
+self.onmessage = event => void handleWorkerMessage(event.data || {});
