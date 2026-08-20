@@ -1,9 +1,9 @@
 
-> room-scanner-v30-14-alvaar-autonomous-world@30.14.1 verify
+> room-scanner-v30-14-alvaar-autonomous-world@30.14.2 verify
 > npm test && npm run check:layout && npm run check:deps && npm run check:constructors && npm run check:mock
 
 
-> room-scanner-v30-14-alvaar-autonomous-world@30.14.1 test
+> room-scanner-v30-14-alvaar-autonomous-world@30.14.2 test
 > node --test tests/*.test.mjs
 
 TAP version 13
@@ -55,8 +55,8 @@ ok 8 - AlvaAR CDN fallback is cached after first successful load without gating 
   duration_ms: 0.244432
   type: 'test'
   ...
-# Subtest: all published identities are V30.14.1
-ok 9 - all published identities are V30.14.1
+# Subtest: all published identities are V30.14.2
+ok 9 - all published identities are V30.14.2
   ---
   duration_ms: 1.899914
   type: 'test'
@@ -353,29 +353,29 @@ ok 56 - XR scene renderer consumes current anchor pose in raw WebXR coordinates
 # todo 0
 # duration_ms 176.154389
 
-> room-scanner-v30-14-alvaar-autonomous-world@30.14.1 check:layout
+> room-scanner-v30-14-alvaar-autonomous-world@30.14.2 check:layout
 > node tools/check_v30_layout.mjs
 
 PASS v30-layout · 65 file sotto una sola radice v30/
 
-> room-scanner-v30-14-alvaar-autonomous-world@30.14.1 check:deps
+> room-scanner-v30-14-alvaar-autonomous-world@30.14.2 check:deps
 > node tools/check_dependencies.mjs
 
 PASS dependency-closure · 19 riferimenti locali risolti
 
-> room-scanner-v30-14-alvaar-autonomous-world@30.14.1 check:constructors
+> room-scanner-v30-14-alvaar-autonomous-world@30.14.2 check:constructors
 > node tools/check_eventtarget_constructors.mjs
 
 PASS EventTarget constructors · 5/5 derived classes call super() first
 
-> room-scanner-v30-14-alvaar-autonomous-world@30.14.1 check:mock
+> room-scanner-v30-14-alvaar-autonomous-world@30.14.2 check:mock
 > node tools/mock_ui_boot.mjs
 
-[RoomScan:ui-interactive] { build: 'v30.14.1-20260819-alvaar-autonomous-world-tracking' }
+[RoomScan:ui-interactive] { build: 'v30.14.2-20260819-alvaar-autonomous-world-tracking' }
 [RoomScan:begin-calibration] {
   message: 'WebXR non disponibile su questo browser',
   stack: 'Error: WebXR non disponibile su questo browser\n' +
-    '    at XRMetricCalibrator.start (file:///mnt/data/v3014_work/v30/js/xr/xr_calibration.js?v=30.14.1:147:28)\n' +
+    '    at XRMetricCalibrator.start (file:///mnt/data/v3014_work/v30/js/xr/xr_calibration.js?v=30.14.2:147:28)\n' +
     '    at beginCalibration (file:///mnt/data/v3014_work/v30/js/app.js?mock=1787174247242:31:475)\n' +
     '    at async El.<anonymous> (file:///mnt/data/v3014_work/v30/js/app.js?mock=1787174247242:20:59)'
 }

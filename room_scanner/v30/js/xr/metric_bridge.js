@@ -43,7 +43,7 @@ export class MetricBridge extends EventTarget{
     const common=this.calibration.commonView||{},initial=this.lastMetricPose||common.pose||this.calibration.pose||null;let pnp={ok:false,pose:initial,rmsePx:Infinity,inliers:0,reason:'not-enough-correspondences'};
     if(initial&&observations.length>=3)pnp=refinePosePnP({initialPose:initial,K:this.K,observations,maxIterations:10,huberPx:9});
     const locked=!!pnp.ok&&pnp.inliers>=3&&pnp.rmsePx<=10;if(locked)this.lastMetricPose=clonePose(pnp.pose);const rmse=Number.isFinite(pnp.rmsePx)?pnp.rmsePx/Math.max(this.w,this.h):null;
-    return {at:frame.at,locked,found:matches.length,inliers:observations.length,rmse,reprojectionPx:Number.isFinite(pnp.rmsePx)?pnp.rmsePx:null,pose:locked?clonePose(pnp.pose):null,intrinsicsNorm:common.intrinsicsNorm||this.calibration.intrinsicsNorm||null,cameraSize:common.cameraSize||this.calibration.cameraSize||null,K:{...this.K},unit:'m',method:'short-lived-pin-pnp-bootstrap-v30.14.1',matches,pnpReason:pnp.reason||null,alvaAt:this.latestAlva?.at||null};
+    return {at:frame.at,locked,found:matches.length,inliers:observations.length,rmse,reprojectionPx:Number.isFinite(pnp.rmsePx)?pnp.rmsePx:null,pose:locked?clonePose(pnp.pose):null,intrinsicsNorm:common.intrinsicsNorm||this.calibration.intrinsicsNorm||null,cameraSize:common.cameraSize||this.calibration.cameraSize||null,K:{...this.K},unit:'m',method:'short-lived-pin-pnp-bootstrap-v30.14.2',matches,pnpReason:pnp.reason||null,alvaAt:this.latestAlva?.at||null};
   }
 }
 

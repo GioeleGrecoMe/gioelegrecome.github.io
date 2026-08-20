@@ -28,7 +28,10 @@ test('official Alva source validator accepts a full-size bundle with the public 
 test('runtime downloads once and reuses CacheStorage offline',async()=>{
   const source=fakeOfficialSource(),cachesImpl=fakeCaches();let fetches=0;
   const fetchImpl=async()=>{fetches++;return new Response(source,{status:200,headers:{'Content-Type':'text/javascript'}});};
-  const opts={cacheKey:'https://roomscan.test/vendor/alva_ar.cached.js',sources:['https://official.test/alva_ar.js'],fetchImpl,cachesImpl,importSource:async()=>fakeModule,force:true};
-  const a=await loadAlvaModule(opts);assert.equal(a.AlvaAR,fakeModule.AlvaAR);assert.equal(fetches,1);
-  const b=await loadAlvaModule({...opts,fetchImpl:async()=>{throw new Error('offline');},force:true});assert.equal(b.AlvaAR,fakeModule.AlvaAR);assert.equal(fetches,1);
+  let imports=0;const opts={cacheKey:'https://roomscan.test/vendor/alva_ar.cached.js',sources:['https://official.test/alva_ar.js'],fetchImpl,cachesImpl,importUrl:async()=>{imports++;return fakeModule;},importSource:async()=>fakeModule,force:true};
+  const a=await loadAlvaModule(opts);assert.equal(a.AlvaAR,fakeModule.AlvaAR);assert.equal(imports,1);
+  // Remote source caching is deliberately best-effort after startup. Give the
+  // detached cache task one turn, then prove the cached source can boot offline.
+  await new Promise(r=>setTimeout(r,30));assert.equal(fetches,1);
+  const b=await loadAlvaModule({...opts,fetchImpl:async()=>{throw new Error('offline');},importUrl:async()=>{throw new Error('offline import');},force:true});assert.equal(b.AlvaAR,fakeModule.AlvaAR);
 });

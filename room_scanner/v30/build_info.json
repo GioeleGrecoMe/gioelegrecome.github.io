@@ -1,6 +1,6 @@
 {
-  "version": "30.14.1",
-  "id": "v30.14.1-20260819-official-alvaar-runtime-bootstrap",
-  "builtAt": "2026-08-19T23:58:00+02:00",
-  "notes": "Official AlvaAR dist runtime is mandatory. The app prefers v30/vendor/alva_ar.js; when absent it fetches the official ~4.13 MB bundle once, validates AlvaAR.Initialize/findCameraPose/getFramePoints, caches it for offline reuse, and never treats the local WASM sentinel as SLAM."
+  "version": "30.14.2",
+  "id": "v30.14.2-20260820-rendering-calibration-recovery",
+  "builtAt": "2026-08-20T10:18:00+02:00",
+  "notes": "Recovery release: WebXR pin placement no longer depends on raw camera access; all visual runtime hosts are present; AlvaAR loads only when measurement starts; live Alva tracked points and a persistent reference marker are drawn over the camera; static metric mesh controls are actually bound."
 }

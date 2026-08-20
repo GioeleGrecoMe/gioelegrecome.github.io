@@ -1,5 +1,5 @@
 /**
- * Official AlvaAR runtime loader for Room Scanner V30.14.1+.
+ * Official AlvaAR runtime loader for Room Scanner V30.14.2+.
  *
  * Why this exists:
  * - AlvaAR's official dist/alva_ar.js is a ~4.13 MB single-file ES module.
@@ -68,6 +68,7 @@ async function defaultImportSource(text){
   const blob=new Blob([text],{type:'text/javascript'}),url=URL.createObjectURL(blob);
   try{return await import(/* webpackIgnore: true */ url);}finally{URL.revokeObjectURL(url);}
 }
+async function defaultImportUrl(url){return import(/* webpackIgnore: true */ url);}
 
 function validateModule(mod){
   if(!mod?.AlvaAR||typeof mod.AlvaAR.Initialize!=='function')throw new Error('bundle caricato ma export AlvaAR.Initialize mancante');
@@ -79,7 +80,7 @@ function validateModule(mod){
  * `localUrl` is a physical vendored copy when available.
  * `cacheKey` is same-origin and is used only as the CacheStorage key.
  */
-export async function loadAlvaModule({localUrl=null,cacheKey=null,sources=[],fetchImpl=globalThis.fetch,cachesImpl=globalThis.caches,importSource=defaultImportSource,timeoutMs=20000,force=false}={}){
+export async function loadAlvaModule({localUrl=null,cacheKey=null,sources=[],fetchImpl=globalThis.fetch,cachesImpl=globalThis.caches,importSource=defaultImportSource,importUrl=defaultImportUrl,timeoutMs=20000,force=false}={}){
   if(modulePromise&&!force)return modulePromise;
   modulePromise=(async()=>{
     lastStatus={state:'loading',source:null,bytes:0,cacheHit:false,error:null};
@@ -91,7 +92,7 @@ export async function loadAlvaModule({localUrl=null,cacheKey=null,sources=[],fet
       try{
         const text=await fetchText(localUrl,{fetchImpl,timeoutMs:5000}),check=inspectAlvaSource(text);
         if(!check.ok)throw new Error(`copia vendor non valida (${check.reason})`);
-        const mod=validateModule(await importSource(text));
+        const mod=validateModule(await importUrl(localUrl));
         await writeCache(effectiveCacheKey,text,localUrl,{cachesImpl});
         lastStatus={state:'ready',source:'vendor',url:localUrl,bytes:check.bytes,cacheHit:false,error:null};
         return mod;
@@ -108,14 +109,17 @@ export async function loadAlvaModule({localUrl=null,cacheKey=null,sources=[],fet
       }catch(err){failures.push(`cache: ${err?.message||err}`);}
     }
 
-    // 3) Official upstream/mirrors. Fetch as text, validate the real API, then cache.
+    // 3) Official upstream/mirrors. Import the ES module directly. This avoids
+    // decoding + duplicating the 4 MB Emscripten bundle as a giant JS string and
+    // Blob before the browser can compile it, which caused memory/paint stalls
+    // on mobile. The API itself is the authoritative runtime validation.
     for(const source of sources.filter(Boolean)){
       try{
-        const text=await fetchText(source,{fetchImpl,timeoutMs}),check=inspectAlvaSource(text);
-        if(!check.ok)throw new Error(`bundle non valido (${check.reason})`);
-        const mod=validateModule(await importSource(text));
-        await writeCache(effectiveCacheKey,text,source,{cachesImpl});
-        lastStatus={state:'ready',source:'remote',url:source,bytes:check.bytes,cacheHit:false,error:null};
+        const mod=validateModule(await importUrl(source));
+        lastStatus={state:'ready',source:'remote',url:source,bytes:0,cacheHit:false,error:null};
+        // Best-effort offline copy after successful import. Never block AlvaAR
+        // startup on this second fetch/cache operation.
+        Promise.resolve().then(async()=>{try{const text=await fetchText(source,{fetchImpl,timeoutMs}),check=inspectAlvaSource(text);if(check.ok){await writeCache(effectiveCacheKey,text,source,{cachesImpl});lastStatus.bytes=check.bytes;}}catch{}});
         return mod;
       }catch(err){failures.push(`${source}: ${err?.message||err}`);}
     }

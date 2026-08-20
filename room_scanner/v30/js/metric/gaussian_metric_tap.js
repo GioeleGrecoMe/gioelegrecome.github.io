@@ -1,6 +1,6 @@
-/* V30.10 non-invasive Gaussian worker observer.
+/* V30.14.2 non-invasive Gaussian worker observer.
  * It does NOT change Gaussian worker messages. It mirrors recognizable Gaussian
- * snapshots after the metric bridge has locked the camera, then derives surface
+ * snapshots in either metric or scale-free Alva world, then derives surface
  * samples/bounds for meshing and diagnostics.
  */
 import {gaussianMetricBounds,gaussianSurfaceSamples} from './metric_geometry.js';
@@ -18,7 +18,7 @@ function objectsFrom(data){
   return walk(data);
 }
 function capture(data,url){state.workerSeen=true;state.lastType=data?.type||null;const gs=objectsFrom(data);if(!gs?.length){state.diagnostic={url:String(url),keys:data&&typeof data==='object'?Object.keys(data).slice(0,20):[],reason:'no recognizable Gaussian positions in this message'};return;}
-  state.metricLocked=metricLocked();state.gaussians=gs;state.bounds=gaussianMetricBounds(gs);state.samples=gaussianSurfaceSamples(gs,{opacityMin:.12,maxSamples:180000});state.updatedAt=Date.now();state.diagnostic={url:String(url),recognized:gs.length,samples:state.samples.length,metricLocked:state.metricLocked};window.dispatchEvent(new CustomEvent('roomscan:gaussian-surface',{detail:{...state,gaussians:undefined}}));
+  state.metricLocked=metricLocked();state.gaussians=gs;state.bounds=gaussianMetricBounds(gs);state.samples=gaussianSurfaceSamples(gs,{opacityMin:.12,maxSamples:180000});state.updatedAt=Date.now();state.diagnostic={url:String(url),recognized:gs.length,samples:state.samples.length,metricLocked:state.metricLocked,unit:state.metricLocked?'m':'alva-unit'};window.dispatchEvent(new CustomEvent('roomscan:gaussian-surface',{detail:{...state,gaussians:undefined}}));
 }
 if(typeof nativeWorker==='function'){
   window.Worker=new Proxy(nativeWorker,{construct(Target,args,newTarget){const w=Reflect.construct(Target,args,newTarget===proxy?Target:newTarget),url=args[0];if(/gaussian_worker/i.test(String(url))){state.workerSeen=true;w.addEventListener('message',e=>{try{capture(e.data,url);}catch(err){state.diagnostic={reason:'capture-error',message:err.message};}});}return w;}});

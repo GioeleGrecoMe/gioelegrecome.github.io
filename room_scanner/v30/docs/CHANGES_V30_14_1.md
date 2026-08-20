@@ -1,10 +1,10 @@
-# Room Scanner V30.14.1 — official AlvaAR runtime integration
+# Room Scanner V30.14.2 — official AlvaAR runtime integration
 
 ## Fixed root cause
 
 V30.14.0 could require AlvaAR semantically while still shipping without the official distribution bundle. The tiny local `wasm/slam_core.wasm` is only a deployment sentinel and is **not** accepted as SLAM.
 
-V30.14.1 integrates the official AlvaAR distribution contract as a mandatory runtime dependency.
+V30.14.2 integrates the official AlvaAR distribution contract as a mandatory runtime dependency.
 
 ## Runtime loading order
 

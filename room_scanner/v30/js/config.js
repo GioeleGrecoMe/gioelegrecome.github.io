@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.14.1 runtime configuration.
+ * Room Scanner V30.14.2 runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.14.1',
-  id:'v30.14.1-20260819-official-alvaar-runtime-bootstrap',
+  version:'30.14.2',
+  id:'v30.14.2-20260820-rendering-calibration-recovery',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -106,6 +106,10 @@ export const CONFIG={
   // lateral baseline is usually enough for local triangulation at room scale,
   // while still preserving strong visual overlap on a phone camera.
   mvsMinBaselineM:0.03,
+  // When no physical scale is known, reconstruction still runs in Alva world
+  // units. These thresholds gate parallax without pretending the unit is a metre.
+  mvsMinBaselineAlva:0.015,
+  mvsMaxBaselineAlva:3.0,
   mvsMaxBaselineM:1.25,
   mvsMaxAngleRad:0.55,
   mvsNearM:0.30,
@@ -136,14 +140,14 @@ export const CONFIG={
   // first. If absent, the browser downloads one official/mirrored copy once,
   // validates the real AlvaAR API and stores it in CacheStorage for offline use.
   alvaRemoteUrls:[
-    'https://raw.githubusercontent.com/alanross/AlvaAR/main/dist/alva_ar.js',
+    'https://cdn.jsdelivr.net/gh/alanross/AlvaAR@main/dist/alva_ar.js',
     'https://alanross.github.io/AlvaAR/dist/alva_ar.js',
-    'https://cdn.jsdelivr.net/gh/alanross/AlvaAR@main/dist/alva_ar.js'
+    'https://raw.githubusercontent.com/alanross/AlvaAR/main/dist/alva_ar.js'
   ],
   // Kept as a compatibility alias for diagnostics from older V30 modules.
   alvaRemoteUrl:'https://raw.githubusercontent.com/alanross/AlvaAR/main/dist/alva_ar.js',
   wasmCore:'wasm/slam_core.wasm',
-  // No Depth Anything / DeepAI and no IMU are required by the V30.14.1 runtime.
+  // No Depth Anything / DeepAI and no IMU are required by the V30.14.2 runtime.
   serviceWorker:'sw.js',
   serviceWorkerRegisterDelayMs:2500,
   buildInfo:'build_info.json'

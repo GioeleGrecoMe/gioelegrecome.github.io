@@ -4,7 +4,7 @@ import {V30Database,openVersionSafe} from './storage/db.js';
 import {triangulateRays,poseIdentity} from './slam/math.js';
 
 /*
- * V30.14.1 self-tests intentionally include regressions for the two phone failures
+ * V30.14.2 self-tests intentionally include regressions for the two phone failures
  * reported on V30.8: IndexedDB downgrade and fake/screen-space WebXR pins.
  */
 export async function runSelfTests(log){
@@ -12,7 +12,7 @@ export async function runSelfTests(log){
   const run=async(name,fn)=>{const t=performance.now();try{const detail=await fn();const r={name,ok:true,ms:performance.now()-t,detail};tests.push(r);log.info('self-test-pass',r);}catch(err){const r={name,ok:false,ms:performance.now()-t,error:err.message};tests.push(r);log.error('self-test-fail',{...r,stack:err.stack});}};
 
   await run('secure-context',()=>{if(!isSecureContext&&location.hostname!=='localhost')throw new Error('HTTPS required');return location.protocol;});
-  await run('required-dom',()=>{for(const id of ['calibrateBtn','calibOverlay','calibAddPinBtn','calibUndoPinBtn','calibFinishBtn','calibCancelBtn','startBtn','diagDownloadBtn','selfTestBtn','forceUpdateBtn','viewer','bridgeCamera'])if(!document.getElementById(id))throw new Error(`missing #${id}`);return 'ok';});
+  await run('required-dom',()=>{for(const id of ['calibrateBtn','calibOverlay','calibAddPinBtn','calibUndoPinBtn','calibFinishBtn','calibCancelBtn','startBtn','diagDownloadBtn','selfTestBtn','forceUpdateBtn','viewer','bridgeCamera','bridgePinGuidance','bridgePinInstructions','miniMap','alvaPtsState','metricPipelineHud','metricGsStats','buildMetricMeshBtn'])if(!document.getElementById(id))throw new Error(`missing #${id}`);return 'ok';});
   await run('runtime-contract',()=>({webXR:!!navigator.xr,webAssembly:typeof WebAssembly==='object',camera:!!navigator.mediaDevices?.getUserMedia,imuRequired:false,deepAI:false,realAnchorsRequired:CONFIG.xrRequireRealAnchors!==false}));
 
   await run('interactive-boot-order',async()=>{const text=await fetch(`js/app.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.text();});if(!text.includes("dataset.v30Interactive='1'"))throw new Error('core does not signal interactive UI after bind');if(!text.includes('void initBackground()'))throw new Error('background initialization is still a boot gate');for(const heavy of ["from './camera.js'","from './storage/db.js'","from './xr/xr_calibration.js'"])if(text.includes(heavy))throw new Error(`heavy static import remains: ${heavy}`);return 'UI bound first; heavy runtime lazy-loaded';});
@@ -26,13 +26,36 @@ export async function runSelfTests(log){
     const localUrl=new URL('../vendor/alva_ar.js',import.meta.url).href,cacheKey=new URL('../vendor/alva_ar.cached.js',import.meta.url).href;
     const mod=await loadAlvaModule({localUrl,cacheKey,sources:CONFIG.alvaRemoteUrls||[CONFIG.alvaRemoteUrl].filter(Boolean)});
     if(!mod?.AlvaAR?.Initialize)throw new Error('real AlvaAR.Initialize export missing');
-    const st=getAlvaRuntimeStatus();if(!(st.bytes>=ALVA_EXPECTED_MIN_BYTES))throw new Error(`AlvaAR bundle too small: ${st.bytes||0}`);
-    return {source:st.source,bytes:st.bytes,cacheHit:st.cacheHit,url:st.url};
+    let st=getAlvaRuntimeStatus();
+    // Vendor/cache sources are text-validated and therefore must report the
+    // real ~4 MB source size. A direct remote ESM import is already validated
+    // by its AlvaAR.Initialize export; its best-effort cache copy can finish a
+    // moment later, so zero bytes here means "cache still warming", not a
+    // fake runtime.
+    if(st.source==='vendor'||st.source==='cache'){if(!(st.bytes>=ALVA_EXPECTED_MIN_BYTES))throw new Error(`AlvaAR bundle too small: ${st.bytes||0}`);}
+    if(st.source==='remote'&&!st.bytes){const until=performance.now()+1500;while(performance.now()<until&&!st.bytes){await new Promise(r=>setTimeout(r,75));st=getAlvaRuntimeStatus();}}
+    return {source:st.source,bytes:st.bytes||'cache-pending',cacheHit:st.cacheHit,url:st.url};
   });
   await run('alva-autonomous-world-contract',async()=>{const [app,slam,bridge,boot]=await Promise.all([fetch(`js/app.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),fetch(`js/slam/slam_engine.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),fetch(`js/xr/metric_bridge.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),fetch(`js/slam/alva_metric_bootstrap.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text())]);if(app.includes('SLAM FALLBACK'))throw new Error('optical tracking fallback still exposed');for(const t of ['same instance','setWorldTransform(metric.alvaTransform)','ALVA LOST','ALVA RELOCALIZED'])if(!app.includes(t))throw new Error(`app autonomous-Alva token missing: ${t}`);if(!slam.includes("trackingMode='alvaar-lost'")||!slam.includes('if(trackingValid&&'))throw new Error('lost Alva frames can still create trajectory/keyframes');if(!bridge.includes('short-lived-pin-pnp-bootstrap'))throw new Error('pin matcher is not short-lived PnP bootstrap');if(!boot.includes('one-shot-alva-metric-sim3'))throw new Error('fixed Sim3 bootstrap missing');return 'pins -> one-shot Sim3 -> detached autonomous Alva world';});
 
   await run('camera-crop-contract',async()=>{const text=await fetch(`js/camera.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());for(const t of ['coverCrop','intrinsicsForCrop','analysisPixelToSource','drawImage(this.video,g.sx,g.sy,g.sw,g.sh'])if(!text.includes(t))throw new Error(`camera crop token missing: ${t}`);return 'analysis frame is cropped, not stretched; K follows the crop';});
   await run('live-ar-reconstruction',async()=>{const html=await fetch(`room_scanner_v30.html?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),app=await fetch(`js/app.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());if(!html.includes('id="arModeBtn"')||!app.includes("new LiveReconstructionOverlay($('miniMap')"))throw new Error('live GS/mesh AR controls missing');if(!app.includes('state.liveOverlay?.draw({pose:r.pose,K,geometry:frame.geometry'))throw new Error('overlay is not rendered from the live SLAM pose');return 'camera + metric pose + GS/mesh overlay';});
+  await run('visual-runtime-recovery',async()=>{
+    const [html,calib,overlay,meshUi,app]=await Promise.all([
+      fetch(`room_scanner_v30.html?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),
+      fetch(`js/xr/xr_calibration.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),
+      fetch(`js/gaussian/ar_overlay.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),
+      fetch(`js/metric/metric_mesh_ui.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text()),
+      fetch(`js/app.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text())
+    ]);
+    for(const id of ['bridgePinGuidance','bridgePinInstructions','alvaPtsState','metricPipelineHud','metricGsStats','buildMetricMeshBtn'])if(!html.includes(`id="${id}"`))throw new Error(`visual host missing: ${id}`);
+    if(calib.includes("requiredFeatures:['local-floor','hit-test','camera-access"))throw new Error('raw camera access still gates WebXR calibration');
+    for(const token of ['optionalFeatures:optional','projectionMatrix','rawCameraAvailable'])if(!calib.includes(token))throw new Error(`WebXR geometry fallback missing: ${token}`);
+    for(const token of ['_drawAlvaPoints','setReferencePoint'])if(!overlay.includes(token))throw new Error(`Alva visual marker missing: ${token}`);
+    if(!meshUi.includes("dataset.metricMeshBound='1'"))throw new Error('static metric mesh button is not bound');
+    const bg=app.slice(app.indexOf('async function initBackground'),app.indexOf('function boot'));if(bg.includes('prefetchOfficialAlvaRuntime'))throw new Error('AlvaAR is still compiled/downloaded during background boot');
+    return 'WebXR geometry-only pins + static visual hosts + live Alva points + bound mesh UI';
+  });
 
   await run('camera-only-triangulation',()=>{const K={fx:300,fy:300,cx:160,cy:120,width:320,height:240},a={pose:poseIdentity(),K,u:160,v:120},b={pose:{p:[.20,0,0],q:[0,0,0,1]},K,u:130,v:120},r=triangulateRays(a,b,{minAngleRad:.005,maxGapM:.15});if(!r.ok)throw new Error(r.reason);return {p:r.p,angle:r.angle,gap:r.gap};});
 

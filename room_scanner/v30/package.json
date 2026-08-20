@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-14-1-official-alvaar-runtime",
+  "name": "room-scanner-v30-14-2-rendering-recovery",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,6 +12,6 @@
     "check:alva": "node tools/check_alvaar_runtime.mjs",
     "vendor:alva": "node tools/vendor_alvaar.mjs"
   },
-  "version": "30.14.1",
-  "description": "V30.14.1: autonomous AlvaAR world tracking with mandatory official runtime loading, validated one-time upstream bootstrap/cache, optional physical vendoring, and one-shot metric calibration."
+  "version": "30.14.2",
+  "description": "V30.14.2: autonomous AlvaAR world tracking with mandatory official runtime loading, validated one-time upstream bootstrap/cache, optional physical vendoring, and one-shot metric calibration."
 }

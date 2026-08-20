@@ -7,14 +7,14 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="manifest" href="manifest.webmanifest?v=30.14.1">
-  <link rel="stylesheet" href="styles.css?v=30.14.1">
-  <title>Room Scanner V30.14.1</title>
+  <link rel="manifest" href="manifest.webmanifest?v=30.14.2">
+  <link rel="stylesheet" href="styles.css?v=30.14.2">
+  <title>Room Scanner V30.14.2</title>
 </head>
 <body>
 <main id="app">
   <section id="home" class="screen active">
-    <div class="hero"><div id="buildBadge" class="badge">V30.14.1</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
+    <div class="hero"><div id="buildBadge" class="badge">V30.14.2</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
     <div class="card"><b>1 · Calibrazione</b><p class="hint">Inquadra un punto fisico con il reticolo e premi <b>Aggiungi pin</b>. Usa 3 punti ben distribuiti. Dopo poche viste utili per ciascun pin, riportane almeno 3 nella stessa inquadratura e premi Applica.</p><div id="calibSummary" class="status">Calibrazione non presente.</div><div class="actions inline"><button id="calibrateBtn" class="primary">Calibra con WebXR</button><button id="clearCalibrationBtn">Azzera calibrazione</button></div></div>
     <div class="card"><b>2 · Misura / scansione</b><p class="hint">AlvaAR mantiene autonomamente il mondo. Se hai una calibrazione, i pin servono solo per fissare una volta scala e riferimento metrici.</p><div class="actions inline"><button id="startBtn" class="primary">Avvia AlvaAR</button><button id="loadPlyBtn">Apri PLY</button><button id="loadR30Btn">Apri .r30</button></div></div>
     <input id="filePly" type="file" accept=".ply" hidden><input id="fileR30" type="file" accept=".r30,application/octet-stream" hidden>
@@ -36,28 +36,29 @@
 
   <section id="bridge" class="screen">
     <video id="bridgeCamera" class="cameraPreview" autoplay muted playsinline></video>
-    <div class="bridgeCard compactBridge"><div class="badge">AGGANCIO METRICO</div><p id="bridgeCoach">Allinea almeno 3 aree dei pin. Parti dalla vista finale della calibrazione e fai piccoli spostamenti laterali.</p><div class="stats bridgeStats"><span>template <b id="bridgeFound">0</b></span><span>inlier <b id="bridgeInliers">0</b></span><span>RMSE <b id="bridgeRmse">—</b></span></div><div class="actions inline"><button id="bridgeRetryBtn">Riprova</button><button id="bridgeCancelBtn" class="danger">Esci</button></div></div>
+    <div id="bridgePinGuidance" aria-hidden="true"></div>
+    <div class="bridgeCard compactBridge"><div class="badge">AGGANCIO METRICO</div><p id="bridgeCoach">Allinea almeno 3 aree dei pin. Parti dalla vista finale della calibrazione e fai piccoli spostamenti laterali.</p><div class="stats bridgeStats"><span>template <b id="bridgeFound">0</b></span><span>inlier <b id="bridgeInliers">0</b></span><span>RMSE <b id="bridgeRmse">—</b></span></div><div id="bridgePinInstructions" class="hint" style="margin-top:.5rem"></div><div class="actions inline"><button id="bridgeRetryBtn">Riprova</button><button id="bridgeCancelBtn" class="danger">Esci</button></div></div>
   </section>
 
   <section id="scan" class="screen">
     <video id="camera" autoplay muted playsinline></video><canvas id="miniMap"></canvas>
-    <div class="topHud"><span id="slamState">INIT</span><span id="metricState">scala —</span><span id="mvsState">MVS —</span></div>
+    <div class="topHud"><span id="slamState">INIT</span><span id="alvaPtsState">ALVA pts 0</span><span id="metricState">scala —</span><span id="mvsState">MVS —</span></div>
     <div class="stats scanStats"><span>feat <b id="statFeat">0</b></span><span>match <b id="statMatch">0</b></span><span>KF <b id="statKf">0</b></span><span>GS <b id="statGs">0</b></span><span>tri <b id="statTri">0</b></span></div>
-    <div id="coach" class="coach">Muoviti lentamente e crea parallasse.</div><div class="scanButtons"><button id="arModeBtn">AR: GS</button><button id="pinBtn">◎ Repere</button><button id="finishBtn" class="danger">Salva / termina</button></div>
+    <div id="metricPipelineHud" class="coach metricPipelineHud">Metrica: attendo tracking AlvaAR…</div><div id="coach" class="coach">Muoviti lentamente e crea parallasse.</div><div class="scanButtons"><button id="arModeBtn">AR: GS</button><button id="pinBtn">◎ Repere</button><button id="finishBtn" class="danger">Salva / termina</button></div>
   </section>
 
   <section id="review" class="screen">
-    <div class="reviewHead"><div><div class="badge">V30 REVIEW</div><h2>Gemello metrico</h2></div><button id="backHomeBtn">Home</button></div><canvas id="viewer"></canvas><div class="viewerTools"><button id="fitBtn">Centra</button><button id="viewTopBtn">Alto</button><button id="viewFrontBtn">Fronte</button><button id="viewSideBtn">Lato</button><label>Splat <input id="splatSize" type="range" min="0.5" max="3" value="1" step="0.1"></label></div><div id="reviewStats" class="card compact"></div><div class="actions wrap"><button id="exportPlyBtn" class="primary">Scarica PLY</button><button id="exportR30Btn">Scarica .r30</button><button id="exportDiagBtn">Diagnostica</button><button id="resumeBtn">Nuova scansione</button></div>
+    <div class="reviewHead"><div><div class="badge">V30 REVIEW</div><h2>Gemello metrico</h2></div><button id="backHomeBtn">Home</button></div><canvas id="viewer"></canvas><div class="viewerTools"><button id="fitBtn">Centra</button><button id="viewTopBtn">Alto</button><button id="viewFrontBtn">Fronte</button><button id="viewSideBtn">Lato</button><label>Splat <input id="splatSize" type="range" min="0.5" max="3" value="1" step="0.1"></label></div><div id="reviewStats" class="card compact"></div><div id="metricGsStats" class="card compact">Dati mesh: attendo GS.</div><div class="actions wrap"><button id="buildMetricMeshBtn">Crea mesh metrica GS</button><button id="exportPlyBtn" class="primary">Scarica PLY</button><button id="exportR30Btn">Scarica .r30</button><button id="exportDiagBtn">Diagnostica</button><button id="resumeBtn">Nuova scansione</button></div>
   </section>
 </main>
 
-<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.14.1</pre></div></details></aside>
+<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.14.2</pre></div></details></aside>
 
 <script>
 /* Ask the ACTUAL controlling worker for its version before requesting modules.
  * Old V30 workers do not answer GET_VERSION and are removed once. */
 (function(){
-  const VERSION='30.14.1';
+  const VERSION='30.14.2';
   const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),version:VERSION,errors:[],interactive:false};
   const rec=(type,data={})=>boot.errors.push({time:Date.now(),type,...data});
   addEventListener('error',e=>rec('error',{message:e.message,src:e.filename,line:e.lineno,col:e.colno,stack:e.error?.stack||null}));

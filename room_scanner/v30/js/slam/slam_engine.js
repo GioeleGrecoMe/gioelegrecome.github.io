@@ -43,7 +43,7 @@ export class SlamEngine extends EventTarget{
       newKeyframe={id:`kf-${this.frameIndex}`,at:now,pose:clonePose(this.pose),rawPose:clonePose(raw),features:(r.features||[]).map(f=>({x:+f.x,y:+f.y,score:+(f.score||0),desc:Array.from(f.desc||[])})),width:frame.width,height:frame.height,trackingMode,metricLocked:this.metricLocked,geometry:frame.geometry||null};
       this.keyframes.push(newKeyframe);this.lastAt=now;if(this.keyframes.length>520)this.keyframes.shift();
     }
-    const detail={frame:this.frameIndex++,pose:clonePose(this.pose),rawPose:raw?clonePose(raw):null,features:r.count||0,matches:r.matches?.count||0,keyframes:this.keyframes.length,newKeyframe,metricLocked:this.metricLocked,metricScale:this.metricScale,trackingMode,trackingValid,relocalized,alvaPoints:r.framePoints?.length||0,lostFrames:this.alvaLostFrames};
+    const detail={frame:this.frameIndex++,pose:clonePose(this.pose),rawPose:raw?clonePose(raw):null,features:r.count||0,matches:r.matches?.count||0,keyframes:this.keyframes.length,newKeyframe,metricLocked:this.metricLocked,metricScale:this.metricScale,trackingMode,trackingValid,relocalized,alvaPoints:r.framePoints?.length||0,framePoints:Array.from(r.framePoints||[]),lostFrames:this.alvaLostFrames};
     this.dispatchEvent(new CustomEvent('tracking',{detail}));if(newKeyframe)this.dispatchEvent(new CustomEvent('keyframe',{detail:newKeyframe}));return detail;
   }
 }

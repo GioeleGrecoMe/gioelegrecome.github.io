@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.14.1 - minimal user-selected multi-view WebXR calibration with REAL
+ * Room Scanner V30.14.2 - minimal user-selected multi-view WebXR calibration with REAL
  * XRAnchor-backed pins.
  *
  * V30.8 bug fixed here
@@ -133,7 +133,7 @@ export class XRMetricCalibrator extends EventTarget{
     super();
     this.root=overlayRoot;this.cfg=config;this.log=log;
     this.session=null;this.refSpace=null;this.viewerSpace=null;this.gl=null;this.binding=null;this.layer=null;
-    this.latestPose=null;this.latestIntrinsics=null;this.latestK=null;this.cameraSize=null;
+    this.latestPose=null;this.latestIntrinsics=null;this.latestK=null;this.cameraSize=null;this.rawCameraAvailable=false;
     this._running=false;this._fbo=null;this._endPromise=null;this._missingTrackedAnchorsLogged=false;
     this.candidates=[];this.targets=[];this.globalPoses=[];this._targetSeq=0;this._lastCandidateScanAt=0;this._lastProgressAt=0;this._latestTexture=null;
     this.manualAim={uv:[0.5,0.5],source:null,history:[],valid:false,stable:false,point:null,xrPoint:null,depthM:null,rmsM:null,lastHitAt:0};
@@ -146,15 +146,19 @@ export class XRMetricCalibrator extends EventTarget{
   async start(){
     if(!navigator.xr)throw new Error('WebXR non disponibile su questo browser');
     if(!await navigator.xr.isSessionSupported('immersive-ar'))throw new Error('immersive-ar non supportato');
-    const required=['local-floor','hit-test','camera-access','dom-overlay'];
+    const required=['local-floor','hit-test','dom-overlay'];
     if(this.cfg.xrRequireRealAnchors!==false)required.push('anchors');
-    const opts={requiredFeatures:required,domOverlay:{root:this.root}};
-    this.log?.info('xr-calibration-request',{requiredFeatures:required,mode:'real-xranchor-user-selected-multiview'});
+    // Raw camera access is an optional enhancement only. Hit-test, depth and
+    // XRAnchor placement must keep working on browsers that expose the AR view
+    // but not XRView.camera / getCameraImage().
+    const optional=['camera-access'];
+    const opts={requiredFeatures:required,optionalFeatures:optional,domOverlay:{root:this.root}};
+    this.log?.info('xr-calibration-request',{requiredFeatures:required,optionalFeatures:optional,mode:'real-xranchor-user-selected-multiview'});
     this.session=await navigator.xr.requestSession('immersive-ar',opts);this._running=true;
     this.gl=document.createElement('canvas').getContext('webgl',{xrCompatible:true,alpha:true,preserveDrawingBuffer:false});
     if(!this.gl)throw new Error('WebGL XR context non disponibile');
     await this.gl.makeXRCompatible?.();
-    this.binding=new XRWebGLBinding(this.session,this.gl);
+    this.binding=typeof XRWebGLBinding==='function'?new XRWebGLBinding(this.session,this.gl):null;
     this.layer=new XRWebGLLayer(this.session,this.gl,{alpha:true,antialias:true});
     this.session.updateRenderState({baseLayer:this.layer});
     this._initScenePinRenderer();
@@ -335,7 +339,12 @@ export class XRMetricCalibrator extends EventTarget{
       const p=xrPointToSlam(hp.transform.position);ray.history.push(p);while(ray.history.length>this.cfg.xrCalibrationStableFrames)ray.history.shift();if(ray.history.length<this.cfg.xrCalibrationStableFrames)continue;
       const stable=stableStats(ray.history);if(!stable||stable.rms>this.cfg.xrCalibrationHitStdM)continue;
       let patch=null;try{if(texture)patch=this._cameraPatch(texture,ray.uv,K);}catch(err){this.log?.warn('xr-selected-patch-read-failed',{id:ray.id,message:err.message});}
-      if(!patch||patch.variance<this.cfg.xrCalibrationMinPatchVariance||patch.detail<this.cfg.xrCalibrationMinPatchDetail)continue;
+      // Visual texture is useful for later camera-only re-localisation, but it
+      // must never block the actual XRAnchor. If raw camera access is present,
+      // reject only genuinely featureless patches; otherwise create the anchor
+      // from WebXR geometry alone.
+      if(texture&&(!patch||patch.variance<this.cfg.xrCalibrationMinPatchVariance||patch.detail<this.cfg.xrCalibrationMinPatchDetail))continue;
+      patch=patch||{patch:new Uint8Array(0),variance:0,detail:0,patchRel:0,visual:false};
       try{this._beginAnchorCreation(ray,hits[0],patch,stable);}catch(err){this.log?.error('xr-anchor-required-failed',{id:ray.id,message:err.message});}
     }
 
@@ -362,24 +371,23 @@ export class XRMetricCalibrator extends EventTarget{
   _pointVisible(point,frame,texture,K){
     if(!this._updatePointAnchor(point,frame))return null;
     const pr=projectSlamPointToUv(this.latestPose,point.p,K);if(!pr||pr.u<.045||pr.u>.955||pr.v<.045||pr.v>.84)return null;
-    if(!texture)return null;
-    let p;try{p=this._cameraPatch(texture,[pr.u,pr.v],K);}catch{return null;}
-    const templates=[point.reference,...point.observations.slice(-3)],patch=p.patch;let score=-1;
+    if(!texture)return {id:point.id,uv:[pr.u,pr.v],patch:[],patchSize:0,patchRel:0,variance:0,detail:0,score:1,visual:false};
+    let p;try{p=this._cameraPatch(texture,[pr.u,pr.v],K);}catch{return {id:point.id,uv:[pr.u,pr.v],patch:[],patchSize:0,patchRel:0,variance:0,detail:0,score:1,visual:false};}
+    const templates=[point.reference,...point.observations.slice(-3)].filter(t=>t?.patch?.length),patch=p.patch;let score=templates.length?-1:1;
     for(const t of templates){const s=zncc(Uint8Array.from(t.patch),patch);if(s>score)score=s;}
-    if(score<this.cfg.xrCalibrationTrackingZncc)return null;
-    return {id:point.id,uv:[pr.u,pr.v],patch:Array.from(patch),patchSize:this.cfg.xrCalibrationPatchSize,patchRel:p.patchRel,variance:p.variance,detail:p.detail,score};
+    if(templates.length&&score<this.cfg.xrCalibrationTrackingZncc)return null;
+    return {id:point.id,uv:[pr.u,pr.v],patch:Array.from(patch),patchSize:this.cfg.xrCalibrationPatchSize,patchRel:p.patchRel,variance:p.variance,detail:p.detail,score,visual:true};
   }
 
   _captureRoiView(target,texture,K,pose){
-    if(!texture||!target.displayUv)return;
+    if(!target.displayUv)return;
     const center=target.points.length?[mean(target.points.map(p=>p.p[0])),mean(target.points.map(p=>p.p[1])),mean(target.points.map(p=>p.p[2]))]:null;if(!center)return;
     const dx=pose.p[0]-center[0],dy=pose.p[1]-center[1],dz=pose.p[2]-center[2],range=Math.hypot(dx,dy,dz)||1;
     const az=Math.atan2(dx,dz),el=Math.asin(clamp(dy/range,-1,1)),azN=this.cfg.xrRoiAzimuthSectors||8,elN=this.cfg.xrRoiElevationBands||3;
     const azBin=Math.floor(((az+Math.PI)/(2*Math.PI))*azN)%azN,elBin=clamp(Math.floor(((el+Math.PI/2)/Math.PI)*elN),0,elN-1),sector=`${azBin}:${elBin}`;
     target.roiViews=target.roiViews||[];target.roiSectors=target.roiSectors||[];const views=target.roiViews,last=views[views.length-1],farEnough=!last||dist(last.pose.p,pose.p)>=(this.cfg.xrRoiCaptureStepM||.055)||qAngle(last.pose.q,pose.q)>=(this.cfg.xrRoiCaptureStepAngleRad||.055),newSector=!target.roiSectors.includes(sector);
     if(!farEnough&&!newSector)return;if(views.length>=(this.cfg.xrRoiMaxViewsPerTarget||24)&&!newSector)return;
-    const scales=[];for(const fraction of (this.cfg.xrRoiScales||[.055,.11,.20])){try{const p=this._cameraPatch(texture,target.displayUv,K,{fraction,outSize:this.cfg.xrRoiPatchSize||24});scales.push({fraction,patch:Array.from(p.patch),variance:p.variance,detail:p.detail,patchRel:p.patchRel});}catch(err){this.log?.debug?.('xr-roi-scale-read-failed',{id:target.id,fraction,message:err.message});}}
-    if(!scales.length)return;
+    const scales=[];if(texture)for(const fraction of (this.cfg.xrRoiScales||[.055,.11,.20])){try{const p=this._cameraPatch(texture,target.displayUv,K,{fraction,outSize:this.cfg.xrRoiPatchSize||24});scales.push({fraction,patch:Array.from(p.patch),variance:p.variance,detail:p.detail,patchRel:p.patchRel});}catch(err){this.log?.debug?.('xr-roi-scale-read-failed',{id:target.id,fraction,message:err.message});}}
     const item={at:Date.now(),uv:[...target.displayUv],pose:clonePose(pose),worldCenter:[...center],depthM:range,azimuthRad:az,elevationRad:el,sector,scales};
     views.push(item);while(views.length>(this.cfg.xrRoiMaxViewsPerTarget||24))views.shift();target.roiViews=views;if(!target.roiSectors.includes(sector))target.roiSectors.push(sector);
     this.log?.info('xr-pin-roi-view',{id:target.id,views:views.length,sectors:target.roiSectors.length,sector,depthM:range,scales:scales.length});
@@ -403,7 +411,7 @@ export class XRMetricCalibrator extends EventTarget{
     target.ready=target.points.length>=this.cfg.xrCalibrationMinPointsPerTarget
       &&target.views>=this.cfg.xrCalibrationMinViewsPerTarget
       &&target.maxBaselineM>=this.cfg.xrCalibrationMinTargetBaselineM
-      &&(target.roiViews?.length||0)>=(this.cfg.xrRoiMinViewsPerTarget||4);
+      &&(!this.rawCameraAvailable||(target.roiViews?.filter(v=>v.scales?.length).length||0)>=(this.cfg.xrRoiMinViewsPerTarget||4));
   }
 
   _captureGlobalPoseIfEligible(){
@@ -458,15 +466,17 @@ export class XRMetricCalibrator extends EventTarget{
     try{
       const viewerPose=frame.getViewerPose(this.refSpace);
       if(viewerPose?.views?.length){
-        const view=viewerPose.views[0],camera=view.camera;
-        if(camera){
-          const K=projectionToIntrinsics(view.projectionMatrix,camera.width,camera.height);this.latestK=K;this.latestIntrinsics={fxN:K.fx/K.width,fyN:K.fy/K.height,cxN:K.cx/K.width,cyN:K.cy/K.height};this.cameraSize=[camera.width,camera.height];this.latestPose=xrPoseToSlam(view.transform);
-          let texture=null;try{texture=this.binding.getCameraImage(camera);this._latestTexture=texture;}catch(err){this.log?.warn('xr-camera-texture-failed',{message:err.message});}
-          this._ensureCenterAim();
-          this._processManualAim(frame);
-          for(const t of this.targets){if(t.state==='acquiring')this._processAcquiringTarget(t,frame,texture,K);else if(t.state==='tracking')this._processTrackingTarget(t,frame,texture,K);}
-          this._captureGlobalPoseIfEligible();this._renderScenePins(frame,view);this._emitProgress(false);
-        }
+        const view=viewerPose.views[0],camera=view.camera||null,vp=this.layer?.getViewport?.(view);
+        // projectionMatrix + XR viewport are sufficient for hit testing and
+        // world-locked pin projection. Raw camera dimensions are optional.
+        const width=camera?.width||vp?.width||this.root?.clientWidth||720;
+        const height=camera?.height||vp?.height||this.root?.clientHeight||1280;
+        const K=projectionToIntrinsics(view.projectionMatrix,width,height);this.latestK=K;this.latestIntrinsics={fxN:K.fx/K.width,fyN:K.fy/K.height,cxN:K.cx/K.width,cyN:K.cy/K.height};this.cameraSize=[width,height];this.latestPose=xrPoseToSlam(view.transform);
+        let texture=null;if(camera&&this.binding?.getCameraImage)try{texture=this.binding.getCameraImage(camera);this._latestTexture=texture;this.rawCameraAvailable=!!texture;}catch(err){this.log?.debug?.('xr-camera-texture-unavailable',{message:err.message});}
+        this._ensureCenterAim();
+        this._processManualAim(frame);
+        for(const t of this.targets){if(t.state==='acquiring')this._processAcquiringTarget(t,frame,texture,K);else if(t.state==='tracking')this._processTrackingTarget(t,frame,texture,K);}
+        this._captureGlobalPoseIfEligible();this._renderScenePins(frame,view);this._emitProgress(false);
       }
     }catch(err){this.log?.error('xr-calibration-frame-error',{message:err.message,stack:err.stack});}
     if(this._running)this.session.requestAnimationFrame((t,f)=>this._frame(t,f));
@@ -493,7 +503,7 @@ export class XRMetricCalibrator extends EventTarget{
     }
     if(anchors.length<this.cfg.xrCalibrationMinCommonPoints)throw new Error('Vista comune persa nell’ultimo frame: tieni almeno 3 pin utili visibili e riprova.');
 
-    const result={format:'ROOMSCAN-V30-XR-CALIBRATION-2',createdAt:Date.now(),referenceSpace:'local-floor',coordinateConvention:'+X right +Y up +Z forward',mode:'user-selected-multiview-real-xranchors',realAnchors:true,anchors,objects:applyTargets.map(t=>({id:t.id,seedUv:[...t.seedUv],points:t.points.map(p=>p.id),views:t.views,baselineM:t.maxBaselineM,maxAngleRad:t.maxAngleRad,roiViews:(t.roiViews||[]).map(v=>({...v,pose:clonePose(v.pose),worldCenter:[...v.worldCenter],uv:[...v.uv],scales:v.scales.map(s=>({...s,patch:[...s.patch]}))})),roiSectors:[...(t.roiSectors||[])]})),pose:clonePose(this.latestPose),intrinsicsNorm:{...this.latestIntrinsics},cameraSize:[...this.cameraSize],commonView:{pose:clonePose(this.latestPose),intrinsicsNorm:{...this.latestIntrinsics},cameraSize:[...this.cameraSize],anchorIds:anchors.map(a=>a.id)},poseCoverage:this.globalPoses.map(s=>({at:s.at,pose:clonePose(s.pose),targetIds:[...s.targetIds],anchorPointIds:[...s.anchorPointIds]})),quality:{...q,appliedTargetIds:applyTargets.map(t=>t.id)}};
+    const result={format:'ROOMSCAN-V30-XR-CALIBRATION-2',visualBridgeReady:this.rawCameraAvailable&&anchors.filter(a=>a.patch?.length).length>=this.cfg.xrCalibrationMinCommonPoints,createdAt:Date.now(),referenceSpace:'local-floor',coordinateConvention:'+X right +Y up +Z forward',mode:'user-selected-multiview-real-xranchors',realAnchors:true,anchors,objects:applyTargets.map(t=>({id:t.id,seedUv:[...t.seedUv],points:t.points.map(p=>p.id),views:t.views,baselineM:t.maxBaselineM,maxAngleRad:t.maxAngleRad,roiViews:(t.roiViews||[]).map(v=>({...v,pose:clonePose(v.pose),worldCenter:[...v.worldCenter],uv:[...v.uv],scales:v.scales.map(s=>({...s,patch:[...s.patch]}))})),roiSectors:[...(t.roiSectors||[])]})),pose:clonePose(this.latestPose),intrinsicsNorm:{...this.latestIntrinsics},cameraSize:[...this.cameraSize],commonView:{pose:clonePose(this.latestPose),intrinsicsNorm:{...this.latestIntrinsics},cameraSize:[...this.cameraSize],anchorIds:anchors.map(a=>a.id)},poseCoverage:this.globalPoses.map(s=>({at:s.at,pose:clonePose(s.pose),targetIds:[...s.targetIds],anchorPointIds:[...s.anchorPointIds]})),quality:{...q,appliedTargetIds:applyTargets.map(t=>t.id)}};
     this.log?.info('xr-calibration-real-anchor-finished',{anchors:anchors.length,persistent:anchors.filter(a=>a.persistentHandle).length,poseCount:q.poseCount,quality:q});
     await this.stop({deleteAnchors:false});
     return result;
