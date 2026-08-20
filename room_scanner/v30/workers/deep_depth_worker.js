@@ -1,30 +1,49 @@
 /*
- * Room Scanner V30.18.1 - Local ONNX Depth Anything worker.
+ * Room Scanner V30.18.2 - Local ONNX Depth Anything worker.
  *
- * Fix in this revision:
- * ONNX Runtime Web exposes `inputMetadata` / `outputMetadata` as arrays of
- * ValueMetadata entries. The previous V30.18 worker indexed inputMetadata by
- * input name (session.inputMetadata[name]) and therefore reported
- * "il modello ONNX non espone un input" even after a valid session had been
- * created. This worker accepts both the current array API and older/object-like
- * layouts, and reads tensor dimensions from `shape` (with `dimensions` kept as
- * a compatibility fallback).
+ * CAMERA RASTER + SPEED FIX
+ * -------------------------
+ * 1) The camera RGBA buffer is now converted to the ONNX RGB/NCHW tensor
+ *    explicitly in JavaScript.  No OffscreenCanvas, ImageData re-upload or
+ *    hidden canvas resampling is involved in the inference path.
  *
- * The model is still selected before Scan and loaded once here. Inference stays
- * off the UI/Alva thread. The public message protocol is unchanged, so this file
- * is a drop-in replacement for workers/deep_depth_worker.js at commit 85e22d1.
+ *    Exact memory contract:
+ *      source: RGBA RGBA RGBA ... (row-major, interleaved)
+ *      tensor: RRR... GGG... BBB... (NCHW, planar)
+ *
+ * 2) Dynamic Depth Anything inputs preserve camera aspect ratio.  For the
+ *    Room Scanner 320x480 analysis frame the first mobile plan is 224x336,
+ *    both multiples of the ViT patch size (14).  The old code stretched the
+ *    portrait frame to 518x518 before inference and then stretched the depth
+ *    back to portrait, which was geometrically inconsistent with Alva pixels.
+ *
+ * 3) If the ONNX export is fixed-shape, the worker automatically falls back to
+ *    the classic 518x518 contract.  A successful plan is cached for all later
+ *    frames, so compatibility probing is paid only once.
+ *
+ * 4) The pre-scan "test" now performs one compatibility/cold run and one warm
+ *    run.  `ms` is the steady-state preprocess + session.run + output read time,
+ *    NOT model download/session creation/first WebGPU compilation.  Additional
+ *    timing fields are returned for diagnostics without changing app.js.
+ *
+ * Drop-in replacement for:
+ *   room_scanner/v30/workers/deep_depth_worker.js
  */
 
 let cfg = {
   modelUrl: 'models/depth_anything_v2_small_q4f16.onnx',
   ortLocal: '../vendor/onnxruntime-web/ort.all.min.mjs',
-  // Keep the runtime version unchanged in this minimal fix so model/runtime
-  // compatibility can be diagnosed separately from the metadata bug.
   ortRemote: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.all.min.mjs',
+
+  // Compatibility ceiling/fallback used by the existing V30 config.
   inputMaxSide: 518,
-  // Used only when the runtime does not expose input metadata. The q4f16
-  // Depth Anything V2 browser export normally accepts float32 pixel_values.
-  // Inference also probes float16 automatically if float32 is rejected.
+
+  // Mobile inference target.  224 is 16 * 14.  A 320x480 frame therefore
+  // becomes 224x336 (24 * 14) without changing its 2:3 aspect ratio.
+  preferredShortSide: 224,
+  patchSize: 14,
+
+  // Used when onnxruntime-web exposes inputNames but not inputMetadata.
   inputType: 'float32',
 };
 
@@ -35,6 +54,11 @@ let sessionKey = '';
 let provider = 'unloaded';
 let busy = false;
 
+// Cached after the first successful inference.  This prevents trying several
+// resolutions/types on every frame and makes the live path deterministic.
+let successfulInputPlan = null;
+let lastSessionLoadMs = 0;
+
 function fail(message) {
   throw new Error(message);
 }
@@ -44,31 +68,18 @@ function positiveNumber(value, fallback) {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-function normalizeNchwShape(shape) {
-  if (!Array.isArray(shape) || shape.length !== 4) {
-    return null;
-  }
-
-  // Dynamic ONNX dimensions can be strings such as "height" / "width".
-  // For the standard Depth Anything V2 Small processor, 518 is a safe default
-  // and is divisible by the ViT patch size (14).
-  return [
-    positiveNumber(shape[0], 1),
-    positiveNumber(shape[1], 3),
-    positiveNumber(shape[2], cfg.inputMaxSide),
-    positiveNumber(shape[3], cfg.inputMaxSide),
-  ];
+function isPositiveDimension(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0;
 }
 
 function metadataEntry(metadata, name, index = 0) {
   if (!metadata) return null;
 
-  // Current ONNX Runtime Web API: readonly ValueMetadata[].
   if (Array.isArray(metadata)) {
     return metadata.find((entry) => entry?.name === name) || metadata[index] || null;
   }
 
-  // Defensive compatibility with older/custom wrappers that exposed an object.
   if (typeof metadata === 'object') {
     return metadata[name] || Object.values(metadata)[index] || null;
   }
@@ -87,12 +98,8 @@ function inputSpec() {
 
   const meta = metadataEntry(session.inputMetadata, name, 0);
 
-  // IMPORTANT: some onnxruntime-web builds expose inputNames/outputNames but do
-  // not expose inputMetadata at runtime. That does NOT mean that the ONNX model
-  // has no input. Depth Anything V2 has a documented contract:
-  //   pixel_values: float tensor, NCHW [batch, 3, height, width]
-  // The official processor uses 518x518. If metadata is unavailable we use that
-  // contract instead of rejecting an otherwise valid session.
+  // Several onnxruntime-web builds expose inputNames but no metadata.  That is
+  // a runtime API limitation, not evidence that the model has no input.
   if (!meta) {
     const side = positiveNumber(cfg.inputMaxSide, 518);
     return {
@@ -104,30 +111,34 @@ function inputSpec() {
       rawShape: null,
       metadataAvailable: false,
       contractFallback: true,
+      spatialFixed: false,
     };
   }
 
-  // ONNX Runtime Web ValueMetadata uses `shape`. `dimensions` is retained only
-  // as a compatibility fallback for older/custom runtimes.
-  const rawShape = meta.shape || meta.dimensions || [1, 3, cfg.inputMaxSide, cfg.inputMaxSide];
-  const dims = normalizeNchwShape(Array.from(rawShape));
-
-  if (!dims || dims.length !== 4 || dims[1] !== 3) {
-    fail(
-      `input ONNX non supportato: name=${name}, type=${meta.type || 'unknown'}, ` +
-      `shape=${JSON.stringify(rawShape)}`,
-    );
+  const rawShape = Array.from(meta.shape || meta.dimensions || [1, 3, 'height', 'width']);
+  if (rawShape.length !== 4) {
+    fail(`input ONNX non supportato: name=${name}, shape=${JSON.stringify(rawShape)}`);
   }
+
+  const channels = isPositiveDimension(rawShape[1]) ? Number(rawShape[1]) : 3;
+  if (channels !== 3) {
+    fail(`input ONNX non RGB/NCHW: name=${name}, shape=${JSON.stringify(rawShape)}`);
+  }
+
+  const spatialFixed = isPositiveDimension(rawShape[2]) && isPositiveDimension(rawShape[3]);
+  const height = spatialFixed ? Number(rawShape[2]) : positiveNumber(cfg.inputMaxSide, 518);
+  const width = spatialFixed ? Number(rawShape[3]) : positiveNumber(cfg.inputMaxSide, 518);
 
   return {
     name,
     type: String(meta.type || cfg.inputType || 'float32').toLowerCase(),
-    dims,
-    width: dims[3],
-    height: dims[2],
-    rawShape: Array.from(rawShape),
+    dims: [1, 3, height, width],
+    width,
+    height,
+    rawShape,
     metadataAvailable: true,
     contractFallback: false,
+    spatialFixed,
   };
 }
 
@@ -150,9 +161,7 @@ function toFloat16(value) {
   const x = Math.abs(value);
   if (x === 0) return sign;
   if (x >= 65504) return sign | 0x7bff;
-  if (x < 6.103515625e-5) {
-    return sign | Math.round(x / 5.960464477539063e-8);
-  }
+  if (x < 6.103515625e-5) return sign | Math.round(x / 5.960464477539063e-8);
   const exp = Math.floor(Math.log2(x));
   const mant = Math.round((x / Math.pow(2, exp) - 1) * 1024);
   return sign | ((exp + 15) << 10) | (mant & 1023);
@@ -205,24 +214,26 @@ async function ensureSession(source) {
   const sourceKey = source?.id || source?.url || cfg.modelUrl;
   if (session && sessionKey === sourceKey) return session;
 
+  const sessionStarted = performance.now();
   const runtime = await importOrt();
   try {
     runtime.env.wasm.numThreads = 1;
     runtime.env.wasm.simd = true;
   } catch {
-    // Some builds do not expose all WASM env flags. Inference can still work.
+    // Optional runtime flags.
   }
 
   if (session) {
     try {
       await session.release?.();
     } catch {
-      // Release is best-effort when changing model/provider.
+      // Best-effort cleanup when changing model/provider.
     }
     session = null;
     sessionKey = '';
   }
 
+  successfulInputPlan = null;
   const bytes = await fetchModel(source);
   const providerAttempts = globalThis.navigator?.gpu
     ? [['webgpu', 'wasm'], ['wasm']]
@@ -239,8 +250,8 @@ async function ensureSession(source) {
 
       sessionKey = sourceKey;
       provider = executionProviders[0];
+      lastSessionLoadMs = performance.now() - sessionStarted;
 
-      // This is the point where the old worker failed even for a valid model.
       const spec = inputSpec();
       const output = outputDebugSpec();
 
@@ -255,9 +266,11 @@ async function ensureSession(source) {
           rawShape: spec.rawShape,
           metadataAvailable: spec.metadataAvailable,
           contractFallback: spec.contractFallback,
+          spatialFixed: spec.spatialFixed,
         },
         output,
         model: source?.label || sourceKey,
+        sessionLoadMs: lastSessionLoadMs,
       });
 
       return session;
@@ -266,49 +279,195 @@ async function ensureSession(source) {
       try {
         await session?.release?.();
       } catch {
-        // Ignore cleanup errors while trying the next execution provider.
+        // Ignore cleanup errors while trying the next provider.
       }
       session = null;
       sessionKey = '';
+      successfulInputPlan = null;
     }
   }
 
   fail(`creazione/sessione ONNX fallita. ${errors.join(' | ')}`);
 }
 
-function prepareInput(rgba, width, height, spec, forcedType = null) {
-  if (typeof OffscreenCanvas === 'undefined') {
-    fail('OffscreenCanvas non disponibile');
+function roundToMultiple(value, multiple) {
+  const m = Math.max(1, multiple | 0);
+  return Math.max(m, Math.round(value / m) * m);
+}
+
+/**
+ * Depth Anything works on ViT patches.  Keep the camera aspect ratio and make
+ * both dimensions exact multiples of the patch size.  We target the SHORT side
+ * because this is equivalent to the model's aspect-preserving "lower bound"
+ * resize semantics, just with a smaller mobile input_size.
+ */
+function adaptiveInputGeometry(sourceWidth, sourceHeight, shortSide) {
+  const sw = Math.max(2, sourceWidth | 0);
+  const sh = Math.max(2, sourceHeight | 0);
+  const patch = Math.max(1, cfg.patchSize | 0 || 14);
+  const targetShort = roundToMultiple(Math.max(patch * 8, Number(shortSide) || 224), patch);
+  const scale = targetShort / Math.min(sw, sh);
+
+  let width = roundToMultiple(sw * scale, patch);
+  let height = roundToMultiple(sh * scale, patch);
+
+  // Guard pathological aspect ratios.  Normal Room Scanner frames (4:3, 2:3)
+  // never hit this branch.
+  const maxLong = Math.max(positiveNumber(cfg.inputMaxSide, 518) * 2, targetShort);
+  if (Math.max(width, height) > maxLong) {
+    const s = maxLong / Math.max(width, height);
+    width = roundToMultiple(width * s, patch);
+    height = roundToMultiple(height * s, patch);
   }
 
-  const source = new OffscreenCanvas(width, height);
-  const sctx = source.getContext('2d', { alpha: false });
-  const target = new OffscreenCanvas(spec.width, spec.height);
-  const tctx = target.getContext('2d', { alpha: false });
-  if (!sctx || !tctx) fail('canvas 2D non disponibile nel worker');
+  return { width, height, mode: `aspect-${targetShort}` };
+}
 
-  const image = sctx.createImageData(width, height);
-  image.data.set(rgba instanceof Uint8ClampedArray ? rgba : new Uint8ClampedArray(rgba));
-  sctx.putImageData(image, 0, 0);
-  tctx.drawImage(source, 0, 0, spec.width, spec.height);
+function inputPlans(spec, sourceWidth, sourceHeight) {
+  if (successfulInputPlan) return [successfulInputPlan];
 
-  const pixels = tctx.getImageData(0, 0, spec.width, spec.height).data;
-  const n = spec.width * spec.height;
+  // If metadata states a concrete spatial shape, obey it exactly.
+  if (spec.spatialFixed) {
+    return [{ width: spec.width, height: spec.height, mode: 'metadata-fixed' }];
+  }
+
+  const preferred = positiveNumber(cfg.preferredShortSide, 224);
+  const plans = [
+    adaptiveInputGeometry(sourceWidth, sourceHeight, preferred),
+    // Medium fallback: useful if a custom dynamic export dislikes very small
+    // feature maps while still avoiding the full 518 workload.
+    adaptiveInputGeometry(sourceWidth, sourceHeight, 322),
+    // Official-quality dynamic fallback with aspect preserved.
+    adaptiveInputGeometry(sourceWidth, sourceHeight, positiveNumber(cfg.inputMaxSide, 518)),
+    // Last compatibility fallback for old/static exports whose metadata is not
+    // visible in onnxruntime-web.
+    {
+      width: positiveNumber(cfg.inputMaxSide, 518),
+      height: positiveNumber(cfg.inputMaxSide, 518),
+      mode: 'compat-square',
+    },
+  ];
+
+  const seen = new Set();
+  return plans.filter((p) => {
+    const key = `${p.width}x${p.height}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function sourceRgbProbe(rgba, width, height) {
+  const src = rgba instanceof Uint8ClampedArray ? rgba : new Uint8ClampedArray(rgba);
+  const at = (x, y) => {
+    const xx = Math.max(0, Math.min(width - 1, Math.round(x)));
+    const yy = Math.max(0, Math.min(height - 1, Math.round(y)));
+    const i = (yy * width + xx) * 4;
+    return [src[i] || 0, src[i + 1] || 0, src[i + 2] || 0];
+  };
+  return {
+    tl: at(0, 0),
+    tr: at(width - 1, 0),
+    c: at((width - 1) / 2, (height - 1) / 2),
+    bl: at(0, height - 1),
+    br: at(width - 1, height - 1),
+  };
+}
+
+/**
+ * Explicit RGBA row-major -> RGB NCHW conversion with bilinear resize.
+ *
+ * This intentionally does not use OffscreenCanvas.  The source byte index is
+ * always ((y * sourceWidth + x) * 4 + channel), while the tensor index is
+ * (channel * targetWidth * targetHeight + y * targetWidth + x).
+ */
+function prepareInput(rgba, width, height, spec, plan, forcedType = null) {
+  const started = performance.now();
+  const srcWidth = width | 0;
+  const srcHeight = height | 0;
+  if (!(srcWidth > 1 && srcHeight > 1)) fail('dimensioni fotogramma RGBA non valide');
+
+  const src = rgba instanceof Uint8ClampedArray ? rgba : new Uint8ClampedArray(rgba);
+  const required = srcWidth * srcHeight * 4;
+  if (src.length < required) {
+    fail(`buffer RGBA incompleto: ${src.length} byte, attesi almeno ${required}`);
+  }
+
+  const targetWidth = plan.width | 0;
+  const targetHeight = plan.height | 0;
+  if (!(targetWidth > 1 && targetHeight > 1)) fail('shape input ONNX non valida');
+
+  const n = targetWidth * targetHeight;
   const tensorType = String(forcedType || spec.type || 'float32').toLowerCase();
   const float16Input = tensorType.includes('float16');
   const values = float16Input ? new Uint16Array(n * 3) : new Float32Array(n * 3);
-  const mean = [0.485, 0.456, 0.406];
-  const std = [0.229, 0.224, 0.225];
 
-  for (let i = 0; i < n; i++) {
-    for (let c = 0; c < 3; c++) {
-      const v = (pixels[i * 4 + c] / 255 - mean[c]) / std[c];
-      const j = c * n + i;
-      values[j] = float16Input ? toFloat16(v) : v;
+  // ImageNet normalization used by the official DPT/Depth Anything processor.
+  const meanR = 0.485, meanG = 0.456, meanB = 0.406;
+  const stdR = 0.229, stdG = 0.224, stdB = 0.225;
+
+  // Precompute horizontal sampling indices/weights once per row.
+  const x0 = new Int32Array(targetWidth);
+  const x1 = new Int32Array(targetWidth);
+  const tx = new Float32Array(targetWidth);
+  const sxScale = srcWidth / targetWidth;
+  for (let x = 0; x < targetWidth; x++) {
+    const sx = Math.max(0, Math.min(srcWidth - 1, (x + 0.5) * sxScale - 0.5));
+    const a = Math.floor(sx);
+    x0[x] = a;
+    x1[x] = Math.min(srcWidth - 1, a + 1);
+    tx[x] = sx - a;
+  }
+
+  const syScale = srcHeight / targetHeight;
+  for (let y = 0; y < targetHeight; y++) {
+    const sy = Math.max(0, Math.min(srcHeight - 1, (y + 0.5) * syScale - 0.5));
+    const y0 = Math.floor(sy);
+    const y1 = Math.min(srcHeight - 1, y0 + 1);
+    const wy = sy - y0;
+    const invWy = 1 - wy;
+    const row0 = y0 * srcWidth;
+    const row1 = y1 * srcWidth;
+    const dstRow = y * targetWidth;
+
+    for (let x = 0; x < targetWidth; x++) {
+      const wx = tx[x];
+      const invWx = 1 - wx;
+      const i00 = (row0 + x0[x]) * 4;
+      const i01 = (row0 + x1[x]) * 4;
+      const i10 = (row1 + x0[x]) * 4;
+      const i11 = (row1 + x1[x]) * 4;
+
+      // Bilinear interpolation directly from interleaved camera RGBA.
+      const w00 = invWx * invWy;
+      const w01 = wx * invWy;
+      const w10 = invWx * wy;
+      const w11 = wx * wy;
+
+      const r = src[i00] * w00 + src[i01] * w01 + src[i10] * w10 + src[i11] * w11;
+      const g = src[i00 + 1] * w00 + src[i01 + 1] * w01 + src[i10 + 1] * w10 + src[i11 + 1] * w11;
+      const b = src[i00 + 2] * w00 + src[i01 + 2] * w01 + src[i10 + 2] * w10 + src[i11 + 2] * w11;
+
+      const i = dstRow + x;
+      const vr = (r / 255 - meanR) / stdR;
+      const vg = (g / 255 - meanG) / stdG;
+      const vb = (b / 255 - meanB) / stdB;
+
+      values[i] = float16Input ? toFloat16(vr) : vr;
+      values[n + i] = float16Input ? toFloat16(vg) : vg;
+      values[2 * n + i] = float16Input ? toFloat16(vb) : vb;
     }
   }
 
-  return new ort.Tensor(float16Input ? 'float16' : 'float32', values, spec.dims);
+  const dims = [1, 3, targetHeight, targetWidth];
+  return {
+    tensor: new ort.Tensor(float16Input ? 'float16' : 'float32', values, dims),
+    dims,
+    type: float16Input ? 'float16' : 'float32',
+    preprocessMs: performance.now() - started,
+    plan,
+    rasterProbe: sourceRgbProbe(src, srcWidth, srcHeight),
+  };
 }
 
 function readOutput(result) {
@@ -332,6 +491,8 @@ function readOutput(result) {
   const offset = src.length - width * height;
   const out = new Float32Array(width * height);
 
+  // ONNX Runtime exposes tensors in row-major logical order.  For a depth
+  // tensor [..., H, W], i = y * W + x.  Do not transpose or interleave here.
   for (let i = 0; i < out.length; i++) {
     out[i] = src instanceof Uint16Array ? fromFloat16(src[offset + i]) : Number(src[offset + i]);
   }
@@ -339,42 +500,95 @@ function readOutput(result) {
   return { rawDepth: out, width, height };
 }
 
-async function infer(d) {
+async function runPrepared(spec, prepared) {
+  const runStarted = performance.now();
+  const result = await session.run({ [spec.name]: prepared.tensor });
+  const runMs = performance.now() - runStarted;
+
+  const outputStarted = performance.now();
+  const output = readOutput(result);
+  const outputMs = performance.now() - outputStarted;
+
+  return {
+    ...output,
+    runMs,
+    outputMs,
+    preprocessMs: prepared.preprocessMs,
+    inputType: prepared.type,
+    inputDims: prepared.dims,
+    inputPlan: prepared.plan,
+    rasterProbe: prepared.rasterProbe,
+    steadyMs: prepared.preprocessMs + runMs + outputMs,
+  };
+}
+
+async function infer(d, { benchmark = false } = {}) {
   if (!d.rgba?.length || !(d.width > 1 && d.height > 1)) {
     fail('fotogramma RGBA non valido');
   }
 
+  const sessionStarted = performance.now();
   await ensureSession(d.model);
+  const sessionMs = performance.now() - sessionStarted;
   const spec = inputSpec();
 
-  // If metadata exists, trust the declared tensor type. If metadata is absent,
-  // probe float32 first (the standard Depth Anything V2 JS preprocessing path)
-  // and then float16. This converts a runtime API limitation into a one-time
-  // compatibility probe instead of a false "model has no input" failure.
   const typeCandidates = spec.metadataAvailable
     ? [spec.type]
     : Array.from(new Set([spec.type || 'float32', 'float32', 'float16']));
+
+  const plans = inputPlans(spec, d.width, d.height);
   const errors = [];
 
-  for (const tensorType of typeCandidates) {
-    try {
-      const feeds = {
-        [spec.name]: prepareInput(d.rgba, d.width, d.height, spec, tensorType),
-      };
-      const result = await session.run(feeds);
-      const output = readOutput(result);
-      output.inputType = tensorType;
-      output.inputDims = spec.dims;
-      output.contractFallback = !!spec.contractFallback;
-      return output;
-    } catch (err) {
-      errors.push(`${tensorType}: ${err?.message || err}`);
+  for (const plan of plans) {
+    for (const tensorType of typeCandidates) {
+      try {
+        const firstPrepared = prepareInput(d.rgba, d.width, d.height, spec, plan, tensorType);
+        const first = await runPrepared(spec, firstPrepared);
+
+        successfulInputPlan = { ...plan };
+
+        // The explicit pre-scan test is also a warm benchmark.  WebGPU often
+        // pays graph/shader compilation on the first session.run().  Repeating
+        // the SAME shape/type gives the number that matters during Scan.
+        if (benchmark) {
+          const warmPrepared = prepareInput(d.rgba, d.width, d.height, spec, successfulInputPlan, first.inputType);
+          const warm = await runPrepared(spec, warmPrepared);
+          return {
+            ...warm,
+            sessionMs,
+            sessionLoadMs: lastSessionLoadMs,
+            coldRunMs: first.runMs,
+            coldSteadyMs: first.steadyMs,
+            contractFallback: !!spec.contractFallback,
+            benchmarkWarm: true,
+          };
+        }
+
+        return {
+          ...first,
+          sessionMs,
+          sessionLoadMs: lastSessionLoadMs,
+          coldRunMs: null,
+          coldSteadyMs: null,
+          contractFallback: !!spec.contractFallback,
+          benchmarkWarm: false,
+        };
+      } catch (err) {
+        errors.push(`${plan.width}x${plan.height}/${tensorType}: ${err?.message || err}`);
+
+        // If a previously cached plan somehow stopped working (e.g. model was
+        // changed without recreating the page), clear it so future calls can
+        // perform compatibility probing again.
+        if (successfulInputPlan && plan.width === successfulInputPlan.width && plan.height === successfulInputPlan.height) {
+          successfulInputPlan = null;
+        }
+      }
     }
   }
 
   fail(
-    `inferenza ONNX fallita per ${spec.name} ${JSON.stringify(spec.dims)}. ` +
-    `Tentativi tipo input: ${errors.join(' | ')}`,
+    `inferenza ONNX fallita per ${spec.name}. ` +
+    `Tentativi raster/tipo: ${errors.join(' | ')}`,
   );
 }
 
@@ -383,7 +597,13 @@ self.onmessage = async (event) => {
 
   if (d.type === 'init') {
     cfg = { ...cfg, ...(d.config || {}) };
-    postMessage({ type: 'deep-ready', provider, modelUrl: cfg.modelUrl });
+    postMessage({
+      type: 'deep-ready',
+      provider,
+      modelUrl: cfg.modelUrl,
+      preferredShortSide: cfg.preferredShortSide,
+      rasterContract: 'RGBA-row-major -> RGB-NCHW-planar',
+    });
     return;
   }
 
@@ -397,6 +617,8 @@ self.onmessage = async (event) => {
       model: sessionKey || cfg.modelUrl,
       inputNames: Array.from(session?.inputNames || []),
       outputNames: Array.from(session?.outputNames || []),
+      successfulInputPlan,
+      sessionLoadMs: lastSessionLoadMs,
     });
     return;
   }
@@ -415,7 +637,7 @@ self.onmessage = async (event) => {
   }
 
   busy = true;
-  const started = performance.now();
+  const totalStarted = performance.now();
 
   try {
     if (d.type === 'load') {
@@ -426,12 +648,17 @@ self.onmessage = async (event) => {
         provider,
         runtime: ortSource,
         model: d.model?.label || d.model?.url || cfg.modelUrl,
-        ms: performance.now() - started,
+        ms: performance.now() - totalStarted,
+        sessionLoadMs: lastSessionLoadMs,
       });
       return;
     }
 
-    const raw = await infer(d);
+    const raw = await infer(d, { benchmark: d.type === 'test' });
+
+    // Backward compatibility: app.js already renders `result.ms`.  From this
+    // revision it intentionally means STEADY inference latency rather than cold
+    // model/session setup.  `totalMs` preserves the complete wall-clock value.
     postMessage(
       {
         type: d.type === 'test' ? 'deep-test-result' : 'deep-result',
@@ -444,8 +671,20 @@ self.onmessage = async (event) => {
         rawHeight: raw.height,
         inputType: raw.inputType || null,
         inputDims: raw.inputDims || null,
+        inputPlan: raw.inputPlan || null,
+        rasterContract: 'RGBA-row-major-interleaved -> RGB-NCHW-planar',
+        rasterProbe: raw.rasterProbe || null,
         contractFallback: !!raw.contractFallback,
-        ms: performance.now() - started,
+        benchmarkWarm: !!raw.benchmarkWarm,
+        preprocessMs: raw.preprocessMs,
+        runMs: raw.runMs,
+        outputMs: raw.outputMs,
+        coldRunMs: raw.coldRunMs,
+        coldSteadyMs: raw.coldSteadyMs,
+        sessionMs: raw.sessionMs,
+        sessionLoadMs: raw.sessionLoadMs,
+        ms: raw.steadyMs,
+        totalMs: performance.now() - totalStarted,
       },
       [raw.rawDepth.buffer],
     );
@@ -458,7 +697,7 @@ self.onmessage = async (event) => {
       stack: err?.stack || null,
       provider,
       runtime: ortSource,
-      ms: performance.now() - started,
+      ms: performance.now() - totalStarted,
     });
   } finally {
     busy = false;
