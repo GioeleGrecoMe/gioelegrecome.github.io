@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.22.0 - ultra-low-budget WebGPU/WASM Depth Anything worker.
+ * Room Scanner V30.23.0 - ultra-low-budget WebGPU/WASM Depth Anything worker.
  *
  * GPU READBACK + AUTHORITATIVE DEPTH LAYOUT + Q4 DEFAULT
  * -------------------------
@@ -15,7 +15,7 @@
  * 2) Dynamic Depth Anything inputs use the DPT processor contract: ImageNet
  *    RGB normalization, aspect-preserving resize and dimensions rounded to ViT
  *    patches (14). Upstream defaults to 518 px; the app may request a smaller
- *    low-budget target (168 px in V30.22) because Alva supplies metric anchors and
+ *    low-budget target (224 px in V30.23) because Alva supplies metric anchors and
  *    multi-view verification. The input is never stretched to a square.
  *
  * 3) If the ONNX export is fixed-shape, the worker automatically falls back to
@@ -46,15 +46,14 @@ let cfg = {
   // Compatibility ceiling/fallback used by the existing V30 config.
   inputMaxSide: 518,
 
-  // Extreme mobile target: 8 ViT patches on the short side. This is deliberately
-  // coarse because Deep supplies only relative shape; Alva supplies pose/scale and
-  // multi-view photometric geometry remains the acceptance gate.
-  preferredShortSide: 168,
-  compatibilityShortSide: 196,
-  // One same-provider retry at 196px is used only when the fast 168px map
-  // fails the spatial-quality gate. This avoids misdiagnosing low-resolution
-  // DPT collapse as a WebGPU/Q4 corruption.
-  qualityRescueShortSide: 196,
+  // Live-safe mobile target: 16 ViT patches on the short side. The 12-patch
+  // 168px profile was fast on the phone but produced global vertical bands.
+  preferredShortSide: 224,
+  compatibilityShortSide: 280,
+  // Resolution quality ladder. 280 is the normal rescue; 336 is used only if
+  // the global banding detector still sees a collapsed map.
+  qualityRescueShortSide: 280,
+  qualityMaxRescueShortSide: 336,
   patchSize: 14,
   // 0 = let ORT Web choose its thread count. V30.20 forced one WASM thread.
   wasmNumThreads: 0,
@@ -431,23 +430,23 @@ function roundToMultiple(value, multiple) {
 }
 
 /**
- * Match Hugging Face DPTImageProcessor's aspect-preserving resize rule:
- * choose the scale that moves the image least toward the configured HxW target,
- * then round both axes to the ViT patch multiple.  For a portrait frame this
- * normally makes the long axis ~518, rather than incorrectly making its short
- * axis 518 and creating an unnecessarily large tensor.
+ * Match the lower-bound DPT resize used for dynamic Depth Anything inputs:
+ * preserve the camera aspect ratio, make the SHORT side reach the requested
+ * ViT/14 patch budget, then round both axes to a patch multiple. This makes the
+ * meaning of 224 -> 280 -> 336 deterministic on portrait and landscape frames.
  */
 function adaptiveInputGeometry(sourceWidth, sourceHeight, shortSide) {
   const sw = Math.max(2, sourceWidth | 0);
   const sh = Math.max(2, sourceHeight | 0);
   const patch = Math.max(1, cfg.patchSize | 0 || 14);
   const target = roundToMultiple(Math.max(patch * 8, Number(shortSide) || 518), patch);
-  let scaleWidth = target / sw;
-  let scaleHeight = target / sh;
-  if (Math.abs(1 - scaleWidth) < Math.abs(1 - scaleHeight)) scaleHeight = scaleWidth;
-  else scaleWidth = scaleHeight;
-  const width = roundToMultiple(sw * scaleWidth, patch);
-  const height = roundToMultiple(sh * scaleHeight, patch);
+  // Depth Anything's DPT resize uses a lower-bound target: preserve aspect ratio
+  // and make the SHORT side reach the requested patch count. The previous
+  // 'closest scale to 1' rule changed semantics depending on camera aspect and
+  // could silently turn a requested rescue into a smaller raster.
+  const scale = target / Math.min(sw, sh);
+  const width = roundToMultiple(sw * scale, patch);
+  const height = roundToMultiple(sh * scale, patch);
   return { width, height, mode: `dpt-aspect-${target}` };
 }
 
@@ -459,13 +458,13 @@ function inputPlans(spec, sourceWidth, sourceHeight, targetSide = null, { ignore
     return [{ width: spec.width, height: spec.height, mode: 'metadata-fixed' }];
   }
 
-  const preferred = positiveNumber(targetSide, positiveNumber(cfg.preferredShortSide, 168));
+  const preferred = positiveNumber(targetSide, positiveNumber(cfg.preferredShortSide, 224));
   const plans = [
     adaptiveInputGeometry(sourceWidth, sourceHeight, preferred),
-    // Do not jump directly from the 112-px fast path to 518 if an unusual export
-    // has a minimum dynamic shape. 196 px is still far cheaper and is tried only
-    // after the fast plan actually fails.
-    adaptiveInputGeometry(sourceWidth, sourceHeight, positiveNumber(cfg.compatibilityShortSide, 196)),
+    // Do not jump directly from the 224-px fast path to 518 if an unusual export
+    // has a minimum dynamic shape. 280 px is still much cheaper and is tried only
+    // after the fast plan actually fails at the ONNX contract level.
+    adaptiveInputGeometry(sourceWidth, sourceHeight, positiveNumber(cfg.compatibilityShortSide, 280)),
     // Final dynamic compatibility target for historical/custom exports.
     adaptiveInputGeometry(sourceWidth, sourceHeight, positiveNumber(cfg.inputMaxSide, 518)),
     // Last compatibility fallback for old/static exports whose metadata is not
@@ -692,26 +691,62 @@ async function tensorCpuData(tensor) {
 }
 
 function depthSpatialStats(depth, width, height) {
-  let dx = 0, dy = 0, nx = 0, ny = 0, finite = 0;
+  let dx = 0, dy = 0, nx = 0, ny = 0, finite = 0, sum = 0, sum2 = 0;
+  const colSum = new Float64Array(width), colN = new Uint32Array(width);
+  const rowSum = new Float64Array(height), rowN = new Uint32Array(height);
   for (let y = 0; y < height; y++) {
     const row = y * width;
     for (let x = 0; x < width; x++) {
       const i = row + x;
       const v = depth[i];
-      if (Number.isFinite(v)) finite++;
+      if (Number.isFinite(v)) {
+        finite++; sum += v; sum2 += v * v;
+        colSum[x] += v; colN[x]++;
+        rowSum[y] += v; rowN[y]++;
+      }
       if (x + 1 < width && Number.isFinite(v) && Number.isFinite(depth[i + 1])) { dx += Math.abs(v - depth[i + 1]); nx++; }
       if (y + 1 < height && Number.isFinite(v) && Number.isFinite(depth[i + width])) { dy += Math.abs(v - depth[i + width]); ny++; }
     }
   }
   const meanDx = nx ? dx / nx : 0;
   const meanDy = ny ? dy / ny : 0;
+  const mean = finite ? sum / finite : 0;
+  const totalVariance = finite ? Math.max(0, sum2 / finite - mean * mean) : 0;
+
+  // Global banding detector. The phone failures are not just high local x/y
+  // gradients: entire columns share nearly the same depth, creating broad
+  // repeated vertical bars. Measure how much of the map variance can be
+  // explained only by the column index (or row index). Real room depth can
+  // contain strong planes/gradients, but a decoder collapse typically makes one
+  // axis explain most of the complete image variance.
+  let colBetween = 0, rowBetween = 0;
+  for (let x = 0; x < width; x++) if (colN[x]) { const d = colSum[x] / colN[x] - mean; colBetween += colN[x] * d * d; }
+  for (let y = 0; y < height; y++) if (rowN[y]) { const d = rowSum[y] / rowN[y] - mean; rowBetween += rowN[y] * d * d; }
+  const columnExplained = totalVariance > 1e-20 && finite ? (colBetween / finite) / totalVariance : 0;
+  const rowExplained = totalVariance > 1e-20 && finite ? (rowBetween / finite) / totalVariance : 0;
+
+  // Axis-only variance alone would incorrectly reject a legitimate slanted wall:
+  // its depth can depend almost entirely on x but changes monotonically. Decoder
+  // collapse instead repeats broad high/low bands. Total variation divided by
+  // the axis range is ~1 for a monotonic ramp and grows with repeated cycles.
+  const axisCycles = (sumArray, countArray, length) => {
+    const means = new Float64Array(length); let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < length; i++) {
+      means[i] = countArray[i] ? sumArray[i] / countArray[i] : NaN;
+      if (Number.isFinite(means[i])) { lo = Math.min(lo, means[i]); hi = Math.max(hi, means[i]); }
+    }
+    const range = hi - lo; if (!(range > 1e-12)) return 0;
+    let tv = 0, prev = NaN;
+    for (const v of means) { if (!Number.isFinite(v)) continue; if (Number.isFinite(prev)) tv += Math.abs(v - prev); prev = v; }
+    return tv / range;
+  };
+  const columnAxisCycles = axisCycles(colSum, colN, width);
+  const rowAxisCycles = axisCycles(rowSum, rowN, height);
 
   // Compare local variation with deterministic long-range variation. A real
   // monocular depth map is piecewise smooth: nearby pixels normally differ
   // much less than pixels sampled far apart in the image. White/noisy output
   // has almost the same difference at both distances, so this ratio tends to 1.
-  // This catches the isotropic "confetti" failure that a stripe-only detector
-  // cannot see.
   let farDiff = 0, farPairs = 0;
   const sampleCount = Math.min(1024, Math.max(1, width * height));
   for (let k = 0; k < sampleCount; k++) {
@@ -733,20 +768,29 @@ function depthSpatialStats(depth, width, height) {
     meanNeighborDiff,
     meanFarDiff,
     coherenceRatio,
+    totalVariance,
+    columnExplained,
+    rowExplained,
+    columnAxisCycles,
+    rowAxisCycles,
+    dominantAxisExplained: Math.max(columnExplained, rowExplained),
   };
 }
 
 function depthQualityDiagnosis(spatialStats) {
   const stripe = stripeDiagnosis(spatialStats);
   const coherenceRatio = Number(spatialStats?.coherenceRatio);
+  const finiteRatio = Number(spatialStats?.finiteRatio);
   // Values near one mean "adjacent pixels are as unrelated as distant pixels".
-  // Keep the threshold conservative: the fallback is only a one-time A/B check.
   const incoherent = !Number.isFinite(coherenceRatio) || coherenceRatio < 1.28;
+  const invalid = !Number.isFinite(finiteRatio) || finiteRatio < .985;
   return {
     stripe,
     coherenceRatio,
+    finiteRatio,
     incoherent,
-    suspicious: stripe.suspicious || incoherent,
+    invalid,
+    suspicious: stripe.suspicious || incoherent || invalid,
   };
 }
 
@@ -915,10 +959,36 @@ function stripeDiagnosis(spatialStats) {
   const dx = Number(spatialStats?.meanDx) || 0;
   const dy = Number(spatialStats?.meanDy) || 0;
   const ratio = Math.max(dx, dy) / Math.max(1e-12, Math.min(dx, dy));
+  const columnExplained = Math.max(0, Math.min(1, Number(spatialStats?.columnExplained) || 0));
+  const rowExplained = Math.max(0, Math.min(1, Number(spatialStats?.rowExplained) || 0));
+  const dominantExplained = Math.max(columnExplained, rowExplained);
+  const secondaryExplained = Math.min(columnExplained, rowExplained);
+  const orientation = columnExplained > rowExplained
+    ? 'vertical-columns'
+    : rowExplained > columnExplained
+      ? 'horizontal-rows'
+      : dx > dy ? 'vertical-columns' : dy > dx ? 'horizontal-rows' : 'isotropic';
+  const columnCycles = Math.max(0, Number(spatialStats?.columnAxisCycles) || 0);
+  const rowCycles = Math.max(0, Number(spatialStats?.rowAxisCycles) || 0);
+  const dominantCycles = orientation === 'vertical-columns' ? columnCycles : orientation === 'horizontal-rows' ? rowCycles : Math.max(columnCycles,rowCycles);
+  // Axis-explained variance identifies the phone screenshots, while the cycle
+  // term prevents a real monotonic slanted plane from being mislabeled as a
+  // stripe field. Repeated 14-patch bars have many axis traversals; a wall ramp
+  // is close to one traversal even when x explains nearly 100% of its variance.
+  const globalBanding = (dominantExplained >= .58 && dominantCycles >= 2.8)
+    || (dominantExplained >= .46 && secondaryExplained <= .22 && dominantCycles >= 3.5);
+  const directionalBanding = ratio >= 4.0 && dominantCycles >= 2.4;
   return {
     ratio,
-    orientation: dx > dy ? 'vertical-columns' : dy > dx ? 'horizontal-rows' : 'isotropic',
-    suspicious: ratio >= 4.0,
+    orientation,
+    columnExplained,
+    rowExplained,
+    columnCycles,
+    rowCycles,
+    dominantCycles,
+    dominantExplained,
+    globalBanding,
+    suspicious: directionalBanding || globalBanding,
   };
 }
 
@@ -1027,29 +1097,57 @@ async function providerABDiagnostic(d, webgpuResult, { flipCheck = false } = {})
   }
 }
 
+function qualityScore(q) {
+  const stripePenalty = Math.max(0, Number(q?.stripe?.dominantExplained || 0) - .18) * 8
+    + Math.max(0, Number(q?.stripe?.ratio || 1) - 1) * .12;
+  const coherence = Math.min(6, Math.max(0, Number(q?.coherenceRatio) || 0));
+  return (q?.suspicious ? 0 : 12) + coherence - stripePenalty;
+}
+
 async function maybeResolutionRescue(d, primary) {
-  const quality = depthQualityDiagnosis(primary.spatialStats);
+  const primaryQuality = depthQualityDiagnosis(primary.spatialStats);
   const shortSide = Math.min(Number(primary.inputPlan?.width)||Infinity, Number(primary.inputPlan?.height)||Infinity);
-  const rescueSide = positiveNumber(cfg.qualityRescueShortSide, 196);
-  if (!quality.suspicious || !Number.isFinite(shortSide) || shortSide >= rescueSide || primary.inputPlan?.mode === 'metadata-fixed') {
-    return { result: primary, attempted:false, accepted:false, primaryQuality:quality };
+  const firstRescue = positiveNumber(cfg.qualityRescueShortSide, 280);
+  const maxRescue = positiveNumber(cfg.qualityMaxRescueShortSide, 336);
+  if (!primaryQuality.suspicious || !Number.isFinite(shortSide) || primary.inputPlan?.mode === 'metadata-fixed') {
+    return { result: primary, attempted:false, accepted:false, primaryQuality, finalQuality:primaryQuality, attempts:[] };
   }
-  try {
-    // Same model + same execution provider, only more ViT patches. 112px on real
-    // phones can produce broad stripe fields despite numerically valid output;
-    // this one-time retry separates that resolution collapse from provider bugs.
-    const rescued = await infer({ ...d, targetSide: rescueSide }, { benchmark:false, ignoreCachedPlan:true });
-    const rescuedQuality = depthQualityDiagnosis(rescued.spatialStats);
-    const primaryScore = (quality.suspicious?0:10) + Math.min(6,quality.coherenceRatio||0) - Math.max(0,(quality.stripe?.ratio||1)-1)*.15;
-    const rescuedScore = (rescuedQuality.suspicious?0:10) + Math.min(6,rescuedQuality.coherenceRatio||0) - Math.max(0,(rescuedQuality.stripe?.ratio||1)-1)*.15;
-    const accepted = !rescuedQuality.suspicious || rescuedScore > primaryScore + .35;
-    if (accepted) successfulInputPlan = { ...rescued.inputPlan };
-    else successfulInputPlan = { ...primary.inputPlan };
-    return { result: accepted ? rescued : primary, attempted:true, accepted, primaryQuality:quality, rescuedQuality, primaryMs:primary.steadyMs, rescuedMs:rescued.steadyMs, primaryPlan:primary.inputPlan, rescuedPlan:rescued.inputPlan };
-  } catch (err) {
-    successfulInputPlan = { ...primary.inputPlan };
-    return { result:primary, attempted:true, accepted:false, failed:true, message:err?.message||String(err), primaryQuality:quality };
+
+  const candidates = Array.from(new Set([firstRescue, maxRescue]))
+    .filter(side => Number.isFinite(side) && side > shortSide)
+    .sort((a,b)=>a-b);
+  if (!candidates.length) return { result: primary, attempted:false, accepted:false, primaryQuality, finalQuality:primaryQuality, attempts:[] };
+
+  let best = primary, bestQuality = primaryQuality, bestScore = qualityScore(primaryQuality);
+  const attempts = [];
+  for (const side of candidates) {
+    try {
+      const rescued = await infer({ ...d, targetSide: side }, { benchmark:false, ignoreCachedPlan:true });
+      const rescuedQuality = depthQualityDiagnosis(rescued.spatialStats);
+      const score = qualityScore(rescuedQuality);
+      attempts.push({side,plan:rescued.inputPlan,ms:rescued.steadyMs,quality:rescuedQuality,score});
+      if (score > bestScore + .15 || (!rescuedQuality.suspicious && bestQuality.suspicious)) {
+        best = rescued; bestQuality = rescuedQuality; bestScore = score;
+      }
+      // First structurally healthy raster wins. Avoid paying 336px after a good
+      // 280px map, keeping the steady-state mobile profile as light as possible.
+      if (!rescuedQuality.suspicious) break;
+    } catch (err) {
+      attempts.push({side,failed:true,message:err?.message||String(err)});
+    }
   }
+
+  successfulInputPlan = { ...best.inputPlan };
+  return {
+    result: best,
+    attempted: attempts.length > 0,
+    accepted: best !== primary,
+    primaryQuality,
+    finalQuality:bestQuality,
+    primaryPlan:primary.inputPlan,
+    rescuedPlan:best !== primary ? best.inputPlan : null,
+    attempts,
+  };
 }
 
 async function infer(d, { benchmark = false, ignoreCachedPlan = false } = {}) {
@@ -1133,6 +1231,7 @@ async function handleWorkerMessage(d) {
     if (Number(d.config?.preferredShortSide) > 0) cfg.preferredShortSide = Number(d.config.preferredShortSide);
     if (Number(d.config?.compatibilityShortSide) > 0) cfg.compatibilityShortSide = Number(d.config.compatibilityShortSide);
     if (Number(d.config?.qualityRescueShortSide) > 0) cfg.qualityRescueShortSide = Number(d.config.qualityRescueShortSide);
+    if (Number(d.config?.qualityMaxRescueShortSide) > 0) cfg.qualityMaxRescueShortSide = Number(d.config.qualityMaxRescueShortSide);
     postMessage({
       type: 'deep-ready',
       provider,
@@ -1140,6 +1239,7 @@ async function handleWorkerMessage(d) {
       modelRemoteUrl: cfg.modelRemoteUrl,
       preferredShortSide: cfg.preferredShortSide,
       qualityRescueShortSide: cfg.qualityRescueShortSide,
+      qualityMaxRescueShortSide: cfg.qualityMaxRescueShortSide,
       rasterContract: 'RGBA-row-major -> RGB-NCHW-planar',
     });
     return;
@@ -1211,10 +1311,10 @@ async function handleWorkerMessage(d) {
     }
 
     const firstRaw = await infer(d, { benchmark: d.type === 'test' });
-    // V30.22: first distinguish an over-aggressive low-resolution collapse from
-    // a genuine WebGPU/Q4 problem. The screenshot failure at 112px was strongly
-    // striped; a same-provider 196px retry is much cheaper than immediately
-    // creating a second WASM runtime and it is paid only once when needed.
+    // V30.23: first distinguish a resolution-dependent DPT collapse from a genuine
+    // WebGPU/Q4 problem. Phone screenshots at 112/168 px showed global bands; the
+    // same provider therefore climbs 224 -> 280 -> 336 only while the structural
+    // quality gate remains suspicious, before paying for a second WASM runtime.
     const resolutionRescue = await maybeResolutionRescue(d, firstRaw);
     const raw = resolutionRescue.result;
     // Fast test: one inference is enough when the map is healthy. WASM is created
@@ -1230,6 +1330,16 @@ async function handleWorkerMessage(d) {
     const finalHeight = useSafeWasm ? diagnostic.wasmPreviewHeight : raw.height;
     const effectiveProvider = useSafeWasm ? 'wasm-safe' : provider;
     const finalDepthSignature = sampledFloatSignature(finalDepth, finalWidth, finalHeight);
+    const finalSpatialStats = useSafeWasm ? (diagnostic.wasm?.spatialStats || raw.spatialStats) : raw.spatialStats;
+    const finalQuality = depthQualityDiagnosis(finalSpatialStats || {});
+    const qualityVerdict = finalQuality.suspicious
+      ? 'depth-quality-warning'
+      : resolutionRescue?.accepted ? 'resolution-rescue-ok' : 'depth-structured';
+    const rasterDiagnosis = diagnostic?.rasterDiagnosis || {
+      verdict: qualityVerdict,
+      primaryStripe: finalQuality.stripe,
+      primaryCoherence: finalQuality.coherenceRatio,
+    };
 
     const message = {
       type: d.type === 'test' ? 'deep-test-result' : 'deep-result',
@@ -1250,7 +1360,8 @@ async function handleWorkerMessage(d) {
       outputReadback: raw.outputReadback || null,
       shapeMatchesInput: raw.shapeMatchesInput !== false,
       layoutFix: raw.layoutFix || 'none',
-      spatialStats: useSafeWasm ? diagnostic.wasm?.spatialStats || raw.spatialStats : raw.spatialStats || null,
+      spatialStats: finalSpatialStats || null,
+      quality: finalQuality,
       rasterContract: raw.preprocessBackend || 'RGBA -> RGB/NCHW',
       preprocessBackend: raw.preprocessBackend || null,
       rasterProbe: raw.rasterProbe || null,
@@ -1270,7 +1381,7 @@ async function handleWorkerMessage(d) {
       ms: useSafeWasm ? diagnostic.wasm?.ms : raw.steadyMs,
       totalMs: performance.now() - totalStarted,
       providerDiagnostic: diagnostic ? { ...diagnostic, wasmPreviewDepth: undefined } : null,
-      rasterDiagnosis: diagnostic?.rasterDiagnosis || null,
+      rasterDiagnosis,
       flipComparison: diagnostic?.flipComparison || null,
       automaticSafeFallback: useSafeWasm,
       resolutionRescue: resolutionRescue ? { ...resolutionRescue, result:undefined } : null,

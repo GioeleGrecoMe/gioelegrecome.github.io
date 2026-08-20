@@ -63,13 +63,23 @@ export class WasmVisionFrontend{
     // findCameraPose() remains the sole trajectory source.
     const tracking=this.trackPose(frame);
     const alvaFeatures=featuresAtTrackedPoints(frame.gray,frame.width,frame.height,tracking.framePoints,maxFeatures);
+    // During monocular initialization every millisecond should go back to Alva.
+    // The old path ran a full JavaScript feature detector whenever Alva exposed
+    // fewer than ~90 tracked points, exactly the common INIT state. Those local
+    // descriptors NEVER feed findCameraPose(), so they only reduced the rate at
+    // which the real SLAM initializer saw camera frames. Keep them disabled until
+    // Alva has produced its first pose; after that they remain available for MVS.
+    if(!tracking.cameraPose){
+      this.previous=null;
+      return {count:alvaFeatures.length,features:alvaFeatures,matches:{count:0,items:[]},...tracking,alvaFeatureCount:alvaFeatures.length,initializerFastPath:true};
+    }
     let features=alvaFeatures;
     if(features.length<Math.min(90,maxFeatures)){
       const extra=detect(frame.gray,frame.width,frame.height,maxFeatures,threshold);
       features=mergeFeatures(features,extra,maxFeatures);
     }
     const matches=match(this.previous?.features||[],features);this.previous={features,width:frame.width,height:frame.height};
-    return {count:features.length,features,matches:{count:matches.length,items:matches},...tracking,alvaFeatureCount:alvaFeatures.length};
+    return {count:features.length,features,matches:{count:matches.length,items:matches},...tracking,alvaFeatureCount:alvaFeatures.length,initializerFastPath:false};
   }
 
   process(gray,width,height,{maxFeatures=500,threshold=12}={}){

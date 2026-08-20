@@ -1,6 +1,6 @@
 {
-  "version": "30.22.0",
-  "id": "v30.22.0-20260820-depth-quality-alva-heartbeat",
+  "version": "30.23.0",
+  "id": "v30.23.0-20260820-live-deep-alva-bootstrap",
   "builtAt": "2026-08-20T19:45:00+02:00",
-  "notes": "Depth fast path raised from 112px to 168px to avoid DPT stripe collapse, with one same-provider 196px quality rescue only when needed. AlvaAR now receives the computed camera FOV instead of silently using its 45deg default. Scan keeps an independent compact 1 Hz heartbeat observation even before the first valid Alva pose."
+  "notes": "Deep Anything now runs a diagnostic live preview during Scan independently of Alva pose. The mobile neural raster starts at 224px short side and escalates to 280/336 only when structural banding/noise is detected; suspicious depth is never fused. AlvaAR receives a 320x480 analysis stream while local JavaScript MVS feature extraction is skipped during monocular initialization so it cannot steal CPU from the real tracker."
 }

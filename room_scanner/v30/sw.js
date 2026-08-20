@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.22.0 service worker.
+ * Room Scanner V30.23.0 service worker.
  *
  * The shell is deliberately network-first. An earlier cache-first strategy
  * ignored query strings, so app.js?v=old could be served together with
@@ -7,7 +7,7 @@
  * different builds. Offline fallback remains available, but it is never used
  * while the network responds.
  */
-const VERSION = '30.22.0';
+const VERSION = '30.23.0';
 const CACHE = `room-scanner-v30.${VERSION}-shell`;
 const ENTRY = './room_scanner_v30.html';
 

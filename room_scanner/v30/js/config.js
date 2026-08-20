@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.22.0 ultra-low-budget ONNX geometry-prior runtime configuration.
+ * Room Scanner V30.23.0 ultra-low-budget ONNX geometry-prior runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,16 +10,20 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.22.0',
-  id:'v30.22.0-20260820-depth-quality-alva-heartbeat',
+  version:'30.23.0',
+  id:'v30.23.0-20260820-live-deep-alva-bootstrap',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
 
 export const CONFIG={
   // Mobile budget: Alva stays responsive while neural depth runs separately.
-  analysisWidth:256,
-  analysisHeight:384,
+  // AlvaAR initialization needs more image support than the 256x384 low-power
+  // profile provided on the test phone. 320x480 is still modest, but gives the
+  // monocular initializer 56% more pixels while the expensive neural depth stays
+  // in its own worker at a much smaller raster.
+  analysisWidth:320,
+  analysisHeight:480,
   analysisFps:8,
   cameraFovDeg:62,
   keyframeIntervalMs:950,
@@ -107,7 +111,7 @@ export const CONFIG={
 
 
 
-  // V30.15 dense mapping: AlvaAR owns poses; a low-frequency multi-view
+  // Dense mapping: AlvaAR owns poses; a low-frequency multi-view
   // plane-sweep worker estimates depth from a tiny local keyframe graph. Dense
   // depth is fused into surfels + a sparse TSDF. The live splats are derived
   // only from confirmed surfels; the mesh is extracted from the TSDF.
@@ -165,20 +169,22 @@ export const CONFIG={
   deepModelUrl:'models/model_q4.onnx',
   deepModelRemoteUrl:null,
   deepModelLabel:'Depth Anything V2 Small Q4 locale',
+  // Live diagnostic depth is intentionally independent from Alva tracking. It
+  // runs at roughly 1 Hz during Scan even while Alva is still INIT, so the user
+  // can immediately see whether the neural prior is geometrically meaningful.
+  deepLiveDuringScan:true,
   deepInferenceIntervalMs:1000,
-  // ULTRA-LOW-BUDGET PROFILE. Depth Anything is not the metric reconstruction:
-  // Alva owns pose/scale and the multi-view stage rejects inconsistent geometry.
-  // Therefore the neural map can be intentionally very coarse. 168 px is twelve
-  // ViT/14 patches on the short side. 112 px (8 patches) proved too aggressive on
-  // real phones and can collapse the DPT decoder into broad stripes. 168 remains
-  // far below the native 518 target while restoring enough spatial token support.
-  deepPreferredShortSide:168,
-  // If an unusual dynamic export rejects 168 px, try 196 before paying for the
-  // classic 518-px compatibility path. The bundled Q4 model normally stays at 168.
-  deepCompatibilityShortSide:196,
-  // If the fast 168px map is stripe-like/incoherent, retry once at 196px on the SAME provider.
-  // This distinguishes resolution collapse from a genuine WebGPU/Q4 runtime failure.
-  deepQualityRescueShortSide:196,
+  // 224 px = 16 ViT/14 patches on the short side. On the test phone 168 px was
+  // fast (~0.5 s) but collapsed into global vertical bands. 224 remains close to
+  // the sub-second budget while providing substantially more spatial tokens.
+  deepPreferredShortSide:224,
+  // Dynamic-shape compatibility and quality-rescue ladder. A pathological map
+  // first retries at 280 px (20 patches), then at 336 px only if the banding
+  // detector still reports a collapsed DPT output. The first healthy plan is
+  // cached for all later live/keyframe inferences on that device.
+  deepCompatibilityShortSide:280,
+  deepQualityRescueShortSide:280,
+  deepQualityMaxRescueShortSide:336,
   deepInputMaxSide:518,
   // 0 restores ONNX Runtime Web's automatic WASM thread budget. V30.20 forced
   // one thread, which unnecessarily serialized CPU inference on isolated sites.
@@ -187,7 +193,7 @@ export const CONFIG={
   // pass is created only when the spatial quality gate suspects corrupt WebGPU.
   deepTestFlipCheck:false,
   // Camera diagnostic source is downsampled before getImageData/worker transfer.
-  deepTestCaptureMaxSide:320,
+  deepTestCaptureMaxSide:480,
   // No local ORT bundle is currently shipped; avoid a guaranteed initial 404.
   // Add an actual matching ESM file here only for a fully offline deployment.
   deepOrtLocal:null,

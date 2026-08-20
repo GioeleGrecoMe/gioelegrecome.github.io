@@ -1,8 +1,8 @@
 /**
- * Room Scanner V30.22.0 - deterministic Depth Anything raster diagnostic.
+ * Room Scanner V30.23.0 - deterministic Depth Anything raster diagnostic.
  *
- * No app.js modification is required. This listener observes the normal
- * deep-test-result and renders the exact camera bytes, the exact NCHW tensor
+ * This listener observes the normal deep-test-result and renders the exact
+ * camera bytes, the exact NCHW tensor
  * inverted back to RGB, an intentionally wrong NHWC interpretation, the
  * official row-major depth and a column-major counter-reading. The ONNX worker
  * includes the actual test input tensor only for an explicit test, never for
@@ -75,13 +75,15 @@ function render(d){
   if(ref?.rawDepth?.length){if(refFigure)refFigure.hidden=false;drawDepth(refCanvas,ref.rawDepth,ref.width,ref.height,false);}else if(refFigure)refFigure.hidden=true;
   const report=$('deepDiagReport');
   if(report){
-    const rd=d.rasterDiagnosis||{}; const pc=d.flipComparison||{}; const ps=rd.primaryStripe||{}; const rs=rd.referenceStripe||{}; const pd=d.providerDiagnostic||{};
+    const rd=d.rasterDiagnosis||{}; const pc=d.flipComparison||{}; const ps=rd.primaryStripe||{}; const rs=rd.referenceStripe||{}; const pd=d.providerDiagnostic||{}; const rr=d.resolutionRescue||{};
+    const rescueText=rr.attempted?(rr.attempts||[]).map(x=>x.failed?`${x.side}px FAIL`:`${x.side}px ${n(x.ms,0)}ms${x.quality?.suspicious?' ⚠':' ✓'}`).join(' -> '):'non necessario';
     report.textContent=[
       `VERDETTO: ${rd.verdict||'nessuno'}`,
       `modello/sessione: ${d.provider||'?'} · ${d.inputPlan?.width||'?'}x${d.inputPlan?.height||'?'} -> ${d.outputDims?.join('x')||'?'}`,
       `input: ${d.preprocessBackend||'?'} · output: ${d.outputReadback||'?'} @ ${d.outputLocation||'?'}`,
-      `stripe principale: ${ps.orientation||'?'} ratio ${n(ps.ratio,2)}`,
-      `coerenza spaziale: ${n(rd.primaryCoherence,2)} (rumore isotropo ≈ 1)` ,
+      `banding asse: ${ps.orientation||'?'} · spiegata col ${n((ps.columnExplained||0)*100,0)}% / row ${n((ps.rowExplained||0)*100,0)}% · cicli ${n(ps.dominantCycles,1)} · ratio ${n(ps.ratio,2)}`,
+      `coerenza spaziale: ${n(rd.primaryCoherence,2)} (rumore isotropo ≈ 1)`,
+      `rescue raster: ${rescueText}${rr.accepted?' · ACCETTATO':''}`, 
       pc.comparable ? `flip-equivariance opzionale: corr ${n(pc.correlation,3)} · NRMSE ${n(pc.nrmse,3)}` : 'flip-equivariance: saltata nel test rapido',
       pd.wasm ? `A/B WASM: corr ${n(pd.comparison?.correlation,3)} · coerenza ${n(rd.referenceCoherence,2)} · ${n(pd.wasm?.ms,0)} ms` : `A/B WASM: ${pd.failed?(pd.message||'fallito'):'non necessario'}`,
       `src ${d.frameSignature||'--------'} -> z ${d.depthSignature||'--------'}`,

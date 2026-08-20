@@ -4,7 +4,7 @@ import {V30Database,openVersionSafe} from './storage/db.js';
 import {triangulateRays,poseIdentity} from './slam/math.js';
 
 /*
- * V30.22.0 self-tests intentionally include regressions for the two phone failures
+ * V30.23.0 self-tests intentionally include regressions for the two phone failures
  * reported on V30.8: IndexedDB downgrade and fake/screen-space WebXR pins.
  */
 export async function runSelfTests(log){
@@ -12,7 +12,7 @@ export async function runSelfTests(log){
   const run=async(name,fn)=>{const t=performance.now();try{const detail=await fn();const r={name,ok:true,ms:performance.now()-t,detail};tests.push(r);log.info('self-test-pass',r);}catch(err){const r={name,ok:false,ms:performance.now()-t,error:err.message};tests.push(r);log.error('self-test-fail',{...r,stack:err.stack});}};
 
   await run('secure-context',()=>{if(!isSecureContext&&location.hostname!=='localhost')throw new Error('HTTPS required');return location.protocol;});
-  await run('required-dom',()=>{for(const id of ['calibrateBtn','calibOverlay','calibAddPinBtn','calibUndoPinBtn','calibFinishBtn','calibCancelBtn','startBtn','chooseDeepModelBtn','deepModelFile','testDeepBtn','deepModelStatus','deepTestPreview','depthOverlay','diagDownloadBtn','selfTestBtn','forceUpdateBtn','viewer','bridgeCamera','bridgePinGuidance','bridgePinInstructions','miniMap','alvaPtsState','metricPipelineHud','metricGsStats','buildMetricMeshBtn'])if(!document.getElementById(id))throw new Error(`missing #${id}`);return 'ok';});
+  await run('required-dom',()=>{for(const id of ['calibrateBtn','calibOverlay','calibAddPinBtn','calibUndoPinBtn','calibFinishBtn','calibCancelBtn','startBtn','chooseDeepModelBtn','deepModelFile','testDeepBtn','deepModelStatus','deepTestPreview','depthOverlay','deepLiveState','diagDownloadBtn','selfTestBtn','forceUpdateBtn','viewer','bridgeCamera','bridgePinGuidance','bridgePinInstructions','miniMap','alvaPtsState','metricPipelineHud','metricGsStats','buildMetricMeshBtn'])if(!document.getElementById(id))throw new Error(`missing #${id}`);return 'ok';});
   await run('runtime-contract',()=>({webXR:!!navigator.xr,webAssembly:typeof WebAssembly==='object',camera:!!navigator.mediaDevices?.getUserMedia,imuRequired:false,localOnnxDepth:CONFIG.deepDepthEnabled!==false,realAnchorsRequired:CONFIG.xrRequireRealAnchors!==false}));
 
   await run('interactive-boot-order',async()=>{const text=await fetch(`js/app.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.text();});if(!text.includes("dataset.v30Interactive='1'"))throw new Error('core does not signal interactive UI after bind');if(!text.includes('void initBackground()'))throw new Error('background initialization is still a boot gate');for(const heavy of ["from './camera.js'","from './storage/db.js'","from './xr/xr_calibration.js'"])if(text.includes(heavy))throw new Error(`heavy static import remains: ${heavy}`);return 'UI bound first; heavy runtime lazy-loaded';});

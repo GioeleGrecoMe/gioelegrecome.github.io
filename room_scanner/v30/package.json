@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-22-depth-quality-alva-heartbeat",
+  "name": "room-scanner-v30-23-live-deep-alva-bootstrap",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,6 @@
     "check:alva": "node tools/check_alvaar_runtime.mjs",
     "vendor:alva": "node tools/vendor_alvaar.mjs"
   },
-  "version": "30.22.0",
-  "description": "V30.22.0: 168px fast Depth Anything with 196px quality rescue, calibrated AlvaAR FOV propagation, and independent 1 Hz tracking heartbeat observations."
+  "version": "30.23.0",
+  "description": "V30.23.0: live 1 Hz Depth Anything preview during Scan, 224/280/336px structural rescue ladder, and a lighter AlvaAR initializer path at 320x480."
 }
