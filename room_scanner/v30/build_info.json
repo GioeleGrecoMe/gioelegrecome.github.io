@@ -1,6 +1,6 @@
 {
-  "version": "30.18.5",
-  "id": "v30.18.5-20260820-q4-auto-cache-live-depth-ticker",
-  "builtAt": "2026-08-20T16:12:00+02:00",
-  "notes": "Smartphone commit-only release. Depth Anything V2 Small Q4 is loaded from models/depth_anything_v2_small_q4.onnx when present; otherwise the official ONNX Community model_q4.onnx is downloaded at runtime and retained in a dedicated Cache Storage bucket. The neural preview has an independent approximately 1 Hz ticker using the latest CameraController frame, while AlvaAR remains the pose authority and selected keyframe depth is still validated by sparse anchors and multi-view geometry before 3D fusion. Preferred neural short side is 140 pixels (multiples of ViT patch size 14), with automatic larger-raster fallbacks."
+  "version": "30.18.7",
+  "id": "v30.18.7-20260820-q4-gpu-readback-depth-layout",
+  "builtAt": "2026-08-20T16:30:00+02:00",
+  "notes": "Smartphone commit-only release. Q4 is the default Depth Anything V2 Small model. The camera input path now uses ONNX Runtime Tensor.fromImage(ImageData) for authoritative RGBA->RGB/NCHW packing and ImageNet normalization; the predicted_depth output is read with Tensor.getData() so WebGPU gpu-buffer outputs are explicitly downloaded to CPU. The worker follows the official [batch,height,width] depth layout with no heuristic transpose/last-plane interpretation. The neural preview keeps an independent approximately 1 Hz ticker and the official Q4 model is downloaded/cached at runtime when not present locally."
 }
