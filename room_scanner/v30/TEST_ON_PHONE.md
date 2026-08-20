@@ -1,19 +1,20 @@
-# V30.8 phone test
+# V30.25.0 phone check
 
-1. Open the V30 page and run Self-test.
-2. Start WebXR calibration.
-3. Wait for blue candidate circles.
-4. Tap a distinctive fixed detail. Hold still briefly while its metric cluster is
-   acquired.
-5. Repeat for at least 3 well-separated details (for example picture-frame corner,
-   door handle, socket, furniture corner). Avoid blank walls and reflective/moving
-   objects.
-6. Move sideways and slightly vertically while keeping the pins visible. The label
-   on each pin should progress through several views.
-7. When all pins are mature, frame every pin together. `vista comune` must become
-   `SI`.
-8. Press `Blocca vista comune` without changing framing.
-9. Start the camera-only scan and reproduce the same final composition.
-10. Verify that template count reaches at least 8, PnP inliers become >= 8 and the
-    bridge enters the normal scan screen.
-11. Export diagnostics after the test even if successful.
+1. Apply this patch over a clean V30.24.0 tree and hard-refresh the site.
+2. Run `Prova inferenza` once. The live depth can remain coarse, but it must not
+   show the previous periodic stripe failure.
+3. Start scanning and make small translations with strong image overlap. Rotate
+   only gradually; translation supplies the useful triangulation baseline.
+4. Revisit the same table edge, radiator, wall corner or chair from two or more
+   slightly different positions.
+5. In the live/review splats, look for convergence rather than instant density:
+   provisional one-view points should stay hidden, while repeatedly observed
+   surfaces should become denser/stabler and thin/edge structures may retain
+   separate nearby Gaussian hypotheses.
+6. If a region is wrong, record the visible Alva status plus the Deep live panel
+   and note whether the error decreases after revisiting it. A persistent error
+   after 3+ distinct viewpoints is more useful diagnostically than a one-frame
+   monocular error.
+
+Expected qualitative result: the Gaussian cloud should improve with redundant
+views instead of reproducing each depth map as a permanent camera-facing sheet.

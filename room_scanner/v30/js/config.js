@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.24.0 ultra-low-budget ONNX geometry-prior runtime configuration.
+ * Room Scanner V30.25.0 online feature-track + probabilistic 3DGS runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.24.0',
-  id:'v30.24.0-20260820-ray-consensus',
+  version:'30.25.0',
+  id:'v30.25.0-20260820-feature-gaussian-map',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -26,7 +26,7 @@ export const CONFIG={
   analysisHeight:480,
   analysisFps:8,
   cameraFovDeg:62,
-  keyframeIntervalMs:950,
+  keyframeIntervalMs:900,
   // Independent tracking heartbeat: keep one compact camera observation per second even
   // before Alva has produced its first pose. Dense geometry still requires a valid pose.
   alvaObservationIntervalMs:900,
@@ -124,13 +124,13 @@ export const CONFIG={
   // away detail before the 224px Depth Anything preprocessor ever sees it.
   deepKeyframeWidth:224,
   deepKeyframeHeight:336,
-  denseMaxKeyframes:8,
+  denseMaxKeyframes:10,
   denseMinSourceViews:2,
   denseMaxSourceViews:4,
-  denseMinKeyframeIntervalMs:650,
-  denseMinBaselineM:0.045,
+  denseMinKeyframeIntervalMs:750,
+  denseMinBaselineM:0.028,
   denseMaxBaselineM:0.75,
-  denseMinBaselineAlva:0.020,
+  denseMinBaselineAlva:0.014,
   denseMaxBaselineAlva:1.50,
   denseMaxViewAngleRad:0.38,
   denseNearM:0.28,
@@ -145,13 +145,19 @@ export const CONFIG={
   denseMinDistinctiveness:0.025,
   denseMinSparseSeeds:5,
   denseSeedMaxReprojectionPx:2.8,
-  denseSeedMinAngleRad:0.010,
+  denseSeedMinAngleRad:0.006,
   denseSeedMaxGapBaselineRatio:0.14,
   denseSeedRadiusPx:22,
   denseSeedMaxRelativeError:0.48,
   denseMaxSamplesPerDepth:14000,
   denseTsdfVoxelM:0.035,
   denseTsdfVoxelAlva:0.030,
+  // Gaussian centres are continuous. This finer grid is ONLY a spatial index;
+  // multiple Gaussians may coexist in one cell at corners/occlusions.
+  denseGaussianHashVoxelM:0.020,
+  denseGaussianHashVoxelAlva:0.018,
+  denseGaussianMahalanobis2:11.34,
+  denseProvisionalMaxAge:18,
   denseTsdfTruncVoxels:3,
   denseMinSurfaceSupport:2,
   // A surfel is confirmed only after a DIFFERENT Alva keyframe contributes a
@@ -222,11 +228,11 @@ export const CONFIG={
   deepMinAnchorCells:3,
   // Inference is now sub-second on the test phone. Collect redundant Deep
   // constraints much more often; near-duplicate poses are still rejected.
-  deepMinIntervalMs:1200,
-  deepMaxIntervalMs:4200,
-  deepMinTranslationM:0.065,
-  deepMinTranslationAlva:0.032,
-  deepMinRotationRad:0.085,
+  deepMinIntervalMs:750,
+  deepMaxIntervalMs:2200,
+  deepMinTranslationM:0.025,
+  deepMinTranslationAlva:0.014,
+  deepMinRotationRad:0.040,
   deepDepthNovelty:0.22,
   deepCalibrationMaxMedianRelativeError:0.18,
   deepPriorRelRange:0.18,
@@ -237,12 +243,15 @@ export const CONFIG={
   deepPriorMinTexture:0.006,
   // Calibrated pixels also become low-authority anisotropic ray observations.
   // They are cheap to store because only running surfel statistics survive.
-  deepRayPixelStep:5,
-  deepRayMaxSamples:5000,
+  deepRayPixelStep:4,
+  deepRayMaxSamples:6500,
   // Correctness first: non-selected near-duplicate frames are skipped instead of
   // reintroducing unconstrained plane-sweep sheets. A later novel view will fill
   // the same surface with one calibrated AI call.
   deepSkipUnprioritized:true,
+  // Every geometrically accepted dense keyframe gets a Deep proxy. The dense
+  // keyframe manager, not the neural selector, is now the sampling authority.
+  deepInferEveryDenseKeyframe:true,
 
   // Legacy camera-only MVS remains available for diagnostics/fallback tooling.
   mvsWorker:'workers/mvs_worker.js',

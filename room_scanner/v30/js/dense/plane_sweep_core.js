@@ -43,7 +43,7 @@ export function estimateDenseDepth(job){
   const depthHyp=inverseDepths(cfg.near,cfg.far,cfg.depthSteps);
   const gridW=Math.floor((width-2*cfg.margin-1)/cfg.pixelStep)+1;
   const gridH=Math.floor((height-2*cfg.margin-1)/cfg.pixelStep)+1;
-  const depthGrid=new Float32Array(gridW*gridH),confGrid=new Float32Array(gridW*gridH),costGrid=new Float32Array(gridW*gridH);costGrid.fill(1);
+  const depthGrid=new Float32Array(gridW*gridH),confGrid=new Float32Array(gridW*gridH),costGrid=new Float32Array(gridW*gridH),viewMaskGrid=new Uint16Array(gridW*gridH);costGrid.fill(1);
   const pxGrid=new Int16Array(gridW*gridH),pyGrid=new Int16Array(gridW*gridH);
 
   let gi=0;
@@ -57,32 +57,32 @@ export function estimateDenseDepth(job){
       // completely flat pixels are still rejected because they cannot be checked
       // against another Alva view.
       if(texture<(hasPrior?cfg.priorMinTexture:cfg.minTexture))continue;
-      let best=Infinity,second=Infinity,bestZ=0,bestViews=0;
+      let best=Infinity,second=Infinity,bestZ=0,bestViews=0,bestMask=0;
       const hypotheses=hasPrior?localDepths(priorZ,cfg.near,cfg.far,cfg.priorRelRange,cfg.priorDepthSteps):depthHyp;
       for(const z of hypotheses){
         const xc=(u-K.cx)/K.fx*z,yc=(v-K.cy)/K.fy*z;
         const wr=rotateMat(Rref,[xc,yc,z]);
         const world=[ref.pose.p[0]+wr[0],ref.pose.p[1]+wr[1],ref.pose.p[2]+wr[2]];
         const costs=[];
-        for(const s of src){
-          const pr=projectWorld(s.pose,s.K||K,world,s.width,s.height);
+        for(let sourceIndex=0;sourceIndex<src.length;sourceIndex++){
+          const s=src[sourceIndex],pr=projectWorld(s.pose,s.K||K,world,s.width,s.height);
           if(!pr||pr.u<2||pr.v<2||pr.u>s.width-3||pr.v>s.height-3)continue;
           const si=bilinear(s.gray,s.width,s.height,pr.u,pr.v)/255;
           const sgx=bilinear(s.grad.gx,s.width,s.height,pr.u,pr.v),sgy=bilinear(s.grad.gy,s.width,s.height,pr.u,pr.v);
           // Illumination-robust lightweight cost. Intensity is dominant; image
           // gradients keep repeated flat regions from looking artificially good.
           const c=.68*Math.abs(refI-si)+.16*Math.abs(refGx-sgx)+.16*Math.abs(refGy-sgy);
-          costs.push(c);
+          costs.push({c,sourceIndex});
         }
         if(costs.length<cfg.minViews)continue;
-        costs.sort((a,b)=>a-b);
+        costs.sort((a,b)=>a.c-b.c);
         const keep=Math.min(costs.length,Math.max(cfg.minViews,2));
-        let c=0;for(let i=0;i<keep;i++)c+=costs[i];c/=keep;
+        let c=0,mask=0;for(let i=0;i<keep;i++){c+=costs[i].c;if(costs[i].sourceIndex<16)mask|=(1<<costs[i].sourceIndex);}c/=keep;
         // Keep the search close to the AI shape without letting the network win
         // against photometric evidence. The penalty is zero at the calibrated
         // prior and grows smoothly towards the local search boundary.
         if(hasPrior){const rel=Math.abs(Math.log(z/priorZ))/Math.max(.03,Math.log(1+cfg.priorRelRange));c+=cfg.priorWeight*clamp(rel,0,1.5);}
-        if(c<best){second=best;best=c;bestZ=z;bestViews=costs.length;}else if(c<second)second=c;
+        if(c<best){second=best;best=c;bestZ=z;bestViews=costs.length;bestMask=mask;}else if(c<second)second=c;
       }
       if(!Number.isFinite(best)||!bestZ||bestViews<cfg.minViews)continue;
       const distinct=Number.isFinite(second)?clamp((second-best)/(Math.max(.025,second)),0,1):0;
@@ -93,7 +93,7 @@ export function estimateDenseDepth(job){
       if(best<=maxCost&&distinct>=minDistinct&&confidence>=cfg.minConfidence){
         const seed=findNearestSparseSeed(sparseSeeds,u,v,cfg.seedRadiusPx);
         if(seed&&Math.abs(bestZ-seed.depth)/Math.max(1e-6,seed.depth)>cfg.seedMaxRelativeError)continue;
-        depthGrid[gi]=bestZ;confGrid[gi]=seed?Math.min(1,confidence*.78+Number(seed.confidence||.5)*.22):confidence;costGrid[gi]=best;
+        depthGrid[gi]=bestZ;confGrid[gi]=seed?Math.min(1,confidence*.78+Number(seed.confidence||.5)*.22):confidence;costGrid[gi]=best;viewMaskGrid[gi]=bestMask;
       }
     }
   }
@@ -121,7 +121,7 @@ export function estimateDenseDepth(job){
     if(!n)n=normalize(sub(ref.pose.p,p));
     const u=pxGrid[i],v=pyGrid[i],color=sampleRgb(ref.rgba,width,height,u,v),z=depthGrid[i];
     const radius=Math.max(.0025,z/Math.max(K.fx,K.fy)*cfg.pixelStep*1.35);
-    samples.push({p,normal:n,color,confidence:confGrid[i],radius,depth:z,u,v,cost:costGrid[i]});
+    samples.push({p,normal:n,color,confidence:confGrid[i],radius,depth:z,u,v,cost:costGrid[i],viewMask:viewMaskGrid[i],viewSupport:1+popcount16(viewMaskGrid[i])});
   }
   if(samples.length>cfg.maxSamples){
     const step=Math.ceil(samples.length/cfg.maxSamples),thin=[];for(let i=0;i<samples.length;i+=step)thin.push(samples[i]);samples.length=0;samples.push(...thin);
@@ -152,3 +152,5 @@ function sampleRgb(rgba,w,h,x,y){if(!rgba?.length)return [180,200,220];const xx=
 function sub(a,b){return [a[0]-b[0],a[1]-b[1],a[2]-b[2]];}function cross(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}function dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}function normalize(v){const n=Math.hypot(...v)||1;return v.map(x=>x/n);}
 
 function findNearestSparseSeed(seeds,u,v,radius){let best=null,bd=radius*radius;for(const s of seeds||[]){const dx=s.u-u,dy=s.v-v,d=dx*dx+dy*dy;if(d<bd){bd=d;best=s;}}return best;}
+
+function popcount16(v){v&=0xffff;let n=0;while(v){v&=v-1;n++;}return n;}

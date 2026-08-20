@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.24.0 - ultra-low-budget WebGPU/WASM Depth Anything worker.
+ * Room Scanner V30.25.0 - ultra-low-budget WebGPU/WASM Depth Anything worker.
  *
  * GPU READBACK + AUTHORITATIVE DEPTH LAYOUT + Q4 DEFAULT
  * -------------------------
@@ -15,7 +15,7 @@
  * 2) Dynamic Depth Anything inputs use the DPT processor contract: ImageNet
  *    RGB normalization, aspect-preserving resize and dimensions rounded to ViT
  *    patches (14). Upstream defaults to 518 px; the app may request a smaller
- *    low-budget target (224 px in V30.24) because Alva supplies metric anchors and
+ *    low-budget target (224 px in V30.25) because Alva supplies metric anchors and
  *    multi-view verification. The input is never stretched to a square.
  *
  * 3) If the ONNX export is fixed-shape, the worker automatically falls back to
@@ -1311,7 +1311,7 @@ async function handleWorkerMessage(d) {
     }
 
     const firstRaw = await infer(d, { benchmark: d.type === 'test' });
-    // V30.24: first distinguish a resolution-dependent DPT collapse from a genuine
+    // V30.25: first distinguish a resolution-dependent DPT collapse from a genuine
     // WebGPU/Q4 problem. Phone screenshots at 112/168 px showed global bands; the
     // same provider therefore climbs 224 -> 280 -> 336 only while the structural
     // quality gate remains suspicious, before paying for a second WASM runtime.

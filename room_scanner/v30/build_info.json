@@ -1,6 +1,6 @@
 {
-  "version": "30.24.0",
-  "id": "v30.24.0-20260820-ray-consensus",
-  "builtAt": "2026-08-20T21:20:00+02:00",
-  "notes": "Probabilistic multi-view ray consensus: calibrated Depth Anything pixels become low-authority anisotropic ray Gaussians, Deep and MVS from the same keyframe cannot self-confirm, and only observations supported by independent AlvaAR viewpoints become persistent surfels. The mesh TSDF is rebuilt from the current consensus so early depth errors can be corrected instead of fossilized. Deep keyframes are collected more frequently now that inference is sub-second."
+  "version": "30.25.0",
+  "id": "v30.25.0-20260820-feature-gaussian-map",
+  "builtAt": "2026-08-20T22:44:00+02:00",
+  "notes": "Feature-track metric landmarks and multi-view proxy depth now update a continuous information-form 3D Gaussian map. Full 3x3 centre covariance drives Mahalanobis association and Bayesian fusion, a separate surface covariance preserves splat extent, correlated/replayed camera evidence cannot over-shrink uncertainty, and the spatial hash is acceleration only so multiple hypotheses may coexist in one cell. Deep fills gaps after local track-based calibration; TSDF/mesh is derived from confirmed Gaussians rather than being the persistent map."
 }

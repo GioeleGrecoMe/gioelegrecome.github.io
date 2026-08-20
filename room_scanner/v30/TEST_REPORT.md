@@ -1,28 +1,32 @@
-# Room Scanner V30.8.0 - internal verification
+# V30.25.0 verification report
 
-Tested from the standalone source tree after the user-selected multi-view WebXR
-landmark calibration changes.
+Final verification command:
 
-```text
-== JavaScript syntax ==
-PASS javascript_syntax
-PASS static_contract_selected_multiview_xr_metric
-PASS bootstrap_contract ids=67
-PASS camera_portrait_fit
-PASS wasm_frontend features=35 matches=8
-PASS wasm_portrait 270x480 features=700
-PASS math_triangulation_plane
-PASS xr_selected_landmark_primitives
-PASS metric_bridge_multiview score=1.000 kind=multiview
-PASS mvs_camera_only points=217 triangles=12 z=1.822
-PASS format_roundtrip
-PASS http_smoke
-PASS json_contracts
-ALL TESTS PASSED
+```bash
+npm run verify
 ```
 
-The automated suite cannot emulate Android ARCore Raw Camera Access or physical
-WebXR hit-test behaviour. Those two hardware-dependent pieces must still be
-validated on the target smartphone. The bridge matching, WASM PnP frontend,
-geometry primitives, MVS and packaging contracts are covered by deterministic
-local tests.
+Result: **PASS**.
+
+- Node tests: **91/91 passed**, 0 failed.
+- Depth Anything tensor/stripe/coherence diagnostics: PASS.
+- Published layout/version contract: PASS.
+- Local dependency closure: PASS.
+- EventTarget constructor safety: PASS (5/5 derived classes).
+- Mock UI boot and failed-WebXR recovery: PASS.
+- AlvaAR runtime contract: PASS.
+
+V30.25-specific regressions cover:
+
+- noisy multi-view feature tracks refined by joint reprojection optimisation;
+- full 3x3 feature-landmark covariance;
+- proxy-depth de-duplication between track, MVS and Deep evidence;
+- two incompatible continuous Gaussian hypotheses inside one spatial-hash cell;
+- information-form fusion and covariance reduction only for new camera evidence;
+- replay/out-of-order evidence protection;
+- anisotropic covariance preservation through PLY export/import;
+- full covariance projection in live AR and review splat renderers;
+- unknown TSDF space and voxel-centre mesh regressions.
+
+The container has no usable phone-class WebGPU/display context, so visual quality
+and actual scan convergence must still be evaluated on the target smartphone.

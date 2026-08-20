@@ -32,8 +32,32 @@ export class LiveReconstructionOverlay{
   }
   _drawGaussians(g,{pose,K,geometry,w,h}){
     if(!this.gaussians.length)return;const ranked=this.gaussians.length>this.maxSplats?[...this.gaussians].sort((a,b)=>(b.confidence||0)+(b.support||0)*.15-(a.confidence||0)-(a.support||0)*.15).slice(0,this.maxSplats):this.gaussians,pts=[];
-    for(const s of ranked){const p=s.position||s.p;if(!p)continue;const pr=this._project(p,pose,K,geometry,w,h);if(!pr||pr.z<.12||pr.z>12)continue;const sc=s.scale||[.02,.02,.02],rxA=Math.max(.65,(K.fx*Math.max(.004,Number(sc[0])||.02)/pr.z)),ryA=Math.max(.65,(K.fy*Math.max(.004,Number(sc[1])||.02)/pr.z)),displayScale=pr.scale,rx=Math.min(22,rxA*(geometry.sw/geometry.targetWidth)*displayScale),ry=Math.min(22,ryA*(geometry.sh/geometry.targetHeight)*displayScale);pts.push({x:pr.x,y:pr.y,z:pr.z,rx,ry,c:s.color||[100,210,255],a:Number(s.opacity??.55),q:Number(s.confidence??.5)});}
-    pts.sort((a,b)=>b.z-a.z);g.save();g.globalCompositeOperation='source-over';for(const p of pts){g.globalAlpha=Math.max(.06,Math.min(.80,p.a*(.55+.45*p.q)));g.fillStyle=`rgb(${p.c[0]|0},${p.c[1]|0},${p.c[2]|0})`;g.beginPath();g.ellipse(p.x,p.y,p.rx,p.ry,0,0,Math.PI*2);g.fill();}g.restore();
+    for(const s of ranked){
+      const p=s.position||s.p;if(!p)continue;const pr=this._project(p,pose,K,geometry,w,h);if(!pr||pr.z<.12||pr.z>12)continue;
+      // True 3DGS projection: project the full world covariance through the
+      // current camera Jacobian. Rotated/oblique surface splats therefore appear
+      // as rotated ellipses instead of axis-aligned disks based on scale[0:2].
+      const e=projectGaussianEllipse(s,pose,K,geometry,pr);
+      const sc=s.scale||[.02,.02,.02],fallbackX=Math.max(.65,K.fx*Math.max(.003,Number(sc[0])||.02)/pr.z*(geometry.sw/geometry.targetWidth)*pr.scale),fallbackY=Math.max(.65,K.fy*Math.max(.003,Number(sc[1])||.02)/pr.z*(geometry.sh/geometry.targetHeight)*pr.scale);
+      const rx=Math.min(28,e?.rx??fallbackX),ry=Math.min(28,e?.ry??fallbackY),angle=e?.angle??0;pts.push({x:pr.x,y:pr.y,z:pr.z,rx,ry,angle,c:s.color||[100,210,255],a:Number(s.opacity??.55),q:Number(s.confidence??.5)});
+    }
+    pts.sort((a,b)=>b.z-a.z);g.save();g.globalCompositeOperation='source-over';for(const p of pts){g.globalAlpha=Math.max(.05,Math.min(.82,p.a*(.52+.48*p.q)));g.fillStyle=`rgb(${p.c[0]|0},${p.c[1]|0},${p.c[2]|0})`;g.beginPath();g.ellipse(p.x,p.y,p.rx,p.ry,p.angle,0,Math.PI*2);g.fill();}g.restore();
   }
   _drawMesh(g,{pose,K,geometry,w,h}){const m=this.mesh,V=m?.vertices,F=m?.faces;if(!V?.length||!F?.length)return;g.save();g.strokeStyle='rgba(92,255,141,.38)';g.lineWidth=1;const maxFaces=2600,step=Math.max(1,Math.ceil((F.length/3)/maxFaces));for(let fi=0;fi<F.length/3;fi+=step){const a=F[fi*3]*3,b=F[fi*3+1]*3,c=F[fi*3+2]*3,pa=this._project([V[a],V[a+1],V[a+2]],pose,K,geometry,w,h),pb=this._project([V[b],V[b+1],V[b+2]],pose,K,geometry,w,h),pc=this._project([V[c],V[c+1],V[c+2]],pose,K,geometry,w,h);if(!pa||!pb||!pc)continue;g.beginPath();g.moveTo(pa.x,pa.y);g.lineTo(pb.x,pb.y);g.lineTo(pc.x,pc.y);g.closePath();g.stroke();}g.restore();}
 }
+
+
+function projectGaussianEllipse(s,pose,K,geometry,pr){
+  const C=s.covariance;if(!validCov(C)||!pose?.q)return null;const z=pr.z,x=(pr.u-K.cx)*z/K.fx,y=(pr.v-K.cy)*z/K.fy,R=rotationFromQuat(pose.q);
+  const ju=[K.fx/z,0,-K.fx*x/(z*z)],jv=[0,K.fy/z,-K.fy*y/(z*z)],wu=cameraJacobianToWorld(ju,R),wv=cameraJacobianToWorld(jv,R);
+  const sx=(geometry.sw/geometry.targetWidth)*pr.scale,sy=(geometry.sh/geometry.targetHeight)*pr.scale;
+  const a=Math.max(1e-8,quad(C,wu)*sx*sx),b=bilinear(C,wu,wv)*sx*sy,c=Math.max(1e-8,quad(C,wv)*sy*sy),tr=(a+c)*.5,d=Math.sqrt(Math.max(0,((a-c)*.5)**2+b*b)),l1=Math.max(1e-8,tr+d),l2=Math.max(1e-8,tr-d);
+  // Two sigma contains ~86% of a 2D Gaussian and is visually stable for the
+  // lightweight Canvas2D renderer.
+  return {rx:Math.max(.55,2*Math.sqrt(l1)),ry:Math.max(.55,2*Math.sqrt(l2)),angle:.5*Math.atan2(2*b,a-c)};
+}
+function cameraJacobianToWorld(j,R){return [j[0]*R[0]+j[1]*R[1]+j[2]*R[2],j[0]*R[3]+j[1]*R[4]+j[2]*R[5],j[0]*R[6]+j[1]*R[7]+j[2]*R[8]];}
+function quad(C,v){return v[0]*(C[0]*v[0]+C[1]*v[1]+C[2]*v[2])+v[1]*(C[1]*v[0]+C[3]*v[1]+C[4]*v[2])+v[2]*(C[2]*v[0]+C[4]*v[1]+C[5]*v[2]);}
+function bilinear(C,a,b){return a[0]*(C[0]*b[0]+C[1]*b[1]+C[2]*b[2])+a[1]*(C[1]*b[0]+C[3]*b[1]+C[4]*b[2])+a[2]*(C[2]*b[0]+C[4]*b[1]+C[5]*b[2]);}
+function validCov(C){return Array.isArray(C)&&C.length>=6&&C.slice(0,6).every(Number.isFinite);}
+function rotationFromQuat(q){let [x,y,z,w]=(q||[0,0,0,1]).map(Number),n=Math.hypot(x,y,z,w)||1;x/=n;y/=n;z/=n;w/=n;return [1-2*(y*y+z*z),2*(x*y-w*z),2*(x*z+w*y),2*(x*y+w*z),1-2*(x*x+z*z),2*(y*z-w*x),2*(x*z-w*y),2*(y*z+w*x),1-2*(x*x+y*y)];}
