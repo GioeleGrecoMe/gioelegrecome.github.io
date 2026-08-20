@@ -1,7 +1,7 @@
 /*
- * Room Scanner V30.18.5 - Mobile Q4 auto-download/cache Depth Anything worker.
+ * Room Scanner V30.18.7 - authoritative WebGPU readback Depth Anything worker.
  *
- * OUTPUT LAYOUT + WEBGPU RUNTIME + SPEED FIX
+ * GPU READBACK + AUTHORITATIVE DEPTH LAYOUT + Q4 DEFAULT
  * -------------------------
  * 1) The camera RGBA buffer is now converted to the ONNX RGB/NCHW tensor
  *    explicitly in JavaScript.  No OffscreenCanvas, ImageData re-upload or
@@ -489,7 +489,7 @@ function sourceRgbProbe(rgba, width, height) {
  * always ((y * sourceWidth + x) * 4 + channel), while the tensor index is
  * (channel * targetWidth * targetHeight + y * targetWidth + x).
  */
-function prepareInput(rgba, width, height, spec, plan, forcedType = null, runtime = ort) {
+async function prepareInput(rgba, width, height, spec, plan, forcedType = null, runtime = ort) {
   const started = performance.now();
   const srcWidth = width | 0;
   const srcHeight = height | 0;
@@ -497,24 +497,67 @@ function prepareInput(rgba, width, height, spec, plan, forcedType = null, runtim
 
   const src = rgba instanceof Uint8ClampedArray ? rgba : new Uint8ClampedArray(rgba);
   const required = srcWidth * srcHeight * 4;
-  if (src.length < required) {
-    fail(`buffer RGBA incompleto: ${src.length} byte, attesi almeno ${required}`);
-  }
+  if (src.length < required) fail(`buffer RGBA incompleto: ${src.length} byte, attesi almeno ${required}`);
 
   const targetWidth = plan.width | 0;
   const targetHeight = plan.height | 0;
   if (!(targetWidth > 1 && targetHeight > 1)) fail('shape input ONNX non valida');
 
-  const n = targetWidth * targetHeight;
+  // Q4/Q4F16 quantize model weights, not the camera contract. Depth Anything
+  // ONNX consumes pixel_values as float32 NCHW. Keeping this fixed removes one
+  // more dtype-dependent branch from the mobile camera path.
   const tensorType = String(forcedType || spec.type || 'float32').toLowerCase();
-  const float16Input = tensorType.includes('float16');
-  const values = float16Input ? new Uint16Array(n * 3) : new Float32Array(n * 3);
+  if (tensorType !== 'float32' && !tensorType.includes('float')) {
+    fail(`pixel_values dtype non supportato: ${tensorType}`);
+  }
 
-  // ImageNet normalization used by the official DPT/Depth Anything processor.
+  // PRIMARY PATH: let ONNX Runtime itself convert ImageData RGBA -> RGB/NCHW.
+  // This removes our own channel/stride implementation from the equation.
+  // According to ORT Tensor.fromImage(), normalization is:
+  //   output = (pixel + bias) / mean
+  // so ImageNet (pixel/255 - mu) / sigma becomes:
+  //   bias = -mu*255, mean = sigma*255.
+  if (runtime?.Tensor?.fromImage && typeof ImageData !== 'undefined') {
+    try {
+      const image = new ImageData(src, srcWidth, srcHeight);
+      const tensor = await runtime.Tensor.fromImage(image, {
+        resizedWidth: targetWidth,
+        resizedHeight: targetHeight,
+        tensorFormat: 'RGB',
+        tensorLayout: 'NCHW',
+        dataType: 'float32',
+        norm: {
+          bias: [-123.675, -116.28, -103.53],
+          mean: [58.395, 57.12, 57.375],
+        },
+      });
+      const dims = Array.from(tensor.dims || []);
+      if (dims.length !== 4 || dims[0] !== 1 || dims[1] !== 3 || dims[2] !== targetHeight || dims[3] !== targetWidth) {
+        try { tensor.dispose?.(); } catch {}
+        fail(`Tensor.fromImage shape inattesa: ${JSON.stringify(dims)}, atteso [1,3,${targetHeight},${targetWidth}]`);
+      }
+      return {
+        tensor,
+        dims,
+        type: 'float32',
+        preprocessMs: performance.now() - started,
+        preprocessBackend: 'ort.Tensor.fromImage(ImageData)',
+        plan,
+        rasterProbe: sourceRgbProbe(src, srcWidth, srcHeight),
+      };
+    } catch (err) {
+      postMessage({ type:'deep-diag', level:'warn', event:'tensor-from-image-fallback', message:err?.message || String(err) });
+    }
+  }
+
+  // FALLBACK ONLY for runtimes/browsers without ImageData/Tensor.fromImage.
+  // Explicit row-major RGBA -> planar NCHW bilinear conversion retained for
+  // offline compatibility, but it is no longer the normal smartphone path.
+  const n = targetWidth * targetHeight;
+  const values = new Float32Array(n * 3);
   const meanR = 0.485, meanG = 0.456, meanB = 0.406;
   const stdR = 0.229, stdG = 0.224, stdB = 0.225;
 
-  // Precompute horizontal sampling indices/weights once per row.
   const x0 = new Int32Array(targetWidth);
   const x1 = new Int32Array(targetWidth);
   const tx = new Float32Array(targetWidth);
@@ -537,52 +580,64 @@ function prepareInput(rgba, width, height, spec, plan, forcedType = null, runtim
     const row0 = y0 * srcWidth;
     const row1 = y1 * srcWidth;
     const dstRow = y * targetWidth;
-
     for (let x = 0; x < targetWidth; x++) {
-      const wx = tx[x];
-      const invWx = 1 - wx;
-      const i00 = (row0 + x0[x]) * 4;
-      const i01 = (row0 + x1[x]) * 4;
-      const i10 = (row1 + x0[x]) * 4;
-      const i11 = (row1 + x1[x]) * 4;
-
-      // Bilinear interpolation directly from interleaved camera RGBA.
-      const w00 = invWx * invWy;
-      const w01 = wx * invWy;
-      const w10 = invWx * wy;
-      const w11 = wx * wy;
-
+      const wx = tx[x], invWx = 1 - wx;
+      const i00 = (row0 + x0[x]) * 4, i01 = (row0 + x1[x]) * 4;
+      const i10 = (row1 + x0[x]) * 4, i11 = (row1 + x1[x]) * 4;
+      const w00 = invWx * invWy, w01 = wx * invWy, w10 = invWx * wy, w11 = wx * wy;
       const r = src[i00] * w00 + src[i01] * w01 + src[i10] * w10 + src[i11] * w11;
       const g = src[i00 + 1] * w00 + src[i01 + 1] * w01 + src[i10 + 1] * w10 + src[i11 + 1] * w11;
       const b = src[i00 + 2] * w00 + src[i01 + 2] * w01 + src[i10 + 2] * w10 + src[i11 + 2] * w11;
-
       const i = dstRow + x;
-      const vr = (r / 255 - meanR) / stdR;
-      const vg = (g / 255 - meanG) / stdG;
-      const vb = (b / 255 - meanB) / stdB;
-
-      values[i] = float16Input ? toFloat16(vr) : vr;
-      values[n + i] = float16Input ? toFloat16(vg) : vg;
-      values[2 * n + i] = float16Input ? toFloat16(vb) : vb;
+      values[i] = (r / 255 - meanR) / stdR;
+      values[n + i] = (g / 255 - meanG) / stdG;
+      values[2 * n + i] = (b / 255 - meanB) / stdB;
     }
   }
-
   const dims = [1, 3, targetHeight, targetWidth];
   return {
-    tensor: new runtime.Tensor(float16Input ? 'float16' : 'float32', values, dims),
+    tensor: new runtime.Tensor('float32', values, dims),
     dims,
-    type: float16Input ? 'float16' : 'float32',
+    type: 'float32',
     preprocessMs: performance.now() - started,
+    preprocessBackend: 'manual-rgba-nchw-fallback',
     plan,
     rasterProbe: sourceRgbProbe(src, srcWidth, srcHeight),
   };
 }
 
-function tensorScalar(tensor, index) {
-  const src = tensor.data;
-  const isF16 = String(tensor.type || '').toLowerCase().includes('float16');
+function scalarFromCpuBuffer(src, tensorType, index) {
+  const isF16 = String(tensorType || '').toLowerCase().includes('float16');
   if (isF16 && src instanceof Uint16Array) return fromFloat16(src[index]);
   return Number(src[index]);
+}
+
+async function tensorCpuData(tensor) {
+  if (!tensor) fail('tensore output ONNX mancante');
+
+  // IMPORTANT FOR WEBGPU:
+  // `tensor.data` is only guaranteed when the tensor is already CPU-resident.
+  // ONNX Runtime exposes getData() specifically to download gpu-buffer/texture
+  // outputs. Reading `.data` directly was the remaining path capable of
+  // producing a stable striped preview even while inference itself succeeded.
+  if (typeof tensor.getData === 'function') {
+    try {
+      const data = await tensor.getData(false);
+      if (data?.length) return { data, readback: 'getData', location: tensor.location || 'unknown' };
+    } catch (err) {
+      // Fall through only for runtimes that expose getData() but cannot use it
+      // for ordinary CPU outputs. The direct data accessor remains valid there.
+      try {
+        const data = tensor.data;
+        if (data?.length) return { data, readback: 'data-after-getData-error', location: tensor.location || 'cpu', getDataError: err?.message || String(err) };
+      } catch {}
+      throw err;
+    }
+  }
+
+  const data = tensor.data;
+  if (!data?.length) fail('output ONNX senza buffer CPU leggibile');
+  return { data, readback: 'data', location: tensor.location || 'cpu' };
 }
 
 function depthSpatialStats(depth, width, height) {
@@ -607,82 +662,64 @@ function depthSpatialStats(depth, width, height) {
   };
 }
 
-function readOutput(result, expectedPlan, activeSession = session) {
+async function readOutput(result, expectedPlan, activeSession = session) {
   const outputNames = Array.from(activeSession?.outputNames || []);
-  // Depth Anything V2 exports `predicted_depth`.  Prefer it explicitly instead
-  // of assuming that the first property returned by the runtime is depth.
   const name = result?.predicted_depth
     ? 'predicted_depth'
     : outputNames.find((n) => /predicted[_-]?depth/i.test(n))
       || outputNames[0]
       || Object.keys(result || {})[0];
   const tensor = result?.[name];
-
-  if (!tensor?.data?.length) {
-    fail(`il modello non ha restituito una depth map; outputNames=${JSON.stringify(outputNames)}, resultKeys=${JSON.stringify(Object.keys(result || {}))}`);
+  if (!tensor) {
+    fail(`il modello non ha restituito predicted_depth; outputNames=${JSON.stringify(outputNames)}, resultKeys=${JSON.stringify(Object.keys(result || {}))}`);
   }
 
-  const dims = Array.from(tensor.dims || []);
+  // Official Depth Anything contract: predicted_depth = [batch, height, width].
+  // Do not infer/transpose dimensions from the camera raster. The ONNX tensor
+  // shape is authoritative and data are standard row-major within each plane.
+  const dims = Array.from(tensor.dims || []).map(Number);
+  if (dims.length < 2) {
+    fail(`predicted_depth shape non valida: ${JSON.stringify(dims)}`);
+  }
   const logicalHeight = Number(dims[dims.length - 2]);
   const logicalWidth = Number(dims[dims.length - 1]);
+  if (!(logicalWidth > 1 && logicalHeight > 1)) {
+    fail(`predicted_depth H/W non valide: ${JSON.stringify(dims)}`);
+  }
+
+  const cpu = await tensorCpuData(tensor);
+  const planeLength = logicalWidth * logicalHeight;
+  if (cpu.data.length < planeLength) {
+    fail(`predicted_depth incompleta: data=${cpu.data.length}, HxW=${logicalHeight}x${logicalWidth}`);
+  }
+
+  // Batch 0 starts at element 0. The previous generic reader used the *last*
+  // plane in the buffer, which is unnecessary for this single-output model and
+  // can be wrong if a runtime attaches additional storage/alignment.
+  const out = new Float32Array(planeLength);
+  for (let i = 0; i < planeLength; i++) {
+    out[i] = scalarFromCpuBuffer(cpu.data, tensor.type, i);
+  }
+
   const expectedWidth = Number(expectedPlan?.width);
   const expectedHeight = Number(expectedPlan?.height);
-
-  if (!(logicalWidth > 1 && logicalHeight > 1 && logicalWidth * logicalHeight <= tensor.data.length)) {
-    fail(`output ONNX non supportato: name=${name}, dims=${JSON.stringify(dims)}, type=${tensor.type || typeof tensor.data}`);
-  }
-
-  const planeLength = logicalWidth * logicalHeight;
-  const offset = tensor.data.length - planeLength;
-  let width = logicalWidth;
-  let height = logicalHeight;
-  let layoutFix = 'none';
-  let out;
-
-  if (logicalWidth === expectedWidth && logicalHeight === expectedHeight) {
-    out = new Float32Array(planeLength);
-    for (let i = 0; i < planeLength; i++) out[i] = tensorScalar(tensor, offset + i);
-  } else if (logicalWidth === expectedHeight && logicalHeight === expectedWidth) {
-    // Some dynamic WebGPU paths have historically surfaced swapped spatial
-    // dimensions.  Respect the tensor's row-major logical layout, then
-    // transpose into the SAME HxW raster used by the camera/Alva input.
-    width = expectedWidth;
-    height = expectedHeight;
-    out = new Float32Array(width * height);
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const srcIndex = offset + x * logicalWidth + y;
-        out[y * width + x] = tensorScalar(tensor, srcIndex);
-      }
-    }
-    layoutFix = 'transpose-swapped-HW';
-  } else if (Number.isFinite(expectedWidth) && Number.isFinite(expectedHeight) &&
-             expectedWidth * expectedHeight === planeLength) {
-    // Metadata may be absent/wrong while the element count is correct.  Since
-    // Depth Anything V2 is 1:1 spatially with pixel_values, use the exact input
-    // raster as the authoritative shape rather than inventing dimensions.
-    width = expectedWidth;
-    height = expectedHeight;
-    out = new Float32Array(planeLength);
-    for (let i = 0; i < planeLength; i++) out[i] = tensorScalar(tensor, offset + i);
-    layoutFix = 'reshape-to-input-HW';
-  } else {
-    out = new Float32Array(planeLength);
-    for (let i = 0; i < planeLength; i++) out[i] = tensorScalar(tensor, offset + i);
-    layoutFix = 'unexpected-output-HW';
-  }
+  const shapeMatchesInput = logicalWidth === expectedWidth && logicalHeight === expectedHeight;
 
   return {
     rawDepth: out,
-    width,
-    height,
+    width: logicalWidth,
+    height: logicalHeight,
     outputName: name,
     outputDims: dims,
     outputType: tensor.type || null,
+    outputLocation: cpu.location,
+    outputReadback: cpu.readback,
+    outputGetDataError: cpu.getDataError || null,
     logicalWidth,
     logicalHeight,
-    layoutFix,
-    spatialStats: depthSpatialStats(out, width, height),
+    layoutFix: shapeMatchesInput ? 'official-HW' : 'official-HW-different-from-input',
+    shapeMatchesInput,
+    spatialStats: depthSpatialStats(out, logicalWidth, logicalHeight),
   };
 }
 
@@ -692,7 +729,7 @@ async function runPrepared(spec, prepared, activeSession = session) {
   const runMs = performance.now() - runStarted;
 
   const outputStarted = performance.now();
-  const output = readOutput(result, prepared.plan, activeSession);
+  const output = await readOutput(result, prepared.plan, activeSession);
   const outputMs = performance.now() - outputStarted;
 
   return {
@@ -704,6 +741,7 @@ async function runPrepared(spec, prepared, activeSession = session) {
     inputDims: prepared.dims,
     inputPlan: prepared.plan,
     rasterProbe: prepared.rasterProbe,
+    preprocessBackend: prepared.preprocessBackend || 'unknown',
     steadyMs: prepared.preprocessMs + runMs + outputMs,
   };
 }
@@ -831,9 +869,7 @@ async function infer(d, { benchmark = false } = {}) {
   const sessionMs = performance.now() - sessionStarted;
   const spec = inputSpec();
 
-  const typeCandidates = spec.metadataAvailable
-    ? [spec.type]
-    : Array.from(new Set([spec.type || 'float32', 'float32', 'float16']));
+  const typeCandidates = ['float32'];
 
   const plans = inputPlans(spec, d.width, d.height);
   const errors = [];
@@ -841,7 +877,7 @@ async function infer(d, { benchmark = false } = {}) {
   for (const plan of plans) {
     for (const tensorType of typeCandidates) {
       try {
-        const firstPrepared = prepareInput(d.rgba, d.width, d.height, spec, plan, tensorType);
+        const firstPrepared = await prepareInput(d.rgba, d.width, d.height, spec, plan, tensorType);
         const first = await runPrepared(spec, firstPrepared);
 
         successfulInputPlan = { ...plan };
@@ -850,7 +886,7 @@ async function infer(d, { benchmark = false } = {}) {
         // pays graph/shader compilation on the first session.run().  Repeating
         // the SAME shape/type gives the number that matters during Scan.
         if (benchmark) {
-          const warmPrepared = prepareInput(d.rgba, d.width, d.height, spec, successfulInputPlan, first.inputType);
+          const warmPrepared = await prepareInput(d.rgba, d.width, d.height, spec, successfulInputPlan, first.inputType);
           const warm = await runPrepared(spec, warmPrepared);
           return {
             ...warm,
@@ -1015,9 +1051,13 @@ async function handleWorkerMessage(d) {
       outputName: raw.outputName || null,
       outputDims: raw.outputDims || null,
       outputType: raw.outputType || null,
+      outputLocation: raw.outputLocation || null,
+      outputReadback: raw.outputReadback || null,
+      shapeMatchesInput: raw.shapeMatchesInput !== false,
       layoutFix: raw.layoutFix || 'none',
       spatialStats: useSafeWasm ? diagnostic.wasm?.stripe || raw.spatialStats : raw.spatialStats || null,
-      rasterContract: 'RGBA-row-major-interleaved -> RGB-NCHW-planar',
+      rasterContract: raw.preprocessBackend || 'RGBA -> RGB/NCHW',
+      preprocessBackend: raw.preprocessBackend || null,
       rasterProbe: raw.rasterProbe || null,
       frameSignature: raw.frameSignature || null,
       depthSignature: finalDepthSignature,
