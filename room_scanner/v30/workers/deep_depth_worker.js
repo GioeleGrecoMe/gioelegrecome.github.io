@@ -1,21 +1,21 @@
 /*
- * Room Scanner V30.18.9 - authoritative WebGPU readback Depth Anything worker.
+ * Room Scanner V30.19.0 - authoritative WebGPU readback Depth Anything worker.
  *
  * GPU READBACK + AUTHORITATIVE DEPTH LAYOUT + Q4 DEFAULT
  * -------------------------
- * 1) The camera RGBA buffer is now converted to the ONNX RGB/NCHW tensor
- *    explicitly in JavaScript.  No OffscreenCanvas, ImageData re-upload or
- *    hidden canvas resampling is involved in the inference path.
+ * 1) The camera RGBA buffer is converted to the ONNX RGB/NCHW tensor
+ *    explicitly in JavaScript.  This is deliberately not Tensor.fromImage():
+ *    its ImageData implementation accepts resize dimensions without resizing
+ *    the source buffer, which corrupts non-native camera frames.
  *
  *    Exact memory contract:
  *      source: RGBA RGBA RGBA ... (row-major, interleaved)
  *      tensor: RRR... GGG... BBB... (NCHW, planar)
  *
- * 2) Dynamic Depth Anything inputs preserve camera aspect ratio.  For the
- *    Room Scanner 320x480 analysis frame the first mobile plan is 224x336,
- *    both multiples of the ViT patch size (14).  The old code stretched the
- *    portrait frame to 518x518 before inference and then stretched the depth
- *    back to portrait, which was geometrically inconsistent with Alva pixels.
+ * 2) Dynamic Depth Anything inputs use the shipped DPT processor contract:
+ *    ImageNet RGB normalization, aspect-preserving resize toward 518 px and
+ *    dimensions rounded to ViT patches (14).  The input is never stretched
+ *    to a square before it is aligned back to Alva pixels.
  *
  * 3) If the ONNX export is fixed-shape, the worker automatically falls back to
  *    the classic 518x518 contract.  A successful plan is cached for all later
@@ -45,11 +45,9 @@ let cfg = {
   // Compatibility ceiling/fallback used by the existing V30 config.
   inputMaxSide: 518,
 
-  // Mobile inference target. 224 is 16 * 14. A 320x480 frame therefore
-  // becomes 224x336 (24 * 14) without changing its 2:3 aspect ratio.
-  // Depth is a geometric prior here; Alva + multi-view verification retain
-  // metric/structural authority, so this lower raster is a good speed tradeoff.
-  preferredShortSide: 224,
+  // DPTImageProcessor target from the shipped model's preprocessor_config.
+  // This is a target canvas size, not a requirement to create a square tensor.
+  preferredShortSide: 518,
   patchSize: 14,
 
   // Used when onnxruntime-web exposes inputNames but not inputMetadata.
@@ -402,31 +400,24 @@ function roundToMultiple(value, multiple) {
 }
 
 /**
- * Depth Anything works on ViT patches.  Keep the camera aspect ratio and make
- * both dimensions exact multiples of the patch size.  We target the SHORT side
- * because this is equivalent to the model's aspect-preserving "lower bound"
- * resize semantics, just with a smaller mobile input_size.
+ * Match Hugging Face DPTImageProcessor's aspect-preserving resize rule:
+ * choose the scale that moves the image least toward the configured HxW target,
+ * then round both axes to the ViT patch multiple.  For a portrait frame this
+ * normally makes the long axis ~518, rather than incorrectly making its short
+ * axis 518 and creating an unnecessarily large tensor.
  */
 function adaptiveInputGeometry(sourceWidth, sourceHeight, shortSide) {
   const sw = Math.max(2, sourceWidth | 0);
   const sh = Math.max(2, sourceHeight | 0);
   const patch = Math.max(1, cfg.patchSize | 0 || 14);
-  const targetShort = roundToMultiple(Math.max(patch * 8, Number(shortSide) || 224), patch);
-  const scale = targetShort / Math.min(sw, sh);
-
-  let width = roundToMultiple(sw * scale, patch);
-  let height = roundToMultiple(sh * scale, patch);
-
-  // Guard pathological aspect ratios.  Normal Room Scanner frames (4:3, 2:3)
-  // never hit this branch.
-  const maxLong = Math.max(positiveNumber(cfg.inputMaxSide, 518) * 2, targetShort);
-  if (Math.max(width, height) > maxLong) {
-    const s = maxLong / Math.max(width, height);
-    width = roundToMultiple(width * s, patch);
-    height = roundToMultiple(height * s, patch);
-  }
-
-  return { width, height, mode: `aspect-${targetShort}` };
+  const target = roundToMultiple(Math.max(patch * 8, Number(shortSide) || 518), patch);
+  let scaleWidth = target / sw;
+  let scaleHeight = target / sh;
+  if (Math.abs(1 - scaleWidth) < Math.abs(1 - scaleHeight)) scaleHeight = scaleWidth;
+  else scaleWidth = scaleHeight;
+  const width = roundToMultiple(sw * scaleWidth, patch);
+  const height = roundToMultiple(sh * scaleHeight, patch);
+  return { width, height, mode: `dpt-aspect-${target}` };
 }
 
 function inputPlans(spec, sourceWidth, sourceHeight) {
@@ -437,13 +428,11 @@ function inputPlans(spec, sourceWidth, sourceHeight) {
     return [{ width: spec.width, height: spec.height, mode: 'metadata-fixed' }];
   }
 
-  const preferred = positiveNumber(cfg.preferredShortSide, 224);
+  const preferred = positiveNumber(cfg.preferredShortSide, 518);
   const plans = [
     adaptiveInputGeometry(sourceWidth, sourceHeight, preferred),
-    // Medium fallback: useful if a custom dynamic export dislikes very small
-    // feature maps while still avoiding the full 518 workload.
-    adaptiveInputGeometry(sourceWidth, sourceHeight, 322),
-    // Official-quality dynamic fallback with aspect preserved.
+    // An explicitly configured compatibility target is useful for a custom
+    // dynamic export, but does not replace the official first attempt above.
     adaptiveInputGeometry(sourceWidth, sourceHeight, positiveNumber(cfg.inputMaxSide, 518)),
     // Last compatibility fallback for old/static exports whose metadata is not
     // visible in onnxruntime-web.
@@ -535,19 +524,6 @@ function tensorRgbPreview(values, width, height, layout = 'nchw') {
   return out;
 }
 
-async function makeInputRasterDiagnostic(source, sourceWidth, sourceHeight, tensor, width, height) {
-  const cpu = await tensorCpuData(tensor);
-  return {
-    sourcePreview: source.slice(0, sourceWidth * sourceHeight * 4),
-    sourceWidth,
-    sourceHeight,
-    tensorNchwPreview: tensorRgbPreview(cpu.data, width, height, 'nchw'),
-    tensorNhwcPreview: tensorRgbPreview(cpu.data, width, height, 'nhwc'),
-    tensorWidth: width,
-    tensorHeight: height,
-  };
-}
-
 /**
  * Explicit RGBA row-major -> RGB NCHW conversion with bilinear resize.
  *
@@ -577,54 +553,11 @@ async function prepareInput(rgba, width, height, spec, plan, forcedType = null, 
     fail(`pixel_values dtype non supportato: ${tensorType}`);
   }
 
-  // PRIMARY PATH: let ONNX Runtime itself convert ImageData RGBA -> RGB/NCHW.
-  // This removes our own channel/stride implementation from the equation.
-  // According to ORT Tensor.fromImage(), normalization is:
-  //   output = (pixel + bias) / mean
-  // so ImageNet (pixel/255 - mu) / sigma becomes:
-  //   bias = -mu*255, mean = sigma*255.
-  if (runtime?.Tensor?.fromImage && typeof ImageData !== 'undefined') {
-    try {
-      const image = new ImageData(src, srcWidth, srcHeight);
-      const tensor = await runtime.Tensor.fromImage(image, {
-        resizedWidth: targetWidth,
-        resizedHeight: targetHeight,
-        tensorFormat: 'RGB',
-        tensorLayout: 'NCHW',
-        dataType: 'float32',
-        norm: {
-          bias: [-123.675, -116.28, -103.53],
-          mean: [58.395, 57.12, 57.375],
-        },
-      });
-      const dims = Array.from(tensor.dims || []);
-      if (dims.length !== 4 || dims[0] !== 1 || dims[1] !== 3 || dims[2] !== targetHeight || dims[3] !== targetWidth) {
-        try { tensor.dispose?.(); } catch {}
-        fail(`Tensor.fromImage shape inattesa: ${JSON.stringify(dims)}, atteso [1,3,${targetHeight},${targetWidth}]`);
-      }
-      let inputRasterDiagnostic = null;
-      if (captureDiagnostic) {
-        try { inputRasterDiagnostic = await makeInputRasterDiagnostic(src, srcWidth, srcHeight, tensor, targetWidth, targetHeight); }
-        catch (err) { postMessage({ type:'deep-diag', level:'warn', event:'tensor-diagnostic-unavailable', message:err?.message || String(err) }); }
-      }
-      return {
-        tensor,
-        dims,
-        type: 'float32',
-        preprocessMs: performance.now() - started,
-        preprocessBackend: 'ort.Tensor.fromImage(ImageData)',
-        plan,
-        rasterProbe: sourceRgbProbe(src, srcWidth, srcHeight),
-        inputRasterDiagnostic,
-      };
-    } catch (err) {
-      postMessage({ type:'deep-diag', level:'warn', event:'tensor-from-image-fallback', message:err?.message || String(err) });
-    }
-  }
-
-  // FALLBACK ONLY for runtimes/browsers without ImageData/Tensor.fromImage.
-  // Explicit row-major RGBA -> planar NCHW bilinear conversion retained for
-  // offline compatibility, but it is no longer the normal smartphone path.
+  // Authoritative row-major RGBA -> planar NCHW conversion. Do not replace this
+  // with Tensor.fromImage(ImageData): in ONNX Runtime Web it changes the output
+  // tensor metadata for resized ImageData but does not resample the input bytes.
+  // With a camera 320x480 -> model 350x518 this makes the model read a corrupt
+  // top-left slice as if it were a complete image, producing the observed bands.
   const n = targetWidth * targetHeight;
   const values = new Float32Array(n * 3);
   const meanR = 0.485, meanG = 0.456, meanB = 0.406;
@@ -673,7 +606,7 @@ async function prepareInput(rgba, width, height, spec, plan, forcedType = null, 
     dims,
     type: 'float32',
     preprocessMs: performance.now() - started,
-    preprocessBackend: 'manual-rgba-nchw-fallback',
+    preprocessBackend: 'manual-rgba-nchw-bilinear',
     plan,
     rasterProbe: sourceRgbProbe(src, srcWidth, srcHeight),
     inputRasterDiagnostic: captureDiagnostic ? {

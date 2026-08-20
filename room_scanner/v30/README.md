@@ -1,4 +1,4 @@
-# Room Scanner V30.18.9
+# Room Scanner V30.19.0
 
 Room Scanner uses **AlvaAR as the autonomous persistent visual SLAM tracker**.
 Calibration is optional and only fixes a one-shot metric transform. It never
@@ -59,14 +59,14 @@ surfel/TSDF maps retain hard memory caps.
 
 ## Depth Anything
 
-V30.18.9 reads the supplied local file
+V30.19.0 reads the supplied local file
 `models/model_q4.onnx` directly with ONNX Runtime Web; it
 does not silently download/replace it with a Transformers.js model. On the home
 screen, choose an alternative `.onnx` file if needed, then press **Prova
 inferenza**. It captures one camera frame and reports the real backend (WebGPU
 or WASM), output shape and execution time before a scan begins.
 
-The supplied Q4F16 file is the right first choice: compact enough for mobile
+The supplied Q4 file is the right first choice: compact enough for mobile
 and it exposes the expected `pixel_values` image input. It requires a browser
 where the loaded ONNX Runtime Web build supports its Q4 MatMul operators. If the
 pre-scan test reports an unsupported operator, use **Depth Anything V2 Small
@@ -74,6 +74,13 @@ FP16/FP32 exported for ONNX Runtime**, with one `pixel_values` NCHW input and
 one depth output (not a MobileSAM encoder/decoder). The FP16 version is larger
 but is the compatibility fallback; MobileSAM files in `models/` are segmentation
 components and cannot produce a depth map on their own.
+
+The camera path deliberately performs the resize and RGB/NCHW packing itself.
+`Tensor.fromImage(ImageData)` is not used: with resize dimensions it can crop
+the ImageData buffer instead of resampling it. The local Q4 graph is dynamic,
+so the worker follows the model's DPT processor contract (ImageNet
+normalization, 518 px aspect-preserving target, 14 px patch multiples) and
+reads the first `[batch, height, width]` output plane row-major.
 
 Raw AI depth is **not metric and is never fused directly**. It is first shown as
 the color overlay, then robustly calibrated against reprojection-verified Alva
@@ -96,5 +103,10 @@ launch, vendor the official AlvaAR distribution in that location.
 ```bash
 npm run verify
 ```
+
+For a browser/WebGPU regression without requesting camera access, open
+`test/browser/depth-stock-harness.html` from a local static server. It runs the
+shipped worker and `models/model_q4.onnx` against a public stock room image and
+fails if the map has stripe/column signatures or an invalid tensor contract.
 
 See `docs/DENSE_MAPPING_GUIDE.md` for scan instructions.

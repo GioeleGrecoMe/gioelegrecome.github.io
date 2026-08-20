@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.18.9 mobile ONNX geometry-prior runtime configuration.
+ * Room Scanner V30.19.0 mobile ONNX geometry-prior runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.18.9',
-  id:'v30.18.9-20260820-local-q4-consistent-runtime',
+  version:'30.19.0',
+  id:'v30.19.0-20260820-manual-nchw-dpt-processor',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -159,9 +159,10 @@ export const CONFIG={
   deepModelRemoteUrl:null,
   deepModelLabel:'Depth Anything V2 Small Q4 locale',
   deepInferenceIntervalMs:1000,
-  // 224 = 16 ViT patches. It preserves camera aspect ratio and avoids the
-  // overly coarse 140 px raster that made room edges look column-like.
-  deepPreferredShortSide:224,
+  // Official Depth Anything V2 Small processor size. The dynamically-shaped
+  // ONNX graph keeps the camera aspect ratio and rounds both sides to 14 px
+  // ViT patches; 518 is therefore a processor target, not a forced square.
+  deepPreferredShortSide:518,
   deepInputMaxSide:518,
   // No local ORT bundle is currently shipped; avoid a guaranteed initial 404.
   // Add an actual matching ESM file here only for a fully offline deployment.

@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-18-local-onnx-depth-overlay",
+  "name": "room-scanner-v30-19-local-onnx-depth-overlay",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,6 @@
     "check:alva": "node tools/check_alvaar_runtime.mjs",
     "vendor:alva": "node tools/vendor_alvaar.mjs"
   },
-  "version": "30.18.9",
-  "description": "V30.18.9: bundled local Q4 Depth Anything test and 1 Hz overlay, Alva-calibrated multi-view fusion and TSDF mesh."
+  "version": "30.19.0",
+  "description": "V30.19.0: verified manual NCHW DPT preprocessing, local Q4 depth test and 1 Hz overlay, Alva-calibrated multi-view fusion and TSDF mesh."
 }

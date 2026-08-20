@@ -1,6 +1,6 @@
 {
-  "version": "30.18.9",
-  "id": "v30.18.9-20260820-local-q4-consistent-runtime",
-  "builtAt": "2026-08-20T18:10:00+02:00",
-  "notes": "Single consistent runtime build. The bundled Depth Anything V2 Small Q4 model is models/model_q4.onnx; missing local assets now produce a clear error instead of an automatic remote download. The live input preserves portrait geometry at 224px short side, uses authoritative row-major HxW output readback, and releases per-frame tensors. The service worker is network-first for current assets to avoid mixed-version boot graphs."
+  "version": "30.19.0",
+  "id": "v30.19.0-20260820-manual-nchw-dpt-processor",
+  "builtAt": "2026-08-20T18:04:20+02:00",
+  "notes": "The bundled Depth Anything V2 Small Q4 model is models/model_q4.onnx. Camera RGBA is explicitly resized and converted to ImageNet-normalized RGB/NCHW; Tensor.fromImage is not used because it does not resample ImageData buffers. Dynamic input follows the DPT 518px aspect-preserving processor contract and output is read as authoritative row-major HxW. The shell is network-first and versioned to prevent mixed-build boot graphs."
 }

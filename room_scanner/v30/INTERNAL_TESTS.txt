@@ -1,12 +1,13 @@
-V30.18.9 INTERNAL CHECKS
+V30.19.0 INTERNAL CHECKS
 
 PASS npm run verify
 PASS 77 test di contratto applicativo
 PASS sintassi di app, bootstrap, worker e service worker
-PASS identita' coerente: HTML, BUILD, build_info, manifest e worker 30.18.9
+PASS identita' coerente: HTML, BUILD, build_info, manifest e worker 30.19.0
 PASS modello locale configurato: models/model_q4.onnx
 PASS output ONNX letto dal primo piano HxW row-major con getData(false)
-PASS rivelatore automatico delle colonne e test del packing NCHW di fallback
+PASS rivelatore automatico delle colonne e packing RGB/NCHW manuale
+PASS harness browser su foto stock: Q4 WebGPU, 518x294, depth continua senza colonne
 PASS cache applicativa network-first: nessun cache-first ignoreSearch sul percorso corrente
 PASS chiave sessione distinta per ID/URL o firma dei byte del modello caricato
 

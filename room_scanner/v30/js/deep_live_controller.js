@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.18.9 live Depth Anything preview controller.
+ * Room Scanner V30.19.0 live Depth Anything preview controller.
  *
  * This module intentionally does NOT modify AlvaAR, keyframe selection or the
  * dense mapper. It only gives the neural preview its own ~1 Hz clock using the

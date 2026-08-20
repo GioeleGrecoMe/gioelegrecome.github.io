@@ -1,4 +1,4 @@
-ROOM SCANNER V30.18.9 - DIAGNOSTICA DEPTH E BOOTSTRAP
+ROOM SCANNER V30.19.0 - DIAGNOSTICA DEPTH E BOOTSTRAP
 
 Cause verificate del comportamento "download perenne" e delle mappe incoerenti:
 
@@ -12,10 +12,12 @@ Cause verificate del comportamento "download perenne" e delle mappe incoerenti:
    nome configurato e' models/model_q4.onnx, che esiste nella cartella models,
    e l'assenza genera un errore leggibile.
 
-3. Il raster live era definito a 140 px di lato corto e non veniva neppure
-   passato dall'app al worker. Ora e' 224 px, aspect-preserving e multiplo dei
-   patch ViT; la mappa ONNX e' copiata dal primo piano [H,W] row-major dopo il
-   readback getData(false).
+3. Tensor.fromImage(ImageData) riceveva una dimensione di resize ma non
+   ricampionava i byte della camera: per fotogrammi 320x480 -> tensor dinamico
+   leggeva un crop come se fosse l'intera immagine. Ora il worker effettua
+   esplicitamente resize RGBA bilinear + packing RGB/NCHW + normalizzazione
+   ImageNet. Il target ufficiale DPT e' 518 con aspect ratio preservato e
+   multipli di 14; l'output e' il primo piano [H,W] row-major dopo getData(false).
 
 4. L'A/B WASM passava due Promise al runner perche' mancavano await. Ora gli
    await sono presenti, la chiave modello distingue gli upload byte-per-byte e

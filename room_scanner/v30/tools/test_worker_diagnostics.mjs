@@ -2,11 +2,13 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const workerPath = new URL('../workers/deep_depth_worker.js', import.meta.url);
 let src = fs.readFileSync(workerPath, 'utf8');
-src += `\n;globalThis.__diag={sampledByteSignature,sampledFloatSignature,depthSpatialStats,stripeDiagnosis,compareDepthMaps,readOutput,modelSourceKey,prepareInput};`;
+src += `\n;globalThis.__diag={sampledByteSignature,sampledFloatSignature,depthSpatialStats,stripeDiagnosis,compareDepthMaps,readOutput,modelSourceKey,prepareInput,adaptiveInputGeometry};`;
 const context={console,performance:{now:()=>0},navigator:{},postMessage(){},self:{},Uint8Array,Uint8ClampedArray,Uint16Array,Float32Array,Int32Array,Math,Number,Array,Object,String,Set,Map,Error,TypeError,Infinity,NaN};
 vm.createContext(context);vm.runInContext(src,context,{filename:'deep_depth_worker.js'});
 const d=context.__diag;
 function assert(ok,msg){if(!ok)throw new Error(msg);}
+const dptPortrait=d.adaptiveInputGeometry(320,480,518);
+assert(dptPortrait.width===350&&dptPortrait.height===518,'DPT aspect resize must target the nearest 518px axis, not enlarge portrait width to 518');
 const a=new Uint8ClampedArray(4*4*4);for(let i=0;i<a.length;i++)a[i]=(i*17)&255;
 const b=a.slice();b[8]^=127;
 assert(d.sampledByteSignature(a,4,4)!==d.sampledByteSignature(b,4,4),'frame fingerprint must react to changed camera bytes');
@@ -27,4 +29,7 @@ const pixels=new Uint8ClampedArray([255,0,0,255, 0,255,0,255, 0,0,255,255, 255,2
 const prepared=await d.prepareInput(pixels,2,2,{type:'float32'},{width:2,height:2},null,{Tensor:FakeTensor},true);
 assert(prepared.inputRasterDiagnostic.tensorNchwPreview[0]===255&&prepared.inputRasterDiagnostic.tensorNchwPreview[1]===0,'NCHW preview must retain the top-left red pixel');
 assert(prepared.inputRasterDiagnostic.tensorNchwPreview[4]===0&&prepared.inputRasterDiagnostic.tensorNchwPreview[5]===255,'NCHW preview must retain row-major top-right green pixel');
-console.log(JSON.stringify({frameHashA:d.sampledByteSignature(a,4,4),frameHashB:d.sampledByteSignature(b,4,4),smoothStripe:ss,columnStripe:cs,rowMajorOutput:[...read.rawDepth],nchwPreviewFirstPixels:[...prepared.inputRasterDiagnostic.tensorNchwPreview.slice(0,8)],modelKeysDiffer:keyA!==keyB,identicalComparison:cmp},null,2));
+const resized=await d.prepareInput(pixels,2,2,{type:'float32'},{width:4,height:4},null,{Tensor:FakeTensor,fromImage(){throw new Error('must not be called');}},true);
+assert(resized.preprocessBackend==='manual-rgba-nchw-bilinear','manual NCHW preprocessing must be the only production path');
+assert(resized.inputRasterDiagnostic.tensorNchwPreview.length===4*4*4,'manual resize must produce the requested full tensor raster');
+console.log(JSON.stringify({dptPortrait,frameHashA:d.sampledByteSignature(a,4,4),frameHashB:d.sampledByteSignature(b,4,4),smoothStripe:ss,columnStripe:cs,rowMajorOutput:[...read.rawDepth],nchwPreviewFirstPixels:[...prepared.inputRasterDiagnostic.tensorNchwPreview.slice(0,8)],modelKeysDiffer:keyA!==keyB,identicalComparison:cmp},null,2));

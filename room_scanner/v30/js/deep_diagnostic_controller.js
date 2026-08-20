@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.18.9 - deterministic Depth Anything raster diagnostic.
+ * Room Scanner V30.19.0 - deterministic Depth Anything raster diagnostic.
  *
  * No app.js modification is required. This listener observes the normal
  * deep-test-result and renders the exact camera bytes, the exact NCHW tensor
@@ -64,10 +64,12 @@ function render(d){
   if(input){
     drawRgba($('deepDiagSource'),input.sourcePreview,input.sourceWidth,input.sourceHeight);
     drawRgba($('deepDiagNchw'),input.tensorNchwPreview,input.tensorWidth,input.tensorHeight);
-    drawRgba($('deepDiagNhwc'),input.tensorNhwcPreview,input.tensorWidth,input.tensorHeight);
+    // The intentionally-invalid NHWC view is retained only as hidden forensic
+    // instrumentation. Showing it to users made a 3x3-looking false image seem
+    // like a second model result.
   }
   drawDepth($('deepDiagDepthRow'),d.rawDepth,d.rawWidth,d.rawHeight,false);
-  drawDepth($('deepDiagDepthCol'),d.rawDepth,d.rawWidth,d.rawHeight,true);
+  // Likewise, the column-major reading is deliberately invalid and hidden.
   const ref=d.referenceDiagnostic;
   const refCanvas=$('deepDiagReference'),refFigure=refCanvas?.closest?.('figure');
   if(ref?.rawDepth?.length){if(refFigure)refFigure.hidden=false;drawDepth(refCanvas,ref.rawDepth,ref.width,ref.height,false);}else if(refFigure)refFigure.hidden=true;
@@ -86,8 +88,8 @@ function render(d){
       'COME LEGGERLO:',
       '1. CAMERA deve essere una foto normale.',
       '2. TENSOR NCHW deve essere la stessa scena ridimensionata. Se qui è normale, RGBA/NCHW è corretto.',
-      '3. TENSOR NHWC è volutamente l’interpretazione alternativa: se questa fosse normale e NCHW no, il layout sarebbe sbagliato.',
-      '4. DEPTH ROW è il contratto ufficiale [H,W]. DEPTH COLUMN è la lettura column-major alternativa.',
+      '3. DEPTH H×W è il contratto ufficiale [batch, height, width] del modello.',
+      '4. NHWC e column-major non vengono più mostrati: erano letture volutamente errate, non altri risultati di DeepAI.',
       '5. Il riquadro di riferimento viene mostrato solo se il worker produce un confronto aggiuntivo.',
     ].join('\n');
   }
