@@ -4,7 +4,7 @@ import {V30Database,openVersionSafe} from './storage/db.js';
 import {triangulateRays,poseIdentity} from './slam/math.js';
 
 /*
- * V30.14.2 self-tests intentionally include regressions for the two phone failures
+ * V30.15.0 self-tests intentionally include regressions for the two phone failures
  * reported on V30.8: IndexedDB downgrade and fake/screen-space WebXR pins.
  */
 export async function runSelfTests(log){
@@ -72,15 +72,25 @@ export async function runSelfTests(log){
     if(!r.metricLocked||r.matches!==1||r.keyframes!==1||!r.trackingValid)throw new Error('SlamEngine first metric Alva frame failed');
     return {metricLocked:r.metricLocked,matches:r.matches,keyframes:r.keyframes};
   });
-  await run('live-mvs-gaussian-pipeline',async()=>{
+  await run('alva-dense-tsdf-pipeline',async()=>{
     const app=await fetch(`js/app.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());
-    for(const token of ["queueMvsKeyframe(r.newKeyframe,frame,K)","type:'pair'","state.gaussianWorker?.postMessage({type:'add',points:d.points,sourceId:"])if(!app.includes(token))throw new Error(`missing live MVS wiring: ${token}`);
-    const mvsText=await fetch(`${CONFIG.mvsWorker}?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());for(const token of ['epipolarErrorPx','maxEpipolarPx','maxReprojectionPx'])if(!mvsText.includes(token))throw new Error(`missing pose-guided MVS quality gate: ${token}`);
-    const r=await mvsTriangulationProbe(CONFIG.mvsWorker);if(r.count<6)throw new Error(`MVS runtime returned only ${r.count} points`);
-    return {points:r.count,baseline:r.baseline,matches:r.matches,source:r.source};
+    for(const token of ["new DenseKeyframeManager","CONFIG.denseDepthWorker","type:'depth'","type:'integrate'","surface-result","type:'mesh'"])if(!app.includes(token))throw new Error(`missing dense mapper wiring: ${token}`);
+    if(app.includes("state.gaussianWorker?.postMessage({type:'add'"))throw new Error('sparse feature -> Gaussian path is still active');
+    const [{estimateDenseDepth},{SparseDenseFusion}]=await Promise.all([import(`./dense/plane_sweep_core.js?selftest=${Date.now()}`),import(`./dense/fusion_core.js?selftest=${Date.now()}`)]);
+    const w=72,h=54,K={fx:66,fy:66,cx:w/2,cy:h/2,width:w,height:h};
+    const make=(px)=>{const gray=new Uint8Array(w*h),rgba=new Uint8ClampedArray(w*h*4);for(let v=0;v<h;v++)for(let u=0;u<w;u++){const z=2,x=px+(u-K.cx)/K.fx*z,y=(K.cy-v)/K.fy*z,val=Math.max(0,Math.min(255,128+(Math.sin(x*17)+Math.sin(y*23)+Math.sin((x+y)*31))*34)),i=v*w+u;gray[i]=val;rgba[i*4]=val;rgba[i*4+1]=Math.min(255,val+10);rgba[i*4+2]=Math.max(0,val-10);rgba[i*4+3]=255;}return {id:String(px),pose:{p:[px,0,0],q:[0,0,0,1]},K,width:w,height:h,gray,rgba};};
+    const ref=make(0),sources=[make(-.12),make(.12),make(.22)],depth=estimateDenseDepth({ref,sources,K,near:1,far:3,depthSteps:42,pixelStep:3,minViews:2,maxCost:.28,minConfidence:.07});
+    if(depth.samples.length<120||Math.abs(depth.medianDepth-2)>.18)throw new Error(`dense plane probe weak: ${depth.samples.length} samples, median ${depth.medianDepth}`);
+    const fusion=new SparseDenseFusion({voxel:.07,truncation:.21,minSupport:2,maxTsdf:80000});for(let i=0;i<3;i++){const jitter=(i-1)*.004;fusion.integrate(depth.samples.slice(0,500).map(s=>({...s,p:[s.p[0]+jitter,s.p[1],s.p[2]+jitter*.4]})),{origin:[(i-1)*.1,0,0],frameId:`probe-${i}`});}
+    const splats=fusion.splats({max:5000}),mesh=fusion.mesh({maxTriangles:12000});if(splats.length<60||mesh.faces.length<30)throw new Error(`fusion probe weak: ${splats.length} surfels, ${mesh.faces.length/3} faces`);
+    return {depthSamples:depth.samples.length,medianDepth:depth.medianDepth,surfels:splats.length,meshFaces:mesh.faces.length/3};
   });
-  await run('gaussian-worker',()=>workerReady(CONFIG.gaussianWorker,{voxel:.03,maxGaussians:1000,maxSnapshot:100}));
-  await run('mvs-worker',()=>workerReady(CONFIG.mvsWorker,{near:.3,far:5,depthSteps:8,gridStep:8,maxPoints:200}));
+  await run('dense-depth-worker',()=>workerReadyModule(CONFIG.denseDepthWorker,{depthSteps:16,pixelStep:4,minViews:1,maxSamples:1000}));
+  await run('dense-fusion-worker',()=>workerReadyModule(CONFIG.denseFusionWorker,{voxel:.06,truncation:.18,minSupport:2,maxSurfels:5000,maxTsdf:20000}));
+  // Legacy workers stay packaged for backward-compatible imports/old sessions,
+  // but V30.15 does not use them as the primary reconstruction path.
+  await run('gaussian-worker-compat',()=>workerReady(CONFIG.gaussianWorker,{voxel:.03,maxGaussians:1000,maxSnapshot:100}));
+  await run('mvs-worker-compat',()=>workerReady(CONFIG.mvsWorker,{near:.3,far:5,depthSteps:8,gridStep:8,maxPoints:200}));
 
   await run('indexeddb',async()=>{
     const db=await new V30Database().open(),id=`selftest-${crypto.randomUUID()}`;
@@ -138,6 +148,7 @@ export async function runSelfTests(log){
 
 function nativeOpen(name,version){return new Promise((resolve,reject)=>{const r=indexedDB.open(name,version);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
 function workerReady(url,config){return new Promise((resolve,reject)=>{const w=new Worker(url),timer=setTimeout(()=>{w.terminate();reject(new Error(`worker timeout: ${url}`));},3000);w.onmessage=e=>{if(e.data?.type==='ready'){clearTimeout(timer);w.terminate();resolve(e.data);}};w.onerror=e=>{clearTimeout(timer);w.terminate();reject(new Error(e.message||`worker error: ${url}`));};w.postMessage({type:'init',config});});}
+function workerReadyModule(url,config){return new Promise((resolve,reject)=>{const w=new Worker(url,{type:'module'}),timer=setTimeout(()=>{w.terminate();reject(new Error(`module worker timeout: ${url}`));},4000);w.onmessage=e=>{if(e.data?.type==='ready'){clearTimeout(timer);w.terminate();resolve(e.data);}};w.onerror=e=>{clearTimeout(timer);w.terminate();reject(new Error(e.message||`module worker error: ${url}`));};w.postMessage({type:'init',config});});}
 
 function mvsTriangulationProbe(url){return new Promise((resolve,reject)=>{
   const K={fx:300,fy:300,cx:160,cy:120,width:320,height:240},a={pose:{p:[0,0,0],q:[0,0,0,1]},features:[],width:320,height:240},b={pose:{p:[.08,0,0],q:[0,0,0,1]},features:[],width:320,height:240,rgba:new Uint8ClampedArray(320*240*4)},pts=[[-.3,.1,1.5],[0,.15,2],[.25,-.1,2.5],[.1,.25,3],[-.15,-.2,1.8],[.35,.1,2.2],[-.25,.2,2.7],[.05,-.25,1.6]];

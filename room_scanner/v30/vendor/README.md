@@ -1,6 +1,6 @@
 # AlvaAR runtime
 
-Room Scanner V30.14.2 uses the official AlvaAR `dist/alva_ar.js` distribution.
+Room Scanner V30.15.0 uses the official AlvaAR `dist/alva_ar.js` distribution.
 
 Preferred fully-offline layout:
 

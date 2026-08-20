@@ -1,26 +1,62 @@
-# Room Scanner V30.14.2
+# Room Scanner V30.15.0
 
-Room scanner with **AlvaAR as the autonomous long-lived visual SLAM/world tracker**. WebXR calibration is optional and is used only to bootstrap a fixed metric transform; after that, AlvaAR owns the trajectory. Metric MVS, robust live splat fusion and mesh extraction remain downstream consumers of the Alva pose.
+Room Scanner uses **AlvaAR as the autonomous persistent visual SLAM tracker**.
+Calibration is optional and only fixes a one-shot metric transform. It never
+steers Alva after scanning starts.
 
-## Tracking architecture
+## Reconstruction pipeline
 
-- **ALVA TRACKING** — current Alva pose is valid.
-- **ALVA LOST** — the world pose is frozen; no keyframe/MVS update is generated.
-- **ALVA RELOCALIZED** — Alva has returned a valid pose and reconstruction resumes in the same fixed world transform.
+```text
+camera -> AlvaAR pose/world tracking
+              |
+              v
+       local keyframe graph
+              |
+              v
+  multi-view plane-sweep depth
+              |
+              v
+    surfel + sparse TSDF fusion
+          |             |
+          v             v
+   live surface splats  TSDF mesh
+```
 
-There is intentionally no optical-flow pose fallback. A substitute trajectory would move the world while Alva is lost and would destroy persistent objects.
+Sparse Alva feature points are used for tracking/debugging, not directly turned
+into Gaussian geometry. The live splats are derived from multi-view-confirmed
+surfels; the mesh is derived from the TSDF.
 
-With a valid WebXR calibration, the pin matcher is only a short metric bootstrap. It estimates several metric camera poses, pairs them with the same running Alva session, solves one fixed Alva→metric Sim(3), and then disconnects from Scan.
+## Scan behaviour
 
-Without calibration, **Avvia AlvaAR** starts a scale-free Alva world immediately. This mode is useful for testing tracking/relocalization and AR persistence independently of metric calibration.
+- `ALVA TRACKING`: tracking valid; keyframes/dense mapping may advance.
+- `ALVA LOST`: world is frozen and dense mapping pauses.
+- `ALVA RELOCALIZED`: Alva resumes in the same persistent world.
+- `DEPTH`: accepted dense depth samples from multi-view plane sweep.
+- `surf`: confirmed surface splats with multi-view support.
+- The live mesh is shown over the camera after enough TSDF observations.
 
-## Scan UI
+Move laterally and retain image overlap. Pure rotation gives little/no depth.
+Textureless areas are rejected rather than hallucinated.
 
-The camera is the primary view. The transparent AR layer uses the same Alva/metric camera pose as reconstruction and can cycle through **GS**, **GS+Mesh**, **Mesh**, and **Off**. Review is secondary and supports one-finger orbit, two-finger pan/pinch, wheel zoom, double-click fit, and top/front/side presets.
+## Mobile resource budget
+
+Dense reconstruction runs separately from Alva in module workers. It keeps at
+most 8 downsampled 160x240 keyframes, processes one dense job at a time, uses
+2–4 source views, and automatically reduces sampling density/source count if a
+job is slow. Sparse surfel/TSDF maps have hard memory caps.
+
+## Depth Anything
+
+Depth Anything is not active in V30.15. The planned fallback is deliberately
+small: infer depth only on a few selected difficult keyframes and use it as a
+search prior for plane sweep. Alva remains the tracker and multi-view geometry
+remains the final consistency test. See `docs/CHANGES_V30_15_0.md`.
 
 ## AlvaAR runtime
 
-The application tries `vendor/alva_ar.js` first. Put the official AlvaAR `dist/alva_ar.js` there for a fully self-contained/offline deployment. If the local file is absent, the runtime tries the configured CDN URL. If AlvaAR cannot be loaded, Scan reports the error instead of silently substituting another pose tracker. See `vendor/README_ALVAAR.md`.
+The application uses `vendor/alva_ar.js` when available, otherwise the validated
+official runtime loader/cache path from V30.14.x. For a fully offline first
+launch, vendor the official AlvaAR distribution in that location.
 
 ## Verification
 
@@ -28,6 +64,4 @@ The application tries `vendor/alva_ar.js` first. Put the official AlvaAR `dist/a
 npm run verify
 ```
 
-During scanning, move slowly with lateral baseline and image overlap. When Alva is valid, `tri` should increase before `GS`; if tracking is lost, the reconstruction should stop growing until `ALVA RELOCALIZED` appears.
-
-See `docs/CHANGES_V30_14_0.md` for the architectural details and `docs/VERIFY_V30_14_0.log` for the release verification.
+See `docs/DENSE_MAPPING_GUIDE.md` for scan instructions.

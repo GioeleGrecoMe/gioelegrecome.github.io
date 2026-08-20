@@ -35,11 +35,11 @@ test('live AR overlay always exposes Alva tracking points and a persistent reper
 });
 
 
-test('scale-free Alva world still feeds MVS, GS and live mesh',()=>{
-  const app=read('../js/app.js'),mesh=read('../js/metric/metric_mesh_ui.js');
+test('scale-free Alva world still feeds dense depth, surface fusion and live mesh',()=>{
+  const app=read('../js/app.js');
   assert.doesNotMatch(app,/r\.newKeyframe&&r\.metricLocked/);
-  assert.doesNotMatch(app,/MVS sospeso · serve una scala metrica/);
-  assert.match(app,/mvsMinBaselineAlva/);
-  assert.doesNotMatch(mesh,/if\(!s\?\.metricLocked\|\|/);
-  assert.match(mesh,/ALVA LIBERA/);
+  assert.match(app,/denseMinBaselineAlva/);
+  assert.match(app,/queueDenseKeyframe/);
+  assert.match(app,/denseFusionWorker/);
+  assert.match(app,/surface-result/);
 });

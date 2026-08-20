@@ -1,6 +1,6 @@
 {
-  "version": "30.14.2",
-  "id": "v30.14.2-20260820-rendering-calibration-recovery",
-  "builtAt": "2026-08-20T10:18:00+02:00",
-  "notes": "Recovery release: WebXR pin placement no longer depends on raw camera access; all visual runtime hosts are present; AlvaAR loads only when measurement starts; live Alva tracked points and a persistent reference marker are drawn over the camera; static metric mesh controls are actually bound."
+  "version": "30.15.0",
+  "id": "v30.15.0-20260820-alva-dense-plane-sweep-tsdf",
+  "builtAt": "2026-08-20T10:32:00+02:00",
+  "notes": "AlvaAR remains the autonomous tracker. Dense mapping now uses low-frequency multi-view plane sweep, robust depth filtering, surfel fusion and sparse TSDF meshing. Live splats are derived from confirmed surfaces, not sparse SLAM features. Depth Anything is not enabled in this release; hooks remain optional for a later sparse prior."
 }

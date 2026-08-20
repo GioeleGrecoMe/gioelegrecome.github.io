@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.14.2 runtime configuration.
+ * Room Scanner V30.15.0 dense mapping runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.14.2',
-  id:'v30.14.2-20260820-rendering-calibration-recovery',
+  version:'30.15.0',
+  id:'v30.15.0-20260820-alva-dense-plane-sweep-tsdf',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -99,6 +99,44 @@ export const CONFIG={
   // persistentHandle metadata for forward migration/verification.
   calibrationStorageKey:'room-scanner-v30-xr-calibration-v2',
 
+
+
+  // V30.15 dense mapping: AlvaAR owns poses; a low-frequency multi-view
+  // plane-sweep worker estimates depth from a tiny local keyframe graph. Dense
+  // depth is fused into surfels + a sparse TSDF. The live splats are derived
+  // only from confirmed surfels; the mesh is extracted from the TSDF.
+  denseDepthWorker:'workers/dense_depth_worker.js',
+  denseFusionWorker:'workers/dense_fusion_worker.js',
+  denseWidth:160,
+  denseHeight:240,
+  denseMaxKeyframes:8,
+  denseMinSourceViews:2,
+  denseMaxSourceViews:4,
+  denseMinKeyframeIntervalMs:650,
+  denseMinBaselineM:0.045,
+  denseMaxBaselineM:0.75,
+  denseMinBaselineAlva:0.020,
+  denseMaxBaselineAlva:1.50,
+  denseMaxViewAngleRad:0.38,
+  denseNearM:0.28,
+  denseFarM:8.5,
+  denseDepthSteps:56,
+  densePixelStep:3,
+  denseMaxPhotoCost:0.22,
+  denseMinConfidence:0.11,
+  denseMinTexture:0.018,
+  denseMinDistinctiveness:0.025,
+  denseMaxSamplesPerDepth:14000,
+  denseTsdfVoxelM:0.035,
+  denseTsdfVoxelAlva:0.030,
+  denseTsdfTruncVoxels:3,
+  denseMinSurfaceSupport:2,
+  denseMaxSurfels:180000,
+  denseMaxTsdfVoxels:450000,
+  denseSurfaceSnapshotEvery:2,
+  denseMeshEvery:5,
+  denseMaxMeshTriangles:90000,
+
   // Camera-only multi-view densification. No monocular AI depth is involved.
   mvsWorker:'workers/mvs_worker.js',
   mvsEveryNthKeyframe:1,
@@ -147,7 +185,7 @@ export const CONFIG={
   // Kept as a compatibility alias for diagnostics from older V30 modules.
   alvaRemoteUrl:'https://raw.githubusercontent.com/alanross/AlvaAR/main/dist/alva_ar.js',
   wasmCore:'wasm/slam_core.wasm',
-  // No Depth Anything / DeepAI and no IMU are required by the V30.14.2 runtime.
+  // No Depth Anything / DeepAI and no IMU are required by the V30.15.0 runtime.
   serviceWorker:'sw.js',
   serviceWorkerRegisterDelayMs:2500,
   buildInfo:'build_info.json'

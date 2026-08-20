@@ -1,16 +1,16 @@
-/* Room Scanner V30.14.2 service worker.
+/* Room Scanner V30.15.0 service worker.
  * Static runtime assets are cache-first once installed. Navigations use a short
  * network-first path. The active worker exposes GET_VERSION so the HTML can
  * remove an actually stale V30 controller before loading application modules.
  */
-const VERSION='30.14.2';
-const CACHE='room-scanner-v30.14.2-shell';
+const VERSION='30.15.0';
+const CACHE='room-scanner-v30.15.0-shell';
 const SHELL=[
   './','./index.html','./room_scanner_v30.html','./styles.css','./manifest.webmanifest','./icon.svg','./build_info.json',
   './js/boot.js','./js/app.js','./js/config.js','./js/logger.js','./js/camera.js','./js/formats.js','./js/self_test.js','./js/storage/db.js',
-  './js/slam/math.js','./js/slam/alva_runtime_loader.js','./js/slam/wasm_frontend.js','./js/slam/slam_engine.js','./js/slam/alva_metric_bootstrap.js','./js/metric/pnp_pose.js','./js/xr/xr_calibration.js','./js/xr/measurement_guidance.js','./js/xr/metric_bridge.js',
+  './js/slam/math.js','./js/slam/alva_runtime_loader.js','./js/slam/wasm_frontend.js','./js/slam/slam_engine.js','./js/slam/alva_metric_bootstrap.js','./js/dense/keyframe_manager.js','./js/dense/plane_sweep_core.js','./js/dense/fusion_core.js','./js/metric/pnp_pose.js','./js/xr/xr_calibration.js','./js/xr/measurement_guidance.js','./js/xr/metric_bridge.js',
   './js/metric/metric_geometry.js','./js/metric/gaussian_metric_tap.js','./js/metric/metric_mesh_ui.js','./js/gaussian/renderer.js','./js/gaussian/ar_overlay.js',
-  './workers/metric_mesh_worker.js','./workers/gaussian_worker.js','./workers/mvs_worker.js','./wasm/slam_core.wasm'
+  './workers/metric_mesh_worker.js','./workers/gaussian_worker.js','./workers/mvs_worker.js','./workers/dense_depth_worker.js','./workers/dense_fusion_worker.js','./wasm/slam_core.wasm'
 ];
 self.addEventListener('install',event=>event.waitUntil((async()=>{const cache=await caches.open(CACHE);for(const url of SHELL){const response=await fetch(new Request(url,{cache:'reload'}));if(!response.ok)throw new Error(`V30 shell missing ${url}: HTTP ${response.status}`);await cache.put(url,response.clone());}await self.skipWaiting();})()));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{for(const key of await caches.keys())if(key.startsWith('room-scanner-v30')&&key!==CACHE)await caches.delete(key);await self.clients.claim();})()));
