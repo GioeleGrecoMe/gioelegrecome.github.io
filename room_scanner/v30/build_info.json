@@ -1,6 +1,6 @@
 {
-  "version": "30.23.0",
-  "id": "v30.23.0-20260820-live-deep-alva-bootstrap",
-  "builtAt": "2026-08-20T19:45:00+02:00",
-  "notes": "Deep Anything now runs a diagnostic live preview during Scan independently of Alva pose. The mobile neural raster starts at 224px short side and escalates to 280/336 only when structural banding/noise is detected; suspicious depth is never fused. AlvaAR receives a 320x480 analysis stream while local JavaScript MVS feature extraction is skipped during monocular initialization so it cannot steal CPU from the real tracker."
+  "version": "30.24.0",
+  "id": "v30.24.0-20260820-ray-consensus",
+  "builtAt": "2026-08-20T21:20:00+02:00",
+  "notes": "Probabilistic multi-view ray consensus: calibrated Depth Anything pixels become low-authority anisotropic ray Gaussians, Deep and MVS from the same keyframe cannot self-confirm, and only observations supported by independent AlvaAR viewpoints become persistent surfels. The mesh TSDF is rebuilt from the current consensus so early depth errors can be corrected instead of fossilized. Deep keyframes are collected more frequently now that inference is sub-second."
 }

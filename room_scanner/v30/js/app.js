@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.23.0 ultra-low-budget local-ONNX Alva mapping application.
+ * Room Scanner V30.24.0 ultra-low-budget local-ONNX Alva mapping application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,8 +8,8 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.23.0';
-import {DiagnosticsLog} from './logger.js?v=30.23.0';
+import {BUILD,CONFIG} from './config.js?v=30.24.0';
+import {DiagnosticsLog} from './logger.js?v=30.24.0';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
@@ -164,10 +164,12 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
   if(metric?.alvaTransform)state.slam.setWorldTransform(metric.alvaTransform);
 
   state.liveOverlay=new LiveReconstructionOverlay($('miniMap'),{maxSplats:CONFIG.liveOverlayMaxSplats||4200});state.liveOverlay.setMode('both');
-  state.gaussians=[];state.mesh=null;window.__ROOMSCAN_METRIC_MESH=null;state.alvaHeartbeatFrames=[];state.alvaHeartbeatCount=0;state.denseBusy=false;state.denseJobs=0;state.denseDepthSamples=0;state.denseDepthHint=null;state.densePixelStep=CONFIG.densePixelStep||4;state.denseSourceLimit=Math.min(CONFIG.denseInitialSourceLimit||2,CONFIG.denseMaxSourceViews||4);state.surfaceStats=null;state.geometryAnchors=[];state.deepPending=null;state.deepDisabled=false;state.deepCalls=0;state.deepAccepted=0;state.deepPreviewLastAt=0;state.deepPreviewInFlight=null;state.deepPreviewSeq=0;state.deepPreviewFrames=0;state.deepPreviewLastQuality=null;
+  state.gaussians=[];state.mesh=null;window.__ROOMSCAN_METRIC_MESH=null;state.alvaHeartbeatFrames=[];state.alvaHeartbeatCount=0;state.denseBusy=false;state.denseJobs=0;state.denseDepthSamples=0;state.denseDepthHint=null;state.densePixelStep=CONFIG.densePixelStep||4;state.denseSourceLimit=Math.min(CONFIG.denseInitialSourceLimit||2,CONFIG.denseMaxSourceViews||4);state.surfaceStats=null;state.geometryAnchors=[];state.deepPending=null;state.deepDisabled=false;state.deepCalls=0;state.deepAccepted=0;state.deepRaySamples=0;state.deepPreviewLastAt=0;state.deepPreviewInFlight=null;state.deepPreviewSeq=0;state.deepPreviewFrames=0;state.deepPreviewLastQuality=null;
   const metricWorld=!!state.slam.metricLocked;
   state.denseManager=new DenseKeyframeManager({
-    width:CONFIG.denseWidth||160,height:CONFIG.denseHeight||240,maxFrames:CONFIG.denseMaxKeyframes||8,
+    width:CONFIG.denseWidth||160,height:CONFIG.denseHeight||240,
+    deepWidth:CONFIG.deepKeyframeWidth||224,deepHeight:CONFIG.deepKeyframeHeight||336,
+    maxFrames:CONFIG.denseMaxKeyframes||8,
     minSources:CONFIG.denseMinSourceViews||2,maxSources:CONFIG.denseMaxSourceViews||4,
     minBaseline:metricWorld?(CONFIG.denseMinBaselineM||.045):(CONFIG.denseMinBaselineAlva||.02),
     maxBaseline:metricWorld?(CONFIG.denseMaxBaselineM||.75):(CONFIG.denseMaxBaselineAlva||1.5),
@@ -180,7 +182,7 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
   state.denseDepthWorker.postMessage({type:'init',config:{depthSteps:CONFIG.denseDepthSteps||40,pixelStep:CONFIG.densePixelStep||3,maxCost:CONFIG.denseMaxPhotoCost||.22,minConfidence:CONFIG.denseMinConfidence||.11,minTexture:CONFIG.denseMinTexture||.018,minDistinctiveness:CONFIG.denseMinDistinctiveness||.025,minViews:CONFIG.denseMinSourceViews||2,maxSamples:CONFIG.denseMaxSamplesPerDepth||14000}});
 
   // The ONNX worker may already be warm from the explicit pre-scan test.
-  // V30.23 has TWO consumers with different authority:
+  // V30.24 has TWO consumers with different authority:
   // 1) a ~1 Hz live preview independent from Alva, used only for visual diagnosis;
   // 2) selected Alva keyframes, whose depth may be calibrated/fused into 3D.
   // The live preview never creates pose, scale or geometry by itself.
@@ -196,9 +198,15 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
   state.denseFusionWorker=new Worker(`${CONFIG.denseFusionWorker}?v=${BUILD.version}`,{type:'module'});
   state.denseFusionWorker.onmessage=e=>handleDenseFusionMessage(e.data||{});
   state.denseFusionWorker.onerror=e=>log.warn('dense-fusion-worker',{message:e.message||'worker error'});
-  state.denseFusionWorker.postMessage({type:'init',config:{voxel,truncation:voxel*(CONFIG.denseTsdfTruncVoxels||3),minSupport:CONFIG.denseMinSurfaceSupport||2,maxSurfels:CONFIG.denseMaxSurfels||180000,maxTsdf:CONFIG.denseMaxTsdfVoxels||450000,snapshotEvery:CONFIG.denseSurfaceSnapshotEvery||2,meshEvery:CONFIG.denseMeshEvery||5,maxSplats:CONFIG.gaussianSnapshot||50000,maxTriangles:CONFIG.denseMaxMeshTriangles||90000}});
+  state.denseFusionWorker.postMessage({type:'init',config:{
+    voxel,truncation:voxel*(CONFIG.denseTsdfTruncVoxels||3),minSupport:CONFIG.denseMinSurfaceSupport||2,
+    minConfirmBaseline:metricWorld?(CONFIG.denseRayConfirmBaselineM||.035):(CONFIG.denseRayConfirmBaselineAlva||.018),
+    maxRaySigma:CONFIG.denseRayMaxSigma||3,tsdfMinSupport:CONFIG.denseTsdfMinSupport||3,tsdfMaxSurfels:CONFIG.denseTsdfMaxSurfels||60000,liveTsdfMaxSurfels:CONFIG.denseLiveTsdfMaxSurfels||18000,
+    maxSurfels:CONFIG.denseMaxSurfels||180000,maxTsdf:CONFIG.denseMaxTsdfVoxels||450000,snapshotEvery:CONFIG.denseSurfaceSnapshotEvery||2,
+    meshEvery:CONFIG.denseMeshEvery||5,maxSplats:CONFIG.gaussianSnapshot||50000,maxTriangles:CONFIG.denseMaxMeshTriangles||90000
+  }});
 
-  state.currentSession=await state.db?.createSession({calibrationBuild:cal?.createdAt||null,metricLocked:metricWorld,reconstruction:'alva+depth-anything-prior+multiview+tsdf'});
+  state.currentSession=await state.db?.createSession({calibrationBuild:cal?.createdAt||null,metricLocked:metricWorld,reconstruction:'alva+deep-ray-consensus+multiview+rebuildable-tsdf'});
   if($('metricState'))$('metricState').textContent=metricWorld?`scala METRIC · Alva×${state.slam.metricScale?.toFixed?.(3)||'?'}`:'ALVA WORLD · scala libera';
   if($('mvsState'))$('mvsState').textContent='DENSE: Deep live ~1 Hz · fusione solo su keyframe Alva validi';
   if($('deepLiveState'))$('deepLiveState').textContent='DEEP LIVE · attendo primo frame…';
@@ -272,14 +280,15 @@ async function makeDensePayload(job){
   if(!sparse.range||sparse.seeds.length<(CONFIG.denseMinSparseSeeds||5)){log.info('dense-waiting-sparse-geometry',{ref:job.ref.id,...sparse.stats});return null;}
   let near=sparse.range.near,far=sparse.range.far;if(metric){near=Math.max(CONFIG.denseNearM||.20,near);far=Math.min(CONFIG.denseFarM||10,far);}if(!(far>near*1.35))return null;
   state.denseDepthHint=sparse.range.median;state.geometryAnchors=sparse.seeds.slice(0,120).map(x=>({p:x.p,confidence:x.confidence,reprojectionPx:x.reprojectionPx}));state.liveOverlay?.setGeometryAnchors(state.geometryAnchors);
-  return {type:'depth',ref:cloneDenseFrame(job.ref),sources:selectedSources.map(cloneDenseFrame),K:job.ref.K,near,far,sparseSeeds:sparse.seeds.map(x=>({u:x.u,v:x.v,depth:x.depth,confidence:x.confidence})),config:{depthSteps:CONFIG.denseDepthSteps||64,pixelStep:state.densePixelStep||CONFIG.densePixelStep||3,minTexture:CONFIG.denseMinTexture||.018,minDistinctiveness:CONFIG.denseMinDistinctiveness||.025,minViews:Math.min(CONFIG.denseMinSourceViews||2,selectedSources.length),seedRadiusPx:CONFIG.denseSeedRadiusPx||22,seedMaxRelativeError:CONFIG.denseSeedMaxRelativeError||.48}};
+  return {type:'depth',ref:cloneDenseFrame(job.ref,true),sources:selectedSources.map(x=>cloneDenseFrame(x,false)),K:job.ref.K,near,far,sparseSeeds:sparse.seeds.map(x=>({u:x.u,v:x.v,depth:x.depth,confidence:x.confidence})),config:{depthSteps:CONFIG.denseDepthSteps||64,pixelStep:state.densePixelStep||CONFIG.densePixelStep||3,minTexture:CONFIG.denseMinTexture||.018,minDistinctiveness:CONFIG.denseMinDistinctiveness||.025,minViews:Math.min(CONFIG.denseMinSourceViews||2,selectedSources.length),seedRadiusPx:CONFIG.denseSeedRadiusPx||22,seedMaxRelativeError:CONFIG.denseSeedMaxRelativeError||.48}};
 }
-function cloneDenseFrame(f){return {id:f.id,at:f.at,pose:f.pose,K:f.K,width:f.width,height:f.height,gray:f.gray,rgba:f.rgba,features:f.features||[]};}
+function cloneDenseFrame(f,includeDeep=false){const out={id:f.id,at:f.at,pose:f.pose,K:f.K,width:f.width,height:f.height,gray:f.gray,rgba:f.rgba,features:f.features||[]};if(includeDeep&&f.deepRgba?.length){out.deepWidth=f.deepWidth;out.deepHeight=f.deepHeight;out.deepRgba=f.deepRgba;}return out;}
 async function dispatchDensePayload(payload){
   const decision=state.deepSelector?.evaluate({ref:payload.ref,sparseSeeds:payload.sparseSeeds,metricLocked:!!state.slam?.metricLocked})||{infer:false,reason:'selector-unavailable'};
   if(!state.deepDisabled&&state.deepDepthWorker&&decision.infer){
     state.deepSelector.noteAttempt(payload.ref,payload.sparseSeeds);state.deepPending=payload;state.deepCalls++;
-    const rgba=new Uint8ClampedArray(payload.ref.rgba);state.deepDepthWorker.postMessage({type:'infer',jobId:payload.jobId,refId:payload.ref.id,model:modelForWorker(),rgba,width:payload.ref.width,height:payload.ref.height},[rgba.buffer]);
+    const useDeepRaster=payload.ref.deepRgba?.length>0,source=useDeepRaster?payload.ref.deepRgba:payload.ref.rgba,sourceWidth=useDeepRaster?payload.ref.deepWidth:payload.ref.width,sourceHeight=useDeepRaster?payload.ref.deepHeight:payload.ref.height;
+    const rgba=new Uint8ClampedArray(source);state.deepDepthWorker.postMessage({type:'infer',jobId:payload.jobId,refId:payload.ref.id,model:modelForWorker(),rgba,width:sourceWidth,height:sourceHeight},[rgba.buffer]);
     if($('mvsState'))$('mvsState').textContent=`AI ${state.deepCalls}: keyframe utile · ${payload.sparseSeeds.length} anchor · ${decision.reason}`;
     log.info('deep-depth-request',{jobId:payload.jobId,refId:payload.ref.id,calls:state.deepCalls,reason:decision.reason,anchors:payload.sparseSeeds.length,cells:decision.cells});return;
   }
@@ -290,8 +299,9 @@ async function dispatchDensePayload(payload){
     if($('mvsState'))$('mvsState').textContent=`AI selettiva · salto vista ${decision.reason||'ridondante'} · calls ${state.deepCalls}`;
     queueMicrotask(()=>void scheduleDenseWork());return;
   }
-  state.denseDepthWorker.postMessage(payload);
+  stripDeepRaster(payload);state.denseDepthWorker.postMessage(payload);
 }
+function stripDeepRaster(payload){if(!payload?.ref)return;delete payload.ref.deepRgba;delete payload.ref.deepWidth;delete payload.ref.deepHeight;}
 async function handleDeepDepthMessage(d){
   if(d.type==='deep-ready'){log.info('deep-depth-ready',{modelUrl:d.modelUrl,preferredShortSide:d.preferredShortSide,qualityRescueShortSide:d.qualityRescueShortSide});return;}
   if(d.type==='deep-loaded'){log.info('deep-depth-loaded',{model:d.model,provider:d.provider,input:d.input});return;}
@@ -337,10 +347,33 @@ async function applyDeepDepthResult(d,payload){
   const cal=calibrateRelativeDepth({rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,outWidth:payload.ref.width,outHeight:payload.ref.height,sparseSeeds:payload.sparseSeeds,near:payload.near,far:payload.far,minAnchors:CONFIG.deepMinAnchors||7,minCells:CONFIG.deepMinAnchorCells||3,maxMedianRelativeError:CONFIG.deepCalibrationMaxMedianRelativeError||.18});
   if(!cal.ok){state.denseBusy=false;log.warn('deep-depth-calibration-rejected',{jobId:d.jobId,reason:cal.reason,anchors:cal.anchorCount,cells:cal.cells,medianRelativeError:cal.medianRelativeError});if($('mvsState'))$('mvsState').textContent=`AI depth rifiutata (${cal.reason}) · cerco una vista migliore`;void scheduleDenseWork();return;}
   state.deepSelector?.commit?.(payload.ref,payload.sparseSeeds);state.deepAccepted++;
+  // V30.24: the calibrated Deep map is no longer only a plane-sweep hint.  It
+  // also becomes a set of LOW-AUTHORITY anisotropic ray observations.  A single
+  // frame can create provisional surfels, but cannot confirm them: the fusion
+  // worker increments support only when a DIFFERENT Alva keyframe lands on the
+  // same surface within the ray/depth uncertainty.  This implements the user's
+  // "many redundant measurements, little stored state" model directly.
+  try{
+    const {depthMapToRaySamples}=await lazy('./dense/deep_ray_samples.js');
+    const rayBatch=depthMapToRaySamples({
+      depth:cal.depth,width:cal.width,height:cal.height,ref:payload.ref,K:payload.ref.K,
+      baseConfidence:cal.confidence,calibrationRelativeError:cal.medianRelativeError,
+      sparseSeeds:payload.sparseSeeds,pixelStep:CONFIG.deepRayPixelStep||5,maxSamples:CONFIG.deepRayMaxSamples||5000
+    });
+    if(rayBatch.samples.length){
+      state.deepRaySamples+=rayBatch.samples.length;
+      state.denseFusionWorker?.postMessage({type:'integrate',mode:'deep-ray',samples:rayBatch.samples,origin:payload.ref.pose.p,frameId:payload.ref.id});
+      log.info('deep-ray-observations',{jobId:d.jobId,refId:payload.ref.id,samples:rayBatch.samples.length,total:state.deepRaySamples,stats:rayBatch.stats,calibrationError:cal.medianRelativeError});
+    }
+  }catch(err){
+    // Direct ray fusion is an additional consistency layer.  If its compact
+    // sampler fails, keep the older multi-view verification path alive.
+    log.warn('deep-ray-sampler',{jobId:d.jobId,message:err?.message||String(err)});
+  }
   payload.depthPrior={depth:cal.depth,width:cal.width,height:cal.height,confidence:cal.confidence,mode:cal.mode};Object.assign(payload.config,{priorRelRange:CONFIG.deepPriorRelRange||.18,priorDepthSteps:CONFIG.deepPriorDepthSteps||18,priorWeight:CONFIG.deepPriorWeight||.10,priorMinConfidence:CONFIG.deepPriorMinConfidence||.28,priorMinTexture:CONFIG.deepPriorMinTexture||.006});
   log.info('deep-depth-calibrated',{jobId:d.jobId,provider:d.provider,aiMs:d.ms,mode:cal.mode,confidence:cal.confidence,inliers:cal.inliers,anchors:cal.anchorCount,cells:cal.cells,medianRelativeError:cal.medianRelativeError,validRatio:cal.validRatio});
   if($('mvsState'))$('mvsState').textContent=`AI→ALVA ${cal.inliers}/${cal.anchorCount} anchor · errore ${(cal.medianRelativeError*100).toFixed(1)}% · verifico multi-view`;
-  state.denseDepthWorker.postMessage(payload);
+  stripDeepRaster(payload);state.denseDepthWorker.postMessage(payload);
 }
 function handleDenseDepthMessage(d){
   if(d.type==='ready'){if($('mvsState'))$('mvsState').textContent='DENSE pronto · Deep live ~1 Hz; fusione solo su keyframe Alva validi';return;}
@@ -349,7 +382,13 @@ function handleDenseDepthMessage(d){
   if(d.medianDepth)state.denseDepthHint=state.denseDepthHint?state.denseDepthHint*.7+d.medianDepth*.3:d.medianDepth;
   state.denseDepthSamples+=d.samples?.length||0;if(d.ms>1800){state.densePixelStep=Math.min(5,(state.densePixelStep||3)+1);state.denseSourceLimit=2;}else if(d.ms<650){state.densePixelStep=Math.max(3,(state.densePixelStep||3)-1);state.denseSourceLimit=Math.min(3,CONFIG.denseMaxSourceViews||4);}if($('statTri'))$('statTri').textContent=String(state.denseDepthSamples);
   if($('mvsState'))$('mvsState').textContent=d.validCount?`DEPTH AI+ALVA ${d.validCount} px · ${(d.coverage*100).toFixed(0)}% · ${d.ms.toFixed(0)} ms`:'DEPTH rifiutata · serve più overlap/parallasse';
-  if(d.samples?.length){state.denseFusionWorker?.postMessage({type:'integrate',samples:d.samples,origin:d.origin||[0,0,0],frameId:d.refId});log.info('dense-depth-result',{jobId:d.jobId,samples:d.samples.length,coverage:d.coverage,medianDepth:d.medianDepth,ms:d.ms,deepAccepted:state.deepAccepted,deepCalls:state.deepCalls});}
+  if(d.samples?.length){
+    // Refined plane-sweep samples use the SAME frameId as the Deep rays from
+    // that keyframe.  They can tighten the estimate but cannot fake a second
+    // independent view and therefore cannot confirm their own Deep proposal.
+    state.denseFusionWorker?.postMessage({type:'integrate',mode:'mvs-refined',samples:d.samples,origin:d.origin||[0,0,0],frameId:d.refId});
+    log.info('dense-depth-result',{jobId:d.jobId,samples:d.samples.length,coverage:d.coverage,medianDepth:d.medianDepth,ms:d.ms,deepAccepted:state.deepAccepted,deepCalls:state.deepCalls,rayConsensus:true});
+  }
   void scheduleDenseWork();
 }
 function handleDenseFusionMessage(d){
@@ -361,7 +400,7 @@ function handleDenseFusionMessage(d){
   if(d.type==='mesh-result'&&d.vertices?.length){state.mesh=d;window.__ROOMSCAN_METRIC_MESH=d;state.liveOverlay?.setMesh(d);}
   state.surfaceStats={frames:d.frames??state.surfaceStats?.frames??0,surfels:d.surfels??state.surfaceStats?.surfels??0,tsdfVoxels:d.tsdfVoxels??state.surfaceStats?.tsdfVoxels??0,confirmed:d.confirmed??d.splats?.length??state.surfaceStats?.confirmed??0};
   const faces=state.mesh?.faces?.length?state.mesh.faces.length/3:0,unit=state.slam?.metricLocked?'m':'u.Alva';
-  if($('metricPipelineHud'))$('metricPipelineHud').textContent=`DENSE ${state.denseJobs} mappe · surface ${state.surfaceStats.confirmed||0} · TSDF ${state.surfaceStats.tsdfVoxels||0} · mesh ${faces} facce · ${unit}`;
+  if($('metricPipelineHud'))$('metricPipelineHud').textContent=`RAY CONSENSUS ${state.denseJobs} viste · surface ${state.surfaceStats.confirmed||0}/${state.surfaceStats.surfels||0} · TSDF ${state.surfaceStats.tsdfVoxels||0} · mesh ${faces} facce · ${unit}`;
 }
 async function waitForDenseIdle(timeoutMs=4500){const start=performance.now();while(state.denseBusy&&performance.now()-start<timeoutMs)await new Promise(r=>setTimeout(r,35));}
 function workerRequest(worker,message,accept,timeoutMs=3500){return new Promise(resolve=>{if(!worker)return resolve(null);const timer=setTimeout(()=>{worker.removeEventListener('message',handler);resolve(null);},timeoutMs),handler=e=>{if(!accept(e.data||{}))return;clearTimeout(timer);worker.removeEventListener('message',handler);resolve(e.data||null);};worker.addEventListener('message',handler);worker.postMessage(message);});}
@@ -369,7 +408,7 @@ function stopScan(){scanAbortController?.abort();scanAbortController=null;state.
 async function finishScan(){
   await waitForDenseIdle();
   const snap=await workerRequest(state.denseFusionWorker,{type:'snapshot',maxSplats:CONFIG.gaussianSnapshot},d=>d.type==='surface-snapshot',2500);if(snap?.splats?.length)state.gaussians=snap.splats;
-  const mesh=await workerRequest(state.denseFusionWorker,{type:'mesh',maxTriangles:CONFIG.denseMaxMeshTriangles||90000},d=>d.type==='mesh-result',6500);if(mesh?.vertices?.length){state.mesh=mesh;window.__ROOMSCAN_METRIC_MESH=mesh;}
+  const mesh=await workerRequest(state.denseFusionWorker,{type:'mesh',maxTriangles:CONFIG.denseMaxMeshTriangles||90000,maxSurfels:CONFIG.denseFinalTsdfMaxSurfels||60000},d=>d.type==='mesh-result',10000);if(mesh?.vertices?.length){state.mesh=mesh;window.__ROOMSCAN_METRIC_MESH=mesh;}
   const kfCount=state.slam?.keyframes?.length||0;stopScan();
   if(state.currentSession)await state.db?.updateSession(state.currentSession.id,{status:'finished',counts:{keyframes:kfCount,denseSamples:state.denseDepthSamples,surfels:state.gaussians.length,meshFaces:state.mesh?.faces?.length?state.mesh.faces.length/3:0}});
   await showReview();
@@ -385,7 +424,7 @@ async function clearCachesAndReload(){try{const regs=await navigator.serviceWork
 async function loadPly(file){const {parsePly}=await lazy('./formats.js');state.gaussians=parsePly(await file.text());state.mesh=null;await showReview();}
 async function loadR30(file){const {decodeR30}=await lazy('./formats.js');const x=await decodeR30(file);state.gaussians=x.gaussians||x.snapshot?.gaussians||[];state.mesh=x.mesh?{...x.mesh,vertices:new Float32Array(x.mesh.vertices||[]),colors:new Uint8Array(x.mesh.colors||[]),faces:new Uint32Array(x.mesh.faces||[])}:null;await showReview();}
 async function exportPly(){const {gaussiansToPly,downloadBlob}=await lazy('./formats.js');downloadBlob(new Blob([gaussiansToPly(state.gaussians,BUILD.id)],{type:'application/octet-stream'}),`roomscan-${Date.now()}.ply`);}
-async function exportR30(){const {encodeR30,downloadBlob}=await lazy('./formats.js');downloadBlob(encodeR30({build:BUILD,calibration:calibration(),gaussians:state.gaussians,mesh:state.mesh?{vertices:Array.from(state.mesh.vertices||[]),colors:Array.from(state.mesh.colors||[]),faces:Array.from(state.mesh.faces||[]),voxelM:state.mesh.voxelM}:null,reconstruction:{type:'alva-dense-plane-sweep-tsdf',denseSamples:state.denseDepthSamples}}),`roomscan-${Date.now()}.r30`);}
+async function exportR30(){const {encodeR30,downloadBlob}=await lazy('./formats.js');downloadBlob(encodeR30({build:BUILD,calibration:calibration(),gaussians:state.gaussians,mesh:state.mesh?{vertices:Array.from(state.mesh.vertices||[]),colors:Array.from(state.mesh.colors||[]),faces:Array.from(state.mesh.faces||[]),voxelM:state.mesh.voxelM}:null,reconstruction:{type:'alva-deep-ray-consensus-rebuildable-tsdf',denseSamples:state.denseDepthSamples,deepRaySamples:state.deepRaySamples||0}}),`roomscan-${Date.now()}.r30`);}
 async function exportMeshPly(){if(!state.mesh?.vertices?.length)throw new Error('Mesh TSDF non ancora disponibile');const {downloadBlob}=await lazy('./formats.js'),m=state.mesh,V=m.vertices,C=m.colors||[],F=m.faces||[],nv=V.length/3,nf=F.length/3,lines=['ply','format ascii 1.0',`comment Room Scanner ${BUILD.version} TSDF mesh`,`element vertex ${nv}`,'property float x','property float y','property float z','property uchar red','property uchar green','property uchar blue',`element face ${nf}`,'property list uchar int vertex_indices','end_header'];for(let i=0;i<nv;i++)lines.push(`${V[i*3]} ${V[i*3+1]} ${V[i*3+2]} ${C[i*3]??180} ${C[i*3+1]??180} ${C[i*3+2]??180}`);for(let i=0;i<nf;i++)lines.push(`3 ${F[i*3]} ${F[i*3+1]} ${F[i*3+2]}`);downloadBlob(new Blob([lines.join('\n')+'\n'],{type:'application/octet-stream'}),`roomscan-mesh-${Date.now()}.ply`);}
 
 function bind(){on('calibrateBtn','click',safe('begin-calibration',beginCalibration));on('clearCalibrationBtn','click',()=>{localStorage.removeItem(CONFIG.calibrationStorageKey);updateCalibrationUi();});on('calibAddPinBtn','click',safe('add-calibration-pin',addCalibrationPin));on('calibUndoPinBtn','click',()=>{state.calibrator?.undoLastTarget();updateProgress(state.calibrator?.quality());});on('calibFinishBtn','click',safe('finish-calibration',finishCalibration));on('calibCancelBtn','click',safe('cancel-calibration',cancelCalibration));on('startBtn','click',safe('begin-bridge',beginBridge));on('bridgeRetryBtn','click',safe('retry-bridge',beginBridge));on('bridgeCancelBtn','click',()=>{state.bridgeEpoch++;state.bridgeTransition=false;state.bridge?.stop();state.bridge=null;show('home');});on('finishBtn','click',safe('finish-scan',finishScan));on('backHomeBtn','click',()=>show('home'));on('resumeBtn','click',safe('resume-scan',beginBridge));on('fitBtn','click',()=>{state.renderer?.fit();state.renderer?.draw();});on('viewTopBtn','click',()=>state.renderer?.setPreset('top'));on('viewFrontBtn','click',()=>state.renderer?.setPreset('front'));on('viewSideBtn','click',()=>state.renderer?.setPreset('side'));on('arModeBtn','click',()=>{const mode=state.liveOverlay?.cycleMode()||'off';const b=$('arModeBtn');if(b)b.textContent=`AR: ${mode==='gs'?'Surface':mode==='mesh'?'Mesh':mode==='both'?'Surface+Mesh':'Off'}`;});on('splatSize','input',e=>state.renderer?.setSplatSize(e.target.value));on('loadPlyBtn','click',()=>$('filePly')?.click());on('filePly','change',safe('load-ply',async e=>{if(e.target.files?.[0])await loadPly(e.target.files[0]);e.target.value='';}));on('loadR30Btn','click',()=>$('fileR30')?.click());on('fileR30','change',safe('load-r30',async e=>{if(e.target.files?.[0])await loadR30(e.target.files[0]);e.target.value='';}));on('exportPlyBtn','click',safe('export-ply',exportPly));on('exportR30Btn','click',safe('export-r30',exportR30));on('buildMetricMeshBtn','click',safe('export-mesh',exportMeshPly));on('exportDiagBtn','click',()=>log.download());on('diagDownloadBtn','click',()=>log.download());on('diagCopyBtn','click',()=>navigator.clipboard?.writeText(log.text()).catch(()=>{}));on('selfTestBtn','click',safe('self-test',runTests));on('forceUpdateBtn','click',safe('force-update',clearCachesAndReload));on('diagForceUpdateBtn','click',safe('force-update',clearCachesAndReload));on('pinBtn','click',safe('manual-scan-pin',async()=>{const pose=state.slam?.pose;if(!pose||!state.liveOverlay)throw new Error('AlvaAR non ha ancora una posa valida');const {qRotate}=await lazy('./slam/math.js');const d=qRotate(pose.q,[0,0,1]),distance=state.slam.metricLocked?1.25:1;const p=[pose.p[0]+d[0]*distance,pose.p[1]+d[1]*distance,pose.p[2]+d[2]*distance];state.liveOverlay.setReferencePoint(p);const b=$('pinBtn');if(b)b.textContent='◎ Repere ✓';log.info('manual-scan-pin',{pose,point:p,metricLocked:state.slam.metricLocked});}));log.addEventListener('entry',()=>{const live=$('diagLive');if(live&&$('diagPanel')?.open)live.textContent=log.entries.slice(-80).map(x=>`${new Date(x.at).toLocaleTimeString()} ${x.level.toUpperCase()} ${x.event} ${JSON.stringify(x.data)}`).join('\n');});}

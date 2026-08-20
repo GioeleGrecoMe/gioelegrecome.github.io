@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.23.0 - deterministic Depth Anything raster diagnostic.
+ * Room Scanner V30.24.0 - deterministic Depth Anything raster diagnostic.
  *
  * This listener observes the normal deep-test-result and renders the exact
  * camera bytes, the exact NCHW tensor

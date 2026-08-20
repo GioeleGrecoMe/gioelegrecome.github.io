@@ -4,7 +4,7 @@ import {V30Database,openVersionSafe} from './storage/db.js';
 import {triangulateRays,poseIdentity} from './slam/math.js';
 
 /*
- * V30.23.0 self-tests intentionally include regressions for the two phone failures
+ * V30.24.0 self-tests intentionally include regressions for the two phone failures
  * reported on V30.8: IndexedDB downgrade and fake/screen-space WebXR pins.
  */
 export async function runSelfTests(log){
@@ -83,18 +83,19 @@ export async function runSelfTests(log){
     if(!r.metricLocked||r.matches!==1||r.keyframes!==1||!r.trackingValid)throw new Error('SlamEngine first metric Alva frame failed');
     return {metricLocked:r.metricLocked,matches:r.matches,keyframes:r.keyframes};
   });
-  await run('alva-dense-tsdf-pipeline',async()=>{
+  await run('alva-deep-ray-consensus-pipeline',async()=>{
     const app=await fetch(`js/app.js?selftest=${Date.now()}`,{cache:'no-store'}).then(r=>r.text());
-    for(const token of ["new DenseKeyframeManager","CONFIG.denseDepthWorker","type:'depth'","type:'integrate'","surface-result","type:'mesh'"])if(!app.includes(token))throw new Error(`missing dense mapper wiring: ${token}`);
+    for(const token of ["new DenseKeyframeManager","CONFIG.denseDepthWorker","deep_ray_samples.js","mode:'deep-ray'","type:'depth'","type:'integrate'","surface-result","type:'mesh'"])if(!app.includes(token))throw new Error(`missing dense mapper wiring: ${token}`);
     if(app.includes("state.gaussianWorker?.postMessage({type:'add'"))throw new Error('sparse feature -> Gaussian path is still active');
-    const [{estimateDenseDepth},{SparseDenseFusion}]=await Promise.all([import(`./dense/plane_sweep_core.js?selftest=${Date.now()}`),import(`./dense/fusion_core.js?selftest=${Date.now()}`)]);
+    const [{estimateDenseDepth},{SparseDenseFusion},{depthMapToRaySamples}]=await Promise.all([import(`./dense/plane_sweep_core.js?selftest=${Date.now()}`),import(`./dense/fusion_core.js?selftest=${Date.now()}`),import(`./dense/deep_ray_samples.js?selftest=${Date.now()}`)]);
     const w=72,h=54,K={fx:66,fy:66,cx:w/2,cy:h/2,width:w,height:h};
     const make=(px)=>{const gray=new Uint8Array(w*h),rgba=new Uint8ClampedArray(w*h*4);for(let v=0;v<h;v++)for(let u=0;u<w;u++){const z=2,x=px+(u-K.cx)/K.fx*z,y=(K.cy-v)/K.fy*z,val=Math.max(0,Math.min(255,128+(Math.sin(x*17)+Math.sin(y*23)+Math.sin((x+y)*31))*34)),i=v*w+u;gray[i]=val;rgba[i*4]=val;rgba[i*4+1]=Math.min(255,val+10);rgba[i*4+2]=Math.max(0,val-10);rgba[i*4+3]=255;}return {id:String(px),pose:{p:[px,0,0],q:[0,0,0,1]},K,width:w,height:h,gray,rgba};};
     const ref=make(0),sources=[make(-.12),make(.12),make(.22)],depth=estimateDenseDepth({ref,sources,K,near:1,far:3,depthSteps:42,pixelStep:3,minViews:2,maxCost:.28,minConfidence:.07});
     if(depth.samples.length<120||Math.abs(depth.medianDepth-2)>.18)throw new Error(`dense plane probe weak: ${depth.samples.length} samples, median ${depth.medianDepth}`);
-    const fusion=new SparseDenseFusion({voxel:.07,truncation:.21,minSupport:2,maxTsdf:80000});for(let i=0;i<3;i++){const jitter=(i-1)*.004;fusion.integrate(depth.samples.slice(0,500).map(s=>({...s,p:[s.p[0]+jitter,s.p[1],s.p[2]+jitter*.4]})),{origin:[(i-1)*.1,0,0],frameId:`probe-${i}`});}
+    const deepMap=new Float32Array(w*h);deepMap.fill(2);const rayProbe=depthMapToRaySamples({depth:deepMap,width:w,height:h,ref,K,baseConfidence:.8,calibrationRelativeError:.06,pixelStep:6,maxSamples:1000});if(rayProbe.samples.length<40||!rayProbe.samples.every(s=>s.sigmaDepth>s.sigmaLateral))throw new Error('anisotropic Deep ray sampler failed');
+    const fusion=new SparseDenseFusion({voxel:.07,truncation:.21,minSupport:2,maxTsdf:80000});for(let i=0;i<3;i++){const jitter=(i-1)*.004;fusion.integrate(depth.samples.slice(0,500).map(s=>({...s,p:[s.p[0]+jitter,s.p[1],s.p[2]+jitter*.4]})),{origin:[(i-1)*.1,0,0],frameId:`probe-${i}`,mode:'mvs-refined'});}
     const splats=fusion.splats({max:5000}),mesh=fusion.mesh({maxTriangles:12000});if(splats.length<60||mesh.faces.length<30)throw new Error(`fusion probe weak: ${splats.length} surfels, ${mesh.faces.length/3} faces`);
-    return {depthSamples:depth.samples.length,medianDepth:depth.medianDepth,surfels:splats.length,meshFaces:mesh.faces.length/3};
+    return {depthSamples:depth.samples.length,deepRaySamples:rayProbe.samples.length,medianDepth:depth.medianDepth,surfels:splats.length,meshFaces:mesh.faces.length/3};
   });
   await run('dense-depth-worker',()=>workerReadyModule(CONFIG.denseDepthWorker,{depthSteps:16,pixelStep:4,minViews:1,maxSamples:1000}));
   await run('dense-fusion-worker',()=>workerReadyModule(CONFIG.denseFusionWorker,{voxel:.06,truncation:.18,minSupport:2,maxSurfels:5000,maxTsdf:20000}));

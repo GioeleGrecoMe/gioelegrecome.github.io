@@ -19,9 +19,9 @@ test('Alva remains the only trajectory source before dense mapping',()=>{
 });
 
 test('dense keyframe manager builds a small multi-view graph instead of every video frame',()=>{
-  const m=new DenseKeyframeManager({width:48,height:36,maxFrames:6,minSources:2,maxSources:3,minBaseline:.05,maxBaseline:.5,maxAngleRad:.3,minIntervalMs:1}),K={fx:85,fy:85,cx:48,cy:36,width:96,height:72};
+  const m=new DenseKeyframeManager({width:48,height:36,deepWidth:64,deepHeight:48,maxFrames:6,minSources:2,maxSources:3,minBaseline:.05,maxBaseline:.5,maxAngleRad:.3,minIntervalMs:1}),K={fx:85,fy:85,cx:48,cy:36,width:96,height:72};
   for(const x of [0,.03,.09,.16,.24]){const f=texturedPlaneFrame(x),kf={id:f.id,at:f.at,pose:f.pose,rawPose:f.rawPose};m.add(kf,{...f,geometry:{}},K,{metricLocked:true});}
-  const job=m.nextJob();assert.ok(job);assert.ok(job.sources.length>=2&&job.sources.length<=3);assert.ok(m.frames.length<=6);
+  const job=m.nextJob();assert.ok(job);assert.ok(job.sources.length>=2&&job.sources.length<=3);assert.ok(m.frames.length<=6);assert.equal(job.ref.deepRgba.length,64*48*4,'pose-associated Deep raster must be stored separately from the cheaper MVS raster');
 });
 
 test('multi-view plane sweep recovers a dense 2 m plane from known Alva poses',()=>{

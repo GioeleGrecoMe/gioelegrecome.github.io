@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.23.0 ultra-low-budget ONNX geometry-prior runtime configuration.
+ * Room Scanner V30.24.0 ultra-low-budget ONNX geometry-prior runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.23.0',
-  id:'v30.23.0-20260820-live-deep-alva-bootstrap',
+  version:'30.24.0',
+  id:'v30.24.0-20260820-ray-consensus',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -119,6 +119,11 @@ export const CONFIG={
   denseFusionWorker:'workers/dense_fusion_worker.js',
   denseWidth:160,
   denseHeight:240,
+  // Pose-associated neural raster.  Keep it separate from the cheaper MVS
+  // raster: 160x240 was visibly sufficient for photometric matching but throws
+  // away detail before the 224px Depth Anything preprocessor ever sees it.
+  deepKeyframeWidth:224,
+  deepKeyframeHeight:336,
   denseMaxKeyframes:8,
   denseMinSourceViews:2,
   denseMaxSourceViews:4,
@@ -149,10 +154,25 @@ export const CONFIG={
   denseTsdfVoxelAlva:0.030,
   denseTsdfTruncVoxels:3,
   denseMinSurfaceSupport:2,
+  // A surfel is confirmed only after a DIFFERENT Alva keyframe contributes a
+  // ray-compatible observation with actual view diversity. Deep and MVS from
+  // the same keyframe share one frameId, so they cannot self-confirm.
+  denseRayConfirmBaselineM:0.035,
+  denseRayConfirmBaselineAlva:0.018,
+  denseRayMaxSigma:3.0,
   denseMaxSurfels:180000,
   denseMaxTsdfVoxels:450000,
+  // The mesh TSDF is rebuilt from current confirmed surfels. Historical bad
+  // one-frame depths therefore disappear when the consensus moves/refines.
+  denseTsdfMinSupport:3,
+  denseLiveTsdfMaxSurfels:18000,
+  denseFinalTsdfMaxSurfels:60000,
+  denseTsdfMaxSurfels:60000,
   denseSurfaceSnapshotEvery:2,
-  denseMeshEvery:5,
+  // A fresh TSDF rebuild is intentionally less frequent than surfel updates.
+  // Live AR uses splats between rebuilds; the final mesh is always requested on
+  // Finish with the larger final budget below.
+  denseMeshEvery:12,
   denseMaxMeshTriangles:90000,
 
   /*
@@ -200,12 +220,13 @@ export const CONFIG={
   deepOrtRemote:'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.all.min.mjs',
   deepMinAnchors:7,
   deepMinAnchorCells:3,
-  // Lower neural duty cycle on very slow phones; Alva tracking remains continuous.
-  deepMinIntervalMs:4000,
-  deepMaxIntervalMs:12000,
-  deepMinTranslationM:0.20,
-  deepMinTranslationAlva:0.10,
-  deepMinRotationRad:0.16,
+  // Inference is now sub-second on the test phone. Collect redundant Deep
+  // constraints much more often; near-duplicate poses are still rejected.
+  deepMinIntervalMs:1200,
+  deepMaxIntervalMs:4200,
+  deepMinTranslationM:0.065,
+  deepMinTranslationAlva:0.032,
+  deepMinRotationRad:0.085,
   deepDepthNovelty:0.22,
   deepCalibrationMaxMedianRelativeError:0.18,
   deepPriorRelRange:0.18,
@@ -214,6 +235,10 @@ export const CONFIG={
   deepPriorWeight:0.10,
   deepPriorMinConfidence:0.28,
   deepPriorMinTexture:0.006,
+  // Calibrated pixels also become low-authority anisotropic ray observations.
+  // They are cheap to store because only running surfel statistics survive.
+  deepRayPixelStep:5,
+  deepRayMaxSamples:5000,
   // Correctness first: non-selected near-duplicate frames are skipped instead of
   // reintroducing unconstrained plane-sweep sheets. A later novel view will fill
   // the same surface with one calibrated AI call.

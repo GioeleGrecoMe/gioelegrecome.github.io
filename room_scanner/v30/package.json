@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-23-live-deep-alva-bootstrap",
+  "name": "room-scanner-v30-24-ray-consensus",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,6 @@
     "check:alva": "node tools/check_alvaar_runtime.mjs",
     "vendor:alva": "node tools/vendor_alvaar.mjs"
   },
-  "version": "30.23.0",
-  "description": "V30.23.0: live 1 Hz Depth Anything preview during Scan, 224/280/336px structural rescue ladder, and a lighter AlvaAR initializer path at 320x480."
+  "version": "30.24.0",
+  "description": "V30.24.0: probabilistic Deep+Alva multi-view ray consensus with rebuildable TSDF and compact uncertainty-aware surfels."
 }
