@@ -1,0 +1,16 @@
+ROOM SCANNER V30.27 EXP-2 - EXACT FRAME SYNC
+
+Base required: V30.27 EXP-1.
+Copy this package over the V30.27 EXP-1 project, preserving directories.
+No model files are included or changed.
+
+What changes:
+- every captured camera raster gets a unique frameId before AlvaAR sees it;
+- that same frameId/timestamp is propagated to Alva keyframes and Deep jobs;
+- Deep independently fingerprints the exact RGBA raster it actually inferred;
+- a returned result is fused only when jobId + frameId + frameAt + raster size + fingerprint all match;
+- mismatched/late results are discarded and the keyframe falls back to multi-view geometry;
+- sparse tracks and Gaussian support use the source camera frameId, not completion time.
+
+Surface Mesh Lab remains isolated exactly as in EXP-1.
+A separate rollback archive restores only the EXP-2 files to EXP-1.

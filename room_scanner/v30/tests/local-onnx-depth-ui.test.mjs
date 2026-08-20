@@ -37,7 +37,7 @@ test('pre-scan test plus independent live scan depth preview are wired in both e
   const app=read('js/app.js');
   assert.match(app,/captureDepthTestFrame/);
   assert.match(app,/drawDepth\(\$\('depthOverlay'\)/);
-  assert.match(app,/requestLiveDeepPreview\(frame\)/);
+  assert.match(app,/requestLiveDeepPreview\(frame,r\)/);
   assert.match(app,/preview-ticker-/);
   assert.match(app,/deep-depth-quality-rejected/);
   assert.doesNotMatch(app,/requestLiveDepth/);

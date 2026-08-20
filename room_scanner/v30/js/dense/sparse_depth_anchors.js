@@ -38,7 +38,7 @@ export function buildSparseDepthAnchors(ref,sources,{maxReprojectionPx=2.8,minAn
       const confidence=.55*geom+.45*reproj;
       const obs={
         p:tr.p.slice(0,3),depth:ra.z,confidence,angle:tr.angle,reprojectionPx:(ea+eb)/2,
-        sourceId:src.id,baseline,u:a.x,v:a.y,featureSource:a.source||'mvs',matchDistance:m.d,
+        sourceId:src.frameId||src.id,baseline,u:a.x,v:a.y,featureSource:a.source||'mvs',matchDistance:m.d,
         // Keep the source observation only while this keyframe job is active.
         // It lets the fused landmark solve one true multi-view reprojection
         // problem instead of averaging pairwise triangulations. None of this
@@ -117,7 +117,7 @@ function fuseTrack(track,ref,maxReprojectionPx){
   return {
     u:track.u,v:track.v,depth:pr.z,p,confidence,angle:meanAngle,reprojectionPx:meanReproj,
     sourceId:kept[0]?.sourceId,sourceIds:[...new Set(kept.map(o=>o.sourceId))],viewSupport,
-    featureSource:track.featureSource,trackId:`${ref.id||'ref'}:${track.refIndex}`,
+    featureSource:track.featureSource,trackId:`${ref.frameId||ref.id||'ref'}:${track.refIndex}`,
     sigmaDepth,worldSigma:Math.max(sigmaDepth,robustWorldSigma(kept,p)),trackObservations:kept.length,
     // Preserve the compact appearance descriptor and a full 3D covariance.
     // The covariance is aligned with the reference camera ray and augmented by
@@ -126,7 +126,7 @@ function fuseTrack(track,ref,maxReprojectionPx){
     // metric landmark rather than merely a scalar depth hint.
     descriptor:Array.isArray(track.desc)?track.desc.slice(0,24).map(Number):null,
     covariance,
-    evidenceFrames:[ref.id,...new Set(kept.map(o=>o.sourceId))].filter(Boolean)
+    evidenceFrames:[ref.frameId||ref.id,...new Set(kept.map(o=>o.sourceId))].filter(Boolean)
   };
 }
 

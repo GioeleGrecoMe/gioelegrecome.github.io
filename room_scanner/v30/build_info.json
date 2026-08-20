@@ -1,6 +1,6 @@
 {
-  "version": "30.26.0",
-  "id": "v30.26.0-20260820-saved-batch-gaussian-opt",
-  "builtAt": "2026-08-20T23:11:00+02:00",
-  "notes": "End-of-scan sessions now persist the confirmed Gaussian map, current mesh and a bounded multi-view observation reservoir in IndexedDB. Review can reload saved sessions from Home and run user-budgeted post-scan Gaussian geometry optimisation in a dedicated worker. Robust covariance-weighted observation terms plus tangent-preserving local plane regularisation refine centres without collapsing edges; preview updates are batched and optimization progress is re-saved locally."
+  "version": "30.27.0-exp.2",
+  "id": "v30.27.0-exp.2-20260820-exact-frame-sync",
+  "builtAt": "2026-08-20T23:55:00+02:00",
+  "notes": "EXP-2 exact-frame synchronization: every camera capture has a monotonic frameId propagated through Alva keyframes, Deep jobs, sparse tracks and Gaussian fusion. Deep worker independently fingerprints the exact RGBA raster and echoes frameId/frameAt; late or out-of-order results are rejected before calibration/fusion. Surface Mesh Lab remains isolated and reversible."
 }

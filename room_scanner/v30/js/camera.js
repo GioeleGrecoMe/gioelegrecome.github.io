@@ -53,7 +53,7 @@ export function sourcePixelToViewport({sourceWidth,sourceHeight},x,y,viewportWid
 export class CameraController extends EventTarget{
   constructor({video,width=320,height=480,fps=12,log=null,stream=null}={}){
     super();this.video=video;this.width=width;this.height=height;this.fps=fps;this.log=log;this.stream=stream;
-    this.canvas=document.createElement('canvas');this.canvas.width=width;this.canvas.height=height;this.ctx=this.canvas.getContext('2d',{willReadFrequently:true});this.running=false;this._timer=0;this.geometry=null;this._resizeHandler=()=>fitCameraViewport(this.video);
+    this.canvas=document.createElement('canvas');this.canvas.width=width;this.canvas.height=height;this.ctx=this.canvas.getContext('2d',{willReadFrequently:true});this.running=false;this._timer=0;this.geometry=null;this.frameSeq=0;this.frameEpoch=`cam-${Date.now().toString(36)}`;this._resizeHandler=()=>fitCameraViewport(this.video);
   }
   adoptStream(stream){if(this.stream&&this.stream!==stream)for(const t of this.stream.getTracks?.()||[])try{t.stop()}catch{}this.stream=stream||null;return this;}
   async start(){
@@ -67,7 +67,7 @@ export class CameraController extends EventTarget{
     const vw=this.video.videoWidth||this.width,vh=this.video.videoHeight||this.height,g=coverCrop(vw,vh,this.width,this.height);this.geometry=g;
     this.ctx.drawImage(this.video,g.sx,g.sy,g.sw,g.sh,0,0,this.width,this.height);
     const image=this.ctx.getImageData(0,0,this.width,this.height),gray=new Uint8Array(this.width*this.height),d=image.data;for(let i=0,j=0;i<d.length;i+=4,j++)gray[j]=(d[i]*77+d[i+1]*150+d[i+2]*29)>>8;
-    return {at:performance.now(),width:this.width,height:this.height,gray,rgba:image.data,imageData:image,geometry:g};
+    const at=performance.now(),captureSeq=++this.frameSeq,frameId=`${this.frameEpoch}-${captureSeq}`;return {frameId,captureSeq,at,mediaTime:Number(this.video.currentTime)||0,width:this.width,height:this.height,gray,rgba:image.data,imageData:image,geometry:g};
   }
   loop(callback){const period=1000/Math.max(1,this.fps);let last=0;const tick=()=>{if(!this.running)return;const now=performance.now();if(now-last>=period){last=now;const f=this.capture();if(f)callback(f);}this._timer=setTimeout(tick,4);};tick();return ()=>{this.running=false;clearTimeout(this._timer);};}
 }

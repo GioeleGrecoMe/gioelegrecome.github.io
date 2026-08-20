@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-26-saved-batch-gaussian-opt",
+  "name": "room-scanner-v30-27-exp2-exact-frame-sync",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,6 @@
     "check:alva": "node tools/check_alvaar_runtime.mjs",
     "vendor:alva": "node tools/vendor_alvaar.mjs"
   },
-  "version": "30.26.0",
-  "description": "V30.26.0: persistent scan sessions and user-budgeted batch refinement of multi-view 3D Gaussian geometry."
+  "version": "30.27.0-exp.2",
+  "description": "V30.27 EXP-2: exact camera-frame synchronization across AlvaAR, Depth Anything and Gaussian fusion, retaining the isolated reversible Surface Mesh Lab."
 }

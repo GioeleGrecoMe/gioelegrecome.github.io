@@ -1,4 +1,21 @@
-# Room Scanner V30.26.0
+# Room Scanner V30.27 EXP-2
+
+## Exact AlvaAR / Deep frame synchronization
+
+EXP-2 keeps the isolated Surface Mesh Lab from EXP-1 and hardens the online
+geometry path: every camera raster now receives a unique `frameId` at capture.
+The same identity is propagated through AlvaAR keyframes, Depth Anything jobs,
+sparse tracks and Gaussian fusion. Deep results are accepted only when the
+returned `jobId`, `frameId`, capture timestamp, raster dimensions and an
+independently computed RGB fingerprint all match the frozen source frame.
+Inference completion time never selects a pose or a feature set.
+
+If validation fails, the Deep prior is discarded and the already valid Alva/MVS
+keyframe continues without it. This prevents a delayed neural result from being
+anchored to a newer camera pose.
+
+---
+
 
 Room Scanner combines **AlvaAR metric camera motion**, **Depth Anything V2
 relative depth** and **multi-view feature geometry** into a compact online 3D

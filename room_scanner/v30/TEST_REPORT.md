@@ -1,4 +1,4 @@
-# V30.26.0 verification report
+# V30.27 EXP-2 verification report
 
 Final verification command:
 
@@ -8,27 +8,29 @@ npm run verify
 
 Result: **PASS**.
 
-- Node tests: **94/94 passed**, 0 failed.
+- Node tests: **101/101 passed**, 0 failed.
+- Exact-frame Deep/Alva synchronization regressions: PASS.
 - Depth Anything tensor/stripe/coherence diagnostics: PASS.
 - Published layout/version contract: PASS.
-- Local dependency closure: PASS (28 references resolved).
+- Local dependency closure: PASS (29 references resolved).
 - EventTarget constructor safety: PASS (5/5 derived classes).
 - Mock UI boot and failed-WebXR recovery: PASS.
 - AlvaAR runtime contract: PASS.
 
-V30.26 adds persistent post-scan Gaussian state and an interruptible batch
-optimiser. New regression coverage includes:
+EXP-2 adds a hard source-frame contract from camera capture to Gaussian fusion:
 
-- bounded, view-diverse observation reservoirs exported by online Gaussian fusion;
-- full covariance-weighted multi-view refinement;
-- tangent-preserving local point-to-plane regularisation on planar surfaces;
-- user-selected cumulative iteration targets and adaptive preview cadence;
-- worker yielding and stop handling;
-- review controls and local-session reload wiring;
-- persistence before leaving review so the latest visible optimised state is not
-  silently discarded;
-- service-worker/dependency closure for the new optimiser module and worker.
+1. `CameraController.capture()` allocates an immutable `frameId` before any
+   consumer processes the raster.
+2. `SlamEngine` propagates that exact `frameId` to observations and keyframes.
+3. Dense keyframe creation rejects a keyframe/raster identity or timestamp
+   mismatch before downsampling.
+4. Every Deep request stores a binding containing `jobId`, `frameId`, `frameAt`,
+   source raster dimensions and an FNV-style sampled RGB fingerprint.
+5. The Deep worker independently recomputes the fingerprint from the transferred
+   RGBA buffer and echoes all correlation metadata with the result.
+6. `app.js` validates all fields before calibration or fusion. A late/out-of-order
+   result cannot use the current Alva pose/features and falls back to MVS-only.
+7. Sparse track evidence and Gaussian support use source camera `frameId`s rather
+   than asynchronous completion time or only the derived keyframe ID.
 
-The pre-optimisation TSDF mesh is intentionally marked stale once Gaussian
-centres move. Exporting that stale mesh is refused rather than returning geometry
-that no longer agrees with the refined Gaussian map.
+The Surface Mesh Lab remains isolated/reversible exactly as in EXP-1.

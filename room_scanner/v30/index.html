@@ -7,9 +7,9 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="manifest" href="manifest.webmanifest?v=30.26.0">
-  <link rel="stylesheet" href="styles.css?v=30.26.0">
-  <title>Room Scanner V30.26.0</title>
+  <link rel="manifest" href="manifest.webmanifest?v=30.27.0-exp.2">
+  <link rel="stylesheet" href="styles.css?v=30.27.0-exp.2">
+  <title>Room Scanner V30.27 EXP-2</title>
 
 <style id="deepDiagStyle">
 .deepDiagGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin-top:.7rem}.deepDiagGrid figure{margin:0;min-width:0}.deepDiagGrid figure[hidden]{display:none}.deepDiagGrid figcaption{font-size:.72rem;opacity:.75;margin:0 0 .25rem}.deepDiagGrid canvas{display:block;width:100%;min-height:100px;background:#05070a;border:1px solid rgba(255,255,255,.15);border-radius:8px;object-fit:contain}.deepDiagReport{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.72rem;line-height:1.35;max-height:none;background:rgba(0,0,0,.28);padding:.65rem;border-radius:8px;margin:.7rem 0 0}@media(max-width:680px){.deepDiagGrid{grid-template-columns:1fr}}
@@ -18,7 +18,7 @@
 <body>
 <main id="app">
   <section id="home" class="screen active">
-    <div class="hero"><div id="buildBadge" class="badge">V30.26.0</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
+    <div class="hero"><div id="buildBadge" class="badge">V30.27 EXP-2</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
     <div class="card"><b>1 · Calibrazione</b><p class="hint">Inquadra un punto fisico con il reticolo e premi <b>Aggiungi pin</b>. Usa 3 punti ben distribuiti. Dopo poche viste utili per ciascun pin, riportane almeno 3 nella stessa inquadratura e premi Applica.</p><div id="calibSummary" class="status">Calibrazione non presente.</div><div class="actions inline"><button id="calibrateBtn" class="primary">Calibra con WebXR</button><button id="clearCalibrationBtn">Azzera calibrazione</button></div></div>
     <div class="card"><b>2 · Modello depth</b><p class="hint">Il modello locale <code>models/model_q4.onnx</code> viene caricato dal sito. Se manca o non è pubblicato, viene mostrato un errore chiaro: non parte più alcun download remoto infinito. Puoi comunque scegliere manualmente un file ONNX.</p><div class="actions inline"><button id="chooseDeepModelBtn">Scegli ONNX</button><button id="testDeepBtn" class="primary">Prova inferenza</button></div><input id="deepModelFile" type="file" accept=".onnx,application/octet-stream" hidden><div id="deepModelStatus" class="status">Depth Anything V2 Small Q4 locale · 224 px con rescue automatico 280/336 px, pronto per il test.</div><canvas id="deepTestPreview" class="depthTestPreview" aria-label="Anteprima depth map"></canvas></div>
 
@@ -62,18 +62,19 @@
       <div id="reviewStats" class="card compact"></div>
       <div id="metricGsStats" class="card compact">Dati mesh: attendo consenso multi-view / TSDF ricostruibile.</div>
       <div id="optimizerCard" class="card compact optimizerCard"><b>Ottimizzazione batch 3D Gaussian</b><p class="hint">Il numero è un target totale: puoi fermarti, riaprire la sessione dalla Home e continuare più tardi. La preview viene aggiornata a blocchi per non saturare il telefono.</p><div class="optimizerControls"><label>Fermati a <input id="optIterations" type="number" inputmode="numeric" min="1" max="300" step="1" value="30"> iterazioni</label><button id="optStartBtn" class="primary">Ottimizza</button><button id="optStopBtn" disabled>Ferma</button></div><progress id="optProgress" min="0" max="30" value="0"></progress><div id="optStatus" class="status">0 iterazioni completate.</div></div>
+      <div id="surfaceLabCard" class="card compact optimizerCard experimentalCard"><b>EXP · Surface Mesh Lab isolato</b><p class="hint">Prova una superficie/mesh nuova su una COPIA della mappa. La BASE V30.26 non viene mai sovrascritta: puoi confrontare BASE/EXP o eliminare l’esperimento in qualsiasi momento.</p><div class="optimizerControls"><label>EXP fino a <input id="surfaceLabIterations" type="number" inputmode="numeric" min="1" max="160" step="1" value="20"> iterazioni</label><label>Voxel <input id="surfaceLabVoxel" type="number" inputmode="decimal" min="0.012" max="0.08" step="0.005" value="0.03"> m</label><button id="surfaceLabStartBtn" class="primary">Avvia EXP</button><button id="surfaceLabStopBtn" disabled>Ferma</button></div><progress id="surfaceLabProgress" min="0" max="20" value="0"></progress><div id="surfaceLabStatus" class="status">BASE attiva · nessun esperimento in RAM.</div><div class="actions wrap compactActions"><button id="surfaceLabBaseBtn" disabled>Mostra BASE</button><button id="surfaceLabExpBtn" disabled>Mostra EXP</button><button id="surfaceLabExportBtn" disabled>Scarica mesh EXP</button><button id="surfaceLabDiscardBtn" disabled>Elimina EXP</button></div></div>
       <div class="actions wrap"><button id="buildMetricMeshBtn">Scarica mesh TSDF</button><button id="exportPlyBtn" class="primary">Scarica PLY</button><button id="exportR30Btn">Scarica .r30</button><button id="exportDiagBtn">Diagnostica</button><button id="resumeBtn">Nuova scansione</button></div>
     </div>
   </section>
 </main>
 
-<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.26.0</pre></div></details></aside>
+<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.27 EXP-2</pre></div></details></aside>
 
 <script>
 /* Load the UI immediately. A service-worker handover may reload the page once,
  * but it must never hold the application in a stale-controller wait loop. */
 (function(){
-  const VERSION='30.26.0';
+  const VERSION='30.27.0-exp.2';
   const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),version:VERSION,errors:[],interactive:false};
   const rec=(type,data={})=>boot.errors.push({time:Date.now(),type,...data});
   addEventListener('error',e=>rec('error',{message:e.message,src:e.filename,line:e.lineno,col:e.colno,stack:e.error?.stack||null}));

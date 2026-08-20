@@ -37,12 +37,12 @@ export function depthMapToRaySamples({
     const seed=nearestTrack(tracks,u,v,Math.max(5,step*1.35)),ray=normalize(sub(r.p,origin));
     let normal=finite3(r.normal)?normalize(r.normal):normalize(sub(origin,r.p));if(dot(normal,normalize(sub(origin,r.p)))<0)normal=normal.map(x=>-x);
     const sigmaDepth=Math.max(pixelFootprint*.85,z*(.008+.035*(1-clamp(r.confidence,0,1)))),sigmaLateral=Math.max(pixelFootprint*.52,z/Math.max(K.fx,K.fy)*.70);
-    const mvsCov=rayCovariance(ray,sigmaDepth,sigmaLateral),evidence=uniqueEvidence([ref.id,...framesFromMask(Number(r.viewMask)||0,sourceFrames)]);
+    const mvsCov=rayCovariance(ray,sigmaDepth,sigmaLateral),evidence=uniqueEvidence([ref.frameId||ref.id,...framesFromMask(Number(r.viewMask)||0,sourceFrames)]);
     let p=r.p.slice(0,3),cov=mvsCov,descriptor=null,trackId=null,anchorSupport=0,sourceName='proxy-verified',confidence=clamp(.56+.42*r.confidence,.08,.99);
     if(seed?.p&&finite3(seed.p)){
       consumedTracks.add(seed.trackId||seed._index);trackEnhanced++;p=seed.p.slice(0,3);cov=validCov(seed.covariance)?seed.covariance.slice(0,6):mvsCov;
       descriptor=Array.isArray(seed.descriptor)?seed.descriptor.slice(0,24):null;trackId=seed.trackId||null;anchorSupport=seed.viewSupport||0;sourceName='proxy-track-mvs';confidence=clamp(.68+.22*r.confidence+.10*(seed.confidence||.5),.12,.995);
-      evidence.push(...uniqueEvidence(seed.evidenceFrames||[ref.id,...(seed.sourceIds||[])]));
+      evidence.push(...uniqueEvidence(seed.evidenceFrames||[ref.frameId||ref.id,...(seed.sourceIds||[])]));
     }
     verified.push({
       p,normal,color:r.color||sampleRgb(ref.rgba,width,height,u,v),confidence,radius:pixelFootprint,depth:z,u,v,
@@ -58,7 +58,7 @@ export function depthMapToRaySamples({
     const sid=seed.trackId||seed._index;if(consumedTracks.has(sid)||!finite3(seed.p)||!(seed.depth>0))continue;
     const u=clamp(seed.u,0,width-1),v=clamp(seed.v,0,height-1),p=seed.p.slice(0,3),ray=normalize(sub(p,origin)),z=seed.depth,pixelFootprint=Math.max(.0015,z/Math.max(K.fx,K.fy)*1.1);
     const sigmaDepth=Math.max(pixelFootprint,Number(seed.sigmaDepth)||z*.025),sigmaLateral=Math.max(pixelFootprint*.42,Math.min(sigmaDepth*.55,Number(seed.worldSigma)||pixelFootprint));
-    const cov=validCov(seed.covariance)?seed.covariance.slice(0,6):rayCovariance(ray,sigmaDepth,sigmaLateral),evidence=uniqueEvidence(seed.evidenceFrames||[ref.id,...(seed.sourceIds||[])]);
+    const cov=validCov(seed.covariance)?seed.covariance.slice(0,6):rayCovariance(ray,sigmaDepth,sigmaLateral),evidence=uniqueEvidence(seed.evidenceFrames||[ref.frameId||ref.id,...(seed.sourceIds||[])]);
     verified.push({
       p,normal:ray.map(x=>-x),color:sampleRgb(ref.rgba,width,height,u,v),confidence:clamp(.62+.34*(seed.confidence||.5),.10,.995),radius:pixelFootprint*.55,depth:z,u,v,
       sigmaDepth,sigmaLateral,covariance:regularizeCov(cov,1e-5),surfaceCovariance:isotropicCov(Math.max(.0015,pixelFootprint*.42)),source:'proxy-track',anchorBoost:1,
@@ -88,7 +88,7 @@ export function depthMapToRaySamples({
       deepOnly.push({
         p,normal,color:sampleRgb(ref.rgba,width,height,u,v),confidence,radius:pixelFootprint,depth:z,u,v,sigmaDepth,sigmaLateral,
         covariance:rayCovariance(ray,sigmaDepth,sigmaLateral),surfaceCovariance:surfaceCov,source,anchorBoost,trackId:anchor?.trackId||null,anchorSupport:anchor?.viewSupport||0,
-        normalReliable:true,evidenceFrames:uniqueEvidence([ref.id])
+        normalReliable:true,evidenceFrames:uniqueEvidence([ref.frameId||ref.id])
       });
     }
   }

@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.26.0 - ultra-low-budget WebGPU/WASM Depth Anything worker.
+ * Room Scanner V30.27.0 EXP-2 - exact-frame synchronized WebGPU/WASM Depth Anything worker.
  *
  * GPU READBACK + AUTHORITATIVE DEPTH LAYOUT + Q4 DEFAULT
  * -------------------------
@@ -1209,6 +1209,17 @@ async function infer(d, { benchmark = false, ignoreCachedPlan = false } = {}) {
   );
 }
 
+
+function correlationFields(d){
+  return {
+    frameId:d?.frameId==null?null:String(d.frameId),
+    frameAt:Number.isFinite(Number(d?.frameAt))?Number(d.frameAt):null,
+    refId:d?.refId==null?null:String(d.refId),
+    sourceWidth:Number(d?.width)||null,
+    sourceHeight:Number(d?.height)||null,
+  };
+}
+
 function isPreviewJob(d) {
   return d?.type === 'infer' && String(d?.jobId || '').startsWith('preview-ticker-');
 }
@@ -1274,16 +1285,17 @@ async function handleWorkerMessage(d) {
       // depth gets priority; live preview keeps only one pending frame.
       if (isPreviewJob(d)) {
         if (!queuedPreviewInfer) queuedPreviewInfer = d;
-        postMessage({ type:'deep-preview-queued', jobId:d.jobId || null });
+        postMessage({ type:'deep-preview-queued', jobId:d.jobId || null, ...correlationFields(d) });
       } else if (!queuedPriorityInfer) {
         queuedPriorityInfer = d;
-        postMessage({ type:'deep-queued', jobId:d.jobId || null });
+        postMessage({ type:'deep-queued', jobId:d.jobId || null, ...correlationFields(d) });
       }
       return;
     }
     postMessage({
       type: 'deep-error',
       jobId: d.jobId || null,
+      ...correlationFields(d),
       stage: d.type,
       message: 'inferenza precedente ancora in corso',
       provider,
@@ -1344,7 +1356,7 @@ async function handleWorkerMessage(d) {
     const message = {
       type: d.type === 'test' ? 'deep-test-result' : 'deep-result',
       jobId: d.jobId || null,
-      refId: d.refId || null,
+      ...correlationFields(d),
       provider: effectiveProvider,
       runtime: ortSource,
       rawDepth: finalDepth,
@@ -1395,6 +1407,7 @@ async function handleWorkerMessage(d) {
     postMessage({
       type: previewJob ? 'deep-preview-error' : 'deep-error',
       jobId: d.jobId || null,
+      ...correlationFields(d),
       stage: d.type,
       message: err?.message || String(err),
       stack: err?.stack || null,

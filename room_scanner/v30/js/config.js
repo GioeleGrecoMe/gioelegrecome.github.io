@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.26.0 saved-session + batch 3DGS optimisation runtime configuration.
+ * Room Scanner V30.27.0 EXP-2 isolated surface-mesh laboratory runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.26.0',
-  id:'v30.26.0-20260820-saved-batch-gaussian-opt',
+  version:'30.27.0-exp.2',
+  id:'v30.27.0-exp.2-20260820-exact-frame-sync',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -305,6 +305,25 @@ export const CONFIG={
   postOptimizePriorWeight:0.18,
   postOptimizePlaneWeight:0.10,
   postOptimizeDamping:0.68,
+
+  /*
+   * EXPERIMENTAL Surface Mesh Lab.  Nothing in this block replaces the V30.26
+   * Gaussian/TSDF path: the review screen sends a bounded COPY to a dedicated
+   * worker and keeps the production map as an immediate rollback point.
+   */
+  surfaceLabWorker:'workers/surface_mesh_lab_worker.js',
+  surfaceLabMaxGaussians:30000,
+  surfaceLabPreviewMaxGaussians:24000,
+  surfaceLabDefaultIterations:20,
+  surfaceLabMaxIterations:160,
+  surfaceLabPreviewUpdates:12,
+  surfaceLabMeshPreviewEvery:3,
+  surfaceLabVoxelM:0.03,
+  surfaceLabPreviewVoxelM:0.045,
+  surfaceLabMaxVoxels:320000,
+  surfaceLabPreviewMaxVoxels:150000,
+  surfaceLabMaxTriangles:120000,
+  surfaceLabPreviewMaxTriangles:45000,
   // Official AlvaAR ESM distribution. A physical vendor/alva_ar.js is used
   // first. If absent, the browser downloads one official/mirrored copy once,
   // validates the real AlvaAR API and stores it in CacheStorage for offline use.
