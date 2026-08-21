@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.34.0 continuous RGB+Depth mosaic application.
+ * Room Scanner V30.35.0 continuous RGB+Depth mosaic application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,8 +8,8 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.34.0';
-import {DiagnosticsLog} from './logger.js?v=30.34.0';
+import {BUILD,CONFIG} from './config.js?v=30.35.0';
+import {DiagnosticsLog} from './logger.js?v=30.35.0';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
@@ -551,7 +551,7 @@ function updateLiveMapUi(extra=null){
   if(photo)photo.classList.toggle('active',state.liveMapMode==='photo');if(depth)depth.classList.toggle('active',state.liveMapMode==='depth');if(!status)return;if(extra){status.textContent=extra;return;}if(!s.frames){status.textContent=`${state.liveMapMode==='depth'?'DEPTH CONSENSUS':'MOSAICO RGB+DEPTH'} · attendo primo frame con Depth valida…`;return;}
   const placed=s.visualRegisteredFrames||0,pending=Math.max(0,(s.frames||0)-placed),visual=`${placed} foto unite${pending?` · ${pending} in attesa overlap`:''}`;
   if(state.liveMapMode==='photo')status.textContent=`MOSAICO RGB+DEPTH · ${visual} · ${s.rawDepthFrames||0} depth associate · nessun punto/posa · ${(100*(s.coverage||0)).toFixed(0)}% canvas`;
-  else{const metric=s.metricDepthFrames||0,cons=s.depthConsensusAlignedFrames||0,derr=Number.isFinite(s.depthConsensusError)&&s.depthConsensusError<9?` · err overlap ${(100*s.depthConsensusError).toFixed(1)}%`:'';status.textContent=`DEPTH SU MOSAICO RGB · Deep ${s.rawDepthFrames||0}F · overlap ${cons}F · metriche ${metric}F${derr} · ${(100*(s.coverage||0)).toFixed(0)}% canvas`;}
+  else{const metric=s.metricDepthFrames||0,cons=s.depthConsensusAlignedFrames||0,derr=Number.isFinite(s.depthConsensusError)&&s.depthConsensusError<9?` · err overlap ${(100*s.depthConsensusError).toFixed(1)}%`:'',layers=s.depthOverlapLayerAnchors||0,amb=s.depthAmbiguousFraction>0?` · amb ${(100*s.depthAmbiguousFraction).toFixed(0)}%`:'';status.textContent=`DEPTH SU MOSAICO RGB · Deep ${s.rawDepthFrames||0}F · overlap ${cons}F · layer ref ${layers} · metriche ${metric}F${derr}${amb} · ${(100*(s.coverage||0)).toFixed(0)}% canvas`;}
 }
 
 function scheduleLiveMapRender(force=false){

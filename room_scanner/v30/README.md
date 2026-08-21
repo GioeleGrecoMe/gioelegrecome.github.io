@@ -1,11 +1,30 @@
-# Room Scanner V30.34 · Spherical RGB panorama + global Depth consensus
+# Room Scanner V30.35 · spherical RGB + layer-wise probabilistic Depth
 
-V30.34 changes the live photographic map from a planar/projective stitch into a rigid spherical panorama. Only exact survey RGB frames that own a valid Depth Anything map from that same capture are admitted to the photo graph.
+V30.35 keeps the V30.34 RGB-only spherical panorama unchanged geometrically and redesigns how exact-frame Depth Anything maps are synchronized and fused.
 
-Photographic placement is independent from AlvaAR. Multi-scale photo corners and oriented BRIEF/ZNCC descriptors propose RGB correspondences; those pixel pairs are converted through the camera intrinsics into calibrated rays. Registration estimates only a 3-DoF relative camera rotation, and all accepted rotations are averaged over the photo graph. The renderer inverse-warps each complete RGB image onto a common sphere. No homography, affine transform or local projective mesh can stretch a photograph to force a fit.
+## Measurement contract
 
-The live graph is more tolerant to temporary reference loss: each new depth-valid frame is compared with several recent frames, recent members of the visible component and visually similar older frames. If that fails, a bounded wider relocalisation is attempted. Later good frames also retry recent disconnected photographs. A frame that still has no real spherical RGB overlap remains unplaced.
+- A photo enters the live graph only together with the Depth map inferred from that exact frozen RGB frame.
+- RGB overlap is the only authority for panorama registration. AlvaAR is optional metadata and never places a photo.
+- Panorama geometry is rigid spherical rotation; no projective warp may stretch an image.
+- Small exposure/white-balance differences are compensated globally per RGB channel across the photographic overlap graph.
 
-Depth fusion uses the same accepted spherical overlaps. All raw monocular maps participate in one global robust affine system, `a_i D_i + b_i = a_j D_j + b_j`, with a fixed gauge. Dense samples from the common spherical regions complement feature correspondences. The depth preview then uses one global robust range for every aligned map, so colours have the same meaning across the complete atlas.
+## Depth synchronization
 
-Alva pose/covariance can still be stored as optional metadata for the unchanged metric/3-D path, but it is not read by photographic registration or the panorama renderer. The later 3-D reconstruction is unchanged.
+The relative Depth Anything output is not treated as metric depth or as if one affine scale were sufficient. Every accepted RGB spherical overlap contributes a dense set of corresponding raw-depth samples. Samples near RGB/depth discontinuities are down-weighted. Broad depth bands in each overlap are summarized into robust layer anchors.
+
+All connected frames are then optimized jointly with monotone piecewise-linear transfers `T_i`:
+
+`T_i(D_i(p)) ~= T_j(D_j(q))`
+
+The transfer has 16 robust quantile knots and is solved with IRLS plus slope regularization. This permits foreground/mid/background response to change non-linearly while preserving depth ordering and one common global gauge.
+
+## Probabilistic atlas
+
+The live depth atlas no longer averages all maps blindly. Each panorama pixel keeps at most two competing depth hypotheses. Compatible observations tighten a hypothesis; incompatible layers stay separate. The displayed value is the MAP hypothesis, so two different surfaces are not converted into an artificial intermediate depth.
+
+Hann feathering is applied only where the RGB spherical masks really overlap. A non-overlapped photo keeps full weight to its border, so feathering cannot erase coverage. One shared global depth colour range is used for the entire atlas.
+
+## Scope
+
+The downstream 3-D reconstruction is intentionally unchanged in V30.35. This patch only improves the photographic/depth evidence delivered to it.

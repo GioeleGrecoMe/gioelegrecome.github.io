@@ -1,60 +1,30 @@
-# V30.34.0 test report — robust spherical panorama + global Depth scale
+# V30.35.0 test report · layer-wise probabilistic Depth
 
-## Scope
+## Automated suite
 
-V30.34 changes only the photographic/depth evidence layer before the existing 3-D reconstruction:
+`npm test`: **146/147 PASS**.
 
-- exact-frame RGB+Depth admission remains mandatory;
-- photographic registration is now rigid spherical rotation, not a planar homography;
-- multi-scale photo matching and wider relocalisation improve live connectivity;
-- all raw Depth Anything maps are jointly aligned into one global affine latent scale;
-- the Depth atlas uses one shared global colour range;
-- AlvaAR remains optional metadata for this stage.
+The only failure is the expected filesystem test for `models/model_q4.onnx`; the user-supplied development package intentionally omits `models/`. No panorama, Depth, persistence, UI or reconstruction regression failed.
 
-## Node test suite
+New V30.35 tests verify:
 
-`npm test`:
-
-- total: **143**
-- passed: **142**
-- failed: **1**
-
-The sole failure is `bundled local ONNX model and mobile worker path are explicit`, because the supplied project intentionally omits `models/model_q4.onnx`. The application/model-path code is unchanged by this patch; the filesystem assertion cannot pass until the existing `models/` directory is restored beside the patch.
-
-All spherical panorama, photo-only authority, exact-frame depth admission, continuous renderer, global Depth consensus, boot/cache and existing reconstruction tests pass.
-
-## Public TUM validation
-
-`node tools/validate_public_data.mjs` passes on the retained public TUM fixture:
-
-- feature matching precision: **98.84%**
-- recall: **100%**
-- photo puzzle: **6/6 frames connected**
-- photo-puzzle edges: **15**
-- photo-puzzle loop edges: **6**
-- live atlas connected fraction: **100%**
-- live atlas edges: **15**
-- RGB coverage: **0.510**
-- Depth coverage: **0.514**
-- factor-graph reprojection RMSE: **2.291 px → 0.037 px**
-
-The public-data fixture is a controlled registration/graph validation, not a full panorama or room-reconstruction benchmark.
+- exact affine monocular maps synchronize on one global scale;
+- strongly nonlinear but monotone response changes synchronize through layer transfers;
+- overlap-derived layer anchors are created;
+- incompatible depth surfaces remain separate instead of averaging;
+- compatible observations reduce posterior uncertainty;
+- Hann weighting applies only in RGB overlap and cannot erase single-source coverage.
 
 ## Additional checks
 
-- Depth worker diagnostics: **PASS**
-- V30 layout/build identity: **PASS**
-- local dependency closure: **PASS** (39 references)
-- EventTarget constructors: **PASS 5/5**
-- mock UI boot/recovery: **PASS**
-- AlvaAR runtime contract: **PASS**
+- `check:public`: PASS. TUM RGB-D fixture: 98.84% feature precision, 100% recall, 6/6 photo frames connected, 15 photo edges, 6 loops, live graph connected 100%.
+- `check:depth`: PASS.
+- `check:layout`: PASS.
+- `check:deps`: PASS, 40 local dependencies resolved.
+- `check:constructors`: PASS, 5/5.
+- `check:mock`: PASS.
+- `check:alva`: PASS.
 
-## New invariants exercised
+## Scope
 
-- absurd or missing Alva poses do not change spherical RGB registration;
-- spherical transforms remain orthonormal and cannot shear/stretch a photograph;
-- the first panorama component remains the fixed visible gauge;
-- localized accidental match clusters are rejected;
-- the RGB preview is dense inverse warping, never point splatting;
-- Depth maps from different frames are solved into one shared overlap scale before colouring;
-- projective/local mesh photo warping is disabled.
+Tests confirm that AlvaAR still has no authority over RGB placement and that downstream 3-D reconstruction contracts remain unchanged.

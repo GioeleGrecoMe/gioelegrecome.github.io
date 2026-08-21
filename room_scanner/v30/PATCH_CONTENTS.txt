@@ -1,10 +1,8 @@
-V30.34.0 incremental spherical panorama + global Depth patch
-
-26 modified/new files:
+V30.35.0 incremental layer-wise probabilistic Depth patch
 
 ARCHITECTURE.md
 PATCH_CONTENTS.txt
-PATCH_NOTES_V30.34.md
+PATCH_NOTES_V30.35.md
 README.md
 TEST_ON_PHONE.md
 TEST_REPORT.md
@@ -15,16 +13,16 @@ js/boot.js
 js/config.js
 js/reconstruction/live_photo_puzzle.js
 js/reconstruction/photo_depth_consensus.js
-js/reconstruction/photo_panorama.js
-js/reconstruction/view_puzzle.js
+js/reconstruction/probabilistic_depth_atlas.js
 package.json
 room_scanner_v30.html
-styles.css
 sw.js
 tests/boot-preflight.test.mjs
 tests/build-contract.test.mjs
-tests/live-photo-puzzle.test.mjs
 tests/photo-first-panorama-contract.test.mjs
 tests/photo-panorama.test.mjs
+tests/probabilistic-depth-atlas.test.mjs
 tools/check_v30_layout.mjs
 tools/mock_ui_boot.mjs
+
+No models are included. Downstream 3-D reconstruction files are unchanged.

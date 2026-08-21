@@ -2,7 +2,8 @@ import {normalizeFrame} from './view_puzzle.js';
 import {DepthScaleGraph} from './depth_scale_graph.js';
 import {pixelRay,qRotate} from '../slam/math.js';
 import {matchPhotoFeatures,buildPhotoRegistrationEdge,solvePhotoMosaic,visualAlvaDiagnostics,photoPixelToCanvas,computeMosaicBounds,detectPhotoFeatures,photoAppearanceSimilarity,canvasPointToPhotoPixel,frameCanvasBounds} from './photo_panorama.js';
-import {solvePhotoDepthConsensus,sampleConsensusDepth} from './photo_depth_consensus.js';
+import {solvePhotoDepthConsensus,sampleConsensusDepth,sampleConsensusDepthInfo} from './photo_depth_consensus.js';
+import {createProbabilisticDepthAtlas,addDepthObservation,resolveProbabilisticDepthAtlas,overlapHannWeight} from './probabilistic_depth_atlas.js';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const EPS=1e-8;
@@ -43,9 +44,9 @@ export class LivePhotoPuzzleMap{
     // Kept only for the unchanged metric/3-D evidence path. The PHOTO mosaic has
     // its own arbitrary 2-D coordinate system and never reads this Alva origin.
     this.origin=null;this.fallbackDepth=2.2;this.lastRenderStats=null;this.depthScaleDirty=true;
-    this.depthScaleStats=null;this.depthScaleModel=null;this.depthScaleTransforms=new Map();this.visualSolution=null;this.visualDirty=true;this.depthConsensus=null;this.depthConsensusDirty=true;this.depthDisplayRange=null;
+    this.depthScaleStats=null;this.depthScaleModel=null;this.depthScaleTransforms=new Map();this.visualSolution=null;this.visualDirty=true;this.depthConsensus=null;this.depthConsensusDirty=true;this.depthDisplayRange=null;this.lastDepthFusionStats=null;
   }
-  reset(){this.frames=[];this.frameMap.clear();this.edges=[];this.adj.clear();this.worldSamples=[];this.origin=null;this.lastRenderStats=null;this.depthScaleDirty=true;this.depthScaleStats=null;this.depthScaleModel=null;this.depthScaleTransforms=new Map();this.visualSolution=null;this.visualDirty=true;this.depthConsensus=null;this.depthConsensusDirty=true;this.depthDisplayRange=null;}
+  reset(){this.frames=[];this.frameMap.clear();this.edges=[];this.adj.clear();this.worldSamples=[];this.origin=null;this.lastRenderStats=null;this.depthScaleDirty=true;this.depthScaleStats=null;this.depthScaleModel=null;this.depthScaleTransforms=new Map();this.visualSolution=null;this.visualDirty=true;this.depthConsensus=null;this.depthConsensusDirty=true;this.depthDisplayRange=null;this.lastDepthFusionStats=null;}
   setFallbackDepth(z){if(Number.isFinite(+z)&&+z>.15)this.fallbackDepth=clamp(+z,.2,12);}
 
   /**
@@ -58,11 +59,11 @@ export class LivePhotoPuzzleMap{
     const pf=puzzle?.frames||[];
     for(const src of pf){
       const f={...src,pose:clonePoseNullable(src.pose),K:{...src.K},gray:new Uint8Array(src.gray||[]),rgb:new Uint8Array(src.rgb||[]),features:(src.features||[]).map(x=>({...x,desc:Array.from(x.desc||[])})),at:Number(src.at||0),metricLocked:true,source:'post-scan'};
-      f.relativeDepth=null;f.relativeDepthWidth=0;f.relativeDepthHeight=0;f.relativeQuality=null;f.relativeConfidence=0;f.metricDepth=null;f.metricDepthWidth=0;f.metricDepthHeight=0;f.metricConfidence=0;f.metricCalibration=null;f.depthPending=false;f.depthTransform=null;f.depthConfidence=0;f.photoGain=1;f.fallbackDepth=this.fallbackDepth;f.connected=false;
+      f.relativeDepth=null;f.relativeDepthWidth=0;f.relativeDepthHeight=0;f.relativeQuality=null;f.relativeConfidence=0;f.metricDepth=null;f.metricDepthWidth=0;f.metricDepthHeight=0;f.metricConfidence=0;f.metricCalibration=null;f.depthPending=false;f.depthTransform=null;f.depthConfidence=0;f.photoGain=1;f.photoGainRgb=[1,1,1];f.fallbackDepth=this.fallbackDepth;f.connected=false;
       if(!this.origin&&f.pose?.p)this.origin=f.pose.p.slice(0,3).map(Number);this.frameMap.set(String(f.frameId),this.frames.length);this.frames.push(f);
     }
     this.adj=new Map(this.frames.map((_,i)=>[i,[]]));
-    // V30.34 stores rigid spherical rotations.  When an older persisted puzzle
+    // V30.35 stores rigid spherical rotations plus layer-wise probabilistic Depth evidence.  When an older persisted puzzle
     // only contains photographic correspondences, rebuild the spherical edge
     // from those matches instead of trusting a legacy homography.
     this.edges=[];for(const src of puzzle?.edges||[]){let e={...src,matches:(src.matches||[]).map(m=>({...m}))};if(!Array.isArray(e.rotationBToA)||e.rotationBToA.length!==9){const a=this.frames[e.a],b=this.frames[e.b],reg=buildPhotoRegistrationEdge(a,b,e.matches,{minMatches:this.minEdgeMatches,angularThresholdDeg:6,recovery:true});if(!reg)continue;e={...e,...reg,registration:'photo-spherical-rotation-irls'};}else e.rotationBToA=Array.from(e.rotationBToA,Number);this.edges.push(e);this.adj.get(e.a)?.push(e);this.adj.get(e.b)?.push(e);}
@@ -125,7 +126,7 @@ export class LivePhotoPuzzleMap{
         metricCalibration:f.metricCalibration||old.metricCalibration,
         depthTransform:old.depthTransform,depthConfidence:old.depthConfidence,
         depthPending:!(hasRawDepth||hasMetricDepth)&&(old.depthPending||f.depthPending),
-        photoGain:old.photoGain,fallbackDepth:old.fallbackDepth,connected:old.connected,visualQ:old.visualQ,visualConfidence:old.visualConfidence
+        photoGain:old.photoGain,photoGainRgb:old.photoGainRgb,fallbackDepth:old.fallbackDepth,connected:old.connected,visualQ:old.visualQ,visualConfidence:old.visualConfidence
       };
       if((f.width*f.height)>(old.width*old.height)*1.08)this.frames[oldIndex]={...f,...keep};
       else{old.pose=f.pose||old.pose;old.poseCov=f.poseCov||old.poseCov;old.metricLocked=old.metricLocked||f.metricLocked;old.at=f.at||old.at;if((f.features?.length||0)>(old.features?.length||0))old.features=f.features;Object.assign(old,keep);}
@@ -134,7 +135,7 @@ export class LivePhotoPuzzleMap{
     if(!this.origin&&f.pose?.p)this.origin=f.pose.p.slice(0,3).map(Number);
     if(!hasRawDepth){f.relativeDepth=null;f.relativeDepthWidth=0;f.relativeDepthHeight=0;f.relativeQuality=null;f.relativeConfidence=0;}
     if(!hasMetricDepth){f.metricDepth=null;f.metricDepthWidth=0;f.metricDepthHeight=0;f.metricConfidence=0;}
-    f.metricCalibration=f.metricCalibration||null;f.depthTransform=null;f.depthConfidence=0;f.connected=this.frames.length===0&&hasRawDepth;f.photoGain=1;
+    f.metricCalibration=f.metricCalibration||null;f.depthTransform=null;f.depthConfidence=0;f.connected=this.frames.length===0&&hasRawDepth;f.photoGain=1;f.photoGainRgb=[1,1,1];
     f.depthPending=!(hasRawDepth||hasMetricDepth)&&!!f.depthPending;f.fallbackDepth=Number.isFinite(+fallbackDepth)?+fallbackDepth:this.fallbackDepth;
     this.frameMap.set(id,this.frames.length);this.frames.push(f);this.adj.set(this.frames.length-1,[]);
     // Structural invariant: only a frame with depth evidence may enter the RGB
@@ -165,7 +166,7 @@ export class LivePhotoPuzzleMap{
 
   stats(){
     this.rebuildDepthScaleIfNeeded();this.rebuildDepthConsensusIfNeeded();const comps=this.components(),visible=this.visualSolution?.component||this.rootComponent(),loops=this.edges.reduce((n,e)=>n+(e.loop?1:0),0),rawDepthFrames=this.frames.reduce((n,f)=>n+(f.relativeDepth?.length?1:0),0),metricDepthFrames=this.frames.reduce((n,f)=>n+(this.frameHasMetricDepth(f)?1:0),0),pendingDepthFrames=this.frames.reduce((n,f)=>n+(f.depthPending?1:0),0),connected=this.frames.length?visible.length:0,diag=visualAlvaDiagnostics(this.frames,this.edges,this.visualSolution);
-    return {frames:this.frames.length,edges:this.edges.length,loops,connectedFrames:connected,connectedFraction:this.frames.length?connected/this.frames.length:0,components:comps.length,rawDepthFrames,metricDepthFrames,pendingDepthFrames,worldSamples:this.worldSamples.length,coverage:this.lastRenderStats?.coverage||0,origin:(this.origin||[0,0,0]).slice(),depthScaleMode:this.depthScaleStats?.metricMode||null,depthScaleError:this.depthScaleStats?.metricRelativeError??Infinity,depthScalePairs:this.depthScaleStats?.metricPairs||0,depthAlignedFrames:this.depthScaleStats?.alignedFrames||metricDepthFrames,photoOnlyMosaic:true,visualRegisteredFrames:this.visualSolution?Array.from(this.visualSolution.confidence).reduce((n,c)=>n+(c>0?1:0),0):0,meanVisualConfidence:this.edges.length?this.edges.reduce((a,e)=>a+(e.visualConfidence||0),0)/this.edges.length:0,mosaicResidual:this.visualSolution?.medianResidual??0,mosaicP90Residual:this.visualSolution?.p90Residual??0,depthConsensusAlignedFrames:this.depthConsensus?.stats?.alignedFrames||0,depthConsensusEdges:this.depthConsensus?.stats?.pairEdges||0,depthConsensusError:this.depthConsensus?.stats?.medianRelativeError??Infinity,sphericalProjection:true,sphericalResidualDeg:this.visualSolution?.medianResidualDeg??0,sphericalP90ResidualDeg:this.visualSolution?.p90ResidualDeg??0,...diag};
+    return {frames:this.frames.length,edges:this.edges.length,loops,connectedFrames:connected,connectedFraction:this.frames.length?connected/this.frames.length:0,components:comps.length,rawDepthFrames,metricDepthFrames,pendingDepthFrames,worldSamples:this.worldSamples.length,coverage:this.lastRenderStats?.coverage||0,origin:(this.origin||[0,0,0]).slice(),depthScaleMode:this.depthScaleStats?.metricMode||null,depthScaleError:this.depthScaleStats?.metricRelativeError??Infinity,depthScalePairs:this.depthScaleStats?.metricPairs||0,depthAlignedFrames:this.depthScaleStats?.alignedFrames||metricDepthFrames,photoOnlyMosaic:true,visualRegisteredFrames:this.visualSolution?Array.from(this.visualSolution.confidence).reduce((n,c)=>n+(c>0?1:0),0):0,meanVisualConfidence:this.edges.length?this.edges.reduce((a,e)=>a+(e.visualConfidence||0),0)/this.edges.length:0,mosaicResidual:this.visualSolution?.medianResidual??0,mosaicP90Residual:this.visualSolution?.p90Residual??0,depthConsensusAlignedFrames:this.depthConsensus?.stats?.alignedFrames||0,depthConsensusEdges:this.depthConsensus?.stats?.pairEdges||0,depthConsensusError:this.depthConsensus?.stats?.medianRelativeError??Infinity,depthLayerAnchors:this.depthConsensus?.stats?.layerAnchors||0,depthOverlapLayerAnchors:this.depthConsensus?.stats?.overlapLayerAnchors||0,depthLayerCoverage:this.depthConsensus?.stats?.medianLayerCoverage||0,depthAmbiguousFraction:this.lastDepthFusionStats?.ambiguousFraction||0,sphericalProjection:true,sphericalResidualDeg:this.visualSolution?.medianResidualDeg??0,sphericalP90ResidualDeg:this.visualSolution?.p90ResidualDeg??0,...diag};
   }
 
   render(canvas,mode='photo'){
@@ -182,7 +183,7 @@ export class LivePhotoPuzzleMap{
     // sphere, rotated back into the source camera and sampled from its RGB image.
     // There is no projective/affine/local deformation that can stretch a photo.
     for(const fi of indices){const f=this.frames[fi],R=this.visualSolution?.transforms?.[fi],regQ=this.visualSolution?.confidence?.[fi]||0;if(!R||!visible.has(fi))continue;const box=frameCanvasBounds(f,R,width,height,bounds,{edgeSamples:12});if(!box)continue;
-      for(let y=box.minY;y<=box.maxY;y++)for(let x=box.minX;x<=box.maxX;x++){const uv=canvasPointToPhotoPixel(f,R,x+.5,y+.5,width,height,bounds);if(!uv)continue;const u=uv.u,v=uv.v,rgb=sampleRgbBilinear(f,u,v);if(!rgb)continue;const un=u/Math.max(1,f.width-1),vn=v/Math.max(1,f.height-1),edge=Math.min(un,1-un,vn,1-vn),centreQ=clamp(edge/.18,0,1),q=Math.max(.08,regQ)*(.18+.82*centreQ),i=y*width+x,j=i*4,r=clamp(rgb[0]*f.photoGain,0,255),g=clamp(rgb[1]*f.photoGain,0,255),b=clamp(rgb[2]*f.photoGain,0,255);
+      for(let y=box.minY;y<=box.maxY;y++)for(let x=box.minX;x<=box.maxX;x++){const uv=canvasPointToPhotoPixel(f,R,x+.5,y+.5,width,height,bounds);if(!uv)continue;const u=uv.u,v=uv.v,rgb=sampleRgbBilinear(f,u,v);if(!rgb)continue;const un=u/Math.max(1,f.width-1),vn=v/Math.max(1,f.height-1),edge=Math.min(un,1-un,vn,1-vn),centreQ=clamp(edge/.18,0,1),q=Math.max(.08,regQ)*(.18+.82*centreQ),i=y*width+x,j=i*4,gain=f.photoGainRgb||[f.photoGain||1,f.photoGain||1,f.photoGain||1],r=clamp(rgb[0]*gain[0],0,255),g=clamp(rgb[1]*gain[1],0,255),b=clamp(rgb[2]*gain[2],0,255);
         if(!rgba[j+3]||q>score[i]*1.018){score[i]=q;rgba[j]=r;rgba[j+1]=g;rgba[j+2]=b;rgba[j+3]=255;}
         else if(q>score[i]*.94){const delta=Math.abs(r-rgba[j])+Math.abs(g-rgba[j+1])+Math.abs(b-rgba[j+2]);if(delta<24){const a=.12;rgba[j]=rgba[j]*(1-a)+r*a;rgba[j+1]=rgba[j+1]*(1-a)+g*a;rgba[j+2]=rgba[j+2]*(1-a)+b*a;rgba[j+3]=255;}}
       }
@@ -191,15 +192,27 @@ export class LivePhotoPuzzleMap{
   }
 
   renderDepthAtlas(){
-    this.recomputeVisualSolution();this.rebuildDepthConsensusIfNeeded();const width=this.width,height=this.height,depth=new Float32Array(width*height),score=new Float32Array(width*height),largest=new Set(this.visualSolution?.component||[]),indices=this.renderIndices(largest),bounds=this.visualSolution?.bounds||computeMosaicBounds(this.frames,this.visualSolution?.transforms||[],{padding:.055});
-    // All relative maps are first transformed into ONE global latent depth scale.
-    // The same spherical warp used for RGB is then used for depth, so the colour
-    // assigned to a value is globally consistent across every fused photograph.
-    const globalRelative=(this.depthConsensus?.stats?.alignedFrames||0)>0;let metricUsed=0;
-    for(const fi of indices){if(!largest.has(fi))continue;const f=this.frames[fi],R=this.visualSolution?.transforms?.[fi],regQ=this.visualSolution?.confidence?.[fi]||0;if(!R)continue;const consensusT=this.depthConsensus?.transforms?.[fi]||null,consensusQ=this.depthConsensus?.frameConfidence?.[fi]||0;if(globalRelative&&!consensusT)continue;if(!globalRelative&&!this.frameHasMetricDepth(f))continue;const box=frameCanvasBounds(f,R,width,height,bounds,{edgeSamples:12});if(!box)continue;
-      for(let y=box.minY;y<=box.maxY;y++)for(let x=box.minX;x<=box.maxX;x++){const uv=canvasPointToPhotoPixel(f,R,x+.5,y+.5,width,height,bounds);if(!uv)continue;const u=uv.u,v=uv.v;let value,q;if(globalRelative){value=sampleConsensusDepth(f,consensusT,u,v);if(!Number.isFinite(value))continue;q=Math.max(.008,consensusQ)*(f.relativeQuality?.suspicious?.28:1)*(f.relativeQuality?.stripe?.suspicious?.35:1);}else{value=this.sampleMetricDepth(f,u,v);if(!(value>.08))continue;q=Math.max(.015,f.depthConfidence||f.metricConfidence||.02);metricUsed++;}const un=u/Math.max(1,f.width-1),vn=v/Math.max(1,f.height-1),edge=Math.min(un,1-un,vn,1-vn),centreQ=clamp(edge/.18,0,1),sourceQ=q*Math.max(.12,regQ)*(.18+.82*centreQ);fuseDepthValue(depth,score,y*width+x,value,sourceQ);}
+    this.recomputeVisualSolution();this.rebuildDepthConsensusIfNeeded();const width=this.width,height=this.height,largest=new Set(this.visualSolution?.component||[]),indices=this.renderIndices(largest),bounds=this.visualSolution?.bounds||computeMosaicBounds(this.frames,this.visualSolution?.transforms||[],{padding:.055});
+    const globalRelative=(this.depthConsensus?.stats?.alignedFrames||0)>0,eligible=[];let metricUsed=0;
+    for(const fi of indices){if(!largest.has(fi))continue;const f=this.frames[fi],R=this.visualSolution?.transforms?.[fi];if(!R)continue;if(globalRelative){if(!this.depthConsensus?.transforms?.[fi])continue;}else if(!this.frameHasMetricDepth(f))continue;eligible.push(fi);}
+    // The RGB spherical masks define where a seam really is. Hann feathering is
+    // enabled only when >=2 valid photo footprints overlap; a lone source keeps
+    // full weight right to its border and therefore never loses coverage.
+    const support=buildSphericalOverlapSupport(this.frames,eligible,this.visualSolution?.transforms||[],width,height,bounds),mixture=createProbabilisticDepthAtlas(width*height);
+    for(const fi of eligible){const f=this.frames[fi],R=this.visualSolution?.transforms?.[fi],regQ=this.visualSolution?.confidence?.[fi]||0,consensusT=this.depthConsensus?.transforms?.[fi]||null,consensusQ=this.depthConsensus?.frameConfidence?.[fi]||0,box=support.boxes.get(fi)||frameCanvasBounds(f,R,width,height,bounds,{edgeSamples:12});if(!box)continue;
+      for(let y=box.minY;y<=box.maxY;y++)for(let x=box.minX;x<=box.maxX;x++){
+        const uv=canvasPointToPhotoPixel(f,R,x+.5,y+.5,width,height,bounds);if(!uv)continue;const u=uv.u,v=uv.v,i=y*width+x;let value,sigma,q,layerConfidence=1;
+        if(globalRelative){const info=sampleConsensusDepthInfo(f,consensusT,u,v);if(!info)continue;value=info.value;sigma=info.sigma;layerConfidence=info.layerConfidence;q=Math.max(.006,consensusQ)*layerConfidence*(f.relativeQuality?.suspicious?.28:1)*(f.relativeQuality?.stripe?.suspicious?.35:1);}
+        else{value=this.sampleMetricDepth(f,u,v);if(!(value>.08))continue;sigma=clamp(.025+.018*Math.abs(value),.025,.18);q=Math.max(.015,f.depthConfidence||f.metricConfidence||.02);metricUsed++;}
+        const overlap=supportCountAt(support,x,y),hann=overlapHannWeight(u,v,f.width,f.height,overlap,{feather:.22,floor:.015}),sourceQ=q*Math.max(.10,regQ)*hann;
+        addDepthObservation(mixture,i,value,sigma,sourceQ,{gate:2.75});
+      }
     }
-    const vals=[];for(let i=0;i<depth.length;i++)if(score[i]>0&&Number.isFinite(depth[i]))vals.push(depth[i]);vals.sort((a,b)=>a-b);let lo,hi;if(globalRelative&&this.depthConsensus?.globalRange){lo=this.depthConsensus.globalRange.lo;hi=this.depthConsensus.globalRange.hi;this.depthDisplayRange={lo,hi,root:this.depthConsensus.root};}else{lo=vals.length?vals[Math.floor(vals.length*.03)]:0;hi=vals.length?vals[Math.floor(vals.length*.97)]:1;}if(!(Number.isFinite(lo+hi))||hi-lo<1e-7){lo=0;hi=1;}const span=Math.max(1e-6,hi-lo),rgba=new Uint8ClampedArray(width*height*4);let covered=0;for(let i=0;i<depth.length;i++){if(!(score[i]>0))continue;const t=clamp((depth[i]-lo)/span,0,1),c=globalRelative?heatColor(t):heatColor(1-t),j=i*4;rgba[j]=c[0];rgba[j+1]=c[1];rgba[j+2]=c[2];rgba[j+3]=clamp(Math.round(100+155*Math.min(1,score[i]*4)),0,255);covered++;}fillTinyHoles(rgba,width,height);return {width,height,rgba,coverage:covered/(width*height),depthMin:lo,depthMax:hi,frameCenters:[],depthMode:globalRelative?'relative-global-spherical-irls':'metric-global-fallback',projection:'spherical',bounds,metricSamples:metricUsed};
+    const fused=resolveProbabilisticDepthAtlas(mixture),depth=fused.depth,score=fused.score,vals=[];for(let i=0;i<depth.length;i++)if(score[i]>0&&Number.isFinite(depth[i]))vals.push(depth[i]);vals.sort((a,b)=>a-b);
+    let lo,hi;if(globalRelative&&this.depthConsensus?.globalRange){lo=this.depthConsensus.globalRange.lo;hi=this.depthConsensus.globalRange.hi;this.depthDisplayRange={lo,hi,root:this.depthConsensus.root};}else{lo=vals.length?vals[Math.floor(vals.length*.03)]:0;hi=vals.length?vals[Math.floor(vals.length*.97)]:1;}if(!(Number.isFinite(lo+hi))||hi-lo<1e-7){lo=0;hi=1;}
+    const span=Math.max(1e-6,hi-lo),rgba=new Uint8ClampedArray(width*height*4);let covered=0,ambiguous=0,confSum=0;for(let i=0;i<depth.length;i++){if(!(score[i]>0)||!Number.isFinite(depth[i]))continue;const t=clamp((depth[i]-lo)/span,0,1),c=globalRelative?heatColor(t):heatColor(1-t),j=i*4,amb=clamp(fused.ambiguity[i],0,1),alphaQ=clamp(score[i]*(1-.62*amb),0,1);rgba[j]=c[0];rgba[j+1]=c[1];rgba[j+2]=c[2];rgba[j+3]=clamp(Math.round(85+170*alphaQ),0,255);covered++;confSum+=score[i];if(amb>.42)ambiguous++;}
+    this.lastDepthFusionStats={covered,ambiguousFraction:covered?ambiguous/covered:0,meanPosterior:covered?confSum/covered:0,hannOverlap:true,bimodal:true,layerWise:!!globalRelative};
+    return {width,height,rgba,coverage:covered/(width*height),depthMin:lo,depthMax:hi,frameCenters:[],depthMode:globalRelative?'relative-global-layerwise-hann-map':'metric-probabilistic-hann',projection:'spherical',bounds,metricSamples:metricUsed,ambiguityFraction:this.lastDepthFusionStats.ambiguousFraction};
   }
 
   sampleWorld(f,u,v,{allowFallback=true}={}){
@@ -250,7 +263,7 @@ export class LivePhotoPuzzleMap{
   tryConnectPair(i,j,recovery=false){if(i===j||this.edges.some(e=>(e.a===i&&e.b===j)||(e.a===j&&e.b===i)))return false;const e=this.matchPair(i,j,{recovery});if(!e)return false;this.edges.push(e);this.adj.get(i)?.push(e);this.adj.get(j)?.push(e);return true;}
   matchPair(i,j,{recovery=false}={}){
     const a=this.frames[i],b=this.frames[j];if(!hasDepthEvidence(a)||!hasDepthEvidence(b))return null;const far=Math.abs(i-j)>this.temporalRadius+1,raw=matchPhotoFeatures(a,b,{maxFeatures:recovery?460:360,maxMatches:recovery?240:190,maxHamming:recovery?82:72,minProbability:recovery?.012:.022,patchRadius:recovery?3:2}),candidate=raw.filter(x=>x.probability>=(recovery?.018:Math.min(this.minEdgeProbability,.085)));if(candidate.length<this.minEdgeMatches)return null;
-    const reg=buildPhotoRegistrationEdge(a,b,candidate,{minMatches:this.minEdgeMatches,angularThresholdDeg:recovery?(far?6.0:5.2):(far?4.6:3.7),recovery});if(!reg||!reliablePhotoOverlap(reg,a,b,{far,minMatches:this.minEdgeMatches,recovery}))return null;const gain=estimateExposureGain(a,b,reg.matches);return {a:i,b:j,aId:a.frameId,bId:b.frameId,...reg,weight:reg.visualConfidence,loop:far,gainAB:gain,recovery:!!recovery,registration:reg.registration||'photo-spherical-rotation-irls'};
+    const reg=buildPhotoRegistrationEdge(a,b,candidate,{minMatches:this.minEdgeMatches,angularThresholdDeg:recovery?(far?6.0:5.2):(far?4.6:3.7),recovery});if(!reg||!reliablePhotoOverlap(reg,a,b,{far,minMatches:this.minEdgeMatches,recovery}))return null;const gain=estimateExposureGain(a,b,reg.matches),gainRGB=estimateExposureGainRGB(a,b,reg.matches);return {a:i,b:j,aId:a.frameId,bId:b.frameId,...reg,weight:reg.visualConfidence,loop:far,gainAB:gain,gainRGB,recovery:!!recovery,registration:reg.registration||'photo-spherical-rotation-irls'};
   }
   recoverRecentOrphans(anchor){let root=new Set(this.rootComponent()),tries=0;for(let k=Math.max(1,anchor-this.temporalRadius*3);k<anchor&&tries<10;k++){if(root.has(k)||!hasDepthEvidence(this.frames[k]))continue;tries++;if(this.tryConnectPair(k,anchor,true)){this.recomputeConnectivity();root=new Set(this.rootComponent());}}
   }
@@ -259,14 +272,19 @@ export class LivePhotoPuzzleMap{
   recomputeConnectivity(){const visible=new Set(this.rootComponent());this.frames.forEach((f,i)=>f.connected=visible.has(i));}
   recomputeVisualSolution(persisted=null){
     if(!persisted&&!this.visualDirty&&this.visualSolution)return;if(!this.frames.length){this.visualSolution=null;this.visualDirty=false;return;}
-    const saved=persisted?.sphericalRotations||((persisted?.projection==='spherical'||persisted?.format==='ROOMSCAN-LIVE-PHOTO-MOSAIC-4')?persisted?.mosaicTransforms:null);
+    const saved=persisted?.sphericalRotations||((persisted?.projection==='spherical'||['ROOMSCAN-LIVE-PHOTO-MOSAIC-4','ROOMSCAN-LIVE-PHOTO-MOSAIC-5'].includes(persisted?.format))?persisted?.mosaicTransforms:null);
     if(Array.isArray(saved)&&saved.length===this.frames.length){const confidence=Float32Array.from(persisted.visualConfidence||saved.map((R,i)=>R?i===0?1:.25:0));this.visualSolution={transforms:saved.map(R=>Array.isArray(R)&&R.length===9?R.map(Number):null),confidence,rootIndex:Number.isInteger(persisted.rootIndex)?persisted.rootIndex:0,parent:new Int32Array(this.frames.length),component:(persisted.components?.[0]||saved.map((R,i)=>R?i:null).filter(Number.isInteger)),projection:'spherical'};}
     else this.visualSolution=solvePhotoMosaic(this.frames,this.edges,{iterations:10,rootIndex:0});
     this.visualSolution.bounds=computeMosaicBounds(this.frames,this.visualSolution.transforms,{padding:.055});this.frames.forEach((f,i)=>{f.mosaicR=this.visualSolution.transforms[i];f.mosaicH=null;f.visualConfidence=this.visualSolution.confidence[i];});this.visualDirty=false;
   }
 
-  rebuildDepthConsensusIfNeeded(){if(!this.depthConsensusDirty)return;this.depthConsensusDirty=false;this.depthConsensus=solvePhotoDepthConsensus(this.frames,this.edges,{minPairs:this.depthMinPairs,maxPairs:140,rootIndex:this.visualSolution?.rootIndex??0,irlsIterations:4});}
-  exportState(){this.recomputeVisualSolution();this.rebuildDepthConsensusIfNeeded();const rotations=(this.visualSolution?.transforms||[]).map(R=>R?Array.from(R):null);return {format:'ROOMSCAN-LIVE-PHOTO-MOSAIC-4',photoOnlyMosaic:true,projection:'spherical',stats:this.stats(),rootIndex:this.visualSolution?.rootIndex??0,sphericalRotations:rotations,mosaicTransforms:rotations,visualConfidence:Array.from(this.visualSolution?.confidence||[]),frames:this.frames.map((f,i)=>({frameId:String(f.frameId),alvaPose:clonePoseNullable(f.pose),poseCov:f.poseCov||null,K:{...f.K},width:f.width,height:f.height,at:f.at||0,sphericalR:this.visualSolution?.transforms?.[i]?Array.from(this.visualSolution.transforms[i]):null,visualConfidence:Number(this.visualSolution?.confidence?.[i]||0),hasRawDepth:!!f.relativeDepth?.length,hasMetricDepth:this.frameHasMetricDepth(f)})),edges:this.edges.map(e=>({a:e.a,b:e.b,aId:e.aId,bId:e.bId,loop:!!e.loop,rotationBToA:Array.from(e.rotationBToA||[]),visualConfidence:e.visualConfidence||0,rotationMedianErrorDeg:e.rotationMedianErrorDeg??null,rotationP90ErrorDeg:e.rotationP90ErrorDeg??null,matches:(e.matches||[]).slice(0,180).map(m=>({aU:m.aU,aV:m.aV,bU:m.bU,bV:m.bV,probability:m.probability,photometricProbability:m.photometricProbability,uniquenessProbability:m.uniquenessProbability}))})),depthConsensus:this.depthConsensus?{root:this.depthConsensus.root,stats:this.depthConsensus.stats,globalRange:this.depthConsensus.globalRange,transforms:this.depthConsensus.transforms.map(t=>t?{a:t.a,b:t.b}:null),frameConfidence:Array.from(this.depthConsensus.frameConfidence),edges:this.depthConsensus.edges}:null};}
+  rebuildDepthConsensusIfNeeded(){
+    if(!this.depthConsensusDirty)return;this.depthConsensusDirty=false;this.depthConsensus=solvePhotoDepthConsensus(this.frames,this.edges,{minPairs:this.depthMinPairs,maxPairs:240,rootIndex:this.visualSolution?.rootIndex??0,irlsIterations:14});
+  }
+  exportState(){
+    this.recomputeVisualSolution();this.rebuildDepthConsensusIfNeeded();const rotations=(this.visualSolution?.transforms||[]).map(R=>R?Array.from(R):null);
+    return {format:'ROOMSCAN-LIVE-PHOTO-MOSAIC-5',photoOnlyMosaic:true,projection:'spherical',stats:this.stats(),rootIndex:this.visualSolution?.rootIndex??0,sphericalRotations:rotations,mosaicTransforms:rotations,visualConfidence:Array.from(this.visualSolution?.confidence||[]),frames:this.frames.map((f,i)=>({frameId:String(f.frameId),alvaPose:clonePoseNullable(f.pose),poseCov:f.poseCov||null,K:{...f.K},width:f.width,height:f.height,at:f.at||0,sphericalR:this.visualSolution?.transforms?.[i]?Array.from(this.visualSolution.transforms[i]):null,visualConfidence:Number(this.visualSolution?.confidence?.[i]||0),hasRawDepth:!!f.relativeDepth?.length,hasMetricDepth:this.frameHasMetricDepth(f),photoGainRgb:(f.photoGainRgb||[1,1,1]).slice(0,3)})),edges:this.edges.map(e=>({a:e.a,b:e.b,aId:e.aId,bId:e.bId,loop:!!e.loop,rotationBToA:Array.from(e.rotationBToA||[]),visualConfidence:e.visualConfidence||0,rotationMedianErrorDeg:e.rotationMedianErrorDeg??null,rotationP90ErrorDeg:e.rotationP90ErrorDeg??null,gainAB:e.gainAB??1,gainRGB:normaliseGainRGB(e.gainRGB,e.gainAB),matches:(e.matches||[]).slice(0,180).map(m=>({aU:m.aU,aV:m.aV,bU:m.bU,bV:m.bV,probability:m.probability,photometricProbability:m.photometricProbability,uniquenessProbability:m.uniquenessProbability}))})),depthConsensus:this.depthConsensus?{format:this.depthConsensus.format,representation:this.depthConsensus.representation,root:this.depthConsensus.root,stats:this.depthConsensus.stats,globalRange:this.depthConsensus.globalRange,transforms:this.depthConsensus.transforms.map(serializeDepthTransfer),frameConfidence:Array.from(this.depthConsensus.frameConfidence),edges:this.depthConsensus.edges}:null};
+  }
 
   recomputeOrigin(){
     // Intentionally fixed. A moving mean-camera origin makes already pasted RGB
@@ -275,11 +293,14 @@ export class LivePhotoPuzzleMap{
     if(!this.origin){const f=this.frames.find(x=>x.pose?.p);if(f)this.origin=f.pose.p.slice(0,3).map(Number);}
   }
   recomputePhotoGains(){
-    if(!this.frames.length)return;const comp=this.rootComponent();if(!comp.length)return;const root=comp.includes(0)?0:comp[0],logs=new Float64Array(this.frames.length),known=new Uint8Array(this.frames.length);known[root]=1;const q=[root];while(q.length){const i=q.shift();for(const e of this.adj.get(i)||[]){const j=e.a===i?e.b:e.a;if(known[j])continue;const l=Math.log(clamp(Number(e.gainAB)||1,.55,1.75));logs[j]=e.a===i?logs[i]+l:logs[i]-l;known[j]=1;q.push(j);}}
-    // Gain compensation over all overlap edges, not a propagation tree. Loop
-    // closures therefore correct exposure drift just like a panorama stitcher.
-    for(let it=0;it<10;it++)for(const i of comp){if(i===root)continue;let sw=.02,s=0;for(const e of this.adj.get(i)||[]){const j=e.a===i?e.b:e.a;if(!known[j])continue;const l=Math.log(clamp(Number(e.gainAB)||1,.55,1.75)),target=e.a===i?logs[j]-l:logs[j]+l,w=Math.max(.005,Number(e.visualConfidence||e.weight||.05));sw+=w;s+=w*target;}if(sw>.021)logs[i]=logs[i]*.25+(s/sw)*.75;}
-    for(let i=0;i<this.frames.length;i++)this.frames[i].photoGain=known[i]?clamp(Math.exp(logs[i]),.55,1.75):1;
+    if(!this.frames.length)return;const comp=this.rootComponent();if(!comp.length)return;const root=comp.includes(0)?0:comp[0],known=new Uint8Array(this.frames.length);known[root]=1;
+    // Brown/Lowe-style exposure compensation, but solved independently per RGB
+    // channel.  This absorbs auto-exposure/white-balance drift without changing
+    // panorama geometry or blurring textures across a seam.
+    const logs=[new Float64Array(this.frames.length),new Float64Array(this.frames.length),new Float64Array(this.frames.length)],q=[root];
+    while(q.length){const i=q.shift();for(const e of this.adj.get(i)||[]){const j=e.a===i?e.b:e.a;if(known[j])continue;const gains=normaliseGainRGB(e.gainRGB,e.gainAB);for(let c=0;c<3;c++){const l=Math.log(clamp(gains[c],.52,1.9));logs[c][j]=e.a===i?logs[c][i]+l:logs[c][i]-l;}known[j]=1;q.push(j);}}
+    for(let it=0;it<12;it++)for(const i of comp){if(i===root)continue;for(let c=0;c<3;c++){let sw=.02,sum=0;for(const e of this.adj.get(i)||[]){const j=e.a===i?e.b:e.a;if(!known[j])continue;const gains=normaliseGainRGB(e.gainRGB,e.gainAB),l=Math.log(clamp(gains[c],.52,1.9)),target=e.a===i?logs[c][j]-l:logs[c][j]+l,w=Math.max(.004,Number(e.visualConfidence||e.weight||.05));sw+=w;sum+=w*target;}if(sw>.021)logs[c][i]=logs[c][i]*.28+(sum/sw)*.72;}}
+    for(let i=0;i<this.frames.length;i++){const g=known[i]?logs.map(x=>clamp(Math.exp(x[i]),.55,1.75)):[1,1,1];this.frames[i].photoGainRgb=g;this.frames[i].photoGain=(g[0]+g[1]+g[2])/3;}
   }
   dropOldest(){
     this.frames.shift();this.frameMap.clear();this.frames.forEach((f,i)=>this.frameMap.set(String(f.frameId),i));this.edges=this.edges.filter(e=>e.a>0&&e.b>0).map(e=>({...e,a:e.a-1,b:e.b-1}));this.adj=new Map(this.frames.map((_,i)=>[i,[]]));for(const e of this.edges){this.adj.get(e.a)?.push(e);this.adj.get(e.b)?.push(e);}this.depthScaleDirty=true;this.depthConsensusDirty=true;this.visualDirty=true;this.recomputeVisualSolution();
@@ -301,6 +322,15 @@ export class LivePhotoPuzzleMap{
 export function backProjectOpticalZ(pose,K,u,v,z){const ray=pixelRay(K,u,v),range=z/Math.max(.08,ray[2]),d=qRotate(pose.q,ray);return [pose.p[0]+d[0]*range,pose.p[1]+d[1]*range,pose.p[2]+d[2]*range];}
 export function worldToAtlas(p,origin,width,height){const d=[p[0]-origin[0],p[1]-origin[1],p[2]-origin[2]],n=Math.hypot(...d)||1,yaw=Math.atan2(d[0],d[2]),pitch=Math.asin(clamp(d[1]/n,-1,1));return {x:wrap((yaw/(2*Math.PI)+.5)*width,width),y:clamp((pitch/Math.PI+.5)*height,0,height-1),r:n};}
 export function predictDepth(transform,raw){if(!transform||!Number.isFinite(raw))return NaN;if(transform.mode==='direct')return transform.a*raw+transform.b;if(transform.mode==='inverse-raw')return transform.a/Math.max(EPS,Math.abs(raw))+transform.b;if(transform.mode==='inverse-depth'){const q=transform.a*raw+transform.b;return q>EPS?1/q:NaN;}return NaN;}
+
+function buildSphericalOverlapSupport(frames,indices,transforms,width,height,bounds){
+  const step=width*height>110000?2:1,sw=Math.ceil(width/step),sh=Math.ceil(height/step),count=new Uint8Array(sw*sh),boxes=new Map();
+  for(const fi of indices){const f=frames[fi],R=transforms?.[fi];if(!f||!R)continue;const box=frameCanvasBounds(f,R,width,height,bounds,{edgeSamples:12});if(!box)continue;boxes.set(fi,box);const minX=Math.floor(box.minX/step),maxX=Math.ceil(box.maxX/step),minY=Math.floor(box.minY/step),maxY=Math.ceil(box.maxY/step);for(let sy=minY;sy<=maxY;sy++)for(let sx=minX;sx<=maxX;sx++){if(sx<0||sy<0||sx>=sw||sy>=sh)continue;const x=Math.min(width-1,sx*step+.5*step),y=Math.min(height-1,sy*step+.5*step),uv=canvasPointToPhotoPixel(f,R,x,y,width,height,bounds);if(!uv)continue;const i=sy*sw+sx;if(count[i]<255)count[i]++;}}
+  return {count,boxes,step,sw,sh};
+}
+function supportCountAt(s,x,y){const sx=clamp(Math.floor(x/s.step),0,s.sw-1),sy=clamp(Math.floor(y/s.step),0,s.sh-1);return s.count[sy*s.sw+sx]||0;}
+
+function serializeDepthTransfer(t){if(!t)return null;if(t.type?.includes('pwl'))return {type:t.type,xKnots:Array.from(t.xKnots||[]),yKnots:Array.from(t.yKnots||[]),knotConfidence:Array.from(t.knotConfidence||[]),residualSigma:t.residualSigma??null,support:t.support||0,layerSupport:t.layerSupport||0,gauge:!!t.gauge};if(Number.isFinite(t.a)&&Number.isFinite(t.b))return {a:t.a,b:t.b};return null;}
 
 function hasDepthEvidence(f){return !!(f?.relativeDepth?.length||f?.metricDepth?.length);}
 
@@ -327,6 +357,8 @@ function compactDepth(depth,w,h,maxSide,metric){const scale=Math.min(1,Math.max(
 function normaliseCalibration(c){if(!c||!c.ok||!['direct','inverse-raw','inverse-depth'].includes(c.mode)||!Number.isFinite(+c.a)||!Number.isFinite(+c.b))return null;return {ok:true,mode:c.mode,a:+c.a,b:+c.b,confidence:clamp(Number(c.posteriorConfidence??c.confidence??.05),.005,1),posteriorConfidence:clamp(Number(c.posteriorConfidence??c.confidence??.05),.005,1)};}
 function compactQuality(q){return {suspicious:!!q?.suspicious,coherenceRatio:+(q?.coherenceRatio||0),stripe:{suspicious:!!q?.stripe?.suspicious,dominantExplained:+(q?.stripe?.dominantExplained||0),dominantCycles:+(q?.stripe?.dominantCycles||0)}};}
 function estimateExposureGain(a,b,matches){const ratios=[];for(const m of matches){const va=sampleGray(a,m.aU,m.aV),vb=sampleGray(b,m.bU,m.bV);if(va>18&&vb>18&&va<245&&vb<245)ratios.push(va/vb);}if(ratios.length<3)return 1;ratios.sort((x,y)=>x-y);return clamp(ratios[ratios.length>>1],.65,1.5);}
+function estimateExposureGainRGB(a,b,matches){const ratios=[[],[],[]];for(const m of matches){const ca=sampleRgbBilinear(a,m.aU,m.aV),cb=sampleRgbBilinear(b,m.bU,m.bV);if(!ca||!cb)continue;for(let c=0;c<3;c++)if(ca[c]>16&&cb[c]>16&&ca[c]<246&&cb[c]<246)ratios[c].push(ca[c]/cb[c]);}return ratios.map(r=>{if(r.length<4)return 1;r.sort((x,y)=>x-y);const lo=Math.floor(r.length*.15),hi=Math.max(lo+1,Math.ceil(r.length*.85)),mid=r.slice(lo,hi);return clamp(mid[mid.length>>1],.58,1.72);});}
+function normaliseGainRGB(g,scalar=1){return Array.isArray(g)&&g.length>=3?g.slice(0,3).map((x)=>clamp(Number(x)||1,.52,1.9)):[scalar,scalar,scalar].map(x=>clamp(Number(x)||1,.52,1.9));}
 function sampleGray(f,x,y){const xx=clamp(Math.round(x),0,f.width-1),yy=clamp(Math.round(y),0,f.height-1);return f.gray[yy*f.width+xx]||0;}
 
 function splatPanoramaSharp(rgba,score,w,h,x,y,color,q){const xi=Math.floor(x),yi=Math.floor(y),fx=x-xi,fy=y-yi;for(const [dx,dy,bw] of [[0,0,(1-fx)*(1-fy)],[1,0,fx*(1-fy)],[0,1,(1-fx)*fy],[1,1,fx*fy]]){if(bw<=.015)continue;const xx=clamp(xi+dx,0,w-1),yy=clamp(yi+dy,0,h-1),i=yy*w+xx,j=i*4,qq=q*bw;if(!rgba[j+3]||qq>score[i]*1.025){score[i]=qq;rgba[j]=clamp(color[0],0,255);rgba[j+1]=clamp(color[1],0,255);rgba[j+2]=clamp(color[2],0,255);rgba[j+3]=clamp(75+qq*180,55,255);}else if(qq>score[i]*.90){const dr=Math.abs(rgba[j]-color[0])+Math.abs(rgba[j+1]-color[1])+Math.abs(rgba[j+2]-color[2]);if(dr<28){const a=.035;rgba[j]=rgba[j]*(1-a)+color[0]*a;rgba[j+1]=rgba[j+1]*(1-a)+color[1]*a;rgba[j+2]=rgba[j+2]*(1-a)+color[2]*a;}}}}

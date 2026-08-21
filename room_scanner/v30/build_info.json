@@ -1,6 +1,6 @@
 {
-  "version": "30.34.0",
-  "id": "v30.34.0-20260821-spherical-panorama-global-depth",
-  "builtAt": "2026-08-21T14:41:00+02:00",
-  "notes": "V30.34 replaces planar photographic warps with a rigid spherical panorama: multi-scale photo features propose matches, calibrated rays estimate relative rotations, global rotation averaging closes loops, and bounded relocalization reconnects weak sequences without ever using AlvaAR to place RGB. Exact-frame RGB+Depth admission remains mandatory. All overlapping raw Depth Anything maps are jointly solved into one global affine latent scale and rendered with one shared global colour range. 3-D reconstruction is unchanged."
+  "version": "30.35.0",
+  "id": "v30.35.0-20260821-layerwise-probabilistic-depth",
+  "builtAt": "2026-08-21T15:38:00+02:00",
+  "notes": "V30.35 keeps the rigid RGB-only spherical panorama and adds global per-channel exposure compensation. Exact-frame Depth Anything maps are synchronized through RGB-verified spherical overlap masks using robust layer anchors and monotone nonlinear piecewise depth transfers. Fusion is uncertainty-weighted with two depth hypotheses per atlas pixel; Hann feathering is applied only inside true RGB overlap, preserving coverage and avoiding arithmetic averaging across incompatible surfaces. The global display range is shared by the whole depth atlas. 3-D reconstruction remains unchanged."
 }

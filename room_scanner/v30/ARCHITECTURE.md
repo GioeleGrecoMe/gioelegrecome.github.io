@@ -1,46 +1,43 @@
-# Room Scanner V30.34 architecture
+# Room Scanner V30.35 architecture
 
-## 1. Atomic RGB + Depth frame
+## 1. RGB spherical panorama
 
-The live photo graph accepts only an exact frozen survey RGB frame with a valid Depth Anything raster bound to that same capture. Failed inference, synchronization mismatch or invalid depth produces no panorama node. This keeps RGB and raw depth one-to-one for every photograph that can later contribute to the map.
+The photographic graph remains independent of AlvaAR. Frozen exact-frame RGB+Depth nodes are matched with photo features, relative rotations are estimated from calibrated rays and globally rotation-averaged, and complete photos are inverse-warped to the panorama sphere. No homography, affine or local projective mesh is used for image placement.
 
-## 2. Spherical photographic registration
+### Exposure compensation
 
-AlvaAR is not an input to the 2-D photo solver. Frozen RGB frames generate their own multi-scale corner pyramid. Oriented BRIEF descriptors, mutual uniqueness and local ZNCC provide candidate correspondences.
+Every accepted RGB edge also estimates robust R/G/B gain ratios from unsaturated overlap correspondences. Gains are optimized over the connected graph and loop closures. They correct modest auto-exposure and white-balance drift without changing the geometry or blurring image detail.
 
-Each match is converted from pixel coordinates to a calibrated unit camera ray through the frame intrinsics. Pairwise geometry is restricted to a rigid rotation `R_b_to_a`; a robust angular consensus rejects outliers and Wahba/IRLS refines the rotation. No planar homography, affine warp or local projective mesh is used as panorama geometry.
+## 2. Layer references from RGB overlap masks
 
-Accepted pairwise rotations form a graph. The first accepted RGB+Depth frame fixes the arbitrary spherical gauge. Neighboring and loop edges are rotation-averaged globally, so a loop can correct accumulated orientation error without changing the shape of an individual photo.
+For every accepted spherical RGB edge:
 
-## 3. Robust relocalisation
+1. feature correspondences establish exact common pixels;
+2. the spherical overlap is densely sampled;
+3. RGB photometric disagreement, RGB gradients and raw-depth gradients reduce sample authority near unstable edges;
+4. stable samples are grouped into broad ordinal depth layers;
+5. a robust weighted-median `(D_i,D_j)` anchor is formed for each supported layer.
 
-For every new depth-valid photograph the live mapper tests:
+These anchors are reference observations, not hard segmentation labels. Neighbouring bands overlap slightly so the solution stays continuous.
 
-- several temporal neighbours;
-- recent photographs already in the visible root component;
-- visually similar non-temporal photographs;
-- on failure only, a bounded wider relocalisation against the existing connected map.
+## 3. Global nonlinear relative-depth synchronization
 
-Once a new frame connects, recent disconnected depth-valid photographs are retried against it. An unverified frame is never placed from a tracker guess.
+Each frame owns a monotone piecewise-linear transfer with 16 quantile knots. The complete overlap/loop graph is solved jointly with IRLS:
 
-The post-scan graph performs an additional component-bridging search because it can spend more CPU than the live path.
+`T_i(D_i(p)) = T_j(D_j(q)) + residual`
 
-## 4. Dense spherical RGB rendering
+Robust layer anchors accelerate and stabilize global scale propagation. The monotonic constraint prevents layer inversion, while slope regularization prevents oscillatory mappings. The root gauge fixes only the arbitrary relative-depth coordinate; it does not imply metric distance.
 
-The common atlas is an equirectangular window on the solved sphere. Every destination pixel is converted to a panorama ray, rotated back into each source camera and bilinearly sampled from the original compact RGB photo. Source-centre weighting and global exposure-gain compensation choose/blend overlapping observations while avoiding point splats and projective stretching.
+## 4. Uncertainty-aware depth fusion
 
-Feature points, graph edges and Alva markers are diagnostic data and are not drawn over the RGB preview.
+At each atlas pixel, V30.35 maintains up to two Gaussian-like hypotheses. Observation uncertainty comes from transfer residuals, knot support, local depth gradients, Deep quality and RGB registration quality. Compatible samples increase precision. Incompatible samples create or support a second mode instead of being averaged.
 
-## 5. Global raw-Depth consensus
+The live renderer selects the posterior-dominant mode and lowers opacity in ambiguous regions.
 
-Depth is not aligned frame-by-frame along a propagation tree. Every verified RGB overlap contributes constraints
+## 5. Hann transitions on true RGB overlap
 
-`a_i D_i(p) + b_i ~= a_j D_j(q) + b_j`.
+The spherical RGB footprints create the overlap support mask. Hann weights attenuate only source borders that are actually covered by another valid RGB+Depth frame. This yields smooth transitions after depth synchronization while preserving single-source borders and avoiding artificial holes.
 
-Samples include both verified feature correspondences and a dense grid projected through the same spherical relative rotation. All `(a_i,b_i)` values in the connected component are solved jointly with robust IRLS while the panorama root fixes the scale/offset gauge.
+## 6. Metric/3-D path
 
-After global alignment, one robust global percentile range is computed from all aligned depth maps and used to colour the complete depth atlas. A new loop therefore improves one shared latent scale rather than creating a new per-photo palette.
-
-## 6. Alva / metric / 3-D separation
-
-An accepted RGB+Depth frame may carry an Alva pose and covariance as optional evidence for the existing metric/3-D pipeline. Missing or incorrect Alva tracking does not change photographic matches, spherical rotations or RGB placement. The 3-D reconstruction implementation is intentionally unchanged in V30.34.
+Alva pose/covariance and the existing optional metric Deep calibration are preserved as separate evidence. The 3-D solver, mesh and Gaussian/plane processing are unchanged by this patch.

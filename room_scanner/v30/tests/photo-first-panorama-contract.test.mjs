@@ -15,12 +15,12 @@ test('measurement GUI keeps diagnostics in one collapsible dock over a full-scre
 
 test('.r30 stores the pure photo mosaic plus optional Alva metadata for later geometry',()=>{assert.match(app,/photoPanorama/);assert.match(app,/evidence:\{factorGraph,deepSequence,photoPanorama\}/);assert.match(live,/alvaPose:clonePoseNullable\(f\.pose\)/);assert.match(live,/mosaicTransforms:/);assert.doesNotMatch(live,/visualQ:Array\.from/);});
 
-test('V30.34 panorama geometry is spherical and Depth uses one global overlap scale',()=>{
+test('V30.35 keeps spherical RGB geometry and uses layer-wise probabilistic global Depth fusion',()=>{
   assert.match(photo,/modelType:'spherical-rotation'/);
   assert.match(photo,/rotationBToA/);
   assert.match(photo,/common panorama sphere/);
   assert.doesNotMatch(photo,/homographyRansac|fitHomographyRansac/);
-  assert.match(live,/relative-global-spherical-irls/);
+  assert.match(live,/relative-global-layerwise-hann-map/);assert.match(live,/createProbabilisticDepthAtlas/);assert.match(live,/overlapHannWeight/);
   assert.match(live,/depthConsensus\.globalRange/);
-  assert.match(html,/rotazioni sulla sfera/);
+  assert.match(html,/rotazioni sulla sfera/);assert.match(html,/layer monotoni globali/);
 });

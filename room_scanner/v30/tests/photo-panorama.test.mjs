@@ -53,3 +53,13 @@ test('Deep overlap consensus aligns raw monocular maps into one global colour sc
 test('a requested panorama root never jumps to a larger disconnected photo cluster',()=>{
   const f=i=>({frameId:String(i),width:100,height:80,K:{fx:100,fy:100,cx:50,cy:40},features:[]}),frames=[f(0),f(1),f(2)],I=[1,0,0,0,1,0,0,0,1],edge={a:1,b:2,matches:[],rotationBToA:I,visualConfidence:.95,weight:.95};const anchored=solvePhotoMosaic(frames,[edge],{rootIndex:0,iterations:1});assert.deepEqual(anchored.component,[0]);assert.ok(anchored.transforms[0]);assert.equal(anchored.transforms[1],null);assert.equal(anchored.transforms[2],null);const automatic=solvePhotoMosaic(frames,[edge],{iterations:1});assert.equal(automatic.component.length,2);
 });
+
+test('Deep layer consensus supports stable nonlinear monotone response changes across RGB overlaps',()=>{
+  const w=64,h=40,k={fx:85,fy:85,cx:w/2,cy:h/2,width:w,height:h},maps=[new Float32Array(w*h),new Float32Array(w*h),new Float32Array(w*h)];
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const z=.15+.85*x/(w-1)+.35*y/(h-1);maps[0][y*w+x]=z;maps[1][y*w+x]=.1+.58*z+.27*z*z;maps[2][y*w+x]=.04+.73*Math.sqrt(.15+z);}
+  const mk=(id,raw)=>({frameId:id,width:w,height:h,K:k,gray:new Uint8Array(w*h).fill(128),relativeDepth:raw,relativeDepthWidth:w,relativeDepthHeight:h,relativeConfidence:.95,relativeQuality:{suspicious:false,stripe:{suspicious:false}}}),frames=maps.map((m,i)=>mk(String(i),m)),matches=[];
+  for(let y=2;y<h-2;y+=3)for(let x=2;x<w-2;x+=4)matches.push({aU:x,aV:y,bU:x,bV:y,probability:.98,photometricProbability:.99});
+  const I=[1,0,0,0,1,0,0,0,1],edges=[[0,1],[1,2],[0,2]].map(([a,b])=>({a,b,matches,rotationBToA:I,visualConfidence:.97})),c=solvePhotoDepthConsensus(frames,edges,{minPairs:8,rootIndex:0});
+  assert.equal(c.stats.alignedFrames,3);assert.ok(c.stats.overlapLayerAnchors>=15,c.stats);assert.ok(c.transforms.slice(1).every(t=>t?.type==='monotonic-layer-pwl'));
+  for(const p of [[8,7],[30,20],[55,31]]){const z=frames.map((f,i)=>sampleConsensusDepth(f,c.transforms[i],...p));assert.ok(Math.max(...z)-Math.min(...z)<.025,{p,z});}
+});
