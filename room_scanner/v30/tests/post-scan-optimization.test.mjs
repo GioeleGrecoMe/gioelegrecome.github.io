@@ -31,9 +31,10 @@ test('batch optimiser reduces multi-view geometric error without tangentially co
   assert.ok(after<before*.35,`z error ${before} -> ${after}`);assert.ok(Math.abs(spacingAfter-spacingBefore)<.015,`tangential spacing ${spacingBefore} -> ${spacingAfter}`);assert.ok(opt.lastStats.energy>=0);assert.ok(opt.lastStats.observations>0);
 });
 
-test('review exposes user iteration target, incremental preview and reloadable local sessions',()=>{
-  const html=fs.readFileSync(new URL('../room_scanner_v30.html',import.meta.url),'utf8'),app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8'),worker=fs.readFileSync(new URL('../workers/gaussian_opt_worker.js',import.meta.url),'utf8');
+test('review exposes the same single hierarchical optimiser and reloadable local sessions',()=>{
+  const html=fs.readFileSync(new URL('../room_scanner_v30.html',import.meta.url),'utf8'),app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8'),runtime=fs.readFileSync(new URL('../js/probabilistic/single_optimizer_runtime.js',import.meta.url),'utf8');
   for(const id of ['optIterations','optStartBtn','optStopBtn','optProgress','savedSessions'])assert.match(html,new RegExp(`id="${id}"`));
-  for(const token of ['fusion-persist','persistCurrentSession','loadSavedSession','optimizer-progress','previewEvery','returnHomeFromReview'])assert.match(app,new RegExp(token));
-  assert.match(worker,/setTimeout\(\(\)=>runChunk\(token\),0\)/);assert.match(worker,/type==='stop'/);assert.match(worker,/optimizer-progress/);
+  for(const token of ['fusion-persist','persistCurrentSession','loadSavedSession','single-opt-review-start','single-opt-review-accepted','single-opt-review-rejected','returnHomeFromReview'])assert.match(app,new RegExp(token));
+  assert.match(runtime,/runCycle/);assert.match(runtime,/rebuildAccepted/);assert.match(runtime,/await yieldUi\(\)/);assert.match(runtime,/evaluateLiveCandidate/);
+  assert.doesNotMatch(app,/workers\/gaussian_opt_worker|workers\/probabilistic_opt_worker/);
 });

@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.38.1 continuous RGB live-mosaic configuration.
+ * Room Scanner V30.39 single hierarchical optimizer configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,13 +10,16 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.38.1',
-  id:'v30.38.1-20260821-live-multirate-optimizer-diagnostics',
+  version:'30.39.0',
+  id:'v30.39.0-20260821-single-hierarchical-optimizer-debug',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
 
 export const CONFIG={
+  // Debug phase: exactly one optimisation method is operational.
+  singleOptimizerOnly:true,
+  legacyOptimizersEnabled:false,
   // Mobile budget: Alva stays responsive while neural depth runs separately.
   // AlvaAR initialization needs more image support than the 256x384 low-power
   // profile provided on the test phone. 320x480 is still modest, but gives the
@@ -257,7 +260,6 @@ export const CONFIG={
   // while every reversible measurement required for post-scan re-estimation is
   // persisted in a compact factor graph.
   probabilisticGraphEnabled:true,
-  probabilisticOptWorker:'workers/probabilistic_opt_worker.js',
   probabilisticGrayMaxSide:120,
   probabilisticMaxFrames:360,
   probabilisticMaxFeaturesPerFrame:360,
@@ -279,10 +281,9 @@ export const CONFIG={
   probabilisticDepthFeedbackEvery:2,
   probabilisticPhotoMaxSide:128,
 
-  // V30.38 live multi-rate optimiser. The working state lives in a dedicated
-  // worker; only candidates passing the conservative gate become visible.
+  // V30.39 single multi-rate optimiser. The accepted/working states live in
+  // one inspectable in-process runtime; only candidates passing the gate become visible.
   liveProbabilisticOptimization:true,
-  liveProbabilisticOptWorker:'workers/live_probabilistic_worker.js',
   liveOptMinFrames:2,
   liveOptMinLandmarks:6,
   liveOptFastMinIntervalMs:420,
@@ -318,11 +319,8 @@ export const CONFIG={
   liveOptGateMeanTranslationAlva:.06,
   liveOptGateMaxRotationRad:.07,
 
-  // V30.29: photo-sphere puzzle -> globally aligned relative depth -> hybrid
-  // structural planes + bounded residual particles. The old Gaussian and EXP
-  // paths stay available for A/B comparison but are no longer the preferred
-  // post-scan reconstruction.
-  puzzleWorker:'workers/puzzle_reconstruction_worker.js',
+  // Photo-sphere parameters remain reconstruction evidence settings only.
+  // There is no separate Photo Puzzle optimizer path in V30.39.
   puzzleDefaultParticles:3000,
   puzzleMinParticles:1000,
   puzzleMaxParticles:10000,
@@ -402,12 +400,9 @@ export const CONFIG={
   gaussianMinSupport:2,
   liveOverlayMaxSplats:3200,
 
-  // Post-scan optimisation is deliberately decoupled from acquisition.  The
-  // fusion map saves only a bounded multi-view observation reservoir per
-  // Gaussian, then a Worker refines the map in user-selected iteration batches.
-  // At most postOptimizePreviewUpdates snapshots are pushed to the main thread,
-  // so a 100-iteration run does not serialize the whole cloud 100 times.
-  postOptimizeWorker:'workers/gaussian_opt_worker.js',
+  // Storage/rebuild budgets reused by the single hierarchical optimizer.
+  // These names are retained for snapshot compatibility; they do not select
+  // a second optimizer implementation.
   postOptimizeDefaultIterations:30,
   postOptimizeMaxIterations:300,
   postOptimizePreviewUpdates:16,
@@ -417,24 +412,8 @@ export const CONFIG={
   postOptimizePlaneWeight:0.10,
   postOptimizeDamping:0.68,
 
-  /*
-   * EXPERIMENTAL Surface Mesh Lab.  Nothing in this block replaces the V30.26
-   * Gaussian/TSDF path: the review screen sends a bounded COPY to a dedicated
-   * worker and keeps the production map as an immediate rollback point.
-   */
-  surfaceLabWorker:'workers/surface_mesh_lab_worker.js',
-  surfaceLabMaxGaussians:30000,
-  surfaceLabPreviewMaxGaussians:14000,
-  surfaceLabDefaultIterations:20,
-  surfaceLabMaxIterations:160,
-  surfaceLabPreviewUpdates:12,
-  surfaceLabMeshPreviewEvery:4,
-  surfaceLabVoxelM:0.03,
-  surfaceLabPreviewVoxelM:0.05,
-  surfaceLabMaxVoxels:320000,
-  surfaceLabPreviewMaxVoxels:120000,
-  surfaceLabMaxTriangles:120000,
-  surfaceLabPreviewMaxTriangles:35000,
+  // Legacy experimental optimizers are intentionally not configurable in V30.39.
+
   // Official AlvaAR ESM distribution. A physical vendor/alva_ar.js is used
   // first. If absent, the browser downloads one official/mirrored copy once,
   // validates the real AlvaAR API and stores it in CacheStorage for offline use.

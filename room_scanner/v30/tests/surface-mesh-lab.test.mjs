@@ -34,13 +34,12 @@ test('bounded EXP dataset preserves observation alignment and is a copy',()=>{
   sub.gaussians[0].position[0]+=99;assert.notEqual(sub.gaussians[0].position[0],src.gaussians[sub.sourceIndices[0]].position[0]);
 });
 
-test('review exposes explicit BASE/EXP rollback controls and EXP-only export',()=>{
-  const html=fs.readFileSync(new URL('../room_scanner_v30.html',import.meta.url),'utf8'),app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8'),worker=fs.readFileSync(new URL('../workers/surface_mesh_lab_worker.js',import.meta.url),'utf8');
-  for(const id of ['surfaceLabStartBtn','surfaceLabStopBtn','surfaceLabBaseBtn','surfaceLabExpBtn','surfaceLabDiscardBtn','surfaceLabExportBtn','surfaceLabIterations','surfaceLabVoxel'])assert.match(html,new RegExp(`id="${id}"`));
-  for(const token of ['state.surfaceLab','renderBaseReview','renderExperimentalReview','discardSurfaceLab','selectSurfaceLabDataset','BASE V30.26 intatta'])assert.match(app,new RegExp(token.replace('.', '\\.')));
-  assert.match(worker,/surface-lab-progress/);assert.match(worker,/meshPreviewEvery/);assert.match(worker,/setTimeout\(\(\)=>runChunk\(t\),0\)/);
+test('legacy Surface Mesh Lab is not exposed or reachable from the operational application',()=>{
+  const html=fs.readFileSync(new URL('../room_scanner_v30.html',import.meta.url),'utf8'),app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8'),config=fs.readFileSync(new URL('../js/config.js',import.meta.url),'utf8');
+  assert.doesNotMatch(html,/surfaceLabStartBtn|surfaceLabStopBtn|surfaceLabBaseBtn|surfaceLabExpBtn|surfaceLabDiscardBtn|surfaceLabExportBtn/);
+  assert.doesNotMatch(app,/surface_mesh_lab_worker|loadSurfaceLabAssets|startSurfaceMeshLab|renderExperimentalReview/);
+  assert.doesNotMatch(config,/surfaceLabWorker:/);
 });
-
 
 test('EXP-4 local PCA improves a noisy plane without tangential collapse',()=>{
   const gaussians=[];
@@ -79,11 +78,10 @@ test('EXP-4 signed field is evaluated at voxel centres, preserving an off-grid m
   assert.ok(mesh.vertices.length/3>100);assert.ok(Math.abs(mean-zTrue)<.003,`off-grid plane bias ${mean-zTrue} m`);assert.ok(mesh.meanPlanarity>.4,`unexpected planarity ${mesh.meanPlanarity}`);
 });
 
-test('published EXP-4 contract keeps both lazy Surface Mesh Lab assets deploy-verifiable without gating service-worker install',()=>{
+test('legacy Surface Mesh Lab assets may remain for offline regression but are not published as an optimiser path',()=>{
   const sw=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8'),app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8'),config=fs.readFileSync(new URL('../js/config.js',import.meta.url),'utf8');
   assert.ok(fs.existsSync(new URL('../js/experimental/surface_mesh_lab.js',import.meta.url)));
   assert.ok(fs.existsSync(new URL('../workers/surface_mesh_lab_worker.js',import.meta.url)));
-  assert.match(app,/\.\/experimental\/surface_mesh_lab\.js/);assert.match(config,/surfaceLabWorker:'workers\/surface_mesh_lab_worker\.js'/);
-  assert.match(app,/surface-lab-asset-missing/);assert.match(app,/loadSurfaceLabAssets/);
+  assert.doesNotMatch(app,/\.\/experimental\/surface_mesh_lab\.js|surface_mesh_lab_worker/);assert.doesNotMatch(config,/surfaceLabWorker:/);
   assert.doesNotMatch(sw,/const SHELL = \[/);
 });

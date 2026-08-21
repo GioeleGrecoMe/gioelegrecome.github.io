@@ -1,6 +1,6 @@
 {
-  "version": "30.38.1",
-  "id": "v30.38.1-20260821-live-multirate-optimizer-diagnostics",
+  "version": "30.39.0",
+  "id": "v30.39.0-20260821-single-hierarchical-optimizer-debug",
   "date": "2026-08-21",
-  "notes": "V30.38 runs the hierarchical RGB/pose/depth estimator during acquisition in a dedicated time-sliced worker. A working candidate never changes the visible measurement state until a conservative acceptance gate checks reprojection, pose jumps, depth calibration and switch behaviour. Accepted sparse anchors are smoothed before display; rejected candidates leave the preview untouched. The diagnostics logger is upgraded to structured ROOMSCAN-V30-DIAGNOSTICS-2 with monotonic sequence/timing, checkpoints, runtime context, worker traces and explicit accepted/rejected optimisation decisions."
+  "notes": "V30.39 removes all operational legacy optimisation paths from the UI and uses one ProbabilisticJointOptimizer runtime for both live acquisition and REVIEW. The estimator runs in explicit main-thread time slices to eliminate opaque module-worker startup failures. Every cycle logs evidence audit, baseline, per-step timing, candidate, gate and acceptance/rejection. No automatic post-scan optimiser is launched: additional global cycles are manual and use the same accepted state."
 }
