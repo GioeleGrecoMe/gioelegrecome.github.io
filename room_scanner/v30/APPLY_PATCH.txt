@@ -1,6 +1,5 @@
-Room Scanner V30.27 EXP-4 incremental patch
-
-Base: V30.27 EXP-3.
-Overlay the files preserving their relative paths. No models are included.
-
-Important: EXP-4 changes the service-worker bootstrap. A normal reload is enough; if an old controller cannot hand over cleanly, the inline recovery performs one shell-only reset automatically. IndexedDB sessions and the Depth/Alva caches are not deleted.
+Room Scanner V30.28.0 probabilistic factor-graph patch
+Base: V30.27 EXP-4.
+Overlay this archive at the v30 project root.
+No ONNX model is included or replaced.
+Existing IndexedDB sessions remain loadable; new sessions persist the probabilistic factor graph.

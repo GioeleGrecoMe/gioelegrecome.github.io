@@ -1,3 +1,4 @@
+import {addPoseUncertaintyToPointCovariance} from '../probabilistic/pose_uncertainty.js';
 /**
  * Online information-form 3D Gaussian map.
  *
@@ -191,9 +192,9 @@ function normaliseObservation(s,origin,hashVoxel,mode,frameId){
   const p=s.p.slice(0,3).map(Number),o=finite3(origin)?origin.slice(0,3).map(Number):[0,0,0],v=sub(p,o),depth=Number.isFinite(s.depth)&&s.depth>0?s.depth:Math.hypot(...v),ray=norm(v),radius=Math.max(hashVoxel*.08,Number(s.radius)||hashVoxel*.48),source=s.source||(/deep/i.test(mode)?'deep-proxy':'proxy-verified');
   let n=finite3(s.normal)?norm(s.normal):ray.map(x=>-x);if(dot(n,ray)>0)n=n.map(x=>-x);const normalReliable=s.normalReliable!==false;
   const sigmaLateral=Math.max(hashVoxel*.04,Number(s.sigmaLateral)||radius*.72),defaultRel=/deep/i.test(source)?.10:.022,sigmaDepth=Math.max(hashVoxel*.05,Number(s.sigmaDepth)||Math.max(radius*1.1,depth*defaultRel));
-  const cov=validCov(s.covariance)?regularizeCov(s.covariance,hashVoxel*.012):rayCovariance(ray,sigmaDepth,sigmaLateral),surfaceCov=validCov(s.surfaceCovariance)?regularizeCov(s.surfaceCovariance,hashVoxel*.006):surfaceFromRadius(n,radius,normalReliable),confidence=clamp(Number(s.confidence)||.15,.02,1);
-  const sourceKind=/track/i.test(source)?'track':(/verified|mvs/i.test(source)?'verified':'deep'),sourceWeight=sourceKind==='deep'?.42:(sourceKind==='track'?1.18:1),precision=1/Math.max(1e-9,traceCov(cov)),weight=clamp(confidence*sourceWeight*precision*hashVoxel*hashVoxel,.02,5.0),evidence=Array.isArray(s.evidenceFrames)&&s.evidenceFrames.length?s.evidenceFrames:[frameId],mask=evidenceMask(evidence);
-  return {p,origin:o,ray,depth,n,normalReliable,color:(s.color||[180,200,220]).slice(0,3).map(Number),descriptor:Array.isArray(s.descriptor)?s.descriptor.slice(0,24).map(Number):null,radius,confidence,sigmaDepth,sigmaLateral,cov,surfaceCov,source,sourceKind,weight,anchorSupport:Math.max(0,Number(s.anchorSupport)||0),trackId:s.trackId||null,geometricSupport:Math.max(Number(s.viewSupport)||0,evidence.length),viewMaskLo:mask[0],viewMaskHi:mask[1]};
+  const probability=clamp(Number(s.probability??s.geometryProbability??s.confidence)||.08,.005,.999),baseCov=validCov(s.covariance)?regularizeCov(s.covariance,hashVoxel*.012):rayCovariance(ray,sigmaDepth,sigmaLateral),probCov=scaleCov(baseCov,1/Math.max(.06,probability)),cov=addPoseUncertaintyToPointCovariance(probCov,s.poseCov,p,o),surfaceCov=validCov(s.surfaceCovariance)?regularizeCov(s.surfaceCovariance,hashVoxel*.006):surfaceFromRadius(n,radius,normalReliable),confidence=clamp((Number(s.confidence)||.15)*Math.sqrt(probability),.01,1);
+  const sourceKind=/track/i.test(source)?'track':(/verified|mvs/i.test(source)?'verified':'deep'),sourceWeight=sourceKind==='deep'?.36:(sourceKind==='track'?1.12:1),precision=1/Math.max(1e-9,traceCov(cov)),weight=clamp(confidence*probability*sourceWeight*precision*hashVoxel*hashVoxel,.005,5.0),evidence=Array.isArray(s.evidenceFrames)&&s.evidenceFrames.length?s.evidenceFrames:[frameId],mask=evidenceMask(evidence);
+  return {p,origin:o,ray,depth,n,normalReliable,color:(s.color||[180,200,220]).slice(0,3).map(Number),descriptor:Array.isArray(s.descriptor)?s.descriptor.slice(0,24).map(Number):null,radius,confidence,probability,sigmaDepth,sigmaLateral,cov,surfaceCov,source,sourceKind,weight,anchorSupport:Math.max(0,Number(s.anchorSupport)||0),trackId:s.trackId||null,geometricSupport:Math.max(Number(s.viewSupport)||0,evidence.length),viewMaskLo:mask[0],viewMaskHi:mask[1]};
 }
 
 function compatibilityScore(a,s,hashVoxel,maxMahalanobis2,minNormalDot){

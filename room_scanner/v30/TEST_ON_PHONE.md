@@ -1,29 +1,12 @@
-# EXP-4 phone check
+# V30.28 phone validation
 
-1. Publish the patch once. Reload the page normally. The first transition may take a moment while the new service worker claims the page, but the app must not flash into a second layout or become unclickable.
-2. The Home status must reach `Interfaccia pronta.`. In diagnostics, `ui-interactive` should include a shell object whose `version` is `30.27.0-exp.4`, followed by `service-worker-controller` with `coherent:true`.
-3. Reload repeatedly (including fast consecutive reloads). Controls must remain clickable. A failed bootstrap must show the inline `Ripristina interfaccia` button instead of a dead page.
-4. Run Self-test. `alva-autonomous-world-contract`, `alva-deep-ray-consensus-pipeline`, `service-worker-file`, and `build-info-fresh` must pass.
-5. Existing IndexedDB sessions and model/runtime caches must remain available after `Reset cache`; only shell caches are cleared.
+1. Apply the V30.28 patch over V30.27 EXP-4 and reload normally. Atomic boot remains active; Home must reach `Interfaccia pronta.` and the UI must remain clickable across repeated reloads.
+2. Run the self-test once. The published build must identify itself as V30.28 and all runtime contracts should pass.
+3. Run a short scan with slow lateral motion and revisit the same wall/corner several times. Deep live preview should remain frame-synchronised; Alva should remain the pose source.
+4. Finish the scan and open 3D review. The optimiser status should report factor-graph iterations, reprojection error, mean pose correction and Deep residual rather than only a smoothing energy.
+5. Try 5-10 iterations first. Reprojection error should decrease while pose corrections remain small. If pose corrections rapidly grow, stop: it indicates weak feature association / poor Alva prior rather than a reason to continue iterating.
+6. Continue to 20-40 iterations only if the above is stable. The rebuilt Gaussian map should become thinner on repeated planar surfaces without simply collapsing all points onto one plane.
+7. Save/reload the session and continue optimisation. The factor graph and Deep sequence state must survive reload.
+8. Export/reimport `.r30`; the probabilistic graph must remain available for reprocessing.
 
-# V30.27 EXP-4 phone check - Surface Mesh Lab
-
-1. Apply this patch over **V30.27 EXP-2**, preserving `js/experimental/` and
-   `workers/`, then use Reset cache / hard reload once.
-2. Reopen the saved session from the diagnostic log. The 17k Gaussian snapshot
-   and its completed BASE optimizer iterations remain usable.
-3. Press `Avvia EXP`. The old `Failed to fetch dynamically imported module`
-   error must disappear. Diagnostics should contain `surface-lab-assets-ready`.
-4. Start with 10-20 EXP iterations and voxel 0.03 m. Preview meshing is coarser
-   than the final mesh by design; the status also reports mesh build time.
-5. Compare `Mostra BASE` / `Mostra EXP` on a wall-floor corner and on thin
-   objects. EXP should reduce wavy thickness while preserving the 90-degree edge.
-6. If the mesh is too fragmented, retry with voxel 0.035-0.04 m. If it is too
-   rounded, retry 0.02-0.025 m after confirming the phone can afford it.
-7. Deep/Alva online synchronization remains EXP-2: during a new scan the Deep
-   overlay should still show `SYNC ✓`; late inference must not attach to a newer
-   pose.
-
-Useful diagnostics:
-`surface-lab-assets-ready`, `surface-lab-asset-missing`, mesh face count,
-`planarità`, mesh build milliseconds, `deep-frame-sync-ok`.
+Useful diagnostics: `probabilistic-sparse-evidence`, `deep-sequence-calibrated`, `probabilistic-optimization-complete`, reprojection RMSE, pose-shift mean, Deep relative error, MVS `priorEscapeRatio` and frame-sync events.

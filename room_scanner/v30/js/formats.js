@@ -16,7 +16,9 @@ export function parsePly(text){
     out.push({position:[obj.x,obj.y,obj.z],color:[obj.red??180,obj.green??180,obj.blue??180],opacity:obj.opacity??1,scale,covariance:cov.every(Number.isFinite)?cov:null,confidence:obj.confidence??.6,support:obj.support??1,radius:obj.scale??Math.max(...scale)});
   }return out;
 }
-export function encodeR30(bundle){return new Blob([JSON.stringify({format:'ROOMSCAN-R30-JSON-1',...bundle})],{type:'application/octet-stream'});}
-export async function decodeR30(file){const text=await file.text(),x=JSON.parse(text);if(!x||typeof x!=='object')throw new Error('R30 invalid');return x;}
+export function encodeR30(bundle){return new Blob([JSON.stringify({format:'ROOMSCAN-R30-JSON-2',...bundle},typedReplacer)],{type:'application/octet-stream'});}
+export async function decodeR30(file){const text=await file.text(),x=JSON.parse(text,typedReviver);if(!x||typeof x!=='object')throw new Error('R30 invalid');return x;}
+function typedReplacer(_k,v){if(ArrayBuffer.isView(v)&&!(v instanceof DataView))return {__r30Typed:v.constructor.name,data:Array.from(v)};return v;}
+function typedReviver(_k,v){if(!v?.__r30Typed||!Array.isArray(v.data))return v;const C=globalThis[v.__r30Typed];return typeof C==='function'?new C(v.data):v.data;}
 export function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);}
 function normalize(items){return (items||[]).map(g=>{const p=g.position||g.p||g.mean||g.xyz||[0,0,0],c=g.color||g.rgb||[180,210,240],s=g.scale||g.scales||g.radius||.02,scale=Array.isArray(s)?s.slice(0,3).map(Number):[Number(s),Number(s),Number(s)],r=Math.max(...scale),fallback=[scale[0]*scale[0],0,0,scale[1]*scale[1],0,scale[2]*scale[2]],cov=Array.isArray(g.covariance)&&g.covariance.length>=6?g.covariance.slice(0,6).map(Number):fallback;return {p:p.map(Number),c:c.map(v=>Math.max(0,Math.min(255,Math.round(Number(v)||0)))),a:Number(g.opacity??g.alpha??1),scale:scale.map(x=>Number.isFinite(x)&&x>0?x:.02),r:Number.isFinite(r)&&r>0?r:.02,cov:cov.every(Number.isFinite)?cov:fallback,q:Number(g.confidence??.6),support:Math.max(1,Math.round(Number(g.support)||1))};}).filter(g=>g.p.every(Number.isFinite));}

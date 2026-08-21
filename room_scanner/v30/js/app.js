@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.27.0 EXP-4 exact-frame synchronized + robust surface-field laboratory application.
+ * Room Scanner V30.28.0 probabilistic factor-graph reconstruction application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,12 +8,12 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.27.0-exp.4';
-import {DiagnosticsLog} from './logger.js?v=30.27.0-exp.4';
+import {BUILD,CONFIG} from './config.js?v=30.28.0';
+import {DiagnosticsLog} from './logger.js?v=30.28.0';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
-const state={db:null,calibrator:null,bridge:null,bridgeStable:0,bridgeEpoch:0,bridgeTransition:false,alvaBootstrap:null,camera:null,frontend:null,slam:null,denseManager:null,denseDepthWorker:null,denseFusionWorker:null,deepDepthWorker:null,deepWorkerModelId:null,deepSelector:null,deepPending:null,deepModel:null,deepDisabled:false,deepCalls:0,deepAccepted:0,deepPreviewLastAt:0,deepPreviewInFlight:null,deepPreviewSeq:0,deepPreviewFrames:0,deepPreviewLastQuality:null,deepSync:null,deepJobs:new Map(),deepSyncRejected:0,denseBusy:false,denseActivePayload:null,denseJobs:0,denseDepthSamples:0,denseDepthHint:null,densePixelStep:null,denseSourceLimit:null,surfaceStats:null,mesh:null,meshStale:false,gaussians:[],optimizerObservations:null,optimization:{iterations:0,lastEnergy:null},postOptWorker:null,postOptBusy:false,postOptRunBase:0,reviewMetricLocked:null,reviewKeyframes:0,renderer:null,currentSession:null,scanStop:null,liveOverlay:null,scanK:null,lastFrameGeometry:null,lastTracking:null,geometryAnchors:[],alvaHeartbeatFrames:[],alvaHeartbeatCount:0,surfaceLab:{worker:null,busy:false,active:false,iterations:0,previewGaussians:null,mesh:null,lastStats:null,baseSignature:null,target:0,voxelM:null}};
+const state={db:null,calibrator:null,bridge:null,bridgeStable:0,bridgeEpoch:0,bridgeTransition:false,alvaBootstrap:null,camera:null,frontend:null,slam:null,denseManager:null,denseDepthWorker:null,denseFusionWorker:null,deepDepthWorker:null,deepWorkerModelId:null,deepSelector:null,deepPending:null,deepModel:null,deepDisabled:false,deepCalls:0,deepAccepted:0,deepPreviewLastAt:0,deepPreviewInFlight:null,deepPreviewSeq:0,deepPreviewFrames:0,deepPreviewLastQuality:null,deepSync:null,deepJobs:new Map(),deepSyncRejected:0,denseBusy:false,denseActivePayload:null,denseJobs:0,denseDepthSamples:0,denseDepthHint:null,densePixelStep:null,denseSourceLimit:null,surfaceStats:null,mesh:null,meshStale:false,gaussians:[],optimizerObservations:null,probGraph:null,deepSequence:null,probOptimization:null,probOptimized:null,optimization:{iterations:0,lastEnergy:null},postOptWorker:null,postOptBusy:false,postOptRunBase:0,reviewMetricLocked:null,reviewKeyframes:0,renderer:null,currentSession:null,scanStop:null,liveOverlay:null,scanK:null,lastFrameGeometry:null,lastTracking:null,geometryAnchors:[],alvaHeartbeatFrames:[],alvaHeartbeatCount:0,surfaceLab:{worker:null,busy:false,active:false,iterations:0,previewGaussians:null,mesh:null,lastStats:null,baseSignature:null,target:0,voxelM:null}};
 window.RoomScanV30={BUILD,CONFIG,state,log};
 const moduleCache=new Map();
 function lazy(path){if(!moduleCache.has(path))moduleCache.set(path,import(`${path}?v=${BUILD.version}`));return moduleCache.get(path);}
@@ -166,7 +166,12 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
   if(metric?.alvaTransform)state.slam.setWorldTransform(metric.alvaTransform);
 
   state.liveOverlay=new LiveReconstructionOverlay($('miniMap'),{maxSplats:CONFIG.liveOverlayMaxSplats||4200});state.liveOverlay.setMode('both');
-  stopPostOptimizer();state.gaussians=[];state.mesh=null;state.meshStale=false;state.optimizerObservations=null;state.optimization={iterations:0,lastEnergy:null};state.reviewMetricLocked=null;state.reviewKeyframes=0;window.__ROOMSCAN_METRIC_MESH=null;state.alvaHeartbeatFrames=[];state.alvaHeartbeatCount=0;state.denseBusy=false;state.denseActivePayload=null;state.denseJobs=0;state.denseDepthSamples=0;state.denseDepthHint=null;state.densePixelStep=CONFIG.densePixelStep||4;state.denseSourceLimit=Math.min(CONFIG.denseInitialSourceLimit||2,CONFIG.denseMaxSourceViews||4);state.surfaceStats=null;state.geometryAnchors=[];state.deepPending=null;state.deepDisabled=false;state.deepCalls=0;state.deepAccepted=0;state.deepRaySamples=0;state.deepPreviewLastAt=0;state.deepPreviewInFlight=null;state.deepPreviewSeq=0;state.deepPreviewFrames=0;state.deepPreviewLastQuality=null;state.deepJobs.clear();state.deepSyncRejected=0;
+  stopPostOptimizer();state.gaussians=[];state.mesh=null;state.meshStale=false;state.optimizerObservations=null;state.probOptimization=null;state.probOptimized=null;state.optimization={iterations:0,lastEnergy:null};state.reviewMetricLocked=null;state.reviewKeyframes=0;window.__ROOMSCAN_METRIC_MESH=null;state.alvaHeartbeatFrames=[];state.alvaHeartbeatCount=0;state.denseBusy=false;state.denseActivePayload=null;state.denseJobs=0;state.denseDepthSamples=0;state.denseDepthHint=null;state.densePixelStep=CONFIG.densePixelStep||4;state.denseSourceLimit=Math.min(CONFIG.denseInitialSourceLimit||2,CONFIG.denseMaxSourceViews||4);state.surfaceStats=null;state.geometryAnchors=[];state.deepPending=null;state.deepDisabled=false;state.deepCalls=0;state.deepAccepted=0;state.deepRaySamples=0;state.deepPreviewLastAt=0;state.deepPreviewInFlight=null;state.deepPreviewSeq=0;state.deepPreviewFrames=0;state.deepPreviewLastQuality=null;state.deepJobs.clear();state.deepSyncRejected=0;
+  if(CONFIG.probabilisticGraphEnabled!==false){
+    const [{ProbabilisticFactorGraph},{DeepSequenceModel}]=await Promise.all([lazy('./probabilistic/factor_graph.js'),lazy('./probabilistic/deep_sequence_model.js')]);
+    state.probGraph=new ProbabilisticFactorGraph({maxFrames:CONFIG.probabilisticMaxFrames||360,maxFeaturesPerFrame:CONFIG.probabilisticMaxFeaturesPerFrame||360,grayMaxSide:CONFIG.probabilisticGrayMaxSide||120,deepGridCols:CONFIG.probabilisticDeepGridCols||32,deepGridRows:CONFIG.probabilisticDeepGridRows||48,mvsPerFrame:CONFIG.probabilisticMvsPerFrame||420,maxLandmarks:CONFIG.probabilisticMaxGraphLandmarks||18000});
+    state.deepSequence=new DeepSequenceModel({minAnchors:CONFIG.deepMinAnchors||5,minCells:CONFIG.deepMinAnchorCells||3});
+  }else{state.probGraph=null;state.deepSequence=null;}
   const metricWorld=!!state.slam.metricLocked;
   state.denseManager=new DenseKeyframeManager({
     width:CONFIG.denseWidth||160,height:CONFIG.denseHeight||240,
@@ -208,7 +213,7 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
     meshEvery:CONFIG.denseMeshEvery||5,maxSplats:CONFIG.gaussianSnapshot||50000,maxTriangles:CONFIG.denseMaxMeshTriangles||90000,observationReservoir:CONFIG.postOptimizeObservationReservoir||4
   }});
 
-  state.currentSession=await state.db?.createSession({calibrationBuild:cal?.createdAt||null,metricLocked:metricWorld,reconstruction:'alva+feature-tracks+proxy-depth+continuous-information-gaussians'});
+  state.currentSession=await state.db?.createSession({calibrationBuild:cal?.createdAt||null,metricLocked:metricWorld,reconstruction:'alva+probabilistic-factor-graph+sequence-depth+independent-mvs+information-gaussians'});
   if($('metricState'))$('metricState').textContent=metricWorld?`scala METRIC · Alva×${state.slam.metricScale?.toFixed?.(3)||'?'}`:'ALVA WORLD · scala libera';
   if($('mvsState'))$('mvsState').textContent='DENSE: Deep live ~1 Hz · fusione solo su keyframe Alva validi';
   if($('deepLiveState'))$('deepLiveState').textContent='DEEP LIVE · attendo primo frame…';
@@ -267,6 +272,7 @@ async function queueDenseKeyframe(kf,frame,K){
   const sync=state.deepSync?.sameCameraFrame?.(frame,kf)||{ok:true};
   if(!sync.ok){state.deepSyncRejected++;log.error('alva-camera-frame-sync-rejected',{...sync,kfId:kf?.id||null});return;}
   const added=state.denseManager.add(kf,frame,K,{metricLocked:!!state.slam?.metricLocked});
+  if(added)state.probGraph?.addFrame(added);
   if(added)log.debug('alva-camera-frame-sync-ok',{frameId:added.frameId,kfId:added.id,at:added.at});
   await scheduleDenseWork();
 }
@@ -280,22 +286,30 @@ async function scheduleDenseWork(){
 async function makeDensePayload(job){
   const {buildSparseDepthAnchors}=await lazy('./dense/sparse_depth_anchors.js');
   const selectedSources=job.sources.slice(0,state.denseSourceLimit||3),metric=!!state.slam?.metricLocked;
-  const sparse=buildSparseDepthAnchors(job.ref,selectedSources,{maxReprojectionPx:CONFIG.denseSeedMaxReprojectionPx||2.8,minAngleRad:CONFIG.denseSeedMinAngleRad||.010,maxGapBaselineRatio:CONFIG.denseSeedMaxGapBaselineRatio||.14});
-  // Both AI calibration and multi-view refinement are permitted only after Alva
-  // geometry proves the local depth range. A hole is preferable to a fake sheet.
-  if(!sparse.range||sparse.seeds.length<(CONFIG.denseMinSparseSeeds||5)){log.info('dense-waiting-sparse-geometry',{ref:job.ref.id,...sparse.stats});return null;}
-  let near=sparse.range.near,far=sparse.range.far;if(metric){near=Math.max(CONFIG.denseNearM||.20,near);far=Math.min(CONFIG.denseFarM||10,far);}if(!(far>near*1.35))return null;
-  state.denseDepthHint=sparse.range.median;state.geometryAnchors=sparse.seeds.slice(0,120).map(x=>({p:x.p,confidence:x.confidence,reprojectionPx:x.reprojectionPx}));state.liveOverlay?.setGeometryAnchors(state.geometryAnchors);
-  return {type:'depth',ref:cloneDenseFrame(job.ref,true),sources:selectedSources.map(x=>cloneDenseFrame(x,false)),K:job.ref.K,near,far,sparseSeeds:sparse.seeds.map(x=>({u:x.u,v:x.v,depth:x.depth,p:x.p,confidence:x.confidence,reprojectionPx:x.reprojectionPx,viewSupport:x.viewSupport||1,sourceIds:x.sourceIds||[],trackId:x.trackId||null,sigmaDepth:x.sigmaDepth||null,worldSigma:x.worldSigma||null,covariance:x.covariance||null,descriptor:x.descriptor||null,evidenceFrames:x.evidenceFrames||[]})),config:{depthSteps:CONFIG.denseDepthSteps||64,pixelStep:state.densePixelStep||CONFIG.densePixelStep||3,minTexture:CONFIG.denseMinTexture||.018,minDistinctiveness:CONFIG.denseMinDistinctiveness||.025,minViews:Math.min(CONFIG.denseMinSourceViews||2,selectedSources.length),seedRadiusPx:CONFIG.denseSeedRadiusPx||22,seedMaxRelativeError:CONFIG.denseSeedMaxRelativeError||.48}};
+  const sparse=buildSparseDepthAnchors(job.ref,selectedSources,{maxReprojectionPx:CONFIG.denseSeedMaxReprojectionPx||2.8,minAngleRad:CONFIG.denseSeedMinAngleRad||.001,maxGapBaselineRatio:CONFIG.denseSeedMaxGapBaselineRatio||.14});
+  state.probGraph?.addSparseAnchors(job.ref,sparse.seeds);
+  // V30.28 does not turn insufficient sparse evidence into a binary rejection.
+  // A broad, uncertain MVS job is still useful and remains revisitable in the
+  // factor graph; sparse geometry merely contracts the proposal interval.
+  let near,far,median=null;
+  if(sparse.range){near=sparse.range.near;far=sparse.range.far;median=sparse.range.median;}
+  else if(Number.isFinite(state.denseDepthHint)&&state.denseDepthHint>0){median=state.denseDepthHint;near=median*.46;far=median*2.15;}
+  else{near=metric?(CONFIG.denseNearM||.28):.18;far=metric?Math.min(5.5,CONFIG.denseFarM||8.5):5.0;}
+  if(metric){near=Math.max(CONFIG.denseNearM||.20,near);far=Math.min(CONFIG.denseFarM||10,far);}if(!(far>near*1.25)){far=near*2.2;}
+  if(median)state.denseDepthHint=median;
+  state.geometryAnchors=sparse.seeds.slice(0,120).map(x=>({p:x.p,confidence:x.geometryProbability??x.confidence,reprojectionPx:x.reprojectionPx}));state.liveOverlay?.setGeometryAnchors(state.geometryAnchors);
+  const sparseSeeds=sparse.seeds.map(x=>({u:x.u,v:x.v,depth:x.depth,p:x.p,confidence:x.confidence,geometryProbability:x.geometryProbability??x.confidence,matchProbability:x.matchProbability??null,relativeDepthSigma:x.relativeDepthSigma??null,calibrationWeight:x.calibrationWeight??null,reprojectionPx:x.reprojectionPx,viewSupport:x.viewSupport||1,sourceIds:x.sourceIds||[],trackId:x.trackId||null,sigmaDepth:x.sigmaDepth||null,worldSigma:x.worldSigma||null,covariance:x.covariance||null,descriptor:x.descriptor||null,measurements:x.measurements||[],evidenceFrames:x.evidenceFrames||[]}));
+  log.info('probabilistic-sparse-evidence',{ref:job.ref.id,seeds:sparseSeeds.length,range:!!sparse.range,matched:sparse.stats?.matched||0,triangulated:sparse.stats?.triangulated||0,meanProbability:sparseSeeds.length?sparseSeeds.reduce((a,x)=>a+(x.geometryProbability||0),0)/sparseSeeds.length:0});
+  return {type:'depth',ref:cloneDenseFrame(job.ref,true),sources:selectedSources.map(x=>cloneDenseFrame(x,false)),K:job.ref.K,near,far,sparseSeeds,probabilistic:true,config:{depthSteps:CONFIG.denseDepthSteps||64,pixelStep:state.densePixelStep||CONFIG.densePixelStep||3,minTexture:CONFIG.denseMinTexture||.018,minDistinctiveness:CONFIG.denseMinDistinctiveness||.025,minViews:Math.min(CONFIG.denseMinSourceViews||2,selectedSources.length),seedRadiusPx:CONFIG.denseSeedRadiusPx||22,seedMaxRelativeError:CONFIG.denseSeedMaxRelativeError||.48,patchRadius:2}};
 }
-function cloneDenseFrame(f,includeDeep=false){const out={id:f.id,frameId:f.frameId||f.id,captureAt:f.captureAt??f.at,at:f.at,pose:f.pose,K:f.K,width:f.width,height:f.height,gray:f.gray,rgba:f.rgba,features:f.features||[]};if(includeDeep&&f.deepRgba?.length){out.deepWidth=f.deepWidth;out.deepHeight=f.deepHeight;out.deepRgba=f.deepRgba;}return out;}
+function cloneDenseFrame(f,includeDeep=false){const out={id:f.id,frameId:f.frameId||f.id,captureAt:f.captureAt??f.at,at:f.at,pose:f.pose,poseCov:f.poseCov||null,K:f.K,width:f.width,height:f.height,gray:f.gray,rgba:f.rgba,features:f.features||[]};if(includeDeep&&f.deepRgba?.length){out.deepWidth=f.deepWidth;out.deepHeight=f.deepHeight;out.deepRgba=f.deepRgba;}return out;}
 async function dispatchDensePayload(payload){
   const baseDecision=state.deepSelector?.evaluate({ref:payload.ref,sparseSeeds:payload.sparseSeeds,metricLocked:!!state.slam?.metricLocked})||{infer:false,reason:'selector-unavailable'};
   // V30.25 wants one statistically useful proxy depth per accepted dense
   // keyframe. Near-duplicate *video* frames are still rejected by the keyframe
   // manager, but a keyframe that already passed Alva/parallax/anchor gating is
   // worth a Deep observation even when the selector calls its motion small.
-  const forceEvery=CONFIG.deepInferEveryDenseKeyframe===true&&payload.sparseSeeds.length>=(CONFIG.deepMinAnchors||7);
+  const forceEvery=CONFIG.deepInferEveryDenseKeyframe===true;
   const decision=forceEvery&&!baseDecision.infer?{...baseDecision,infer:true,reason:'accepted-dense-keyframe'}:baseDecision;
   if(!state.deepDisabled&&state.deepDepthWorker&&decision.infer){
     state.deepSelector.noteAttempt(payload.ref,payload.sparseSeeds);state.deepPending=payload;state.deepCalls++;
@@ -361,30 +375,30 @@ async function handleDeepDepthMessage(d){
 }
 async function applyDeepDepthResult(d,payload){
   if(String(d?.frameId||'')!==String(payload?.ref?.frameId||'')){state.deepSyncRejected++;log.error('deep-frame-sync-defense',{jobId:d?.jobId||null,resultFrameId:d?.frameId||null,payloadFrameId:payload?.ref?.frameId||null});stripDeepRaster(payload);state.denseActivePayload=payload;state.denseDepthWorker?.postMessage(payload);return;}
-  const {calibrateRelativeDepth}=await lazy('./dense/deep_metric.js');
   drawDepth($('depthOverlay'),d.rawDepth,d.rawWidth,d.rawHeight);
+  // Raw relative depth is evidence even when its current metric calibration is
+  // weak. Persist it BEFORE any online quality/calibration decision so post-scan
+  // optimisation can re-estimate scale after poses/landmarks improve.
   if(d.quality?.suspicious){
-    // A bad neural map is diagnostic only. The Alva/MVS geometry for this
-    // keyframe is still valuable and is allowed to continue without Deep.
-    state.deepSelector?.fail?.();const band=Math.round(100*Number(d.quality?.stripe?.dominantExplained||0));
-    log.warn('deep-depth-quality-rejected',{jobId:d.jobId,quality:d.quality,resolutionRescue:d.resolutionRescue||null});
-    if($('mvsState'))$('mvsState').textContent=`Deep rifiutata · banding ${band}% · uso solo multi-view`;
-    stripDeepRaster(payload);state.denseActivePayload=payload;state.denseDepthWorker.postMessage(payload);return;
+    state.probGraph?.addDeepRaw(payload.ref.frameId,{rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,calibration:null,quality:d.quality});
+    state.deepSelector?.fail?.();const band=Math.round(100*Number(d.quality?.stripe?.dominantExplained||0));log.warn('deep-depth-quality-rejected',{jobId:d.jobId,quality:d.quality,resolutionRescue:d.resolutionRescue||null});if($('mvsState'))$('mvsState').textContent=`Deep anomala (${band}% banding) · salvata come evidenza a bassa autorità`;stripDeepRaster(payload);state.denseActivePayload=payload;state.denseDepthWorker.postMessage(payload);return;
   }
-  const cal=calibrateRelativeDepth({rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,outWidth:payload.ref.width,outHeight:payload.ref.height,sparseSeeds:payload.sparseSeeds,near:payload.near,far:payload.far,minAnchors:CONFIG.deepMinAnchors||7,minCells:CONFIG.deepMinAnchorCells||3,maxMedianRelativeError:CONFIG.deepCalibrationMaxMedianRelativeError||.18});
-  if(!cal.ok){
-    state.deepSelector?.fail?.();log.warn('deep-depth-calibration-rejected',{jobId:d.jobId,reason:cal.reason,anchors:cal.anchorCount,cells:cal.cells,medianRelativeError:cal.medianRelativeError});
-    if($('mvsState'))$('mvsState').textContent=`Deep→Alva rifiutata (${cal.reason}) · uso multi-view`;
-    stripDeepRaster(payload);state.denseActivePayload=payload;state.denseDepthWorker.postMessage(payload);return;
+  let cal;
+  if(state.deepSequence)cal=state.deepSequence.calibrate({rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,outWidth:payload.ref.width,outHeight:payload.ref.height,sparseSeeds:payload.sparseSeeds,near:payload.near,far:payload.far});
+  else{const {calibrateRelativeDepth}=await lazy('./dense/deep_metric.js');cal=calibrateRelativeDepth({rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,outWidth:payload.ref.width,outHeight:payload.ref.height,sparseSeeds:payload.sparseSeeds,near:payload.near,far:payload.far,minAnchors:CONFIG.deepMinAnchors||5,minCells:CONFIG.deepMinAnchorCells||3,maxMedianRelativeError:CONFIG.deepCalibrationMaxMedianRelativeError||.35});}
+  state.probGraph?.addDeepRaw(payload.ref.frameId,{rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,calibration:cal?.ok?cal:null,quality:d.quality});
+  if(!cal?.ok){
+    state.deepSelector?.fail?.();log.info('deep-depth-calibration-uncertain',{jobId:d.jobId,reason:cal?.reason||'unknown',anchors:cal?.anchorCount||payload.sparseSeeds.length});if($('mvsState'))$('mvsState').textContent=`Deep relativa salvata · scala non ancora osservabile (${cal?.reason||'pochi anchor'})`;stripDeepRaster(payload);state.denseActivePayload=payload;state.denseDepthWorker.postMessage(payload);return;
   }
   state.deepSelector?.commit?.(payload.ref,payload.sparseSeeds);state.deepAccepted++;
-  payload.depthPrior={depth:cal.depth,relativeSigma:cal.relativeSigma,width:cal.width,height:cal.height,confidence:cal.confidence,mode:cal.mode};
-  payload.deepCalibration={confidence:cal.confidence,medianRelativeError:cal.medianRelativeError,localField:cal.localField||null};
-  Object.assign(payload.config,{priorRelRange:CONFIG.deepPriorRelRange||.18,priorDepthSteps:CONFIG.deepPriorDepthSteps||10,priorWeight:CONFIG.deepPriorWeight||.10,priorMinConfidence:CONFIG.deepPriorMinConfidence||.28,priorMinTexture:CONFIG.deepPriorMinTexture||.006});
-  log.info('deep-depth-calibrated',{jobId:d.jobId,provider:d.provider,aiMs:d.ms,mode:cal.mode,confidence:cal.confidence,inliers:cal.inliers,anchors:cal.anchorCount,cells:cal.cells,medianRelativeError:cal.medianRelativeError,validRatio:cal.validRatio,localField:cal.localField||null});
-  if($('mvsState'))$('mvsState').textContent=`PROXY Deep→Alva ${cal.inliers}/${cal.anchorCount} track · errore ${(cal.medianRelativeError*100).toFixed(1)}% · verifico multi-view`;
+  payload.depthPrior={depth:cal.depth,relativeSigma:cal.relativeSigma,width:cal.width,height:cal.height,confidence:cal.posteriorConfidence??cal.confidence,mode:cal.sequenceMode||cal.mode};
+  payload.deepCalibration={confidence:cal.posteriorConfidence??cal.confidence,medianRelativeError:cal.medianRelativeError,heldOutRelativeError:cal.heldOutRelativeError??null,sequenceSigma:cal.sequenceSigma??null,mode:cal.sequenceMode||cal.mode,a:cal.a,b:cal.b};
+  const uncertainty=Math.max(.06,Number(cal.sequenceSigma??cal.medianRelativeError??.18));Object.assign(payload.config,{priorRelRange:clampNumber(Math.max(CONFIG.deepPriorRelRange||.26,uncertainty*2.2),.18,.55),priorDepthSteps:CONFIG.deepPriorDepthSteps||10,priorWeight:0,priorMinConfidence:CONFIG.deepPriorMinConfidence||.08,priorMinTexture:CONFIG.deepPriorMinTexture||.006});
+  log.info('deep-sequence-calibrated',{jobId:d.jobId,provider:d.provider,aiMs:d.ms,frameMode:cal.frameMode||cal.mode,sequenceMode:cal.sequenceMode||cal.mode,confidence:cal.posteriorConfidence??cal.confidence,anchors:cal.anchorCount,medianRelativeError:cal.medianRelativeError,heldOutRelativeError:cal.heldOutRelativeError??null,sequenceSigma:cal.sequenceSigma??null,parameterDrift:cal.parameterDrift??null});
+  if($('mvsState'))$('mvsState').textContent=`Deep seq ${cal.sequenceMode||cal.mode} · σ ${(100*uncertainty).toFixed(1)}% · MVS indipendente`;
   stripDeepRaster(payload);state.denseActivePayload=payload;state.denseDepthWorker.postMessage(payload);
 }
+function clampNumber(v,a,b){return Math.max(a,Math.min(b,v));}
 async function handleDenseDepthMessage(d){
   if(d.type==='ready'){if($('mvsState'))$('mvsState').textContent='PROXY mapper pronto · Deep+track+multi-view';return;}
   if(d.type==='depth-error'){
@@ -393,7 +407,7 @@ async function handleDenseDepthMessage(d){
   if(d.type!=='depth-result')return;
   const payload=state.denseActivePayload&&state.denseActivePayload.jobId===d.jobId?state.denseActivePayload:null;state.denseActivePayload=null;state.denseBusy=false;
   if(d.medianDepth)state.denseDepthHint=state.denseDepthHint?state.denseDepthHint*.7+d.medianDepth*.3:d.medianDepth;
-  state.denseDepthSamples+=d.samples?.length||0;if(d.ms>1800){state.densePixelStep=Math.min(5,(state.densePixelStep||3)+1);state.denseSourceLimit=2;}else if(d.ms<650){state.densePixelStep=Math.max(3,(state.densePixelStep||3)-1);state.denseSourceLimit=Math.min(3,CONFIG.denseMaxSourceViews||4);}if($('statTri'))$('statTri').textContent=String(state.denseDepthSamples);
+  state.denseDepthSamples+=d.samples?.length||0;if(payload?.ref)state.probGraph?.addMvs(payload.ref.frameId,d.samples||[],{sourceFrames:(payload.sources||[]).map(x=>x.frameId||x.id)});if(d.ms>1800){state.densePixelStep=Math.min(5,(state.densePixelStep||3)+1);state.denseSourceLimit=2;}else if(d.ms<650){state.densePixelStep=Math.max(3,(state.densePixelStep||3)-1);state.denseSourceLimit=Math.min(3,CONFIG.denseMaxSourceViews||4);}if($('statTri'))$('statTri').textContent=String(state.denseDepthSamples);
 
   if(payload?.depthPrior?.depth?.length){
     try{
@@ -405,13 +419,15 @@ async function handleDenseDepthMessage(d){
         pixelStep:CONFIG.deepRayPixelStep||4,maxSamples:CONFIG.deepRayMaxSamples||6500,source:'deep-proxy'
       });
       if(batch.samples.length){
+        for(const s of batch.samples){s.poseCov=payload.ref.poseCov||null;s.probability=clampNumber((Number(s.confidence)||.1)*(payload.depthPrior.confidence||.1),.005,.995);}
         state.deepRaySamples+=batch.samples.length;state.denseFusionWorker?.postMessage({type:'integrate',mode:'proxy-depth',samples:batch.samples,origin:payload.ref.pose.p,frameId:payload.ref.frameId||payload.ref.id});
         log.info('proxy-depth-observations',{jobId:d.jobId,refId:payload.ref.id,samples:batch.samples.length,total:state.deepRaySamples,stats:batch.stats,mvsSamples:d.samples?.length||0});
         if($('mvsState'))$('mvsState').textContent=`PROXY ${batch.stats.verified||0} verificati + ${batch.stats.deepOnly||0} Deep · ${d.ms.toFixed(0)} ms`;
       }
     }catch(err){log.warn('proxy-depth-sampler',{jobId:d.jobId,message:err?.message||String(err)});}
   }else if(d.samples?.length){
-    state.denseFusionWorker?.postMessage({type:'integrate',mode:'mvs-refined',samples:d.samples,origin:d.origin||[0,0,0],frameId:payload?.ref?.frameId||d.refId});
+    for(const s of d.samples){s.poseCov=payload?.ref?.poseCov||null;s.probability=clampNumber(Number(s.probability??s.confidence??.1),.005,.995);}
+    state.denseFusionWorker?.postMessage({type:'integrate',mode:'mvs-refined',samples:d.samples,origin:d.origin||payload?.ref?.pose?.p||[0,0,0],frameId:payload?.ref?.frameId||d.refId});
     if($('mvsState'))$('mvsState').textContent=`MVS-only ${d.validCount||d.samples.length} px · ${(d.coverage*100).toFixed(0)}% · ${d.ms.toFixed(0)} ms`;
   }else if($('mvsState'))$('mvsState').textContent='PROXY rifiutata · serve più overlap/parallasse';
   void scheduleDenseWork();
@@ -448,11 +464,12 @@ async function finishScan(){
 
 async function persistCurrentSession({status='finished',keyframes=state.reviewKeyframes||0}={}){
   if(!state.currentSession||!state.db)return null;const id=state.currentSession.id,faces=state.mesh?.faces?.length?state.mesh.faces.length/3:0;
-  const snapshot={id,sessionId:id,format:'ROOMSCAN-GS-SESSION-2',savedAt:Date.now(),build:BUILD.id,gaussians:state.gaussians,optimizerObservations:state.optimizerObservations||null,optimization:{...(state.optimization||{iterations:0})},denseSamples:state.denseDepthSamples||0,deepRaySamples:state.deepRaySamples||0,metricLocked:state.reviewMetricLocked??!!state.slam?.metricLocked,keyframes};
+  const graphState=state.probGraph?.exportState?.()||state.probGraph||null,deepSequence=state.deepSequence?.exportState?.()||null;
+  const snapshot={id,sessionId:id,format:'ROOMSCAN-PROB-SESSION-3',savedAt:Date.now(),build:BUILD.id,gaussians:state.gaussians,optimizerObservations:state.optimizerObservations||null,factorGraph:graphState,deepSequence,probOptimization:state.probOptimization||null,optimization:{...(state.optimization||{iterations:0})},denseSamples:state.denseDepthSamples||0,deepRaySamples:state.deepRaySamples||0,metricLocked:state.reviewMetricLocked??!!state.slam?.metricLocked,keyframes};
   await state.db.put('snapshots',snapshot);
   if(state.mesh?.vertices?.length)await state.db.put('meshes',{id,sessionId:id,format:'ROOMSCAN-MESH-1',savedAt:Date.now(),stale:!!state.meshStale,voxelM:state.mesh.voxelM||null,occupiedVoxels:state.mesh.occupiedVoxels||0,vertices:state.mesh.vertices,colors:state.mesh.colors,faces:state.mesh.faces});
   state.currentSession=await state.db.updateSession(id,{status,hasSnapshot:true,optimizationIterations:state.optimization?.iterations||0,counts:{keyframes,denseSamples:state.denseDepthSamples||0,surfels:state.gaussians.length,gaussians:state.gaussians.length,meshFaces:state.meshStale?0:faces}});
-  log.info('session-persisted',{id,gaussians:state.gaussians.length,optimizerObservations:state.optimizerObservations?.count||0,iterations:state.optimization?.iterations||0,meshFaces:state.meshStale?0:faces});return state.currentSession;
+  log.info('session-persisted',{id,gaussians:state.gaussians.length,optimizerObservations:state.optimizerObservations?.count||0,factorGraph:graphState?.summary||state.probGraph?.summary?.()||null,iterations:state.optimization?.iterations||0,meshFaces:state.meshStale?0:faces});return state.currentSession;
 }
 
 async function showReview(){
@@ -465,10 +482,10 @@ function updateReviewUi(){
   const input=$('optIterations');if(input&&document.activeElement!==input)input.value=String(Math.max(Number(input.value)||0,iterations||CONFIG.postOptimizeDefaultIterations||30));updateOptimizerUi();
 }
 function updateOptimizerUi(extra=null){
-  const current=state.optimization?.iterations||0,status=$('optStatus'),progress=$('optProgress'),start=$('optStartBtn'),stop=$('optStopBtn'),hasRays=!!state.optimizerObservations?.count;
+  const current=state.optimization?.iterations||0,status=$('optStatus'),progress=$('optProgress'),start=$('optStartBtn'),stop=$('optStopBtn'),hasRays=!!state.optimizerObservations?.count,graph=state.probGraph?.summary?.()||null;
   if(progress){progress.max=Math.max(1,Number($('optIterations')?.value)||CONFIG.postOptimizeDefaultIterations||30);progress.value=Math.min(progress.max,current);}
   if(start)start.disabled=state.postOptBusy||!!state.surfaceLab?.busy||!state.gaussians.length;if(stop)stop.disabled=!state.postOptBusy;
-  if(status)status.textContent=extra||`${current} iterazioni completate · ${hasRays?`${state.optimizerObservations.count} vincoli multi-view salvati`:'nessun reservoir di raggi: disponibile solo regolarizzazione geometrica'}${state.optimization?.lastEnergy!=null?` · loss ${Number(state.optimization.lastEnergy).toFixed(4)}`:''}`;
+  if(status)status.textContent=extra||`${current} iterazioni completate · ${graph?`factor graph ${graph.frames}F/${graph.landmarks}L/${graph.mvsSamples} MVS`:hasRays?`${state.optimizerObservations.count} vincoli multi-view salvati`:'nessun reservoir di raggi: disponibile solo regolarizzazione geometrica'}${state.optimization?.lastEnergy!=null?` · loss ${Number(state.optimization.lastEnergy).toFixed(4)}`:''}`;
 }
 
 function stopPostOptimizer(){state.postOptWorker?.terminate();state.postOptWorker=null;state.postOptBusy=false;updateOptimizerUi();}
@@ -486,6 +503,7 @@ async function returnHomeFromReview(){
 }
 function requestStopPostOptimization(){if(state.postOptWorker&&state.postOptBusy){state.postOptWorker.postMessage({type:'stop'});updateOptimizerUi('Arresto al termine dell’iterazione corrente…');}}
 async function startPostOptimization(){
+  if(state.probGraph?.landmarkFactors?.length>=4)return startProbabilisticOptimization();
   if(!state.gaussians.length)throw new Error('nessuna Gaussiana da ottimizzare');if(state.postOptBusy)return;if(state.surfaceLab?.busy)throw new Error('ferma prima Surface Mesh Lab');if(state.surfaceLab?.previewGaussians?.length)discardSurfaceLab();
   const target=Math.max(1,Math.min(CONFIG.postOptimizeMaxIterations||300,Math.round(Number($('optIterations')?.value)||CONFIG.postOptimizeDefaultIterations||30))),base=state.optimization?.iterations||0,remaining=target-base;if(remaining<=0){updateOptimizerUi(`Target ${target} già raggiunto. Aumenta il numero di iterazioni per continuare.`);return;}
   stopPostOptimizer();state.postOptBusy=true;state.postOptRunBase=base;const worker=new Worker(`${CONFIG.postOptimizeWorker}?v=${BUILD.version}`,{type:'module'});state.postOptWorker=worker;const previewEvery=Math.max(1,Math.ceil(remaining/Math.max(1,CONFIG.postOptimizePreviewUpdates||16)));
@@ -494,6 +512,32 @@ async function startPostOptimization(){
   worker.postMessage({type:'init',gaussians:state.gaussians,observations:state.optimizerObservations||null,previewMax:CONFIG.postOptimizeMaxGaussians||70000,options:{priorWeight:CONFIG.postOptimizePriorWeight||.18,planeWeight:CONFIG.postOptimizePlaneWeight||.10,damping:CONFIG.postOptimizeDamping||.68}});
   worker.__run={remaining,previewEvery,target};updateOptimizerUi(`Preparo ${remaining} iterazioni in worker · preview ogni ${previewEvery}…`);
 }
+async function startProbabilisticOptimization(){
+  if(state.postOptBusy)return;if(state.surfaceLab?.busy)throw new Error('ferma prima Surface Mesh Lab');if(state.surfaceLab?.previewGaussians?.length)discardSurfaceLab();
+  const current=Number(state.probOptimization?.iterations||0),target=Math.max(1,Math.min(CONFIG.probabilisticMaxIterations||120,Math.round(Number($('optIterations')?.value)||CONFIG.probabilisticDefaultIterations||12))),remaining=target-current;if(remaining<=0){updateOptimizerUi(`Target probabilistico ${target} già raggiunto.`);return;}
+  stopPostOptimizer();state.postOptBusy=true;state.postOptRunBase=current;const worker=new Worker(`${CONFIG.probabilisticOptWorker}?v=${BUILD.version}`,{type:'module'});state.postOptWorker=worker;const previewEvery=Math.max(1,Math.ceil(remaining/Math.max(1,CONFIG.probabilisticPreviewUpdates||12))),voxel=state.reviewMetricLocked?(CONFIG.denseTsdfVoxelM||.035):(CONFIG.denseTsdfVoxelAlva||.03);
+  worker.onerror=e=>{log.warn('prob-opt-worker',{message:e.message||'worker error'});stopPostOptimizer();updateOptimizerUi('Ottimizzazione probabilistica fallita: vedi Debug.');};
+  worker.onmessage=e=>void handleProbabilisticOptimizationMessage(e.data||{},target);
+  worker.__run={remaining,previewEvery,target,rebuildOptions:{voxel,hashVoxel:state.reviewMetricLocked?(CONFIG.denseGaussianHashVoxelM||.02):(CONFIG.denseGaussianHashVoxelAlva||.018),maxSurfels:CONFIG.postOptimizeMaxGaussians||70000,maxTriangles:CONFIG.denseMaxMeshTriangles||90000}};
+  worker.postMessage({type:'init',graph:state.probGraph.exportState(),options:{maxLandmarks:CONFIG.probabilisticMaxLandmarks||12000,maxObsPerFrame:CONFIG.probabilisticMaxObsPerFrame||280,posePriorScale:CONFIG.probabilisticPosePriorScale||1,initial:state.probOptimization||null}});
+  updateOptimizerUi(`Factor graph: ${remaining} iterazioni · pose + landmark + scala Deep · preview ogni ${previewEvery}`);
+}
+async function handleProbabilisticOptimizationMessage(d,target){
+  if(d.type==='prob-opt-ready'){const run=state.postOptWorker?.__run;if(!run)return;state.postOptWorker.postMessage({type:'run',iterations:run.remaining,previewEvery:run.previewEvery,rebuildOptions:run.rebuildOptions});return;}
+  if(d.type==='prob-opt-error'){log.warn('prob-opt-error',{message:d.message,stack:d.stack||null});stopPostOptimizer();updateOptimizerUi(`Errore factor graph: ${d.message}`);return;}
+  if(d.type==='prob-opt-progress'){
+    const absolute=state.postOptRunBase+(d.done||0);state.probOptimization={...(d.snapshot||{}),iterations:absolute,stats:d.stats,updatedAt:Date.now()};state.optimization={...(state.optimization||{}),iterations:absolute,lastEnergy:d.stats?.energy??state.optimization?.lastEnergy,updatedAt:Date.now()};
+    if(d.previewGaussians?.length){state.probOptimized={previewGaussians:d.previewGaussians};state.renderer?.setData(d.previewGaussians,{fit:false});state.renderer?.setMesh(null);state.renderer?.draw();}
+    const graph=state.probGraph?.summary?.(),msg=`Factor graph ${absolute}/${target} · reproj ${Number(d.stats?.reprojectionRmse||0).toFixed(2)} px · Δpose ${formatDistance(d.stats?.poseShiftMean,state.reviewMetricLocked)} · Deep ${Number.isFinite(d.stats?.deepRelativeError)?(100*d.stats.deepRelativeError).toFixed(1)+'%':'—'} · ${graph?.landmarks||0} landmark`;updateReviewUi();updateOptimizerUi(msg);return;
+  }
+  if(d.type==='prob-opt-complete'){
+    const absolute=state.postOptRunBase+(d.done||0);state.probOptimization={...(d.snapshot||{}),iterations:absolute,stats:d.stats,updatedAt:Date.now()};state.optimization={...(state.optimization||{}),iterations:absolute,lastEnergy:d.stats?.energy??null,updatedAt:Date.now()};
+    if(d.map?.gaussians?.length){state.gaussians=d.map.gaussians;state.mesh=d.map.mesh?.vertices?.length?d.map.mesh:null;state.meshStale=!state.mesh;state.probOptimized={previewGaussians:state.gaussians,mapStats:d.map.stats};state.renderer?.setData(state.gaussians,{fit:false});state.renderer?.setMesh(state.mesh);state.renderer?.draw();}
+    log.info('probabilistic-optimization-complete',{stats:d.stats,map:d.map?.stats||null,graph:state.probGraph?.summary?.()||null});stopPostOptimizer();await persistCurrentSession({status:'optimized',keyframes:state.reviewKeyframes||0}).catch(err=>log.warn('prob-opt-persist',{message:err?.message||String(err)}));await renderSessions().catch(()=>{});updateReviewUi();updateOptimizerUi(`Factor graph completato: ${absolute} iterazioni · reproj ${Number(d.stats?.reprojectionRmse||0).toFixed(2)} px · nuova mappa ${state.gaussians.length} Gaussiane${state.mesh?` · ${state.mesh.faces.length/3} facce`:''}.`);return;
+  }
+  if(d.type==='prob-opt-stopped'){stopPostOptimizer();updateOptimizerUi('Factor graph fermato · ultimo preview conservato, mappa BASE non sovrascritta.');}
+}
+
 async function handlePostOptimizationMessage(d,target){
   if(d.type==='optimizer-ready'){const run=state.postOptWorker?.__run;if(!run)return;log.info('post-opt-ready',{gaussians:d.count,observations:d.observations,cellSize:d.cellSize,target:run.target});state.postOptWorker.postMessage({type:'run',iterations:run.remaining,previewEvery:run.previewEvery});return;}
   if(d.type==='optimizer-error'){log.warn('post-opt-error',{message:d.message,stack:d.stack||null});stopPostOptimizer();updateOptimizerUi(`Errore ottimizzazione: ${d.message}`);return;}
@@ -580,8 +624,11 @@ async function exportSurfaceLabMesh(){if(!state.surfaceLab?.mesh?.vertices?.leng
 
 async function loadSavedSession(id){
   if(!state.db)throw new Error('storage locale non disponibile');stopPostOptimizer();stopSurfaceLabWorker({discard:true});const bundle=await state.db.loadSessionBundle(id);if(!bundle?.session)throw new Error('sessione non trovata');if(!bundle.snapshot?.gaussians?.length)throw new Error('questa sessione precedente non contiene ancora uno snapshot 3D ricaricabile');
-  state.currentSession=bundle.session;state.gaussians=bundle.snapshot.gaussians||[];state.optimizerObservations=bundle.snapshot.optimizerObservations||null;state.optimization={iterations:0,lastEnergy:null,...(bundle.snapshot.optimization||{})};state.denseDepthSamples=bundle.snapshot.denseSamples||bundle.session.counts?.denseSamples||0;state.deepRaySamples=bundle.snapshot.deepRaySamples||0;state.reviewMetricLocked=bundle.snapshot.metricLocked??bundle.session.metricLocked??null;state.reviewKeyframes=bundle.snapshot.keyframes||bundle.session.counts?.keyframes||0;state.lastTracking=null;state.mesh=decodeStoredMesh(bundle.mesh);state.meshStale=!!bundle.mesh?.stale;window.__ROOMSCAN_METRIC_MESH=!state.meshStale?state.mesh:null;
-  log.info('session-loaded',{id,gaussians:state.gaussians.length,optimizerObservations:state.optimizerObservations?.count||0,iterations:state.optimization.iterations,meshStale:state.meshStale});await showReview();
+  state.currentSession=bundle.session;state.gaussians=bundle.snapshot.gaussians||[];state.optimizerObservations=bundle.snapshot.optimizerObservations||null;state.optimization={iterations:0,lastEnergy:null,...(bundle.snapshot.optimization||{})};state.probOptimization=bundle.snapshot.probOptimization||null;state.probOptimized=null;
+  if(bundle.snapshot.factorGraph){const {ProbabilisticFactorGraph}=await lazy('./probabilistic/factor_graph.js');state.probGraph=ProbabilisticFactorGraph.fromState(bundle.snapshot.factorGraph);}else state.probGraph=null;
+  if(bundle.snapshot.deepSequence){const {DeepSequenceModel}=await lazy('./probabilistic/deep_sequence_model.js');state.deepSequence=new DeepSequenceModel().importState(bundle.snapshot.deepSequence);}else state.deepSequence=null;
+  state.denseDepthSamples=bundle.snapshot.denseSamples||bundle.session.counts?.denseSamples||0;state.deepRaySamples=bundle.snapshot.deepRaySamples||0;state.reviewMetricLocked=bundle.snapshot.metricLocked??bundle.session.metricLocked??null;state.reviewKeyframes=bundle.snapshot.keyframes||bundle.session.counts?.keyframes||0;state.lastTracking=null;state.mesh=decodeStoredMesh(bundle.mesh);state.meshStale=!!bundle.mesh?.stale;window.__ROOMSCAN_METRIC_MESH=!state.meshStale?state.mesh:null;
+  log.info('session-loaded',{id,gaussians:state.gaussians.length,optimizerObservations:state.optimizerObservations?.count||0,factorGraph:state.probGraph?.summary?.()||null,iterations:state.optimization.iterations,meshStale:state.meshStale});await showReview();
 }
 function decodeStoredMesh(m){if(!m?.vertices?.length)return null;return {...m,vertices:m.vertices instanceof Float32Array?m.vertices:new Float32Array(m.vertices||[]),colors:m.colors instanceof Uint8Array?m.colors:new Uint8Array(m.colors||[]),faces:m.faces instanceof Uint32Array?m.faces:new Uint32Array(m.faces||[])};}
 async function renderSessions(){

@@ -1,0 +1,71 @@
+/**
+ * Compact probabilistic evidence graph persisted by Room Scanner V30.28.
+ *
+ * The graph deliberately stores measurements, priors and provenance instead of
+ * only the current 3D answer. Post-scan processing can therefore revisit pose,
+ * association, Deep scale and surface estimates without needing all video frames.
+ */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+export class ProbabilisticFactorGraph{
+  constructor({maxFrames=360,maxFeaturesPerFrame=360,grayMaxSide=120,deepGridCols=32,deepGridRows=48,mvsPerFrame=420,maxLandmarks=18000}={}){
+    Object.assign(this,{maxFrames,maxFeaturesPerFrame,grayMaxSide,deepGridCols,deepGridRows,mvsPerFrame,maxLandmarks});
+    this.frames=[];this.frameIndex=new Map();this.landmarkFactors=[];this.deepFactors=[];this.mvsFactors=[];this.measurementIndex=new Map();this.version=2;this.createdAt=Date.now();
+  }
+  addFrame(frame){
+    if(!frame?.frameId||!frame?.pose||!frame?.K)return null;const id=String(frame.frameId),old=this.frameIndex.get(id);if(old!=null)return this.frames[old];
+    const thumb=downsampleGray(frame.gray,frame.width,frame.height,this.grayMaxSide),features=(frame.features||[]).slice(0,this.maxFeaturesPerFrame).map((f,index)=>({index,x:+f.x,y:+f.y,score:+(f.score||0),source:f.source||'mvs',desc:Array.isArray(f.desc)?f.desc.slice(0,24).map(Number):[]}));
+    const node={id,frameId:id,keyframeId:frame.id||id,at:+(frame.captureAt??frame.at??0),posePrior:clonePose(frame.pose),poseEstimate:clonePose(frame.pose),poseCov:clonePoseCov(frame.poseCov),K:{fx:+frame.K.fx,fy:+frame.K.fy,cx:+frame.K.cx,cy:+frame.K.cy,width:+(frame.K.width||frame.width),height:+(frame.K.height||frame.height)},width:frame.width|0,height:frame.height|0,grayWidth:thumb.width,grayHeight:thumb.height,gray:thumb.gray,features,metricLocked:!!frame.metricLocked};
+    this.frameIndex.set(id,this.frames.length);this.frames.push(node);while(this.frames.length>this.maxFrames){this.frames.shift();this.reindex();this.pruneOrphans();}return node;
+  }
+  addSparseAnchors(ref,seeds){
+    const refId=String(ref?.frameId||ref?.id||'');if(!refId)return;
+    for(const s of seeds||[]){
+      if(!Array.isArray(s.p)||!s.measurements?.length)continue;
+      const candidate={id:s.trackId||`${refId}:L${this.landmarkFactors.length}`,refFrameId:refId,point:Array.from(s.p.slice(0,3),Number),covariance:cov6(s.covariance),probability:clamp(Number(s.geometryProbability??s.confidence??.1),.001,.999),relativeDepthSigma:Number(s.relativeDepthSigma??(s.sigmaDepth/Math.max(.05,s.depth))??.3),depth:+s.depth,calibrationWeight:+(s.calibrationWeight||0),measurements:s.measurements.map(m=>({frameId:String(m.frameId),u:+m.u,v:+m.v,probability:clamp(Number(m.probability??.1),.001,.999),epipolarPx:m.epipolarPx==null?null:+m.epipolarPx,zncc:m.zncc==null?null:+m.zncc})),sourceIds:(s.sourceIds||[]).map(String)};
+      const existing=this.findLandmarkByMeasurement(candidate.measurements);
+      if(existing>=0){mergeLandmarkFactor(this.landmarkFactors[existing],candidate);this.indexLandmark(existing,this.landmarkFactors[existing]);}
+      else{const idx=this.landmarkFactors.length;this.landmarkFactors.push(candidate);this.indexLandmark(idx,candidate);}
+    }
+    const max=Math.max(1000,this.maxLandmarks);if(this.landmarkFactors.length>max){this.landmarkFactors.splice(0,this.landmarkFactors.length-max);this.rebuildMeasurementIndex();}
+  }
+  addDeepRaw(frameId,{rawDepth,rawWidth,rawHeight,calibration=null,quality=null}={}){
+    if(!rawDepth?.length||!(rawWidth>1&&rawHeight>1))return;const grid=sampleGrid(rawDepth,rawWidth,rawHeight,this.deepGridCols,this.deepGridRows);
+    this.deepFactors.push({frameId:String(frameId),cols:this.deepGridCols,rows:this.deepGridRows,raw:grid,rawWidth,rawHeight,calibration:calibration?compactCalibration(calibration):null,quality:quality?compactQuality(quality):null});trim(this.deepFactors,this.maxFrames);
+  }
+  addMvs(frameId,samples,{sourceFrames=[]}={}){
+    const src=(sourceFrames||[]).map(String),valid=(samples||[]).filter(s=>Array.isArray(s.p)&&Number.isFinite(s.depth)&&s.depth>0);if(!valid.length)return;
+    const step=Math.max(1,Math.ceil(valid.length/this.mvsPerFrame)),picked=[];for(let i=0;i<valid.length;i+=step)picked.push(valid[i]);const n=picked.length,data=new Float32Array(n*8),normal=new Float32Array(n*3),color=new Uint8Array(n*3),flags=new Uint8Array(n),viewMask=new Uint16Array(n);
+    for(let i=0;i<n;i++){const s=picked[i],sigma=Number(s.sigmaDepth)||Math.max(.015,s.depth*(.025+.18*(1-(Number(s.confidence)||.1)))),o=i*8;data[o]=+(s.u||0);data[o+1]=+(s.v||0);data[o+2]=+s.depth;data[o+3]=clamp(Number(s.probability??s.confidence??.1),.001,.999);data[o+4]=sigma;data[o+5]=Number.isFinite(+s.cost)?+s.cost:NaN;data[o+6]=Number.isFinite(+s.distinctiveness)?+s.distinctiveness:NaN;data[o+7]=Number.isFinite(+s.photoAgreement)?+s.photoAgreement:NaN;const nn=Array.isArray(s.normal)?s.normal:null,cc=Array.isArray(s.color)?s.color:null;for(let k=0;k<3;k++){normal[i*3+k]=Number(nn?.[k]||0);color[i*3+k]=clamp(Math.round(Number(cc?.[k]??180)),0,255);}flags[i]=s.priorEscaped?1:0;viewMask[i]=Number(s.viewMask||0)&0xffff;}
+    this.mvsFactors.push({frameId:String(frameId),sourceFrames:src,count:n,data,normal,color,flags,viewMask,packed:true});trim(this.mvsFactors,this.maxFrames);
+  }
+  exportState(){return {format:'ROOMSCAN-PROB-GRAPH-1',version:this.version,createdAt:this.createdAt,frames:this.frames,landmarkFactors:this.landmarkFactors,deepFactors:this.deepFactors,mvsFactors:this.mvsFactors,summary:this.summary()};}
+  summary(){const obs=this.landmarkFactors.reduce((n,x)=>n+x.measurements.length,0),mvs=this.mvsFactors.reduce((n,x)=>n+(x.count??x.samples?.length??0),0);return {frames:this.frames.length,landmarks:this.landmarkFactors.length,featureObservations:obs,deepFrames:this.deepFactors.length,mvsSamples:mvs,bytesApprox:this.approxBytes()};}
+  approxBytes(){return this.frames.reduce((n,f)=>n+(f.gray?.byteLength||0)+f.features.length*56,0)+this.landmarkFactors.length*180+this.deepFactors.reduce((n,d)=>n+(d.raw?.byteLength||0)+100,0)+this.mvsFactors.reduce((n,m)=>n+(m.data?.byteLength||0)+(m.normal?.byteLength||0)+(m.color?.byteLength||0)+(m.flags?.byteLength||0)+(m.viewMask?.byteLength||0)+(m.samples?.length||0)*72,0);}
+  reindex(){this.frameIndex.clear();this.frames.forEach((f,i)=>this.frameIndex.set(String(f.frameId),i));}
+  indexLandmark(index,l){for(const m of l?.measurements||[]){const fid=String(m.frameId);for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const k=measurementKey(fid,m.u+dx*3,m.v+dy*3),a=this.measurementIndex.get(k)||[];if(!a.includes(index)){a.push(index);if(a.length>6)a.shift();this.measurementIndex.set(k,a);}}}}
+  rebuildMeasurementIndex(){this.measurementIndex=new Map();this.landmarkFactors.forEach((l,i)=>this.indexLandmark(i,l));}
+  findLandmarkByMeasurement(ms){const votes=new Map();for(const m of ms||[]){for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const a=this.measurementIndex.get(measurementKey(String(m.frameId),m.u+dx*3,m.v+dy*3))||[];for(const i of a)votes.set(i,(votes.get(i)||0)+1);}}let best=-1,bv=0;for(const [i,v] of votes){const l=this.landmarkFactors[i];if(!l)continue;let exact=0;for(const a of l.measurements||[])for(const b of ms||[])if(String(a.frameId)===String(b.frameId)&&Math.hypot(a.u-b.u,a.v-b.v)<=3.5){exact++;break;}if(exact>bv){bv=exact;best=i;}}return bv>0?best:-1;}
+  pruneOrphans(){const live=new Set(this.frames.map(f=>String(f.frameId)));this.landmarkFactors=this.landmarkFactors.map(l=>({...l,measurements:(l.measurements||[]).filter(m=>live.has(String(m.frameId)))})).filter(l=>l.measurements.length>=2);this.deepFactors=this.deepFactors.filter(d=>live.has(String(d.frameId)));this.mvsFactors=this.mvsFactors.filter(d=>live.has(String(d.frameId)));this.rebuildMeasurementIndex();}
+  static fromState(s){const g=new ProbabilisticFactorGraph();if(!s)return g;g.version=s.version||1;g.createdAt=s.createdAt||Date.now();g.frames=s.frames||[];g.landmarkFactors=s.landmarkFactors||[];g.deepFactors=s.deepFactors||[];g.mvsFactors=s.mvsFactors||[];g.reindex();g.rebuildMeasurementIndex();return g;}
+}
+
+function clonePose(p){return {p:p.p.slice(0,3).map(Number),q:p.q.slice(0,4).map(Number)};}
+function clonePoseCov(c){if(!c)return null;return {diag:Array.isArray(c.diag)?c.diag.slice(0,6).map(Number):null,translationStd:+(c.translationStd||0),rotationStdRad:+(c.rotationStdRad||0),quality:+(c.quality||0),source:c.source||null};}
+function cov6(c){return Array.isArray(c)&&c.length>=6?c.slice(0,6).map(Number):[.01,0,0,.01,0,.01];}
+function trim(a,n){if(a.length>n)a.splice(0,a.length-n);}
+function compactCalibration(c){return {ok:!!c.ok,mode:c.mode||null,a:+(c.a||0),b:+(c.b||0),confidence:+(c.confidence||0),medianRelativeError:+(c.medianRelativeError||0),posteriorConfidence:+(c.posteriorConfidence||c.confidence||0),sequenceMode:c.sequenceMode||c.mode||null};}
+function compactQuality(q){return {suspicious:!!q.suspicious,coherenceRatio:+(q.coherenceRatio||0),stripe:{suspicious:!!q.stripe?.suspicious,dominantExplained:+(q.stripe?.dominantExplained||0),dominantCycles:+(q.stripe?.dominantCycles||0)}};}
+function downsampleGray(gray,w,h,maxSide){if(!gray?.length)return {gray:new Uint8Array(0),width:0,height:0};const scale=Math.min(1,maxSide/Math.max(w,h)),dw=Math.max(1,Math.round(w*scale)),dh=Math.max(1,Math.round(h*scale)),out=new Uint8Array(dw*dh);for(let y=0;y<dh;y++){const sy=Math.min(h-1,Math.floor((y+.5)*h/dh));for(let x=0;x<dw;x++){const sx=Math.min(w-1,Math.floor((x+.5)*w/dw));out[y*dw+x]=gray[sy*w+sx];}}return {gray:out,width:dw,height:dh};}
+function sampleGrid(a,w,h,cols,rows){const out=new Float32Array(cols*rows);for(let y=0;y<rows;y++){const yy=Math.min(h-1,Math.round(y*(h-1)/Math.max(1,rows-1)));for(let x=0;x<cols;x++){const xx=Math.min(w-1,Math.round(x*(w-1)/Math.max(1,cols-1))),v=Number(a[yy*w+xx]);out[y*cols+x]=Number.isFinite(v)?v:0;}}return out;}
+
+function measurementKey(fid,u,v){return `${fid}:${Math.round((+u||0)/3)}:${Math.round((+v||0)/3)}`;}
+function mergeLandmarkFactor(a,b){
+  const wa=mixtureWeight(a),wb=mixtureWeight(b),s=wa+wb||1,alpha=wa/s,mu=a.point.slice(0,3),nu=b.point.slice(0,3),m=[alpha*mu[0]+(1-alpha)*nu[0],alpha*mu[1]+(1-alpha)*nu[1],alpha*mu[2]+(1-alpha)*nu[2]];
+  a.covariance=mixtureCov(a.covariance,b.covariance,mu,nu,m,alpha);a.point=m;a.depth=alpha*(+a.depth||0)+(1-alpha)*(+b.depth||0);a.relativeDepthSigma=alpha*(+a.relativeDepthSigma||.3)+(1-alpha)*(+b.relativeDepthSigma||.3);
+  const pa=clamp(+a.probability||.01,.001,.999),pb=clamp(+b.probability||.01,.001,.999);a.probability=clamp(Math.max(pa,pb)+.25*Math.min(pa,pb)*(1-Math.max(pa,pb)),.001,.999);a.calibrationWeight=Math.max(+a.calibrationWeight||0,+b.calibrationWeight||0);
+  const byFrame=new Map((a.measurements||[]).map(x=>[String(x.frameId),{...x}]));for(const x of b.measurements||[]){const k=String(x.frameId),old=byFrame.get(k);if(!old||(+x.probability||0)>(+old.probability||0))byFrame.set(k,{...x});}a.measurements=[...byFrame.values()];a.sourceIds=[...new Set([...(a.sourceIds||[]),...(b.sourceIds||[])].map(String))];return a;
+}
+function mixtureWeight(l){return clamp(+l?.probability||.05,.01,.999)/Math.max(1e-8,covTrace(l?.covariance));}
+function covTrace(c){return Math.max(1e-9,(+c?.[0]||0)+(+c?.[3]||0)+(+c?.[5]||0));}
+function mixtureCov(c1,c2,m1,m2,m,a){c1=cov6(c1);c2=cov6(c2);const d1=[m1[0]-m[0],m1[1]-m[1],m1[2]-m[2]],d2=[m2[0]-m[0],m2[1]-m[1],m2[2]-m[2]],o=(d)=>[d[0]*d[0],d[0]*d[1],d[0]*d[2],d[1]*d[1],d[1]*d[2],d[2]*d[2]],q1=o(d1),q2=o(d2);return c1.map((x,i)=>a*(x+q1[i])+(1-a)*(c2[i]+q2[i]));}

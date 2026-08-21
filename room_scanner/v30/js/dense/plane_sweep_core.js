@@ -29,7 +29,7 @@ export function estimateDenseDepth(job){
     minTexture:Number(job.minTexture??0.018),minDistinctiveness:Number(job.minDistinctiveness??0.025),depthSmoothRel:Number(job.depthSmoothRel??0.16),seedRadiusPx:Number(job.seedRadiusPx??22),seedMaxRelativeError:Number(job.seedMaxRelativeError??0.48),
     // A calibrated Depth Anything map is a SEARCH PRIOR, never final geometry.
     // Every accepted point must still win the Alva-pose multi-view photo test.
-    priorRelRange:Number(job.priorRelRange??0.18),priorDepthSteps:Math.max(8,job.priorDepthSteps|0||18),priorWeight:Number(job.priorWeight??0.10),priorMinConfidence:Number(job.priorMinConfidence??0.28),priorMinTexture:Number(job.priorMinTexture??0.006)
+    priorRelRange:Number(job.priorRelRange??0.18),priorDepthSteps:Math.max(8,job.priorDepthSteps|0||18),priorProbeSteps:Math.max(5,job.priorProbeSteps|0||8),priorWeight:0,priorMinConfidence:Number(job.priorMinConfidence??0.08),priorMinTexture:Number(job.priorMinTexture??0.006),patchRadius:Math.max(1,Math.min(3,job.patchRadius|0||2))
   };
   if(!(cfg.near>0&&cfg.far>cfg.near))throw new Error(`invalid plane sweep depth range ${cfg.near}..${cfg.far}`);
   const sparseSeeds=(job.sparseSeeds||[]).filter(s=>Number.isFinite(s?.u)&&Number.isFinite(s?.v)&&Number.isFinite(s?.depth)&&s.depth>0);
@@ -43,7 +43,7 @@ export function estimateDenseDepth(job){
   const depthHyp=inverseDepths(cfg.near,cfg.far,cfg.depthSteps);
   const gridW=Math.floor((width-2*cfg.margin-1)/cfg.pixelStep)+1;
   const gridH=Math.floor((height-2*cfg.margin-1)/cfg.pixelStep)+1;
-  const depthGrid=new Float32Array(gridW*gridH),confGrid=new Float32Array(gridW*gridH),costGrid=new Float32Array(gridW*gridH),viewMaskGrid=new Uint16Array(gridW*gridH);costGrid.fill(1);
+  const depthGrid=new Float32Array(gridW*gridH),confGrid=new Float32Array(gridW*gridH),costGrid=new Float32Array(gridW*gridH),viewMaskGrid=new Uint16Array(gridW*gridH),priorEscapeGrid=new Uint8Array(gridW*gridH);costGrid.fill(1);
   const pxGrid=new Int16Array(gridW*gridH),pyGrid=new Int16Array(gridW*gridH);
 
   let gi=0;
@@ -56,9 +56,9 @@ export function estimateDenseDepth(job){
       // Strong calibrated priors let us retain lower-texture furniture/walls, but
       // completely flat pixels are still rejected because they cannot be checked
       // against another Alva view.
-      if(texture<(hasPrior?cfg.priorMinTexture:cfg.minTexture))continue;
-      let best=Infinity,second=Infinity,bestZ=0,bestViews=0,bestMask=0;
-      const hypotheses=hasPrior?localDepths(priorZ,cfg.near,cfg.far,cfg.priorRelRange,cfg.priorDepthSteps):depthHyp;
+      if(texture<cfg.minTexture)continue;
+      let best=Infinity,second=Infinity,bestZ=0,bestViews=0,bestMask=0,bestAgreement=0;
+      const hypotheses=hasPrior?mergeDepthHypotheses(localDepths(priorZ,cfg.near,cfg.far,cfg.priorRelRange,cfg.priorDepthSteps),inverseDepths(cfg.near,cfg.far,cfg.priorProbeSteps)):depthHyp;
       for(const z of hypotheses){
         const xc=(u-K.cx)/K.fx*z,yc=(v-K.cy)/K.fy*z;
         const wr=rotateMat(Rref,[xc,yc,z]);
@@ -69,31 +69,29 @@ export function estimateDenseDepth(job){
           if(!pr||pr.u<2||pr.v<2||pr.u>s.width-3||pr.v>s.height-3)continue;
           const si=bilinear(s.gray,s.width,s.height,pr.u,pr.v)/255;
           const sgx=bilinear(s.grad.gx,s.width,s.height,pr.u,pr.v),sgy=bilinear(s.grad.gy,s.width,s.height,pr.u,pr.v);
-          // Illumination-robust lightweight cost. Intensity is dominant; image
-          // gradients keep repeated flat regions from looking artificially good.
-          const c=.68*Math.abs(refI-si)+.16*Math.abs(refGx-sgx)+.16*Math.abs(refGy-sgy);
-          costs.push({c,sourceIndex});
+          // The neural prior never enters this score. Patch ZNCC + gradients are
+          // an independent likelihood term, so a wrong Deep estimate cannot
+          // become self-confirming merely by narrowing the search interval.
+          const zn=patchZncc(ref.gray,width,height,u,v,s.gray,s.width,s.height,pr.u,pr.v,cfg.patchRadius),patch=zn>-1?(.5*(1-zn)):1;
+          const c=.30*patch+.42*Math.abs(refI-si)+.14*Math.abs(refGx-sgx)+.14*Math.abs(refGy-sgy);
+          costs.push({c,sourceIndex,zn});
         }
         if(costs.length<cfg.minViews)continue;
         costs.sort((a,b)=>a.c-b.c);
         const keep=Math.min(costs.length,Math.max(cfg.minViews,2));
-        let c=0,mask=0;for(let i=0;i<keep;i++){c+=costs[i].c;if(costs[i].sourceIndex<16)mask|=(1<<costs[i].sourceIndex);}c/=keep;
-        // Keep the search close to the AI shape without letting the network win
-        // against photometric evidence. The penalty is zero at the calibrated
-        // prior and grows smoothly towards the local search boundary.
-        if(hasPrior){const rel=Math.abs(Math.log(z/priorZ))/Math.max(.03,Math.log(1+cfg.priorRelRange));c+=cfg.priorWeight*clamp(rel,0,1.5);}
-        if(c<best){second=best;best=c;bestZ=z;bestViews=costs.length;bestMask=mask;}else if(c<second)second=c;
+        let c=0,mask=0,agreement=0;for(let i=0;i<keep;i++){c+=costs[i].c;agreement+=Math.max(0,(costs[i].zn+1)*.5);if(costs[i].sourceIndex<16)mask|=(1<<costs[i].sourceIndex);}c/=keep;agreement/=keep;
+        if(c<best){second=best;best=c;bestZ=z;bestViews=costs.length;bestMask=mask;bestAgreement=agreement;}else if(c<second)second=c;
       }
       if(!Number.isFinite(best)||!bestZ||bestViews<cfg.minViews)continue;
       const distinct=Number.isFinite(second)?clamp((second-best)/(Math.max(.025,second)),0,1):0;
       const photo=clamp(1-best/Math.max(.03,cfg.maxCost),0,1);
-      const confidence=hasPrior?(.40*distinct+.34*photo+.26*priorConfidence):(.62*distinct+.38*photo);
-      const minDistinct=hasPrior?cfg.minDistinctiveness*.42:cfg.minDistinctiveness;
-      const maxCost=hasPrior?cfg.maxCost+cfg.priorWeight*.42:cfg.maxCost;
-      if(best<=maxCost&&distinct>=minDistinct&&confidence>=cfg.minConfidence){
+      const confidence=.46*distinct+.32*photo+.22*bestAgreement;
+      // Acceptance thresholds are identical with and without Deep. Deep affects
+      // only which hypotheses are evaluated, never the evidence needed to win.
+      if(best<=cfg.maxCost&&distinct>=cfg.minDistinctiveness&&confidence>=cfg.minConfidence){
         const seed=findNearestSparseSeed(sparseSeeds,u,v,cfg.seedRadiusPx);
         if(seed&&Math.abs(bestZ-seed.depth)/Math.max(1e-6,seed.depth)>cfg.seedMaxRelativeError)continue;
-        depthGrid[gi]=bestZ;confGrid[gi]=seed?Math.min(1,confidence*.78+Number(seed.confidence||.5)*.22):confidence;costGrid[gi]=best;viewMaskGrid[gi]=bestMask;
+        depthGrid[gi]=bestZ;confGrid[gi]=seed?Math.min(1,confidence*.82+Number((seed.geometryProbability??seed.confidence)??.5)*.18):confidence;costGrid[gi]=best;viewMaskGrid[gi]=bestMask;priorEscapeGrid[gi]=hasPrior&&Math.abs(Math.log(bestZ/priorZ))>Math.log(1+cfg.priorRelRange*1.05)?1:0;
       }
     }
   }
@@ -121,13 +119,14 @@ export function estimateDenseDepth(job){
     if(!n)n=normalize(sub(ref.pose.p,p));
     const u=pxGrid[i],v=pyGrid[i],color=sampleRgb(ref.rgba,width,height,u,v),z=depthGrid[i];
     const radius=Math.max(.0025,z/Math.max(K.fx,K.fy)*cfg.pixelStep*1.35);
-    samples.push({p,normal:n,color,confidence:confGrid[i],radius,depth:z,u,v,cost:costGrid[i],viewMask:viewMaskGrid[i],viewSupport:1+popcount16(viewMaskGrid[i])});
+    const distinctiveness=clamp(confGrid[i],0,1),photoAgreement=clamp(1-costGrid[i]/Math.max(.03,cfg.maxCost),0,1),sigmaDepth=z*clamp(.018+.16*(1-distinctiveness)+.08*(1-photoAgreement),.015,.28),probability=clamp(confGrid[i]*(.55+.45*photoAgreement),.005,.995);
+    samples.push({p,normal:n,color,confidence:confGrid[i],probability,radius,depth:z,sigmaDepth,u,v,cost:costGrid[i],distinctiveness,photoAgreement,priorEscaped:!!priorEscapeGrid[i],viewMask:viewMaskGrid[i],viewSupport:1+popcount16(viewMaskGrid[i])});
   }
   if(samples.length>cfg.maxSamples){
     const step=Math.ceil(samples.length/cfg.maxSamples),thin=[];for(let i=0;i<samples.length;i+=step)thin.push(samples[i]);samples.length=0;samples.push(...thin);
   }
-  const depths=samples.map(s=>s.depth).sort((a,b)=>a-b);
-  return {samples,width,height,gridW,gridH,validCount:samples.length,coverage:samples.length/Math.max(1,gridW*gridH),medianDepth:depths.length?depths[depths.length>>1]:null,near:cfg.near,far:cfg.far,sourceCount:sources.length};
+  const depths=samples.map(s=>s.depth).sort((a,b)=>a-b),priorEscapeCount=samples.reduce((n,s)=>n+(s.priorEscaped?1:0),0);
+  return {samples,width,height,gridW,gridH,validCount:samples.length,coverage:samples.length/Math.max(1,gridW*gridH),medianDepth:depths.length?depths[depths.length>>1]:null,near:cfg.near,far:cfg.far,sourceCount:sources.length,priorEscapeCount,priorEscapeRatio:samples.length?priorEscapeCount/samples.length:0};
 }
 
 export function projectWorld(pose,K,p,width=K.width,height=K.height){
@@ -146,10 +145,13 @@ export function rotationFromQuat(q){
 function rotateMat(R,v){return [R[0]*v[0]+R[1]*v[1]+R[2]*v[2],R[3]*v[0]+R[4]*v[1]+R[5]*v[2],R[6]*v[0]+R[7]*v[1]+R[8]*v[2]];}
 function inverseDepths(near,far,n){const a=1/far,b=1/near,out=[];for(let i=0;i<n;i++){const t=i/(n-1);out.push(1/(a+(b-a)*t));}return out;}
 function localDepths(prior,near,far,rel,n){const lo=Math.max(near,prior*(1-rel)),hi=Math.min(far,prior*(1+rel));if(!(hi>lo*1.002))return [clamp(prior,near,far)];return inverseDepths(lo,hi,n);}
+function mergeDepthHypotheses(a,b){const out=[];for(const z of [...a,...b])if(!out.some(x=>Math.abs(Math.log(x/z))<.004))out.push(z);return out;}
 function gradients(gray,w,h){const gx=new Float32Array(gray.length),gy=new Float32Array(gray.length);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;gx[i]=(gray[i+1]-gray[i-1])/510;gy[i]=(gray[i+w]-gray[i-w])/510;}return {gx,gy};}
 function bilinear(a,w,h,x,y){const x0=Math.floor(x),y0=Math.floor(y),x1=Math.min(w-1,x0+1),y1=Math.min(h-1,y0+1),tx=x-x0,ty=y-y0;return (a[y0*w+x0]*(1-tx)+a[y0*w+x1]*tx)*(1-ty)+(a[y1*w+x0]*(1-tx)+a[y1*w+x1]*tx)*ty;}
 function sampleRgb(rgba,w,h,x,y){if(!rgba?.length)return [180,200,220];const xx=clamp(Math.round(x),0,w-1),yy=clamp(Math.round(y),0,h-1),i=(yy*w+xx)*4;return [rgba[i]||0,rgba[i+1]||0,rgba[i+2]||0];}
 function sub(a,b){return [a[0]-b[0],a[1]-b[1],a[2]-b[2]];}function cross(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}function dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}function normalize(v){const n=Math.hypot(...v)||1;return v.map(x=>x/n);}
+
+function patchZncc(A,aw,ah,ax,ay,B,bw,bh,bx,by,r=2){ax=Math.round(ax);ay=Math.round(ay);bx=Math.round(bx);by=Math.round(by);if(ax-r<0||ay-r<0||ax+r>=aw||ay+r>=ah||bx-r<0||by-r<0||bx+r>=bw||by+r>=bh)return -1;let ma=0,mb=0,n=0;for(let y=-r;y<=r;y++)for(let x=-r;x<=r;x++){ma+=A[(ay+y)*aw+ax+x];mb+=B[(by+y)*bw+bx+x];n++;}ma/=n;mb/=n;let aa=0,bb=0,ab=0;for(let y=-r;y<=r;y++)for(let x=-r;x<=r;x++){const da=A[(ay+y)*aw+ax+x]-ma,db=B[(by+y)*bw+bx+x]-mb;aa+=da*da;bb+=db*db;ab+=da*db;}return aa>4&&bb>4?clamp(ab/Math.sqrt(aa*bb),-1,1):-1;}
 
 function findNearestSparseSeed(seeds,u,v,radius){let best=null,bd=radius*radius;for(const s of seeds||[]){const dx=s.u-u,dy=s.v-v,d=dx*dx+dy*dy;if(d<bd){bd=d;best=s;}}return best;}
 

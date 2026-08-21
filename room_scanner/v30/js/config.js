@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.27.0 EXP-4 exact-frame synchronized robust surface-field runtime configuration.
+ * Room Scanner V30.28.0 exact-frame synchronized robust surface-field runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.27.0-exp.4',
-  id:'v30.27.0-exp.4-20260821-atomic-boot',
+  version:'30.28.0',
+  id:'v30.28.0-20260821-probabilistic-factor-graph',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -145,7 +145,7 @@ export const CONFIG={
   denseMinDistinctiveness:0.025,
   denseMinSparseSeeds:5,
   denseSeedMaxReprojectionPx:2.8,
-  denseSeedMinAngleRad:0.006,
+  denseSeedMinAngleRad:0.001,
   denseSeedMaxGapBaselineRatio:0.14,
   denseSeedRadiusPx:22,
   denseSeedMaxRelativeError:0.48,
@@ -224,7 +224,7 @@ export const CONFIG={
   // Add an actual matching ESM file here only for a fully offline deployment.
   deepOrtLocal:null,
   deepOrtRemote:'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.all.min.mjs',
-  deepMinAnchors:7,
+  deepMinAnchors:5,
   deepMinAnchorCells:3,
   // Inference is now sub-second on the test phone. Collect redundant Deep
   // constraints much more often; near-duplicate poses are still rejected.
@@ -234,12 +234,12 @@ export const CONFIG={
   deepMinTranslationAlva:0.014,
   deepMinRotationRad:0.040,
   deepDepthNovelty:0.22,
-  deepCalibrationMaxMedianRelativeError:0.18,
-  deepPriorRelRange:0.18,
+  deepCalibrationMaxMedianRelativeError:0.35,
+  deepPriorRelRange:0.26,
   // Coarse Deep prior means the local multi-view search can also use fewer hypotheses.
   deepPriorDepthSteps:10,
-  deepPriorWeight:0.10,
-  deepPriorMinConfidence:0.28,
+  deepPriorWeight:0.0,
+  deepPriorMinConfidence:0.08,
   deepPriorMinTexture:0.006,
   // Calibrated pixels also become low-authority anisotropic ray observations.
   // They are cheap to store because only running surfel statistics survive.
@@ -252,6 +252,25 @@ export const CONFIG={
   // Every geometrically accepted dense keyframe gets a Deep proxy. The dense
   // keyframe manager, not the neural selector, is now the sampling authority.
   deepInferEveryDenseKeyframe:true,
+
+  // V30.28 probabilistic evidence graph. Online mapping remains responsive,
+  // while every reversible measurement required for post-scan re-estimation is
+  // persisted in a compact factor graph.
+  probabilisticGraphEnabled:true,
+  probabilisticOptWorker:'workers/probabilistic_opt_worker.js',
+  probabilisticGrayMaxSide:120,
+  probabilisticMaxFrames:360,
+  probabilisticMaxFeaturesPerFrame:360,
+  probabilisticDeepGridCols:32,
+  probabilisticDeepGridRows:48,
+  probabilisticMvsPerFrame:420,
+  probabilisticMaxGraphLandmarks:18000,
+  probabilisticDefaultIterations:12,
+  probabilisticMaxIterations:120,
+  probabilisticPreviewUpdates:12,
+  probabilisticMaxLandmarks:12000,
+  probabilisticMaxObsPerFrame:280,
+  probabilisticPosePriorScale:1.0,
 
   // Legacy camera-only MVS remains available for diagnostics/fallback tooling.
   mvsWorker:'workers/mvs_worker.js',

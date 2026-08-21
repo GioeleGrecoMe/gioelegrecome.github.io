@@ -1,4 +1,6 @@
 import {triangulateRays,projectPoint,poseDistance} from '../slam/math.js';
+import {matchProbabilisticFeatures} from '../probabilistic/feature_tracker.js';
+import {addPoseUncertaintyToPointCovariance} from '../probabilistic/pose_uncertainty.js';
 
 /**
  * Multi-view sparse geometry anchored by Alva poses and descriptor tracks.
@@ -20,30 +22,30 @@ export function buildSparseDepthAnchors(ref,sources,{maxReprojectionPx=2.8,minAn
   let matched=0,triangulated=0;
   for(const src of sources||[]){
     if(!src?.features?.length||!src?.pose||!src?.K)continue;
-    const ms=mutualDescriptorMatches(ref.features,src.features,maxPerSource);matched+=ms.length;
+    const ms=matchProbabilisticFeatures(ref,src,{maxMatches:maxPerSource,maxEpipolarPx:4.5,minProbability:.025});matched+=ms.length;
     const baseline=Math.max(1e-7,poseDistance(ref.pose,src.pose));
     for(const m of ms){
       const a=ref.features[m.i],b=src.features[m.j];
       const tr=triangulateRays(
         {pose:ref.pose,K:ref.K,u:a.x,v:a.y},
         {pose:src.pose,K:src.K,u:b.x,v:b.y},
-        {minAngleRad,maxGapM:Math.max(1e-6,baseline*maxGapBaselineRatio)}
+        {minAngleRad:Math.min(.0015,minAngleRad),maxGapM:Math.max(1e-6,baseline*Math.max(.30,maxGapBaselineRatio*2.2))}
       );
       if(!tr.ok||!(tr.depthA>0&&tr.depthB>0))continue;
       const ra=projectPoint(ref.pose,ref.K,tr.p),rb=projectPoint(src.pose,src.K,tr.p);if(!ra||!rb)continue;
       const ea=Math.hypot(ra.u-a.x,ra.v-a.y),eb=Math.hypot(rb.u-b.x,rb.v-b.y);
-      if(ea>maxReprojectionPx||eb>maxReprojectionPx)continue;
+      if(ea>maxReprojectionPx*3.2||eb>maxReprojectionPx*3.2)continue;
       triangulated++;
-      const geom=Math.min(1,tr.angle/.08),reproj=Math.max(0,1-(ea+eb)/(2*maxReprojectionPx));
-      const confidence=.55*geom+.45*reproj;
+      const meanReproj=(ea+eb)/2,geom=1-Math.exp(-Math.pow(tr.angle/.030,2)),reproj=Math.exp(-.5*Math.pow(meanReproj/Math.max(.5,maxReprojectionPx),2)),gapP=Math.exp(-.5*Math.pow(tr.gap/Math.max(1e-5,baseline*maxGapBaselineRatio),2));
+      const matchProbability=Math.max(.01,Number(m.probability)||.05),confidence=Math.max(.002,Math.pow(matchProbability*geom*reproj*gapP,.25));
       const obs={
         p:tr.p.slice(0,3),depth:ra.z,confidence,angle:tr.angle,reprojectionPx:(ea+eb)/2,
-        sourceId:src.frameId||src.id,baseline,u:a.x,v:a.y,featureSource:a.source||'mvs',matchDistance:m.d,
+        sourceId:src.frameId||src.id,baseline,u:a.x,v:a.y,featureSource:a.source||'mvs',matchDistance:m.hamming??m.d,matchProbability,epipolarPx:m.epipolarPx??null,zncc:m.zncc??null,matchDiagnostics:{descriptorProbability:m.descriptorProbability??null,epipolarProbability:m.epipolarProbability??null,photometricProbability:m.photometricProbability??null,uniquenessProbability:m.uniquenessProbability??null},
         // Keep the source observation only while this keyframe job is active.
         // It lets the fused landmark solve one true multi-view reprojection
         // problem instead of averaging pairwise triangulations. None of this
         // per-frame structure is retained in the persistent Gaussian map.
-        sourcePose:src.pose,sourceK:src.K,sourceU:b.x,sourceV:b.y
+        sourcePose:src.pose,sourcePoseCov:src.poseCov||null,sourceK:src.K,sourceU:b.x,sourceV:b.y
       };
       let track=tracks.get(m.i);if(!track){track={refIndex:m.i,u:a.x,v:a.y,featureSource:a.source||'mvs',desc:a.desc||null,obs:[]};tracks.set(m.i,track);}track.obs.push(obs);
     }
@@ -85,7 +87,7 @@ function fuseTrack(track,ref,maxReprojectionPx){
     // Triangulation becomes well conditioned with larger parallax and lower
     // reprojection error. Confidence already combines both; the extra angle
     // factor prevents almost-parallel rays from dominating a multi-view track.
-    const w=Math.max(.03,o.confidence)*Math.max(.12,Math.min(1,o.angle/.045));
+    const w=Math.max(.005,o.confidence)*Math.max(.04,Math.min(1,o.angle/.045))*Math.max(.05,o.matchProbability||.05);
     sw+=w;for(let k=0;k<3;k++)p[k]+=o.p[k]*w;angleW+=o.angle*w;reprojW+=o.reprojectionPx*w;
   }
   if(!(sw>0))return null;p=p.map(v=>v/sw);
@@ -107,12 +109,16 @@ function fuseTrack(track,ref,maxReprojectionPx){
   const viewSupport=new Set(kept.map(o=>o.sourceId)).size;
   const geomFloor=Math.max(pr.z*.0035,pr.z*Math.min(.045,.0035/Math.max(.015,Math.sin(meanAngle))));
   const sigmaDepthFloor=Math.max(geomFloor,sigmaSample/Math.sqrt(Math.max(1,viewSupport)));
-  const covariance=trackCovariance(ref,track.u,track.v,pr.z,sigmaDepthFloor,kept,p,meanReproj,refined?.covariance);
+  let covariance=trackCovariance(ref,track.u,track.v,pr.z,sigmaDepthFloor,kept,p,meanReproj,refined?.covariance);
+  covariance=addPoseUncertaintyToPointCovariance(covariance,ref.poseCov,p,ref.pose.p);
+  for(const o of kept)covariance=addScaledPoseCovariance(covariance,o.sourcePoseCov,p,o.sourcePose?.p,1/Math.max(1,kept.length));
   const ray=referenceRay(ref,track.u,track.v),sigmaDepth=Math.max(sigmaDepthFloor,Math.sqrt(Math.max(1e-14,quadCov(covariance,ray))));
   const consistency=Math.exp(-Math.min(4,sigmaDepth/Math.max(.05,pr.z)*18));
   const supportGain=1-Math.exp(-.55*viewSupport);
   const reprojGain=Math.max(0,1-meanReproj/Math.max(.5,maxReprojectionPx));
-  const confidence=Math.max(.08,Math.min(.99,.42*reprojGain+.33*supportGain+.25*consistency));
+  const matchP=geometricMean(kept.map(o=>Math.max(.005,o.matchProbability||.005))),conditionP=Math.exp(-Math.min(6,(sigmaDepth/Math.max(.05,pr.z))/.08));
+  const confidence=Math.max(.005,Math.min(.995,Math.pow(Math.max(1e-9,matchP*reprojGain*supportGain*consistency*conditionP),1/5)));
+  const relativeDepthSigma=sigmaDepth/Math.max(.05,pr.z),calibrationWeight=confidence/Math.max(.0025,relativeDepthSigma*relativeDepthSigma);
 
   return {
     u:track.u,v:track.v,depth:pr.z,p,confidence,angle:meanAngle,reprojectionPx:meanReproj,
@@ -125,7 +131,8 @@ function fuseTrack(track,ref,maxReprojectionPx){
     // This lets the Gaussian mapper consume the feature track as a genuine
     // metric landmark rather than merely a scalar depth hint.
     descriptor:Array.isArray(track.desc)?track.desc.slice(0,24).map(Number):null,
-    covariance,
+    covariance,relativeDepthSigma,geometryProbability:confidence,matchProbability:matchP,calibrationWeight,
+    measurements:[{frameId:ref.frameId||ref.id,u:track.u,v:track.v,probability:1},...kept.map(o=>({frameId:o.sourceId,u:o.sourceU,v:o.sourceV,probability:o.matchProbability||o.confidence,epipolarPx:o.epipolarPx??null,zncc:o.zncc??null}))],
     evidenceFrames:[ref.frameId||ref.id,...new Set(kept.map(o=>o.sourceId))].filter(Boolean)
   };
 }
@@ -139,12 +146,8 @@ export function robustDepthRange(depths,{minCount=5,nearExpand=.55,farExpand=1.7
 
 export function nearestSeed(seeds,u,v,maxRadiusPx=22){let best=null,bd=maxRadiusPx*maxRadiusPx;for(const s of seeds||[]){const dx=s.u-u,dy=s.v-v,d=dx*dx+dy*dy;if(d<bd){bd=d;best=s;}}return best;}
 
-function mutualDescriptorMatches(A,B,maxN){
-  const bestAB=[];for(let i=0;i<A.length;i++){let j=-1,d1=Infinity,d2=Infinity;for(let k=0;k<B.length;k++){const d=descDistance(A[i],B[k]);if(d<d1){d2=d1;d1=d;j=k;}else if(d<d2)d2=d;}if(j>=0&&d1<1250&&(d2===Infinity||d1<d2*.88))bestAB.push({i,j,d:d1});}
-  const bestForB=new Map();for(let j=0;j<B.length;j++){let i=-1,d=Infinity;for(let k=0;k<A.length;k++){const x=descDistance(A[k],B[j]);if(x<d){d=x;i=k;}}if(i>=0)bestForB.set(j,i);}
-  return bestAB.filter(m=>bestForB.get(m.j)===m.i).sort((a,b)=>a.d-b.d).slice(0,maxN);
-}
-function descDistance(a,b){const A=a?.desc,B=b?.desc;if(!A?.length||A.length!==B?.length)return Infinity;let s=0;for(let i=0;i<A.length;i++)s+=Math.abs(Number(A[i])-Number(B[i]));const spatial=.035*Math.hypot((a.x||0)-(b.x||0),(a.y||0)-(b.y||0));return s+spatial;}
+function geometricMean(a){if(!a?.length)return .01;let s=0;for(const x of a)s+=Math.log(Math.max(1e-9,Number(x)||1e-9));return Math.exp(s/a.length);}
+function addScaledPoseCovariance(cov,poseCov,p,o,scale=1){if(!poseCov||!p||!o)return cov;const added=addPoseUncertaintyToPointCovariance([0,0,0,0,0,0],poseCov,p,o);return addCov(cov,scaleCov(added,Math.max(0,scale)));}
 function finite3(p){return Array.isArray(p)&&p.length>=3&&p.slice(0,3).every(Number.isFinite);}
 function median(a){if(!a.length)return 0;const b=a.slice().sort((x,y)=>x-y),m=b.length>>1;return b.length%2?b[m]:(b[m-1]+b[m])*.5;}
 function robustSigma(a){if(a.length<2)return 0;const m=median(a),mad=median(a.map(x=>Math.abs(x-m)));return 1.4826*mad;}

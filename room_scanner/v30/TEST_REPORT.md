@@ -1,28 +1,41 @@
-# V30.27 EXP-4 verification
+# V30.28 verification report
 
-Base: V30.27 EXP-3.
+Base: V30.27 EXP-4 atomic-boot build.
 
-## Regression fixed
+## New regression coverage
 
-- Atomic HTML/CSS/JS/service-worker build handshake before `app.js` starts.
-- No `controllerchange` reload racing UI binding.
-- Service-worker install no longer precaches every optional asset, so an optional/lazy missing file cannot brick shell activation.
-- Inline boot recovery remains clickable even when ES modules fail.
-- Shell-only reset preserves IndexedDB sessions, Depth Anything CacheStorage and Alva runtime cache.
-- Successful boot records the actual controlling service-worker version; a preceding failed boot is persisted and logged on recovery.
-- Self-tests for lost Alva tracking and proxy-depth wiring now test the current runtime contract instead of stale source tokens.
-- Deep metric calibration restores direct, inverse-raw and inverse-depth projective models.
+- probabilistic feature association with epipolar + BRIEF + ZNCC + uniqueness evidence;
+- Alva pose uncertainty propagation into 3D covariance;
+- sequence-level robust Deep calibration with an intentionally corrupted frame;
+- independent MVS recovery when a deliberately wrong Deep prior proposes the wrong depth;
+- joint pose/landmark factor optimisation with Alva as a soft prior;
+- typed probabilistic factor-graph persistence in `.r30`;
+- public TUM RGB-D `freiburg1_xyz` data validation.
+
+## Public-data result
+
+Dataset fixture: official TUM RGB-D Freiburg1 XYZ preview + official ground-truth trajectory.
+
+- ground-truth samples: 3000
+- trajectory duration: ~30 s
+- trajectory length: ~7.11 m
+- real-texture feature-association precision: 0.98837
+- real-texture feature-association recall: 1.0
+- factor-graph reprojection RMSE before refinement: 2.2912 px
+- after refinement: 0.03697 px
+- mean pose correction: 0.00839 m
+
+The fixture intentionally avoids redistributing the full sequence; it is a reproducible real-data association / trajectory-refinement test, not a claim of full TUM reconstruction accuracy.
 
 ## Automated verification
 
 `npm run verify`: PASS
 
-- Node regression suite: 106/106 PASS.
-- Depth diagnostics: PASS.
-- V30 layout: PASS (single v30 root).
-- Dependency closure: PASS.
-- EventTarget constructors: PASS 5/5.
-- Mock UI boot: PASS; controls remain bound after expected WebXR failure.
-- Alva runtime contract: PASS.
-
-The Android/GitHub Pages controller-handover race itself still needs the real-device repeated-reload check described in `TEST_ON_PHONE.md`.
+- Node regression suite: 113/113 PASS
+- public-data validation: PASS
+- Depth diagnostics: PASS
+- layout: PASS
+- dependency closure: PASS
+- EventTarget constructors: PASS 5/5
+- mock UI boot: PASS
+- Alva runtime contract: PASS

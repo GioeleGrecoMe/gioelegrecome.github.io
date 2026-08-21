@@ -1,5 +1,6 @@
 import {poseIdentity,qNormalize,qConj,qMul,qRotate} from './math.js';
 import {applySimilarityPose} from './alva_metric_bootstrap.js';
+import {estimatePoseCovariance} from '../probabilistic/pose_uncertainty.js';
 
 /**
  * AlvaAR world tracker wrapper.
@@ -38,19 +39,20 @@ export class SlamEngine extends EventTarget{
       trackingMode=relocalized?'alvaar-relocalized':'alvaar-wasm';
     }else{this.alvaLostFrames++;this.wasLost=true;}
 
+    const poseCov=estimatePoseCovariance({metricLocked:this.metricLocked,alvaPoints:r.framePoints?.length||0,matches:r.matches?.count||0,trackingMode,relocalized,lostFrames:this.alvaLostFrames});
     const now=frame.at||performance.now(),sourceFrameId=String(frame.frameId||`legacy-${this.frameIndex}`);let newKeyframe=null,newObservation=null;
     // A 1 Hz observation clock is intentionally independent of pose validity.
     // Alva itself still receives every analysis frame; this bounded history gives
     // diagnostics/recovery/alignment a camera sample even while initialization is pending.
     if(!this.lastObservationAt||now-this.lastObservationAt>=this.observationIntervalMs){
-      newObservation={id:`obs-${this.frameIndex}`,frameId:sourceFrameId,at:now,trackingValid,trackingMode,rawPose:raw?clonePose(raw):null,width:frame.width,height:frame.height,features:r.count||0,matches:r.matches?.count||0,alvaPoints:r.framePoints?.length||0,geometry:frame.geometry||null};
+      newObservation={id:`obs-${this.frameIndex}`,frameId:sourceFrameId,at:now,trackingValid,trackingMode,rawPose:raw?clonePose(raw):null,width:frame.width,height:frame.height,features:r.count||0,matches:r.matches?.count||0,alvaPoints:r.framePoints?.length||0,geometry:frame.geometry||null,poseCov};
       this.observations.push(newObservation);this.lastObservationAt=now;if(this.observations.length>this.maxObservations)this.observations.shift();
     }
     if(trackingValid&&(!this.lastAt||now-this.lastAt>=this.keyframeIntervalMs)){
-      newKeyframe={id:`kf-${this.frameIndex}`,frameId:sourceFrameId,at:now,pose:clonePose(this.pose),rawPose:clonePose(raw),features:(r.features||[]).map(f=>({x:+f.x,y:+f.y,score:+(f.score||0),source:f.source||'mvs',desc:Array.from(f.desc||[])})),width:frame.width,height:frame.height,trackingMode,metricLocked:this.metricLocked,geometry:frame.geometry||null};
+      newKeyframe={id:`kf-${this.frameIndex}`,frameId:sourceFrameId,at:now,pose:clonePose(this.pose),rawPose:clonePose(raw),features:(r.features||[]).map(f=>({x:+f.x,y:+f.y,score:+(f.score||0),source:f.source||'mvs',desc:Array.from(f.desc||[])})),width:frame.width,height:frame.height,trackingMode,metricLocked:this.metricLocked,geometry:frame.geometry||null,poseCov};
       this.keyframes.push(newKeyframe);this.lastAt=now;if(this.keyframes.length>520)this.keyframes.shift();
     }
-    const detail={frame:this.frameIndex++,frameId:sourceFrameId,pose:clonePose(this.pose),rawPose:raw?clonePose(raw):null,features:r.count||0,matches:r.matches?.count||0,keyframes:this.keyframes.length,newKeyframe,observations:this.observations.length,newObservation,metricLocked:this.metricLocked,metricScale:this.metricScale,trackingMode,trackingValid,relocalized,alvaPoints:r.framePoints?.length||0,framePoints:Array.from(r.framePoints||[]),lostFrames:this.alvaLostFrames};
+    const detail={frame:this.frameIndex++,frameId:sourceFrameId,pose:clonePose(this.pose),rawPose:raw?clonePose(raw):null,features:r.count||0,matches:r.matches?.count||0,keyframes:this.keyframes.length,newKeyframe,observations:this.observations.length,newObservation,metricLocked:this.metricLocked,metricScale:this.metricScale,trackingMode,trackingValid,relocalized,alvaPoints:r.framePoints?.length||0,framePoints:Array.from(r.framePoints||[]),lostFrames:this.alvaLostFrames,poseCov};
     this.dispatchEvent(new CustomEvent('tracking',{detail}));if(newObservation)this.dispatchEvent(new CustomEvent('observation',{detail:newObservation}));if(newKeyframe)this.dispatchEvent(new CustomEvent('keyframe',{detail:newKeyframe}));return detail;
   }
 }

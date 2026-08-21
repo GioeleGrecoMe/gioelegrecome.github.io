@@ -1,6 +1,6 @@
 {
-  "version": "30.27.0-exp.4",
-  "id": "v30.27.0-exp.4-20260821-atomic-boot",
-  "builtAt": "2026-08-21T09:25:00+02:00",
-  "notes": "EXP-4 makes page bootstrap atomic across HTML/CSS/JS/service-worker builds: the UI starts only after the controlling worker reports the same version, with inline recovery if bootstrap fails. It preserves EXP-3 surface meshing and EXP-2 exact-frame Deep/Alva synchronization. The Deep metric calibrator also restores direct, inverse-raw and inverse-depth projective fits."
+  "version": "30.28.0",
+  "id": "v30.28.0-20260821-probabilistic-factor-graph",
+  "builtAt": "2026-08-21T10:00:00+02:00",
+  "notes": "V30.28 replaces irreversible geometry decisions with a persisted probabilistic factor graph: image observations, Alva pose priors with covariance, probabilistic feature tracks, raw relative Deep factors, independent MVS likelihoods and joint post-scan refinement of landmarks, small pose corrections and sequence-level Deep scale. EXP-4 atomic boot and the reversible Surface Mesh Lab are preserved."
 }

@@ -1,106 +1,50 @@
-# V30.27 EXP-4 · Atomic boot / build coherence
+# Room Scanner V30.28 · Probabilistic factor-graph reconstruction
 
-EXP-4 fixes an intermittent Android/GitHub Pages failure where a refresh could show a visually different page with dead buttons. The cause was a service-worker controller handover racing the ES-module bootstrap and allowing a mixed shell. The page now waits for an explicit `GET_VERSION` handshake from the controlling worker, verifies `build_info.json`, reloads `styles.css` under that controller, then starts `app.js`. There is no controller-change reload during UI binding.
+V30.28 changes the reconstruction architecture rather than adding another hard acceptance gate. The online path remains AlvaAR + Depth Anything + MVS + Gaussian fusion, but every important observation is now also stored as probabilistic evidence that can be revisited after the scan.
 
-If bootstrap fails before modules are available, an inline recovery button remains clickable. Recovery clears/unregisters only V30 shell caches: IndexedDB sessions, the Depth Anything model cache and the Alva runtime cache are preserved. The next successful boot logs the previous failed boot phases as `previous-boot-recovery`.
+## Main change
 
-The runtime self-test now verifies lost-Alva behaviour directly rather than by brittle source tokens, and the Deep metric calibration again evaluates `z=a·raw+b`, `z=a/raw+b`, and `1/z=a·raw+b`.
+The application persists a compact factor graph containing:
 
-# Room Scanner V30.27 EXP-4
+- AlvaAR pose priors with 6-DoF covariance rather than exact poses;
+- frame identity, intrinsics, a compact grayscale thumbnail and bounded 2D features;
+- probabilistic cross-frame feature associations and multi-view landmark measurements;
+- landmark 3D mean/covariance and provenance;
+- raw relative Depth Anything samples on a compact grid, with quality metadata;
+- independent photometric MVS likelihood samples and source-frame provenance.
 
-## Surface Mesh Lab deploy repair + robust surface field
+No observation is promoted to permanent truth merely because it passed a threshold once. Low-confidence evidence remains low weight and may later be contradicted by more views.
 
-The diagnostic from EXP-2 exposed a deployment-specific failure: the main app
-was present, but `js/experimental/surface_mesh_lab.js` had never reached the
-GitHub Pages tree. Because the lab is lazy, the rest of the application can boot
-and reload saved Gaussian sessions even when that optional asset is missing.
+## Online chain
 
-EXP-4 therefore ships the experimental module and worker again and probes both
-assets before allocating the private Gaussian copy. Missing assets now produce a
-specific `surface-lab-asset-missing` diagnostic rather than an opaque dynamic
-import error. The production BASE remains untouched.
+1. AlvaAR remains the real-time camera-motion authority.
+2. A conservative pose covariance is estimated from tracking state / tracked points.
+3. Alva candidate points are associated between frames using BRIEF-like binary patches, epipolar geometry, local ZNCC, mutual uniqueness and feature quality. The result is a probability, not a boolean identity.
+4. Multi-view triangulation propagates pose uncertainty into landmark covariance. Poorly conditioned geometry therefore stays uncertain instead of becoming an overconfident metric anchor.
+5. Depth Anything is stored in raw relative form in the graph. A sequence-level robust model estimates the transform to metric depth from the whole growing set of trustworthy anchors.
+6. Plane sweep remains independent from the Deep prior: Deep narrows the proposal range but does not lower the photometric acceptance standard. Coarse global probes can escape an incorrect monocular prior.
+7. The live Gaussian map still provides immediate feedback, but the post-scan solution is allowed to rebuild it from refined evidence.
 
-Geometry is also changed, not merely redeployed. Surface normals are locally
-re-estimated by robust weighted PCA over spatially close, normal-compatible
-Gaussian neighbours. Centre refinement is normal-only, so wall/floor patches
-become thinner without tangentially shrinking edges. Mesh extraction evaluates
-an anisotropic signed surface field at exact voxel centres; saved camera origins
-provide a weaker free-space/sign vote. Tiny islands are filtered by physical
-area rather than by keeping an arbitrary number of components.
+## Post-scan optimisation
 
-EXP-2 exact-frame synchronization is retained unchanged.
+The review optimiser jointly refines:
 
----
+- 3D landmark positions;
+- small SE(3) corrections to Alva poses, constrained by their pose priors;
+- the sequence-level Deep calibration;
+- posterior probabilities / robust weights from reprojection and depth residuals.
 
+After optimisation the Gaussian/mesh representation is rebuilt from corrected poses and evidence. Pose covariance is propagated into each 3D observation before information-form fusion, so repeated observations cannot become infinitely certain around a biased camera trajectory.
 
+## Persistence
 
-Room Scanner combines **AlvaAR metric camera motion**, **Depth Anything V2
-relative depth** and **multi-view feature geometry** into a compact online 3D
-Gaussian map intended for mobile browsers.
+New sessions use `ROOMSCAN-PROB-SESSION-3`. The `.r30` codec supports typed probabilistic graph buffers (`ROOMSCAN-R30-JSON-2`), including compact Float32 Deep grids, so the evidence can be exported and reprocessed without the original video.
 
-## What changed in V30.26
+## Public-data validation
 
-The persistent map is no longer one surfel per voxel.  V30.26 uses continuous
-anisotropic 3D Gaussians and keeps the grid only as a spatial lookup structure.
-Several surface hypotheses can therefore coexist in the same small volume.
+The test suite includes a reproducible validation based on the public TUM RGB-D `freiburg1_xyz` benchmark. It uses the official RGB preview for real-texture feature association and the official 3,000-sample ground-truth trajectory for non-trivial camera-motion optimisation. The current test obtains ~0.988 match precision, 1.0 recall, and reduces the deliberately perturbed factor-graph reprojection RMSE from ~2.29 px to ~0.037 px while keeping the mean pose correction ~8.4 mm.
 
-Persistent feature tracks are now first-class geometry.  A feature observed in
-several Alva keyframes is triangulated from each useful baseline, robustly fused,
-and becomes a metric Gaussian landmark with a full 3x3 centre covariance and a
-compact appearance descriptor.  These landmarks calibrate the local Depth
-Anything proxy and dominate it wherever metric multi-view evidence exists.
-
-Deep, MVS and track estimates originating from the same photographs are collapsed
-into one proxy observation before map integration; they cannot pretend to be
-independent sensors.  Replayed keyframes likewise cannot shrink uncertainty or
-increase support.
-
-## Reconstruction pipeline
-
-```text
-Alva poses + image features -> multi-view metric feature tracks
-                                      |
-Depth Anything -> scale/local calibration -> proxy depth
-                                      |
-plane sweep / multi-view verification-+
-                                      v
-                  continuous information-form 3D Gaussians
-                                      |
-                         live anisotropic splats
-                                      |
-                         derived/rebuildable TSDF mesh
-```
-
-Each Gaussian stores a continuous centre, full position covariance, separate
-surface covariance, normal, colour, confidence and compact camera-evidence mask.
-Centre fusion is Bayesian/information-form with a Mahalanobis association gate.
-The surface covariance remains a physical footprint rather than collapsing as
-more measurements arrive.
-
-This is deliberately a **geometry-first online Gaussian splatting map**, not a
-heavy offline photorealistic 3DGS optimiser: the phone does not run thousands of
-gradient-descent rendering iterations.  The useful 3DGS properties for room
-mapping—continuous centres, anisotropic covariance, splat rendering, adaptive
-expansion/pruning and statistical multi-view refinement—are retained within the
-mobile budget.
-
-## Scan behaviour
-
-- AlvaAR remains the only camera-trajectory source.
-- Deep runs during scan and remains visible diagnostically.
-- Accepted dense keyframes run Deep even when they are close in time, while the
-  keyframe manager still rejects geometrically redundant video frames.
-- Track/MVS evidence is preferred over monocular proxy depth.
-- New Gaussians are provisional until independent views confirm them.
-- Revisiting a surface should reduce centre uncertainty and stabilise the cloud
-  rather than permanently baking the first depth estimate into a mesh.
-
-## Mobile memory model
-
-The map stores sufficient statistics per Gaussian rather than complete frame
-histories.  The keyframe graph remains bounded, descriptors are compact, and
-camera evidence is represented by a small hashed bit mask.  The TSDF is rebuilt
-only from confirmed Gaussians and is not the authoritative scene state.
+This is intentionally not claimed to be a full TUM end-to-end reconstruction benchmark: the compact fixture validates association and joint optimisation against public real data without shipping the full ~0.47 GB sequence.
 
 ## Verification
 
@@ -108,27 +52,6 @@ only from confirmed Gaussians and is not the authoritative scene state.
 npm run verify
 ```
 
-The automated suite includes multi-view feature triangulation, proxy-depth
-de-duplication, multiple continuous hypotheses inside one hash cell, information
-fusion/replay protection, full-covariance PLY persistence, anisotropic rendering,
-TSDF unknown-space/voxel-centre regressions, Depth Anything diagnostics and the
-AlvaAR runtime contract.
+V30.28 currently passes 113/113 Node regression tests plus public-data validation, Depth Anything diagnostics, dependency closure, layout checks, EventTarget-constructor checks, mock UI boot and the Alva runtime contract.
 
-## V30.26 saved sessions and iterative review
-
-A finished scan is now automatically saved locally with its Gaussian map and a
-small multi-view optimisation reservoir. From **Sessioni locali** on the main
-screen, `Apri 3D` reloads a compatible scan without repeating capture.
-
-In 3D review, choose a total iteration target (default 30, maximum 300) and press
-`Ottimizza`. Optimisation runs in a worker and can be stopped. The preview is
-updated every iteration for short runs and at an adaptive cadence for long runs
-(about 16 visual updates maximum), so rendering/structured-clone overhead does
-not dominate the geometry update. Completed or stopped states are persisted and
-can be reopened and continued later.
-
-Saved local V30.26 sessions retain the compact multi-view constraints required by
-the geometric optimiser. Generic PLY/R30 imports can still be viewed and mildly
-regularised, but they do not contain that private IndexedDB observation reservoir.
-If optimisation moves the Gaussian map, the old TSDF mesh is intentionally
-marked stale until a future surface-meshing pass regenerates it.
+The V30.27 Surface Mesh Lab remains available and isolated. It can still be used for BASE/EXP comparisons, but V30.28 treats meshing as a derived stage after probabilistic refinement rather than as the authority that fixes upstream geometry.
