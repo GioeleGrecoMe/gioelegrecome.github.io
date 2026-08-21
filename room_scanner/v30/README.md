@@ -1,51 +1,70 @@
-# Room Scanner V30.29 · Spherical Photo Puzzle + Hybrid Room Reconstruction
+# Room Scanner V30.30 · Exact Live Photo Puzzle + Global Depth Atlas
 
-V30.29 introduces a new post-scan reconstruction path designed around the information that is actually available in the app: overlapping RGB views, Alva camera poses, raw relative Depth Anything maps, sparse multi-view landmarks and independent MVS evidence.
+V30.30 deliberately stops before trusting later 3D meshing: during acquisition the user can now inspect the two data products that must be coherent first.
 
-The legacy Gaussian batch optimiser and Surface Mesh Lab are still present for A/B comparison. They are not overwritten by the new solver.
+- **PHOTO PUZZLE**: the RGB photographs actually sent to Depth Anything, connected online by visual overlap and placed through the exact Alva pose of the same camera frame.
+- **GLOBAL DEPTH**: the same photographs after their relative Deep maps have acquired a common scale from RGB correspondences + Alva triangulation, rendered as global radial depth from one fixed atlas origin.
 
-## Core model
+The V30.29 post-scan `Photo Puzzle -> planes + particles` solver remains available and now receives this denser exact-frame survey evidence through the persistent probabilistic factor graph.
 
-The new path deliberately separates three problems that were previously entangled:
+## Exact survey clock
 
-1. **Photo puzzle / view graph** – connect only photographs that have verified visual overlap. A walking scan is not forced into one global homography; translated cameras create parallax, so the equirectangular collage is diagnostic only.
-2. **Sequence Deep alignment** – a matched RGB point is triangulated using the corresponding Alva poses. The resulting optical-Z values become probabilistic anchors for the raw Deep map in each view. Same-world-point does *not* mean same camera depth.
-3. **Geometry explanation** – large planar structures are extracted first and represented directly as planes. Only observations not already explained by planes are assigned to a user-bounded set of 1k–10k particles.
+The live map is driven by the Deep survey clock (normally about 1 Hz), not only by the sparser dense-keyframe clock. Before a Deep inference starts, V30.30 freezes one immutable packet containing:
 
-## Diffusion-like particle fitting without another neural model
+`frameId + capture timestamp + RGB/gray + K + Alva pose/covariance + 2-D Alva/MVS feature observations`.
 
-The particle stage uses deterministic annealing / EM rather than an additional generative network. At high temperature, observations can support a broad neighbourhood of particles; the temperature is gradually reduced and the posterior becomes more selective. Each candidate update is checked against a fixed validation objective with backtracking, so an uphill update is rejected instead of being displayed as progress.
+That exact packet is inserted into the factor graph and the live photo graph. The worker result is accepted only for the same `frameId`/raster binding, so inference latency cannot attach a depth field to a later Alva pose.
 
-The user chooses the particle budget and the cumulative number of iterations in the 3D review.
+If Alva has no valid pose, Deep may still be shown in the local diagnostic preview, but that photograph is not promoted into global geometry.
 
-## Planes first
+## Live photo graph
 
-For room-scale scenes, walls, floor, ceiling, tabletops and other large planar regions should not consume thousands of splats. V30.29 uses uncertainty-aware RANSAC/PCA, then a soft Manhattan-world regularisation. A plane is accepted only when it is supported by multiple frames and sufficient physical area. If opposite planes are available on three approximately orthogonal axes, the preview can form an explicit shoebox envelope.
+A walking scan is not forced through one homography. Translation produces real parallax. Each new survey photo is matched only to a small temporal neighbourhood plus plausible loop candidates. A graph edge therefore means verified RGB overlap; a weak photo stays visible as disconnected evidence and can be repaired by revisiting that direction.
 
-Plane residuals use the projected anisotropic ray uncertainty, not a single scalar depth tolerance.
+The spherical canvas is a virtual view of the reconstructed world around a **fixed origin locked by the first posed survey photo**. The origin never follows the mean camera position, because doing so would make already pasted content slide whenever a new frame arrives.
 
-## Exact depth convention
+## Why the PHOTO atlas should be sharper
 
-Depth Anything and the plane-sweep MVS path use camera optical-axis depth `Z`. The particle solver uses distance along a normalised 3D ray. V30.29 explicitly converts
+Once metric/aligned depth exists, each source pixel is back-projected through its own camera pose into 3-D and reprojected into the fixed atlas. Overlapping images are not averaged indiscriminately. V30.30 uses:
 
-`range = Z / ray_camera.z`
+1. metric depth / depth-graph confidence;
+2. a radial z-buffer;
+3. a best-view score favouring central, well-conditioned source pixels;
+4. only a tiny colour-consistent seam blend when two samples represent the same surface.
 
-before constructing a 3D observation. This prevents off-axis pixels from bending a fronto-parallel wall into a curved surface.
+A provisional fronto-parallel shell is allowed only as a faint visual placeholder while scale is still unknown. It cannot replace metric pixels and never enters GLOBAL DEPTH or 3D reconstruction evidence.
 
-## Online spherical coverage
+## Online Deep scale graph
 
-During scanning, accepted views paint an equirectangular direction sphere. Weak/disconnected sectors remain visible rather than being silently discarded. The guide tracks:
+For a verified RGB correspondence `(u_i,u_j)`, Alva poses and intrinsics triangulate a world point `X`. The two camera optical depths are then measured separately:
 
-- strong and seen angular coverage;
-- fraction of visually/geometrically connected views;
-- visual loop closures;
-- a closure confidence and the least-observed direction.
+`z_i = project(T_i,K_i,X).z`
 
-If the current view is weak, the user is explicitly asked to revisit it. If the scan is terminated before a visual closure is established, the app warns the user but still allows an intentional early finish.
+`z_j = project(T_j,K_j,X).z`.
 
-## Persistence
+Raw Deep values at the same pixels become calibration pairs `(D_i,z_i)` and `(D_j,z_j)`. This explicitly avoids the incorrect assumption that the same world point must have the same camera depth after translation.
 
-The V30.28 probabilistic factor graph is retained and extended with a compact RGB photo packet per keyframe. New sessions persist the Photo Puzzle reconstruction separately from the legacy Gaussian state, so BASE/PUZZLE comparison remains reversible.
+The sequence compares the same three monotonic families used by the post-scan pipeline:
+
+- `z = a D + b`
+- `z = a / D + b`
+- `1/z = a D + b`.
+
+A useful live detail is that a photograph with Deep can be calibrated from an RGB-connected neighbour even if that neighbour's Deep inference failed. Geometry comes from RGB + poses; Deep is sampled only on the side where it exists.
+
+## GLOBAL DEPTH convention
+
+Deep/MVS values are camera optical `Z`. Back-projection converts them to Euclidean ray range with
+
+`range = Z / ray_camera.z`.
+
+The resulting 3-D point is transformed by the exact Alva pose. GLOBAL DEPTH then displays radial distance from the fixed atlas origin. Thus the colour of a pixel has one common geometric meaning across the entire pseudopanorama instead of representing unrelated per-camera relative depth values.
+
+Only metrically/alva-scale aligned maps and verified world samples are rendered in this mode. Unknown regions remain empty.
+
+## Memory / low-budget behaviour
+
+Survey RGB is compacted to at most 256 px on the long side and relative depth to at most 168 px. The live atlas is 640x320 internally but uses a global sample budget, so retaining more photographs does not imply rasterising every source pixel on every refresh. Up to 90 recent survey photographs are kept in the live viewer; the persistent factor graph can keep a longer session history independently.
 
 ## Verification
 
@@ -55,6 +74,6 @@ Run:
 npm run verify
 ```
 
-The current build passes 119/119 Node regression tests plus the public-data validator, Depth Anything diagnostics, layout/dependency checks, EventTarget constructor checks, mock UI boot and the Alva runtime contract.
+The current automated suite passes **126/126** Node tests. V30.30 adds live-atlas regressions for exact Deep-frame capture, one-sided depth-scale alignment, fixed atlas origin, no-blur best-view compositing and coverage-clock de-duplication. The public-data validator also exercises the live atlas on the freely available TUM RGB-D `freiburg1_xyz` texture with a controlled translation and known 2 m surface.
 
-The public validator uses the freely available TUM RGB-D `freiburg1_xyz` material already stored under `test/online-data/`: real TUM texture is used for the photo matcher/puzzle and the official ground-truth trajectory is used to exercise pose/factor optimisation. Controlled warps and synthetic geometry are explicitly used where an exact expected solution is needed; this is not presented as a full end-to-end TUM reconstruction benchmark.
+This validation is intentionally separated from a claim of full end-to-end TUM room reconstruction: the public image content is real, while the controlled warp/depth gives an exact expected registration answer.

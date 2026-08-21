@@ -52,7 +52,10 @@ export class SlamEngine extends EventTarget{
       newKeyframe={id:`kf-${this.frameIndex}`,frameId:sourceFrameId,at:now,pose:clonePose(this.pose),rawPose:clonePose(raw),features:(r.features||[]).map(f=>({x:+f.x,y:+f.y,score:+(f.score||0),source:f.source||'mvs',desc:Array.from(f.desc||[])})),width:frame.width,height:frame.height,trackingMode,metricLocked:this.metricLocked,geometry:frame.geometry||null,poseCov};
       this.keyframes.push(newKeyframe);this.lastAt=now;if(this.keyframes.length>520)this.keyframes.shift();
     }
-    const detail={frame:this.frameIndex++,frameId:sourceFrameId,pose:clonePose(this.pose),rawPose:raw?clonePose(raw):null,features:r.count||0,matches:r.matches?.count||0,keyframes:this.keyframes.length,newKeyframe,observations:this.observations.length,newObservation,metricLocked:this.metricLocked,metricScale:this.metricScale,trackingMode,trackingValid,relocalized,alvaPoints:r.framePoints?.length||0,framePoints:Array.from(r.framePoints||[]),lostFrames:this.alvaLostFrames,poseCov};
+    // Keep the exact 2-D feature packet on the transient tracking result. It is
+    // not appended to the long-lived SLAM history; the 1 Hz Deep/photo survey
+    // clock may synchronously compact it together with the exact camera frame.
+    const detail={frame:this.frameIndex++,frameId:sourceFrameId,pose:clonePose(this.pose),rawPose:raw?clonePose(raw):null,features:r.count||0,matches:r.matches?.count||0,keyframes:this.keyframes.length,newKeyframe,observations:this.observations.length,newObservation,metricLocked:this.metricLocked,metricScale:this.metricScale,trackingMode,trackingValid,relocalized,alvaPoints:r.framePoints?.length||0,framePoints:Array.from(r.framePoints||[]),featureObservations:r.features||[],lostFrames:this.alvaLostFrames,poseCov};
     this.dispatchEvent(new CustomEvent('tracking',{detail}));if(newObservation)this.dispatchEvent(new CustomEvent('observation',{detail:newObservation}));if(newKeyframe)this.dispatchEvent(new CustomEvent('keyframe',{detail:newKeyframe}));return detail;
   }
 }

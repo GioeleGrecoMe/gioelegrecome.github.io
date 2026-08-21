@@ -1,34 +1,27 @@
-APPLY_PATCH.txt
-ARCHITECTURE.md
-README.md
-TEST_ON_PHONE.md
-TEST_REPORT.md
-build_info.json
-index.html
-js/app.js
-js/boot.js
-js/config.js
-js/dense/fusion_core.js
-js/dense/keyframe_manager.js
-js/dense/plane_sweep_core.js
-js/dense/sparse_depth_anchors.js
-js/formats.js
-js/probabilistic/deep_sequence_model.js
-js/probabilistic/factor_graph.js
-js/probabilistic/feature_tracker.js
-js/probabilistic/joint_optimizer.js
-js/probabilistic/pose_uncertainty.js
-js/slam/slam_engine.js
-package.json
-room_scanner_v30.html
-sw.js
-test/online-data/SOURCES.md
-test/online-data/tum_freiburg1_xyz_groundtruth.txt
-test/online-data/tum_freiburg1_xyz_rgb_preview_gray.pgm
-tests/boot-preflight.test.mjs
-tests/build-contract.test.mjs
-tests/probabilistic-v28.test.mjs
-tools/check_v30_layout.mjs
-tools/mock_ui_boot.mjs
-tools/validate_public_data.mjs
-workers/probabilistic_opt_worker.js
+V30.30.0 incremental patch over V30.29.0
+
+Modified/new files:
+- ARCHITECTURE.md
+- README.md
+- TEST_ON_PHONE.md
+- TEST_REPORT.md
+- build_info.json
+- index.html
+- js/app.js
+- js/boot.js
+- js/config.js
+- js/reconstruction/coverage_sphere.js
+- js/reconstruction/depth_scale_graph.js
+- js/reconstruction/live_photo_puzzle.js
+- js/slam/slam_engine.js
+- package.json
+- room_scanner_v30.html
+- styles.css
+- sw.js
+- tests/boot-preflight.test.mjs
+- tests/build-contract.test.mjs
+- tests/live-photo-puzzle.test.mjs
+- tools/check_v30_layout.mjs
+- tools/mock_ui_boot.mjs
+- tools/validate_public_data.mjs
+- workers/puzzle_reconstruction_worker.js

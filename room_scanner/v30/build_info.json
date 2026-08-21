@@ -1,6 +1,6 @@
 {
-  "version": "30.29.0",
-  "id": "v30.29.0-20260821-spherical-puzzle-hybrid",
-  "builtAt": "2026-08-21T11:24:00+02:00",
-  "notes": "V30.29 adds a pose-aware photo puzzle, spherical coverage/loop guidance, sequence Deep calibration from triangulated RGB correspondences, explicit optical-Z to ray-range conversion, plane-first room fitting and a user-bounded deterministic-annealing particle solver with non-increasing validation loss. V30.28 probabilistic evidence and legacy BASE/EXP paths remain reversible."
+  "version": "30.30.0",
+  "id": "v30.30.0-20260821-exact-live-photo-depth-atlas",
+  "builtAt": "2026-08-21T11:52:00+02:00",
+  "notes": "V30.30 makes the Deep survey clock the live photo-puzzle clock. Every posed Deep request freezes the exact RGB, Alva pose, intrinsics and 2-D features into one frame node; the asynchronous relative depth can only return to that node. RGB overlap creates a live photo graph, geometric correspondences plus Alva triangulation estimate per-frame Deep scale, and PHOTO/DEPTH atlases use pose-aware reprojection with z-buffer/best-view compositing instead of blur-producing image averaging."
 }

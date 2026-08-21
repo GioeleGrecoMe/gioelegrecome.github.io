@@ -1,101 +1,86 @@
-# Room Scanner V30.29 architecture
+# Room Scanner V30.30 architecture
 
-## 1. Problem statement
+## 0. Principle: make the acquisition observable before meshing
 
-For keyframe `i` we have:
+V30.30 treats the live photo/depth atlas as a prerequisite diagnostic layer. If RGB views cannot form a continuous graph or their relative Deep fields cannot acquire a coherent common scale, no later Gaussian/particle/mesh optimiser can recover trustworthy room geometry.
 
-- RGB image `I_i`;
-- Alva pose prior `T_i` and pose covariance;
-- camera intrinsics `K_i`;
-- raw relative Depth Anything field `D_i(u,v)`;
-- sparse feature observations / landmarks;
-- optional independent MVS likelihood samples.
+The live layer therefore exposes exactly the evidence later used by the persistent probabilistic graph.
 
-The desired scene is not defined as a cloud that must be accepted once. It is the smallest set of surfaces/particles that explains the observations from all connected views.
+## 1. Exact Deep-survey frame packet
 
-## 2. Photo puzzle
+At the ~1 Hz Deep survey tick, after Alva has processed the current camera raster, the app freezes
 
-The first stage builds a graph `G=(V,E)` where nodes are photographs and edges are visually verified overlap. Candidate Alva points are matched with BRIEF-like appearance, local ZNCC, mutual uniqueness and Alva-pose epipolar compatibility.
+`F_i = {frameId, t_i, I_i, K_i, T_i^Alva, Sigma_Ti, features_i}`.
 
-A global panorama homography is intentionally not used: camera translation creates real parallax. The spherical/equirectangular atlas is a diagnostic coverage projection only. Geometry continues to use the original calibrated rays and poses.
+This happens before the RGBA buffer is transferred to the Deep worker. The packet is inserted into:
 
-Disconnected or weak frames are retained with low confidence. They can become connected later through loop closure or a revisit.
+- the persistent probabilistic factor graph;
+- the incremental live photo puzzle;
+- the spherical coverage monitor.
 
-## 3. Pose-aware Deep scale graph
+Deep completion time is not used as a geometric timestamp. The returned raw depth can update only the node carrying the same exact frame binding/signature.
 
-For a verified photo match `(u_i,u_j)`, the known poses define two calibrated rays. Their closest-point triangulation yields world point `X` with geometric quality from angle and ray gap. The corresponding metric/Alva optical depths are
+## 2. Incremental photo puzzle
 
-`z_i = project(T_i,K_i,X).z`
+The live graph is `G=(V,E)` with one node per posed Deep-survey photograph. Candidate edges are restricted to a temporal window and a few orientation-compatible loop candidates. An edge is retained only when probabilistic feature matching supports real image overlap using appearance, ZNCC, mutual uniqueness and Alva-pose epipolar consistency.
 
-`z_j = project(T_j,K_j,X).z`.
+No global homography is assumed. Parallax is preserved and later explained by the 3-D pose/depth warp.
 
-Raw Deep values are sampled at the same pixels. Thus the graph stores calibration evidence `(D_i(u_i), z_i)` and `(D_j(u_j), z_j)` rather than incorrectly enforcing `D_i ≈ D_j` or `z_i ≈ z_j`.
+Disconnected photos remain visible instead of being silently discarded. They are scan-quality evidence and can trigger a revisit.
 
-Across the sequence, three monotonic model families are compared:
+## 3. Online pose-aware Deep scale graph
 
-- `z = a D + b`
-- `z = a / D + b`
-- `1/z = a D + b`.
+A matched RGB pair does not constrain raw Deep values to equality. The calibrated rays are triangulated with the two Alva poses, producing world point `X`. Each camera then sees its own optical depth:
 
-The model family is selected globally, while each well-supported frame gets its own robust affine parameters. Weak frames borrow a low-confidence prior from connected neighbours. Good per-frame fits are not averaged away.
+`z_i = pi_z(T_i^-1 X)`.
 
-## 4. Depth convention
+Raw Deep samples at the matched pixels provide independent `(D_i,z_i)` anchors. The online graph robustly compares
 
-`projectPoint` and MVS depth use camera optical `Z`. A normalised camera ray has third component `d_z`, therefore the corresponding Euclidean range is
+- `z = aD+b`
+- `z = a/D+b`
+- `1/z = aD+b`.
 
-`r = Z / d_z`.
+The model family is sequence-level; well-supported frames receive local parameters while weak frames borrow a low-confidence graph prior. An RGB edge can calibrate one Deep side even when the other side has no valid Deep map.
 
-All hybrid-solver rays use `r`; all photogrammetric projection/calibration continues to use optical `Z`. Keeping this convention explicit prevents systematic radial curvature.
+## 4. Fixed-origin pose-aware pseudopanorama
 
-## 5. Probabilistic observations
+The atlas origin is locked to the first valid posed survey camera and never changes during the scan. Every metric/aligned pixel is converted from camera optical depth to range
 
-Every scene observation is represented by:
+`r = Z / d_z`
 
-- camera origin `o`;
-- unit ray `d`;
-- range mean `r`;
-- axial standard deviation `sigma_r`;
-- lateral standard deviation `sigma_t`;
-- source/provenance and frame ID;
-- confidence weight and RGB colour.
+and then to world point
 
-The covariance is anisotropic: uncertainty is much larger along a monocular ray than across it. Track/MVS observations receive more authority than dense Deep completion.
+`X_w = C_i + R_i d r`.
 
-## 6. Plane-first room model
+The world point is finally mapped to equirectangular coordinates around the fixed atlas origin. Therefore camera translation is handled by geometry rather than hidden inside a moving panorama reference.
 
-The solver first searches for large multi-view planar explanations. A candidate plane residual uses uncertainty projected onto the plane normal:
+### PHOTO compositing
 
-`var(n) = sigma_t^2 + (sigma_r^2 - sigma_t^2) (n·d)^2`.
+Each atlas pixel retains the sharpest geometrically plausible source sample:
 
-This means a grazing ray cannot use its large axial uncertainty to excuse a large wall-normal error.
+- z-buffer for conflicting surfaces;
+- metric/depth confidence;
+- source-view centrality;
+- graph connectivity.
 
-Accepted planes are refined by weighted PCA, bounded by robust 2D quantiles, and optionally snapped to a soft Manhattan frame. Snapping is only applied when a plane is already close to a dominant axis.
+Overlaps are not simple weighted averages. Tiny seam blending is allowed only for colour-consistent samples already classified as the same surface. Before metric depth is observable, a low-alpha fallback shell may show approximate photo continuity, but it has no authority in GLOBAL DEPTH or reconstruction.
 
-If three orthogonal axis groups each contain two strong opposite boundaries, the renderer emits a direct shoebox mesh. Otherwise each verified plane remains an independent surface patch.
+### GLOBAL DEPTH
 
-## 7. Residual particle model
+The depth atlas uses only aligned Deep maps, strong online calibrations, MVS/sparse world samples and the same fixed origin. Its value is global radial distance, so the colour scale is common to all photographs. Unknown/unaligned pixels stay transparent.
 
-Only observations not sufficiently explained by planes enter the particle solver. The user selects the maximum particle count (1,000–10,000).
+## 5. Coverage and revisit
 
-Initial particles are compact weighted clusters of residual observations. Deterministic annealing/EM then alternates:
+The same physical frame may appear on both the Deep survey clock and dense-keyframe clock. `ViewSphereCoverage` de-duplicates by `frameId`, preventing one image from voting twice. Photo-graph discontinuity and angular coverage remain separate signals: a direction may be seen but poorly connected, in which case the user should revisit it.
 
-1. soft probabilistic observation-to-particle association;
-2. information-form update using anisotropic ray covariance;
-3. confidence/support update;
-4. optional rebirth of unsupported particles into unexplained high-likelihood regions.
+## 6. Persistent post-scan evidence
 
-Temperature decreases with iteration count. The validation loss is evaluated at a fixed definition independent of temperature. A candidate update is accepted only if validation does not increase; otherwise damping is reduced, then the step is rejected if necessary.
+Every posed survey photo is also inserted into `ProbabilisticFactorGraph`, and raw Deep is attached when its exact result returns. The post-scan V30.29/V30.28 solvers therefore receive more temporally regular evidence than before rather than a separate display-only collage.
 
-This is the diffusion-model intuition implemented as an optimisation process, not as another large neural network.
+The authority hierarchy remains:
 
-## 8. Live scan closure
+`exact frame identity -> photo connectivity -> pose-aware triangulation -> Deep scale -> independent MVS -> planes / residual particles -> derived 3D`.
 
-The online `ViewSphereCoverage` stores directional coverage, connection quality and loop closures. `readyToClose` requires substantial seen/strong coverage, connected views and at least one photographic loop closure. A weak current view produces a revisit instruction rather than disappearing from the dataset.
+## 7. Why this precedes further mesh work
 
-## 9. Representation hierarchy
-
-The intended authority order is:
-
-`photo connectivity -> pose-aware triangulation -> sequence Deep calibration -> planes -> residual particles -> derived mesh`.
-
-Legacy Gaussian/TSDF results remain available as BASE diagnostics, but they are no longer the primary V30.29 post-processing path.
+A sharp connected PHOTO atlas is a direct test of RGB/pose consistency. A coherent GLOBAL DEPTH atlas is a direct test of Deep scale + pose geometry. If either is wrong, a later surface optimiser would only hide the acquisition error. V30.30 therefore makes these products inspectable live before treating their measurements as a room surface.

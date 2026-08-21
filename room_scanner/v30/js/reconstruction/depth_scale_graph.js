@@ -38,19 +38,25 @@ export class DepthScaleGraph{
   }
   buildGeometricEdge(e){
     const fa=this.frameMap.get(String(e.aId)),fb=this.frameMap.get(String(e.bId)),da=this.deepMap.get(String(e.aId)),db=this.deepMap.get(String(e.bId));
-    if(!fa||!fb||!da||!db)return null;
+    // A geometric RGB edge can calibrate either side independently. Requiring
+    // Deep on BOTH photos delays the newest live frame unnecessarily and makes a
+    // single failed/suspicious inference disconnect the scale graph. The 3-D
+    // point comes from RGB+Alva triangulation; raw Deep is only sampled on the
+    // side(s) where it exists.
+    if(!fa||!fb||(!da&&!db))return null;
     const poseA=fa.poseEstimate||fa.posePrior,poseB=fb.poseEstimate||fb.posePrior;if(!poseA||!poseB)return null;
     const baseline=poseDistance(poseA,poseB),maxGap=clamp(.025+baseline*.24,.035,.18),accepted=[],relGap=[];let rejected=0;
     for(const m of e.matches||[]){
-      const rawA=sampleGrid(da,m.aU,m.aV,fa.K.width||fa.width,fa.K.height||fa.height),rawB=sampleGrid(db,m.bU,m.bV,fb.K.width||fb.width,fb.K.height||fb.height);
-      if(!finiteRaw(rawA)||!finiteRaw(rawB)){rejected++;continue;}
+      const rawA=da?sampleGrid(da,m.aU,m.aV,fa.K.width||fa.width,fa.K.height||fa.height):NaN,rawB=db?sampleGrid(db,m.bU,m.bV,fb.K.width||fb.width,fb.K.height||fb.height):NaN;
+      if(!finiteRaw(rawA)&&!finiteRaw(rawB)){rejected++;continue;}
       const tri=triangulateRays({pose:poseA,K:fa.K,u:m.aU,v:m.aV},{pose:poseB,K:fb.K,u:m.bU,v:m.bV},{minAngleRad:.0015,maxGapM:maxGap});
       if(!tri.ok){rejected++;continue;}
       const qa=projectPoint(poseA,fa.K,tri.p),qb=projectPoint(poseB,fb.K,tri.p);if(!qa||!qb||qa.z<.12||qb.z<.12||qa.z>15||qb.z>15){rejected++;continue;}
       const angleW=clamp((tri.angle-.0015)/.030,.035,1),gapScale=Math.max(.012,Math.min(maxGap,baseline*.14+.018)),gapW=Math.exp(-.5*(tri.gap/gapScale)**2),poseW=poseReliability(fa,fb,baseline),matchW=clamp(Number(m.probability||.05),.005,.999),w=clamp((e.weight||.1)*matchW*angleW*gapW*poseW,.0005,1);
       if(w<.0012){rejected++;continue;}
       const common={w,source:'photo-triangulation',edge:[String(e.aId),String(e.bId)],angle:tri.angle,gap:tri.gap,matchProbability:matchW};
-      this.pushAnchor(String(e.aId),{raw:rawA,depth:qa.z,...common});this.pushAnchor(String(e.bId),{raw:rawB,depth:qb.z,...common});
+      if(finiteRaw(rawA))this.pushAnchor(String(e.aId),{raw:rawA,depth:qa.z,...common});
+      if(finiteRaw(rawB))this.pushAnchor(String(e.bId),{raw:rawB,depth:qb.z,...common});
       accepted.push({angle:tri.angle,gap:tri.gap,w});relGap.push(tri.gap/Math.max(.15,(qa.z+qb.z)*.5));
     }
     if(!accepted.length)return null;

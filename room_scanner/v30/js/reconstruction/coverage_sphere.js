@@ -19,8 +19,13 @@ export class ViewSphereCoverage{
   }
   addFrame(frame){
     if(!frame?.pose||!frame?.K)return this.status();
+    const frameId=String(frame.frameId||frame.id),existing=this.frameMap.get(frameId);
+    // The same physical camera frame can be observed first by the 1 Hz Deep/photo
+    // survey and a few milliseconds later by the dense-keyframe scheduler.  It is
+    // one view, not two independent coverage votes.
+    if(existing)return this.status(existing);
     const f=compactFrame(frame),quality=clamp(.28+.32*Math.tanh((f.features?.length||0)/120),.20,.62);
-    const entry={frameId:String(frame.frameId||frame.id),at:+(frame.at||0),pose:clonePose(frame.pose),K:f.K,width:f.width,height:f.height,gray:f.gray,features:f.features,quality,connected:false,geometryQuality:0,loop:false};
+    const entry={frameId,at:+(frame.at||0),pose:clonePose(frame.pose),K:f.K,width:f.width,height:f.height,gray:f.gray,features:f.features,quality,connected:false,geometryQuality:0,loop:false};
     const loop=this.findLoop(entry);if(loop){entry.loop=true;entry.connected=true;entry.quality=Math.max(entry.quality,.82);this.loopClosures++;this.lastLoop={a:entry.frameId,b:loop.frameId,matches:loop.matches,probability:loop.probability};}
     this.frames.push(entry);this.frameMap.set(entry.frameId,entry);while(this.frames.length>this.maxFrames){const x=this.frames.shift();this.frameMap.delete(x.frameId);}
     this.paint(entry,entry.quality);return this.status(entry);

@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.29.0 spherical photo-puzzle + hybrid plane/particle reconstruction configuration.
+ * Room Scanner V30.30.0 live photo/depth puzzle configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.29.0',
-  id:'v30.29.0-20260821-spherical-puzzle-hybrid',
+  version:'30.30.0',
+  id:'v30.30.0-20260821-exact-live-photo-depth-atlas',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -291,6 +291,33 @@ export const CONFIG={
   coverageSphereCols:24,
   coverageSphereRows:12,
   coverageSphereMaxFrames:72,
+
+  // V30.30 live photo/depth atlas.  This is a diagnostic display only: the
+  // reconstruction remains driven by the probabilistic factor graph. RGB uses
+  // a low-authority fallback plane until metric depth becomes available; the
+  // GLOBAL DEPTH view never displays fallback depths as measurements.
+  livePuzzleAtlasWidth:640,
+  livePuzzleAtlasHeight:320,
+  livePuzzleMaxFrames:90,
+  livePuzzleRenderFrames:64,
+  livePuzzleTemporalRadius:4,
+  livePuzzleLoopCandidates:2,
+  livePuzzleMinEdgeMatches:6,
+  livePuzzleMinEdgeProbability:0.10,
+  // Keep the exact Deep-survey photos noticeably sharper than the factor-graph
+  // thumbnails. The atlas render itself is sample-budgeted, so this does not
+  // imply processing every source pixel on every refresh.
+  livePuzzlePhotoMaxSide:256,
+  livePuzzleDepthMaxSide:168,
+  livePuzzleDepthMinPairs:6,
+  livePuzzleDepthRegularizeIterations:8,
+  livePuzzleMaxPhotoSamples:260000,
+  livePuzzleMaxDepthSamples:190000,
+  livePuzzleFallbackDepth:2.2,
+  livePuzzleWorldSamples:12000,
+  livePuzzleSparseAdd:320,
+  livePuzzleMvsAdd:700,
+  livePuzzleDeepAdd:850,
 
   // Legacy camera-only MVS remains available for diagnostics/fallback tooling.
   mvsWorker:'workers/mvs_worker.js',

@@ -1,16 +1,16 @@
-# V30.29 phone validation
+# V30.30 phone validation · live PHOTO / GLOBAL DEPTH
 
-1. Apply this patch over V30.28.0. No model directory needs to be replaced.
-2. Reload normally and verify that the atomic boot reaches `Interfaccia pronta`.
-3. Start a scan and watch the spherical coverage panel. Walk slowly with deliberate overlap; do not only rotate in place.
-4. When the guide reports a weak/disconnected view, move slightly back toward the previous view and sweep that region again. The connection/closure indicators should recover.
-5. Before finishing, deliberately return to an early part of the room. At least one photo loop closure should appear. Finishing early should produce a warning rather than silently accepting incomplete coverage.
-6. Confirm that Deep live preview remains visually sensible. Deep does not need to be metrically perfect at this stage; its scale is solved post-scan from the photo/pose graph.
-7. In Review, choose `Photo Puzzle -> piani + particelle`. Start with 2,000–3,000 particles and 20–40 iterations.
-8. Watch the spherical photo atlas. It is a connectivity/coverage diagnostic, not a metric panorama: near objects may show parallax/ghosting and this is expected.
-9. Watch the status values: connected photo fraction, aligned Deep frames, number of planes, plane-explained fraction, validation loss and shoebox confidence.
-10. Validation loss must be non-increasing across accepted particle updates. A rejected update may leave it unchanged.
-11. Compare BASE and PUZZLE. Large walls/floor/ceiling should increasingly appear as clean plane patches; particles should concentrate on furniture, corners and non-planar residual geometry.
-12. Repeat with 1,000 and 10,000 particles. Large planar room surfaces should not require more particles to remain stable; the higher budget should mainly improve residual object detail.
-13. Save the session, reload it from Home and continue to a higher cumulative iteration target. The Photo Puzzle state must resume without overwriting BASE.
-14. Export diagnostics if a view stays disconnected or if a plane is visibly wrong; the useful fields are photo graph edges/loops, depth alignment error, aligned frames, validation loss and plane statistics.
+1. Apply this patch over V30.29.0. No model directory needs to be replaced.
+2. Reload and verify `V30.30.0` / interactive boot.
+3. Start a scan only after Alva has a valid pose. The live panel must start in `FOTO` mode.
+4. Move slowly with translation, not only rotation. Roughly once per Deep inference a new photo node should appear. The status should report `N/N foto` and the number of graph links.
+5. Check that a photo is created at Deep request time, not completion time. In Debug, Deep results should still report exact-frame sync while Alva continues processing newer frames.
+6. In `FOTO`, overlapping textured parts of the room should remain sharp. Small seams are acceptable; a uniformly averaged/blurred panorama is not. The atlas origin is fixed, so already pasted content should not slide merely because a new camera pose was added.
+7. A new view with no metric Deep yet may appear faintly. Once the raw Deep returns and RGB+Alva provide enough scale anchors, the same area should become stronger without jumping to a later camera frame.
+8. Tap `DEPTH`. Initially it may be sparse. It must not invent depth for unaligned photos. As the photo graph obtains baseline and matches, more Deep frames should become global/aligned and the status should show `Deep nF -> metriche mF` plus a scale error when observable.
+9. Toggle `FOTO <-> DEPTH` repeatedly while moving. The same connected regions should occupy the same atlas directions. RGB discontinuity without a corresponding graph break is a bug; a red/disconnected node is instead an explicit request to revisit.
+10. Deliberately move to a weak/no-texture area. If that photo does not connect, return slightly to the previous textured view and sweep through it again. The graph should reconnect rather than silently forcing a false edge.
+11. Deliberately return to an early view. A non-temporal photo edge/loop should appear when visual evidence is sufficient.
+12. Compare local `DEEP LIVE` with `GLOBAL DEPTH`: the local panel is raw relative depth for one exact frame; the global panel is the pose-transformed common-scale result. They are not expected to use the same colour scale.
+13. Finish the scan and open `Photo Puzzle -> piani + particelle`. The persistent factor graph should contain the ~1 Hz posed survey photos and their raw Deep maps, not only the old dense keyframes.
+14. If the final 3D is still poor, export diagnostics only after inspecting these two live products. A bad PHOTO atlas points first to pose/matching; a good PHOTO atlas with bad GLOBAL DEPTH points to Deep scale/calibration; two good atlases with bad 3D isolate the remaining fault to surface reconstruction.

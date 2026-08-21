@@ -138,3 +138,17 @@
 
 /* V30.29 spherical scan coverage + Photo Puzzle post-processing */
 .coverageSpherePanel{position:absolute;left:max(10px,env(safe-area-inset-left));bottom:calc(78px + env(safe-area-inset-bottom));width:min(46vw,260px);z-index:8;padding:7px 8px;border-radius:12px;background:rgba(5,8,13,.72);backdrop-filter:blur(7px);box-shadow:0 4px 18px rgba(0,0,0,.28);font-size:.68rem;line-height:1.25;color:#eef4fa;pointer-events:none}.coverageSpherePanel canvas{display:block;width:100%;height:auto;aspect-ratio:2/1;margin-top:5px;border-radius:7px;background:#101722}.puzzleCard{border-color:rgba(123,228,149,.35)}.photoSpherePreview{display:block;width:100%;aspect-ratio:2/1;max-height:220px;margin:.65rem 0;background:#05070a;border:1px solid rgba(255,255,255,.15);border-radius:9px;image-rendering:auto}.puzzleCard progress{width:100%;margin:.55rem 0}.puzzleCard input[type=number]{max-width:7.5rem}@media(max-width:620px){.coverageSpherePanel{width:min(55vw,220px);bottom:calc(92px + env(safe-area-inset-bottom));}.photoSpherePreview{max-height:160px}}
+
+/* V30.30 live pose/depth photo puzzle. The atlas is a diagnostic world-shell:
+ * RGB thumbnails are reprojected from their exact Alva pose; metric Deep/MVS
+ * replaces the low-authority plane fallback as soon as it becomes available. */
+#scan .livePuzzlePanel{position:absolute;left:max(10px,env(safe-area-inset-left));top:118px;width:min(50vw,350px);z-index:8;padding:7px 8px;border-radius:12px;background:rgba(5,9,15,.80);border:1px solid rgba(123,228,149,.42);box-shadow:0 8px 24px rgba(0,0,0,.34);backdrop-filter:blur(7px);pointer-events:auto;color:#eef5ff}
+#scan .livePuzzleHead{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;font-size:.65rem;line-height:1.2}
+#scan #liveMapState{flex:1;min-width:0;color:#e8f7ed}
+#scan .livePuzzleSwitch{display:flex;gap:3px;flex:0 0 auto}
+#scan .livePuzzleSwitch button{padding:.22rem .42rem;border-radius:7px;font-size:.60rem;line-height:1.1;background:#111c29;border-color:#2b4158;color:#c8d7e9}
+#scan .livePuzzleSwitch button.active{background:#17677a;border-color:#61d6ff;color:#fff;box-shadow:0 0 0 1px rgba(97,214,255,.22) inset}
+#scan #liveMapCanvas{display:block;width:100%;height:auto;aspect-ratio:2/1;margin-top:5px;border-radius:7px;background:#030609;border:1px solid rgba(255,255,255,.10);image-rendering:auto;touch-action:none;pointer-events:none}
+#scan .livePuzzleLegend{margin-top:4px;color:#9db0c5;font-size:.56rem;line-height:1.15;white-space:normal}
+#scan .deepLivePreview{top:262px!important}
+@media(max-width:620px){#scan .livePuzzlePanel{width:min(50vw,230px);top:116px;padding:6px}#scan .livePuzzleLegend{display:none}#scan .deepLivePreview{top:242px!important;width:min(42vw,178px)!important}}

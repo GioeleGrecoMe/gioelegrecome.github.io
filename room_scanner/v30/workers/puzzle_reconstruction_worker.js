@@ -1,6 +1,7 @@
 import {ViewPuzzleGraph} from '../js/reconstruction/view_puzzle.js';
 import {DepthScaleGraph} from '../js/reconstruction/depth_scale_graph.js';
 import {HybridSceneSolver} from '../js/reconstruction/hybrid_scene_solver.js';
+import {LivePhotoPuzzleMap} from '../js/reconstruction/live_photo_puzzle.js';
 
 let graph=null,puzzle=null,depthScale=null,solver=null,stopping=false,token=0;
 self.onmessage=e=>{const d=e.data||{};Promise.resolve(handle(d)).catch(err=>self.postMessage({type:'puzzle-error',message:err?.message||String(err),stack:err?.stack||null}));};
@@ -12,6 +13,11 @@ async function handle(d){
     puzzle=new ViewPuzzleGraph(graph,d.puzzleOptions||{}).build();const atlas=puzzle.renderAtlas(d.atlasOptions||{});self.postMessage({type:'puzzle-atlas',stats:puzzle.stats,atlas},[atlas.rgba.buffer]);
     self.postMessage({type:'puzzle-stage',stage:'depth-scale',message:'Allineo le depth relative sul grafo fotografico…'});
     depthScale=new DepthScaleGraph(graph,puzzle,d.depthOptions||{}).build();
+    // Replace the orientation-only averaged diagnostic with the same pose/depth
+    // aware, z-buffered atlas used live. This is a view of the solved evidence,
+    // not an input resampling step for the 3-D solver.
+    const sharpMap=new LivePhotoPuzzleMap({width:d.atlasOptions?.width||480,height:d.atlasOptions?.height||240,maxFrames:Math.max(90,(graph.frames||[]).length),maxRenderFrames:Math.max(90,(graph.frames||[]).length),maxPhotoSamples:300000,maxDepthSamples:220000});
+    sharpMap.loadSolvedGraph(graph,puzzle,depthScale);const sharpAtlas=sharpMap.renderPhotoAtlas();self.postMessage({type:'puzzle-atlas',stats:{...puzzle.stats,depthAlignedFrames:depthScale.stats?.alignedFrames||0,sharpPoseDepthAtlas:true},atlas:sharpAtlas},[sharpAtlas.rgba.buffer]);
     self.postMessage({type:'puzzle-stage',stage:'geometry',message:'Estraggo piani e inizializzo le particelle residue…',depthStats:depthScale.stats});
     solver=new HybridSceneSolver(graph,puzzle,depthScale,{particleBudget:d.particleBudget||3000,maxObservations:d.maxObservations||65000,maxPlanes:d.maxPlanes||8,initial:d.initial||null});solver.prepare();const preview=solver.preview();self.postMessage({type:'puzzle-ready',stats:solver.stats,puzzleStats:puzzle.stats,depthStats:depthScale.stats,preview,state:solver.exportState()},transferPreview(preview));return;
   }
