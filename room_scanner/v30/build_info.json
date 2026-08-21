@@ -1,6 +1,6 @@
 {
-  "version": "30.38.0",
-  "id": "v30.38.0-20260821-live-multirate-optimizer-diagnostics",
+  "version": "30.38.1",
+  "id": "v30.38.1-20260821-live-multirate-optimizer-diagnostics",
   "date": "2026-08-21",
   "notes": "V30.38 runs the hierarchical RGB/pose/depth estimator during acquisition in a dedicated time-sliced worker. A working candidate never changes the visible measurement state until a conservative acceptance gate checks reprojection, pose jumps, depth calibration and switch behaviour. Accepted sparse anchors are smoothed before display; rejected candidates leave the preview untouched. The diagnostics logger is upgraded to structured ROOMSCAN-V30-DIAGNOSTICS-2 with monotonic sequence/timing, checkpoints, runtime context, worker traces and explicit accepted/rejected optimisation decisions."
 }

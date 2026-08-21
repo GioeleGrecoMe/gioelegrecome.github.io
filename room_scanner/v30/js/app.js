@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.38.0 continuous RGB+Depth mosaic application.
+ * Room Scanner V30.38.1 continuous RGB+Depth mosaic application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,8 +8,8 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.38.0';
-import {DiagnosticsLog} from './logger.js?v=30.38.0';
+import {BUILD,CONFIG} from './config.js?v=30.38.1';
+import {DiagnosticsLog} from './logger.js?v=30.38.1';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
@@ -25,7 +25,33 @@ function persistEmergencyDiagnostics(reason){try{const snapshot=log.snapshot({em
 function restoreEmergencyDiagnostics(){try{const raw=localStorage.getItem(EMERGENCY_DIAG_KEY);if(!raw)return;const previous=JSON.parse(raw);log.attachPrevious(previous);log.warn('previous-emergency-diagnostics',{reason:previous?.reason||null,createdAt:previous?.createdAt||null,entries:previous?.entries?.length||0,checkpoints:previous?.checkpoints?.length||0,build:previous?.build?.id||previous?.build||null});localStorage.removeItem(EMERGENCY_DIAG_KEY);}catch{}}
 restoreEmergencyDiagnostics();
 const moduleCache=new Map();
-function lazy(path){if(!moduleCache.has(path))moduleCache.set(path,import(`${path}?v=${BUILD.version}`));return moduleCache.get(path);}
+async function importWithDiagnostics(path){
+  const spec=`${path}?v=${BUILD.version}`;
+  try{return await import(spec);}catch(firstError){
+    let probe=null;
+    try{
+      const url=new URL(`${path}?v=${BUILD.version}&probe=${Date.now()}`,import.meta.url);
+      const response=await fetch(url,{cache:'no-store',credentials:'same-origin'});
+      probe={url:url.href,status:response.status,ok:response.ok,contentType:response.headers.get('content-type')||'',serviceWorker:!!navigator.serviceWorker?.controller,online:navigator.onLine};
+      log.error('dynamic-module-import-failed',{path,spec,message:firstError?.message||String(firstError),name:firstError?.name||null,probe});
+      // A successfully published JavaScript module may still fail because an old
+      // service worker/module-map entry supplied a stale transitive dependency.
+      // Retry once with a unique top-level URL; build-tagged static dependencies
+      // on critical modules keep the transitive closure coherent as well.
+      if(response.ok&&/javascript|ecmascript|module/i.test(probe.contentType)){
+        const retry=`${path}?v=${BUILD.version}&retry=${Date.now()}`;
+        try{return await import(retry);}catch(retryError){
+          log.error('dynamic-module-import-retry-failed',{path,retry,message:retryError?.message||String(retryError),name:retryError?.name||null,probe});
+          throw retryError;
+        }
+      }
+    }catch(probeError){
+      log.error('dynamic-module-probe-failed',{path,spec,message:firstError?.message||String(firstError),probeMessage:probeError?.message||String(probeError),online:navigator.onLine,serviceWorker:!!navigator.serviceWorker?.controller});
+    }
+    throw firstError;
+  }
+}
+function lazy(path){if(!moduleCache.has(path))moduleCache.set(path,importWithDiagnostics(path));return moduleCache.get(path);}
 function safe(name,fn){return async(...args)=>{try{return await fn(...args)}catch(err){log.error(name,{message:err?.message||String(err),stack:err?.stack||null});log.checkpoint('handled-operation-error',{reason:name,message:err?.message||String(err),graph:state.probGraph?.summary?.()||null,liveOptimizer:state.liveOptStats||null});persistEmergencyDiagnostics(`handled:${name}`);showError(err?.message||String(err));return null;}};}
 function on(id,type,handler,options){const el=$(id);if(!el){log.warn('ui-missing-control',{id,type});return null;}el.addEventListener(type,handler,options);return el;}
 function show(id){for(const el of document.querySelectorAll('.screen'))el.classList.toggle('active',el.id===id);document.body.classList.toggle('immersive-ui',id!=='home'&&id!=='review');}

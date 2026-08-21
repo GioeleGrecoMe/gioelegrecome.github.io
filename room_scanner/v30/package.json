@@ -14,6 +14,6 @@
     "vendor:alva": "node tools/vendor_alvaar.mjs",
     "check:public": "node tools/validate_public_data.mjs"
   },
-  "version": "30.38.0",
+  "version": "30.38.1",
   "description": "Room Scanner V30.38 live multi-rate hierarchical optimisation with conservative preview gating and structured diagnostics"
 }

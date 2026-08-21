@@ -1,3 +1,4 @@
+// V30.38.1: explicitly shipped with the SLAM dynamic-import closure to prevent mixed-build module graphs.
 /**
  * V30.28 pose uncertainty helpers.
  *

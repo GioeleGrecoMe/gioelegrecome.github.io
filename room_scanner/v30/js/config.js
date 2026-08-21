@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.38.0 continuous RGB live-mosaic configuration.
+ * Room Scanner V30.38.1 continuous RGB live-mosaic configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.38.0',
-  id:'v30.38.0-20260821-live-multirate-optimizer-diagnostics',
+  version:'30.38.1',
+  id:'v30.38.1-20260821-live-multirate-optimizer-diagnostics',
   dbName:'room-scanner-v30',
   dbVersion:3
 };

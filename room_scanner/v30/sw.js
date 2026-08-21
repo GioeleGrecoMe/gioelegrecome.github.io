@@ -7,7 +7,7 @@
  * THIS build cache can be used as an offline fallback. This prevents an old
  * controller from combining HTML/CSS/JS from different V30 revisions.
  */
-const VERSION = '30.38.0';
+const VERSION = '30.38.1';
 const CACHE = `room-scanner-v${VERSION}-shell`;
 const CACHE_PREFIX = 'room-scanner-v';
 const ENTRY = './room_scanner_v30.html';
