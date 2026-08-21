@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-33-rgb-depth-mosaic",
+  "name": "room-scanner-v30-34-spherical-panorama",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,6 +14,6 @@
     "vendor:alva": "node tools/vendor_alvaar.mjs",
     "check:public": "node tools/validate_public_data.mjs"
   },
-  "version": "30.33.0",
-  "description": "Room Scanner V30.33 continuous inverse-warped RGB mosaic with exact-frame Depth admission and photo-only alignment"
+  "version": "30.34.0",
+  "description": "Room Scanner V30.34 robust spherical RGB panorama with multi-scale relocalization and globally aligned Depth Anything maps"
 }

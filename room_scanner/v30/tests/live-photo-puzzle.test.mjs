@@ -21,7 +21,7 @@ function planeDepth(cameraX,u,z0=2,k=.18){const xn=(u-K.cx)/K.fx;return (z0+k*ca
 function rawMap(cameraX,a=1.7,b=.3){const out=new Float32Array(K.width*K.height);for(let y=0;y<K.height;y++)for(let x=0;x<K.width;x++){const z=planeDepth(cameraX,x+.5);out[y*K.width+x]=(z-b)/a;}return out;}
 function commit(map,f,raw=rawMap(0)){const r=map.commitCameraFrameWithRelativeDepth(f,{rawDepth:raw,width:K.width,height:K.height,confidence:.8});assert.equal(r.ok,true,r.reason);return r;}
 function matchesForBaseline(xb){const out=[];for(const u of [14,20,26,32,38,44,50,56,62,68])for(const v of [17,28,39]){const z=planeDepth(0,u),X=(u-K.cx)/K.fx*z,Y=(v-K.cy)/K.fy*z,ub=K.fx*(X-xb)/z+K.cx,vb=K.fy*Y/z+K.cy;if(ub>4&&ub<K.width-5)out.push({aU:u,aV:v,bU:ub,bV:vb,probability:.96,epipolarPx:.05,zncc:.98,uniquenessProbability:.95});}return out;}
-function wireEdge(map,matches){const dx=matches.reduce((s,m)=>s+(m.bU-m.aU),0)/Math.max(1,matches.length)/K.width,dy=matches.reduce((s,m)=>s+(m.bV-m.aV),0)/Math.max(1,matches.length)/K.height;const e={a:0,b:1,aId:'F0',bId:'F1',matches,homography:[1,0,dx,0,1,dy,0,0,1],visualConfidence:.92,meanProbability:.96,weight:.92,loop:false,gainAB:1};map.edges=[e];map.adj=new Map([[0,[e]],[1,[e]]]);map.recomputeConnectivity();map.depthScaleDirty=true;map.visualDirty=true;}
+function wireEdge(map,matches){const e={a:0,b:1,aId:'F0',bId:'F1',matches,rotationBToA:[1,0,0,0,1,0,0,0,1],rotationInliers:matches.length,rotationMedianErrorDeg:.4,rotationP90ErrorDeg:.8,rotationAngleDeg:0,visualConfidence:.92,meanProbability:.96,weight:.92,loop:false,gainAB:1};map.edges=[e];map.adj=new Map([[0,[e]],[1,[e]]]);map.recomputeConnectivity();map.depthScaleDirty=true;map.depthConsensusDirty=true;map.visualDirty=true;map.recomputeVisualSolution();}
 
 test('optional metric Deep scale still uses posed frames after the RGB mosaic is built independently',()=>{
   const map=new LivePhotoPuzzleMap({width:160,height:80,photoMaxSide:80,depthMaxSide:80,depthMinPairs:6,depthRegularizeIterations:3,maxFrames:8});
@@ -38,10 +38,10 @@ test('RGB photos without a valid exact-frame depth map never enter the live mosa
 });
 
 
-test('localized feature clusters cannot place a photograph even with a low RANSAC residual',()=>{
-  const a={width:320,height:240},b={width:320,height:240},cluster=[];for(let y=100;y<=120;y+=5)for(let x=140;x<=165;x+=5)cluster.push({aU:x,aV:y,bU:x+4,bV:y+2,probability:.99});
-  const reg={matches:cluster,allPhotoMatches:cluster.length,homography:[1,0,.0125,0,1,.0083,0,0,1],homographyMedianErrorPx:.2,visualConfidence:.95};assert.equal(reliablePhotoOverlap(reg,a,b,{minMatches:6}),false);
-  const spread=[];for(const y of [30,80,130,190,220])for(const x of [25,80,145,215,285])spread.push({aU:x,aV:y,bU:x+4,bV:y+2,probability:.99});const good={...reg,matches:spread,allPhotoMatches:spread.length};assert.equal(reliablePhotoOverlap(good,a,b,{minMatches:6}),true);
+test('localized feature clusters cannot place a photograph even with a low spherical residual',()=>{
+  const a={width:320,height:240},b={width:320,height:240},I=[1,0,0,0,1,0,0,0,1],cluster=[];for(let y=100;y<=120;y+=5)for(let x=140;x<=165;x+=5)cluster.push({aU:x,aV:y,bU:x+4,bV:y+2,probability:.99});
+  const reg={matches:cluster,allPhotoMatches:cluster.length,rotationBToA:I,rotationInliers:cluster.length,rotationMedianErrorDeg:.2,rotationP90ErrorDeg:.4,rotationAngleDeg:1,visualConfidence:.95};assert.equal(reliablePhotoOverlap(reg,a,b,{minMatches:6}),false);
+  const spread=[];for(const y of [30,80,130,190,220])for(const x of [25,80,145,215,285])spread.push({aU:x,aV:y,bU:x+4,bV:y+2,probability:.99});const good={...reg,matches:spread,allPhotoMatches:spread.length,rotationInliers:spread.length};assert.equal(reliablePhotoOverlap(good,a,b,{minMatches:6}),true);
 });
 
 test('metric origin remains separate from the arbitrary 2-D photo mosaic',()=>{
@@ -65,7 +65,7 @@ test('survey RGB is only committed after exact-frame Deep succeeds',()=>{
 });
 
 test('an unposed RGB+Deep photograph is a first-class mosaic node and remains visible',()=>{
-  const map=new LivePhotoPuzzleMap({width:180,height:120,photoMaxSide:80,maxFrames:8,maxPhotoSamples:500000}),f=frame('F0',0,'checker');f.pose=null;f.poseCov=null;commit(map,f,rawMap(0));const s=map.stats();assert.equal(s.frames,1);assert.equal(s.rawDepthFrames,1);assert.equal(s.alvaPoseFrames,0);assert.equal(s.visualRegisteredFrames,1);const atlas=map.renderPhotoAtlas();assert.ok(atlas.coverage>.05,atlas.coverage);const saved=map.exportState();assert.equal(saved.frames[0].alvaPose,null);assert.equal(saved.frames[0].hasRawDepth,true);assert.ok(saved.mosaicTransforms[0]);
+  const map=new LivePhotoPuzzleMap({width:180,height:120,photoMaxSide:80,maxFrames:8,maxPhotoSamples:500000}),f=frame('F0',0,'checker');f.pose=null;f.poseCov=null;commit(map,f,rawMap(0));const s=map.stats();assert.equal(s.frames,1);assert.equal(s.rawDepthFrames,1);assert.equal(s.alvaPoseFrames,0);assert.equal(s.visualRegisteredFrames,1);const atlas=map.renderPhotoAtlas();assert.ok(atlas.coverage>.05,atlas.coverage);const saved=map.exportState();assert.equal(saved.frames[0].alvaPose,null);assert.equal(saved.frames[0].hasRawDepth,true);assert.ok(saved.sphericalRotations[0]);assert.equal(saved.projection,'spherical');
 });
 
 test('coverage sphere does not double-vote when the same physical frame arrives through survey and dense clocks',()=>{
@@ -84,8 +84,8 @@ test('live RGB preview is inverse-warped as a continuous photograph, never rende
   const c=map.commitCameraFrameWithRelativeDepth({frameId:'dense-rgb',at:1,pose:null,K:{fx:300,fy:300,cx:w/2,cy:h/2,width:w,height:h},width:w,height:h,gray,rgba},{rawDepth:dep,width:w,height:h,confidence:.8});assert.equal(c.ok,true);
   const atlas=map.renderPhotoAtlas();let n=0,minX=atlas.width,minY=atlas.height,maxX=-1,maxY=-1;
   for(let y=0;y<atlas.height;y++)for(let x=0;x<atlas.width;x++){if(atlas.rgba[(y*atlas.width+x)*4+3]){n++;minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);}}
-  const bbox=(maxX-minX+1)*(maxY-minY+1),fill=n/Math.max(1,bbox);assert.ok(fill>.995,{fill,n,bbox});
-  const src=fs.readFileSync(new URL('../js/reconstruction/live_photo_puzzle.js',import.meta.url),'utf8');const body=src.slice(src.indexOf('renderPhotoAtlas(){'),src.indexOf('renderDepthAtlas(){'));assert.match(body,/inverse image warp/i);assert.doesNotMatch(body,/splatPanoramaSharp/);
+  const bbox=(maxX-minX+1)*(maxY-minY+1),fill=n/Math.max(1,bbox);assert.ok(fill>.94,{fill,n,bbox});
+  const src=fs.readFileSync(new URL('../js/reconstruction/live_photo_puzzle.js',import.meta.url),'utf8');const body=src.slice(src.indexOf('renderPhotoAtlas(){'),src.indexOf('renderDepthAtlas(){'));assert.match(body,/spherical inverse warp/i);assert.match(body,/canvasPointToPhotoPixel/);assert.doesNotMatch(body,/splatPanoramaSharp|homography/);
 });
 
 test('dense SLAM keyframes are not injected into the user-visible RGB mosaic',()=>{

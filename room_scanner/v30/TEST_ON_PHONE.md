@@ -1,9 +1,10 @@
-# V30.33 phone validation · continuous RGB+Depth mosaic
+# V30.34 phone validation · spherical panorama + global Depth
 
-1. Publish the patch while preserving the existing `models/` directory and reset the V30 shell cache once. Confirm `V30.33.0`.
-2. Open **Mappa → FOTO**. The panel must show only normal continuous photographs: no feature dots, no graph lines and no camera markers.
-3. Move slowly while keeping roughly 40–60% visual overlap. A new photo should appear only after its Deep inference completes.
-4. Temporarily make an overlap poor by turning quickly. That frame may be captured for Deep, but if it cannot be registered reliably it must not appear at a random location in the visible mosaic.
-5. Cover/disable the Depth model as a negative test: the live RGB+Depth mosaic must stop accepting new photographs rather than accumulating RGB-only frames.
-6. During Alva INIT/LOST, RGB+Depth frames may still be accepted and aligned if Deep and photographic overlap are valid. Their placement must not jump when Alva later recovers.
-7. Switch to **DEPTH** and verify that depth support follows exactly the same accepted photo regions.
+1. Publish this patch while preserving the existing `models/` directory. Reset the shell cache once and confirm `V30.34.0`.
+2. Open **Mappa → FOTO** and scan slowly with overlap. Each new accepted image must remain a normal undistorted photograph projected on the spherical atlas; straight local content may curve because of the sphere, but the photo itself must never shear, stretch or explode.
+3. Deliberately make one intermediate frame weak (brief blur/low texture), then return to a previously seen textured area. The mapper should relocalise against older connected RGB+Depth frames rather than permanently breaking the chain.
+4. Turn farther than usual and then come back. A frame with no verified spherical overlap must remain absent instead of being placed arbitrarily. When later overlap becomes sufficient, recent orphan frames may reconnect.
+5. During Alva INIT/LOST, continue the same RGB test. Accepted RGB+Depth photographs must keep the same panoramic placement; Alva recovery must not move them.
+6. Switch to **DEPTH**. In overlapping regions, colours from different photographs should agree after fusion. When a new frame/loop is accepted, all maps must be recoloured from the single global scale rather than retaining per-frame colour ranges.
+7. Revisit the first area to create a loop. Check both FOTO and DEPTH: the spherical registration should tighten globally and the depth scale should remain continuous through the closure.
+8. As a negative test, make Deep inference fail. The corresponding RGB frame must not enter the photo graph at all.

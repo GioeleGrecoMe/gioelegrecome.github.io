@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.33.0 continuous RGB+Depth mosaic application.
+ * Room Scanner V30.34.0 continuous RGB+Depth mosaic application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,8 +8,8 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.33.0';
-import {DiagnosticsLog} from './logger.js?v=30.33.0';
+import {BUILD,CONFIG} from './config.js?v=30.34.0';
+import {DiagnosticsLog} from './logger.js?v=30.34.0';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});

@@ -1,6 +1,6 @@
 {
-  "version": "30.33.0",
-  "id": "v30.33.0-20260821-continuous-rgb-preview",
-  "builtAt": "2026-08-21T13:27:00+02:00",
-  "notes": "V30.33 measurement preview is a continuous inverse-warped RGB mosaic containing only exact-frame RGB+Depth pairs. RGB is committed only after Deep synchronization and depth validation; failed/invalid depth creates no photo node. No graph points/edges are drawn, dense SLAM keyframes are excluded from the preview, disconnected photos remain unplaced, and AlvaAR has zero authority over 2-D photo alignment. 3-D reconstruction is unchanged."
+  "version": "30.34.0",
+  "id": "v30.34.0-20260821-spherical-panorama-global-depth",
+  "builtAt": "2026-08-21T14:41:00+02:00",
+  "notes": "V30.34 replaces planar photographic warps with a rigid spherical panorama: multi-scale photo features propose matches, calibrated rays estimate relative rotations, global rotation averaging closes loops, and bounded relocalization reconnects weak sequences without ever using AlvaAR to place RGB. Exact-frame RGB+Depth admission remains mandatory. All overlapping raw Depth Anything maps are jointly solved into one global affine latent scale and rendered with one shared global colour range. 3-D reconstruction is unchanged."
 }

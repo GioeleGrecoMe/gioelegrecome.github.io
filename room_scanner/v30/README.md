@@ -1,11 +1,11 @@
-# Room Scanner V30.33 · Continuous RGB+Depth mosaic
+# Room Scanner V30.34 · Spherical RGB panorama + global Depth consensus
 
-The measurement preview is now intentionally simple: it is a dense RGB mosaic made only from photographs that own a Depth Anything map from the exact same camera frame.
+V30.34 changes the live photographic map from a planar/projective stitch into a rigid spherical panorama. Only exact survey RGB frames that own a valid Depth Anything map from that same capture are admitted to the photo graph.
 
-A survey frame is frozen only when the Deep worker can accept it. The RGB image is kept pending while inference runs and is committed to the live mosaic only after frame ID, capture time, raster signature and depth validity all pass. Failed/invalid Deep frames never become photo nodes.
+Photographic placement is independent from AlvaAR. Multi-scale photo corners and oriented BRIEF/ZNCC descriptors propose RGB correspondences; those pixel pairs are converted through the camera intrinsics into calibrated rays. Registration estimates only a 3-DoF relative camera rotation, and all accepted rotations are averaged over the photo graph. The renderer inverse-warps each complete RGB image onto a common sphere. No homography, affine transform or local projective mesh can stretch a photograph to force a fit.
 
-Photographic placement is still completely independent from AlvaAR: photo features → BRIEF/ZNCC → homography RANSAC → global 2-D mosaic. Alva pose/covariance may be stored as optional metadata but has no authority over the RGB alignment.
+The live graph is more tolerant to temporary reference loss: each new depth-valid frame is compared with several recent frames, recent members of the visible component and visually similar older frames. If that fails, a bounded wider relocalisation is attempted. Later good frames also retry recent disconnected photographs. A frame that still has no real spherical RGB overlap remains unplaced.
 
-The live RGB renderer is a standard inverse image warp, not a point/splat renderer. Graph nodes, feature points and edges are never drawn over the measurement photo preview. A photograph with no reliable RGB overlap remains disconnected and invisible instead of being placed from a tracker guess.
+Depth fusion uses the same accepted spherical overlaps. All raw monocular maps participate in one global robust affine system, `a_i D_i + b_i = a_j D_j + b_j`, with a fixed gauge. Dense samples from the common spherical regions complement feature correspondences. The depth preview then uses one global robust range for every aligned map, so colours have the same meaning across the complete atlas.
 
-The later 3-D reconstruction path is unchanged.
+Alva pose/covariance can still be stored as optional metadata for the unchanged metric/3-D path, but it is not read by photographic registration or the panorama renderer. The later 3-D reconstruction is unchanged.

@@ -14,3 +14,13 @@ test('RGB+Deep admission survives missing Alva tracking and detects features on 
 test('measurement GUI keeps diagnostics in one collapsible dock over a full-screen camera',()=>{for(const id of ['scanDiagnosticsToggle','scanDiagnostics','scanDiagnosticsClose','liveMapCanvas','depthOverlay','coverageSphere']){assert.match(html,new RegExp(`id="${id}"`));assert.match(index,new RegExp(`id="${id}"`));}assert.match(css,/#scan \.scanDiagnostics\.open/);assert.match(css,/transform:translateX/);assert.match(app,/setScanDiagnosticsOpen/);});
 
 test('.r30 stores the pure photo mosaic plus optional Alva metadata for later geometry',()=>{assert.match(app,/photoPanorama/);assert.match(app,/evidence:\{factorGraph,deepSequence,photoPanorama\}/);assert.match(live,/alvaPose:clonePoseNullable\(f\.pose\)/);assert.match(live,/mosaicTransforms:/);assert.doesNotMatch(live,/visualQ:Array\.from/);});
+
+test('V30.34 panorama geometry is spherical and Depth uses one global overlap scale',()=>{
+  assert.match(photo,/modelType:'spherical-rotation'/);
+  assert.match(photo,/rotationBToA/);
+  assert.match(photo,/common panorama sphere/);
+  assert.doesNotMatch(photo,/homographyRansac|fitHomographyRansac/);
+  assert.match(live,/relative-global-spherical-irls/);
+  assert.match(live,/depthConsensus\.globalRange/);
+  assert.match(html,/rotazioni sulla sfera/);
+});

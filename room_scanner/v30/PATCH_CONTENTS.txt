@@ -1,30 +1,30 @@
-V30.33.0 incremental continuous RGB+Depth mosaic patch
+V30.34.0 incremental spherical panorama + global Depth patch
 
-Runtime/UI:
-- index.html
-- room_scanner_v30.html
-- styles.css
-- sw.js
-- build_info.json
-- package.json
-- js/app.js
-- js/boot.js
-- js/config.js
-- js/dense/deep_frame_sync.js
-- js/reconstruction/live_photo_puzzle.js
-- js/reconstruction/photo_panorama.js
+26 modified/new files:
 
-Tests/tools/docs:
-- tests/boot-preflight.test.mjs
-- tests/build-contract.test.mjs
-- tests/live-photo-puzzle.test.mjs
-- tests/photo-first-panorama-contract.test.mjs
-- tests/photo-panorama.test.mjs
-- tools/check_v30_layout.mjs
-- tools/mock_ui_boot.mjs
-- README.md
-- ARCHITECTURE.md
-- TEST_ON_PHONE.md
-- TEST_REPORT.md
-- PATCH_NOTES_V30.33.md
-- PATCH_CONTENTS.txt
+ARCHITECTURE.md
+PATCH_CONTENTS.txt
+PATCH_NOTES_V30.34.md
+README.md
+TEST_ON_PHONE.md
+TEST_REPORT.md
+build_info.json
+index.html
+js/app.js
+js/boot.js
+js/config.js
+js/reconstruction/live_photo_puzzle.js
+js/reconstruction/photo_depth_consensus.js
+js/reconstruction/photo_panorama.js
+js/reconstruction/view_puzzle.js
+package.json
+room_scanner_v30.html
+styles.css
+sw.js
+tests/boot-preflight.test.mjs
+tests/build-contract.test.mjs
+tests/live-photo-puzzle.test.mjs
+tests/photo-first-panorama-contract.test.mjs
+tests/photo-panorama.test.mjs
+tools/check_v30_layout.mjs
+tools/mock_ui_boot.mjs

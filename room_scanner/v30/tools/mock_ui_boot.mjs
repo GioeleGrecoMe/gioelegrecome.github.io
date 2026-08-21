@@ -13,7 +13,7 @@ globalThis.sessionStorage={m:new Map(),getItem(k){return this.m.get(k)??null},se
 Object.defineProperty(globalThis,'navigator',{value:{userAgent:'mock',mediaDevices:{}},configurable:true});Object.defineProperty(globalThis,'location',{value:{pathname:'/room_scanner/v30/room_scanner_v30.html',replace(){}},configurable:true});globalThis.devicePixelRatio=1;
 await import(`../js/app.js?mock=${Date.now()}`);
 if(document.documentElement.dataset.v30Interactive!=='1')throw new Error('UI did not become interactive');
-if(els.get('buildBadge').textContent!=='V30.33.0')throw new Error('wrong badge');
+if(els.get('buildBadge').textContent!=='V30.34.0')throw new Error('wrong badge');
 els.get('liveMapDepthBtn').click();if(!els.get('liveMapDepthBtn').classList.contains('active'))throw new Error('live DEPTH switch not bound');els.get('liveMapPhotoBtn').click();if(!els.get('liveMapPhotoBtn').classList.contains('active'))throw new Error('live PHOTO switch not bound');els.get('scanDiagnosticsToggle').click();if(!els.get('scanDiagnostics').classList.contains('open'))throw new Error('measurement diagnostics dock did not open');els.get('scanDiagnosticsClose').click();if(els.get('scanDiagnostics').classList.contains('open'))throw new Error('measurement diagnostics dock did not close');
 els.get('calibrateBtn').click();
 await new Promise(r=>setTimeout(r,30));
