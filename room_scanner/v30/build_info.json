@@ -1,6 +1,6 @@
 {
-  "version": "30.39.0",
-  "id": "v30.39.0-20260821-single-hierarchical-optimizer-debug",
+  "version": "30.39.1",
+  "id": "v30.39.1-20260821-single-optimizer-start-hotfix",
   "date": "2026-08-21",
-  "notes": "V30.39 removes all operational legacy optimisation paths from the UI and uses one ProbabilisticJointOptimizer runtime for both live acquisition and REVIEW. The estimator runs in explicit main-thread time slices to eliminate opaque module-worker startup failures. Every cycle logs evidence audit, baseline, per-step timing, candidate, gate and acceptance/rejection. No automatic post-scan optimiser is launched: additional global cycles are manual and use the same accepted state."
+  "notes": "V30.39.1 hotfixes measurement start after the V30.39 single-optimizer cleanup: a stale stopSurfaceLabWorker() call in beginBridge caused an immediate ReferenceError before camera/tracking/optimizer initialization. The legacy call is removed; only the single ProbabilisticJointOptimizer can be stopped on transitions. A start-path regression check prevents removed legacy optimizer symbols from reappearing."
 }

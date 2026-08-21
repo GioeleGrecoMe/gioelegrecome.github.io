@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-39-single-hierarchical-optimizer-debug",
+  "name": "room-scanner-v30-39-1-single-optimizer-start-hotfix",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,6 +14,6 @@
     "vendor:alva": "node tools/vendor_alvaar.mjs",
     "check:public": "node tools/validate_public_data.mjs"
   },
-  "version": "30.39.0",
-  "description": "Room Scanner V30.39 single hierarchical ProbabilisticJointOptimizer path with explicit live/review diagnostics"
+  "version": "30.39.1",
+  "description": "Room Scanner V30.39.1 single ProbabilisticJointOptimizer path; removes stale legacy Surface Lab start blocker and adds start-path regression diagnostics"
 }

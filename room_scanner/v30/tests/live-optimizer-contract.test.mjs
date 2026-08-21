@@ -10,6 +10,7 @@ test('live and review use one in-process ProbabilisticJointOptimizer runtime wit
   assert.equal(CONFIG.singleOptimizerOnly,true);assert.equal(CONFIG.legacyOptimizersEnabled,false);
   assert.match(app,/SingleOptimizerRuntime/);assert.match(app,/single-opt-cycle-dispatch/);assert.match(app,/single-opt-candidate-rejected/);assert.match(app,/startPostOptimization\(\)\{return startProbabilisticOptimization\(\);\}/);
   assert.doesNotMatch(app,/new Worker\([^\n]*live_probabilistic_worker/);assert.doesNotMatch(app,/gaussian_opt_worker/);assert.doesNotMatch(app,/probabilistic_opt_worker/);assert.doesNotMatch(app,/surface_mesh_lab_worker/);assert.doesNotMatch(app,/puzzle_reconstruction_worker/);
+  assert.doesNotMatch(app,/stopSurfaceLabWorker|startSurfaceLab|discardSurfaceLab|stopPuzzleWorker|startPuzzleWorker/,'removed legacy optimizer hooks must not remain reachable from app.js');
   assert.match(runtime,/ProbabilisticJointOptimizer/);assert.match(runtime,/acceptedSnapshot/);assert.match(runtime,/workingSnapshot/);assert.match(runtime,/evaluateLiveCandidate/);assert.match(runtime,/single-opt-error/);
   assert.match(html,/id="liveOptimizerHud"/);assert.match(html,/OPT UNICO/);assert.doesNotMatch(html,/surfaceLabStartBtn|puzzleStartBtn|Legacy A\/B/);
   assert.doesNotMatch(config,/liveProbabilisticOptWorker:|probabilisticOptWorker:|postOptimizeWorker:|puzzleWorker:|surfaceLabWorker:/);

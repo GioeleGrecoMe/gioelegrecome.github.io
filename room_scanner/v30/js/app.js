@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.39 single hierarchical optimizer application.
+ * Room Scanner V30.39.1 single hierarchical optimizer application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,8 +8,8 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.39.0';
-import {DiagnosticsLog} from './logger.js?v=30.39.0';
+import {BUILD,CONFIG} from './config.js?v=30.39.1';
+import {DiagnosticsLog} from './logger.js?v=30.39.1';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
@@ -113,7 +113,10 @@ async function createAlvaFrontend(K){
  * discarded and it never corrects/steers AlvaAR again.
  */
 async function beginBridge(){
-  stopSurfaceLabWorker({discard:true});
+  // V30.39.1: legacy Surface Mesh Lab was removed from the operational path.
+  // Only the single ProbabilisticJointOptimizer may own optimisation state.
+  // Stop an already-running instance before starting/resuming acquisition.
+  if(state.postOptBusy||state.liveOptInFlight)stopPostOptimizer();
   const info=metricCalibrationInfo(),cal=info.bridgeReady?info.calibration:null,epoch=++state.bridgeEpoch;
   state.bridgeTransition=false;state.bridgeStable=0;state.alvaBootstrap=null;
   state.bridge?.stop();state.bridge=null;
