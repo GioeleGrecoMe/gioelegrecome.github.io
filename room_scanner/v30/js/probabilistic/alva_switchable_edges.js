@@ -1,4 +1,4 @@
-import {qMul,qConj,qNormalize,qRotate} from '../slam/math.js';
+import {qMul,qConj,qNormalize,qRotate} from '../slam/math.js?v=30.39.2';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 

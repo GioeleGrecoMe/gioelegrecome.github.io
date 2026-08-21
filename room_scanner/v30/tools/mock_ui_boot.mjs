@@ -13,13 +13,13 @@ globalThis.sessionStorage={m:new Map(),getItem(k){return this.m.get(k)??null},se
 Object.defineProperty(globalThis,'navigator',{value:{userAgent:'mock',mediaDevices:{}},configurable:true});Object.defineProperty(globalThis,'location',{value:{pathname:'/room_scanner/v30/room_scanner_v30.html',replace(){}},configurable:true});globalThis.devicePixelRatio=1;
 await import(`../js/app.js?mock=${Date.now()}`);
 if(document.documentElement.dataset.v30Interactive!=='1')throw new Error('UI did not become interactive');
-if(els.get('buildBadge').textContent!=='V30.39.1')throw new Error('wrong badge');
+if(els.get('buildBadge').textContent!=='V30.39.2')throw new Error('wrong badge');
 els.get('liveMapDepthBtn').click();if(!els.get('liveMapDepthBtn').classList.contains('active'))throw new Error('live DEPTH switch not bound');els.get('liveMapPhotoBtn').click();if(!els.get('liveMapPhotoBtn').classList.contains('active'))throw new Error('live PHOTO switch not bound');els.get('scanDiagnosticsToggle').click();if(!els.get('scanDiagnostics').classList.contains('open'))throw new Error('measurement diagnostics dock did not open');els.get('scanDiagnosticsClose').click();if(els.get('scanDiagnostics').classList.contains('open'))throw new Error('measurement diagnostics dock did not close');
 els.get('calibrateBtn').click();
 await new Promise(r=>setTimeout(r,30));
 if(!els.get('home').classList.contains('active'))throw new Error('failed WebXR did not return to Home');
 if(!/WebXR/.test(els.get('homeStatus').textContent))throw new Error(`WebXR error not visible: ${els.get('homeStatus').textContent}`);
-// V30.39.1 regression: the single-optimizer cleanup must not leave calls to
+// V30.39.2 regression: the single-optimizer cleanup must not leave calls to
 // removed Surface/Puzzle optimizers on the measurement start path. With no
 // mediaDevices.getUserMedia in this mock, Start is expected to fail later in
 // CameraController; it must never fail before that with a legacy ReferenceError.

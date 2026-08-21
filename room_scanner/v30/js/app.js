@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.39.1 single hierarchical optimizer application.
+ * Room Scanner V30.39.2 single hierarchical optimizer application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,8 +8,8 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.39.1';
-import {DiagnosticsLog} from './logger.js?v=30.39.1';
+import {BUILD,CONFIG} from './config.js?v=30.39.2';
+import {DiagnosticsLog} from './logger.js?v=30.39.2';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
@@ -25,6 +25,39 @@ function persistEmergencyDiagnostics(reason){try{const snapshot=log.snapshot({em
 function restoreEmergencyDiagnostics(){try{const raw=localStorage.getItem(EMERGENCY_DIAG_KEY);if(!raw)return;const previous=JSON.parse(raw);log.attachPrevious(previous);log.warn('previous-emergency-diagnostics',{reason:previous?.reason||null,createdAt:previous?.createdAt||null,entries:previous?.entries?.length||0,checkpoints:previous?.checkpoints?.length||0,build:previous?.build?.id||previous?.build||null});localStorage.removeItem(EMERGENCY_DIAG_KEY);}catch{}}
 restoreEmergencyDiagnostics();
 const moduleCache=new Map();
+const CRITICAL_MODULE_CLOSURES={
+  './probabilistic/single_optimizer_runtime.js':[
+    './probabilistic/single_optimizer_runtime.js',
+    './probabilistic/joint_optimizer.js',
+    './probabilistic/live_optimization_gate.js',
+    './probabilistic/pose_uncertainty.js',
+    './probabilistic/switchable_edges.js',
+    './probabilistic/depth_calibration_hierarchy.js',
+    './probabilistic/depth_observability.js',
+    './probabilistic/cross_depth_consistency.js',
+    './probabilistic/alva_switchable_edges.js',
+    './probabilistic/reliability_feedback.js',
+    './probabilistic/residual_cause_model.js',
+    './probabilistic/submap_pose_graph.js',
+    './reconstruction/submap_fusion.js',
+    './dense/fusion_core.js',
+    './slam/math.js'
+  ]
+};
+async function probeCriticalModuleClosure(path){
+  const paths=CRITICAL_MODULE_CLOSURES[path];if(!paths)return null;
+  const rows=[];
+  for(const p of paths){
+    try{
+      const u=new URL(`${p}?v=${BUILD.version}&closureProbe=${Date.now()}`,import.meta.url);
+      const r=await fetch(u,{cache:'no-store',credentials:'same-origin'});
+      const text=r.ok?await r.clone().text():'';
+      rows.push({path:p,status:r.status,ok:r.ok,contentType:r.headers.get('content-type')||'',bytes:text.length,tagged:p.endsWith('single_optimizer_runtime.js')?text.includes(`v=${BUILD.version}`):null});
+    }catch(err){rows.push({path:p,status:null,ok:false,message:err?.message||String(err)});}
+  }
+  log.error('critical-module-closure-probe',{root:path,build:BUILD.version,assets:rows,failed:rows.filter(x=>!x.ok).map(x=>x.path)});
+  return rows;
+}
 async function importWithDiagnostics(path){
   const spec=`${path}?v=${BUILD.version}`;
   try{return await import(spec);}catch(firstError){
@@ -34,6 +67,7 @@ async function importWithDiagnostics(path){
       const response=await fetch(url,{cache:'no-store',credentials:'same-origin'});
       probe={url:url.href,status:response.status,ok:response.ok,contentType:response.headers.get('content-type')||'',serviceWorker:!!navigator.serviceWorker?.controller,online:navigator.onLine};
       log.error('dynamic-module-import-failed',{path,spec,message:firstError?.message||String(firstError),name:firstError?.name||null,probe});
+      await probeCriticalModuleClosure(path);
       // A successfully published JavaScript module may still fail because an old
       // service worker/module-map entry supplied a stale transitive dependency.
       // Retry once with a unique top-level URL; build-tagged static dependencies
@@ -51,7 +85,13 @@ async function importWithDiagnostics(path){
     throw firstError;
   }
 }
-function lazy(path){if(!moduleCache.has(path))moduleCache.set(path,importWithDiagnostics(path));return moduleCache.get(path);}
+function lazy(path){
+  if(!moduleCache.has(path)){
+    const pending=importWithDiagnostics(path).catch(err=>{moduleCache.delete(path);throw err;});
+    moduleCache.set(path,pending);
+  }
+  return moduleCache.get(path);
+}
 function safe(name,fn){return async(...args)=>{try{return await fn(...args)}catch(err){log.error(name,{message:err?.message||String(err),stack:err?.stack||null});log.checkpoint('handled-operation-error',{reason:name,message:err?.message||String(err),graph:state.probGraph?.summary?.()||null,liveOptimizer:state.liveOptStats||null});persistEmergencyDiagnostics(`handled:${name}`);showError(err?.message||String(err));return null;}};}
 function on(id,type,handler,options){const el=$(id);if(!el){log.warn('ui-missing-control',{id,type});return null;}el.addEventListener(type,handler,options);return el;}
 function show(id){for(const el of document.querySelectorAll('.screen'))el.classList.toggle('active',el.id===id);document.body.classList.toggle('immersive-ui',id!=='home'&&id!=='review');}
@@ -113,7 +153,7 @@ async function createAlvaFrontend(K){
  * discarded and it never corrects/steers AlvaAR again.
  */
 async function beginBridge(){
-  // V30.39.1: legacy Surface Mesh Lab was removed from the operational path.
+  // V30.39.2: legacy Surface Mesh Lab was removed from the operational path.
   // Only the single ProbabilisticJointOptimizer may own optimisation state.
   // Stop an already-running instance before starting/resuming acquisition.
   if(state.postOptBusy||state.liveOptInFlight)stopPostOptimizer();

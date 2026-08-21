@@ -1,12 +1,12 @@
-import {projectPoint,pixelRay,qMul,qNormalize,qRotate,qConj} from '../slam/math.js';
-import {addPoseUncertaintyToPointCovariance} from './pose_uncertainty.js';
-import {SwitchablePhotoEdgeModel,rotationResidualVector} from './switchable_edges.js';
-import {solveHierarchicalDepthCalibration,predictMetricDepth,serializeHierarchicalDepthCalibration} from './depth_calibration_hierarchy.js';
-import {DenseDepthConsistencyEvaluator} from './cross_depth_consistency.js';
-import {SubmapFusionManager} from '../reconstruction/submap_fusion.js';
-import {SwitchableAlvaEdgeModel,relativePose,relativeResidual} from './alva_switchable_edges.js';
-import {HierarchicalReliabilityFeedback} from './reliability_feedback.js';
-import {SubmapPoseGraph} from './submap_pose_graph.js';
+import {projectPoint,pixelRay,qMul,qNormalize,qRotate,qConj} from '../slam/math.js?v=30.39.2';
+import {addPoseUncertaintyToPointCovariance} from './pose_uncertainty.js?v=30.39.2';
+import {SwitchablePhotoEdgeModel,rotationResidualVector} from './switchable_edges.js?v=30.39.2';
+import {solveHierarchicalDepthCalibration,predictMetricDepth,serializeHierarchicalDepthCalibration} from './depth_calibration_hierarchy.js?v=30.39.2';
+import {DenseDepthConsistencyEvaluator} from './cross_depth_consistency.js?v=30.39.2';
+import {SubmapFusionManager} from '../reconstruction/submap_fusion.js?v=30.39.2';
+import {SwitchableAlvaEdgeModel,relativePose,relativeResidual} from './alva_switchable_edges.js?v=30.39.2';
+import {HierarchicalReliabilityFeedback} from './reliability_feedback.js?v=30.39.2';
+import {SubmapPoseGraph} from './submap_pose_graph.js?v=30.39.2';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 

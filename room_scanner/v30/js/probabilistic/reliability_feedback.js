@@ -1,7 +1,7 @@
-import {DenseDepthConsistencyEvaluator} from './cross_depth_consistency.js';
-import {predictMetricDepth} from './depth_calibration_hierarchy.js';
-import {classifyResidualCauses} from './residual_cause_model.js';
-import {projectPoint} from '../slam/math.js';
+import {DenseDepthConsistencyEvaluator} from './cross_depth_consistency.js?v=30.39.2';
+import {predictMetricDepth} from './depth_calibration_hierarchy.js?v=30.39.2';
+import {classifyResidualCauses} from './residual_cause_model.js?v=30.39.2';
+import {projectPoint} from '../slam/math.js?v=30.39.2';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 

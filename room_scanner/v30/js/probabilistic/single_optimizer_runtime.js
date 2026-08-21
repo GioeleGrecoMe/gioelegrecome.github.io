@@ -1,5 +1,5 @@
-import {ProbabilisticJointOptimizer} from './joint_optimizer.js';
-import {evaluateLiveCandidate} from './live_optimization_gate.js';
+import {ProbabilisticJointOptimizer} from './joint_optimizer.js?v=30.39.2';
+import {evaluateLiveCandidate} from './live_optimization_gate.js?v=30.39.2';
 
 const now=()=>globalThis.performance?.now?.()??Date.now();
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));

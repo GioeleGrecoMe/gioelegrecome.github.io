@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.39.1 single hierarchical optimizer configuration.
+ * Room Scanner V30.39.2 single hierarchical optimizer configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.39.1',
-  id:'v30.39.1-20260821-single-optimizer-start-hotfix',
+  version:'30.39.2',
+  id:'v30.39.2-20260821-single-optimizer-esm-closure',
   dbName:'room-scanner-v30',
   dbVersion:3
 };

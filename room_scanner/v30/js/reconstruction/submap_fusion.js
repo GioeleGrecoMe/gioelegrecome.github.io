@@ -1,5 +1,5 @@
-import {qConj,qRotate} from '../slam/math.js';
-import {SparseDenseFusion} from '../dense/fusion_core.js';
+import {qConj,qRotate} from '../slam/math.js?v=30.39.2';
+import {SparseDenseFusion} from '../dense/fusion_core.js?v=30.39.2';
 
 /**
  * Small overlapping local maps.  Dense evidence is committed in one local

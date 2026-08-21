@@ -1,6 +1,6 @@
 {
-  "version": "30.39.1",
-  "id": "v30.39.1-20260821-single-optimizer-start-hotfix",
+  "version": "30.39.2",
+  "id": "v30.39.2-20260821-single-optimizer-esm-closure",
   "date": "2026-08-21",
-  "notes": "V30.39.1 hotfixes measurement start after the V30.39 single-optimizer cleanup: a stale stopSurfaceLabWorker() call in beginBridge caused an immediate ReferenceError before camera/tracking/optimizer initialization. The legacy call is removed; only the single ProbabilisticJointOptimizer can be stopped on transitions. A start-path regression check prevents removed legacy optimizer symbols from reappearing."
+  "notes": "V30.39.2 makes the single ProbabilisticJointOptimizer runtime an atomic ESM deployment unit. The complete transitive module closure is republished and every static import in that closure carries the same build tag. The lazy-module cache now evicts rejected imports so a failed module can be retried. Diagnostics probe the optimizer closure asset-by-asset when the top-level import fails. No optimizer algorithm or gate thresholds are changed."
 }
