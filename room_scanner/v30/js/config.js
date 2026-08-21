@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.27.0 EXP-2 isolated surface-mesh laboratory runtime configuration.
+ * Room Scanner V30.27.0 EXP-3 exact-frame synchronized robust surface-field runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.27.0-exp.2',
-  id:'v30.27.0-exp.2-20260820-exact-frame-sync',
+  version:'30.27.0-exp.3',
+  id:'v30.27.0-exp.3-20260821-surface-field',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -313,17 +313,17 @@ export const CONFIG={
    */
   surfaceLabWorker:'workers/surface_mesh_lab_worker.js',
   surfaceLabMaxGaussians:30000,
-  surfaceLabPreviewMaxGaussians:24000,
+  surfaceLabPreviewMaxGaussians:14000,
   surfaceLabDefaultIterations:20,
   surfaceLabMaxIterations:160,
   surfaceLabPreviewUpdates:12,
-  surfaceLabMeshPreviewEvery:3,
+  surfaceLabMeshPreviewEvery:4,
   surfaceLabVoxelM:0.03,
-  surfaceLabPreviewVoxelM:0.045,
+  surfaceLabPreviewVoxelM:0.05,
   surfaceLabMaxVoxels:320000,
-  surfaceLabPreviewMaxVoxels:150000,
+  surfaceLabPreviewMaxVoxels:120000,
   surfaceLabMaxTriangles:120000,
-  surfaceLabPreviewMaxTriangles:45000,
+  surfaceLabPreviewMaxTriangles:35000,
   // Official AlvaAR ESM distribution. A physical vendor/alva_ar.js is used
   // first. If absent, the browser downloads one official/mirrored copy once,
   // validates the real AlvaAR API and stores it in CacheStorage for offline use.

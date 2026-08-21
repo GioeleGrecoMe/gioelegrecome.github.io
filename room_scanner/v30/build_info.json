@@ -1,6 +1,6 @@
 {
-  "version": "30.27.0-exp.2",
-  "id": "v30.27.0-exp.2-20260820-exact-frame-sync",
-  "builtAt": "2026-08-20T23:55:00+02:00",
-  "notes": "EXP-2 exact-frame synchronization: every camera capture has a monotonic frameId propagated through Alva keyframes, Deep jobs, sparse tracks and Gaussian fusion. Deep worker independently fingerprints the exact RGBA raster and echoes frameId/frameAt; late or out-of-order results are rejected before calibration/fusion. Surface Mesh Lab remains isolated and reversible."
+  "version": "30.27.0-exp.3",
+  "id": "v30.27.0-exp.3-20260821-surface-field",
+  "builtAt": "2026-08-21T00:35:00+02:00",
+  "notes": "EXP-3 keeps EXP-2 exact-frame synchronization and repairs the deploy contract for Surface Mesh Lab. The EXP representation remains isolated/reversible, while mesh extraction now re-estimates local surfel normals from multi-view Gaussian neighborhoods and evaluates an anisotropic signed surface field at exact voxel centres before TSDF meshing."
 }

@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-27-exp2-exact-frame-sync",
+  "name": "room-scanner-v30-27-exp3-surface-field",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,6 @@
     "check:alva": "node tools/check_alvaar_runtime.mjs",
     "vendor:alva": "node tools/vendor_alvaar.mjs"
   },
-  "version": "30.27.0-exp.2",
-  "description": "V30.27 EXP-2: exact camera-frame synchronization across AlvaAR, Depth Anything and Gaussian fusion, retaining the isolated reversible Surface Mesh Lab."
+  "version": "30.27.0-exp.3",
+  "description": "V30.27 EXP-3: exact-frame synchronized reversible Surface Mesh Lab with deployment-safe experimental assets and locally refined anisotropic surface-field meshing."
 }

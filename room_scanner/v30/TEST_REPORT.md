@@ -1,4 +1,4 @@
-# V30.27 EXP-2 verification report
+# V30.27 EXP-3 verification report
 
 Final verification command:
 
@@ -8,8 +8,13 @@ npm run verify
 
 Result: **PASS**.
 
-- Node tests: **101/101 passed**, 0 failed.
+- Node tests: **105/105 passed**, 0 failed.
 - Exact-frame Deep/Alva synchronization regressions: PASS.
+- Surface Mesh Lab isolation / rollback regressions: PASS.
+- Noisy-plane local PCA improvement regression: PASS.
+- 90-degree corner preservation regression: PASS.
+- Off-grid metric plane / exact voxel-centre regression: PASS.
+- EXP lazy module + worker publication contract: PASS.
 - Depth Anything tensor/stripe/coherence diagnostics: PASS.
 - Published layout/version contract: PASS.
 - Local dependency closure: PASS (29 references resolved).
@@ -17,20 +22,16 @@ Result: **PASS**.
 - Mock UI boot and failed-WebXR recovery: PASS.
 - AlvaAR runtime contract: PASS.
 
-EXP-2 adds a hard source-frame contract from camera capture to Gaussian fusion:
+Synthetic geometry checks:
+- a noisy planar patch reduces both position and normal error under local PCA;
+- perpendicular sheets remain separated by the normal gate;
+- a plane at z=2.017 m reconstructed on a 3 cm voxel grid has mean mesh depth
+  within 0.3 cm (observed test error is far smaller) because field values are
+  evaluated at voxel centres rather than arbitrary splat samples.
 
-1. `CameraController.capture()` allocates an immutable `frameId` before any
-   consumer processes the raster.
-2. `SlamEngine` propagates that exact `frameId` to observations and keyframes.
-3. Dense keyframe creation rejects a keyframe/raster identity or timestamp
-   mismatch before downsampling.
-4. Every Deep request stores a binding containing `jobId`, `frameId`, `frameAt`,
-   source raster dimensions and an FNV-style sampled RGB fingerprint.
-5. The Deep worker independently recomputes the fingerprint from the transferred
-   RGBA buffer and echoes all correlation metadata with the result.
-6. `app.js` validates all fields before calibration or fusion. A late/out-of-order
-   result cannot use the current Alva pose/features and falls back to MVS-only.
-7. Sparse track evidence and Gaussian support use source camera `frameId`s rather
-   than asynchronous completion time or only the derived keyframe ID.
+A 16.9k-Gaussian synthetic plane benchmark on the verification CPU completed
+local surface refinement in about 1 s and final mesh construction in about 2 s.
+Phone time is device-dependent; preview budgets are deliberately lower.
 
-The Surface Mesh Lab remains isolated/reversible exactly as in EXP-1.
+The EXP map remains a private copy. BASE Gaussian data and BASE mesh state are
+never overwritten by Surface Mesh Lab.

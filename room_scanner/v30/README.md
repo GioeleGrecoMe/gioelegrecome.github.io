@@ -1,20 +1,29 @@
-# Room Scanner V30.27 EXP-2
+# Room Scanner V30.27 EXP-3
 
-## Exact AlvaAR / Deep frame synchronization
+## Surface Mesh Lab deploy repair + robust surface field
 
-EXP-2 keeps the isolated Surface Mesh Lab from EXP-1 and hardens the online
-geometry path: every camera raster now receives a unique `frameId` at capture.
-The same identity is propagated through AlvaAR keyframes, Depth Anything jobs,
-sparse tracks and Gaussian fusion. Deep results are accepted only when the
-returned `jobId`, `frameId`, capture timestamp, raster dimensions and an
-independently computed RGB fingerprint all match the frozen source frame.
-Inference completion time never selects a pose or a feature set.
+The diagnostic from EXP-2 exposed a deployment-specific failure: the main app
+was present, but `js/experimental/surface_mesh_lab.js` had never reached the
+GitHub Pages tree. Because the lab is lazy, the rest of the application can boot
+and reload saved Gaussian sessions even when that optional asset is missing.
 
-If validation fails, the Deep prior is discarded and the already valid Alva/MVS
-keyframe continues without it. This prevents a delayed neural result from being
-anchored to a newer camera pose.
+EXP-3 therefore ships the experimental module and worker again and probes both
+assets before allocating the private Gaussian copy. Missing assets now produce a
+specific `surface-lab-asset-missing` diagnostic rather than an opaque dynamic
+import error. The production BASE remains untouched.
+
+Geometry is also changed, not merely redeployed. Surface normals are locally
+re-estimated by robust weighted PCA over spatially close, normal-compatible
+Gaussian neighbours. Centre refinement is normal-only, so wall/floor patches
+become thinner without tangentially shrinking edges. Mesh extraction evaluates
+an anisotropic signed surface field at exact voxel centres; saved camera origins
+provide a weaker free-space/sign vote. Tiny islands are filtered by physical
+area rather than by keeping an arbitrary number of components.
+
+EXP-2 exact-frame synchronization is retained unchanged.
 
 ---
+
 
 
 Room Scanner combines **AlvaAR metric camera motion**, **Depth Anything V2

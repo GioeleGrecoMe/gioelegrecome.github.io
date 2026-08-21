@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.27.0 EXP-2 exact-frame synchronized + isolated surface-mesh laboratory application.
+ * Room Scanner V30.27.0 EXP-3 exact-frame synchronized + robust surface-field laboratory application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,8 +8,8 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.27.0-exp.2';
-import {DiagnosticsLog} from './logger.js?v=30.27.0-exp.2';
+import {BUILD,CONFIG} from './config.js?v=30.27.0-exp.3';
+import {DiagnosticsLog} from './logger.js?v=30.27.0-exp.3';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
@@ -516,6 +516,19 @@ function formatDistance(v,metric){if(!Number.isFinite(v))return '—';return met
  * stored only under state.surfaceLab and can be hidden/discarded instantly.
  */
 function surfaceLabSignature(){return `${state.gaussians.length}:${state.optimization?.iterations||0}:${state.optimization?.updatedAt||0}`;}
+async function loadSurfaceLabAssets(){
+  // EXP-2 diagnostics exposed an important deployment failure mode: because the
+  // lab is lazy, a site can boot correctly even when a newly added experimental
+  // directory was not uploaded. Probe both assets before allocating/copying tens
+  // of thousands of Gaussians, and produce a specific diagnostic instead of the
+  // browser's opaque "Failed to fetch dynamically imported module" message.
+  const modulePath='./experimental/surface_mesh_lab.js';let api;
+  try{api=await lazy(modulePath);}catch(err){moduleCache.delete(modulePath);const url=new URL('./experimental/surface_mesh_lab.js',import.meta.url).href;log.error('surface-lab-asset-missing',{asset:'module',url,message:err?.message||String(err)});throw new Error(`Surface Mesh Lab non pubblicato: manca js/experimental/surface_mesh_lab.js (${BUILD.version}). Applica la patch EXP completa e ricarica.`);}
+  const workerUrl=new URL(CONFIG.surfaceLabWorker,document.baseURI);workerUrl.searchParams.set('v',BUILD.version);
+  try{const r=await fetch(workerUrl,{cache:'no-store'});if(!r.ok)throw new Error(`HTTP ${r.status}`);}catch(err){log.error('surface-lab-asset-missing',{asset:'worker',url:workerUrl.href,message:err?.message||String(err)});throw new Error(`Surface Mesh Lab non pubblicato: manca ${CONFIG.surfaceLabWorker}. Applica la patch EXP completa e ricarica.`);}
+  log.info('surface-lab-assets-ready',{module:new URL('./experimental/surface_mesh_lab.js',import.meta.url).href,worker:workerUrl.href,version:BUILD.version});
+  return {api,workerUrl:workerUrl.href};
+}
 function resetSurfaceLabState({keepWorker=false}={}){
   const lab=state.surfaceLab||{};if(!keepWorker)try{lab.worker?.terminate();}catch{}
   state.surfaceLab={worker:keepWorker?lab.worker:null,busy:false,active:false,iterations:0,previewGaussians:null,mesh:null,lastStats:null,baseSignature:null,target:0,voxelM:null};
@@ -531,7 +544,7 @@ function updateSurfaceLabUi(extra=null){
   const lab=state.surfaceLab||{},start=$('surfaceLabStartBtn'),stop=$('surfaceLabStopBtn'),base=$('surfaceLabBaseBtn'),exp=$('surfaceLabExpBtn'),discard=$('surfaceLabDiscardBtn'),download=$('surfaceLabExportBtn'),progress=$('surfaceLabProgress'),status=$('surfaceLabStatus'),target=Math.max(1,Number($('surfaceLabIterations')?.value)||CONFIG.surfaceLabDefaultIterations||20);
   if(start)start.disabled=!!lab.busy||!!state.postOptBusy||!state.gaussians.length;if(stop)stop.disabled=!lab.busy;if(base)base.disabled=!lab.active;if(exp)exp.disabled=lab.active||!lab.previewGaussians?.length;if(discard)discard.disabled=!lab.previewGaussians?.length&&!lab.worker;if(download)download.disabled=!lab.mesh?.vertices?.length;
   if(progress){progress.max=target;progress.value=Math.min(target,lab.iterations||0);}
-  if(status){const meshFaces=lab.mesh?.faces?.length?lab.mesh.faces.length/3:0,statusText=extra||`${lab.active?'EXP':'BASE'} · EXP ${lab.iterations||0}/${target} iterazioni${lab.previewGaussians?.length?` · ${lab.previewGaussians.length} surfel`:''}${meshFaces?` · mesh ${meshFaces} facce`:''}${lab.lastStats?.energy!=null?` · loss ${Number(lab.lastStats.energy).toFixed(4)}`:''}`;status.textContent=statusText;}
+  if(status){const meshFaces=lab.mesh?.faces?.length?lab.mesh.faces.length/3:0,planarity=Number(lab.mesh?.meanPlanarity),meshMs=Number(lab.mesh?.buildMs),statusText=extra||`${lab.active?'EXP':'BASE'} · EXP ${lab.iterations||0}/${target} iterazioni${lab.previewGaussians?.length?` · ${lab.previewGaussians.length} surfel`:''}${meshFaces?` · mesh ${meshFaces} facce`:''}${Number.isFinite(planarity)?` · planarità ${planarity.toFixed(2)}`:''}${Number.isFinite(meshMs)?` · mesh ${meshMs.toFixed(0)} ms`:''}${lab.lastStats?.energy!=null?` · loss ${Number(lab.lastStats.energy).toFixed(4)}`:''}`;status.textContent=statusText;}
 }
 async function startSurfaceMeshLab(){
   if(state.postOptBusy)throw new Error('ferma prima l’ottimizzazione V30.26');if(!state.gaussians.length)throw new Error('nessuna Gaussiana disponibile per il laboratorio');
@@ -541,7 +554,7 @@ async function startSurfaceMeshLab(){
   if(lab.baseSignature&&(lab.baseSignature!==signature||Math.abs((lab.voxelM||voxel)-voxel)>1e-9))resetSurfaceLabState();
   const current=state.surfaceLab.iterations||0,remaining=target-current;if(remaining<=0){renderExperimentalReview();updateSurfaceLabUi(`Target EXP ${target} già raggiunto. Aumenta le iterazioni per continuare.`);return;}
   if(!state.surfaceLab.worker){
-    const {selectSurfaceLabDataset}=await lazy('./experimental/surface_mesh_lab.js'),dataset=selectSurfaceLabDataset(state.gaussians,state.optimizerObservations,CONFIG.surfaceLabMaxGaussians||30000),worker=new Worker(`${CONFIG.surfaceLabWorker}?v=${BUILD.version}`,{type:'module'});state.surfaceLab.worker=worker;state.surfaceLab.baseSignature=signature;state.surfaceLab.voxelM=voxel;state.surfaceLab.iterations=0;state.surfaceLab.busy=true;state.surfaceLab.active=true;state.surfaceLab.target=target;
+    const {api,workerUrl}=await loadSurfaceLabAssets(),dataset=api.selectSurfaceLabDataset(state.gaussians,state.optimizerObservations,CONFIG.surfaceLabMaxGaussians||30000),worker=new Worker(workerUrl,{type:'module'});state.surfaceLab.worker=worker;state.surfaceLab.baseSignature=signature;state.surfaceLab.voxelM=voxel;state.surfaceLab.iterations=0;state.surfaceLab.busy=true;state.surfaceLab.active=true;state.surfaceLab.target=target;
     worker.onerror=e=>{log.warn('surface-lab-worker',{message:e.message||'worker error'});stopSurfaceLabWorker();updateSurfaceLabUi('Surface Mesh Lab fallito: vedi Debug.');};
     worker.onmessage=e=>void handleSurfaceLabMessage(e.data||{});
     const meshOptions={voxelM:voxel,maxGaussians:CONFIG.surfaceLabMaxGaussians||30000,maxVoxels:CONFIG.surfaceLabMaxVoxels||320000,maxTriangles:CONFIG.surfaceLabMaxTriangles||120000,previewVoxelM:Math.max(voxel,CONFIG.surfaceLabPreviewVoxelM||.045),previewMaxGaussians:Math.min(CONFIG.surfaceLabMaxGaussians||30000,CONFIG.surfaceLabPreviewMaxGaussians||24000),previewMaxVoxels:CONFIG.surfaceLabPreviewMaxVoxels||150000,previewMaxTriangles:CONFIG.surfaceLabPreviewMaxTriangles||45000};
@@ -560,7 +573,7 @@ async function handleSurfaceLabMessage(d){
   // EXP becomes visible automatically once the first useful preview exists, but
   // toggling back to BASE is always a one-click, zero-recompute operation.
   if(lab.previewGaussians?.length&&lab.active&&state.renderer){state.renderer.setData(lab.previewGaussians,{fit:false});state.renderer.setMesh(lab.mesh||null);state.renderer.draw();}
-  const pct=Math.min(100,Math.round(100*(lab.iterations||0)/Math.max(1,lab.target||1))),faces=lab.mesh?.faces?.length?lab.mesh.faces.length/3:0;updateSurfaceLabUi(`EXP ${lab.iterations||0}/${lab.target||0} (${pct}%) · loss ${Number(lab.lastStats?.energy||0).toFixed(4)}${faces?` · mesh ${faces} facce`:''} · BASE intatta`);
+  const pct=Math.min(100,Math.round(100*(lab.iterations||0)/Math.max(1,lab.target||1))),faces=lab.mesh?.faces?.length?lab.mesh.faces.length/3:0,planarity=Number(lab.mesh?.meanPlanarity),meshMs=Number(lab.mesh?.buildMs);updateSurfaceLabUi(`EXP ${lab.iterations||0}/${lab.target||0} (${pct}%) · loss ${Number(lab.lastStats?.energy||0).toFixed(4)}${faces?` · mesh ${faces} facce`:''}${Number.isFinite(planarity)?` · planarità ${planarity.toFixed(2)}`:''}${Number.isFinite(meshMs)?` · mesh ${meshMs.toFixed(0)} ms`:''} · BASE intatta`);
   if(d.type==='surface-lab-done'||d.type==='surface-lab-stopped'){lab.busy=false;updateSurfaceLabUi(`${d.type==='surface-lab-stopped'?'EXP fermato':'EXP completato'} a ${lab.iterations} iterazioni · risultato solo in RAM · BASE V30.26 intatta.`);}
 }
 async function exportSurfaceLabMesh(){if(!state.surfaceLab?.mesh?.vertices?.length)throw new Error('mesh sperimentale non disponibile');await downloadMeshPly(state.surfaceLab.mesh,'surface-lab-exp');}
