@@ -1,5 +1,5 @@
-import {projectPoint} from '../slam/math.js?v=30.39.2';
-import {assessDepthCalibrationObservability} from './depth_observability.js?v=30.39.2';
+import {projectPoint} from '../slam/math.js?v=30.40.0';
+import {assessDepthCalibrationObservability} from './depth_observability.js?v=30.40.0';
 
 const EPS=1e-10;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));

@@ -1,4 +1,4 @@
-// V30.39.2 OPT UNICO ESM closure: republished atomically with the single optimizer runtime.
+// V30.40 OPT UNICO robust-bootstrap closure: republished atomically with the single optimizer runtime.
 // V30.38.1: explicitly shipped with the SLAM dynamic-import closure to prevent mixed-build module graphs.
 /** Dependency-free camera geometry helpers used by the camera-only SLAM path. */
 export const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));

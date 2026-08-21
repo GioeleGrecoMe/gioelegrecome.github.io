@@ -1,6 +1,6 @@
 {
-  "version": "30.39.2",
-  "id": "v30.39.2-20260821-single-optimizer-esm-closure",
+  "version": "30.40.0",
+  "id": "v30.40.0-20260821-robust-rgb-bootstrap-optimizer",
   "date": "2026-08-21",
-  "notes": "V30.39.2 makes the single ProbabilisticJointOptimizer runtime an atomic ESM deployment unit. The complete transitive module closure is republished and every static import in that closure carries the same build tag. The lazy-module cache now evicts rejected imports so a failed module can be retried. Diagnostics probe the optimizer closure asset-by-asset when the top-level import fails. No optimizer algorithm or gate thresholds are changed."
+  "notes": "V30.40 fixes the real single-optimizer failure observed on-device: bootstrap starts with RGB geometry only, whole-photo edge switches are annealed instead of collapsing before pose refinement, acceptance uses robust weighted reprojection plus median/P90 while raw RMSE remains diagnostic, and repeated rejected states either retain safe internal working progress or stop after bounded no-progress cycles. Deep feedback is enabled only after the RGB scaffold bootstrap. The preview changes only on accepted states."
 }

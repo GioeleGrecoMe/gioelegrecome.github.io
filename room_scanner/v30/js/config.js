@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.39.2 single hierarchical optimizer configuration.
+ * Room Scanner V30.40.0 single hierarchical optimizer configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.39.2',
-  id:'v30.39.2-20260821-single-optimizer-esm-closure',
+  version:'30.40.0',
+  id:'v30.40.0-20260821-robust-rgb-bootstrap-optimizer',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -279,9 +279,10 @@ export const CONFIG={
   // RGB/pose refinement is the fast loop; expensive Deep reliability/calibration
   // runs only every N post-scan iterations.
   probabilisticDepthFeedbackEvery:2,
+  probabilisticRgbWarmupIterations:2,
   probabilisticPhotoMaxSide:128,
 
-  // V30.39 single multi-rate optimiser. The accepted/working states live in
+  // V30.40 single multi-rate optimiser. The accepted/working states live in
   // one inspectable in-process runtime; only candidates passing the gate become visible.
   liveProbabilisticOptimization:true,
   liveOptMinFrames:2,
@@ -320,7 +321,7 @@ export const CONFIG={
   liveOptGateMaxRotationRad:.07,
 
   // Photo-sphere parameters remain reconstruction evidence settings only.
-  // There is no separate Photo Puzzle optimizer path in V30.39.
+  // There is no separate Photo Puzzle optimizer path in V30.40.
   puzzleDefaultParticles:3000,
   puzzleMinParticles:1000,
   puzzleMaxParticles:10000,
@@ -412,7 +413,7 @@ export const CONFIG={
   postOptimizePlaneWeight:0.10,
   postOptimizeDamping:0.68,
 
-  // Legacy experimental optimizers are intentionally not configurable in V30.39.
+  // Legacy experimental optimizers are intentionally not configurable in V30.40.
 
   // Official AlvaAR ESM distribution. A physical vendor/alva_ar.js is used
   // first. If absent, the browser downloads one official/mirrored copy once,

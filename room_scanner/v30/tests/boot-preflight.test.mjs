@@ -5,8 +5,8 @@ const root=new URL('../',import.meta.url);const read=p=>fs.readFileSync(new URL(
 
 test('minimal boot imports core first and keeps diagnostics optional',()=>{
   const b=read('js/boot.js');
-  assert.match(b,/import\('\.\/app\.js\?v=30\.39\.2'\)/);
-  assert.match(b,/import\('\.\/deep_diagnostic_controller\.js\?v=30\.39\.2'\)/);
+  assert.match(b,/import\('\.\/app\.js\?v=30\.40\.0'\)/);
+  assert.match(b,/import\('\.\/deep_diagnostic_controller\.js\?v=30\.40\.0'\)/);
   assert.match(b,/optional-diagnostics-module-error/);
   assert.match(b,/pre\.coreLoaded=true/);
   assert.doesNotMatch(b,/deep_live_controller/);
@@ -24,7 +24,7 @@ test('HTML uses an atomic service-worker controller handshake before modules',()
 
 test('service worker activates without a blocking precache and is network-first',()=>{
   const s=read('sw.js');
-  assert.match(s,/const VERSION = '30\.39\.2'/);
+  assert.match(s,/const VERSION = '30\.40\.0'/);
   assert.match(s,/const CACHE = `room-scanner-v\$\{VERSION\}-shell`/);
   assert.match(s,/event\.waitUntil\(self\.skipWaiting\(\)\)/);
   assert.match(s,/self\.clients\.claim\(\)/);

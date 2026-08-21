@@ -1,4 +1,4 @@
-// V30.39.2 OPT UNICO ESM closure: republished atomically with the single optimizer runtime.
+// V30.40 OPT UNICO robust-bootstrap closure: republished atomically with the single optimizer runtime.
 const EPS=1e-12;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 

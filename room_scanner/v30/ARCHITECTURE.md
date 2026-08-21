@@ -1,110 +1,88 @@
-# Room Scanner V30.38 architecture
+# Room Scanner V30.40 architecture
 
-## 1. Epistemic hierarchy
+## 1. Authority hierarchy
 
-The estimator remains deliberately asymmetric:
+`multi-view RGB geometry > multi-view-consistent calibrated Depth > single-view Depth`
 
-`multi-view RGB geometry > multi-view-consistent calibrated Depth > single-view Depth`.
-
-AlvaAR supplies initialization and temporal continuity, not final truth. The V30.38 change is not a new geometric model: it is a **runtime control layer** around the V30.37 hierarchical estimator.
+AlvaAR is a switchable temporal/relative prior, not geometric truth. Camera intrinsics are session parameters, not free variables used to absorb scene errors.
 
 ## 2. Exact-frame RGB + Depth acquisition
 
-Only a frozen RGB image whose exact immutable frame has a valid/scheduled Deep result is eligible for the photo/depth graph. RGB panorama registration is spherical and photo-only. Alva pose is optional metadata/metric evidence.
+Only frozen RGB frames associated with their exact same-frame Deep result enter the user-visible spherical photo/depth stream. RGB panorama placement is photo-only. Alva pose may be stored as metric evidence but cannot place a photograph in the panorama.
 
-## 3. Sparse scaffold and observable Depth
+## 3. Sparse scaffold
 
-RGB tracks, switchable photo edges and triangulated landmarks remain the highest-authority scaffold. Deep is calibrated as inverse depth
+Sparse RGB tracks and triangulated landmarks form the primary geometric scaffold. Individual measurements use continuous robust weighting. Whole-photo overlap edges have a separate switch `s_ij` for rejecting a bad image pair.
 
-`rho_i(u) = a_i * F_gamma(d_i(u)) + b_i`
+The two robust mechanisms deliberately have different roles: a few wrong correspondences must not destroy a good image pair, and one wrong image pair must not dominate the graph.
 
-with one low-DOF monotone `F_gamma` shared by the scan. Per-frame scale/shift freedom is selected by observability (`full`, `shift-only`, `inherit`).
+## 4. V30.40 bootstrap ordering
 
-## 4. V30.38 live state split
+A new/unaccepted graph is not allowed to start with Depth calibration.
 
-The live estimator has three conceptual states:
+The first passes are:
 
-- **evidence graph**: latest immutable measurements;
-- **working state**: solver exploration, never rendered directly;
-- **accepted state**: last candidate that passed the live gate and is safe to expose to the user.
+`landmark refinement -> pose refinement -> annealed RGB-edge posterior -> pose refinement`
 
-A rejected candidate cannot move the visible camera scaffold or surface. If it is not catastrophic under a much looser internal safety gate, it may remain as the next working seed so several small iterations can converge without making the preview oscillate.
+Only after the RGB scaffold has an accepted state, or has completed its RGB warm-up under the runtime gate, can the slow Depth feedback loop participate.
 
-## 5. Multi-rate scheduler
+This ordering avoids the previous circular failure:
 
-### Fast loop
+`bad initial pose -> RGB edge appears inconsistent -> edge switches off -> pose loses RGB evidence -> same bad pose remains`.
 
-Triggered by RGB keyframes, sparse anchors and useful MVS evidence. Default cadence is about 420 ms, one optimiser step and a small graph window. Photo raster payloads are stripped before structured clone when they are not needed.
+During bootstrap, whole-edge switches move slowly toward their posterior and have a prior-dependent floor. Sparse RGB track evidence also retains a small floor, so the graph can recover before deciding that an entire photographic edge is bad.
 
-### Slow loop
+## 5. Accepted vs working state
 
-Triggered by same-frame Deep evidence. Default cadence is about 850 ms with 1–2 small steps. It enables the Depth/confidence feedback phase and can request a small confirmed surface preview.
+The runtime maintains two distinct states:
 
-### Adaptive load control
+- **accepted**: may update the visible preview and may be persisted as optimized geometry;
+- **working**: internal recovery state, never shown as truth.
 
-Solve/map time changes the next scheduling interval. Expensive cycles increase a bounded backoff; cheap cycles reduce it. The main capture/tracking loop therefore never waits for mathematical convergence.
+A rejected bootstrap candidate is allowed to become the next working seed only if it makes measurable safe progress in robust reprojection, robust energy or median reprojection without a catastrophic pose/edge change.
 
-## 6. Bounded graph window
+If four consecutive attempts produce no accepted state and no useful working progress, the runtime emits `single-opt-stalled` and stops. A new graph/evidence signature clears that stall automatically during live acquisition.
 
-Live optimisation does **not** clone the whole historical graph every time. The worker receives:
+## 6. Robust reprojection gate
 
-- recent frames;
-- a limited number of strong old loop-closure endpoints;
-- immediate temporal neighbours around those endpoints;
-- only RGB/Alva/depth/MVS/landmark factors whose frame IDs remain in the window.
+The optimizer records five complementary statistics:
 
-Post-scan optimisation still receives the full graph.
+- raw reprojection RMSE;
+- robust weighted reprojection RMSE;
+- median reprojection error;
+- P90 reprojection error;
+- fraction of observations below 4 px.
 
-The window exports explicit diagnostics: selected frame IDs, excluded count, old loop endpoints, edge/evidence counts and whether photo pixels were retained.
+The acceptance gate uses the robust metric for absolute/regression decisions. Raw RMSE is diagnostic only and can legitimately remain high when a minority of observations are extreme outliers.
 
-## 7. Conservative acceptance gate
+A sudden collapse of all strongly-supported RGB whole-photo edges remains a hard warning/gate unless there is very strong independent reprojection improvement. Weak whole-photo edges may all be rejected if the sparse RGB scaffold independently supports the geometry.
 
-A candidate is compared against the accepted solution on the **same current evidence graph**. Hard rejection includes, among others:
+## 7. Alva prior
 
-- non-finite reprojection;
-- large absolute reprojection that is not clearly improving;
-- reprojection regression;
-- excessive common-frame translation jump;
-- excessive common-frame rotation jump;
-- severe Depth-calibration regression.
+Relative Alva increments retain independent translation/rotation switches. Absolute Alva pose is only a weak gauge regularizer. During RGB bootstrap, Alva provides continuity while RGB is allowed to correct it; it cannot override a coherent multi-view scaffold.
 
-RGB/Alva switch spikes and large mean corrections are warnings/penalties rather than automatic truth assertions. A score combines reprojection, normalized energy, Depth improvement and jump/switch penalties, but hard physical/visual constraints take precedence.
+## 8. Observable Deep calibration
 
-## 8. Stable visible scaffold
+Once RGB geometry is sufficiently stable, Deep is calibrated in inverse-depth coordinates:
 
-Accepted landmark positions are smoothed toward the new solution rather than teleported. This smoothing belongs only to rendering; the solver snapshot remains unsmoothed.
+`rho_i(u) = a_i * F_gamma(d_i(u)) + b_i`.
 
-The HUD exposes phase, accepted reprojection error, gate score and accepted/rejected cycle count.
+`F_gamma` is global, monotone and low-DOF. Per-frame calibration is selected by observability as `full`, `shift-only` or `inherit`; nearly planar views cannot invent both scale and shift.
 
-## 9. Confirmed live surface preview
+## 9. Slow causal feedback
 
-Only an **accepted slow** cycle can ask the optimiser to rebuild a compact confirmed/submap surface preview. The result is intentionally bounded in surfels, triangles, Deep samples and MVS samples.
+The slow loop performs Depth calibration, leave-one-view-out consistency, residual-cause classification, confidence update and limited pose feedback. Confidence from the previous slow loop reweights the next one, preventing a suspicious pose from being explained away by changing Deep calibration.
 
-New accepted preview surfels are spatially merged with the previous accepted preview. Therefore a local graph window moving to another part of the room does not make already stable geometry vanish from the user interface.
+## 10. Candidate and confirmed dense geometry
 
-Raw dense fusion continues for evidence persistence/review but cannot overwrite the accepted live optimiser preview while one exists.
+A new Deep sample cannot confirm itself. It must receive independent multi-view support with useful baseline, or independent support plus a local sparse RGB anchor. Conflicts/occlusions stay separate rather than being averaged into a false intermediate surface.
 
-## 10. Candidate/confirmed geometry and feedback
+Only confirmed evidence reaches committed submaps/TSDF. Candidate evidence remains available for diagnosis/preview.
 
-The V30.37 causal rules remain intact: Depth is checked leave-one-view-out, visibility is tested, frame/region/pixel confidence is derived, and candidate evidence cannot validate itself. Confirmed/strong evidence is the only dense geometry eligible for committed reconstruction.
+## 11. Submaps
 
-## 11. Diagnostics as part of the estimator
+Dense samples are committed once to a primary local submap. Loop closure moves submaps rigidly through a submap pose graph, avoiding destructive reintegration of a monolithic global volume during every correction.
 
-Diagnostics are treated as a first-class subsystem. Every live optimiser generation gets a trace ID and records:
+## 12. Diagnostic contract
 
-- complete graph summary;
-- bounded window diagnostics;
-- scheduling delay/backoff and time budget;
-- accepted baseline and working baseline;
-- every optimisation step with duration and feedback phase;
-- candidate statistics;
-- gate score, hard reasons, warnings and pose deltas;
-- accepted/rejected decision;
-- working-state retention after a visible rejection;
-- preview rebuild time and surface statistics.
-
-Runtime `error`, `unhandledrejection`, worker errors and handled high-level operation failures generate checkpoints and an emergency persisted snapshot.
-
-## 12. Post-scan continuity
-
-The accepted live state is persisted in the session and is used as the initialization for the post-scan probabilistic optimizer. Live optimisation therefore improves the starting point without replacing the more complete final pass.
+Every optimizer cycle reports baseline, candidate, robust/raw reprojection statistics, edge switches, pose delta, phase, gate reasons, whether a working-only state was retained, stall count and graph summary. This is part of the estimator contract, not optional debug decoration.

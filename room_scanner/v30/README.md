@@ -1,44 +1,45 @@
-# Room Scanner V30.38 · live multi-rate optimisation + capillary diagnostics
+# Room Scanner V30.40 · robust RGB bootstrap optimizer
 
-V30.38 keeps the V30.37 causal hierarchy but moves a conservative subset of the optimisation **inside the measurement loop** so the user can see a stable, interpretable preview while scanning.
+V30.40 keeps the single hierarchical `ProbabilisticJointOptimizer`, but fixes the bootstrap failure observed on a real V30.39.2 scan: the optimizer repeatedly restarted from the same poor baseline, entered Depth feedback immediately, switched every RGB photo edge off, and was then rejected by an absolute raw-RMSE gate.
 
-The core rule is:
+The operational estimator is now:
 
-`working solver state -> acceptance gate -> accepted visible state`
+`RGB scaffold bootstrap -> accepted RGB/pose state -> observable Deep calibration -> causal feedback -> confirmed submaps`
 
-The optimiser may explore a working solution; the UI never renders it directly. Only a candidate that passes explicit reprojection, pose-jump, Depth-calibration and switch-consistency gates is promoted to the accepted state. Rejected candidates leave the visible preview untouched.
+There is still exactly one optimizer in live measurement and REVIEW. There is no Gaussian/Puzzle/Surface-Lab optimizer fallback.
 
-## Multi-rate runtime
+## Bootstrap rules
 
-1. **Fast RGB/pose loop** — triggered by new RGB keyframes, sparse anchors and MVS evidence. It uses a bounded local graph, one small optimisation step and no dense preview rebuild.
-2. **Slow Depth/confidence loop** — triggered by same-frame Deep evidence. It uses a somewhat larger graph, 1–2 time-sliced steps and may rebuild a small confirmed/submap preview.
-3. **Post-scan loop** — still receives the complete factor graph and is not constrained by the live time budget.
+- Deep cannot influence the first RGB recovery passes.
+- Sparse landmark/pose refinement runs before whole-photo RGB switches are reassessed.
+- RGB whole-edge switches are annealed during bootstrap so one poor initial pose cannot immediately destroy the visual graph.
+- Individual robust RGB tracks retain a minimum authority even when a whole-photo edge is weak.
+- A rejected candidate may be retained internally as a **working-only** state if it makes measurable safe progress. The visible preview still stays on the last accepted state.
+- Four consecutive cycles with no accepted or internally retained progress produce `single-opt-stalled`; the solver stops instead of repeating the same candidate hundreds of times.
 
-The live worker receives the recent graph window plus a few old loop-closure endpoints. This bounds CPU and structured-clone cost without throwing away useful loop evidence. If a live cycle is expensive, the scheduler automatically backs off; cheap cycles gradually restore the nominal cadence.
+## Reprojection diagnostics and gate
 
-## Stable preview
+Acceptance is based primarily on robust weighted reprojection. The logger also records raw RMSE, median, P90 and fraction below 4 px. Raw RMSE is intentionally not an absolute acceptance criterion because a minority of mismatches can dominate a squared mean while the robust scaffold remains useful.
 
-Sparse anchors are temporally smoothed after acceptance. Confirmed surface preview is updated only on accepted slow cycles and merged into a persistent spatial hash, so old scanned regions do not disappear simply because the current local window moved elsewhere.
+The preview never follows a working-only candidate. Only `single-opt-candidate-accepted` changes accepted pose/surface state.
 
-The dense fusion pipeline continues collecting evidence in the background, but it cannot overwrite an already accepted optimiser preview during measurement.
+## Depth hierarchy
 
-## Diagnostics
+After RGB bootstrap, Deep uses the existing hierarchical inverse-depth model
 
-Diagnostics use `ROOMSCAN-V30-DIAGNOSTICS-2` and are structured rather than free-form. Every event contains a monotonic sequence number, wall/monotonic time, level, scope, optional trace ID and compact structured data.
+`rho_i(u) = a_i * F_gamma(d_i(u)) + b_i`
 
-For live optimisation the export records:
+with `full`, `shift-only` or `inherit` freedom selected by observability. `F_gamma` remains one low-DOF monotone response shared by the scan. Candidate/confirmed geometry and leave-one-view-out checks remain unchanged.
 
-- trigger and generation;
-- full graph size and exact bounded graph window;
-- selected frame IDs and recovered old loop endpoints;
-- solver time budget and per-step duration;
-- accepted and working baselines;
-- reprojection/Depth error and RGB/Alva switch statistics;
-- every gate reason and warning;
-- whether a rejected candidate was retained internally as safe `working` state;
-- scheduler backoff and live preview size;
-- checkpoints for dispatch, acceptance, rejection and runtime errors.
+## Useful diagnostic sequence
 
-The measurement panel has a direct **Log** button. Runtime/worker errors also preserve an emergency diagnostic snapshot in local storage; if the page is killed/reloaded, that snapshot is attached to the next exported diagnostic session instead of being silently lost.
+A healthy difficult scan may show:
 
-The RGB panorama remains pure-photo spherical registration, and only exact RGB+Depth frame pairs enter its graph. Alva remains probabilistic metric evidence and never places photographs in the panorama.
+`single-opt-cycle-start (bootstrap:true)`
+`-> single-opt-step (phase:rgb-bootstrap)`
+`-> single-opt-bootstrap-progress`
+`-> single-opt-gate`
+`-> single-opt-candidate-accepted`
+`-> later depth-feedback`
+
+If the RGB scaffold cannot improve, the expected terminal diagnostic is `single-opt-stalled`, with robust/raw/median/P90 reprojection and RGB switch statistics.

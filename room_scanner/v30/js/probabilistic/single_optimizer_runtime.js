@@ -1,5 +1,5 @@
-import {ProbabilisticJointOptimizer} from './joint_optimizer.js?v=30.39.2';
-import {evaluateLiveCandidate} from './live_optimization_gate.js?v=30.39.2';
+import {ProbabilisticJointOptimizer} from './joint_optimizer.js?v=30.40.0';
+import {evaluateLiveCandidate} from './live_optimization_gate.js?v=30.40.0';
 
 const now=()=>globalThis.performance?.now?.()??Date.now();
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -7,7 +7,7 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 /**
  * Single optimisation runtime used both during acquisition and in REVIEW.
  *
- * There is intentionally only one estimator implementation in V30.39:
+ * There is intentionally only one estimator implementation in V30.40:
  * ProbabilisticJointOptimizer.  This runtime only schedules it, gates candidate
  * states and exposes deterministic diagnostics.  It does not introduce a second
  * mathematical optimiser or a fallback solution path.
@@ -27,12 +27,16 @@ export class SingleOptimizerRuntime{
     this.stopped=false;
     this.token=0;
     this.generation=0;
+    this.stallCount=0;
+    this.lastGraphSignature=null;
   }
   reset(initial=null){
     this.acceptedSnapshot=initial||null;
     this.acceptedStats=initial?.stats||null;
     this.workingSnapshot=this.acceptedSnapshot;
     this.stopped=false;
+    this.stallCount=0;
+    this.lastGraphSignature=null;
     this.token++;
     return this;
   }
@@ -55,27 +59,28 @@ export class SingleOptimizerRuntime{
     }
     this.busy=true;this.stopped=false;const token=++this.token,generation=++this.generation,start=now();
     try{
+      const signature=graphSignature(summary);if(signature!==this.lastGraphSignature){this.stallCount=0;this.lastGraphSignature=signature;}
       const baseOptions={...(job.options||{})};
       const acceptedOpt=new ProbabilisticJointOptimizer(graph,{...baseOptions,initial:this.acceptedSnapshot||job.initial||null});
       const baselineStats=acceptedOpt.computeStats(),baselineSnapshot=acceptedOpt.snapshot();
       const opt=new ProbabilisticJointOptimizer(graph,{...baseOptions,initial:this.workingSnapshot||this.acceptedSnapshot||job.initial||null});
       const workingBaselineStats=opt.computeStats(),workingBaselineSnapshot=opt.snapshot();
-      const budget=Math.max(6,Number(job.budgetMs)||30),maxIterations=Math.max(1,Math.min(8,Number(job.maxIterations)||1));
+      const budget=Math.max(6,Number(job.budgetMs)||30),maxIterations=Math.max(1,Math.min(8,Number(job.maxIterations)||1)),gateOptions=job.gateOptions||{},bootstrapThreshold=Number(gateOptions.maxReprojectionPx??3.2),workingMetric=preferredReprojection(workingBaselineStats),warmupIterations=Math.max(0,Number(baseOptions.rgbWarmupIterations??2)||0),workingIterations=Math.max(0,Number(workingBaselineStats?.iterations)||0),bootstrap=!this.acceptedSnapshot&&(workingIterations<warmupIterations||!Number.isFinite(workingMetric)||workingMetric>bootstrapThreshold);
       const traceBase={generation,trigger:job.reason||null,mode:job.mode||'live',summary,windowDiagnostics:graph.windowDiagnostics||null};
-      this.trace('cycle-start',{...traceBase,budgetMs:budget,maxIterations,acceptedSeed:!!this.acceptedSnapshot,workingSeed:!!this.workingSnapshot,baseline:compactStats(baselineStats),workingBaseline:compactStats(workingBaselineStats)});
+      this.trace('cycle-start',{...traceBase,budgetMs:budget,maxIterations,bootstrap,acceptedSeed:!!this.acceptedSnapshot,workingSeed:!!this.workingSnapshot,stallCount:this.stallCount,baseline:compactStats(baselineStats),workingBaseline:compactStats(workingBaselineStats)});
       const steps=[];let iterations=0;
       while(iterations<maxIterations&&!this.stopped&&token===this.token){
-        const t=now(),stats=opt.step(1),dt=now()-t;iterations++;
-        const row={iteration:iterations,ms:dt,phase:stats.feedbackPhase,reprojectionRmse:finiteOrNull(stats.reprojectionRmse),deepRelativeError:finiteOrNull(stats.deepRelativeError),poseShiftMean:finiteOrNull(stats.poseShiftMean),edgeRejected:stats.edgeSwitches?.rejected??null,alvaRejected:stats.alvaSwitches?.rejected??null};steps.push(row);this.trace('step',{...traceBase,...row});
+        const t=now(),stats=opt.step(1,{bootstrap,allowDepth:!bootstrap}),dt=now()-t;iterations++;
+        const row={iteration:iterations,ms:dt,phase:stats.feedbackPhase,reprojectionRmse:finiteOrNull(stats.reprojectionRmse),reprojectionRobustRmse:finiteOrNull(stats.reprojectionRobustRmse),reprojectionMedianPx:finiteOrNull(stats.reprojectionMedianPx),reprojectionP90Px:finiteOrNull(stats.reprojectionP90Px),reprojectionInlierFraction4px:finiteOrNull(stats.reprojectionInlierFraction4px),deepRelativeError:finiteOrNull(stats.deepRelativeError),poseShiftMean:finiteOrNull(stats.poseShiftMean),edgeRejected:stats.edgeSwitches?.rejected??null,alvaRejected:stats.alvaSwitches?.rejected??null};steps.push(row);this.trace('step',{...traceBase,...row});
         if(now()-start>=budget)break;
         await yieldUi();
       }
       if(this.stopped||token!==this.token)return {type:'single-opt-stopped',generation,trigger:job.reason||null,summary};
       const candidateStats=opt.computeStats(),candidateSnapshot=opt.snapshot();
-      const gate=evaluateLiveCandidate({baselineStats,candidateStats,baselineSnapshot,candidateSnapshot,options:job.gateOptions||{}}),elapsed=now()-start;
+      const gate=evaluateLiveCandidate({baselineStats,candidateStats,baselineSnapshot,candidateSnapshot,options:gateOptions}),elapsed=now()-start;
       this.trace('gate',{...traceBase,elapsedMs:elapsed,accepted:gate.accepted,score:finiteOrNull(gate.score),hardReasons:gate.hardReasons||[],softReasons:gate.softReasons||[],poseDelta:gate.poseDelta||null,baseline:compactStats(baselineStats),candidate:compactStats(candidateStats)});
       if(gate.accepted){
-        this.acceptedSnapshot=candidateSnapshot;this.acceptedStats=candidateStats;this.workingSnapshot=candidateSnapshot;
+        this.acceptedSnapshot=candidateSnapshot;this.acceptedStats=candidateStats;this.workingSnapshot=candidateSnapshot;this.stallCount=0;
         const preview=await this.makePreview(opt,job,summary,traceBase);
         const anchors=opt.landmarkPreview(Math.max(40,Math.min(900,Number(job.maxPreviewLandmarks)||320)))
           .filter(x=>(x.confidence||0)>.20)
@@ -84,9 +89,11 @@ export class SingleOptimizerRuntime{
           .map(x=>({id:x.id,p:x.position,confidence:x.confidence,support:x.support}));
         return {type:'single-opt-accepted',generation,trigger:job.reason,elapsedMs:elapsed+preview.mapMs,solveMs:elapsed,mapMs:preview.mapMs,iterations,steps,stats:candidateStats,gate,snapshot:this.acceptedSnapshot,anchors,previewGaussians:preview.previewGaussians,previewStats:preview.previewStats,summary};
       }
-      const workingGate=evaluateLiveCandidate({baselineStats:workingBaselineStats,candidateStats,baselineSnapshot:workingBaselineSnapshot,candidateSnapshot,options:{maxReprojectionPx:8,maxReprojectionGrowth:1.8,maxCommonTranslationJump:.24,maxCommonRotationJumpRad:.16,maxMeanTranslationJump:.12,maxMeanRotationJumpRad:.08,maxDepthErrorGrowth:2.2,maxRejectedEdgeGrowth:8}}),workingRetained=workingGate.hardReasons.length===0;
-      this.workingSnapshot=workingRetained?candidateSnapshot:this.acceptedSnapshot;
-      return {type:'single-opt-rejected',generation,trigger:job.reason,elapsedMs:elapsed,solveMs:elapsed,mapMs:0,iterations,steps,stats:candidateStats,baselineStats,gate,workingGate,workingRetained,summary};
+      const workingGate=evaluateLiveCandidate({baselineStats:workingBaselineStats,candidateStats,baselineSnapshot:workingBaselineSnapshot,candidateSnapshot,options:{maxReprojectionPx:1e6,maxReprojectionGrowth:1.12,reprojectionSlackPx:.35,maxCommonTranslationJump:.24,maxCommonRotationJumpRad:.16,maxMeanTranslationJump:.12,maxMeanRotationJumpRad:.08,maxDepthErrorGrowth:2.2,maxRejectedEdgeGrowth:8}}),progress=evaluateBootstrapProgress(workingBaselineStats,candidateStats,workingGate),workingRetained=progress.retain;
+      this.workingSnapshot=workingRetained?candidateSnapshot:this.acceptedSnapshot;if(workingRetained)this.stallCount=0;else this.stallCount++;
+      if(bootstrap)this.trace(workingRetained?'bootstrap-progress':'bootstrap-no-progress',{...traceBase,workingRetained,stallCount:this.stallCount,progress,workingGate,baseline:compactStats(workingBaselineStats),candidate:compactStats(candidateStats)});
+      if(!workingRetained&&this.stallCount>=4)return {type:'single-opt-stalled',generation,trigger:job.reason,elapsedMs:elapsed,solveMs:elapsed,mapMs:0,iterations,steps,stats:candidateStats,baselineStats,gate,workingGate,workingRetained:false,workingSnapshot:null,bootstrap:true,stallCount:this.stallCount,progress,summary};
+      return {type:'single-opt-rejected',generation,trigger:job.reason,elapsedMs:elapsed,solveMs:elapsed,mapMs:0,iterations,steps,stats:candidateStats,baselineStats,gate,workingGate,workingRetained,workingSnapshot:workingRetained?candidateSnapshot:null,bootstrap,stallCount:this.stallCount,progress,summary};
     }catch(err){
       const out={type:'single-opt-error',generation,trigger:job.reason||null,message:err?.message||String(err),stack:err?.stack||null,summary,elapsedMs:now()-start};
       this.trace('exception',out);return out;
@@ -118,6 +125,9 @@ export class SingleOptimizerRuntime{
   trace(event,data){try{this.onTrace?.(event,data);}catch{}}
 }
 
-function compactStats(s){return {iterations:s?.iterations,reprojectionRmse:finiteOrNull(s?.reprojectionRmse),poseShiftMean:finiteOrNull(s?.poseShiftMean),poseRotationShiftMeanRad:finiteOrNull(s?.poseRotationShiftMeanRad),deepRelativeError:finiteOrNull(s?.deepRelativeError),feedbackPhase:s?.feedbackPhase,observations:s?.observations,landmarks:s?.landmarks,edgeSwitches:s?.edgeSwitches,alvaSwitches:s?.alvaSwitches,reliability:s?.reliability};}
+function compactStats(s){return {iterations:s?.iterations,reprojectionRmse:finiteOrNull(s?.reprojectionRmse),reprojectionRobustRmse:finiteOrNull(s?.reprojectionRobustRmse),reprojectionMedianPx:finiteOrNull(s?.reprojectionMedianPx),reprojectionP90Px:finiteOrNull(s?.reprojectionP90Px),reprojectionInlierFraction4px:finiteOrNull(s?.reprojectionInlierFraction4px),poseShiftMean:finiteOrNull(s?.poseShiftMean),poseRotationShiftMeanRad:finiteOrNull(s?.poseRotationShiftMeanRad),deepRelativeError:finiteOrNull(s?.deepRelativeError),feedbackPhase:s?.feedbackPhase,observations:s?.observations,landmarks:s?.landmarks,edgeSwitches:s?.edgeSwitches,alvaSwitches:s?.alvaSwitches,reliability:s?.reliability};}
+function preferredReprojection(s){const r=Number(s?.reprojectionRobustRmse);return Number.isFinite(r)?r:Number(s?.reprojectionRmse);}
+function evaluateBootstrapProgress(b,c,gate){const br=preferredReprojection(b),cr=preferredReprojection(c),be=Number(b?.energy),ce=Number(c?.energy),bm=Number(b?.reprojectionMedianPx),cm=Number(c?.reprojectionMedianPx),hard=(gate?.hardReasons||[]).filter(x=>x!=='robust-reprojection-absolute'),reprojGain=Number.isFinite(br)&&Number.isFinite(cr)?(br-cr)/Math.max(.25,br):0,energyGain=Number.isFinite(be)&&Number.isFinite(ce)?(be-ce)/Math.max(.05,Math.abs(be)):0,medianGain=Number.isFinite(bm)&&Number.isFinite(cm)?(bm-cm)/Math.max(.25,bm):0,catastrophic=hard.length>0||(Number.isFinite(br)&&Number.isFinite(cr)&&cr>br*1.08+.25),retain=!catastrophic&&(reprojGain>.002||energyGain>.006||medianGain>.003);return {retain,reprojGain,energyGain,medianGain,baselineRobustPx:finiteOrNull(br),candidateRobustPx:finiteOrNull(cr),hardReasons:hard};}
+function graphSignature(s){return [s?.frames||0,s?.landmarks||0,s?.photoEdges||0,s?.alvaEdges||0,s?.deepFrames||0,s?.mvsSamples||0].join(':');}
 function finiteOrNull(v){return Number.isFinite(v)?v:null;}
 function yieldUi(){return new Promise(r=>setTimeout(r,0));}

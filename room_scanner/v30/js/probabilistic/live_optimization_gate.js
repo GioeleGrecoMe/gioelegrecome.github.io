@@ -1,4 +1,4 @@
-// V30.39.2 OPT UNICO ESM closure: republished atomically with the single optimizer runtime.
+// V30.40 OPT UNICO robust-bootstrap closure: republished atomically with the single optimizer runtime.
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const finite=v=>Number.isFinite(Number(v));
 
@@ -27,10 +27,11 @@ export function evaluateLiveCandidate({baselineStats=null,candidateStats=null,ba
     minLandmarks:Number(options.minLandmarks??4)
   };
   const b=baselineStats||{},c=candidateStats||{},hard=[],warnings=[];
-  if(!finite(c.reprojectionRmse))hard.push('non-finite-reprojection');
+  const bRaw=Number(b.reprojectionRmse),cRaw=Number(c.reprojectionRmse),bR=preferredReprojection(b),cR=preferredReprojection(c);
+  if(!finite(cR))hard.push('non-finite-reprojection');
   if((c.observations||0)<cfg.minObservations||(c.landmarks||0)<cfg.minLandmarks)warnings.push('weak-scaffold');
-  const bR=Number(b.reprojectionRmse),cR=Number(c.reprojectionRmse);
-  if(finite(cR)&&cR>cfg.maxReprojectionPx){if(!finite(bR)||bR<=cfg.maxReprojectionPx||cR>=bR*.94)hard.push('reprojection-absolute');else warnings.push('reprojection-high-but-improving');}
+  if(finite(cR)&&cR>cfg.maxReprojectionPx){if(!finite(bR)||bR<=cfg.maxReprojectionPx||cR>=bR*.94)hard.push('robust-reprojection-absolute');else warnings.push('robust-reprojection-high-but-improving');}
+  if(finite(cRaw)&&finite(cR)&&cRaw>Math.max(10,cR*3.5))warnings.push('raw-reprojection-outliers-high');
   if(finite(bR)&&finite(cR)&&cR>bR*cfg.maxReprojectionGrowth+cfg.reprojectionSlackPx)hard.push('reprojection-regression');
   const pose=poseSnapshotDelta(baselineSnapshot,candidateSnapshot);
   if(pose.commonFrames>=2){
@@ -41,8 +42,9 @@ export function evaluateLiveCandidate({baselineStats=null,candidateStats=null,ba
   }
   const bD=Number(b.deepRelativeError),cD=Number(c.deepRelativeError);
   if(finite(bD)&&finite(cD)&&cD>bD*cfg.maxDepthErrorGrowth+cfg.depthErrorSlack)hard.push('depth-calibration-regression');
-  const br=Number(b.edgeSwitches?.rejected||0),cr=Number(c.edgeSwitches?.rejected||0);
+  const br=Number(b.edgeSwitches?.rejected||0),cr=Number(c.edgeSwitches?.rejected||0),ce=Number(c.edgeSwitches?.edges||0),be=Number(b.edgeSwitches?.edges||0),bEdgeMean=Number(b.edgeSwitches?.mean),cEdgeMean=Number(c.edgeSwitches?.mean);
   if(cr>br+cfg.maxRejectedEdgeGrowth)warnings.push('rgb-edge-rejection-spike');
+  if(ce>=3&&cr>=ce&&be>=3&&br<be){const stronglySupported=finite(bEdgeMean)&&bEdgeMean>.35,strongReprojGain=finite(bR)&&finite(cR)&&cR<bR*.85;if(stronglySupported&&!strongReprojGain)hard.push('rgb-edge-collapse');else warnings.push('rgb-edge-collapse');}
   const ba=Number(b.alvaSwitches?.rejected||0),ca=Number(c.alvaSwitches?.rejected||0);
   if(ca>ba+4)warnings.push('alva-edge-rejection-spike');
   const reprojGain=finite(bR)&&finite(cR)?clamp((bR-cR)/Math.max(.25,bR),-.5,.5):0;
@@ -55,7 +57,7 @@ export function evaluateLiveCandidate({baselineStats=null,candidateStats=null,ba
   // acceptable to be nearly neutral.  Hard physical/visual sanity limits are
   // the decisive gate; the score is exposed for diagnostics and hysteresis.
   const accepted=hard.length===0 && (score>=-.12 || !baselineSnapshot);
-  return {accepted,score,hardReasons:hard,warnings,poseDelta:pose,metrics:{baselineReprojectionPx:finite(bR)?bR:null,candidateReprojectionPx:finite(cR)?cR:null,baselineDeepError:finite(bD)?bD:null,candidateDeepError:finite(cD)?cD:null,baselineRejectedRgb:br,candidateRejectedRgb:cr,baselineRejectedAlva:ba,candidateRejectedAlva:ca,normalizedEnergyGain:energyGain,reprojectionGain:reprojGain,depthGain}};
+  return {accepted,score,hardReasons:hard,warnings,poseDelta:pose,metrics:{baselineReprojectionPx:finite(bR)?bR:null,candidateReprojectionPx:finite(cR)?cR:null,baselineRawReprojectionPx:finite(bRaw)?bRaw:null,candidateRawReprojectionPx:finite(cRaw)?cRaw:null,baselineMedianPx:finite(b.reprojectionMedianPx)?Number(b.reprojectionMedianPx):null,candidateMedianPx:finite(c.reprojectionMedianPx)?Number(c.reprojectionMedianPx):null,baselineP90Px:finite(b.reprojectionP90Px)?Number(b.reprojectionP90Px):null,candidateP90Px:finite(c.reprojectionP90Px)?Number(c.reprojectionP90Px):null,baselineDeepError:finite(bD)?bD:null,candidateDeepError:finite(cD)?cD:null,baselineRejectedRgb:br,candidateRejectedRgb:cr,baselineRgbEdgeMean:finite(bEdgeMean)?bEdgeMean:null,candidateRgbEdgeMean:finite(cEdgeMean)?cEdgeMean:null,baselineRejectedAlva:ba,candidateRejectedAlva:ca,normalizedEnergyGain:energyGain,reprojectionGain:reprojGain,depthGain}};
 }
 
 export function poseSnapshotDelta(a,b){
@@ -63,6 +65,7 @@ export function poseSnapshotDelta(a,b){
   for(const [id,pa] of am){const pb=bm.get(id);if(!validPose(pa)||!validPose(pb))continue;const t=Math.hypot(pb.p[0]-pa.p[0],pb.p[1]-pa.p[1],pb.p[2]-pa.p[2]),r=quatAngle(pa.q,pb.q);n++;st+=t;sr+=r;mt=Math.max(mt,t);mr=Math.max(mr,r);}
   return {commonFrames:n,meanTranslation:n?st/n:0,maxTranslation:mt,meanRotationRad:n?sr/n:0,maxRotationRad:mr};
 }
+function preferredReprojection(s){const r=Number(s?.reprojectionRobustRmse);return finite(r)?r:Number(s?.reprojectionRmse);}
 function normalizedEnergyGain(b,c){const be=Number(b.energy),ce=Number(c.energy),bn=Math.max(1,Number(b.observations)||1),cn=Math.max(1,Number(c.observations)||1);if(!finite(be)||!finite(ce))return 0;const x=be/bn,y=ce/cn;return clamp((x-y)/Math.max(.05,x),-.5,.5);}
 function validPose(p){return Array.isArray(p?.p)&&p.p.length>=3&&p.p.every(Number.isFinite)&&Array.isArray(p?.q)&&p.q.length>=4&&p.q.every(Number.isFinite);}
 function quatAngle(a,b){let d=Math.abs((+a[0]||0)*(+b[0]||0)+(+a[1]||0)*(+b[1]||0)+(+a[2]||0)*(+b[2]||0)+(+a[3]||0)*(+b[3]||0));d=clamp(d,0,1);return 2*Math.acos(d);}
