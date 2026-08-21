@@ -1,12 +1,16 @@
-# V30.28 phone validation
+# V30.29 phone validation
 
-1. Apply the V30.28 patch over V30.27 EXP-4 and reload normally. Atomic boot remains active; Home must reach `Interfaccia pronta.` and the UI must remain clickable across repeated reloads.
-2. Run the self-test once. The published build must identify itself as V30.28 and all runtime contracts should pass.
-3. Run a short scan with slow lateral motion and revisit the same wall/corner several times. Deep live preview should remain frame-synchronised; Alva should remain the pose source.
-4. Finish the scan and open 3D review. The optimiser status should report factor-graph iterations, reprojection error, mean pose correction and Deep residual rather than only a smoothing energy.
-5. Try 5-10 iterations first. Reprojection error should decrease while pose corrections remain small. If pose corrections rapidly grow, stop: it indicates weak feature association / poor Alva prior rather than a reason to continue iterating.
-6. Continue to 20-40 iterations only if the above is stable. The rebuilt Gaussian map should become thinner on repeated planar surfaces without simply collapsing all points onto one plane.
-7. Save/reload the session and continue optimisation. The factor graph and Deep sequence state must survive reload.
-8. Export/reimport `.r30`; the probabilistic graph must remain available for reprocessing.
-
-Useful diagnostics: `probabilistic-sparse-evidence`, `deep-sequence-calibrated`, `probabilistic-optimization-complete`, reprojection RMSE, pose-shift mean, Deep relative error, MVS `priorEscapeRatio` and frame-sync events.
+1. Apply this patch over V30.28.0. No model directory needs to be replaced.
+2. Reload normally and verify that the atomic boot reaches `Interfaccia pronta`.
+3. Start a scan and watch the spherical coverage panel. Walk slowly with deliberate overlap; do not only rotate in place.
+4. When the guide reports a weak/disconnected view, move slightly back toward the previous view and sweep that region again. The connection/closure indicators should recover.
+5. Before finishing, deliberately return to an early part of the room. At least one photo loop closure should appear. Finishing early should produce a warning rather than silently accepting incomplete coverage.
+6. Confirm that Deep live preview remains visually sensible. Deep does not need to be metrically perfect at this stage; its scale is solved post-scan from the photo/pose graph.
+7. In Review, choose `Photo Puzzle -> piani + particelle`. Start with 2,000–3,000 particles and 20–40 iterations.
+8. Watch the spherical photo atlas. It is a connectivity/coverage diagnostic, not a metric panorama: near objects may show parallax/ghosting and this is expected.
+9. Watch the status values: connected photo fraction, aligned Deep frames, number of planes, plane-explained fraction, validation loss and shoebox confidence.
+10. Validation loss must be non-increasing across accepted particle updates. A rejected update may leave it unchanged.
+11. Compare BASE and PUZZLE. Large walls/floor/ceiling should increasingly appear as clean plane patches; particles should concentrate on furniture, corners and non-planar residual geometry.
+12. Repeat with 1,000 and 10,000 particles. Large planar room surfaces should not require more particles to remain stable; the higher budget should mainly improve residual object detail.
+13. Save the session, reload it from Home and continue to a higher cumulative iteration target. The Photo Puzzle state must resume without overwriting BASE.
+14. Export diagnostics if a view stays disconnected or if a plane is visibly wrong; the useful fields are photo graph edges/loops, depth alignment error, aligned frames, validation loss and plane statistics.

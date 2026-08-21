@@ -1,69 +1,101 @@
-# Room Scanner V30.28 probabilistic architecture
+# Room Scanner V30.29 architecture
 
-## Principle
+## 1. Problem statement
 
-The scene is an inference problem, not a chain of irreversible accept/reject decisions. Every measurement carries uncertainty and provenance. The online mapper provides a responsive estimate; the post-scan factor graph retains enough evidence to revise that estimate.
+For keyframe `i` we have:
 
-```text
-RGB frame F_i
-  |-- Alva pose prior T_i, Sigma_Ti
-  |-- 2D features + compact appearance evidence
-  |-- raw Deep relative grid D_i + quality
-  `-- independent MVS likelihoods
-             |
-             v
-  probabilistic cross-frame associations
-             |
-             v
-  multi-view landmark factors X_j, Sigma_Xj
-             |
-             +----> sequence Deep calibration theta_D
-             |
-             v
-  joint robust refinement
-  {delta T_i, X_j, theta_D, factor probabilities}
-             |
-             v
-  uncertainty-aware Gaussian rebuild
-             |
-             v
-  derived surface field / TSDF / mesh
-```
+- RGB image `I_i`;
+- Alva pose prior `T_i` and pose covariance;
+- camera intrinsics `K_i`;
+- raw relative Depth Anything field `D_i(u,v)`;
+- sparse feature observations / landmarks;
+- optional independent MVS likelihood samples.
 
-## Frame and pose factors
+The desired scene is not defined as a cloud that must be accepted once. It is the smallest set of surfaces/particles that explains the observations from all connected views.
 
-AlvaAR remains the online pose source. V30.28 attaches a conservative 6-vector covariance `[tx,ty,tz,rx,ry,rz]` to each pose. The post-scan state is `T_i = T_i^Alva exp(delta xi_i)`; the Alva prior strongly regularises `delta xi_i` but no longer makes the pose mathematically immutable.
+## 2. Photo puzzle
 
-## Feature association
+The first stage builds a graph `G=(V,E)` where nodes are photographs and edges are visually verified overlap. Candidate Alva points are matched with BRIEF-like appearance, local ZNCC, mutual uniqueness and Alva-pose epipolar compatibility.
 
-Alva points are candidate locations, not assumed persistent landmark IDs. The dense mapper computes a deterministic 128-bit local binary patch descriptor and combines Hamming distance, Alva-pose epipolar distance, local ZNCC, mutual uniqueness and feature quality. These cues are combined probabilistically so one strong cue cannot hide a catastrophic cue.
+A global panorama homography is intentionally not used: camera translation creates real parallax. The spherical/equirectangular atlas is a diagnostic coverage projection only. Geometry continues to use the original calibrated rays and poses.
 
-## Sparse geometry
+Disconnected or weak frames are retained with low confidence. They can become connected later through loop closure or a revisit.
 
-Each surviving multi-view track is triangulated/refined across its supporting poses. The inverse reprojection Hessian gives a full 3x3 covariance, then pose uncertainty and empirical multi-view scatter are added. Nearly parallel rays therefore produce high longitudinal uncertainty instead of a false precise depth.
+## 3. Pose-aware Deep scale graph
 
-## Sequence-level Deep model
+For a verified photo match `(u_i,u_j)`, the known poses define two calibrated rays. Their closest-point triangulation yields world point `X` with geometric quality from angle and ray gap. The corresponding metric/Alva optical depths are
 
-Raw Depth Anything values are stored before metric calibration. Robust calibration tests direct, inverse-raw and inverse-depth projective families across frames. The model keeps a sequence posterior and explicit uncertainty; a bad individual frame cannot silently redefine the scale of the whole scene.
+`z_i = project(T_i,K_i,X).z`
 
-## Independent MVS
+`z_j = project(T_j,K_j,X).z`.
 
-Depth Anything is a proposal distribution only. The plane sweep always retains coarse hypotheses outside the Deep window and its photometric likelihood is not relaxed because Deep suggested that range. `priorEscapeRatio` is diagnostic evidence that the verifier can escape a wrong monocular prior.
+Raw Deep values are sampled at the same pixels. Thus the graph stores calibration evidence `(D_i(u_i), z_i)` and `(D_j(u_j), z_j)` rather than incorrectly enforcing `D_i ≈ D_j` or `z_i ≈ z_j`.
 
-## Joint optimiser
+Across the sequence, three monotonic model families are compared:
 
-The post-scan worker alternates robust landmark and pose updates, recomputes measurement probabilities from reprojection residuals and refits the sequence Deep model. Pose updates are small and regularised by the Alva covariance. The first/strongest frame acts as the gauge anchor.
+- `z = a D + b`
+- `z = a / D + b`
+- `1/z = a D + b`.
 
-## Rebuild
+The model family is selected globally, while each well-supported frame gets its own robust affine parameters. Weak frames borrow a low-confidence prior from connected neighbours. Good per-frame fits are not averaged away.
 
-The refined graph is converted back into three evidence classes:
+## 4. Depth convention
 
-1. multi-view landmarks: highest geometric authority;
-2. independent MVS samples reprojected from corrected poses;
-3. Deep completion with deliberately broad ray uncertainty.
+`projectPoint` and MVS depth use camera optical `Z`. A normalised camera ray has third component `d_z`, therefore the corresponding Euclidean range is
 
-Camera-pose covariance is propagated into point covariance before Gaussian information fusion. Correlated evidence from one frame cannot manufacture independent support.
+`r = Z / d_z`.
 
-## Storage budget
+All hybrid-solver rays use `r`; all photogrammetric projection/calibration continues to use optical `Z`. Keeping this convention explicit prevents systematic radial curvature.
 
-The graph is bounded: maximum frame count, maximum features per frame, compact grayscale thumbnails, compact Deep grids and bounded MVS samples. It preserves the variables needed for later optimisation without storing the full video stream.
+## 5. Probabilistic observations
+
+Every scene observation is represented by:
+
+- camera origin `o`;
+- unit ray `d`;
+- range mean `r`;
+- axial standard deviation `sigma_r`;
+- lateral standard deviation `sigma_t`;
+- source/provenance and frame ID;
+- confidence weight and RGB colour.
+
+The covariance is anisotropic: uncertainty is much larger along a monocular ray than across it. Track/MVS observations receive more authority than dense Deep completion.
+
+## 6. Plane-first room model
+
+The solver first searches for large multi-view planar explanations. A candidate plane residual uses uncertainty projected onto the plane normal:
+
+`var(n) = sigma_t^2 + (sigma_r^2 - sigma_t^2) (n·d)^2`.
+
+This means a grazing ray cannot use its large axial uncertainty to excuse a large wall-normal error.
+
+Accepted planes are refined by weighted PCA, bounded by robust 2D quantiles, and optionally snapped to a soft Manhattan frame. Snapping is only applied when a plane is already close to a dominant axis.
+
+If three orthogonal axis groups each contain two strong opposite boundaries, the renderer emits a direct shoebox mesh. Otherwise each verified plane remains an independent surface patch.
+
+## 7. Residual particle model
+
+Only observations not sufficiently explained by planes enter the particle solver. The user selects the maximum particle count (1,000–10,000).
+
+Initial particles are compact weighted clusters of residual observations. Deterministic annealing/EM then alternates:
+
+1. soft probabilistic observation-to-particle association;
+2. information-form update using anisotropic ray covariance;
+3. confidence/support update;
+4. optional rebirth of unsupported particles into unexplained high-likelihood regions.
+
+Temperature decreases with iteration count. The validation loss is evaluated at a fixed definition independent of temperature. A candidate update is accepted only if validation does not increase; otherwise damping is reduced, then the step is rejected if necessary.
+
+This is the diffusion-model intuition implemented as an optimisation process, not as another large neural network.
+
+## 8. Live scan closure
+
+The online `ViewSphereCoverage` stores directional coverage, connection quality and loop closures. `readyToClose` requires substantial seen/strong coverage, connected views and at least one photographic loop closure. A weak current view produces a revisit instruction rather than disappearing from the dataset.
+
+## 9. Representation hierarchy
+
+The intended authority order is:
+
+`photo connectivity -> pose-aware triangulation -> sequence Deep calibration -> planes -> residual particles -> derived mesh`.
+
+Legacy Gaussian/TSDF results remain available as BASE diagnostics, but they are no longer the primary V30.29 post-processing path.

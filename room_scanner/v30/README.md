@@ -1,57 +1,60 @@
-# Room Scanner V30.28 · Probabilistic factor-graph reconstruction
+# Room Scanner V30.29 · Spherical Photo Puzzle + Hybrid Room Reconstruction
 
-V30.28 changes the reconstruction architecture rather than adding another hard acceptance gate. The online path remains AlvaAR + Depth Anything + MVS + Gaussian fusion, but every important observation is now also stored as probabilistic evidence that can be revisited after the scan.
+V30.29 introduces a new post-scan reconstruction path designed around the information that is actually available in the app: overlapping RGB views, Alva camera poses, raw relative Depth Anything maps, sparse multi-view landmarks and independent MVS evidence.
 
-## Main change
+The legacy Gaussian batch optimiser and Surface Mesh Lab are still present for A/B comparison. They are not overwritten by the new solver.
 
-The application persists a compact factor graph containing:
+## Core model
 
-- AlvaAR pose priors with 6-DoF covariance rather than exact poses;
-- frame identity, intrinsics, a compact grayscale thumbnail and bounded 2D features;
-- probabilistic cross-frame feature associations and multi-view landmark measurements;
-- landmark 3D mean/covariance and provenance;
-- raw relative Depth Anything samples on a compact grid, with quality metadata;
-- independent photometric MVS likelihood samples and source-frame provenance.
+The new path deliberately separates three problems that were previously entangled:
 
-No observation is promoted to permanent truth merely because it passed a threshold once. Low-confidence evidence remains low weight and may later be contradicted by more views.
+1. **Photo puzzle / view graph** – connect only photographs that have verified visual overlap. A walking scan is not forced into one global homography; translated cameras create parallax, so the equirectangular collage is diagnostic only.
+2. **Sequence Deep alignment** – a matched RGB point is triangulated using the corresponding Alva poses. The resulting optical-Z values become probabilistic anchors for the raw Deep map in each view. Same-world-point does *not* mean same camera depth.
+3. **Geometry explanation** – large planar structures are extracted first and represented directly as planes. Only observations not already explained by planes are assigned to a user-bounded set of 1k–10k particles.
 
-## Online chain
+## Diffusion-like particle fitting without another neural model
 
-1. AlvaAR remains the real-time camera-motion authority.
-2. A conservative pose covariance is estimated from tracking state / tracked points.
-3. Alva candidate points are associated between frames using BRIEF-like binary patches, epipolar geometry, local ZNCC, mutual uniqueness and feature quality. The result is a probability, not a boolean identity.
-4. Multi-view triangulation propagates pose uncertainty into landmark covariance. Poorly conditioned geometry therefore stays uncertain instead of becoming an overconfident metric anchor.
-5. Depth Anything is stored in raw relative form in the graph. A sequence-level robust model estimates the transform to metric depth from the whole growing set of trustworthy anchors.
-6. Plane sweep remains independent from the Deep prior: Deep narrows the proposal range but does not lower the photometric acceptance standard. Coarse global probes can escape an incorrect monocular prior.
-7. The live Gaussian map still provides immediate feedback, but the post-scan solution is allowed to rebuild it from refined evidence.
+The particle stage uses deterministic annealing / EM rather than an additional generative network. At high temperature, observations can support a broad neighbourhood of particles; the temperature is gradually reduced and the posterior becomes more selective. Each candidate update is checked against a fixed validation objective with backtracking, so an uphill update is rejected instead of being displayed as progress.
 
-## Post-scan optimisation
+The user chooses the particle budget and the cumulative number of iterations in the 3D review.
 
-The review optimiser jointly refines:
+## Planes first
 
-- 3D landmark positions;
-- small SE(3) corrections to Alva poses, constrained by their pose priors;
-- the sequence-level Deep calibration;
-- posterior probabilities / robust weights from reprojection and depth residuals.
+For room-scale scenes, walls, floor, ceiling, tabletops and other large planar regions should not consume thousands of splats. V30.29 uses uncertainty-aware RANSAC/PCA, then a soft Manhattan-world regularisation. A plane is accepted only when it is supported by multiple frames and sufficient physical area. If opposite planes are available on three approximately orthogonal axes, the preview can form an explicit shoebox envelope.
 
-After optimisation the Gaussian/mesh representation is rebuilt from corrected poses and evidence. Pose covariance is propagated into each 3D observation before information-form fusion, so repeated observations cannot become infinitely certain around a biased camera trajectory.
+Plane residuals use the projected anisotropic ray uncertainty, not a single scalar depth tolerance.
+
+## Exact depth convention
+
+Depth Anything and the plane-sweep MVS path use camera optical-axis depth `Z`. The particle solver uses distance along a normalised 3D ray. V30.29 explicitly converts
+
+`range = Z / ray_camera.z`
+
+before constructing a 3D observation. This prevents off-axis pixels from bending a fronto-parallel wall into a curved surface.
+
+## Online spherical coverage
+
+During scanning, accepted views paint an equirectangular direction sphere. Weak/disconnected sectors remain visible rather than being silently discarded. The guide tracks:
+
+- strong and seen angular coverage;
+- fraction of visually/geometrically connected views;
+- visual loop closures;
+- a closure confidence and the least-observed direction.
+
+If the current view is weak, the user is explicitly asked to revisit it. If the scan is terminated before a visual closure is established, the app warns the user but still allows an intentional early finish.
 
 ## Persistence
 
-New sessions use `ROOMSCAN-PROB-SESSION-3`. The `.r30` codec supports typed probabilistic graph buffers (`ROOMSCAN-R30-JSON-2`), including compact Float32 Deep grids, so the evidence can be exported and reprocessed without the original video.
-
-## Public-data validation
-
-The test suite includes a reproducible validation based on the public TUM RGB-D `freiburg1_xyz` benchmark. It uses the official RGB preview for real-texture feature association and the official 3,000-sample ground-truth trajectory for non-trivial camera-motion optimisation. The current test obtains ~0.988 match precision, 1.0 recall, and reduces the deliberately perturbed factor-graph reprojection RMSE from ~2.29 px to ~0.037 px while keeping the mean pose correction ~8.4 mm.
-
-This is intentionally not claimed to be a full TUM end-to-end reconstruction benchmark: the compact fixture validates association and joint optimisation against public real data without shipping the full ~0.47 GB sequence.
+The V30.28 probabilistic factor graph is retained and extended with a compact RGB photo packet per keyframe. New sessions persist the Photo Puzzle reconstruction separately from the legacy Gaussian state, so BASE/PUZZLE comparison remains reversible.
 
 ## Verification
+
+Run:
 
 ```bash
 npm run verify
 ```
 
-V30.28 currently passes 113/113 Node regression tests plus public-data validation, Depth Anything diagnostics, dependency closure, layout checks, EventTarget-constructor checks, mock UI boot and the Alva runtime contract.
+The current build passes 119/119 Node regression tests plus the public-data validator, Depth Anything diagnostics, layout/dependency checks, EventTarget constructor checks, mock UI boot and the Alva runtime contract.
 
-The V30.27 Surface Mesh Lab remains available and isolated. It can still be used for BASE/EXP comparisons, but V30.28 treats meshing as a derived stage after probabilistic refinement rather than as the authority that fixes upstream geometry.
+The public validator uses the freely available TUM RGB-D `freiburg1_xyz` material already stored under `test/online-data/`: real TUM texture is used for the photo matcher/puzzle and the official ground-truth trajectory is used to exercise pose/factor optimisation. Controlled warps and synthetic geometry are explicitly used where an exact expected solution is needed; this is not presented as a full end-to-end TUM reconstruction benchmark.

@@ -127,3 +127,14 @@
 .savedSessionRow span{min-width:0;line-height:1.35}
 .savedSessionRow button{flex:0 0 auto;padding:.55rem .7rem}
 @media(max-width:560px){#review .reviewPanel{max-height:46vh}.optimizerControls{display:grid;grid-template-columns:1fr 1fr}.optimizerControls label{grid-column:1/-1}.savedSessionRow{align-items:flex-start;flex-direction:column}.savedSessionRow button{align-self:flex-end}}
+
+/* V30.27 EXP-1: isolated Surface Mesh Lab.  The visual distinction is deliberate:
+ * BASE and EXP are separate review modes, not two names for the same state. */
+.experimentalCard{border-style:dashed!important}
+.experimentalCard .compactActions{margin-top:.45rem!important}
+.experimentalCard .status{min-height:2.3rem}
+.experimentalCard progress{display:block;width:100%;height:.8rem;margin:.65rem 0}
+@media(max-width:560px){.experimentalCard .optimizerControls{grid-template-columns:1fr 1fr}.experimentalCard .optimizerControls label{grid-column:auto}.experimentalCard .optimizerControls button{min-width:0}}
+
+/* V30.29 spherical scan coverage + Photo Puzzle post-processing */
+.coverageSpherePanel{position:absolute;left:max(10px,env(safe-area-inset-left));bottom:calc(78px + env(safe-area-inset-bottom));width:min(46vw,260px);z-index:8;padding:7px 8px;border-radius:12px;background:rgba(5,8,13,.72);backdrop-filter:blur(7px);box-shadow:0 4px 18px rgba(0,0,0,.28);font-size:.68rem;line-height:1.25;color:#eef4fa;pointer-events:none}.coverageSpherePanel canvas{display:block;width:100%;height:auto;aspect-ratio:2/1;margin-top:5px;border-radius:7px;background:#101722}.puzzleCard{border-color:rgba(123,228,149,.35)}.photoSpherePreview{display:block;width:100%;aspect-ratio:2/1;max-height:220px;margin:.65rem 0;background:#05070a;border:1px solid rgba(255,255,255,.15);border-radius:9px;image-rendering:auto}.puzzleCard progress{width:100%;margin:.55rem 0}.puzzleCard input[type=number]{max-width:7.5rem}@media(max-width:620px){.coverageSpherePanel{width:min(55vw,220px);bottom:calc(92px + env(safe-area-inset-bottom));}.photoSpherePreview{max-height:160px}}

@@ -1,6 +1,6 @@
 {
-  "version": "30.28.0",
-  "id": "v30.28.0-20260821-probabilistic-factor-graph",
-  "builtAt": "2026-08-21T10:00:00+02:00",
-  "notes": "V30.28 replaces irreversible geometry decisions with a persisted probabilistic factor graph: image observations, Alva pose priors with covariance, probabilistic feature tracks, raw relative Deep factors, independent MVS likelihoods and joint post-scan refinement of landmarks, small pose corrections and sequence-level Deep scale. EXP-4 atomic boot and the reversible Surface Mesh Lab are preserved."
+  "version": "30.29.0",
+  "id": "v30.29.0-20260821-spherical-puzzle-hybrid",
+  "builtAt": "2026-08-21T11:24:00+02:00",
+  "notes": "V30.29 adds a pose-aware photo puzzle, spherical coverage/loop guidance, sequence Deep calibration from triangulated RGB correspondences, explicit optical-Z to ray-range conversion, plane-first room fitting and a user-bounded deterministic-annealing particle solver with non-increasing validation loss. V30.28 probabilistic evidence and legacy BASE/EXP paths remain reversible."
 }

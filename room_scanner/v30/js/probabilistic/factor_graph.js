@@ -1,5 +1,5 @@
 /**
- * Compact probabilistic evidence graph persisted by Room Scanner V30.28.
+ * Compact probabilistic evidence graph persisted by Room Scanner V30.29.
  *
  * The graph deliberately stores measurements, priors and provenance instead of
  * only the current 3D answer. Post-scan processing can therefore revisit pose,
@@ -8,14 +8,14 @@
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
 export class ProbabilisticFactorGraph{
-  constructor({maxFrames=360,maxFeaturesPerFrame=360,grayMaxSide=120,deepGridCols=32,deepGridRows=48,mvsPerFrame=420,maxLandmarks=18000}={}){
-    Object.assign(this,{maxFrames,maxFeaturesPerFrame,grayMaxSide,deepGridCols,deepGridRows,mvsPerFrame,maxLandmarks});
-    this.frames=[];this.frameIndex=new Map();this.landmarkFactors=[];this.deepFactors=[];this.mvsFactors=[];this.measurementIndex=new Map();this.version=2;this.createdAt=Date.now();
+  constructor({maxFrames=360,maxFeaturesPerFrame=360,grayMaxSide=120,photoMaxSide=128,deepGridCols=32,deepGridRows=48,mvsPerFrame=420,maxLandmarks=18000}={}){
+    Object.assign(this,{maxFrames,maxFeaturesPerFrame,grayMaxSide,photoMaxSide,deepGridCols,deepGridRows,mvsPerFrame,maxLandmarks});
+    this.frames=[];this.frameIndex=new Map();this.landmarkFactors=[];this.deepFactors=[];this.mvsFactors=[];this.measurementIndex=new Map();this.version=3;this.createdAt=Date.now();
   }
   addFrame(frame){
     if(!frame?.frameId||!frame?.pose||!frame?.K)return null;const id=String(frame.frameId),old=this.frameIndex.get(id);if(old!=null)return this.frames[old];
-    const thumb=downsampleGray(frame.gray,frame.width,frame.height,this.grayMaxSide),features=(frame.features||[]).slice(0,this.maxFeaturesPerFrame).map((f,index)=>({index,x:+f.x,y:+f.y,score:+(f.score||0),source:f.source||'mvs',desc:Array.isArray(f.desc)?f.desc.slice(0,24).map(Number):[]}));
-    const node={id,frameId:id,keyframeId:frame.id||id,at:+(frame.captureAt??frame.at??0),posePrior:clonePose(frame.pose),poseEstimate:clonePose(frame.pose),poseCov:clonePoseCov(frame.poseCov),K:{fx:+frame.K.fx,fy:+frame.K.fy,cx:+frame.K.cx,cy:+frame.K.cy,width:+(frame.K.width||frame.width),height:+(frame.K.height||frame.height)},width:frame.width|0,height:frame.height|0,grayWidth:thumb.width,grayHeight:thumb.height,gray:thumb.gray,features,metricLocked:!!frame.metricLocked};
+    const thumb=downsampleGray(frame.gray,frame.width,frame.height,this.grayMaxSide),features=(frame.features||[]).slice(0,this.maxFeaturesPerFrame).map((f,index)=>({index,x:+f.x,y:+f.y,score:+(f.score||0),source:f.source||'mvs',desc:Array.isArray(f.desc)?f.desc.slice(0,24).map(Number):[]})),photo=downsamplePhoto(frame,this.photoMaxSide,features);
+    const node={id,frameId:id,keyframeId:frame.id||id,at:+(frame.captureAt??frame.at??0),posePrior:clonePose(frame.pose),poseEstimate:clonePose(frame.pose),poseCov:clonePoseCov(frame.poseCov),K:{fx:+frame.K.fx,fy:+frame.K.fy,cx:+frame.K.cx,cy:+frame.K.cy,width:+(frame.K.width||frame.width),height:+(frame.K.height||frame.height)},width:frame.width|0,height:frame.height|0,grayWidth:thumb.width,grayHeight:thumb.height,gray:thumb.gray,features,photo,metricLocked:!!frame.metricLocked};
     this.frameIndex.set(id,this.frames.length);this.frames.push(node);while(this.frames.length>this.maxFrames){this.frames.shift();this.reindex();this.pruneOrphans();}return node;
   }
   addSparseAnchors(ref,seeds){
@@ -30,8 +30,8 @@ export class ProbabilisticFactorGraph{
     const max=Math.max(1000,this.maxLandmarks);if(this.landmarkFactors.length>max){this.landmarkFactors.splice(0,this.landmarkFactors.length-max);this.rebuildMeasurementIndex();}
   }
   addDeepRaw(frameId,{rawDepth,rawWidth,rawHeight,calibration=null,quality=null}={}){
-    if(!rawDepth?.length||!(rawWidth>1&&rawHeight>1))return;const grid=sampleGrid(rawDepth,rawWidth,rawHeight,this.deepGridCols,this.deepGridRows);
-    this.deepFactors.push({frameId:String(frameId),cols:this.deepGridCols,rows:this.deepGridRows,raw:grid,rawWidth,rawHeight,calibration:calibration?compactCalibration(calibration):null,quality:quality?compactQuality(quality):null});trim(this.deepFactors,this.maxFrames);
+    if(!rawDepth?.length||!(rawWidth>1&&rawHeight>1))return;const id=String(frameId),grid=sampleGrid(rawDepth,rawWidth,rawHeight,this.deepGridCols,this.deepGridRows),item={frameId:id,cols:this.deepGridCols,rows:this.deepGridRows,raw:grid,rawWidth,rawHeight,calibration:calibration?compactCalibration(calibration):null,quality:quality?compactQuality(quality):null};
+    const i=this.deepFactors.findIndex(x=>String(x.frameId)===id);if(i>=0)this.deepFactors[i]={...this.deepFactors[i],...item,calibration:item.calibration||this.deepFactors[i].calibration};else this.deepFactors.push(item);trim(this.deepFactors,this.maxFrames);
   }
   addMvs(frameId,samples,{sourceFrames=[]}={}){
     const src=(sourceFrames||[]).map(String),valid=(samples||[]).filter(s=>Array.isArray(s.p)&&Number.isFinite(s.depth)&&s.depth>0);if(!valid.length)return;
@@ -41,7 +41,7 @@ export class ProbabilisticFactorGraph{
   }
   exportState(){return {format:'ROOMSCAN-PROB-GRAPH-1',version:this.version,createdAt:this.createdAt,frames:this.frames,landmarkFactors:this.landmarkFactors,deepFactors:this.deepFactors,mvsFactors:this.mvsFactors,summary:this.summary()};}
   summary(){const obs=this.landmarkFactors.reduce((n,x)=>n+x.measurements.length,0),mvs=this.mvsFactors.reduce((n,x)=>n+(x.count??x.samples?.length??0),0);return {frames:this.frames.length,landmarks:this.landmarkFactors.length,featureObservations:obs,deepFrames:this.deepFactors.length,mvsSamples:mvs,bytesApprox:this.approxBytes()};}
-  approxBytes(){return this.frames.reduce((n,f)=>n+(f.gray?.byteLength||0)+f.features.length*56,0)+this.landmarkFactors.length*180+this.deepFactors.reduce((n,d)=>n+(d.raw?.byteLength||0)+100,0)+this.mvsFactors.reduce((n,m)=>n+(m.data?.byteLength||0)+(m.normal?.byteLength||0)+(m.color?.byteLength||0)+(m.flags?.byteLength||0)+(m.viewMask?.byteLength||0)+(m.samples?.length||0)*72,0);}
+  approxBytes(){return this.frames.reduce((n,f)=>n+(f.gray?.byteLength||0)+(f.photo?.gray?.byteLength||0)+(f.photo?.rgb?.byteLength||0)+f.features.length*56+(f.photo?.features?.length||0)*48,0)+this.landmarkFactors.length*180+this.deepFactors.reduce((n,d)=>n+(d.raw?.byteLength||0)+100,0)+this.mvsFactors.reduce((n,m)=>n+(m.data?.byteLength||0)+(m.normal?.byteLength||0)+(m.color?.byteLength||0)+(m.flags?.byteLength||0)+(m.viewMask?.byteLength||0)+(m.samples?.length||0)*72,0);}
   reindex(){this.frameIndex.clear();this.frames.forEach((f,i)=>this.frameIndex.set(String(f.frameId),i));}
   indexLandmark(index,l){for(const m of l?.measurements||[]){const fid=String(m.frameId);for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const k=measurementKey(fid,m.u+dx*3,m.v+dy*3),a=this.measurementIndex.get(k)||[];if(!a.includes(index)){a.push(index);if(a.length>6)a.shift();this.measurementIndex.set(k,a);}}}}
   rebuildMeasurementIndex(){this.measurementIndex=new Map();this.landmarkFactors.forEach((l,i)=>this.indexLandmark(i,l));}
@@ -57,6 +57,12 @@ function trim(a,n){if(a.length>n)a.splice(0,a.length-n);}
 function compactCalibration(c){return {ok:!!c.ok,mode:c.mode||null,a:+(c.a||0),b:+(c.b||0),confidence:+(c.confidence||0),medianRelativeError:+(c.medianRelativeError||0),posteriorConfidence:+(c.posteriorConfidence||c.confidence||0),sequenceMode:c.sequenceMode||c.mode||null};}
 function compactQuality(q){return {suspicious:!!q.suspicious,coherenceRatio:+(q.coherenceRatio||0),stripe:{suspicious:!!q.stripe?.suspicious,dominantExplained:+(q.stripe?.dominantExplained||0),dominantCycles:+(q.stripe?.dominantCycles||0)}};}
 function downsampleGray(gray,w,h,maxSide){if(!gray?.length)return {gray:new Uint8Array(0),width:0,height:0};const scale=Math.min(1,maxSide/Math.max(w,h)),dw=Math.max(1,Math.round(w*scale)),dh=Math.max(1,Math.round(h*scale)),out=new Uint8Array(dw*dh);for(let y=0;y<dh;y++){const sy=Math.min(h-1,Math.floor((y+.5)*h/dh));for(let x=0;x<dw;x++){const sx=Math.min(w-1,Math.floor((x+.5)*w/dw));out[y*dw+x]=gray[sy*w+sx];}}return {gray:out,width:dw,height:dh};}
+
+function downsamplePhoto(frame,maxSide,features){
+  if(!frame?.gray?.length||!(frame.width>0&&frame.height>0))return null;const sw=frame.width,sh=frame.height,scale=Math.min(1,Math.max(48,+maxSide||128)/Math.max(sw,sh)),w=Math.max(16,Math.round(sw*scale)),h=Math.max(16,Math.round(sh*scale)),gray=new Uint8Array(w*h),rgb=new Uint8Array(w*h*3),sx=sw/w,sy=sh/h,rgba=frame.rgba;
+  for(let y=0;y<h;y++){const yy=Math.min(sh-1,Math.floor((y+.5)*sy));for(let x=0;x<w;x++){const xx=Math.min(sw-1,Math.floor((x+.5)*sx)),si=yy*sw+xx,di=y*w+x;gray[di]=frame.gray[si];if(rgba?.length>=sw*sh*4){rgb[di*3]=rgba[si*4];rgb[di*3+1]=rgba[si*4+1];rgb[di*3+2]=rgba[si*4+2];}else rgb.fill(gray[di],di*3,di*3+3);}}
+  const K={fx:frame.K.fx*w/sw,fy:frame.K.fy*h/sh,cx:frame.K.cx*w/sw,cy:frame.K.cy*h/sh,width:w,height:h},pf=(features||[]).map((f,index)=>({index,originalIndex:index,originalU:+f.x,originalV:+f.y,x:+f.x*w/sw,y:+f.y*h/sh,score:+(f.score||0),source:f.source||'mvs',desc:Array.isArray(f.desc)?f.desc.slice(0,24).map(Number):[]}));return {width:w,height:h,K,gray,rgb,features:pf};
+}
 function sampleGrid(a,w,h,cols,rows){const out=new Float32Array(cols*rows);for(let y=0;y<rows;y++){const yy=Math.min(h-1,Math.round(y*(h-1)/Math.max(1,rows-1)));for(let x=0;x<cols;x++){const xx=Math.min(w-1,Math.round(x*(w-1)/Math.max(1,cols-1))),v=Number(a[yy*w+xx]);out[y*cols+x]=Number.isFinite(v)?v:0;}}return out;}
 
 function measurementKey(fid,u,v){return `${fid}:${Math.round((+u||0)/3)}:${Math.round((+v||0)/3)}`;}

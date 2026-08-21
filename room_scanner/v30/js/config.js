@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.28.0 exact-frame synchronized robust surface-field runtime configuration.
+ * Room Scanner V30.29.0 spherical photo-puzzle + hybrid plane/particle reconstruction configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.28.0',
-  id:'v30.28.0-20260821-probabilistic-factor-graph',
+  version:'30.29.0',
+  id:'v30.29.0-20260821-spherical-puzzle-hybrid',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -271,6 +271,26 @@ export const CONFIG={
   probabilisticMaxLandmarks:12000,
   probabilisticMaxObsPerFrame:280,
   probabilisticPosePriorScale:1.0,
+  probabilisticPhotoMaxSide:128,
+
+  // V30.29: photo-sphere puzzle -> globally aligned relative depth -> hybrid
+  // structural planes + bounded residual particles. The old Gaussian and EXP
+  // paths stay available for A/B comparison but are no longer the preferred
+  // post-scan reconstruction.
+  puzzleWorker:'workers/puzzle_reconstruction_worker.js',
+  puzzleDefaultParticles:3000,
+  puzzleMinParticles:1000,
+  puzzleMaxParticles:10000,
+  puzzleDefaultIterations:35,
+  puzzleMaxIterations:240,
+  puzzlePreviewUpdates:14,
+  puzzleMaxObservations:65000,
+  puzzleMaxPlanes:8,
+  puzzleAtlasWidth:480,
+  puzzleAtlasHeight:240,
+  coverageSphereCols:24,
+  coverageSphereRows:12,
+  coverageSphereMaxFrames:72,
 
   // Legacy camera-only MVS remains available for diagnostics/fallback tooling.
   mvsWorker:'workers/mvs_worker.js',

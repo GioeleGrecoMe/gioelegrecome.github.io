@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.28 atomic shell service worker.
+ * Room Scanner V30.29 atomic shell service worker.
  *
  * The worker is a build-coherence guard, not a blocking precache installer.
  * It activates immediately, claims the current page and always asks the
@@ -7,7 +7,7 @@
  * THIS build cache can be used as an offline fallback. This prevents an old
  * controller from combining HTML/CSS/JS from different V30 revisions.
  */
-const VERSION = '30.28.0';
+const VERSION = '30.29.0';
 const CACHE = `room-scanner-v${VERSION}-shell`;
 const CACHE_PREFIX = 'room-scanner-v';
 const ENTRY = './room_scanner_v30.html';
