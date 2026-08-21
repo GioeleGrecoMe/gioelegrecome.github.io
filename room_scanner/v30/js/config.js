@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.35.0 continuous RGB live-mosaic configuration.
+ * Room Scanner V30.37.0 continuous RGB live-mosaic configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.35.0',
-  id:'v30.35.0-20260821-layerwise-probabilistic-depth',
+  version:'30.37.0',
+  id:'v30.37.0-20260821-causal-feedback-confirmed-geometry',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -271,6 +271,12 @@ export const CONFIG={
   probabilisticMaxLandmarks:12000,
   probabilisticMaxObsPerFrame:280,
   probabilisticPosePriorScale:1.0,
+  // Absolute Alva pose is only a weak gauge regularizer. Relative increments
+  // carry the useful dynamic prior and have their own translation/rotation switches.
+  probabilisticAbsoluteAlvaScale:0.04,
+  // RGB/pose refinement is the fast loop; expensive Deep reliability/calibration
+  // runs only every N post-scan iterations.
+  probabilisticDepthFeedbackEvery:2,
   probabilisticPhotoMaxSide:128,
 
   // V30.29: photo-sphere puzzle -> globally aligned relative depth -> hybrid
@@ -292,7 +298,7 @@ export const CONFIG={
   coverageSphereRows:12,
   coverageSphereMaxFrames:72,
 
-  // V30.35 pure-photo mosaic. This diagnostic layer deliberately separates
+  // V30.37 pure-photo mosaic. This diagnostic layer deliberately separates
   // image registration from metric reconstruction: RGB overlap + RANSAC drives
   // panorama orientation, Deep is reconciled across overlaps, and AlvaAR stays
   // available as a metric pose prior with uncertainty rather than an image-warp truth.

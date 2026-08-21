@@ -160,7 +160,8 @@ export class SparseDenseFusion{
     // the actual 3D covariance, not an axis-aligned radius approximation.
     const normalVar=quadPacked(cov,n),wanted=Math.max(.0008**2,Math.min((s.radius*.34)**2,(positionSigma*.55+this.hashVoxel*.025)**2));if(normalVar<wanted)cov=addCov(cov,scaleCov(outerPacked(n),wanted-normalVar));
     const scale=[Math.sqrt(Math.max(1e-12,quadPacked(cov,t1))),Math.sqrt(Math.max(1e-12,quadPacked(cov,t2))),Math.sqrt(Math.max(1e-12,quadPacked(cov,n)))],mixed=(s.sourceMask&3)===3;
-    return {id:id??undefined,position:s.p,normal:n,color:s.color.map(v=>Math.round(clamp(v,0,255))),scale,covariance:cov,positionCovariance:[...s.positionCov],basis:[t1,t2,n],opacity:clamp(.12+.075*Math.min(6,s.support)+.38*s.confidence+(mixed?.06:0)+Math.min(.10,(s.anchorSupport||0)*.025),.18,.96),confidence:s.confidence,support:s.support,observations:s.observations,maxBaseline:s.maxBaseline,positionSigma,anchorSupport:s.anchorSupport||0,geometricSupport:s.geometricSupport||0,mixedEvidence:mixed};
+    const evidenceClass=(s.sourceMask&4)||(s.anchorSupport||0)>=1.5?'strong':((s.sourceMask&2)||s.support>=3||s.geometricSupport>=3?'confirmed':'weak');
+    return {id:id??undefined,position:s.p,normal:n,color:s.color.map(v=>Math.round(clamp(v,0,255))),scale,covariance:cov,positionCovariance:[...s.positionCov],basis:[t1,t2,n],opacity:clamp(.12+.075*Math.min(6,s.support)+.38*s.confidence+(mixed?.06:0)+Math.min(.10,(s.anchorSupport||0)*.025),.18,.96),confidence:s.confidence,support:s.support,observations:s.observations,maxBaseline:s.maxBaseline,positionSigma,anchorSupport:s.anchorSupport||0,geometricSupport:s.geometricSupport||0,mixedEvidence:mixed,evidenceClass};
   }
   splats(opts={}){return this.confirmedSurfels(opts).map(s=>this._splatOf(s));}
 

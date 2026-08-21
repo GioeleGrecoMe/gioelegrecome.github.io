@@ -1,30 +1,27 @@
-# Room Scanner V30.35 · spherical RGB + layer-wise probabilistic Depth
+# Room Scanner V30.37 · causal probabilistic feedback
 
-V30.35 keeps the V30.34 RGB-only spherical panorama unchanged geometrically and redesigns how exact-frame Depth Anything maps are synchronized and fused.
+V30.37 keeps the V30.34/35 spherical RGB+Depth acquisition path and the V30.36 observability hierarchy, but changes the estimator from a one-way pipeline into a causal feedback system.
 
-## Measurement contract
+The authority order is deliberately asymmetric:
 
-- A photo enters the live graph only together with the Depth map inferred from that exact frozen RGB frame.
-- RGB overlap is the only authority for panorama registration. AlvaAR is optional metadata and never places a photo.
-- Panorama geometry is rigid spherical rotation; no projective warp may stretch an image.
-- Small exposure/white-balance differences are compensated globally per RGB channel across the photographic overlap graph.
+`multi-view RGB geometry > multi-view-consistent calibrated Depth > single-view Depth`
 
-## Depth synchronization
+AlvaAR is a dynamic prior, not a source of truth. Its relative frame-to-frame increments are retained with independent translation/rotation switches; its absolute pose is only a weak gauge regularizer.
 
-The relative Depth Anything output is not treated as metric depth or as if one affine scale were sufficient. Every accepted RGB spherical overlap contributes a dense set of corresponding raw-depth samples. Samples near RGB/depth discontinuities are down-weighted. Broad depth bands in each overlap are summarized into robust layer anchors.
+The post-scan estimator now runs three nested levels:
 
-All connected frames are then optimized jointly with monotone piecewise-linear transfers `T_i`:
+1. **Fast frame loop** — robust RGB landmark/pose refinement + switchable RGB edges + switchable relative Alva increments.
+2. **Slow Depth loop** — observability-gated inverse-depth calibration, leave-one-view-out consistency, frame/region/pixel reliability and causal residual diagnosis. The E-step confidence from one cycle reweights the next calibration cycle.
+3. **Global submap loop** — confirmed evidence is fused locally, while loop closures move whole submaps rigidly through a submap pose graph.
 
-`T_i(D_i(p)) ~= T_j(D_j(q))`
+Deep uses
 
-The transfer has 16 robust quantile knots and is solved with IRLS plus slope regularization. This permits foreground/mid/background response to change non-linearly while preserving depth ordering and one common global gauge.
+`rho_i(u) = a_i * F_gamma(d_i(u)) + b_i`
 
-## Probabilistic atlas
+where `F_gamma` is a single low-DOF monotone function shared by the entire scan. Per-frame calibration can be `full`, `shift-only`, or `inherit` depending on geometric observability. There is no free nonlinear function per photograph.
 
-The live depth atlas no longer averages all maps blindly. Each panorama pixel keeps at most two competing depth hypotheses. Compatible observations tighten a hypothesis; incompatible layers stay separate. The displayed value is the MAP hypothesis, so two different surfaces are not converted into an artificial intermediate depth.
+Dense Deep samples are split into **candidate** and **committed** geometry. A sample cannot validate itself: it must receive independent leave-one-view-out support with meaningful camera baseline, or independent support plus a local sparse RGB anchor. Conflicts and occlusions are not averaged into a false surface. Dynamic/suspect frames are heavily downweighted or kept candidate.
 
-Hann feathering is applied only where the RGB spherical masks really overlap. A non-overlapped photo keeps full weight to its border, so feathering cannot erase coverage. One shared global depth colour range is used for the entire atlas.
+The final Gaussian/surface representation exposes evidence classes (`strong`, `confirmed`, `weak`); candidate Deep evidence is kept separate and never enters the committed TSDF/mesh.
 
-## Scope
-
-The downstream 3-D reconstruction is intentionally unchanged in V30.35. This patch only improves the photographic/depth evidence delivered to it.
+The live RGB panorama remains pure-photo spherical registration. Only frozen RGB frames carrying their exact same-frame Depth evidence (or explicitly scheduled to obtain it) enter that photo/depth stream.

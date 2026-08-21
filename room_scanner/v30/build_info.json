@@ -1,6 +1,6 @@
 {
-  "version": "30.35.0",
-  "id": "v30.35.0-20260821-layerwise-probabilistic-depth",
-  "builtAt": "2026-08-21T15:38:00+02:00",
-  "notes": "V30.35 keeps the rigid RGB-only spherical panorama and adds global per-channel exposure compensation. Exact-frame Depth Anything maps are synchronized through RGB-verified spherical overlap masks using robust layer anchors and monotone nonlinear piecewise depth transfers. Fusion is uncertainty-weighted with two depth hypotheses per atlas pixel; Hann feathering is applied only inside true RGB overlap, preserving coverage and avoiding arithmetic averaging across incompatible surfaces. The global display range is shared by the whole depth atlas. 3-D reconstruction remains unchanged."
+  "version": "30.37.0",
+  "id": "v30.37.0-20260821-causal-feedback-confirmed-geometry",
+  "createdAt": "2026-08-21T16:50:00+02:00",
+  "notes": "V30.37 turns the hierarchical estimator into a causal feedback system. Multi-view RGB remains the primary geometric scaffold; relative Alva increments use independent translation/rotation switch variables while the absolute Alva pose is only a weak gauge prior. Depth calibration is observability-gated, globally monotone and reweighted by the previous reliability E-step. Residual fields are classified into pose/global-depth/local-depth/match/occlusion/dynamic hypotheses, confidence is maintained at frame/region/pixel levels, and dense Deep samples are kept candidate until leave-one-view-out independent evidence confirms them. Committed geometry is fused in local submaps and late loop closure moves submaps rigidly through a submap pose graph instead of re-integrating a global TSDF."
 }

@@ -1,12 +1,20 @@
-# V30.35 phone validation
+# V30.37 phone validation
 
-1. Publish the patch without replacing your existing `models/` folder. Clear the application shell once and verify `V30.35.0`.
-2. Scan a textured part of the room slowly until 6-12 exact RGB+Depth photos are connected.
-3. In FOTO mode verify that small auto-exposure/white-balance changes no longer produce strong colour seams. Geometry must remain spherical and sharp.
-4. Switch to DEPTH. Do not judge the first two frames: wait until several overlaps/layer references exist. `layer ref` should increase as useful overlaps are collected.
-5. Revisit an already photographed area at a slightly different angle. The old and new Depth maps should converge to the same global palette instead of creating another rectangular colour layer.
-6. Check foreground objects against background walls. At an occlusion edge the system should prefer one posterior surface or mark the region ambiguous; it should not create a broad averaged band halfway between the two.
-7. Cross a photo border in an overlap. The colour transition should be smooth (Hann feather), while borders with no second photo should remain fully visible.
-8. If `amb` remains high over large smooth surfaces, export diagnostics: this indicates the nonlinear transforms did not obtain enough stable layer anchors and is directly actionable for further tuning.
+The most useful real-device test is no longer only “does the mesh look plausible?”. Check whether the estimator attributes failures to the right source.
 
-The existing 3-D output is not the acceptance criterion for this patch; first validate RGB continuity and global Depth consistency in the live map.
+1. Scan a textured part of a room with some lateral translation, then revisit it for a loop closure.
+2. Keep at least one nearly planar wall view and several geometrically richer views containing foreground + background.
+3. Briefly make Alva tracking difficult (fast turn / low texture), then return to a previously seen textured area.
+4. Inspect the live RGB+Depth mosaic: RGB placement must remain photo-only and Deep must remain exact-frame paired.
+5. Finish the scan and run the probabilistic optimizer.
+
+Expected diagnostics:
+
+- planar views should tend toward `shift-only`/`inherit`, not invent a new scale;
+- relative Alva edges around a tracking failure may become weak/rejected while RGB reprojection improves;
+- local Deep failures should increase local-Depth suspicion instead of moving the whole camera;
+- candidate Deep count may be non-zero: this is expected and preferable to phantom surface;
+- committed output should report `strong`/`confirmed` evidence and a rigid submap pose graph;
+- revisiting an old area should add loop constraints without visibly tearing already fused local geometry.
+
+For a useful debug export, include the `.r30`/diagnostic session after the scan; V30.37 persists the factor graph and switch state needed to reproduce these decisions.

@@ -1,28 +1,15 @@
-V30.35.0 incremental layer-wise probabilistic Depth patch
+V30.37.0 incremental causal feedback / confirmed geometry patch
 
-ARCHITECTURE.md
-PATCH_CONTENTS.txt
-PATCH_NOTES_V30.35.md
-README.md
-TEST_ON_PHONE.md
-TEST_REPORT.md
-build_info.json
-index.html
-js/app.js
-js/boot.js
-js/config.js
-js/reconstruction/live_photo_puzzle.js
-js/reconstruction/photo_depth_consensus.js
-js/reconstruction/probabilistic_depth_atlas.js
-package.json
-room_scanner_v30.html
-sw.js
-tests/boot-preflight.test.mjs
-tests/build-contract.test.mjs
-tests/photo-first-panorama-contract.test.mjs
-tests/photo-panorama.test.mjs
-tests/probabilistic-depth-atlas.test.mjs
-tools/check_v30_layout.mjs
-tools/mock_ui_boot.mjs
+Apply over V30.36.
+The archive contains only files changed or added by V30.37 and no models directory.
 
-No models are included. Downstream 3-D reconstruction files are unchanged.
+Core additions:
+- js/probabilistic/alva_switchable_edges.js
+- js/probabilistic/reliability_feedback.js
+- js/probabilistic/residual_cause_model.js
+- js/probabilistic/submap_pose_graph.js
+- js/probabilistic/frame_quality.js
+- tests/feedback-estimator.test.mjs
+- PATCH_NOTES_V30.37.md
+
+See TEST_REPORT.md and ARCHITECTURE.md for the complete change set.

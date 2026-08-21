@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-35-layerwise-probabilistic-depth",
+  "name": "room-scanner-v30-37-causal-feedback-confirmed-geometry",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,6 +14,6 @@
     "vendor:alva": "node tools/vendor_alvaar.mjs",
     "check:public": "node tools/validate_public_data.mjs"
   },
-  "version": "30.35.0",
-  "description": "Room Scanner V30.35 spherical RGB panorama with exposure compensation and layer-wise nonlinear probabilistic Depth Anything fusion"
+  "version": "30.37.0",
+  "description": "Room Scanner V30.37 causal RGB/Alva/Deep feedback with leave-one-view-out confirmed geometry and rigid submap pose graph"
 }
