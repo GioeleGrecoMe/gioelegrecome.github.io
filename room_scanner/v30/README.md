@@ -1,79 +1,41 @@
-# Room Scanner V30.30 · Exact Live Photo Puzzle + Global Depth Atlas
+# Room Scanner V30.31 · Photo-first panorama + overlap depth consensus
 
-V30.30 deliberately stops before trusting later 3D meshing: during acquisition the user can now inspect the two data products that must be coherent first.
+V30.31 deliberately improves the acquisition layer before changing any later 3D reconstruction. The live measurement screen now exposes two coupled products: a photographic pseudopanorama and a depth panorama covering the same visual atlas.
 
-- **PHOTO PUZZLE**: the RGB photographs actually sent to Depth Anything, connected online by visual overlap and placed through the exact Alva pose of the same camera frame.
-- **GLOBAL DEPTH**: the same photographs after their relative Deep maps have acquired a common scale from RGB correspondences + Alva triangulation, rendered as global radial depth from one fixed atlas origin.
+## Authority hierarchy
 
-The V30.29 post-scan `Photo Puzzle -> planes + particles` solver remains available and now receives this denser exact-frame survey evidence through the persistent probabilistic factor graph.
+The key change is the hierarchy of evidence:
 
-## Exact survey clock
+`RGB overlap -> robust visual registration -> local parallax warp -> Deep overlap consensus -> Alva metric prior -> later 3D`
 
-The live map is driven by the Deep survey clock (normally about 1 Hz), not only by the sparser dense-keyframe clock. Before a Deep inference starts, V30.30 freezes one immutable packet containing:
+AlvaAR is still captured for every photo, with pose and covariance, but it no longer vetoes a valid photographic correspondence through an epipolar gate. This is intentional: an approximate pose must be correctable by the observations rather than suppressing them.
 
-`frameId + capture timestamp + RGB/gray + K + Alva pose/covariance + 2-D Alva/MVS feature observations`.
+## Photo panorama
 
-That exact packet is inserted into the factor graph and the live photo graph. The worker result is accepted only for the same `frameId`/raster binding, so inference latency cannot attach a depth field to a later Alva pose.
+Every Deep-survey photo freezes one exact packet before asynchronous inference:
 
-If Alva has no valid pose, Deep may still be shown in the local diagnostic preview, but that photograph is not promoted into global geometry.
+`frameId + timestamp + RGB/gray + K + Alva pose/covariance + 2D features`.
 
-## Live photo graph
+New photos are connected by BRIEF/ZNCC appearance matching, mutual uniqueness, homography RANSAC and calibrated-ray rotation estimation. Pairwise visual rotations form a robust panorama graph. On top of the spherical base warp, verified RGB correspondences build a small spatially varying displacement grid that absorbs residual parallax locally. This is deliberately lightweight enough for a browser and prevents the panorama from depending on Alva translation.
 
-A walking scan is not forced through one homography. Translation produces real parallax. Each new survey photo is matched only to a small temporal neighbourhood plus plausible loop candidates. A graph edge therefore means verified RGB overlap; a weak photo stays visible as disconnected evidence and can be repaired by revisiting that direction.
+Compositing is best-source rather than indiscriminate averaging, so a disagreement does not automatically become blur. Exposure gain is estimated from matched regions and only small, colour-consistent seam blending is allowed.
 
-The spherical canvas is a virtual view of the reconstructed world around a **fixed origin locked by the first posed survey photo**. The origin never follows the mean camera position, because doing so would make already pasted content slide whenever a new frame arrives.
+## Depth panorama
 
-## Why the PHOTO atlas should be sharper
+Raw Depth Anything maps are retained in their original relative form. For each verified RGB edge, raw depth samples are compared at the matched pixels and a robust affine relation is estimated between the two maps. The strongest mutually consistent overlaps propagate a common latent depth coordinate through the photo graph.
 
-Once metric/aligned depth exists, each source pixel is back-projected through its own camera pose into 3-D and reprojected into the fixed atlas. Overlapping images are not averaged indiscriminately. V30.30 uses:
+This live overlap-consensus layer is confidence-weighted and rejects weak/suspicious maps instead of averaging them. If the existing metric Deep/Alva scale graph has enough support, the DEPTH view can switch to metric values; otherwise it stays explicitly relative. Relative and metric units are never mixed in one atlas.
 
-1. metric depth / depth-graph confidence;
-2. a radial z-buffer;
-3. a best-view score favouring central, well-conditioned source pixels;
-4. only a tiny colour-consistent seam blend when two samples represent the same surface.
+The metric 3D reconstruction pipeline itself is unchanged in this release.
 
-A provisional fronto-parallel shell is allowed only as a faint visual placeholder while scale is still unknown. It cannot replace metric pixels and never enters GLOBAL DEPTH or 3D reconstruction evidence.
+## Pose evidence retained for the next step
 
-## Online Deep scale graph
+Session snapshots and `.r30` export now retain the probabilistic factor graph, raw Deep sequence and photo-panorama evidence. The panorama state stores visual rotations, RANSAC residuals, up to 120 2D correspondences per edge, Alva pose/covariance for every frame and visual-vs-Alva disagreement diagnostics. That is the evidence needed to later optimise camera positions without treating Alva as ground truth.
 
-For a verified RGB correspondence `(u_i,u_j)`, Alva poses and intrinsics triangulate a world point `X`. The two camera optical depths are then measured separately:
+## Measurement UI
 
-`z_i = project(T_i,K_i,X).z`
-
-`z_j = project(T_j,K_j,X).z`.
-
-Raw Deep values at the same pixels become calibration pairs `(D_i,z_i)` and `(D_j,z_j)`. This explicitly avoids the incorrect assumption that the same world point must have the same camera depth after translation.
-
-The sequence compares the same three monotonic families used by the post-scan pipeline:
-
-- `z = a D + b`
-- `z = a / D + b`
-- `1/z = a D + b`.
-
-A useful live detail is that a photograph with Deep can be calibrated from an RGB-connected neighbour even if that neighbour's Deep inference failed. Geometry comes from RGB + poses; Deep is sampled only on the side where it exists.
-
-## GLOBAL DEPTH convention
-
-Deep/MVS values are camera optical `Z`. Back-projection converts them to Euclidean ray range with
-
-`range = Z / ray_camera.z`.
-
-The resulting 3-D point is transformed by the exact Alva pose. GLOBAL DEPTH then displays radial distance from the fixed atlas origin. Thus the colour of a pixel has one common geometric meaning across the entire pseudopanorama instead of representing unrelated per-camera relative depth values.
-
-Only metrically/alva-scale aligned maps and verified world samples are rendered in this mode. Unknown regions remain empty.
-
-## Memory / low-budget behaviour
-
-Survey RGB is compacted to at most 256 px on the long side and relative depth to at most 168 px. The live atlas is 640x320 internally but uses a global sample budget, so retaining more photographs does not imply rasterising every source pixel on every refresh. Up to 90 recent survey photographs are kept in the live viewer; the persistent factor graph can keep a longer session history independently.
+The camera is again the dominant surface. Top telemetry is compressed into a small HUD; PHOTO/DEPTH panorama, Deep preview and coverage sphere live in one collapsible diagnostics dock. Desktop landscape can open the dock beside the camera; on a phone it behaves as a bottom sheet and starts camera-first.
 
 ## Verification
 
-Run:
-
-```bash
-npm run verify
-```
-
-The current automated suite passes **126/126** Node tests. V30.30 adds live-atlas regressions for exact Deep-frame capture, one-sided depth-scale alignment, fixed atlas origin, no-blur best-view compositing and coverage-clock de-duplication. The public-data validator also exercises the live atlas on the freely available TUM RGB-D `freiburg1_xyz` texture with a controlled translation and known 2 m surface.
-
-This validation is intentionally separated from a claim of full end-to-end TUM room reconstruction: the public image content is real, while the controlled warp/depth gives an exact expected registration answer.
+Run `npm test` for the complete Node suite and `npm run check:public` for the public TUM registration fixture. Because the supplied project intentionally omits `models/`, the local ONNX presence test is expected to fail until the normal model files are restored; this is not a panorama regression.

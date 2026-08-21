@@ -1,7 +1,12 @@
-V30.30.0 incremental patch over V30.29.0
+V30.31.0 incremental photo-first panorama patch
 
-Modified/new files:
+Apply over the existing V30 project root, preserving these relative paths.
+The models/ directory is intentionally not included or modified.
+
+Changed/new files:
 - ARCHITECTURE.md
+- PATCH_CONTENTS.txt
+- PATCH_NOTES_V30.31.md
 - README.md
 - TEST_ON_PHONE.md
 - TEST_REPORT.md
@@ -10,10 +15,10 @@ Modified/new files:
 - js/app.js
 - js/boot.js
 - js/config.js
-- js/reconstruction/coverage_sphere.js
-- js/reconstruction/depth_scale_graph.js
 - js/reconstruction/live_photo_puzzle.js
-- js/slam/slam_engine.js
+- js/reconstruction/photo_depth_consensus.js
+- js/reconstruction/photo_panorama.js
+- js/reconstruction/view_puzzle.js
 - package.json
 - room_scanner_v30.html
 - styles.css
@@ -21,7 +26,16 @@ Modified/new files:
 - tests/boot-preflight.test.mjs
 - tests/build-contract.test.mjs
 - tests/live-photo-puzzle.test.mjs
+- tests/photo-first-panorama-contract.test.mjs
+- tests/photo-panorama.test.mjs
 - tools/check_v30_layout.mjs
 - tools/mock_ui_boot.mjs
 - tools/validate_public_data.mjs
-- workers/puzzle_reconstruction_worker.js
+
+Functional scope:
+- photo-only robust registration; Alva no longer gates panorama matches
+- robust visual rotation graph + lightweight local RGB parallax warp
+- confidence-weighted raw Depth Anything overlap consensus
+- Alva pose/covariance and visual evidence persisted for later pose correction
+- camera-first adaptive measurement GUI
+- 3D reconstruction algorithms intentionally unchanged

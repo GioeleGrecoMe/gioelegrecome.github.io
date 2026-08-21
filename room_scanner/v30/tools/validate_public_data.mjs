@@ -41,9 +41,9 @@ export function validateTumPublicData(){
   const shifts=[0,-3,-6,-9,-6,-1],puzzleFrames=shifts.map((sh,i)=>{const im=warpX(gray,w,h,sh),feats=chosen.filter(c=>c.x+sh>10&&c.x+sh<w-10).map((c,k)=>({index:k,x:c.x+sh,y:c.y,originalU:c.x+sh,originalV:c.y,score:c.g,source:'alva-track'})),tx=-sh*z/K.fx;return {frameId:`puz-${i}`,posePrior:{p:[tx,0,0],q:[0,0,0,1]},poseEstimate:{p:[tx,0,0],q:[0,0,0,1]},K,width:w,height:h,photo:{width:w,height:h,K,gray:im,rgb:grayRgb(im),features:feats}};}),photoPuzzle=new ViewPuzzleGraph({format:'ROOMSCAN-PROB-GRAPH-1',frames:puzzleFrames},{temporalRadius:1,maxLoopCandidates:4,minEdgeMatches:6,minEdgeProbability:.08}).build();
   if(photoPuzzle.stats.connectedFraction<.99||photoPuzzle.stats.edges<5||photoPuzzle.stats.loops<1)throw new Error(`TUM photo puzzle weak ${JSON.stringify(photoPuzzle.stats)}`);
 
-  // V30.30 live atlas validation on the same public TUM texture. The controlled
-  // translation corresponds to a 2 m fronto-parallel surface, so the metric
-  // depth is exact and the live pose-aware reprojection has a known solution.
+  // Live photo-first atlas validation on the same public TUM texture. RGB must
+  // stay connected through visual registration; metric depth is added only as
+  // the independent depth layer on the same controlled 2 m plane.
   const liveMap=new LivePhotoPuzzleMap({width:320,height:160,maxFrames:12,maxRenderFrames:12,photoMaxSide:320,depthMaxSide:160,minEdgeMatches:6,minEdgeProbability:.08,maxPhotoSamples:180000,maxDepthSamples:120000});
   const metricPlane=new Float32Array(w*h);metricPlane.fill(z);
   for(const f of puzzleFrames){liveMap.addFrame(f);liveMap.updateDepth(f.frameId,{depth:metricPlane,width:w,height:h,confidence:.98,mode:'public-tum-plane'});}

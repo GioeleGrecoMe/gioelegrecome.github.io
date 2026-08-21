@@ -39,11 +39,11 @@ test('one Deep frame can be metrically aligned from an RGB-connected neighbour w
   const s=map.stats();assert.equal(s.rawDepthFrames,1);assert.equal(s.metricDepthFrames,1);assert.ok(s.depthScalePairs>=6,s.depthScalePairs);
 });
 
-test('photo atlas keeps a fixed world origin while translated cameras are reprojected in 3-D',()=>{
+test('photo atlas keeps a stable visual reference while translated-camera metric evidence remains available',()=>{
   const map=new LivePhotoPuzzleMap({photoMaxSide:80,maxFrames:8});map.addCameraFrame(frame('F0',1));const o=map.origin.slice();map.addCameraFrame(frame('F1',2));assert.deepEqual(map.origin,o);assert.deepEqual(o,[1,0,0]);
 });
 
-test('sharp atlas uses best-view/z-buffer compositing instead of blur-producing image averaging',()=>{
+test('sharp photo-first atlas uses best-source compositing instead of blur-producing image averaging',()=>{
   const map=new LivePhotoPuzzleMap({width:200,height:100,photoMaxSide:80,depthMaxSide:80,maxFrames:8,maxPhotoSamples:500000});
   map.addCameraFrame(frame('F0',0,'checker'));map.addCameraFrame(frame('F1',0,'flat'));wireEdge(map,matchesForBaseline(.12));
   const z=new Float32Array(80*60);z.fill(2);map.updateDepth('F0',{depth:z,width:80,height:60,confidence:.98});map.updateDepth('F1',{depth:z,width:80,height:60,confidence:.05});
@@ -61,7 +61,7 @@ test('coverage sphere does not double-vote when the same physical frame arrives 
   const c=new ViewSphereCoverage({cols:12,rows:6,maxFrames:8}),f=frame('F0',0);const a=c.addFrame(f),sum1=[...a.cells].reduce((x,y)=>x+y,0),b=c.addFrame(f),sum2=[...b.cells].reduce((x,y)=>x+y,0);assert.equal(c.frames.length,1);assert.equal(sum2,sum1);
 });
 
-test('post-scan Photo Puzzle replaces the legacy averaged atlas with the same pose/depth-aware sharp renderer',()=>{
+test('post-scan Photo Puzzle replaces the legacy averaged atlas with the same photo-first sharp renderer',()=>{
   const worker=fs.readFileSync(new URL('../workers/puzzle_reconstruction_worker.js',import.meta.url),'utf8');
   assert.match(worker,/LivePhotoPuzzleMap/);assert.match(worker,/loadSolvedGraph\(graph,puzzle,depthScale\)/);assert.match(worker,/sharpPoseDepthAtlas:true/);
 });

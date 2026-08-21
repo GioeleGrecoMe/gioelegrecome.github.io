@@ -1,61 +1,60 @@
-# V30.30 verification report
+# V30.31 verification report
 
-Build: `v30.30.0-20260821-exact-live-photo-depth-atlas`
+Build: `v30.31.0-20260821-photo-first-panorama-depth-consensus`
 
-## Automated verification
+## Automated suite
 
-Command:
+`npm test` executes 133 tests in the supplied source tree. Result with the user-provided archive (where `models/` was intentionally removed):
 
-```bash
-npm run verify
-```
+- **132 PASS**
+- **1 expected file-presence failure**: `models/model_q4.onnx` is absent
+- **0 panorama/depth/GUI/pose regressions**
 
-Result:
+The failing ONNX assertion is a packaging check, not an inference or panorama failure. Restore the normal deployed `models/` directory and that test can run as designed.
 
-- Node regression suite: **126/126 PASS**
-- public-data validation: **PASS**
-- Depth Anything diagnostics: **PASS**
-- layout/build identity: **PASS**
-- local dependency closure: **PASS** (`37` local references resolved)
-- EventTarget constructor safety: **5/5 PASS**
-- mock UI/recovery boot: **PASS**, including live `FOTO/DEPTH` switch binding
-- Alva runtime contract: **PASS**
+Additional checks on this source tree:
 
-## New V30.30 regressions
+- `npm run check:public`: PASS
+- `npm run check:depth`: PASS
+- `npm run check:layout`: PASS
+- `npm run check:deps`: PASS, 39 local references resolved
+- `npm run check:constructors`: PASS, 5/5 derived EventTarget classes
+- `npm run check:mock`: PASS, including PHOTO/DEPTH switch and diagnostics dock open/close
+- `npm run check:alva`: PASS
 
-The live photo/depth layer is covered by dedicated tests for:
+## New photo-first regressions
 
-1. exact Deep-survey RGB/pose/feature capture before worker inference;
-2. raw Deep returning only to its source `frameId`;
-3. pose-aware RGB+Alva triangulation recovering common Deep scale;
-4. one-sided scale recovery when only one photo of a connected RGB pair has Deep;
-5. a fixed panorama/world origin while the camera translates;
-6. z-buffer + best-view photo compositing preserving contrast instead of averaging overlapping images into blur;
-7. coverage-sphere de-duplication when survey and dense clocks see the same physical frame;
-8. post-scan Photo Puzzle replacing the old averaged diagnostic atlas with the same pose/depth-aware sharp renderer.
+Dedicated tests verify that:
 
-## Public TUM validation
+1. photographic registration still recovers the expected visual rotation when Alva orientation/position are deliberately wrong;
+2. the global panorama graph follows visual edges rather than inheriting a bad Alva orientation;
+3. raw Depth Anything maps with different affine scales are brought into one overlap-consensus coordinate;
+4. the local photo warp reduces a synthetic residual-parallax displacement without using Alva translation;
+5. live and post-scan panorama modules no longer use `matchProbabilisticFeatures`/Alva epipolar gating for photographic registration;
+6. both published HTML entry points expose the camera-first collapsible measurement diagnostics UI;
+7. local sessions and `.r30` retain panorama, raw-depth and Alva pose evidence needed for later pose correction.
 
-The freely available TUM RGB-D `freiburg1_xyz` fixture already bundled under `test/online-data/` is reused. The image texture is public TUM data. Controlled image translation/depth is used where an exact live-atlas registration answer is required; this is not presented as a full end-to-end TUM room benchmark.
+## Public TUM fixture
 
-Observed validation values:
+The existing public TUM RGB-D `freiburg1_xyz` fixture is reused as a real-texture registration test with controlled geometry where an exact expected answer is available. It is not presented as a complete room-reconstruction benchmark.
 
-- ground-truth samples: `3000`
-- trajectory duration: `30.0896 s`
-- trajectory path length: `9.1593 m`
-- real-texture feature precision: `98.837%`
-- real-texture recall: `100%`
-- photo puzzle: `6` frames, `8` edges, `3` loop closures, `100%` connected
-- V30.30 live atlas: `13` overlap edges, `100%` connected
-- live PHOTO atlas coverage in the controlled fixture: `5.129%` of the full sphere
-- live GLOBAL DEPTH coverage: `5.129%` of the full sphere
-- factor-graph reprojection RMSE: `2.2912 px -> 0.03697 px`
-- mean pose correction in the factor-graph fixture: `8.394 mm`
+Observed values after the V30.31 changes:
 
-The small atlas coverage percentage is expected: the public validation fixture contains a short narrow-FOV controlled sequence, not a 360-degree room walk. The important assertion is that PHOTO and GLOBAL DEPTH occupy the same connected angular support and that all six source views remain connected.
+- trajectory samples: 3000
+- duration: 30.0896 s
+- path length: 9.1593 m
+- real-texture feature matches: 86, of which 85 correct
+- precision: **98.837%**
+- recall: **100%**
+- post-scan photo graph: 6 frames / 8 edges / 3 loop closures / **100% connected**
+- live photo graph: 14 edges / **100% connected**
+- PHOTO atlas support: 5.1523% of the full sphere
+- DEPTH atlas support: 5.1504% of the full sphere
+- independent factor-graph fixture: reprojection RMSE 2.2912 px -> 0.03697 px
+- factor-graph fixture mean pose correction: 8.394 mm
 
-## Interpretation
+The small spherical coverage is expected from the short narrow-FOV fixture. The relevant assertion here is connectivity and consistent PHOTO/DEPTH angular support.
 
-The new tests establish that the live pseudopanorama is no longer generated by indiscriminate orientation-only averaging. When depth is observable, RGB is back-projected into 3-D with the exact Alva pose and composited through a fixed-origin z-buffer. GLOBAL DEPTH is derived from the same world points. Before scale becomes observable, provisional RGB may be shown faintly for scan guidance but cannot become depth/3-D evidence.
+## Scope
 
-The remaining decisive validation is physical-phone acquisition: PHOTO must remain sharp/continuous while walking and GLOBAL DEPTH must progressively fill the same regions. If those two products are correct and the final 3-D remains poor, the error is isolated downstream in surface reconstruction rather than in acquisition registration.
+V30.31 changes acquisition registration, panorama/depth diagnostics, evidence persistence and measurement GUI. The later 3D reconstruction/mesh optimisation algorithms are intentionally unchanged. A future step can use the newly retained 2D correspondences + visual graph + Deep consensus + Alva pose covariance to optimise camera positions explicitly.

@@ -1,86 +1,41 @@
-# Room Scanner V30.30 architecture
+# Room Scanner V30.31 architecture
 
-## 0. Principle: make the acquisition observable before meshing
+## 1. Exact photo node
 
-V30.30 treats the live photo/depth atlas as a prerequisite diagnostic layer. If RGB views cannot form a continuous graph or their relative Deep fields cannot acquire a coherent common scale, no later Gaussian/particle/mesh optimiser can recover trustworthy room geometry.
+At each Deep survey tick the app freezes the camera image before transferring data to the inference worker. The same node carries frame identity, intrinsics, 2D features, AlvaAR 6-DoF pose and pose covariance. Raw Deep can return only to that exact node.
 
-The live layer therefore exposes exactly the evidence later used by the persistent probabilistic graph.
+## 2. Photo-first registration graph
 
-## 1. Exact Deep-survey frame packet
+`LivePhotoPuzzleMap` and post-scan `ViewPuzzleGraph` no longer call the Alva-epipolar probabilistic matcher for panorama registration. A candidate edge is built from image evidence only:
 
-At the ~1 Hz Deep survey tick, after Alva has processed the current camera raster, the app freezes
+`BRIEF -> ZNCC -> mutual uniqueness -> homography RANSAC -> calibrated-ray relative rotation`.
 
-`F_i = {frameId, t_i, I_i, K_i, T_i^Alva, Sigma_Ti, features_i}`.
+The RANSAC homography is an overlap validator, not a claim that the complete room is planar. The accepted visual rotations are solved globally on a robust rotation graph. Alva orientation is used only as a zero-confidence display fallback for a disconnected photo and remains saved as an independent prior.
 
-This happens before the RGBA buffer is transferred to the Deep worker. The packet is inserted into:
+## 3. Lightweight local parallax warp
 
-- the persistent probabilistic factor graph;
-- the incremental live photo puzzle;
-- the spherical coverage monitor.
+A walking scan violates the single-centre panorama assumption. After the stable spherical base orientation is solved, each accepted RGB match measures the residual displacement between its two atlas projections. Those residuals populate a low-resolution smooth displacement field per photo. The graph root stays fixed; less-certain frames absorb more correction.
 
-Deep completion time is not used as a geometric timestamp. The returned raw depth can update only the node carrying the same exact frame binding/signature.
+The warp is conservative, locally supported and capped. Large residuals are treated as likely dynamic/wrong correspondences rather than allowed to fold the panorama. This gives the diagnostic mosaic local freedom without using Alva translation to force image placement.
 
-## 2. Incremental photo puzzle
+## 4. Sharp composition
 
-The live graph is `G=(V,E)` with one node per posed Deep-survey photograph. Candidate edges are restricted to a temporal window and a few orientation-compatible loop candidates. An edge is retained only when probabilistic feature matching supports real image overlap using appearance, ZNCC, mutual uniqueness and Alva-pose epipolar consistency.
+Each atlas sample has a source score based on graph connectivity, registration confidence and distance from the source image centre. The best source wins. A tiny blend is permitted only for close-scoring colour-consistent samples. This avoids the characteristic blur of averaging slightly misregistered photographs.
 
-No global homography is assumed. Parallax is preserved and later explained by the 3-D pose/depth warp.
+## 5. Deep overlap consensus
 
-Disconnected photos remain visible instead of being silently discarded. They are scan-quality evidence and can trigger a revisit.
+Deep is solved as a separate layer. On each verified RGB edge, raw monocular values are sampled at the same matched image coordinates. A robust affine mapping is fitted between the two raw fields, weighted by visual-edge confidence and Depth diagnostics. A strongest-path graph propagates the transforms into one latent depth coordinate.
 
-## 3. Online pose-aware Deep scale graph
+Weak pair fits, negative scales, poor spread/correlation and suspicious Depth quality receive little or no authority. In overlapping atlas pixels, confidence chooses the source; only consistent values blend.
 
-A matched RGB pair does not constrain raw Deep values to equality. The calibrated rays are triangulated with the two Alva poses, producing world point `X`. Each camera then sees its own optical depth:
+The existing metric `DepthScaleGraph` is retained unchanged for metric calibration. The live renderer uses one mode at a time: metric if sufficiently supported, otherwise relative overlap-consensus.
 
-`z_i = pi_z(T_i^-1 X)`.
+## 6. Alva is a prior, not a photographic authority
 
-Raw Deep samples at the matched pixels provide independent `(D_i,z_i)` anchors. The online graph robustly compares
+For each frame the system keeps `pose`, `poseCov`, intrinsics and timestamp. Diagnostics report the angular disagreement between the visual solution and Alva. No Alva pose check is allowed to reject an otherwise valid panorama edge.
 
-- `z = aD+b`
-- `z = a/D+b`
-- `1/z = aD+b`.
+The existing factor graph and 3D reconstruction code remain intact. V30.31 only improves the observations and persistence that will feed a future pose-correction step.
 
-The model family is sequence-level; well-supported frames receive local parameters while weak frames borrow a low-confidence graph prior. An RGB edge can calibrate one Deep side even when the other side has no valid Deep map.
+## 7. Persistence
 
-## 4. Fixed-origin pose-aware pseudopanorama
-
-The atlas origin is locked to the first valid posed survey camera and never changes during the scan. Every metric/aligned pixel is converted from camera optical depth to range
-
-`r = Z / d_z`
-
-and then to world point
-
-`X_w = C_i + R_i d r`.
-
-The world point is finally mapped to equirectangular coordinates around the fixed atlas origin. Therefore camera translation is handled by geometry rather than hidden inside a moving panorama reference.
-
-### PHOTO compositing
-
-Each atlas pixel retains the sharpest geometrically plausible source sample:
-
-- z-buffer for conflicting surfaces;
-- metric/depth confidence;
-- source-view centrality;
-- graph connectivity.
-
-Overlaps are not simple weighted averages. Tiny seam blending is allowed only for colour-consistent samples already classified as the same surface. Before metric depth is observable, a low-alpha fallback shell may show approximate photo continuity, but it has no authority in GLOBAL DEPTH or reconstruction.
-
-### GLOBAL DEPTH
-
-The depth atlas uses only aligned Deep maps, strong online calibrations, MVS/sparse world samples and the same fixed origin. Its value is global radial distance, so the colour scale is common to all photographs. Unknown/unaligned pixels stay transparent.
-
-## 5. Coverage and revisit
-
-The same physical frame may appear on both the Deep survey clock and dense-keyframe clock. `ViewSphereCoverage` de-duplicates by `frameId`, preventing one image from voting twice. Photo-graph discontinuity and angular coverage remain separate signals: a direction may be seen but poorly connected, in which case the user should revisit it.
-
-## 6. Persistent post-scan evidence
-
-Every posed survey photo is also inserted into `ProbabilisticFactorGraph`, and raw Deep is attached when its exact result returns. The post-scan V30.29/V30.28 solvers therefore receive more temporally regular evidence than before rather than a separate display-only collage.
-
-The authority hierarchy remains:
-
-`exact frame identity -> photo connectivity -> pose-aware triangulation -> Deep scale -> independent MVS -> planes / residual particles -> derived 3D`.
-
-## 7. Why this precedes further mesh work
-
-A sharp connected PHOTO atlas is a direct test of RGB/pose consistency. A coherent GLOBAL DEPTH atlas is a direct test of Deep scale + pose geometry. If either is wrong, a later surface optimiser would only hide the acquisition error. V30.30 therefore makes these products inspectable live before treating their measurements as a room surface.
+Local session format is `ROOMSCAN-PUZZLE-SESSION-5`. `.r30` now includes an `evidence` block with `factorGraph`, `deepSequence` and `photoPanorama`. Panorama evidence includes visual edge rotations, confidence, RANSAC residuals, 2D match coordinates, visual orientations and compact local-warp/depth-consensus diagnostics.

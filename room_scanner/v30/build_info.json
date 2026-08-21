@@ -1,6 +1,6 @@
 {
-  "version": "30.30.0",
-  "id": "v30.30.0-20260821-exact-live-photo-depth-atlas",
-  "builtAt": "2026-08-21T11:52:00+02:00",
-  "notes": "V30.30 makes the Deep survey clock the live photo-puzzle clock. Every posed Deep request freezes the exact RGB, Alva pose, intrinsics and 2-D features into one frame node; the asynchronous relative depth can only return to that node. RGB overlap creates a live photo graph, geometric correspondences plus Alva triangulation estimate per-frame Deep scale, and PHOTO/DEPTH atlases use pose-aware reprojection with z-buffer/best-view compositing instead of blur-producing image averaging."
+  "version": "30.31.0",
+  "id": "v30.31.0-20260821-photo-first-panorama-depth-consensus",
+  "builtAt": "2026-08-21T12:40:00+02:00",
+  "notes": "V30.31 makes RGB overlap the authority for panorama registration. Photo-only BRIEF/ZNCC correspondences are verified by robust homography RANSAC and converted into a visual rotation graph; AlvaAR pose and covariance are preserved per photo as a metric prior and disagreement diagnostic, not an epipolar veto. Raw Depth Anything maps are aligned statistically across verified RGB overlaps with robust affine consensus and confidence-aware source selection. The 3D reconstruction solvers are intentionally unchanged. The measurement GUI is camera-first with a collapsible panorama/depth diagnostics dock, and session/.r30 persistence now retains panorama registration evidence for later pose correction."
 }

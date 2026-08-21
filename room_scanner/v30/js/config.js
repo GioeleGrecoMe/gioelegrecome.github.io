@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.30.0 live photo/depth puzzle configuration.
+ * Room Scanner V30.31.0 photo-first panorama/depth-consensus configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.30.0',
-  id:'v30.30.0-20260821-exact-live-photo-depth-atlas',
+  version:'30.31.0',
+  id:'v30.31.0-20260821-photo-first-panorama-depth-consensus',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -292,10 +292,10 @@ export const CONFIG={
   coverageSphereRows:12,
   coverageSphereMaxFrames:72,
 
-  // V30.30 live photo/depth atlas.  This is a diagnostic display only: the
-  // reconstruction remains driven by the probabilistic factor graph. RGB uses
-  // a low-authority fallback plane until metric depth becomes available; the
-  // GLOBAL DEPTH view never displays fallback depths as measurements.
+  // V30.31 photo-first panorama. This diagnostic layer deliberately separates
+  // image registration from metric reconstruction: RGB overlap + RANSAC drives
+  // panorama orientation, Deep is reconciled across overlaps, and AlvaAR stays
+  // available as a metric pose prior with uncertainty rather than an image-warp truth.
   livePuzzleAtlasWidth:640,
   livePuzzleAtlasHeight:320,
   livePuzzleMaxFrames:90,

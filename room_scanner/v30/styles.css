@@ -139,7 +139,7 @@
 /* V30.29 spherical scan coverage + Photo Puzzle post-processing */
 .coverageSpherePanel{position:absolute;left:max(10px,env(safe-area-inset-left));bottom:calc(78px + env(safe-area-inset-bottom));width:min(46vw,260px);z-index:8;padding:7px 8px;border-radius:12px;background:rgba(5,8,13,.72);backdrop-filter:blur(7px);box-shadow:0 4px 18px rgba(0,0,0,.28);font-size:.68rem;line-height:1.25;color:#eef4fa;pointer-events:none}.coverageSpherePanel canvas{display:block;width:100%;height:auto;aspect-ratio:2/1;margin-top:5px;border-radius:7px;background:#101722}.puzzleCard{border-color:rgba(123,228,149,.35)}.photoSpherePreview{display:block;width:100%;aspect-ratio:2/1;max-height:220px;margin:.65rem 0;background:#05070a;border:1px solid rgba(255,255,255,.15);border-radius:9px;image-rendering:auto}.puzzleCard progress{width:100%;margin:.55rem 0}.puzzleCard input[type=number]{max-width:7.5rem}@media(max-width:620px){.coverageSpherePanel{width:min(55vw,220px);bottom:calc(92px + env(safe-area-inset-bottom));}.photoSpherePreview{max-height:160px}}
 
-/* V30.30 live pose/depth photo puzzle. The atlas is a diagnostic world-shell:
+/* V30.31 live pose/depth photo puzzle. The atlas is a diagnostic world-shell:
  * RGB thumbnails are reprojected from their exact Alva pose; metric Deep/MVS
  * replaces the low-authority plane fallback as soon as it becomes available. */
 #scan .livePuzzlePanel{position:absolute;left:max(10px,env(safe-area-inset-left));top:118px;width:min(50vw,350px);z-index:8;padding:7px 8px;border-radius:12px;background:rgba(5,9,15,.80);border:1px solid rgba(123,228,149,.42);box-shadow:0 8px 24px rgba(0,0,0,.34);backdrop-filter:blur(7px);pointer-events:auto;color:#eef5ff}
@@ -152,3 +152,56 @@
 #scan .livePuzzleLegend{margin-top:4px;color:#9db0c5;font-size:.56rem;line-height:1.15;white-space:normal}
 #scan .deepLivePreview{top:262px!important}
 @media(max-width:620px){#scan .livePuzzlePanel{width:min(50vw,230px);top:116px;padding:6px}#scan .livePuzzleLegend{display:none}#scan .deepLivePreview{top:242px!important;width:min(42vw,178px)!important}}
+
+/* Photo-first panorama measurement UI.
+ * The camera remains a true full-screen layer. Diagnostics are now one
+ * collapsible dock instead of four independent overlays competing for pixels. */
+#scan .scanHudBar{left:max(8px,env(safe-area-inset-left))!important;right:auto!important;top:max(8px,env(safe-area-inset-top))!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:5px!important;max-width:calc(100vw - 92px)!important;pointer-events:none!important}
+#scan .scanHudPrimary{display:flex;gap:5px;flex-wrap:wrap}
+#scan .scanHudBar span{padding:.31rem .52rem!important;font-size:.69rem!important;background:rgba(4,10,17,.72)!important;border-color:rgba(155,190,220,.24)!important;backdrop-filter:blur(6px)}
+#scan .scanStats{position:static!important;display:flex!important;padding:.28rem .42rem!important;gap:.55rem!important;border:1px solid rgba(155,190,220,.20)!important;background:rgba(4,10,17,.62)!important;border-radius:9px!important;backdrop-filter:blur(6px);font-size:.66rem!important}
+#scan .scanStats span{padding:0!important;background:transparent!important;border:0!important}
+
+#scan .scanDiagnosticsToggle{position:absolute;right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));z-index:10;padding:.42rem .68rem;border-radius:999px;background:rgba(8,17,28,.84);border-color:#3e6079;color:#fff;font-size:.72rem;box-shadow:0 5px 18px rgba(0,0,0,.28);backdrop-filter:blur(8px)}
+#scan .scanDiagnosticsToggle[aria-expanded="true"]{background:#0f6078;border-color:#61d6ff}
+#scan .scanDiagnostics{position:absolute;z-index:9;top:max(52px,calc(env(safe-area-inset-top) + 48px));right:max(8px,env(safe-area-inset-right));width:min(390px,38vw);max-height:calc(100dvh - 132px - env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;padding:9px;background:rgba(4,9,15,.90);border:1px solid rgba(122,182,220,.32);border-radius:15px;box-shadow:0 12px 34px rgba(0,0,0,.43);backdrop-filter:blur(12px);overflow:auto;overscroll-behavior:contain;transform:translateX(calc(100% + 24px));opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}
+#scan .scanDiagnostics.open{transform:translateX(0);opacity:1;pointer-events:auto}
+#scan .scanDiagnosticsHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 1px;color:#f3f8ff}
+#scan .scanDiagnosticsHead>div{display:flex;flex-direction:column;gap:1px;font-size:.69rem;line-height:1.18}
+#scan .scanDiagnosticsHead span{color:#90a9bf;font-size:.59rem}
+#scan .scanDiagnosticsHead button{padding:.16rem .50rem;min-width:32px;border-radius:8px;background:#111d29;color:#fff;font-size:1.05rem;line-height:1.1}
+
+#scan .livePuzzlePanel{position:static!important;left:auto!important;top:auto!important;width:100%!important;z-index:auto!important;padding:7px!important;margin:0!important;background:rgba(7,13,21,.86)!important;box-shadow:none!important;backdrop-filter:none!important;border-radius:11px!important}
+#scan .livePuzzleHead{font-size:.65rem!important}
+#scan #liveMapCanvas{aspect-ratio:2/1;min-height:118px;max-height:215px}
+#scan .livePuzzleLegend{font-size:.57rem!important;color:#9eb3c6!important}
+#scan .scanDiagGrid{display:grid;grid-template-columns:minmax(0,.86fr) minmax(0,1.14fr);gap:8px;align-items:start}
+#scan .deepLivePreview,#scan .coverageSpherePanel{position:static!important;inset:auto!important;width:100%!important;z-index:auto!important;margin:0!important;padding:6px!important;border-radius:10px!important;background:rgba(7,13,21,.80)!important;border:1px solid rgba(120,205,255,.25)!important;box-shadow:none!important;backdrop-filter:none!important;pointer-events:none!important;color:#eaf4ff}
+#scan .deepLivePreview #deepLiveState,#scan .coverageSpherePanel #coverageState{font-size:.59rem!important;line-height:1.25!important;margin:0 0 4px!important;color:#dfefff!important}
+#scan #depthOverlay{width:100%!important;aspect-ratio:3/4!important;max-height:160px!important;object-fit:contain!important}
+#scan .coverageSpherePanel canvas{margin-top:4px!important;aspect-ratio:2/1!important}
+#scan .metricPipelineHud{position:static!important;left:auto!important;right:auto!important;bottom:auto!important;max-width:none!important;padding:.52rem .60rem!important;border:1px solid rgba(155,190,220,.18);border-radius:10px;background:rgba(7,13,21,.74);color:#bdd0e1;font-size:.62rem;line-height:1.28}
+
+#scan .scanCoach{left:50%!important;right:auto!important;bottom:calc(66px + env(safe-area-inset-bottom))!important;width:min(720px,calc(100vw - 20px))!important;transform:translateX(-50%);padding:.48rem .68rem!important;text-align:center;font-size:.72rem;line-height:1.25;background:rgba(5,12,20,.76)!important;border-color:rgba(155,190,220,.25)!important;backdrop-filter:blur(7px);pointer-events:none}
+#scan .scanButtons{left:max(8px,env(safe-area-inset-left))!important;right:max(8px,env(safe-area-inset-right))!important;bottom:max(8px,env(safe-area-inset-bottom))!important;padding:5px!important;gap:5px!important;background:rgba(4,9,15,.72);border:1px solid rgba(155,190,220,.20);border-radius:13px;backdrop-filter:blur(8px)}
+#scan .scanButtons button{padding:.54rem .68rem!important;border-radius:9px!important;font-size:.70rem!important;color:#fff!important;background:#182334!important}
+#scan .scanButtons .danger{background:#68252b!important}
+
+@media(max-width:760px){
+  #scan .scanDiagnostics{left:8px;right:8px;top:auto;bottom:calc(66px + env(safe-area-inset-bottom));width:auto;max-height:min(58dvh,520px);transform:translateY(calc(100% + 82px));border-radius:15px 15px 11px 11px}
+  #scan .scanDiagnostics.open{transform:translateY(0)}
+  #scan .scanHudBar{max-width:calc(100vw - 86px)!important}
+  #scan .scanHudPrimary span:nth-child(4){display:none}
+  #scan .scanStats{gap:.38rem!important}
+  #scan .scanStats span:nth-child(4),#scan .scanStats span:nth-child(5){display:none}
+  #scan .scanCoach{bottom:calc(65px + env(safe-area-inset-bottom))!important;font-size:.67rem;width:calc(100vw - 16px)!important}
+  #scan .scanDiagnostics.open~.scanCoach{opacity:.18}
+}
+@media(max-width:430px){
+  #scan .scanHudPrimary span{font-size:.62rem!important;padding:.27rem .43rem!important}
+  #scan .scanStats{display:none!important}
+  #scan .scanDiagGrid{grid-template-columns:.82fr 1.18fr}
+  #scan .livePuzzleLegend{display:block!important}
+  #scan #liveMapCanvas{min-height:100px}
+  #scan .scanButtons button{padding:.48rem .52rem!important;font-size:.65rem!important}
+}
