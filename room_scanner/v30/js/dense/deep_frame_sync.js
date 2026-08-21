@@ -20,7 +20,7 @@ export function sampledFrameSignature(rgba,width,height){
   return h.toString(16).padStart(8,'0');
 }
 
-export function createDeepFrameBinding({jobId,kind='keyframe',frameId,frameAt,refId=null,rgba,width,height,payload=null,tracking=null}={}){
+export function createDeepFrameBinding({jobId,kind='keyframe',frameId,frameAt,refId=null,rgba,width,height,payload=null,tracking=null,survey=null}={}){
   if(!jobId)throw new Error('Deep sync: jobId mancante');
   if(!frameId)throw new Error('Deep sync: frameId mancante');
   if(!(Number.isFinite(Number(frameAt))))throw new Error('Deep sync: frameAt mancante');
@@ -28,7 +28,7 @@ export function createDeepFrameBinding({jobId,kind='keyframe',frameId,frameAt,re
   return {
     jobId:String(jobId),kind:String(kind),frameId:String(frameId),frameAt:Number(frameAt),
     refId:refId==null?null:String(refId),width:Number(width),height:Number(height),
-    frameSignature:sampledFrameSignature(rgba,width,height),payload,tracking,
+    frameSignature:sampledFrameSignature(rgba,width,height),payload,tracking,survey,
     requestedAt:typeof performance!=='undefined'?performance.now():Date.now()
   };
 }

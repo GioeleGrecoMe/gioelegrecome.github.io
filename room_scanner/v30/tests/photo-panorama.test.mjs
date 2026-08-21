@@ -41,3 +41,11 @@ test('Deep overlap consensus aligns raw monocular maps statistically after the R
   const w=20,h=12,rawB=new Float32Array(w*h),rawA=new Float32Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const v=.3+x*.04+y*.015;rawB[y*w+x]=v;rawA[y*w+x]=1.8*v-.27;}
   const mk=(id,raw)=>({frameId:id,width:w,height:h,relativeDepth:raw,relativeDepthWidth:w,relativeDepthHeight:h,relativeConfidence:.9,relativeQuality:{suspicious:false,stripe:{suspicious:false}}}),A=mk('A',rawA),B=mk('B',rawB),matches=[];for(let y=1;y<h-1;y+=2)for(let x=1;x<w-1;x+=2)matches.push({aU:x,aV:y,bU:x,bV:y,probability:.95});const c=solvePhotoDepthConsensus([A,B],[{a:0,b:1,matches,visualConfidence:.95}],{minPairs:6});assert.equal(c.stats.alignedFrames,2);const za=sampleConsensusDepth(A,c.transforms[0],10,6),zb=sampleConsensusDepth(B,c.transforms[1],10,6);assert.ok(Math.abs(za-zb)<1e-4,{za,zb});
 });
+
+test('a requested mosaic root never jumps to a larger disconnected photo cluster',()=>{
+  const f=i=>({frameId:String(i),width:100,height:80,features:[]}),frames=[f(0),f(1),f(2)],matches=[];
+  for(let y=10;y<=70;y+=15)for(let x=10;x<=90;x+=16)matches.push({aU:x,aV:y,bU:x+3,bV:y,probability:.98,photometricProbability:.98,uniquenessProbability:.98});
+  const edge={a:1,b:2,matches,homography:[1,0,-.03,0,1,0,0,0,1],visualConfidence:.95,weight:.95};
+  const anchored=solvePhotoMosaic(frames,[edge],{rootIndex:0,iterations:1});assert.deepEqual(anchored.component,[0]);assert.ok(anchored.transforms[0]);assert.equal(anchored.transforms[1],null);assert.equal(anchored.transforms[2],null);
+  const automatic=solvePhotoMosaic(frames,[edge],{iterations:1});assert.equal(automatic.component.length,2);
+});

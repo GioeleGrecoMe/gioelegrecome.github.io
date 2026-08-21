@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.32.0 pure-photo mosaic/depth-consensus configuration.
+ * Room Scanner V30.33.0 continuous RGB live-mosaic configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.32.0',
-  id:'v30.32.0-20260821-pure-photo-mosaic',
+  version:'30.33.0',
+  id:'v30.33.0-20260821-continuous-rgb-preview',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -292,7 +292,7 @@ export const CONFIG={
   coverageSphereRows:12,
   coverageSphereMaxFrames:72,
 
-  // V30.32 pure-photo mosaic. This diagnostic layer deliberately separates
+  // V30.33 pure-photo mosaic. This diagnostic layer deliberately separates
   // image registration from metric reconstruction: RGB overlap + RANSAC drives
   // panorama orientation, Deep is reconciled across overlaps, and AlvaAR stays
   // available as a metric pose prior with uncertainty rather than an image-warp truth.

@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.32.0 pure-photo mosaic/depth-consensus application.
+ * Room Scanner V30.33.0 continuous RGB+Depth mosaic application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,8 +8,8 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.32.0';
-import {DiagnosticsLog} from './logger.js?v=30.32.0';
+import {BUILD,CONFIG} from './config.js?v=30.33.0';
+import {DiagnosticsLog} from './logger.js?v=30.33.0';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
@@ -240,37 +240,38 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
 }
 
 function captureLiveSurveyFrame(frame,tracking){
-  // PHOTO CLOCK: independent from Alva validity. The exact RGB frame is frozen
-  // before Deep inference and is always admitted to the photo mosaic. A valid
-  // Alva pose is merely optional metadata for the unchanged metric/3-D graph.
-  if(!state.scanK||!frame?.gray?.length||!frame?.frameId)return null;
+  // Freeze the exact RGB frame that WILL be sent to Deep. It is only a pending
+  // candidate here: no photo graph, no live mosaic and no coverage vote exist
+  // until a valid depth result returns for this same immutable frame.
+  if(!state.scanK||!frame?.gray?.length||!frame?.rgba?.length||!frame?.frameId)return null;
   const hasAlva=!!(tracking?.trackingValid&&tracking?.pose?.p&&tracking?.pose?.q),survey={
     id:`photo-${frame.captureSeq||tracking?.frame||tracking?.frameId||frame.frameId}`,
     frameId:String(frame.frameId),captureAt:Number(frame.at),at:Number(frame.at),
     pose:hasAlva?{p:[...tracking.pose.p],q:[...tracking.pose.q]}:null,poseCov:hasAlva?(tracking.poseCov||null):null,
-    K:{...state.scanK},width:frame.width,height:frame.height,gray:frame.gray,rgba:frame.rgba,
-    // These SLAM observations are retained only for the metric graph. The live
-    // mosaic re-detects its own photo corners from gray/RGB and ignores them.
+    K:{...state.scanK},width:frame.width,height:frame.height,
+    // Own immutable copy: the camera analysis buffers may be reused while the
+    // asynchronous Deep worker is still processing this frame.
+    gray:new Uint8Array(frame.gray),rgba:new Uint8ClampedArray(frame.rgba),
+    // SLAM observations are metadata for the metric graph only. The RGB mosaic
+    // always detects and matches its own features on the frozen photograph.
     features:hasAlva?(tracking.featureObservations||tracking.newKeyframe?.features||[]):[],
-    metricLocked:hasAlva&&!!state.slam?.metricLocked,trackingMode:tracking?.trackingMode||'alva-unavailable',trackingValid:hasAlva
+    metricLocked:hasAlva&&!!state.slam?.metricLocked,trackingMode:tracking?.trackingMode||'alva-unavailable',trackingValid:hasAlva,depthPlanned:true
   };
-  const graphFrame=hasAlva?(state.probGraph?.addFrame(survey)||null):null;
-  let photoAdded=false;if(state.liveMap){state.liveMap.setFallbackDepth(state.denseDepthHint||CONFIG.livePuzzleFallbackDepth||2.2);state.liveMapStats=state.liveMap.addCameraFrame(survey,{fallbackDepth:state.denseDepthHint||CONFIG.livePuzzleFallbackDepth||2.2,source:'deep-survey'});photoAdded=!!state.liveMap.frameMap?.has?.(String(frame.frameId));scheduleLiveMapRender();}
-  if(hasAlva&&state.coverageSphere){state.coverageStatus=state.coverageSphere.addFrame(survey);state.coverageApi?.drawCoverageSphere?.($('coverageSphere'),state.coverageStatus);updateCoverageUi();}
-  return {graphFrame,photoAdded,alvaPose:hasAlva};
+  return {survey,alvaPose:hasAlva};
 }
 
 function requestLiveDeepPreview(frame,tracking){
   if(!frame?.rgba?.length||!frame?.gray?.length||!state.scanK)return;
-  const now=Number(frame.at)||performance.now(),interval=Math.max(500,Number(CONFIG.deepInferenceIntervalMs)||1000);let capture=null;
-  // The PHOTO clock is independent from the Deep worker and from Alva tracking.
-  // Even if AI depth is disabled, INIT, slow or failing, the RGB mosaic continues.
-  if(now-(state.photoSurveyLastAt||0)>=interval){state.photoSurveyLastAt=now;capture=captureLiveSurveyFrame(frame,tracking);}
-  if(CONFIG.deepLiveDuringScan===false||!state.deepDepthWorker||state.deepDisabled||!state.deepSync){if(capture?.photoAdded&&$('deepLiveState'))$('deepLiveState').textContent=`FOTO MOSAICO ✓ · Alva meta ${capture.alvaPose?'✓':'—'} · Deep non attiva`;return;}
+  const now=Number(frame.at)||performance.now(),interval=Math.max(500,Number(CONFIG.deepInferenceIntervalMs)||1000);
+  // Consistency invariant: there is no photo-only clock anymore. If Deep cannot
+  // accept this exact frame, the frame is not registered and cannot appear in
+  // the mosaic. Dense/SLAM geometry continues separately.
+  if(CONFIG.deepLiveDuringScan===false||!state.deepDepthWorker||state.deepDisabled||!state.deepSync){if($('deepLiveState'))$('deepLiveState').textContent='MOSAICO RGB+DEEP · fermo (Depth non attiva)';return;}
   if(state.deepPreviewInFlight||now-state.deepPreviewLastAt<interval)return;
-  if(!capture){state.photoSurveyLastAt=now;capture=captureLiveSurveyFrame(frame,tracking);}state.deepPreviewLastAt=now;const jobId=`preview-ticker-${++state.deepPreviewSeq}-${Math.round(now)}`;state.deepPreviewInFlight=jobId;
-  const rgba=new Uint8ClampedArray(frame.rgba),binding=state.deepSync.createDeepFrameBinding({jobId,kind:'preview',frameId:frame.frameId,frameAt:frame.at,rgba,width:frame.width,height:frame.height,tracking:{frameId:tracking?.frameId||null,trackingValid:!!tracking?.trackingValid,trackingMode:tracking?.trackingMode||null,pose:tracking?.pose?{p:[...tracking.pose.p],q:[...tracking.pose.q]}:null,poseCov:tracking?.poseCov||null,alvaPoints:tracking?.alvaPoints||0,keyframeId:tracking?.newKeyframe?.id||null,surveyGraphFrameId:capture?.graphFrame?.frameId||null}});
-  state.deepJobs.set(jobId,binding);state.deepDepthWorker.postMessage({type:'infer',jobId,frameId:binding.frameId,frameAt:binding.frameAt,model:modelForWorker(),rgba,width:frame.width,height:frame.height},[rgba.buffer]);if($('deepLiveState'))$('deepLiveState').textContent=`DEEP LIVE · F${frame.captureSeq||'?'} · mosaico foto ${capture?.photoAdded?'✓':'—'} · Alva meta ${capture?.alvaPose?'✓':'—'} · inferenza ${state.deepPreviewSeq}…`;
+  const capture=captureLiveSurveyFrame(frame,tracking);if(!capture?.survey)return;
+  state.photoSurveyLastAt=now;state.deepPreviewLastAt=now;const jobId=`preview-ticker-${++state.deepPreviewSeq}-${Math.round(now)}`;state.deepPreviewInFlight=jobId;
+  const rgba=new Uint8ClampedArray(capture.survey.rgba),binding=state.deepSync.createDeepFrameBinding({jobId,kind:'preview',frameId:capture.survey.frameId,frameAt:capture.survey.at,rgba,width:capture.survey.width,height:capture.survey.height,survey:capture.survey,tracking:{frameId:tracking?.frameId||null,trackingValid:!!tracking?.trackingValid,trackingMode:tracking?.trackingMode||null,pose:tracking?.pose?{p:[...tracking.pose.p],q:[...tracking.pose.q]}:null,poseCov:tracking?.poseCov||null,alvaPoints:tracking?.alvaPoints||0,keyframeId:tracking?.newKeyframe?.id||null}});
+  state.deepJobs.set(jobId,binding);state.deepDepthWorker.postMessage({type:'infer',jobId,frameId:binding.frameId,frameAt:binding.frameAt,model:modelForWorker(),rgba,width:capture.survey.width,height:capture.survey.height},[rgba.buffer]);if($('deepLiveState'))$('deepLiveState').textContent=`RGB+DEEP F${frame.captureSeq||'?'} · frame congelato · inferenza ${state.deepPreviewSeq}…`;
 }
 
 function compactGrayHeartbeat(gray,width,height,maxSide=160){
@@ -296,7 +297,10 @@ async function queueDenseKeyframe(kf,frame,K){
   if(!sync.ok){state.deepSyncRejected++;log.error('alva-camera-frame-sync-rejected',{...sync,kfId:kf?.id||null});return;}
   const added=state.denseManager.add(kf,frame,K,{metricLocked:!!state.slam?.metricLocked});
   const graphFrame=added?state.probGraph?.addFrame(added):null;
-  if(graphFrame&&state.liveMap){state.liveMap.setFallbackDepth(state.denseDepthHint||CONFIG.livePuzzleFallbackDepth||2.2);state.liveMapStats=state.liveMap.addFrame(graphFrame,{fallbackDepth:state.denseDepthHint||CONFIG.livePuzzleFallbackDepth||2.2});scheduleLiveMapRender();}
+  // Dense/SLAM keyframes belong to the metric reconstruction only.  Feeding
+  // them into the live PHOTO panel created a second capture stream and made the
+  // user-visible mosaic impossible to audit.  The live map accepts ONLY the
+  // regular frozen RGB survey photographs captured by captureLiveSurveyFrame().
   if(added&&state.coverageSphere){state.coverageStatus=state.coverageSphere.addFrame(added);state.coverageApi?.drawCoverageSphere?.($('coverageSphere'),state.coverageStatus);updateCoverageUi();}
   if(added)log.debug('alva-camera-frame-sync-ok',{frameId:added.frameId,kfId:added.id,at:added.at});
   await scheduleDenseWork();
@@ -387,19 +391,25 @@ async function handleDeepDepthMessage(d){
 
   if(binding.kind==='preview'){
     if(d.jobId===state.deepPreviewInFlight)state.deepPreviewInFlight=null;
-    state.deepPreviewFrames++;state.deepPreviewLastQuality=d.quality||null;
-    drawDepth($('depthOverlay'),d.rawDepth,d.rawWidth,d.rawHeight);
-    // Persist every Deep survey frame as raw probabilistic evidence. The live PHOTO map is already aligned from RGB only. The optional metric layer
-    // may estimate scale from posed frames; a
-    // suspicious Deep map is retained with low authority instead of disappearing.
-    const graphHasFrame=!!state.probGraph?.frameIndex?.has?.(String(binding.frameId));
-    if(graphHasFrame)state.probGraph.addDeepRaw(binding.frameId,{rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,calibration:null,quality:d.quality});
-    const liveDepthAdded=state.liveMap?.updateRelativeDepth?.(binding.frameId,{rawDepth:d.rawDepth,width:d.rawWidth,height:d.rawHeight,quality:d.quality,confidence:d.quality?.suspicious?.025:.18})||false;
-    if(liveDepthAdded)scheduleLiveMapRender(true);
-    const q=d.quality||{},stripe=q.stripe||{},band=Math.round(100*Number(stripe.dominantExplained||0)),cycles=Number(stripe.dominantCycles||0).toFixed(1),rescue=d.resolutionRescue?.accepted?' · rescue':'',lag=Math.max(0,performance.now()-binding.frameAt);
-    const warning=stripe.suspicious?`banding ${band}%/${cycles}c`:`coerenza ${Number(q.coherenceRatio||0).toFixed(2)}`;
-    if($('deepLiveState'))$('deepLiveState').textContent=q.suspicious?`DEEP LIVE ⚠ SYNC ✓ · ${d.rawWidth}×${d.rawHeight} · ${warning} · lag ${lag.toFixed(0)} ms${rescue}`:`DEEP LIVE ✓ SYNC ✓ · ${d.rawWidth}×${d.rawHeight} · lag ${lag.toFixed(0)} ms${rescue}`;
-    if(state.deepPreviewFrames<=3||q.suspicious)log.info('deep-live-preview',{frame:state.deepPreviewFrames,frameId:binding.frameId,alvaFrameId:binding.tracking?.frameId||null,sync:sync.reason,lagMs:lag,provider:d.provider,ms:d.ms,totalMs:d.totalMs,quality:q,resolutionRescue:d.resolutionRescue||null,output:[d.rawWidth,d.rawHeight],metricGraphNode:graphHasFrame,liveDepthAdded});
+    state.deepPreviewFrames++;state.deepPreviewLastQuality=d.quality||null;drawDepth($('depthOverlay'),d.rawDepth,d.rawWidth,d.rawHeight);
+    const survey=binding.survey,q=d.quality||{},confidence=q.suspicious?.025:.18;
+    // ATOMIC RGB+DEPTH COMMIT. A survey photograph becomes a mosaic node only
+    // after the exact-frame Deep raster has passed the sync contract and the
+    // depth map itself contains enough valid samples.
+    const committed=survey&&state.liveMap?.commitCameraFrameWithRelativeDepth?.(survey,{rawDepth:d.rawDepth,width:d.rawWidth,height:d.rawHeight,quality:q,confidence},{fallbackDepth:state.denseDepthHint||CONFIG.livePuzzleFallbackDepth||2.2,source:'deep-survey'});
+    if(!committed?.ok){
+      log.warn('deep-survey-not-committed',{jobId:d.jobId,frameId:binding.frameId,reason:committed?.reason||'missing-survey',validRatio:committed?.validRatio??null});
+      if($('deepLiveState'))$('deepLiveState').textContent=`RGB+DEEP · frame scartato (${committed?.reason||'depth non valida'})`;return;
+    }
+    state.liveMapStats=committed.stats;scheduleLiveMapRender(true);
+    // The optional metric/factor graph receives the same survey node only now,
+    // after depth exists. Unposed photos remain valid RGB+Deep mosaic nodes and
+    // may acquire a pose later without affecting their 2-D placement.
+    const graphFrame=survey.pose?(state.probGraph?.addFrame(survey)||null):null;if(graphFrame)state.probGraph.addDeepRaw(binding.frameId,{rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,calibration:null,quality:q});
+    if(survey.pose&&state.coverageSphere){state.coverageStatus=state.coverageSphere.addFrame(survey);state.coverageApi?.drawCoverageSphere?.($('coverageSphere'),state.coverageStatus);updateCoverageUi();}
+    const stripe=q.stripe||{},band=Math.round(100*Number(stripe.dominantExplained||0)),cycles=Number(stripe.dominantCycles||0).toFixed(1),rescue=d.resolutionRescue?.accepted?' · rescue':'',lag=Math.max(0,performance.now()-binding.frameAt),warning=stripe.suspicious?`banding ${band}%/${cycles}c`:`coerenza ${Number(q.coherenceRatio||0).toFixed(2)}`;
+    if($('deepLiveState'))$('deepLiveState').textContent=q.suspicious?`RGB+DEEP ✓ · depth debole (${warning}) · foto ammessa a bassa confidenza · lag ${lag.toFixed(0)} ms${rescue}`:`RGB+DEEP ✓ · foto+depth ${d.rawWidth}×${d.rawHeight} · lag ${lag.toFixed(0)} ms${rescue}`;
+    if(state.deepPreviewFrames<=3||q.suspicious)log.info('deep-live-preview',{frame:state.deepPreviewFrames,frameId:binding.frameId,alvaFrameId:binding.tracking?.frameId||null,sync:sync.reason,lagMs:lag,provider:d.provider,ms:d.ms,totalMs:d.totalMs,quality:q,resolutionRescue:d.resolutionRescue||null,output:[d.rawWidth,d.rawHeight],metricGraphNode:!!graphFrame,mosaicCommitted:true});
     return;
   }
   const payload=binding.payload;if(!payload||payload.jobId!==d.jobId){state.deepSyncRejected++;log.error('deep-frame-payload-missing',{jobId:d.jobId,frameId:binding.frameId});state.denseBusy=false;void scheduleDenseWork();return;}
@@ -538,9 +548,9 @@ function toggleScanDiagnostics(){setScanDiagnosticsOpen(!$('scanDiagnostics')?.c
 function setLiveMapMode(mode){state.liveMapMode=mode==='depth'?'depth':'photo';updateLiveMapUi();scheduleLiveMapRender(true);}
 function updateLiveMapUi(extra=null){
   const photo=$('liveMapPhotoBtn'),depth=$('liveMapDepthBtn'),status=$('liveMapState'),s=state.liveMap?.stats?.()||state.liveMapStats||{};
-  if(photo)photo.classList.toggle('active',state.liveMapMode==='photo');if(depth)depth.classList.toggle('active',state.liveMapMode==='depth');if(!status)return;if(extra){status.textContent=extra;return;}if(!s.frames){status.textContent=`${state.liveMapMode==='depth'?'DEPTH CONSENSUS':'MOSAICO FOTO'} · attendo prima fotografia…`;return;}
-  const visual=`RGB ${s.visualRegisteredFrames||0}/${s.frames||0} · ${s.edges||0} link${s.loops?` · ${s.loops} loop`:''}`,warp=s.localWarpAnchors?` · local ${s.localWarpAnchors} pt`:'' ,res=Number.isFinite(s.mosaicResidual)&&s.mosaicResidual>0?` · residuo ${(100*s.mosaicResidual).toFixed(2)}% frame`:'',alva=s.alvaPoseFrames?` · Alva meta ${s.alvaPoseFrames}/${s.frames}`:'';
-  if(state.liveMapMode==='photo')status.textContent=`MOSAICO FOTO · SOLO RGB · ${visual}${warp}${res}${alva} · ${(100*(s.coverage||0)).toFixed(0)}% canvas`;
+  if(photo)photo.classList.toggle('active',state.liveMapMode==='photo');if(depth)depth.classList.toggle('active',state.liveMapMode==='depth');if(!status)return;if(extra){status.textContent=extra;return;}if(!s.frames){status.textContent=`${state.liveMapMode==='depth'?'DEPTH CONSENSUS':'MOSAICO RGB+DEPTH'} · attendo primo frame con Depth valida…`;return;}
+  const placed=s.visualRegisteredFrames||0,pending=Math.max(0,(s.frames||0)-placed),visual=`${placed} foto unite${pending?` · ${pending} in attesa overlap`:''}`;
+  if(state.liveMapMode==='photo')status.textContent=`MOSAICO RGB+DEPTH · ${visual} · ${s.rawDepthFrames||0} depth associate · nessun punto/posa · ${(100*(s.coverage||0)).toFixed(0)}% canvas`;
   else{const metric=s.metricDepthFrames||0,cons=s.depthConsensusAlignedFrames||0,derr=Number.isFinite(s.depthConsensusError)&&s.depthConsensusError<9?` · err overlap ${(100*s.depthConsensusError).toFixed(1)}%`:'';status.textContent=`DEPTH SU MOSAICO RGB · Deep ${s.rawDepthFrames||0}F · overlap ${cons}F · metriche ${metric}F${derr} · ${(100*(s.coverage||0)).toFixed(0)}% canvas`;}
 }
 

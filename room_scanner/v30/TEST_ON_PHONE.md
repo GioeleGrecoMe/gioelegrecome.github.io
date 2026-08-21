@@ -1,9 +1,9 @@
-# V30.32 phone validation · pure photo mosaic
+# V30.33 phone validation · continuous RGB+Depth mosaic
 
-1. Publish the patch while preserving your existing `models/` directory and reset the shell cache once. Confirm `V30.32.0`.
-2. Open **Mappa → FOTO** and begin scanning slowly with at least 40–60% visual overlap between neighbouring views.
-3. During an Alva `INIT` or temporary `LOST` interval, verify that the RGB photo count continues increasing. Those photographs must still appear in the mosaic.
-4. Return to a previously photographed area. The RGB graph should create a loop and the mosaic should redistribute its alignment instead of snapping to the current Alva pose.
-5. Intentionally translate the phone sideways around nearby furniture. Check that the local-warp counter grows and that overlapping edges remain sharper than with a single global homography.
-6. Switch to **DEPTH**. It must occupy the same photo-derived mosaic regions. Deep may be incomplete while inference is pending, but it must not reposition RGB.
-7. If a photo cannot be matched reliably, it should remain outside the main component until a later photograph provides a real RGB connection; it must never be inserted because Alva says where it belongs.
+1. Publish the patch while preserving the existing `models/` directory and reset the V30 shell cache once. Confirm `V30.33.0`.
+2. Open **Mappa → FOTO**. The panel must show only normal continuous photographs: no feature dots, no graph lines and no camera markers.
+3. Move slowly while keeping roughly 40–60% visual overlap. A new photo should appear only after its Deep inference completes.
+4. Temporarily make an overlap poor by turning quickly. That frame may be captured for Deep, but if it cannot be registered reliably it must not appear at a random location in the visible mosaic.
+5. Cover/disable the Depth model as a negative test: the live RGB+Depth mosaic must stop accepting new photographs rather than accumulating RGB-only frames.
+6. During Alva INIT/LOST, RGB+Depth frames may still be accepted and aligned if Deep and photographic overlap are valid. Their placement must not jump when Alva later recovers.
+7. Switch to **DEPTH** and verify that depth support follows exactly the same accepted photo regions.

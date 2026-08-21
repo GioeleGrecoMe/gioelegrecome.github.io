@@ -68,7 +68,14 @@ export function buildPhotoRegistrationEdge(a,b,matches,{minMatches=7,ransacItera
  */
 export function solvePhotoMosaic(frames,edges,{iterations=7,rootIndex=null}={}){
   const n=frames?.length||0,transforms=new Array(n).fill(null),confidence=new Float32Array(n),parent=new Int32Array(n);parent.fill(-1);if(!n)return {transforms,confidence,parent,rootIndex:-1,bounds:null};
-  const components=graphComponents(n,edges),largest=components[0]||[0];if(rootIndex==null||!largest.includes(rootIndex))rootIndex=largest[0];transforms[rootIndex]=I3();confidence[rootIndex]=1;
+  const components=graphComponents(n,edges);
+  // Live mosaics must never jump to a newer disconnected cluster just because
+  // it becomes numerically larger.  When a root is supplied, keep the entire
+  // solution anchored to the component containing that root.  Frames outside
+  // that photographic component remain unplaced (transform=null).
+  let largest;if(Number.isInteger(rootIndex)&&rootIndex>=0&&rootIndex<n){largest=components.find(c=>c.includes(rootIndex))||[rootIndex];}
+  else{largest=components[0]||[0];rootIndex=largest[0];}
+  transforms[rootIndex]=I3();confidence[rootIndex]=1;
   const pending=new Set((edges||[]).filter(e=>validH(e?.homography)&&largest.includes(e.a)&&largest.includes(e.b)));for(let pass=0;pass<n&&pending.size;pass++){let best=null,bestScore=-1;for(const e of pending){const ak=!!transforms[e.a],bk=!!transforms[e.b];if(ak===bk)continue;const s=Number(e.visualConfidence??e.weight??0);if(s>bestScore){best=e;bestScore=s;}}if(!best)break;pending.delete(best);if(transforms[best.a]&&!transforms[best.b]){const inv=invert3(best.homography);if(inv){transforms[best.b]=normalizeH(mul3(transforms[best.a],inv));confidence[best.b]=Math.max(.01,confidence[best.a]*bestScore);parent[best.b]=best.a;}}else if(transforms[best.b]&&!transforms[best.a]){transforms[best.a]=normalizeH(mul3(transforms[best.b],best.homography));confidence[best.a]=Math.max(.01,confidence[best.b]*bestScore);parent[best.a]=best.b;}}
   const adj=Array.from({length:n},()=>[]);for(const e of edges||[])if(e?.matches?.length&&e.a>=0&&e.b>=0&&e.a<n&&e.b<n){adj[e.a].push(e);adj[e.b].push(e);}
   for(let it=0;it<iterations;it++)for(const i of largest){if(i===rootIndex||!transforms[i])continue;const constraints=[];for(const e of adj[i]){const j=e.a===i?e.b:e.a,Gj=transforms[j];if(!Gj)continue;for(const m of e.matches||[]){const own=e.a===i?[m.aU,m.aV]:[m.bU,m.bV],other=e.a===i?[m.bU,m.bV]:[m.aU,m.aV],f=frames[i],g=frames[j],target=applyH(Gj,other[0]/Math.max(1,g.width),other[1]/Math.max(1,g.height));if(!target)continue;const cur=applyH(transforms[i],own[0]/Math.max(1,f.width),own[1]/Math.max(1,f.height)),res=cur?Math.hypot(cur[0]-target[0],cur[1]-target[1]):1,w=(e.visualConfidence||.05)*(m.probability||.2)/(1+(res/.025)**2);if(w>.001)constraints.push({x:own[0]/Math.max(1,f.width),y:own[1]/Math.max(1,f.height),u:target[0],v:target[1],w});}}

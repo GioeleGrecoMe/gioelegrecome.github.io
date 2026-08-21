@@ -82,46 +82,75 @@ export class LivePhotoPuzzleMap{
    * synchronously here, before the camera buffer can be reused by the next frame.
    */
   addCameraFrame(frame,{fallbackDepth=null,source='deep-survey'}={}){
+    // Staging-only API. A camera photo without a bound depth map is deliberately
+    // NOT connected to the RGB mosaic. The live measurement path uses
+    // commitCameraFrameWithRelativeDepth() after Deep returns for this exact frame.
     const f=compactCameraFrame(frame,this.photoMaxSide);if(!f)return this.stats();f.source=source;f.depthPending=true;
     return this.addPreparedFrame(f,{fallbackDepth});
   }
 
+  /**
+   * Atomically admit one exact RGB frame and its exact-frame raw Deep map.
+   * If depth is missing/invalid, NOTHING is inserted into the photo graph.
+   * This is the only API used by the live measurement mosaic.
+   */
+  commitCameraFrameWithRelativeDepth(frame,{rawDepth,width,height,quality=null,confidence=.12,calibration=null}={}, {fallbackDepth=null,source='deep-survey'}={}){
+    const f=compactCameraFrame(frame,this.photoMaxSide);if(!f)return {ok:false,reason:'invalid-photo',stats:this.stats()};
+    const c=compactDepth(rawDepth,width,height,this.depthMaxSide,false);if(!c.depth?.length||c.validRatio<.03)return {ok:false,reason:'invalid-depth',validRatio:c.validRatio||0,stats:this.stats()};
+    f.source=source;f.depthPending=false;f.relativeDepth=c.depth;f.relativeDepthWidth=c.width;f.relativeDepthHeight=c.height;f.relativeQuality=quality?compactQuality(quality):null;f.relativeConfidence=clamp(Number(confidence)||.06,.005,1);f.metricCalibration=normaliseCalibration(calibration);
+    const stats=this.addPreparedFrame(f,{fallbackDepth});this.depthScaleDirty=true;this.depthConsensusDirty=true;
+    return {ok:true,frameId:String(f.frameId),stats};
+  }
+
   addPreparedFrame(f,{fallbackDepth=null}={}){
-    const id=String(f.frameId),oldIndex=this.frameMap.get(id);
+    const id=String(f.frameId),oldIndex=this.frameMap.get(id),hasRawDepth=!!f.relativeDepth?.length,hasMetricDepth=!!f.metricDepth?.length;
     if(oldIndex!=null){
       const old=this.frames[oldIndex];
-      // Prefer the higher-resolution exact survey RGB packet over a later dense
-      // thumbnail of the same camera frame, but allow metadata to be upgraded.
-      if((f.width*f.height)>(old.width*old.height)*1.08){
-        const keep={relativeDepth:old.relativeDepth,relativeDepthWidth:old.relativeDepthWidth,relativeDepthHeight:old.relativeDepthHeight,relativeQuality:old.relativeQuality,metricDepth:old.metricDepth,metricDepthWidth:old.metricDepthWidth,metricDepthHeight:old.metricDepthHeight,metricConfidence:old.metricConfidence,metricCalibration:old.metricCalibration,depthTransform:old.depthTransform,depthConfidence:old.depthConfidence,depthPending:old.depthPending,photoGain:old.photoGain,fallbackDepth:old.fallbackDepth,connected:old.connected,visualQ:old.visualQ,visualConfidence:old.visualConfidence};
-        this.frames[oldIndex]={...f,...keep};
-      }else{
-        old.pose=f.pose||old.pose;old.poseCov=f.poseCov||old.poseCov;old.metricLocked=old.metricLocked||f.metricLocked;old.at=f.at||old.at;
-        if((f.features?.length||0)>(old.features?.length||0))old.features=f.features;
-      }
+      // Prefer new exact RGB resolution and new depth evidence, never erase an
+      // already committed depth map with a later metadata-only packet.
+      const keep={
+        relativeDepth:hasRawDepth?f.relativeDepth:old.relativeDepth,
+        relativeDepthWidth:hasRawDepth?f.relativeDepthWidth:old.relativeDepthWidth,
+        relativeDepthHeight:hasRawDepth?f.relativeDepthHeight:old.relativeDepthHeight,
+        relativeQuality:hasRawDepth?f.relativeQuality:old.relativeQuality,
+        relativeConfidence:hasRawDepth?f.relativeConfidence:old.relativeConfidence,
+        metricDepth:hasMetricDepth?f.metricDepth:old.metricDepth,
+        metricDepthWidth:hasMetricDepth?f.metricDepthWidth:old.metricDepthWidth,
+        metricDepthHeight:hasMetricDepth?f.metricDepthHeight:old.metricDepthHeight,
+        metricConfidence:hasMetricDepth?f.metricConfidence:old.metricConfidence,
+        metricCalibration:f.metricCalibration||old.metricCalibration,
+        depthTransform:old.depthTransform,depthConfidence:old.depthConfidence,
+        depthPending:!(hasRawDepth||hasMetricDepth)&&(old.depthPending||f.depthPending),
+        photoGain:old.photoGain,fallbackDepth:old.fallbackDepth,connected:old.connected,visualQ:old.visualQ,visualConfidence:old.visualConfidence
+      };
+      if((f.width*f.height)>(old.width*old.height)*1.08)this.frames[oldIndex]={...f,...keep};
+      else{old.pose=f.pose||old.pose;old.poseCov=f.poseCov||old.poseCov;old.metricLocked=old.metricLocked||f.metricLocked;old.at=f.at||old.at;if((f.features?.length||0)>(old.features?.length||0))old.features=f.features;Object.assign(old,keep);}
       this.depthScaleDirty=true;this.depthConsensusDirty=true;this.visualDirty=true;this.recomputeOrigin();this.recomputeVisualSolution();return this.stats();
     }
     if(!this.origin&&f.pose?.p)this.origin=f.pose.p.slice(0,3).map(Number);
-    f.relativeDepth=null;f.relativeDepthWidth=0;f.relativeDepthHeight=0;f.relativeQuality=null;
-    f.metricDepth=null;f.metricDepthWidth=0;f.metricDepthHeight=0;f.metricConfidence=0;f.metricCalibration=null;
-    f.depthTransform=null;f.depthConfidence=0;f.connected=this.frames.length===0;f.photoGain=1;
-    f.fallbackDepth=Number.isFinite(+fallbackDepth)?+fallbackDepth:this.fallbackDepth;
+    if(!hasRawDepth){f.relativeDepth=null;f.relativeDepthWidth=0;f.relativeDepthHeight=0;f.relativeQuality=null;f.relativeConfidence=0;}
+    if(!hasMetricDepth){f.metricDepth=null;f.metricDepthWidth=0;f.metricDepthHeight=0;f.metricConfidence=0;}
+    f.metricCalibration=f.metricCalibration||null;f.depthTransform=null;f.depthConfidence=0;f.connected=this.frames.length===0&&hasRawDepth;f.photoGain=1;
+    f.depthPending=!(hasRawDepth||hasMetricDepth)&&!!f.depthPending;f.fallbackDepth=Number.isFinite(+fallbackDepth)?+fallbackDepth:this.fallbackDepth;
     this.frameMap.set(id,this.frames.length);this.frames.push(f);this.adj.set(this.frames.length-1,[]);
-    this.connectNewest();while(this.frames.length>this.maxFrames)this.dropOldest();this.visualDirty=true;
+    // Structural invariant: only a frame with depth evidence may enter the RGB
+    // overlap graph. Pending RGB snapshots are invisible and unconnected.
+    if(hasRawDepth||hasMetricDepth)this.connectNewest();while(this.frames.length>this.maxFrames)this.dropOldest();this.visualDirty=true;
     this.recomputeConnectivity();this.recomputeOrigin();this.recomputeVisualSolution();this.recomputePhotoGains();this.depthScaleDirty=true;this.depthConsensusDirty=true;return this.stats();
   }
 
   /** Raw relative Deep map from the exact photo node. */
   updateRelativeDepth(frameId,{rawDepth,width,height,quality=null,confidence=.12,calibration=null}={}){
-    const i=this.frameMap.get(String(frameId));if(i==null||!rawDepth?.length||!(width>1&&height>1))return false;const f=this.frames[i],c=compactDepth(rawDepth,width,height,this.depthMaxSide,false);
-    if(c.validRatio<.03)return false;f.relativeDepth=c.depth;f.relativeDepthWidth=c.width;f.relativeDepthHeight=c.height;f.relativeQuality=quality?compactQuality(quality):null;f.relativeConfidence=clamp(Number(confidence)||.06,.005,1);f.metricCalibration=normaliseCalibration(calibration)||f.metricCalibration;f.depthPending=false;this.depthScaleDirty=true;this.depthConsensusDirty=true;return true;
+    const i=this.frameMap.get(String(frameId));if(i==null||!rawDepth?.length||!(width>1&&height>1))return false;const f=this.frames[i],wasEligible=hasDepthEvidence(f),c=compactDepth(rawDepth,width,height,this.depthMaxSide,false);
+    if(c.validRatio<.03)return false;f.relativeDepth=c.depth;f.relativeDepthWidth=c.width;f.relativeDepthHeight=c.height;f.relativeQuality=quality?compactQuality(quality):null;f.relativeConfidence=clamp(Number(confidence)||.06,.005,1);f.metricCalibration=normaliseCalibration(calibration)||f.metricCalibration;f.depthPending=false;
+    if(!wasEligible){this.connectFrame(i);this.recomputeConnectivity();this.recomputeVisualSolution();this.recomputePhotoGains();}this.depthScaleDirty=true;this.depthConsensusDirty=true;return true;
   }
 
   /** Strong metric map from online Deep->Alva calibration. */
   updateDepth(frameId,{depth,width,height,confidence=.25,mode='metric-deep',calibration=null}={}){
-    const i=this.frameMap.get(String(frameId));if(i==null||!depth?.length||!(width>1&&height>1))return false;const f=this.frames[i],c=compactDepth(depth,width,height,this.depthMaxSide,true);
+    const i=this.frameMap.get(String(frameId));if(i==null||!depth?.length||!(width>1&&height>1))return false;const f=this.frames[i],wasEligible=hasDepthEvidence(f),c=compactDepth(depth,width,height,this.depthMaxSide,true);
     if(c.validRatio<.03)return false;f.metricDepth=c.depth;f.metricDepthWidth=c.width;f.metricDepthHeight=c.height;f.metricConfidence=clamp(+confidence||.05,.02,1);f.depthMode=mode;f.metricCalibration=normaliseCalibration(calibration)||f.metricCalibration;f.depthPending=false;
-    if(Number.isFinite(c.median)){f.fallbackDepth=c.median;this.fallbackDepth=this.fallbackDepth*.82+c.median*.18;}this.depthScaleDirty=true;this.depthConsensusDirty=true;return true;
+    if(!wasEligible){this.connectFrame(i);this.recomputeConnectivity();this.recomputeVisualSolution();this.recomputePhotoGains();}if(Number.isFinite(c.median)){f.fallbackDepth=c.median;this.fallbackDepth=this.fallbackDepth*.82+c.median*.18;}this.depthScaleDirty=true;this.depthConsensusDirty=true;return true;
   }
 
   addWorldSamples(samples,{maxAdd=900,source='mvs'}={}){
@@ -131,19 +160,36 @@ export class LivePhotoPuzzleMap{
   }
 
   stats(){
-    this.rebuildDepthScaleIfNeeded();this.rebuildDepthConsensusIfNeeded();const comps=this.components(),largest=comps[0]||[],loops=this.edges.reduce((n,e)=>n+(e.loop?1:0),0),rawDepthFrames=this.frames.reduce((n,f)=>n+(f.relativeDepth?.length?1:0),0),metricDepthFrames=this.frames.reduce((n,f)=>n+(this.frameHasMetricDepth(f)?1:0),0),pendingDepthFrames=this.frames.reduce((n,f)=>n+(f.depthPending?1:0),0),connected=this.frames.length?largest.length:0,diag=visualAlvaDiagnostics(this.frames,this.edges,this.visualSolution);
+    this.rebuildDepthScaleIfNeeded();this.rebuildDepthConsensusIfNeeded();const comps=this.components(),visible=this.visualSolution?.component||this.rootComponent(),loops=this.edges.reduce((n,e)=>n+(e.loop?1:0),0),rawDepthFrames=this.frames.reduce((n,f)=>n+(f.relativeDepth?.length?1:0),0),metricDepthFrames=this.frames.reduce((n,f)=>n+(this.frameHasMetricDepth(f)?1:0),0),pendingDepthFrames=this.frames.reduce((n,f)=>n+(f.depthPending?1:0),0),connected=this.frames.length?visible.length:0,diag=visualAlvaDiagnostics(this.frames,this.edges,this.visualSolution);
     return {frames:this.frames.length,edges:this.edges.length,loops,connectedFrames:connected,connectedFraction:this.frames.length?connected/this.frames.length:0,components:comps.length,rawDepthFrames,metricDepthFrames,pendingDepthFrames,worldSamples:this.worldSamples.length,coverage:this.lastRenderStats?.coverage||0,origin:(this.origin||[0,0,0]).slice(),depthScaleMode:this.depthScaleStats?.metricMode||null,depthScaleError:this.depthScaleStats?.metricRelativeError??Infinity,depthScalePairs:this.depthScaleStats?.metricPairs||0,depthAlignedFrames:this.depthScaleStats?.alignedFrames||metricDepthFrames,photoOnlyMosaic:true,visualRegisteredFrames:this.visualSolution?Array.from(this.visualSolution.confidence).reduce((n,c)=>n+(c>0?1:0),0):0,meanVisualConfidence:this.edges.length?this.edges.reduce((a,e)=>a+(e.visualConfidence||0),0)/this.edges.length:0,mosaicResidual:this.visualSolution?.medianResidual??0,mosaicP90Residual:this.visualSolution?.p90Residual??0,depthConsensusAlignedFrames:this.depthConsensus?.stats?.alignedFrames||0,depthConsensusEdges:this.depthConsensus?.stats?.pairEdges||0,depthConsensusError:this.depthConsensus?.stats?.medianRelativeError??Infinity,localWarpAnchors:this.visualSolution?.localWarp?.anchorCount||0,localWarpResidual:this.visualSolution?.localWarp?.medianBaseResidual??0,...diag};
   }
 
   render(canvas,mode='photo'){
-    if(!canvas)return this.stats();this.rebuildDepthScaleIfNeeded();const result=mode==='depth'?this.renderDepthAtlas():this.renderPhotoAtlas();drawAtlas(canvas,result);this.drawGraph(canvas,result,mode);this.lastRenderStats={...this.stats(),coverage:result.coverage||0,mode,depthMode:result.depthMode||null,depthMin:result.depthMin??null,depthMax:result.depthMax??null};return this.lastRenderStats;
+    if(!canvas)return this.stats();this.rebuildDepthScaleIfNeeded();const result=mode==='depth'?this.renderDepthAtlas():this.renderPhotoAtlas();
+    // The live preview is deliberately just the reconstructed image.  Feature
+    // points, frame centres and graph edges are diagnostics, not scene content,
+    // and made the RGB panorama look like an exploding point cloud.
+    drawAtlas(canvas,result);this.lastRenderStats={...this.stats(),coverage:result.coverage||0,mode,depthMode:result.depthMode||null,depthMin:result.depthMin??null,depthMax:result.depthMax??null};return this.lastRenderStats;
   }
 
   renderPhotoAtlas(){
-    this.recomputeVisualSolution();const width=this.width,height=this.height,rgba=new Uint8ClampedArray(width*height*4),score=new Float32Array(width*height),largest=new Set(this.visualSolution?.component||[]),indices=this.renderIndices(largest),bounds=this.visualSolution?.bounds||computeMosaicBounds(this.frames,this.visualSolution?.transforms||[],{localWarp:this.visualSolution?.localWarp});
-    const totalPixels=indices.reduce((sum,i)=>sum+(this.frames[i]?.width||0)*(this.frames[i]?.height||0),0),stride=Math.max(1,Math.ceil(Math.sqrt(totalPixels/Math.max(10000,this.maxPhotoSamples))));
-    for(const fi of indices){const f=this.frames[fi],G=this.visualSolution?.transforms?.[fi],regQ=this.visualSolution?.confidence?.[fi]||0;if(!G||!largest.has(fi))continue;for(let y=0;y<f.height;y+=stride)for(let x=0;x<f.width;x+=stride){const a=photoPixelToCanvas(f,G,x+.5,y+.5,width,height,bounds,this.visualSolution?.localWarp,fi);if(!a)continue;const si=(Math.min(f.height-1,y)*f.width+Math.min(f.width-1,x))*3,cx=f.width*.5,cy=f.height*.5,centre=1-Math.min(.96,Math.hypot((x-cx)/Math.max(1,f.width),(y-cy)/Math.max(1,f.height))),base=Math.max(.12,regQ)*Math.max(.025,centre*centre),color=[f.rgb[si]*f.photoGain,f.rgb[si+1]*f.photoGain,f.rgb[si+2]*f.photoGain];splatPanoramaSharp(rgba,score,width,height,a.x,a.y,color,base);}}
-    fillTinyHoles(rgba,width,height);let covered=0;for(let i=0;i<width*height;i++)if(rgba[i*4+3])covered++;return {width,height,rgba,coverage:covered/(width*height),frameCenters:this.frameCenters(bounds),photoOnlyMosaic:true,bounds};
+    this.recomputeVisualSolution();const width=this.width,height=this.height,rgba=new Uint8ClampedArray(width*height*4),score=new Float32Array(width*height),visible=new Set(this.visualSolution?.component||[]),indices=this.renderIndices(visible).filter(i=>hasDepthEvidence(this.frames[i])),bounds=this.visualSolution?.bounds||computeMosaicBounds(this.frames,this.visualSolution?.transforms||[],{localWarp:null});
+    // Standard inverse image warp: every destination pixel inside a registered
+    // photograph is mapped back into the source RGB raster and sampled densely.
+    // This is intentionally NOT a point/splat renderer; it cannot turn a photo
+    // into a cloud of coloured dots when the mosaic grows.
+    const map=canvasMosaicMap(bounds,width,height);
+    for(const fi of indices){const f=this.frames[fi],G=this.visualSolution?.transforms?.[fi],regQ=this.visualSolution?.confidence?.[fi]||0;if(!G||!visible.has(fi))continue;const inv=invertHomography(G);if(!inv)continue;
+      const corners=[[0,0],[f.width,0],[f.width,f.height],[0,f.height]].map(([u,v])=>photoPixelToCanvas(f,G,u,v,width,height,bounds,null,fi)).filter(Boolean);if(corners.length!==4)continue;
+      const minX=clamp(Math.floor(Math.min(...corners.map(p=>p.x)))-1,0,width-1),maxX=clamp(Math.ceil(Math.max(...corners.map(p=>p.x)))+1,0,width-1),minY=clamp(Math.floor(Math.min(...corners.map(p=>p.y)))-1,0,height-1),maxY=clamp(Math.ceil(Math.max(...corners.map(p=>p.y)))+1,0,height-1);
+      for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){
+        const mx=(x+.5-map.ox)/map.scale,my=(y+.5-map.oy)/map.scale,uv=applyHomography(inv,mx,my);if(!uv)continue;const u=uv[0],v=uv[1];if(u<0||v<0||u>1||v>1)continue;
+        const rgb=sampleRgbBilinear(f,u*(f.width-1),v*(f.height-1));if(!rgb)continue;const edge=Math.min(u,1-u,v,1-v),centreQ=clamp(edge/.18,0,1),q=Math.max(.08,regQ)*(.22+.78*centreQ),i=y*width+x,j=i*4;
+        if(!rgba[j+3]||q>score[i]*1.015){score[i]=q;rgba[j]=clamp(rgb[0]*f.photoGain,0,255);rgba[j+1]=clamp(rgb[1]*f.photoGain,0,255);rgba[j+2]=clamp(rgb[2]*f.photoGain,0,255);rgba[j+3]=255;}
+        else if(q>score[i]*.96){const r=rgb[0]*f.photoGain,g=rgb[1]*f.photoGain,b=rgb[2]*f.photoGain,delta=Math.abs(r-rgba[j])+Math.abs(g-rgba[j+1])+Math.abs(b-rgba[j+2]);if(delta<22){rgba[j]=(rgba[j]+r)*.5;rgba[j+1]=(rgba[j+1]+g)*.5;rgba[j+2]=(rgba[j+2]+b)*.5;rgba[j+3]=255;}}
+      }
+    }
+    let covered=0;for(let i=0;i<width*height;i++)if(rgba[i*4+3])covered++;return {width,height,rgba,coverage:covered/(width*height),frameCenters:[],photoOnlyMosaic:true,bounds};
   }
 
   renderDepthAtlas(){
@@ -174,24 +220,30 @@ export class LivePhotoPuzzleMap{
     const ctx=canvas.getContext('2d'),sx=canvas.width/result.width,sy=canvas.height/result.height,centres=(result.frameCenters||[]).filter(c=>c.visual),by=new Map(centres.map(c=>[c.i,c]));ctx.save();ctx.lineWidth=Math.max(1,canvas.width/480);ctx.globalAlpha=.55;for(const e of this.edges){const a=by.get(e.a),b=by.get(e.b);if(!a||!b)continue;ctx.strokeStyle=e.loop?'#7be495':'#d7f2ff';ctx.beginPath();ctx.moveTo(a.x*sx,a.y*sy);ctx.lineTo(b.x*sx,b.y*sy);ctx.stroke();}ctx.globalAlpha=.95;for(const c of centres){ctx.fillStyle=c.depth?'#7be495':c.rawDepth?'#f7d774':'#61d6ff';ctx.beginPath();ctx.arc(c.x*sx,c.y*sy,c.depth?2.9:c.pending?1.8:2.2,0,Math.PI*2);ctx.fill();}ctx.restore();
   }
 
-  connectNewest(){
-    const j=this.frames.length-1;if(j<=0)return;const candidates=new Set();for(let i=Math.max(0,j-this.temporalRadius);i<j;i++)candidates.add(i);
-    // Long-range candidates are selected by image appearance. Alva pose is not
-    // an admission test; it is saved for later metric/pose consistency checks.
-    const targetHash=imageHash(this.frames[j]),loop=[];for(let i=0;i<j-this.temporalRadius-2;i++)loop.push({i,score:hashDistance(imageHash(this.frames[i]),targetHash)});loop.sort((a,b)=>a.score-b.score);for(const x of loop.slice(0,this.maxLoopCandidates))candidates.add(x.i);
-    for(const i of candidates){const e=this.matchPair(i,j);if(!e)continue;this.edges.push(e);this.adj.get(i)?.push(e);this.adj.get(j)?.push(e);}this.depthScaleDirty=true;this.depthConsensusDirty=true;this.visualDirty=true;
+  connectNewest(){this.connectFrame(this.frames.length-1);}
+  connectFrame(j){
+    if(j<=0||j>=this.frames.length||!hasDepthEvidence(this.frames[j]))return;const candidates=new Set();for(let i=Math.max(0,j-this.temporalRadius);i<j;i++)if(hasDepthEvidence(this.frames[i]))candidates.add(i);
+    // Long-range candidates are selected by image appearance only. Depth is an
+    // admission invariant (same frame exists in both modalities), never a 2-D
+    // placement cue. Alva pose is optional metadata and is not consulted here.
+    const targetHash=imageHash(this.frames[j]),loop=[];for(let i=0;i<j-this.temporalRadius-2;i++)if(hasDepthEvidence(this.frames[i]))loop.push({i,score:hashDistance(imageHash(this.frames[i]),targetHash)});loop.sort((a,b)=>a.score-b.score);for(const x of loop.slice(0,this.maxLoopCandidates))candidates.add(x.i);
+    for(const i of candidates){if(this.edges.some(e=>(e.a===i&&e.b===j)||(e.a===j&&e.b===i)))continue;const e=this.matchPair(i,j);if(!e)continue;this.edges.push(e);this.adj.get(i)?.push(e);this.adj.get(j)?.push(e);}this.depthScaleDirty=true;this.depthConsensusDirty=true;this.visualDirty=true;
   }
   matchPair(i,j){
-    const a=this.frames[i],b=this.frames[j],far=Math.abs(i-j)>this.temporalRadius+1,raw=matchPhotoFeatures(a,b,{maxFeatures:320,maxMatches:170,maxHamming:70,minProbability:.025,patchRadius:2}),candidate=raw.filter(x=>x.probability>=Math.min(this.minEdgeProbability,.11));if(candidate.length<this.minEdgeMatches)return null;
-    const reg=buildPhotoRegistrationEdge(a,b,candidate,{minMatches:this.minEdgeMatches,reprojectionPx:far?5.8:4.4});if(!reg)return null;const gain=estimateExposureGain(a,b,reg.matches);return {a:i,b:j,aId:a.frameId,bId:b.frameId,...reg,weight:reg.visualConfidence,loop:far,gainAB:gain,registration:'photo-only-ransac'};
+    const a=this.frames[i],b=this.frames[j];if(!hasDepthEvidence(a)||!hasDepthEvidence(b))return null;const far=Math.abs(i-j)>this.temporalRadius+1,raw=matchPhotoFeatures(a,b,{maxFeatures:320,maxMatches:170,maxHamming:70,minProbability:.025,patchRadius:2}),candidate=raw.filter(x=>x.probability>=Math.min(this.minEdgeProbability,.11));if(candidate.length<this.minEdgeMatches)return null;
+    const reg=buildPhotoRegistrationEdge(a,b,candidate,{minMatches:this.minEdgeMatches,reprojectionPx:far?5.0:3.8});if(!reg||!reliablePhotoOverlap(reg,a,b,{far,minMatches:this.minEdgeMatches}))return null;const gain=estimateExposureGain(a,b,reg.matches);return {a:i,b:j,aId:a.frameId,bId:b.frameId,...reg,weight:reg.visualConfidence,loop:far,gainAB:gain,registration:'photo-only-ransac'};
   }
   components(){const seen=new Set(),out=[];for(let s=0;s<this.frames.length;s++){if(seen.has(s))continue;const q=[s],c=[];seen.add(s);while(q.length){const i=q.pop();c.push(i);for(const e of this.adj.get(i)||[]){const j=e.a===i?e.b:e.a;if(!seen.has(j)){seen.add(j);q.push(j);}}}out.push(c);}return out.sort((a,b)=>b.length-a.length);}
-  recomputeConnectivity(){const largest=new Set(this.components()[0]||[]);this.frames.forEach((f,i)=>f.connected=largest.has(i));}
+  rootComponent(){const comps=this.components();return comps.find(c=>c.includes(0))||(this.frames.length?[0]:[]);}
+  recomputeConnectivity(){const visible=new Set(this.rootComponent());this.frames.forEach((f,i)=>f.connected=visible.has(i));}
   recomputeVisualSolution(persisted=null){
     if(!persisted&&!this.visualDirty&&this.visualSolution)return;if(!this.frames.length){this.visualSolution=null;this.visualDirty=false;return;}
     const saved=persisted?.mosaicTransforms;if(Array.isArray(saved)&&saved.length===this.frames.length){const confidence=Float32Array.from(persisted.visualConfidence||saved.map((H,i)=>H?i===0?1:.25:0));this.visualSolution={transforms:saved.map(H=>Array.isArray(H)&&H.length===9?H.map(Number):null),confidence,rootIndex:Number.isInteger(persisted.rootIndex)?persisted.rootIndex:0,parent:new Int32Array(this.frames.length),component:(persisted.components?.[0]||saved.map((H,i)=>H?i:null).filter(Number.isInteger))};}
-    else this.visualSolution=solvePhotoMosaic(this.frames,this.edges,{iterations:7});
-    this.visualSolution.localWarp=buildLocalMosaicWarp(this.frames,this.edges,this.visualSolution,{});this.visualSolution.bounds=computeMosaicBounds(this.frames,this.visualSolution.transforms,{localWarp:this.visualSolution.localWarp,padding:.06});this.frames.forEach((f,i)=>{f.mosaicH=this.visualSolution.transforms[i];f.visualConfidence=this.visualSolution.confidence[i];});this.visualDirty=false;
+    else this.visualSolution=solvePhotoMosaic(this.frames,this.edges,{iterations:7,rootIndex:0});
+    // Keep the optional local warp as post-processing evidence, but the live RGB
+    // preview/bounds stay on the stable global homographies so already accepted
+    // photographs cannot suddenly deform when a new frame arrives.
+    this.visualSolution.localWarp=buildLocalMosaicWarp(this.frames,this.edges,this.visualSolution,{});this.visualSolution.bounds=computeMosaicBounds(this.frames,this.visualSolution.transforms,{localWarp:null,padding:.06});this.frames.forEach((f,i)=>{f.mosaicH=this.visualSolution.transforms[i];f.visualConfidence=this.visualSolution.confidence[i];});this.visualDirty=false;
   }
   rebuildDepthConsensusIfNeeded(){if(!this.depthConsensusDirty)return;this.depthConsensusDirty=false;this.depthConsensus=solvePhotoDepthConsensus(this.frames,this.edges,{minPairs:this.depthMinPairs,maxPairs:100});}
   exportState(){this.recomputeVisualSolution();this.rebuildDepthConsensusIfNeeded();return {format:'ROOMSCAN-LIVE-PHOTO-MOSAIC-3',photoOnlyMosaic:true,stats:this.stats(),rootIndex:this.visualSolution?.rootIndex??0,mosaicTransforms:(this.visualSolution?.transforms||[]).map(H=>H?Array.from(H):null),visualConfidence:Array.from(this.visualSolution?.confidence||[]),frames:this.frames.map((f,i)=>({frameId:String(f.frameId),alvaPose:clonePoseNullable(f.pose),poseCov:f.poseCov||null,K:{...f.K},width:f.width,height:f.height,at:f.at||0,mosaicH:this.visualSolution?.transforms?.[i]?Array.from(this.visualSolution.transforms[i]):null,visualConfidence:Number(this.visualSolution?.confidence?.[i]||0),hasRawDepth:!!f.relativeDepth?.length,hasMetricDepth:this.frameHasMetricDepth(f)})),edges:this.edges.map(e=>({a:e.a,b:e.b,aId:e.aId,bId:e.bId,loop:!!e.loop,homography:Array.from(e.homography||[]),visualConfidence:e.visualConfidence||0,homographyMedianErrorPx:e.homographyMedianErrorPx??null,matches:(e.matches||[]).slice(0,140).map(m=>({aU:m.aU,aV:m.aV,bU:m.bU,bV:m.bV,probability:m.probability,photometricProbability:m.photometricProbability,uniquenessProbability:m.uniquenessProbability}))})),localWarp:this.visualSolution?.localWarp?{anchorCount:this.visualSolution.localWarp.anchorCount,medianBaseResidual:this.visualSolution.localWarp.medianBaseResidual,p90BaseResidual:this.visualSolution.localWarp.p90BaseResidual}:null,depthConsensus:this.depthConsensus?{root:this.depthConsensus.root,stats:this.depthConsensus.stats,transforms:this.depthConsensus.transforms.map(t=>t?{a:t.a,b:t.b}:null),frameConfidence:Array.from(this.depthConsensus.frameConfidence),edges:this.depthConsensus.edges}:null};}
@@ -225,6 +277,25 @@ export class LivePhotoPuzzleMap{
 export function backProjectOpticalZ(pose,K,u,v,z){const ray=pixelRay(K,u,v),range=z/Math.max(.08,ray[2]),d=qRotate(pose.q,ray);return [pose.p[0]+d[0]*range,pose.p[1]+d[1]*range,pose.p[2]+d[2]*range];}
 export function worldToAtlas(p,origin,width,height){const d=[p[0]-origin[0],p[1]-origin[1],p[2]-origin[2]],n=Math.hypot(...d)||1,yaw=Math.atan2(d[0],d[2]),pitch=Math.asin(clamp(d[1]/n,-1,1));return {x:wrap((yaw/(2*Math.PI)+.5)*width,width),y:clamp((pitch/Math.PI+.5)*height,0,height-1),r:n};}
 export function predictDepth(transform,raw){if(!transform||!Number.isFinite(raw))return NaN;if(transform.mode==='direct')return transform.a*raw+transform.b;if(transform.mode==='inverse-raw')return transform.a/Math.max(EPS,Math.abs(raw))+transform.b;if(transform.mode==='inverse-depth'){const q=transform.a*raw+transform.b;return q>EPS?1/q:NaN;}return NaN;}
+
+function hasDepthEvidence(f){return !!(f?.relativeDepth?.length||f?.metricDepth?.length);}
+
+function applyHomography(H,x,y){if(!Array.isArray(H)||H.length!==9)return null;const z=H[6]*x+H[7]*y+H[8];if(!Number.isFinite(z)||Math.abs(z)<EPS)return null;const u=(H[0]*x+H[1]*y+H[2])/z,v=(H[3]*x+H[4]*y+H[5])/z;return Number.isFinite(u)&&Number.isFinite(v)?[u,v]:null;}
+function invertHomography(m){if(!Array.isArray(m)||m.length!==9||!m.every(Number.isFinite))return null;const [a,b,c,d,e,f,g,h,i]=m,A=e*i-f*h,B=c*h-b*i,C=b*f-c*e,D=f*g-d*i,E=a*i-c*g,F=c*d-a*f,G=d*h-e*g,H=b*g-a*h,I=a*e-b*d,det=a*A+b*D+c*G;if(Math.abs(det)<1e-12)return null;return [A/det,B/det,C/det,D/det,E/det,F/det,G/det,H/det,I/det];}
+function canvasMosaicMap(bounds,width,height){const bw=Math.max(EPS,bounds.maxX-bounds.minX),bh=Math.max(EPS,bounds.maxY-bounds.minY),scale=Math.min(width/bw,height/bh),ox=(width-bw*scale)/2-bounds.minX*scale,oy=(height-bh*scale)/2-bounds.minY*scale;return {scale,ox,oy};}
+function sampleRgbBilinear(f,x,y){if(!f?.rgb?.length||x<0||y<0||x>f.width-1||y>f.height-1)return null;const x0=Math.floor(x),y0=Math.floor(y),x1=Math.min(f.width-1,x0+1),y1=Math.min(f.height-1,y0+1),tx=x-x0,ty=y-y0,out=[0,0,0];for(let c=0;c<3;c++){const a=f.rgb[(y0*f.width+x0)*3+c],b=f.rgb[(y0*f.width+x1)*3+c],d=f.rgb[(y1*f.width+x0)*3+c],e=f.rgb[(y1*f.width+x1)*3+c];out[c]=a*(1-tx)*(1-ty)+b*tx*(1-ty)+d*(1-tx)*ty+e*tx*ty;}return out;}
+
+export function reliablePhotoOverlap(reg,a,b,{far=false,minMatches=6}={}){
+  const m=reg?.matches||[],n=m.length,total=Math.max(n,Number(reg?.allPhotoMatches)||n);if(n<Math.max(8,minMatches)||n/Math.max(1,total)<.45)return false;
+  const maxErr=far?3.8:3.0;if(!Number.isFinite(reg.homographyMedianErrorPx)||reg.homographyMedianErrorPx>maxErr||Number(reg.visualConfidence||0)<.035)return false;
+  const spread=(keyU,keyV,w,h)=>{const xs=m.map(x=>x[keyU]/Math.max(1,w)).sort((x,y)=>x-y),ys=m.map(x=>x[keyV]/Math.max(1,h)).sort((x,y)=>x-y),lo=Math.floor((n-1)*.08),hi=Math.ceil((n-1)*.92);return [Math.max(0,xs[hi]-xs[lo]),Math.max(0,ys[hi]-ys[lo])];};
+  const [ax,ay]=spread('aU','aV',a.width,a.height),[bx,by]=spread('bU','bV',b.width,b.height);if(Math.min(ax,bx)<.10||Math.min(ay,by)<.10||Math.max(ax,ay)<.32||Math.max(bx,by)<.32)return false;
+  // A numerically good fit on repeated texture can still produce a wild projective
+  // transform. Reject those instead of ever placing a photo "somewhere plausible".
+  const H=reg?.homography,corners=[[0,0],[1,0],[1,1],[0,1]].map(p=>applyHomography(H,p[0],p[1]));if(corners.some(p=>!p||Math.abs(p[0])>3||Math.abs(p[1])>3))return false;
+  let area=0;for(let i=0;i<4;i++){const p=corners[i],q=corners[(i+1)%4];area+=p[0]*q[1]-p[1]*q[0];}area=Math.abs(area)*.5;if(area<.18||area>4.5)return false;
+  const minX=Math.min(...corners.map(p=>p[0])),maxX=Math.max(...corners.map(p=>p[0])),minY=Math.min(...corners.map(p=>p[1])),maxY=Math.max(...corners.map(p=>p[1])),overlapX=Math.max(0,Math.min(1,maxX)-Math.max(0,minX)),overlapY=Math.max(0,Math.min(1,maxY)-Math.max(0,minY));return overlapX*overlapY>.015;
+}
 
 function compactCameraFrame(frame,maxSide){
   if(!frame?.frameId||!frame?.K||!frame?.gray?.length||!(frame.width>0&&frame.height>0))return null;const sw=frame.width,sh=frame.height,scale=Math.min(1,Math.max(96,+maxSide||256)/Math.max(sw,sh)),w=Math.max(32,Math.round(sw*scale)),h=Math.max(32,Math.round(sh*scale)),gray=new Uint8Array(w*h),rgb=new Uint8Array(w*h*3),sx=sw/w,sy=sh/h,rgba=frame.rgba;

@@ -1,27 +1,25 @@
-# Room Scanner V30.32 architecture
+# Room Scanner V30.33 architecture
 
-## 1. Photo mosaic is an independent sensor layer
+## 1. Atomic RGB+Depth survey frame
 
-A photo node contains the frozen RGB/gray image, its image dimensions/intrinsics and features detected directly from that image. `pose` is nullable.
+The live photo graph accepts only one semantic object: an exact camera RGB frame with a valid Depth Anything raster bound to that same frame. Capture creates a pending immutable RGB packet; no graph node exists yet. After Deep returns, the exact-frame synchronization contract validates job ID, frame ID, timestamp, raster size and raster fingerprint. Only then is `RGB + raw depth` committed atomically.
 
-The image graph has no dependency on AlvaAR. Candidate long-range links are proposed from image appearance. Links survive only after photo descriptor/ZNCC matching and homography RANSAC.
+If inference fails, synchronization fails or the depth map has too few valid samples, the frame is discarded from the live mosaic.
 
-## 2. Global 2-D mosaic
+## 2. Pure photographic alignment
 
-The first frame of the largest connected photographic component is assigned the identity transform solely to choose a coordinate origin. Pairwise homographies propagate transforms to other frames. A correspondence-bundle coordinate descent then refits each non-root transform against all incident neighbouring and loop correspondences, distributing drift from photo evidence alone.
+Depth is an admission invariant, not a placement cue. AlvaAR is optional metadata only. Pairwise placement uses image features detected from the frozen photo, BRIEF/ZNCC matching and homography RANSAC. Weak, spatially concentrated or geometrically implausible homographies are rejected.
 
-## 3. Parallax
+A disconnected photo is not assigned a guessed position. The visible mosaic remains anchored to the component containing the first accepted RGB+Depth frame.
 
-A single projective transform cannot model general translated-camera indoor scenes. Residual correspondence errors therefore drive a spatially varying grid warp per frame. This correction also contains no Alva terms.
+## 3. Continuous photo preview
 
-## 4. Deep layer
+The measurement RGB preview uses inverse warping: each destination canvas pixel is mapped through the inverse photographic homography into the source RGB raster and bilinearly sampled. There are no feature points, graph edges, camera centres or adaptive splat strides in this view.
 
-Raw Depth Anything maps remain attached to the exact photo nodes. Relative depth transforms are estimated robustly over verified RGB overlap pairs. Depth is rendered through the exact same photo mosaic transform and local warp.
+## 4. Depth view
 
-## 5. Alva/metric layer
+The Depth view uses the same photographic graph. Raw Deep maps can still be statistically aligned over RGB overlaps and, where Alva metric evidence exists, calibrated later. A suspicious Deep map may be retained at low confidence, but it is still tied one-to-one to its RGB frame.
 
-If a valid Alva pose exists at photo capture time it is retained as optional metadata and can still support the existing metric/3-D pipeline. If it does not exist, the photo node remains valid. No Alva quantity can change the photographic mosaic.
+## 5. Alva/3-D
 
-## 6. 3-D reconstruction
-
-Unchanged in V30.32. This patch deliberately stops after improving the reliability of the photo/depth evidence layer.
+AlvaAR and the existing metric/3-D reconstruction remain separate. If an accepted RGB+Depth survey frame happens to have an Alva pose, that pose can be persisted for later optimization. It never changes the 2-D mosaic.

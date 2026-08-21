@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-32-pure-photo-mosaic",
+  "name": "room-scanner-v30-33-rgb-depth-mosaic",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,6 +14,6 @@
     "vendor:alva": "node tools/vendor_alvaar.mjs",
     "check:public": "node tools/validate_public_data.mjs"
   },
-  "version": "30.32.0",
-  "description": "Room Scanner V30.32 pure photographic mosaic with overlap-consensus depth; AlvaAR excluded from photo registration"
+  "version": "30.33.0",
+  "description": "Room Scanner V30.33 continuous inverse-warped RGB mosaic with exact-frame Depth admission and photo-only alignment"
 }
