@@ -42,7 +42,7 @@ test('review exposes explicit BASE/EXP rollback controls and EXP-only export',()
 });
 
 
-test('EXP-3 local PCA improves a noisy plane without tangential collapse',()=>{
+test('EXP-4 local PCA improves a noisy plane without tangential collapse',()=>{
   const gaussians=[];
   for(let y=-4;y<=4;y++)for(let x=-4;x<=4;x++){
     const z=2+0.012*Math.sin(x*1.7+y*.9),n=[0.15*Math.sin(x),0.12*Math.cos(y),-1],d=Math.hypot(...n);
@@ -58,7 +58,7 @@ test('EXP-3 local PCA improves a noisy plane without tangential collapse',()=>{
   assert.ok(afterN<beforeN*.85,`normal variance did not improve enough: ${afterN}/${beforeN}`);
 });
 
-test('EXP-3 neighbourhood gate preserves a 90-degree room corner',()=>{
+test('EXP-4 neighbourhood gate preserves a 90-degree room corner',()=>{
   const gaussians=[];
   for(let k=-4;k<=4;k++)for(let j=0;j<=5;j++){
     gaussians.push({position:[j*.03,k*.03,2],normal:[0,0,-1],scale:[.032,.032,.006],covariance:[.001024,0,0,.001024,0,.000036],positionCovariance:[.0001,0,0,.0001,0,.0001],confidence:.9,support:4});
@@ -68,7 +68,7 @@ test('EXP-3 neighbourhood gate preserves a 90-degree room corner',()=>{
   for(let i=0;i<refined.length;i+=2){assert.ok(Math.abs(refined[i].normal[2])>.90,`horizontal sheet normal mixed at ${i}`);assert.ok(Math.abs(refined[i+1].normal[0])>.90,`vertical sheet normal mixed at ${i+1}`);}
 });
 
-test('EXP-3 signed field is evaluated at voxel centres, preserving an off-grid metric plane',()=>{
+test('EXP-4 signed field is evaluated at voxel centres, preserving an off-grid metric plane',()=>{
   const zTrue=2.017,gaussians=[],offsets=[0],rows=[];let count=0;
   for(let y=-5;y<=5;y++)for(let x=-5;x<=5;x++){
     const p=[x*.03,y*.03,zTrue];gaussians.push({position:p.slice(),normal:[0,0,-1],color:[180,190,210],scale:[.035,.035,.006],covariance:[.001225,0,0,.001225,0,.000036],positionCovariance:[.0001,0,0,.0001,0,.000225],confidence:.9,support:4,positionSigma:.012});
@@ -79,10 +79,11 @@ test('EXP-3 signed field is evaluated at voxel centres, preserving an off-grid m
   assert.ok(mesh.vertices.length/3>100);assert.ok(Math.abs(mean-zTrue)<.003,`off-grid plane bias ${mean-zTrue} m`);assert.ok(mesh.meanPlanarity>.4,`unexpected planarity ${mesh.meanPlanarity}`);
 });
 
-test('published EXP-3 patch contract includes both lazy Surface Mesh Lab assets',()=>{
-  const sw=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8'),app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
+test('published EXP-4 contract keeps both lazy Surface Mesh Lab assets deploy-verifiable without gating service-worker install',()=>{
+  const sw=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8'),app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8'),config=fs.readFileSync(new URL('../js/config.js',import.meta.url),'utf8');
   assert.ok(fs.existsSync(new URL('../js/experimental/surface_mesh_lab.js',import.meta.url)));
   assert.ok(fs.existsSync(new URL('../workers/surface_mesh_lab_worker.js',import.meta.url)));
-  assert.match(sw,/\.\/js\/experimental\/surface_mesh_lab\.js/);assert.match(sw,/\.\/workers\/surface_mesh_lab_worker\.js/);
+  assert.match(app,/\.\/experimental\/surface_mesh_lab\.js/);assert.match(config,/surfaceLabWorker:'workers\/surface_mesh_lab_worker\.js'/);
   assert.match(app,/surface-lab-asset-missing/);assert.match(app,/loadSurfaceLabAssets/);
+  assert.doesNotMatch(sw,/const SHELL = \[/);
 });

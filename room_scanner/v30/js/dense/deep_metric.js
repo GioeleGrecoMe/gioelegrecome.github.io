@@ -31,7 +31,7 @@ export function calibrateRelativeDepth({rawDepth,rawWidth,rawHeight,outWidth,out
   const cells=countCoverageCells(pairs,outWidth,outHeight,4,6);
   if(cells<minCells)return {ok:false,reason:'anchors-too-clustered',anchorCount:pairs.length,cells};
 
-  const candidates=[fitRobustAffine(pairs,p=>p.raw,'direct'),fitRobustAffine(pairs,p=>1/Math.max(EPS,Math.abs(p.raw)),'inverse')].filter(Boolean);
+  const candidates=['direct','inverse-raw','inverse-depth'].map(mode=>fitRobustModel(pairs,mode)).filter(Boolean);
   if(!candidates.length)return {ok:false,reason:'fit-failed',anchorCount:pairs.length,cells};
   candidates.sort((a,b)=>a.medianRelativeError-b.medianRelativeError||b.inlierRatio-a.inlierRatio);
   const fit=candidates[0];
@@ -39,7 +39,7 @@ export function calibrateRelativeDepth({rawDepth,rawWidth,rawHeight,outWidth,out
   if(!(fit.medianRelativeError<=maxMedianRelativeError))return {ok:false,reason:'metric-residual-too-large',anchorCount:pairs.length,cells,...fit};
 
   const enriched=pairs.map(p=>{
-    const feature=fit.mode==='inverse'?1/Math.max(EPS,Math.abs(p.raw)):p.raw,pred=fit.a*feature+fit.b;
+    const pred=predictDepth(fit,p.raw);
     const rel=pred>0?Math.abs(pred-p.depth)/Math.max(.05,p.depth):Infinity;
     const logResidual=pred>0?Math.log(Math.max(.2,Math.min(5,p.depth/pred))):0;
     const anchorRelSigma=p.sigmaDepth>0?p.sigmaDepth/Math.max(.05,p.depth):fit.medianRelativeError;
@@ -55,7 +55,7 @@ export function calibrateRelativeDepth({rawDepth,rawWidth,rawHeight,outWidth,out
   for(let y=0;y<outHeight;y++)for(let x=0;x<outWidth;x++){
     const rx=(x/(outWidth-1))*(rawWidth-1),ry=(y/(outHeight-1))*(rawHeight-1),r=bilinear(rawDepth,rawWidth,rawHeight,rx,ry);
     if(!Number.isFinite(r)||Math.abs(r)<EPS)continue;
-    const feature=fit.mode==='inverse'?1/Math.max(EPS,Math.abs(r)):r,z0=fit.a*feature+fit.b;if(!(z0>0))continue;
+    const z0=predictDepth(fit,r);if(!(z0>0))continue;
     const local=sampleField(field,x,y,outWidth,outHeight),z=z0*Math.exp(clamp(local.logCorrection,-.22,.22));
     if(!Number.isFinite(z)||z<=0||z<near||z>far)continue;
     depth[y*outWidth+x]=z;relativeSigma[y*outWidth+x]=clamp(local.relativeSigma,.025,.32);valid++;
@@ -99,18 +99,33 @@ function sampleField(field,x,y,width,height){
 }
 function nearestNormalisedDistance(pairs,u,v,w,h){let best=Infinity;for(const p of pairs){const dx=(p.u-u)/Math.max(1,w),dy=(p.v-v)/Math.max(1,h),d=Math.hypot(dx,dy);if(d<best)best=d;}return Number.isFinite(best)?best:1;}
 
-function fitRobustAffine(pairs,feature,mode){
-  let active=pairs.map((p,i)=>({p,i,x:feature(p),y:p.depth,w:p.confidence*(.75+.15*Math.min(3,p.viewSupport||1))/Math.max(.5,1+(p.sigmaDepth||0)/Math.max(.05,p.depth)*6)})).filter(o=>Number.isFinite(o.x+o.y)&&o.y>0);
+function fitRobustModel(pairs,mode){
+  const transform=p=>{
+    if(mode==='direct')return {x:p.raw,y:p.depth};
+    if(mode==='inverse-raw')return {x:1/Math.max(EPS,Math.abs(p.raw)),y:p.depth};
+    if(mode==='inverse-depth')return {x:p.raw,y:1/Math.max(EPS,p.depth)};
+    return null;
+  };
+  let active=pairs.map((p,i)=>{const t=transform(p);return t?{p,i,x:t.x,y:t.y,w:p.confidence*(.75+.15*Math.min(3,p.viewSupport||1))/Math.max(.5,1+(p.sigmaDepth||0)/Math.max(.05,p.depth)*6)}:null;}).filter(o=>o&&Number.isFinite(o.x+o.y)&&o.y>0);
   if(active.length<4)return null;let fit=weightedLeastSquares(active);if(!fit)return null;
   for(let pass=0;pass<3;pass++){
-    const residuals=active.map(o=>Math.abs((fit.a*o.x+fit.b)-o.y)),med=median(residuals),mad=median(residuals.map(r=>Math.abs(r-med))),depthMed=median(active.map(o=>o.y));
+    const residuals=active.map(o=>Math.abs(predictDepth({mode,...fit},o.p.raw)-o.p.depth)),med=median(residuals),mad=median(residuals.map(r=>Math.abs(r-med))),depthMed=median(active.map(o=>o.p.depth));
     const threshold=Math.max(depthMed*.025,med+2.8*Math.max(mad,depthMed*.004));
-    const kept=active.filter((o,i)=>residuals[i]<=threshold);if(kept.length<4||kept.length===active.length)break;active=kept;fit=weightedLeastSquares(active);if(!fit)return null;
+    const kept=active.filter((o,i)=>Number.isFinite(residuals[i])&&residuals[i]<=threshold);if(kept.length<4||kept.length===active.length)break;active=kept;fit=weightedLeastSquares(active);if(!fit)return null;
   }
-  const allResiduals=pairs.map(p=>Math.abs(fit.a*feature(p)+fit.b-p.depth)),rel=pairs.map((p,i)=>allResiduals[i]/Math.max(.05,p.depth));
-  const depthMed=median(pairs.map(p=>p.depth)),m=median(allResiduals),threshold=Math.max(depthMed*.035,m+3*Math.max(median(allResiduals.map(r=>Math.abs(r-m))),depthMed*.004));
-  const inliers=allResiduals.filter(r=>r<=threshold).length;
-  return {mode,a:fit.a,b:fit.b,inliers,inlierRatio:inliers/pairs.length,medianError:median(allResiduals),medianRelativeError:median(rel)};
+  const model={mode,a:fit.a,b:fit.b},allResiduals=pairs.map(p=>Math.abs(predictDepth(model,p.raw)-p.depth)),rel=pairs.map((p,i)=>allResiduals[i]/Math.max(.05,p.depth));
+  const finite=allResiduals.filter(Number.isFinite);if(finite.length<4)return null;const depthMed=median(pairs.map(p=>p.depth)),m=median(finite),threshold=Math.max(depthMed*.035,m+3*Math.max(median(finite.map(r=>Math.abs(r-m))),depthMed*.004));
+  const inliers=allResiduals.filter(r=>Number.isFinite(r)&&r<=threshold).length;
+  return {...model,inliers,inlierRatio:inliers/pairs.length,medianError:median(finite),medianRelativeError:median(rel.filter(Number.isFinite))};
+}
+function predictDepth(fit,raw){
+  if(!fit||!Number.isFinite(raw))return NaN;
+  if(fit.mode==='direct')return fit.a*raw+fit.b;
+  if(fit.mode==='inverse-raw')return fit.a*(1/Math.max(EPS,Math.abs(raw)))+fit.b;
+  if(fit.mode==='inverse-depth'){
+    const inv=fit.a*raw+fit.b;return inv>EPS?1/inv:NaN;
+  }
+  return NaN;
 }
 function weightedLeastSquares(a){let sw=0,sx=0,sy=0,sxx=0,sxy=0;for(const o of a){const w=o.w||1;sw+=w;sx+=w*o.x;sy+=w*o.y;sxx+=w*o.x*o.x;sxy+=w*o.x*o.y;}const den=sw*sxx-sx*sx;if(Math.abs(den)<EPS)return null;const aa=(sw*sxy-sx*sy)/den,bb=(sy-aa*sx)/sw;return Number.isFinite(aa+bb)?{a:aa,b:bb}:null;}
 function median(a){if(!a.length)return Infinity;const b=a.slice().sort((x,y)=>x-y),m=b.length>>1;return b.length%2?b[m]:(b[m-1]+b[m])*.5;}

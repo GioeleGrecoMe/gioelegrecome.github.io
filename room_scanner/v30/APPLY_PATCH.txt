@@ -1,25 +1,6 @@
-ROOM SCANNER V30.27 EXP-3 - SURFACE FIELD / DEPLOY REPAIR
+Room Scanner V30.27 EXP-4 incremental patch
 
-Base required: V30.27 EXP-2.
-Copy this package over the V30.27 EXP-2 project, preserving directories.
-No model files are included or changed.
+Base: V30.27 EXP-3.
+Overlay the files preserving their relative paths. No models are included.
 
-Important deploy repair:
-- this patch contains js/experimental/surface_mesh_lab.js and
-  workers/surface_mesh_lab_worker.js explicitly;
-- therefore it repairs an EXP-2 deployment where the EXP-1 experimental
-  directory was never uploaded;
-- the app probes both assets before copying the Gaussian map and logs
-  surface-lab-assets-ready or surface-lab-asset-missing.
-
-Geometry changes (EXP only):
-- robust local PCA re-estimates compatible surfel normals;
-- centre correction is normal-only and bounded, preserving corners/edges;
-- anisotropic signed field is evaluated at exact voxel centres;
-- camera-ray observations reinforce surface sign/free space;
-- component filtering uses physical area;
-- preview meshing is intentionally coarser/lower-budget than the final EXP mesh.
-
-Exact Deep/Alva frame synchronization from EXP-2 is unchanged.
-BASE V30.26 data are never overwritten by Surface Mesh Lab.
-A separate rollback archive restores the modified EXP-3 files to EXP-2.
+Important: EXP-4 changes the service-worker bootstrap. A normal reload is enough; if an old controller cannot hand over cleanly, the inline recovery performs one shell-only reset automatically. IndexedDB sessions and the Depth/Alva caches are not deleted.

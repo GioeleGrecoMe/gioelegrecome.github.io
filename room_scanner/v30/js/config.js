@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.27.0 EXP-3 exact-frame synchronized robust surface-field runtime configuration.
+ * Room Scanner V30.27.0 EXP-4 exact-frame synchronized robust surface-field runtime configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.27.0-exp.3',
-  id:'v30.27.0-exp.3-20260821-surface-field',
+  version:'30.27.0-exp.4',
+  id:'v30.27.0-exp.4-20260821-atomic-boot',
   dbName:'room-scanner-v30',
   dbVersion:3
 };

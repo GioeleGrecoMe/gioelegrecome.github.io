@@ -1,4 +1,12 @@
-# Room Scanner V30.27 EXP-3
+# V30.27 EXP-4 · Atomic boot / build coherence
+
+EXP-4 fixes an intermittent Android/GitHub Pages failure where a refresh could show a visually different page with dead buttons. The cause was a service-worker controller handover racing the ES-module bootstrap and allowing a mixed shell. The page now waits for an explicit `GET_VERSION` handshake from the controlling worker, verifies `build_info.json`, reloads `styles.css` under that controller, then starts `app.js`. There is no controller-change reload during UI binding.
+
+If bootstrap fails before modules are available, an inline recovery button remains clickable. Recovery clears/unregisters only V30 shell caches: IndexedDB sessions, the Depth Anything model cache and the Alva runtime cache are preserved. The next successful boot logs the previous failed boot phases as `previous-boot-recovery`.
+
+The runtime self-test now verifies lost-Alva behaviour directly rather than by brittle source tokens, and the Deep metric calibration again evaluates `z=a·raw+b`, `z=a/raw+b`, and `1/z=a·raw+b`.
+
+# Room Scanner V30.27 EXP-4
 
 ## Surface Mesh Lab deploy repair + robust surface field
 
@@ -7,7 +15,7 @@ was present, but `js/experimental/surface_mesh_lab.js` had never reached the
 GitHub Pages tree. Because the lab is lazy, the rest of the application can boot
 and reload saved Gaussian sessions even when that optional asset is missing.
 
-EXP-3 therefore ships the experimental module and worker again and probes both
+EXP-4 therefore ships the experimental module and worker again and probes both
 assets before allocating the private Gaussian copy. Missing assets now produce a
 specific `surface-lab-asset-missing` diagnostic rather than an opaque dynamic
 import error. The production BASE remains untouched.

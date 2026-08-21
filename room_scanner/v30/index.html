@@ -7,9 +7,9 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="manifest" href="manifest.webmanifest?v=30.27.0-exp.3">
-  <link rel="stylesheet" href="styles.css?v=30.27.0-exp.3">
-  <title>Room Scanner V30.27 EXP-3</title>
+  <link rel="manifest" href="manifest.webmanifest?v=30.27.0-exp.4">
+  <link rel="stylesheet" href="styles.css?v=30.27.0-exp.4">
+  <title>Room Scanner V30.27 EXP-4</title>
 
 <style id="deepDiagStyle">
 .deepDiagGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin-top:.7rem}.deepDiagGrid figure{margin:0;min-width:0}.deepDiagGrid figure[hidden]{display:none}.deepDiagGrid figcaption{font-size:.72rem;opacity:.75;margin:0 0 .25rem}.deepDiagGrid canvas{display:block;width:100%;min-height:100px;background:#05070a;border:1px solid rgba(255,255,255,.15);border-radius:8px;object-fit:contain}.deepDiagReport{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.72rem;line-height:1.35;max-height:none;background:rgba(0,0,0,.28);padding:.65rem;border-radius:8px;margin:.7rem 0 0}@media(max-width:680px){.deepDiagGrid{grid-template-columns:1fr}}
@@ -18,7 +18,7 @@
 <body>
 <main id="app">
   <section id="home" class="screen active">
-    <div class="hero"><div id="buildBadge" class="badge">V30.27 EXP-3</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
+    <div class="hero"><div id="buildBadge" class="badge">V30.27 EXP-4</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
     <div class="card"><b>1 · Calibrazione</b><p class="hint">Inquadra un punto fisico con il reticolo e premi <b>Aggiungi pin</b>. Usa 3 punti ben distribuiti. Dopo poche viste utili per ciascun pin, riportane almeno 3 nella stessa inquadratura e premi Applica.</p><div id="calibSummary" class="status">Calibrazione non presente.</div><div class="actions inline"><button id="calibrateBtn" class="primary">Calibra con WebXR</button><button id="clearCalibrationBtn">Azzera calibrazione</button></div></div>
     <div class="card"><b>2 · Modello depth</b><p class="hint">Il modello locale <code>models/model_q4.onnx</code> viene caricato dal sito. Se manca o non è pubblicato, viene mostrato un errore chiaro: non parte più alcun download remoto infinito. Puoi comunque scegliere manualmente un file ONNX.</p><div class="actions inline"><button id="chooseDeepModelBtn">Scegli ONNX</button><button id="testDeepBtn" class="primary">Prova inferenza</button></div><input id="deepModelFile" type="file" accept=".onnx,application/octet-stream" hidden><div id="deepModelStatus" class="status">Depth Anything V2 Small Q4 locale · 224 px con rescue automatico 280/336 px, pronto per il test.</div><canvas id="deepTestPreview" class="depthTestPreview" aria-label="Anteprima depth map"></canvas></div>
 
@@ -62,37 +62,140 @@
       <div id="reviewStats" class="card compact"></div>
       <div id="metricGsStats" class="card compact">Dati mesh: attendo consenso multi-view / TSDF ricostruibile.</div>
       <div id="optimizerCard" class="card compact optimizerCard"><b>Ottimizzazione batch 3D Gaussian</b><p class="hint">Il numero è un target totale: puoi fermarti, riaprire la sessione dalla Home e continuare più tardi. La preview viene aggiornata a blocchi per non saturare il telefono.</p><div class="optimizerControls"><label>Fermati a <input id="optIterations" type="number" inputmode="numeric" min="1" max="300" step="1" value="30"> iterazioni</label><button id="optStartBtn" class="primary">Ottimizza</button><button id="optStopBtn" disabled>Ferma</button></div><progress id="optProgress" min="0" max="30" value="0"></progress><div id="optStatus" class="status">0 iterazioni completate.</div></div>
-      <div id="surfaceLabCard" class="card compact optimizerCard experimentalCard"><b>EXP · Surface Mesh Lab isolato</b><p class="hint">EXP-3 rifinisce localmente normali/superfici e costruisce il campo signed sui centri voxel esatti. Lavora sempre su una COPIA: BASE V30.26 resta intatta e confrontabile in qualsiasi momento.</p><div class="optimizerControls"><label>EXP fino a <input id="surfaceLabIterations" type="number" inputmode="numeric" min="1" max="160" step="1" value="20"> iterazioni</label><label>Voxel <input id="surfaceLabVoxel" type="number" inputmode="decimal" min="0.012" max="0.08" step="0.005" value="0.03"> m</label><button id="surfaceLabStartBtn" class="primary">Avvia EXP</button><button id="surfaceLabStopBtn" disabled>Ferma</button></div><progress id="surfaceLabProgress" min="0" max="20" value="0"></progress><div id="surfaceLabStatus" class="status">BASE attiva · nessun esperimento in RAM.</div><div class="actions wrap compactActions"><button id="surfaceLabBaseBtn" disabled>Mostra BASE</button><button id="surfaceLabExpBtn" disabled>Mostra EXP</button><button id="surfaceLabExportBtn" disabled>Scarica mesh EXP</button><button id="surfaceLabDiscardBtn" disabled>Elimina EXP</button></div></div>
+      <div id="surfaceLabCard" class="card compact optimizerCard experimentalCard"><b>EXP · Surface Mesh Lab isolato</b><p class="hint">EXP-4 rifinisce localmente normali/superfici e costruisce il campo signed sui centri voxel esatti. Lavora sempre su una COPIA: BASE V30.26 resta intatta e confrontabile in qualsiasi momento.</p><div class="optimizerControls"><label>EXP fino a <input id="surfaceLabIterations" type="number" inputmode="numeric" min="1" max="160" step="1" value="20"> iterazioni</label><label>Voxel <input id="surfaceLabVoxel" type="number" inputmode="decimal" min="0.012" max="0.08" step="0.005" value="0.03"> m</label><button id="surfaceLabStartBtn" class="primary">Avvia EXP</button><button id="surfaceLabStopBtn" disabled>Ferma</button></div><progress id="surfaceLabProgress" min="0" max="20" value="0"></progress><div id="surfaceLabStatus" class="status">BASE attiva · nessun esperimento in RAM.</div><div class="actions wrap compactActions"><button id="surfaceLabBaseBtn" disabled>Mostra BASE</button><button id="surfaceLabExpBtn" disabled>Mostra EXP</button><button id="surfaceLabExportBtn" disabled>Scarica mesh EXP</button><button id="surfaceLabDiscardBtn" disabled>Elimina EXP</button></div></div>
       <div class="actions wrap"><button id="buildMetricMeshBtn">Scarica mesh TSDF</button><button id="exportPlyBtn" class="primary">Scarica PLY</button><button id="exportR30Btn">Scarica .r30</button><button id="exportDiagBtn">Diagnostica</button><button id="resumeBtn">Nuova scansione</button></div>
     </div>
   </section>
 </main>
 
-<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.27 EXP-3</pre></div></details></aside>
+<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.27 EXP-4</pre></div></details></aside>
 
 <script>
-/* Load the UI immediately. A service-worker handover may reload the page once,
- * but it must never hold the application in a stale-controller wait loop. */
+/* EXP-4 atomic boot guard.
+ * No application module is loaded until the service worker controlling this
+ * exact document reports the same build. This prevents mixed HTML/CSS/JS
+ * revisions after a GitHub Pages refresh. Recovery is inline and therefore
+ * still clickable even if every ES module fails to load. */
 (function(){
-  const VERSION='30.27.0-exp.3';
-  const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),version:VERSION,errors:[],interactive:false};
-  const rec=(type,data={})=>boot.errors.push({time:Date.now(),type,...data});
+  const VERSION='30.27.0-exp.4';
+  const RECOVERY_KEY=`roomscan-v30-atomic-recovery-${VERSION}`;
+  const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),version:VERSION,errors:[],phases:[],interactive:false,shell:null};
+  const rec=(type,data={})=>{const item={time:Date.now(),type,...data};boot.errors.push(item);return item;};
+  const phase=(name,data={})=>{boot.phases.push({time:Date.now(),name,...data});document.documentElement.dataset.v30BootPhase=name;};
+  const homeStatus=()=>document.getElementById('homeStatus');
+  const setStatus=(text,kind='')=>{const h=homeStatus();if(!h)return;h.textContent=text;if(kind)h.dataset.kind=kind;else delete h.dataset.kind;};
+  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   addEventListener('error',e=>rec('error',{message:e.message,src:e.filename,line:e.lineno,col:e.colno,stack:e.error?.stack||null}));
   addEventListener('unhandledrejection',e=>{const r=e.reason||{};rec('rejection',{name:r.name||null,message:String(r.message||r),stack:r.stack||null});});
-  let loaded=false,reloaded=false;
-  const loadModule=()=>{if(loaded)return;loaded=true;const s=document.createElement('script');s.type='module';s.src=`js/boot.js?v=${VERSION}`;s.onerror=()=>{rec('boot-script-load-failed',{src:s.src});const h=document.getElementById('homeStatus');if(h){h.dataset.kind='error';h.textContent='BOOT ERROR: js/boot.js non caricato.';}};document.body.appendChild(s);};
-  const reloadForNewController=()=>{if(reloaded)return;reloaded=true;location.replace(`${location.pathname}?fresh=${VERSION}-${Date.now()}`);};
-  (async()=>{
-    if('serviceWorker' in navigator){
-      try{
-        const reg=await navigator.serviceWorker.register('sw.js',{scope:'./',updateViaCache:'none'});
-        await reg.update().catch(()=>{});
-        if(reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'});
-        navigator.serviceWorker.addEventListener('controllerchange',reloadForNewController,{once:true});
-      }catch(err){rec('sw-register-preboot',{message:err?.message||String(err)});}
+
+  function isOwnScope(scope){try{return new URL(scope).pathname.includes('/room_scanner/v30/');}catch{return false;}}
+  async function ping(worker,timeoutMs=900){
+    if(!worker)return null;
+    return await new Promise(resolve=>{
+      const channel=new MessageChannel();let done=false;
+      const finish=v=>{if(done)return;done=true;clearTimeout(timer);resolve(v);};
+      const timer=setTimeout(()=>finish(null),timeoutMs);
+      channel.port1.onmessage=e=>finish(e.data||null);
+      try{worker.postMessage({type:'GET_VERSION'},[channel.port2]);}catch{finish(null);}
+    });
+  }
+  async function waitForAtomicController(reg,timeoutMs=6500){
+    const started=performance.now();
+    while(performance.now()-started<timeoutMs){
+      if(reg.installing&&reg.installing.state==='installed')reg.installing.postMessage({type:'SKIP_WAITING'});
+      if(reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'});
+      const info=await ping(navigator.serviceWorker.controller,500);
+      if(info?.version===VERSION)return info;
+      await new Promise(resolve=>{
+        let done=false;const finish=()=>{if(done)return;done=true;clearTimeout(timer);navigator.serviceWorker.removeEventListener('controllerchange',finish);resolve();};
+        const timer=setTimeout(finish,220);navigator.serviceWorker.addEventListener('controllerchange',finish,{once:true});
+      });
     }
-    loadModule();
-  })().catch(err=>{rec('sw-handshake-error',{message:err?.message||String(err)});loadModule();});
+    const info=await ping(navigator.serviceWorker.controller,500);
+    throw new Error(`controller build ${info?.version||'none'} != ${VERSION}`);
+  }
+  async function verifyPublishedBuild(){
+    let last='unavailable';
+    for(let i=0;i<4;i++){
+      try{
+        const r=await fetch(`build_info.json?atomic=${VERSION}-${Date.now()}-${i}`,{cache:'no-store'});
+        if(!r.ok)throw new Error(`HTTP ${r.status}`);
+        const info=await r.json();last=info?.version||info?.id||'unknown';
+        if(info?.version===VERSION)return info;
+      }catch(err){last=err?.message||String(err);}
+      await sleep(450+250*i);
+    }
+    throw new Error(`published build ${last} != ${VERSION}`);
+  }
+  async function refreshStyles(){
+    const link=[...document.querySelectorAll('link[rel="stylesheet"]')].find(x=>/styles\.css/.test(x.getAttribute('href')||''));
+    if(!link)return;
+    await new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('styles.css timeout')),3500);
+      link.onload=()=>{clearTimeout(timer);resolve();};
+      link.onerror=()=>{clearTimeout(timer);reject(new Error('styles.css load failed'));};
+      link.href=`styles.css?v=${VERSION}&atomic=${Date.now()}`;
+    });
+  }
+  async function clearShellOnly(){
+    try{
+      const regs=await navigator.serviceWorker?.getRegistrations?.()||[];
+      for(const reg of regs)if(isOwnScope(reg.scope))await reg.unregister().catch(()=>{});
+    }catch{}
+    try{
+      if(window.caches)for(const key of await caches.keys()){
+        if(/^room-scanner-v.*-shell$/.test(key))await caches.delete(key);
+      }
+    }catch{}
+  }
+  function showRecovery(message){
+    phase('recovery-visible',{message});rec('atomic-boot-recovery-visible',{message});
+    setStatus(`Avvio non coerente: ${message}`,'error');
+    let b=document.getElementById('atomicBootRecoveryBtn');
+    if(!b){
+      b=document.createElement('button');b.id='atomicBootRecoveryBtn';b.className='primary';b.textContent='Ripristina interfaccia';b.style.marginTop='.65rem';
+      const h=homeStatus();h?.insertAdjacentElement('afterend',b);
+    }
+    b.onclick=async()=>{b.disabled=true;b.textContent='Ripristino…';sessionStorage.removeItem(RECOVERY_KEY);await clearShellOnly();location.replace(`${location.pathname}?atomic=${VERSION}-${Date.now()}`);};
+  }
+  async function hardRecover(reason){
+    rec('atomic-boot-recover',{reason});
+    try{sessionStorage.setItem('roomscan-v30-last-boot-failure',JSON.stringify({at:Date.now(),version:VERSION,reason,errors:boot.errors.slice(-16),phases:boot.phases.slice(-24)}));}catch{}
+    if(sessionStorage.getItem(RECOVERY_KEY)!=='1'){
+      sessionStorage.setItem(RECOVERY_KEY,'1');
+      setStatus('Aggiornamento shell in corso…');
+      await clearShellOnly();
+      location.replace(`${location.pathname}?atomic=${VERSION}-${Date.now()}`);
+      return;
+    }
+    showRecovery(reason);
+  }
+  boot.recover=hardRecover;
+  let moduleStarted=false;
+  function loadModule(){
+    if(moduleStarted)return;moduleStarted=true;phase('module-load');
+    const s=document.createElement('script');s.type='module';s.src=`js/boot.js?v=${VERSION}&atomic=${Date.now()}`;
+    s.onerror=()=>{rec('boot-script-load-failed',{src:s.src});void hardRecover('js/boot.js non caricato');};
+    document.body.appendChild(s);
+  }
+
+  const watchdog=setTimeout(()=>{
+    if(document.documentElement.dataset.v30Interactive!=='1'&&!document.getElementById('atomicBootRecoveryBtn'))void hardRecover('timeout durante il bootstrap');
+  },9000);
+  boot.markInteractive=()=>{clearTimeout(watchdog);sessionStorage.removeItem(RECOVERY_KEY);};
+
+  (async()=>{
+    setStatus('Verifica build applicazione…');phase('shell-register');
+    if('serviceWorker' in navigator){
+      const reg=await navigator.serviceWorker.register(`sw.js?build=${VERSION}`,{scope:'./',updateViaCache:'none'});
+      await reg.update().catch(err=>rec('sw-update-warning',{message:err?.message||String(err)}));
+      const shell=await waitForAtomicController(reg);boot.shell=shell;phase('shell-coherent',shell);
+    }else{phase('shell-unavailable');}
+    const published=await verifyPublishedBuild();boot.published=published;phase('published-coherent',{id:published.id||null});
+    await refreshStyles();phase('styles-coherent');
+    setStatus('Collegamento interfaccia…');loadModule();
+  })().catch(err=>{rec('atomic-boot-error',{message:err?.message||String(err),stack:err?.stack||null});void hardRecover(err?.message||String(err));});
 })();
 </script>
+
 </body></html>

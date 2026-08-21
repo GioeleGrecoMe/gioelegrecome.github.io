@@ -1,6 +1,6 @@
 {
-  "version": "30.27.0-exp.3",
-  "id": "v30.27.0-exp.3-20260821-surface-field",
-  "builtAt": "2026-08-21T00:35:00+02:00",
-  "notes": "EXP-3 keeps EXP-2 exact-frame synchronization and repairs the deploy contract for Surface Mesh Lab. The EXP representation remains isolated/reversible, while mesh extraction now re-estimates local surfel normals from multi-view Gaussian neighborhoods and evaluates an anisotropic signed surface field at exact voxel centres before TSDF meshing."
+  "version": "30.27.0-exp.4",
+  "id": "v30.27.0-exp.4-20260821-atomic-boot",
+  "builtAt": "2026-08-21T09:25:00+02:00",
+  "notes": "EXP-4 makes page bootstrap atomic across HTML/CSS/JS/service-worker builds: the UI starts only after the controlling worker reports the same version, with inline recovery if bootstrap fails. It preserves EXP-3 surface meshing and EXP-2 exact-frame Deep/Alva synchronization. The Deep metric calibrator also restores direct, inverse-raw and inverse-depth projective fits."
 }

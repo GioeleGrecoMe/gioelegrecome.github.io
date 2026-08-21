@@ -1,4 +1,12 @@
-# V30.27 EXP-3 phone check - Surface Mesh Lab
+# EXP-4 phone check
+
+1. Publish the patch once. Reload the page normally. The first transition may take a moment while the new service worker claims the page, but the app must not flash into a second layout or become unclickable.
+2. The Home status must reach `Interfaccia pronta.`. In diagnostics, `ui-interactive` should include a shell object whose `version` is `30.27.0-exp.4`, followed by `service-worker-controller` with `coherent:true`.
+3. Reload repeatedly (including fast consecutive reloads). Controls must remain clickable. A failed bootstrap must show the inline `Ripristina interfaccia` button instead of a dead page.
+4. Run Self-test. `alva-autonomous-world-contract`, `alva-deep-ray-consensus-pipeline`, `service-worker-file`, and `build-info-fresh` must pass.
+5. Existing IndexedDB sessions and model/runtime caches must remain available after `Reset cache`; only shell caches are cleared.
+
+# V30.27 EXP-4 phone check - Surface Mesh Lab
 
 1. Apply this patch over **V30.27 EXP-2**, preserving `js/experimental/` and
    `workers/`, then use Reset cache / hard reload once.

@@ -1,37 +1,28 @@
-# V30.27 EXP-3 verification report
+# V30.27 EXP-4 verification
 
-Final verification command:
+Base: V30.27 EXP-3.
 
-```bash
-npm run verify
-```
+## Regression fixed
 
-Result: **PASS**.
+- Atomic HTML/CSS/JS/service-worker build handshake before `app.js` starts.
+- No `controllerchange` reload racing UI binding.
+- Service-worker install no longer precaches every optional asset, so an optional/lazy missing file cannot brick shell activation.
+- Inline boot recovery remains clickable even when ES modules fail.
+- Shell-only reset preserves IndexedDB sessions, Depth Anything CacheStorage and Alva runtime cache.
+- Successful boot records the actual controlling service-worker version; a preceding failed boot is persisted and logged on recovery.
+- Self-tests for lost Alva tracking and proxy-depth wiring now test the current runtime contract instead of stale source tokens.
+- Deep metric calibration restores direct, inverse-raw and inverse-depth projective models.
 
-- Node tests: **105/105 passed**, 0 failed.
-- Exact-frame Deep/Alva synchronization regressions: PASS.
-- Surface Mesh Lab isolation / rollback regressions: PASS.
-- Noisy-plane local PCA improvement regression: PASS.
-- 90-degree corner preservation regression: PASS.
-- Off-grid metric plane / exact voxel-centre regression: PASS.
-- EXP lazy module + worker publication contract: PASS.
-- Depth Anything tensor/stripe/coherence diagnostics: PASS.
-- Published layout/version contract: PASS.
-- Local dependency closure: PASS (29 references resolved).
-- EventTarget constructor safety: PASS (5/5 derived classes).
-- Mock UI boot and failed-WebXR recovery: PASS.
-- AlvaAR runtime contract: PASS.
+## Automated verification
 
-Synthetic geometry checks:
-- a noisy planar patch reduces both position and normal error under local PCA;
-- perpendicular sheets remain separated by the normal gate;
-- a plane at z=2.017 m reconstructed on a 3 cm voxel grid has mean mesh depth
-  within 0.3 cm (observed test error is far smaller) because field values are
-  evaluated at voxel centres rather than arbitrary splat samples.
+`npm run verify`: PASS
 
-A 16.9k-Gaussian synthetic plane benchmark on the verification CPU completed
-local surface refinement in about 1 s and final mesh construction in about 2 s.
-Phone time is device-dependent; preview budgets are deliberately lower.
+- Node regression suite: 106/106 PASS.
+- Depth diagnostics: PASS.
+- V30 layout: PASS (single v30 root).
+- Dependency closure: PASS.
+- EventTarget constructors: PASS 5/5.
+- Mock UI boot: PASS; controls remain bound after expected WebXR failure.
+- Alva runtime contract: PASS.
 
-The EXP map remains a private copy. BASE Gaussian data and BASE mesh state are
-never overwritten by Surface Mesh Lab.
+The Android/GitHub Pages controller-handover race itself still needs the real-device repeated-reload check described in `TEST_ON_PHONE.md`.
