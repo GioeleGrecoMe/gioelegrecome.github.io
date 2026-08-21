@@ -1,6 +1,6 @@
 {
-  "version": "30.31.0",
-  "id": "v30.31.0-20260821-photo-first-panorama-depth-consensus",
+  "version": "30.32.0",
+  "id": "v30.32.0-20260821-pure-photo-mosaic",
   "builtAt": "2026-08-21T12:40:00+02:00",
-  "notes": "V30.31 makes RGB overlap the authority for panorama registration. Photo-only BRIEF/ZNCC correspondences are verified by robust homography RANSAC and converted into a visual rotation graph; AlvaAR pose and covariance are preserved per photo as a metric prior and disagreement diagnostic, not an epipolar veto. Raw Depth Anything maps are aligned statistically across verified RGB overlaps with robust affine consensus and confidence-aware source selection. The 3D reconstruction solvers are intentionally unchanged. The measurement GUI is camera-first with a collapsible panorama/depth diagnostics dock, and session/.r30 persistence now retains panorama registration evidence for later pose correction."
+  "notes": "V30.32 removes AlvaAR from the photographic registration path completely. Survey photos are captured even with no valid Alva pose, their own corners are detected from frozen RGB/gray, pairwise overlaps are verified by photo-only BRIEF/ZNCC + homography RANSAC, and a global 2-D mosaic with loop refinement plus local parallax warp is solved solely from image correspondences. Alva pose/covariance, when available, is optional metadata for the unchanged metric/3-D path and cannot admit, reject, place, rotate or warp a photo. Raw Depth Anything remains a second layer aligned statistically through the same RGB overlaps. The 3-D reconstruction algorithms remain unchanged."
 }

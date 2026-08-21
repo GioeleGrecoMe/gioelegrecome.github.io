@@ -20,9 +20,9 @@ function frame(id,x,colorMode='gradient'){
 function planeDepth(cameraX,u,z0=2,k=.18){const xn=(u-K.cx)/K.fx;return (z0+k*cameraX)/(1-k*xn);}
 function rawMap(cameraX,a=1.7,b=.3){const out=new Float32Array(K.width*K.height);for(let y=0;y<K.height;y++)for(let x=0;x<K.width;x++){const z=planeDepth(cameraX,x+.5);out[y*K.width+x]=(z-b)/a;}return out;}
 function matchesForBaseline(xb){const out=[];for(const u of [14,20,26,32,38,44,50,56,62,68])for(const v of [17,28,39]){const z=planeDepth(0,u),X=(u-K.cx)/K.fx*z,Y=(v-K.cy)/K.fy*z,ub=K.fx*(X-xb)/z+K.cx,vb=K.fy*Y/z+K.cy;if(ub>4&&ub<K.width-5)out.push({aU:u,aV:v,bU:ub,bV:vb,probability:.96,epipolarPx:.05,zncc:.98,uniquenessProbability:.95});}return out;}
-function wireEdge(map,matches){const e={a:0,b:1,aId:'F0',bId:'F1',matches,meanProbability:.96,weight:.92,loop:false,gainAB:1};map.edges=[e];map.adj=new Map([[0,[e]],[1,[e]]]);map.recomputeConnectivity();map.depthScaleDirty=true;}
+function wireEdge(map,matches){const dx=matches.reduce((s,m)=>s+(m.bU-m.aU),0)/Math.max(1,matches.length)/K.width,dy=matches.reduce((s,m)=>s+(m.bV-m.aV),0)/Math.max(1,matches.length)/K.height;const e={a:0,b:1,aId:'F0',bId:'F1',matches,homography:[1,0,dx,0,1,dy,0,0,1],visualConfidence:.92,meanProbability:.96,weight:.92,loop:false,gainAB:1};map.edges=[e];map.adj=new Map([[0,[e]],[1,[e]]]);map.recomputeConnectivity();map.depthScaleDirty=true;}
 
-test('live Deep scale graph aligns exact survey photos through RGB+Alva triangulation',()=>{
+test('optional metric Deep scale still uses posed frames after the RGB mosaic is built independently',()=>{
   const map=new LivePhotoPuzzleMap({width:160,height:80,photoMaxSide:80,depthMaxSide:80,depthMinPairs:6,depthRegularizeIterations:3,maxFrames:8});
   map.addCameraFrame(frame('F0',0));map.addCameraFrame(frame('F1',.12));wireEdge(map,matchesForBaseline(.12));
   assert.equal(map.updateRelativeDepth('F0',{rawDepth:rawMap(0),width:80,height:60,confidence:.8}),true);
@@ -39,7 +39,7 @@ test('one Deep frame can be metrically aligned from an RGB-connected neighbour w
   const s=map.stats();assert.equal(s.rawDepthFrames,1);assert.equal(s.metricDepthFrames,1);assert.ok(s.depthScalePairs>=6,s.depthScalePairs);
 });
 
-test('photo atlas keeps a stable visual reference while translated-camera metric evidence remains available',()=>{
+test('metric origin remains separate from the arbitrary 2-D photo mosaic',()=>{
   const map=new LivePhotoPuzzleMap({photoMaxSide:80,maxFrames:8});map.addCameraFrame(frame('F0',1));const o=map.origin.slice();map.addCameraFrame(frame('F1',2));assert.deepEqual(map.origin,o);assert.deepEqual(o,[1,0,0]);
 });
 
@@ -51,10 +51,16 @@ test('sharp photo-first atlas uses best-source compositing instead of blur-produ
   assert.ok(lum.length>30,lum.length);assert.ok(Math.max(...lum)-Math.min(...lum)>190,{min:Math.min(...lum),max:Math.max(...lum)});
 });
 
-test('the Deep clock captures exact RGB+Alva evidence before inference and returns raw depth to that frame only',()=>{
+test('photo capture happens before Deep inference and does not require an Alva graph frame',()=>{
   const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
   for(const token of ['function captureLiveSurveyFrame(frame,tracking)','state.probGraph?.addFrame(survey)','state.liveMap.addCameraFrame(survey','state.probGraph.addDeepRaw(binding.frameId','updateRelativeDepth?.(binding.frameId'])assert.ok(app.includes(token),token);
   assert.ok(app.indexOf('captureLiveSurveyFrame(frame,tracking)')<app.indexOf("postMessage({type:'infer'"),'survey packet must be frozen before Deep worker launch');
+});
+
+
+
+test('an unposed photograph is a first-class mosaic node and remains visible',()=>{
+  const map=new LivePhotoPuzzleMap({width:180,height:120,photoMaxSide:80,maxFrames:8,maxPhotoSamples:500000}),f=frame('F0',0,'checker');f.pose=null;f.poseCov=null;const s=map.addCameraFrame(f);assert.equal(s.frames,1);assert.equal(s.alvaPoseFrames,0);assert.equal(s.visualRegisteredFrames,1);const atlas=map.renderPhotoAtlas();assert.ok(atlas.coverage>.05,atlas.coverage);const saved=map.exportState();assert.equal(saved.frames[0].alvaPose,null);assert.ok(saved.mosaicTransforms[0]);
 });
 
 test('coverage sphere does not double-vote when the same physical frame arrives through survey and dense clocks',()=>{

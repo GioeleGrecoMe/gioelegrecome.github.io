@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.31.0 photo-first panorama/depth-consensus application.
+ * Room Scanner V30.32.0 pure-photo mosaic/depth-consensus application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,12 +8,12 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.31.0';
-import {DiagnosticsLog} from './logger.js?v=30.31.0';
+import {BUILD,CONFIG} from './config.js?v=30.32.0';
+import {DiagnosticsLog} from './logger.js?v=30.32.0';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
-const state={db:null,calibrator:null,bridge:null,bridgeStable:0,bridgeEpoch:0,bridgeTransition:false,alvaBootstrap:null,camera:null,frontend:null,slam:null,denseManager:null,denseDepthWorker:null,denseFusionWorker:null,deepDepthWorker:null,deepWorkerModelId:null,deepSelector:null,deepPending:null,deepModel:null,deepDisabled:false,deepCalls:0,deepAccepted:0,deepPreviewLastAt:0,deepPreviewInFlight:null,deepPreviewSeq:0,deepPreviewFrames:0,deepPreviewLastQuality:null,deepSync:null,deepJobs:new Map(),deepSyncRejected:0,denseBusy:false,denseActivePayload:null,denseJobs:0,denseDepthSamples:0,denseDepthHint:null,densePixelStep:null,denseSourceLimit:null,surfaceStats:null,mesh:null,meshStale:false,gaussians:[],optimizerObservations:null,probGraph:null,deepSequence:null,probOptimization:null,probOptimized:null,optimization:{iterations:0,lastEnergy:null},postOptWorker:null,postOptBusy:false,postOptRunBase:0,reviewMetricLocked:null,reviewKeyframes:0,renderer:null,currentSession:null,scanStop:null,liveOverlay:null,scanK:null,lastFrameGeometry:null,lastTracking:null,geometryAnchors:[],alvaHeartbeatFrames:[],alvaHeartbeatCount:0,surfaceLab:{worker:null,busy:false,active:false,iterations:0,previewGaussians:null,mesh:null,lastStats:null,baseSignature:null,target:0,voxelM:null},coverageSphere:null,coverageApi:null,coverageStatus:null,puzzleWorker:null,puzzleBusy:false,puzzleRunBase:0,puzzleReconstruction:null,puzzlePreview:null,puzzleActive:false,puzzleAtlas:null,puzzleStats:null,liveMap:null,liveMapApi:null,liveMapMode:'photo',liveMapStats:null,liveMapRenderPending:false,photoPanoramaState:null};
+const state={db:null,calibrator:null,bridge:null,bridgeStable:0,bridgeEpoch:0,bridgeTransition:false,alvaBootstrap:null,camera:null,frontend:null,slam:null,denseManager:null,denseDepthWorker:null,denseFusionWorker:null,deepDepthWorker:null,deepWorkerModelId:null,deepSelector:null,deepPending:null,deepModel:null,deepDisabled:false,deepCalls:0,deepAccepted:0,deepPreviewLastAt:0,photoSurveyLastAt:0,deepPreviewInFlight:null,deepPreviewSeq:0,deepPreviewFrames:0,deepPreviewLastQuality:null,deepSync:null,deepJobs:new Map(),deepSyncRejected:0,denseBusy:false,denseActivePayload:null,denseJobs:0,denseDepthSamples:0,denseDepthHint:null,densePixelStep:null,denseSourceLimit:null,surfaceStats:null,mesh:null,meshStale:false,gaussians:[],optimizerObservations:null,probGraph:null,deepSequence:null,probOptimization:null,probOptimized:null,optimization:{iterations:0,lastEnergy:null},postOptWorker:null,postOptBusy:false,postOptRunBase:0,reviewMetricLocked:null,reviewKeyframes:0,renderer:null,currentSession:null,scanStop:null,liveOverlay:null,scanK:null,lastFrameGeometry:null,lastTracking:null,geometryAnchors:[],alvaHeartbeatFrames:[],alvaHeartbeatCount:0,surfaceLab:{worker:null,busy:false,active:false,iterations:0,previewGaussians:null,mesh:null,lastStats:null,baseSignature:null,target:0,voxelM:null},coverageSphere:null,coverageApi:null,coverageStatus:null,puzzleWorker:null,puzzleBusy:false,puzzleRunBase:0,puzzleReconstruction:null,puzzlePreview:null,puzzleActive:false,puzzleAtlas:null,puzzleStats:null,liveMap:null,liveMapApi:null,liveMapMode:'photo',liveMapStats:null,liveMapRenderPending:false,photoPanoramaState:null};
 window.RoomScanV30={BUILD,CONFIG,state,log};
 const moduleCache=new Map();
 function lazy(path){if(!moduleCache.has(path))moduleCache.set(path,import(`${path}?v=${BUILD.version}`));return moduleCache.get(path);}
@@ -166,7 +166,7 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
   if(metric?.alvaTransform)state.slam.setWorldTransform(metric.alvaTransform);
 
   state.liveOverlay=new LiveReconstructionOverlay($('miniMap'),{maxSplats:CONFIG.liveOverlayMaxSplats||4200});state.liveOverlay.setMode('both');
-  stopPostOptimizer();state.gaussians=[];state.mesh=null;state.meshStale=false;state.optimizerObservations=null;state.probOptimization=null;state.probOptimized=null;state.optimization={iterations:0,lastEnergy:null};state.reviewMetricLocked=null;state.reviewKeyframes=0;window.__ROOMSCAN_METRIC_MESH=null;state.alvaHeartbeatFrames=[];state.alvaHeartbeatCount=0;state.denseBusy=false;state.denseActivePayload=null;state.denseJobs=0;state.denseDepthSamples=0;state.denseDepthHint=null;state.densePixelStep=CONFIG.densePixelStep||4;state.denseSourceLimit=Math.min(CONFIG.denseInitialSourceLimit||2,CONFIG.denseMaxSourceViews||4);state.surfaceStats=null;state.geometryAnchors=[];state.deepPending=null;state.deepDisabled=false;state.deepCalls=0;state.deepAccepted=0;state.deepRaySamples=0;state.deepPreviewLastAt=0;state.deepPreviewInFlight=null;state.deepPreviewSeq=0;state.deepPreviewFrames=0;state.deepPreviewLastQuality=null;state.deepJobs.clear();state.deepSyncRejected=0;state.coverageSphere=new coverageApi.ViewSphereCoverage({cols:CONFIG.coverageSphereCols||24,rows:CONFIG.coverageSphereRows||12,maxFrames:CONFIG.coverageSphereMaxFrames||72});state.coverageStatus=state.coverageSphere.status();coverageApi.drawCoverageSphere($('coverageSphere'),state.coverageStatus);if($('coverageState'))$('coverageState').textContent='SFERA 0% · nessuna chiusura';state.liveMap=new liveMapApi.LivePhotoPuzzleMap({width:CONFIG.livePuzzleAtlasWidth||640,height:CONFIG.livePuzzleAtlasHeight||320,maxFrames:CONFIG.livePuzzleMaxFrames||90,maxRenderFrames:CONFIG.livePuzzleRenderFrames||64,temporalRadius:CONFIG.livePuzzleTemporalRadius||4,maxLoopCandidates:CONFIG.livePuzzleLoopCandidates||2,minEdgeMatches:CONFIG.livePuzzleMinEdgeMatches||6,minEdgeProbability:CONFIG.livePuzzleMinEdgeProbability||.10,maxWorldSamples:CONFIG.livePuzzleWorldSamples||12000,photoMaxSide:CONFIG.livePuzzlePhotoMaxSide||256,depthMaxSide:CONFIG.livePuzzleDepthMaxSide||168,depthMinPairs:CONFIG.livePuzzleDepthMinPairs||6,depthRegularizeIterations:CONFIG.livePuzzleDepthRegularizeIterations||8,maxPhotoSamples:CONFIG.livePuzzleMaxPhotoSamples||260000,maxDepthSamples:CONFIG.livePuzzleMaxDepthSamples||190000});state.liveMapMode='photo';state.photoPanoramaState=null;state.liveMapStats=state.liveMap.stats();state.liveMapRenderPending=false;updateLiveMapUi();scheduleLiveMapRender();stopPuzzleWorker();state.puzzleReconstruction=null;state.puzzlePreview=null;state.puzzleActive=false;state.puzzleAtlas=null;state.puzzleStats=null;
+  stopPostOptimizer();state.gaussians=[];state.mesh=null;state.meshStale=false;state.optimizerObservations=null;state.probOptimization=null;state.probOptimized=null;state.optimization={iterations:0,lastEnergy:null};state.reviewMetricLocked=null;state.reviewKeyframes=0;window.__ROOMSCAN_METRIC_MESH=null;state.alvaHeartbeatFrames=[];state.alvaHeartbeatCount=0;state.denseBusy=false;state.denseActivePayload=null;state.denseJobs=0;state.denseDepthSamples=0;state.denseDepthHint=null;state.densePixelStep=CONFIG.densePixelStep||4;state.denseSourceLimit=Math.min(CONFIG.denseInitialSourceLimit||2,CONFIG.denseMaxSourceViews||4);state.surfaceStats=null;state.geometryAnchors=[];state.deepPending=null;state.deepDisabled=false;state.deepCalls=0;state.deepAccepted=0;state.deepRaySamples=0;state.deepPreviewLastAt=0;state.photoSurveyLastAt=0;state.deepPreviewInFlight=null;state.deepPreviewSeq=0;state.deepPreviewFrames=0;state.deepPreviewLastQuality=null;state.deepJobs.clear();state.deepSyncRejected=0;state.coverageSphere=new coverageApi.ViewSphereCoverage({cols:CONFIG.coverageSphereCols||24,rows:CONFIG.coverageSphereRows||12,maxFrames:CONFIG.coverageSphereMaxFrames||72});state.coverageStatus=state.coverageSphere.status();coverageApi.drawCoverageSphere($('coverageSphere'),state.coverageStatus);if($('coverageState'))$('coverageState').textContent='SFERA 0% · nessuna chiusura';state.liveMap=new liveMapApi.LivePhotoPuzzleMap({width:CONFIG.livePuzzleAtlasWidth||640,height:CONFIG.livePuzzleAtlasHeight||320,maxFrames:CONFIG.livePuzzleMaxFrames||90,maxRenderFrames:CONFIG.livePuzzleRenderFrames||64,temporalRadius:CONFIG.livePuzzleTemporalRadius||4,maxLoopCandidates:CONFIG.livePuzzleLoopCandidates||2,minEdgeMatches:CONFIG.livePuzzleMinEdgeMatches||6,minEdgeProbability:CONFIG.livePuzzleMinEdgeProbability||.10,maxWorldSamples:CONFIG.livePuzzleWorldSamples||12000,photoMaxSide:CONFIG.livePuzzlePhotoMaxSide||256,depthMaxSide:CONFIG.livePuzzleDepthMaxSide||168,depthMinPairs:CONFIG.livePuzzleDepthMinPairs||6,depthRegularizeIterations:CONFIG.livePuzzleDepthRegularizeIterations||8,maxPhotoSamples:CONFIG.livePuzzleMaxPhotoSamples||260000,maxDepthSamples:CONFIG.livePuzzleMaxDepthSamples||190000});state.liveMapMode='photo';state.photoPanoramaState=null;state.liveMapStats=state.liveMap.stats();state.liveMapRenderPending=false;updateLiveMapUi();scheduleLiveMapRender();stopPuzzleWorker();state.puzzleReconstruction=null;state.puzzlePreview=null;state.puzzleActive=false;state.puzzleAtlas=null;state.puzzleStats=null;
   if(CONFIG.probabilisticGraphEnabled!==false){
     const [{ProbabilisticFactorGraph},{DeepSequenceModel}]=await Promise.all([lazy('./probabilistic/factor_graph.js'),lazy('./probabilistic/deep_sequence_model.js')]);
     state.probGraph=new ProbabilisticFactorGraph({maxFrames:CONFIG.probabilisticMaxFrames||360,maxFeaturesPerFrame:CONFIG.probabilisticMaxFeaturesPerFrame||360,grayMaxSide:CONFIG.probabilisticGrayMaxSide||120,photoMaxSide:CONFIG.probabilisticPhotoMaxSide||128,deepGridCols:CONFIG.probabilisticDeepGridCols||32,deepGridRows:CONFIG.probabilisticDeepGridRows||48,mvsPerFrame:CONFIG.probabilisticMvsPerFrame||420,maxLandmarks:CONFIG.probabilisticMaxGraphLandmarks||18000});
@@ -240,33 +240,37 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
 }
 
 function captureLiveSurveyFrame(frame,tracking){
-  // The survey photo is born BEFORE Deep inference. RGB, K, Alva pose and 2-D
-  // features therefore refer to the exact same immutable camera frame whose RGBA
-  // is sent to the worker. Deep completion time has no geometric authority.
-  if(!tracking?.trackingValid||!tracking?.pose||!state.scanK||!frame?.gray?.length)return null;
-  const survey={
-    id:`photo-${frame.captureSeq||tracking.frame||tracking.frameId||frame.frameId}`,
+  // PHOTO CLOCK: independent from Alva validity. The exact RGB frame is frozen
+  // before Deep inference and is always admitted to the photo mosaic. A valid
+  // Alva pose is merely optional metadata for the unchanged metric/3-D graph.
+  if(!state.scanK||!frame?.gray?.length||!frame?.frameId)return null;
+  const hasAlva=!!(tracking?.trackingValid&&tracking?.pose?.p&&tracking?.pose?.q),survey={
+    id:`photo-${frame.captureSeq||tracking?.frame||tracking?.frameId||frame.frameId}`,
     frameId:String(frame.frameId),captureAt:Number(frame.at),at:Number(frame.at),
-    pose:{p:[...tracking.pose.p],q:[...tracking.pose.q]},poseCov:tracking.poseCov||null,
+    pose:hasAlva?{p:[...tracking.pose.p],q:[...tracking.pose.q]}:null,poseCov:hasAlva?(tracking.poseCov||null):null,
     K:{...state.scanK},width:frame.width,height:frame.height,gray:frame.gray,rgba:frame.rgba,
-    features:(tracking.featureObservations||tracking.newKeyframe?.features||[]),
-    metricLocked:!!state.slam?.metricLocked,trackingMode:tracking.trackingMode||null
+    // These SLAM observations are retained only for the metric graph. The live
+    // mosaic re-detects its own photo corners from gray/RGB and ignores them.
+    features:hasAlva?(tracking.featureObservations||tracking.newKeyframe?.features||[]):[],
+    metricLocked:hasAlva&&!!state.slam?.metricLocked,trackingMode:tracking?.trackingMode||'alva-unavailable',trackingValid:hasAlva
   };
-  const graphFrame=state.probGraph?.addFrame(survey)||null;
-  if(state.liveMap){state.liveMap.setFallbackDepth(state.denseDepthHint||CONFIG.livePuzzleFallbackDepth||2.2);state.liveMapStats=state.liveMap.addCameraFrame(survey,{fallbackDepth:state.denseDepthHint||CONFIG.livePuzzleFallbackDepth||2.2,source:'deep-survey'});scheduleLiveMapRender();}
-  if(state.coverageSphere){state.coverageStatus=state.coverageSphere.addFrame(survey);state.coverageApi?.drawCoverageSphere?.($('coverageSphere'),state.coverageStatus);updateCoverageUi();}
-  return graphFrame;
+  const graphFrame=hasAlva?(state.probGraph?.addFrame(survey)||null):null;
+  let photoAdded=false;if(state.liveMap){state.liveMap.setFallbackDepth(state.denseDepthHint||CONFIG.livePuzzleFallbackDepth||2.2);state.liveMapStats=state.liveMap.addCameraFrame(survey,{fallbackDepth:state.denseDepthHint||CONFIG.livePuzzleFallbackDepth||2.2,source:'deep-survey'});photoAdded=!!state.liveMap.frameMap?.has?.(String(frame.frameId));scheduleLiveMapRender();}
+  if(hasAlva&&state.coverageSphere){state.coverageStatus=state.coverageSphere.addFrame(survey);state.coverageApi?.drawCoverageSphere?.($('coverageSphere'),state.coverageStatus);updateCoverageUi();}
+  return {graphFrame,photoAdded,alvaPose:hasAlva};
 }
 
 function requestLiveDeepPreview(frame,tracking){
-  if(CONFIG.deepLiveDuringScan===false||!state.deepDepthWorker||state.deepDisabled||!frame?.rgba?.length||!state.deepSync)return;
-  const now=Number(frame.at)||performance.now(),interval=Math.max(500,Number(CONFIG.deepInferenceIntervalMs)||1000);
+  if(!frame?.rgba?.length||!frame?.gray?.length||!state.scanK)return;
+  const now=Number(frame.at)||performance.now(),interval=Math.max(500,Number(CONFIG.deepInferenceIntervalMs)||1000);let capture=null;
+  // The PHOTO clock is independent from the Deep worker and from Alva tracking.
+  // Even if AI depth is disabled, INIT, slow or failing, the RGB mosaic continues.
+  if(now-(state.photoSurveyLastAt||0)>=interval){state.photoSurveyLastAt=now;capture=captureLiveSurveyFrame(frame,tracking);}
+  if(CONFIG.deepLiveDuringScan===false||!state.deepDepthWorker||state.deepDisabled||!state.deepSync){if(capture?.photoAdded&&$('deepLiveState'))$('deepLiveState').textContent=`FOTO MOSAICO ✓ · Alva meta ${capture.alvaPose?'✓':'—'} · Deep non attiva`;return;}
   if(state.deepPreviewInFlight||now-state.deepPreviewLastAt<interval)return;
-  state.deepPreviewLastAt=now;const graphFrame=captureLiveSurveyFrame(frame,tracking),jobId=`preview-ticker-${++state.deepPreviewSeq}-${Math.round(now)}`;state.deepPreviewInFlight=jobId;
-  const rgba=new Uint8ClampedArray(frame.rgba),binding=state.deepSync.createDeepFrameBinding({jobId,kind:'preview',frameId:frame.frameId,frameAt:frame.at,rgba,width:frame.width,height:frame.height,tracking:{frameId:tracking?.frameId||null,trackingValid:!!tracking?.trackingValid,trackingMode:tracking?.trackingMode||null,pose:tracking?.pose?{p:[...tracking.pose.p],q:[...tracking.pose.q]}:null,poseCov:tracking?.poseCov||null,alvaPoints:tracking?.alvaPoints||0,keyframeId:tracking?.newKeyframe?.id||null,surveyGraphFrameId:graphFrame?.frameId||null}});
-  state.deepJobs.set(jobId,binding);
-  state.deepDepthWorker.postMessage({type:'infer',jobId,frameId:binding.frameId,frameAt:binding.frameAt,model:modelForWorker(),rgba,width:frame.width,height:frame.height},[rgba.buffer]);
-  if($('deepLiveState'))$('deepLiveState').textContent=`DEEP LIVE · F${frame.captureSeq||'?'} sincronizzato · foto puzzle ${graphFrame?'✓':'posa non valida'} · inferenza ${state.deepPreviewSeq}…`;
+  if(!capture){state.photoSurveyLastAt=now;capture=captureLiveSurveyFrame(frame,tracking);}state.deepPreviewLastAt=now;const jobId=`preview-ticker-${++state.deepPreviewSeq}-${Math.round(now)}`;state.deepPreviewInFlight=jobId;
+  const rgba=new Uint8ClampedArray(frame.rgba),binding=state.deepSync.createDeepFrameBinding({jobId,kind:'preview',frameId:frame.frameId,frameAt:frame.at,rgba,width:frame.width,height:frame.height,tracking:{frameId:tracking?.frameId||null,trackingValid:!!tracking?.trackingValid,trackingMode:tracking?.trackingMode||null,pose:tracking?.pose?{p:[...tracking.pose.p],q:[...tracking.pose.q]}:null,poseCov:tracking?.poseCov||null,alvaPoints:tracking?.alvaPoints||0,keyframeId:tracking?.newKeyframe?.id||null,surveyGraphFrameId:capture?.graphFrame?.frameId||null}});
+  state.deepJobs.set(jobId,binding);state.deepDepthWorker.postMessage({type:'infer',jobId,frameId:binding.frameId,frameAt:binding.frameAt,model:modelForWorker(),rgba,width:frame.width,height:frame.height},[rgba.buffer]);if($('deepLiveState'))$('deepLiveState').textContent=`DEEP LIVE · F${frame.captureSeq||'?'} · mosaico foto ${capture?.photoAdded?'✓':'—'} · Alva meta ${capture?.alvaPose?'✓':'—'} · inferenza ${state.deepPreviewSeq}…`;
 }
 
 function compactGrayHeartbeat(gray,width,height,maxSide=160){
@@ -385,8 +389,8 @@ async function handleDeepDepthMessage(d){
     if(d.jobId===state.deepPreviewInFlight)state.deepPreviewInFlight=null;
     state.deepPreviewFrames++;state.deepPreviewLastQuality=d.quality||null;
     drawDepth($('depthOverlay'),d.rawDepth,d.rawWidth,d.rawHeight);
-    // Persist every Deep survey frame as raw probabilistic evidence. The live map
-    // estimates metric scale from RGB correspondences + the recorded Alva pose priors; a
+    // Persist every Deep survey frame as raw probabilistic evidence. The live PHOTO map is already aligned from RGB only. The optional metric layer
+    // may estimate scale from posed frames; a
     // suspicious Deep map is retained with low authority instead of disappearing.
     const graphHasFrame=!!state.probGraph?.frameIndex?.has?.(String(binding.frameId));
     if(graphHasFrame)state.probGraph.addDeepRaw(binding.frameId,{rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,calibration:null,quality:d.quality});
@@ -395,7 +399,7 @@ async function handleDeepDepthMessage(d){
     const q=d.quality||{},stripe=q.stripe||{},band=Math.round(100*Number(stripe.dominantExplained||0)),cycles=Number(stripe.dominantCycles||0).toFixed(1),rescue=d.resolutionRescue?.accepted?' · rescue':'',lag=Math.max(0,performance.now()-binding.frameAt);
     const warning=stripe.suspicious?`banding ${band}%/${cycles}c`:`coerenza ${Number(q.coherenceRatio||0).toFixed(2)}`;
     if($('deepLiveState'))$('deepLiveState').textContent=q.suspicious?`DEEP LIVE ⚠ SYNC ✓ · ${d.rawWidth}×${d.rawHeight} · ${warning} · lag ${lag.toFixed(0)} ms${rescue}`:`DEEP LIVE ✓ SYNC ✓ · ${d.rawWidth}×${d.rawHeight} · lag ${lag.toFixed(0)} ms${rescue}`;
-    if(state.deepPreviewFrames<=3||q.suspicious)log.info('deep-live-preview',{frame:state.deepPreviewFrames,frameId:binding.frameId,alvaFrameId:binding.tracking?.frameId||null,sync:sync.reason,lagMs:lag,provider:d.provider,ms:d.ms,totalMs:d.totalMs,quality:q,resolutionRescue:d.resolutionRescue||null,output:[d.rawWidth,d.rawHeight],photoPuzzleNode:graphHasFrame,liveDepthAdded});
+    if(state.deepPreviewFrames<=3||q.suspicious)log.info('deep-live-preview',{frame:state.deepPreviewFrames,frameId:binding.frameId,alvaFrameId:binding.tracking?.frameId||null,sync:sync.reason,lagMs:lag,provider:d.provider,ms:d.ms,totalMs:d.totalMs,quality:q,resolutionRescue:d.resolutionRescue||null,output:[d.rawWidth,d.rawHeight],metricGraphNode:graphHasFrame,liveDepthAdded});
     return;
   }
   const payload=binding.payload;if(!payload||payload.jobId!==d.jobId){state.deepSyncRejected++;log.error('deep-frame-payload-missing',{jobId:d.jobId,frameId:binding.frameId});state.denseBusy=false;void scheduleDenseWork();return;}
@@ -482,9 +486,18 @@ function handleDenseFusionMessage(d){
 }
 async function waitForDenseIdle(timeoutMs=4500){const start=performance.now();while(state.denseBusy&&performance.now()-start<timeoutMs)await new Promise(r=>setTimeout(r,35));}
 function workerRequest(worker,message,accept,timeoutMs=3500){return new Promise(resolve=>{if(!worker)return resolve(null);const timer=setTimeout(()=>{worker.removeEventListener('message',handler);resolve(null);},timeoutMs),handler=e=>{if(!accept(e.data||{}))return;clearTimeout(timer);worker.removeEventListener('message',handler);resolve(e.data||null);};worker.addEventListener('message',handler);worker.postMessage(message);});}
-function stopScan(){scanAbortController?.abort();scanAbortController=null;state.scanStop?.();state.scanStop=null;state.camera?.stop();state.camera=null;state.deepDepthWorker?.terminate();state.deepDepthWorker=null;state.deepWorkerModelId=null;state.deepSelector?.reset?.();state.deepSelector=null;state.deepPending=null;state.deepJobs.clear();state.deepPreviewInFlight=null;state.deepPreviewLastAt=0;state.denseDepthWorker?.terminate();state.denseDepthWorker=null;state.denseFusionWorker?.terminate();state.denseFusionWorker=null;state.denseManager?.reset?.();state.denseManager=null;state.denseBusy=false;state.liveOverlay=null;const depth=$('depthOverlay');if(depth)depth.getContext('2d')?.clearRect(0,0,depth.width,depth.height);if($('deepLiveState'))$('deepLiveState').textContent='DEEP LIVE —';state.liveMapRenderPending=false;}
+function stopScan(){scanAbortController?.abort();scanAbortController=null;state.scanStop?.();state.scanStop=null;state.camera?.stop();state.camera=null;state.deepDepthWorker?.terminate();state.deepDepthWorker=null;state.deepWorkerModelId=null;state.deepSelector?.reset?.();state.deepSelector=null;state.deepPending=null;state.deepJobs.clear();state.deepPreviewInFlight=null;state.deepPreviewLastAt=0;state.photoSurveyLastAt=0;state.denseDepthWorker?.terminate();state.denseDepthWorker=null;state.denseFusionWorker?.terminate();state.denseFusionWorker=null;state.denseManager?.reset?.();state.denseManager=null;state.denseBusy=false;state.liveOverlay=null;const depth=$('depthOverlay');if(depth)depth.getContext('2d')?.clearRect(0,0,depth.width,depth.height);if($('deepLiveState'))$('deepLiveState').textContent='DEEP LIVE —';state.liveMapRenderPending=false;}
 async function finishScan(){
-  const cov=state.coverageStatus;if(cov&&!cov.readyToClose&&state.slam?.keyframes?.length>=5){const pct=Math.round(100*(cov.strongCoverage||0)),conn=Math.round(100*(cov.connectedFraction||0)),msg=`La scansione non risulta ancora chiusa fotograficamente (${pct}% copertura forte, ${conn}% viste connesse, ${cov.loopClosures||0} loop).\n\n${cov.guidance||'Ripassa le zone deboli.'}\n\nTerminare comunque?`;if(!window.confirm(msg)){if($('coach'))$('coach').textContent=cov.guidance||'Ripassa la zona meno coperta prima di terminare.';return;}}
+  // Closing quality is judged first from the photo-only graph. Alva coverage is
+  // secondary geometric guidance and must never define photographic closure.
+  const photo=state.liveMap?.stats?.()||null,cov=state.coverageStatus;
+  if(photo&&photo.frames>=5&&(photo.connectedFraction<.80||photo.loops<1)){
+    const conn=Math.round(100*(photo.connectedFraction||0)),msg=`Il mosaico fotografico non risulta ancora ben chiuso (${conn}% foto nella componente principale, ${photo.edges||0} collegamenti, ${photo.loops||0} loop).\n\nRipassa visivamente le zone gia viste finche le fotografie si ricollegano; la posa Alva non viene usata per decidere questo allineamento.\n\nTerminare comunque?`;
+    if(!window.confirm(msg)){if($('coach'))$('coach').textContent='Ripassa una zona gia fotografata: serve una chiusura RGB del mosaico.';return;}
+  }else if(!photo&&cov&&!cov.readyToClose&&state.slam?.keyframes?.length>=5){
+    const pct=Math.round(100*(cov.strongCoverage||0)),conn=Math.round(100*(cov.connectedFraction||0)),msg=`La copertura geometrica e ancora incompleta (${pct}% copertura forte, ${conn}% viste connesse).\n\n${cov.guidance||'Ripassa le zone deboli.'}\n\nTerminare comunque?`;
+    if(!window.confirm(msg)){if($('coach'))$('coach').textContent=cov.guidance||'Ripassa la zona meno coperta prima di terminare.';return;}
+  }
   await waitForDenseIdle();
   // Persist the compact multi-view ray reservoir BEFORE terminating the fusion
   // worker. This makes later iterative optimisation a real geometric refinement
@@ -525,12 +538,12 @@ function toggleScanDiagnostics(){setScanDiagnosticsOpen(!$('scanDiagnostics')?.c
 function setLiveMapMode(mode){state.liveMapMode=mode==='depth'?'depth':'photo';updateLiveMapUi();scheduleLiveMapRender(true);}
 function updateLiveMapUi(extra=null){
   const photo=$('liveMapPhotoBtn'),depth=$('liveMapDepthBtn'),status=$('liveMapState'),s=state.liveMap?.stats?.()||state.liveMapStats||{};
-  if(photo)photo.classList.toggle('active',state.liveMapMode==='photo');if(depth)depth.classList.toggle('active',state.liveMapMode==='depth');
-  if(!status)return;if(extra){status.textContent=extra;return;}if(!s.frames){status.textContent=`${state.liveMapMode==='depth'?'DEPTH CONSENSUS':'PANORAMA FOTO'} · attendo prima fotografia…`;return;}
-  const visual=`RGB ${s.visualRegisteredFrames||0}/${s.frames||0} · ${s.edges||0} link${s.loops?` · ${s.loops} loop`:''}`,delta=Number.isFinite(s.medianEdgeDisagreementRad)&&s.medianEdgeDisagreementRad>0?` · ΔAlva ${(s.medianEdgeDisagreementRad*180/Math.PI).toFixed(1)}°`:'',warp=s.localWarpAnchors?` · warp ${s.localWarpAnchors} pt${Number.isFinite(s.localWarpResidualPx)?`/${s.localWarpResidualPx.toFixed(1)}px`:''}`:'';
-  if(state.liveMapMode==='photo')status.textContent=`PANORAMA FOTO · ${visual}${warp}${delta} · ${(100*(s.coverage||0)).toFixed(0)}% atlas`;
-  else{const metric=s.metricDepthFrames||0,cons=s.depthConsensusAlignedFrames||0,derr=Number.isFinite(s.depthConsensusError)&&s.depthConsensusError<9?` · err overlap ${(100*s.depthConsensusError).toFixed(1)}%`:'';status.textContent=`DEPTH CONSENSUS · Deep ${s.rawDepthFrames||0}F · overlap ${cons}F · metriche ${metric}F${derr} · ${(100*(s.coverage||0)).toFixed(0)}% atlas`;}
+  if(photo)photo.classList.toggle('active',state.liveMapMode==='photo');if(depth)depth.classList.toggle('active',state.liveMapMode==='depth');if(!status)return;if(extra){status.textContent=extra;return;}if(!s.frames){status.textContent=`${state.liveMapMode==='depth'?'DEPTH CONSENSUS':'MOSAICO FOTO'} · attendo prima fotografia…`;return;}
+  const visual=`RGB ${s.visualRegisteredFrames||0}/${s.frames||0} · ${s.edges||0} link${s.loops?` · ${s.loops} loop`:''}`,warp=s.localWarpAnchors?` · local ${s.localWarpAnchors} pt`:'' ,res=Number.isFinite(s.mosaicResidual)&&s.mosaicResidual>0?` · residuo ${(100*s.mosaicResidual).toFixed(2)}% frame`:'',alva=s.alvaPoseFrames?` · Alva meta ${s.alvaPoseFrames}/${s.frames}`:'';
+  if(state.liveMapMode==='photo')status.textContent=`MOSAICO FOTO · SOLO RGB · ${visual}${warp}${res}${alva} · ${(100*(s.coverage||0)).toFixed(0)}% canvas`;
+  else{const metric=s.metricDepthFrames||0,cons=s.depthConsensusAlignedFrames||0,derr=Number.isFinite(s.depthConsensusError)&&s.depthConsensusError<9?` · err overlap ${(100*s.depthConsensusError).toFixed(1)}%`:'';status.textContent=`DEPTH SU MOSAICO RGB · Deep ${s.rawDepthFrames||0}F · overlap ${cons}F · metriche ${metric}F${derr} · ${(100*(s.coverage||0)).toFixed(0)}% canvas`;}
 }
+
 function scheduleLiveMapRender(force=false){
   if(!state.liveMap||!$('liveMapCanvas'))return;if(state.liveMapRenderPending&&!force)return;state.liveMapRenderPending=true;const run=()=>{state.liveMapRenderPending=false;try{state.liveMapStats=state.liveMap.render($('liveMapCanvas'),state.liveMapMode);updateLiveMapUi();}catch(err){log.warn('live-photo-puzzle-render',{message:err?.message||String(err)});updateLiveMapUi('LIVE MAP · errore render, ricostruzione continua');}};if(typeof requestAnimationFrame==='function')requestAnimationFrame(run);else setTimeout(run,0);
 }

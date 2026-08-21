@@ -38,8 +38,15 @@ export function validateTumPublicData(){
   // texture is real public data while the warp is controlled so connectivity
   // and loop closure have an exact expected answer. This is deliberately not
   // claimed as a full TUM reconstruction benchmark.
-  const shifts=[0,-3,-6,-9,-6,-1],puzzleFrames=shifts.map((sh,i)=>{const im=warpX(gray,w,h,sh),feats=chosen.filter(c=>c.x+sh>10&&c.x+sh<w-10).map((c,k)=>({index:k,x:c.x+sh,y:c.y,originalU:c.x+sh,originalV:c.y,score:c.g,source:'alva-track'})),tx=-sh*z/K.fx;return {frameId:`puz-${i}`,posePrior:{p:[tx,0,0],q:[0,0,0,1]},poseEstimate:{p:[tx,0,0],q:[0,0,0,1]},K,width:w,height:h,photo:{width:w,height:h,K,gray:im,rgb:grayRgb(im),features:feats}};}),photoPuzzle=new ViewPuzzleGraph({format:'ROOMSCAN-PROB-GRAPH-1',frames:puzzleFrames},{temporalRadius:1,maxLoopCandidates:4,minEdgeMatches:6,minEdgeProbability:.08}).build();
+  const shifts=[0,-3,-6,-9,-6,-1],puzzleFrames=shifts.map((sh,i)=>{const im=warpX(gray,w,h,sh),feats=chosen.filter(c=>c.x+sh>10&&c.x+sh<w-10).map((c,k)=>({index:k,x:c.x+sh,y:c.y,originalU:c.x+sh,originalV:c.y,score:c.g,source:'alva-track'}));
+    // Deliberately absurd and mutually inconsistent Alva-like metadata. The
+    // photographic graph must produce exactly the same mosaic with this metadata
+    // present or removed, proving that tracking cannot anchor the photos.
+    const badPose={p:[20*Math.sin(i*1.7),-8+i*3,12*Math.cos(i*.9)],q:i&1?[0,.7071068,0,.7071068]:[.5,.5,.5,.5]};
+    return {frameId:`puz-${i}`,posePrior:badPose,poseEstimate:badPose,K,width:w,height:h,photo:{width:w,height:h,K,gray:im,rgb:grayRgb(im),features:feats}};});
+  const puzzleOpts={temporalRadius:1,maxLoopCandidates:4,minEdgeMatches:6,minEdgeProbability:.08},photoPuzzle=new ViewPuzzleGraph({format:'ROOMSCAN-PROB-GRAPH-1',frames:puzzleFrames},puzzleOpts).build(),noPoseFrames=puzzleFrames.map(f=>({...f,posePrior:null,poseEstimate:null})),photoPuzzleNoPose=new ViewPuzzleGraph({format:'ROOMSCAN-PROB-GRAPH-1',frames:noPoseFrames},puzzleOpts).build();
   if(photoPuzzle.stats.connectedFraction<.99||photoPuzzle.stats.edges<5||photoPuzzle.stats.loops<1)throw new Error(`TUM photo puzzle weak ${JSON.stringify(photoPuzzle.stats)}`);
+  const H1=photoPuzzle.visualSolution?.transforms||[],H0=photoPuzzleNoPose.visualSolution?.transforms||[];for(let i=0;i<H1.length;i++){if(!H1[i]||!H0[i])throw new Error('TUM photo mosaic disconnected when removing Alva metadata');const d=Math.max(...H1[i].map((v,k)=>Math.abs(v-H0[i][k])));if(d>1e-10)throw new Error(`photo mosaic depends on Alva metadata frame=${i} delta=${d}`);}
 
   // Live photo-first atlas validation on the same public TUM texture. RGB must
   // stay connected through visual registration; metric depth is added only as

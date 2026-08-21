@@ -1,42 +1,43 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildPhotoRegistrationEdge,solvePhotoOrientations,buildLocalPanoramaWarp,photoPixelToAtlas} from '../js/reconstruction/photo_panorama.js';
+import {detectPhotoFeatures,matchPhotoFeatures,buildPhotoRegistrationEdge,solvePhotoMosaic,buildLocalMosaicWarp,photoPixelToMosaic} from '../js/reconstruction/photo_panorama.js';
 import {solvePhotoDepthConsensus,sampleConsensusDepth} from '../js/reconstruction/photo_depth_consensus.js';
-import {pixelRay,qRotate,qConj,qNormalize} from '../js/slam/math.js';
 
-const K={fx:220,fy:220,cx:160,cy:120,width:320,height:240};
-const qYaw=a=>[0,Math.sin(a/2),0,Math.cos(a/2)];
-const qAngle=(a,b)=>2*Math.acos(Math.min(1,Math.abs(a.reduce((s,x,i)=>s+x*b[i],0))));
-function visualPair(angle=.2){
-  const qA=[0,0,0,1],qB=qYaw(angle),A={frameId:'A',width:320,height:240,K,pose:{p:[0,0,0],q:qA},features:[]},B={frameId:'B',width:320,height:240,K,pose:{p:[4,1,-2],q:qYaw(-1.1)},features:[]},matches=[];
-  const project=(q,w)=>{const c=qRotate(qConj(q),w);return [K.fx*c[0]/c[2]+K.cx,K.fy*c[1]/c[2]+K.cy]};let i=0;
-  for(let y=-.32;y<=.32;y+=.13)for(let x=-.42;x<=.42;x+=.14){const w=qNormalize([x,y,1]),pa=project(qA,w),pb=project(qB,w);if(pb[0]<5||pb[0]>315||pb[1]<5||pb[1]>235)continue;A.features.push({x:pa[0],y:pa[1]});B.features.push({x:pb[0],y:pb[1]});matches.push({i,j:i,probability:.94,photometricProbability:.97,uniquenessProbability:.96});i++;}
-  return {A,B,matches,target:qB};
+const apply=(H,x,y)=>{const z=H[6]*x+H[7]*y+H[8];return [(H[0]*x+H[1]*y+H[2])/z,(H[3]*x+H[4]*y+H[5])/z];};
+function photographicPair(){
+  const w=320,h=240,H=[1.015,.018,.115,-.012,1.008,.035,.008,-.004,1],A={frameId:'A',width:w,height:h,features:[],pose:{p:[0,0,0],q:[0,0,0,1]}},B={frameId:'B',width:w,height:h,features:[],pose:{p:[25,-11,7],q:[0,.707,0,.707]}},matches=[];
+  let i=0;for(let yy=.16;yy<=.82;yy+=.11)for(let xx=.12;xx<=.73;xx+=.105){const [u,v]=apply(H,xx,yy);if(u<.03||u>.97||v<.03||v>.97)continue;A.features.push({x:xx*w,y:yy*h,score:500,source:'photo-fast'});B.features.push({x:u*w,y:v*h,score:500,source:'photo-fast'});matches.push({i,j:i,probability:.97,photometricProbability:.98,uniquenessProbability:.96});i++;}
+  return {A,B,matches,H};
 }
 
-test('photo registration recovers panorama rotation even when the Alva pose is intentionally wrong',()=>{
-  const {A,B,matches,target}=visualPair(.2),e=buildPhotoRegistrationEdge(A,B,matches,{minMatches:7,reprojectionPx:3,rotationInlierDeg:1});
-  assert.ok(e);assert.ok(e.visualInliers>=20,e.visualInliers);assert.ok(qAngle(e.visualRotation,target)<1e-5,{q:e.visualRotation,target});
+test('photo registration is determined only by image correspondences, even with absurd Alva poses',()=>{
+  const {A,B,matches}=photographicPair(),e1=buildPhotoRegistrationEdge(A,B,matches,{minMatches:7,reprojectionPx:2});assert.ok(e1);assert.ok(e1.homographyInliers>20,e1.homographyInliers);
+  A.pose={p:[-100,30,50],q:[.6,.2,.4,.65]};B.pose=null;
+  const e2=buildPhotoRegistrationEdge(A,B,matches,{minMatches:7,reprojectionPx:2});assert.deepEqual(e2.homography.map(x=>+x.toFixed(8)),e1.homography.map(x=>+x.toFixed(8)));assert.equal(e2.homographyInliers,e1.homographyInliers);
 });
 
-test('photo rotation graph uses visual edges instead of inheriting a bad Alva orientation',()=>{
-  const {A,B,matches,target}=visualPair(.24),e=buildPhotoRegistrationEdge(A,B,matches,{minMatches:7,reprojectionPx:3,rotationInlierDeg:1});
-  const sol=solvePhotoOrientations([A,B],[{a:0,b:1,...e}],{iterations:4});assert.ok(sol.confidence[1]>.1);assert.ok(qAngle(sol.orientations[1],target)<1e-5);assert.ok(qAngle(sol.orientations[1],B.pose.q)>.5);
+test('global mosaic puts corresponding photo pixels at the same 2-D coordinate without camera poses',()=>{
+  const {A,B,matches}=photographicPair();A.pose=null;B.pose=null;const edge={a:0,b:1,...buildPhotoRegistrationEdge(A,B,matches,{minMatches:7,reprojectionPx:2})};const sol=solvePhotoMosaic([A,B],[edge],{iterations:4});
+  assert.deepEqual(sol.transforms[0],[1,0,0,0,1,0,0,0,1]);assert.ok(sol.transforms[1]);assert.ok(sol.medianResidual<1e-4,sol.medianResidual);
+  for(const m of edge.matches.slice(0,8)){const pa=photoPixelToMosaic(A,sol.transforms[0],m.aU,m.aV),pb=photoPixelToMosaic(B,sol.transforms[1],m.bU,m.bV);assert.ok(Math.hypot(pa.x-pb.x,pa.y-pb.y)<3e-4);}
 });
 
-test('Deep overlap consensus aligns raw monocular maps statistically without changing metric poses',()=>{
+test('photo detector extracts its own features from RGB frame data without tracking input',()=>{
+  const w=128,h=96,g=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++)g[y*w+x]=(((x>>3)+(y>>3))&1)?235:15;const f=detectPhotoFeatures(g,w,h,{maxFeatures:180,threshold:10});assert.ok(f.length>20,f.length);assert.ok(f.every(x=>x.source==='photo-fast'));
+});
+
+test('oriented photo descriptors keep registration stable under in-plane camera rotation',()=>{
+  const w=200,h=150,g=new Uint8Array(w*h);let seed=1;const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed>>>24;};for(let y=0;y<h;y++)for(let x=0;x<w;x++)g[y*w+x]=(rnd()*.35+(((x>>4)*37+(y>>4)*59)%190)*.65)|0;for(let k=0;k<25;k++){const x0=10+(k*31)%170,y0=10+(k*47)%120;for(let y=y0;y<Math.min(h-5,y0+8);y++)for(let x=x0;x<Math.min(w-5,x0+12);x++)g[y*w+x]=(k&1)?235:20;}
+  const a=12*Math.PI/180,ca=Math.cos(a),sa=Math.sin(a),cx=w/2,cy=h/2,b=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const dx=x-cx,dy=y-cy,sx=ca*dx+sa*dy+cx,sy=-sa*dx+ca*dy+cy,ix=Math.round(sx),iy=Math.round(sy);b[y*w+x]=(ix>=0&&iy>=0&&ix<w&&iy<h)?g[iy*w+ix]:0;}
+  const A={frameId:'rot-a',width:w,height:h,gray:g,features:detectPhotoFeatures(g,w,h,{maxFeatures:400})},B={frameId:'rot-b',width:w,height:h,gray:b,features:detectPhotoFeatures(b,w,h,{maxFeatures:400})},matches=matchPhotoFeatures(A,B,{maxFeatures:350,maxMatches:180,maxHamming:80,minProbability:.02,patchRadius:2}),edge=buildPhotoRegistrationEdge(A,B,matches,{minMatches:7,reprojectionPx:5});assert.ok(matches.length>60,matches.length);assert.ok(edge?.homographyInliers>25,edge?.homographyInliers);assert.ok(edge.homographyMedianErrorPx<1,edge.homographyMedianErrorPx);
+});
+
+test('local photo warp reduces residual parallax using image matches only',()=>{
+  const w=160,h=120,A={width:w,height:h,pose:{p:[0,0,0],q:[0,0,0,1]}},B={width:w,height:h,pose:{p:[999,999,999],q:[.3,.4,.2,.8]}},matches=[];for(let y=24;y<=96;y+=18)for(let x=28;x<=126;x+=18)matches.push({aU:x,aV:y,bU:x+10+(y-60)*.025,bV:y+3+(x-80)*.012,probability:.95,photometricProbability:.98});
+  const solution={transforms:[[1,0,0,0,1,0,0,0,1],[1,0,0,0,1,0,0,0,1]],confidence:Float32Array.from([1,.9]),rootIndex:0};const edges=[{a:0,b:1,matches,visualConfidence:.95}],warp=buildLocalMosaicWarp([A,B],edges,solution,{cols:9,rows:7});const m=matches[Math.floor(matches.length/2)],pa=photoPixelToMosaic(A,solution.transforms[0],m.aU,m.aV),before=photoPixelToMosaic(B,solution.transforms[1],m.bU,m.bV),after=photoPixelToMosaic(B,solution.transforms[1],m.bU,m.bV,warp,1),e0=Math.hypot(pa.x-before.x,pa.y-before.y),e1=Math.hypot(pa.x-after.x,pa.y-after.y);assert.ok(warp.anchorCount>=matches.length);assert.ok(e1<e0*.65,`${e0} -> ${e1}`);
+});
+
+test('Deep overlap consensus aligns raw monocular maps statistically after the RGB mosaic',()=>{
   const w=20,h=12,rawB=new Float32Array(w*h),rawA=new Float32Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const v=.3+x*.04+y*.015;rawB[y*w+x]=v;rawA[y*w+x]=1.8*v-.27;}
-  const mk=(id,raw)=>({frameId:id,width:w,height:h,relativeDepth:raw,relativeDepthWidth:w,relativeDepthHeight:h,relativeConfidence:.9,relativeQuality:{suspicious:false,stripe:{suspicious:false}}});const A=mk('A',rawA),B=mk('B',rawB),matches=[];for(let y=1;y<h-1;y+=2)for(let x=1;x<w-1;x+=2)matches.push({aU:x,aV:y,bU:x,bV:y,probability:.95});
-  const c=solvePhotoDepthConsensus([A,B],[{a:0,b:1,matches,visualConfidence:.95}],{minPairs:6});assert.equal(c.stats.alignedFrames,2);assert.equal(c.stats.pairEdges,1);const za=sampleConsensusDepth(A,c.transforms[0],10,6),zb=sampleConsensusDepth(B,c.transforms[1],10,6);assert.ok(Math.abs(za-zb)<1e-4,{za,zb});
-});
-
-
-test('local photo warp absorbs residual parallax without using Alva translation',()=>{
-  const K={fx:100,fy:100,cx:80,cy:60,width:160,height:120},q=[0,0,0,1];
-  const frames=[{K,width:160,height:120,pose:{p:[0,0,0],q}},{K,width:160,height:120,pose:{p:[9,4,-3],q:[0,.5,0,.8660254]}}];
-  const matches=[];for(let y=28;y<=92;y+=16)for(let x=35;x<=115;x+=20)matches.push({aU:x,aV:y,bU:x+12,bV:y+2,probability:.9,photometricProbability:.95});
-  const edges=[{a:0,b:1,visualRotation:q,visualConfidence:.9,matches}],solution={orientations:[q,q],confidence:Float32Array.from([1,.9]),rootIndex:0};
-  const warp=buildLocalPanoramaWarp(frames,edges,solution,{width:640,height:320});
-  const m=matches[Math.floor(matches.length/2)],a=photoPixelToAtlas(frames[0],q,m.aU,m.aV,640,320,warp,0),before=photoPixelToAtlas(frames[1],q,m.bU,m.bV,640,320,null,1),after=photoPixelToAtlas(frames[1],q,m.bU,m.bV,640,320,warp,1),wd=d=>Math.abs(d)>320?640-Math.abs(d):Math.abs(d),errBefore=Math.hypot(wd(a.x-before.x),a.y-before.y),errAfter=Math.hypot(wd(a.x-after.x),a.y-after.y);
-  assert.ok(warp.anchorCount>=matches.length);assert.ok(errAfter<errBefore*.55,`expected local RGB warp to reduce ${errBefore} -> ${errAfter}`);
+  const mk=(id,raw)=>({frameId:id,width:w,height:h,relativeDepth:raw,relativeDepthWidth:w,relativeDepthHeight:h,relativeConfidence:.9,relativeQuality:{suspicious:false,stripe:{suspicious:false}}}),A=mk('A',rawA),B=mk('B',rawB),matches=[];for(let y=1;y<h-1;y+=2)for(let x=1;x<w-1;x+=2)matches.push({aU:x,aV:y,bU:x,bV:y,probability:.95});const c=solvePhotoDepthConsensus([A,B],[{a:0,b:1,matches,visualConfidence:.95}],{minPairs:6});assert.equal(c.stats.alignedFrames,2);const za=sampleConsensusDepth(A,c.transforms[0],10,6),zb=sampleConsensusDepth(B,c.transforms[1],10,6);assert.ok(Math.abs(za-zb)<1e-4,{za,zb});
 });

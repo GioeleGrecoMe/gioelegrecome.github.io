@@ -1,28 +1,25 @@
-V30.31.0 incremental photo-first panorama patch
+V30.32.0 incremental pure-photo mosaic patch
 
-Apply over the existing V30 project root, preserving these relative paths.
-The models/ directory is intentionally not included or modified.
+Modified/new files only; no models are included.
 
-Changed/new files:
-- ARCHITECTURE.md
-- PATCH_CONTENTS.txt
-- PATCH_NOTES_V30.31.md
-- README.md
-- TEST_ON_PHONE.md
-- TEST_REPORT.md
-- build_info.json
 - index.html
-- js/app.js
-- js/boot.js
-- js/config.js
-- js/reconstruction/live_photo_puzzle.js
-- js/reconstruction/photo_depth_consensus.js
-- js/reconstruction/photo_panorama.js
-- js/reconstruction/view_puzzle.js
-- package.json
 - room_scanner_v30.html
 - styles.css
 - sw.js
+- build_info.json
+- package.json
+- README.md
+- ARCHITECTURE.md
+- PATCH_NOTES_V30.32.md
+- TEST_ON_PHONE.md
+- TEST_REPORT.md
+- js/app.js
+- js/boot.js
+- js/config.js
+- js/reconstruction/photo_panorama.js
+- js/reconstruction/photo_depth_consensus.js
+- js/reconstruction/view_puzzle.js
+- js/reconstruction/live_photo_puzzle.js
 - tests/boot-preflight.test.mjs
 - tests/build-contract.test.mjs
 - tests/live-photo-puzzle.test.mjs
@@ -31,11 +28,3 @@ Changed/new files:
 - tools/check_v30_layout.mjs
 - tools/mock_ui_boot.mjs
 - tools/validate_public_data.mjs
-
-Functional scope:
-- photo-only robust registration; Alva no longer gates panorama matches
-- robust visual rotation graph + lightweight local RGB parallax warp
-- confidence-weighted raw Depth Anything overlap consensus
-- Alva pose/covariance and visual evidence persisted for later pose correction
-- camera-first adaptive measurement GUI
-- 3D reconstruction algorithms intentionally unchanged
