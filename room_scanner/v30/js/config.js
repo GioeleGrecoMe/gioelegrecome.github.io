@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.37.0 continuous RGB live-mosaic configuration.
+ * Room Scanner V30.38.0 continuous RGB live-mosaic configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.37.0',
-  id:'v30.37.0-20260821-causal-feedback-confirmed-geometry',
+  version:'30.38.0',
+  id:'v30.38.0-20260821-live-multirate-optimizer-diagnostics',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -278,6 +278,45 @@ export const CONFIG={
   // runs only every N post-scan iterations.
   probabilisticDepthFeedbackEvery:2,
   probabilisticPhotoMaxSide:128,
+
+  // V30.38 live multi-rate optimiser. The working state lives in a dedicated
+  // worker; only candidates passing the conservative gate become visible.
+  liveProbabilisticOptimization:true,
+  liveProbabilisticOptWorker:'workers/live_probabilistic_worker.js',
+  liveOptMinFrames:2,
+  liveOptMinLandmarks:6,
+  liveOptFastMinIntervalMs:420,
+  liveOptSlowMinIntervalMs:850,
+  liveOptFastBudgetMs:38,
+  liveOptSlowBudgetMs:95,
+  liveOptFastIterations:1,
+  liveOptSlowIterations:2,
+  liveOptDepthFeedbackEvery:3,
+  liveOptLocalWindowSize:10,
+  liveOptLocalWindowOverlap:3,
+  liveOptFastGraphFrames:16,
+  liveOptSlowGraphFrames:26,
+  liveOptGraphLoopFrames:6,
+  liveOptMaxLandmarks:4500,
+  liveOptMaxObsPerFrame:150,
+  liveOptPreviewLandmarks:320,
+  liveOptPreviewAnchors:90,
+  liveOptPreviewSmoothing:.34,
+  liveOptPreviewVoxelM:.055,
+  liveOptPreviewVoxelAlva:.05,
+  liveOptPreviewSurfels:2200,
+  liveOptPreviewTriangles:900,
+  liveOptPreviewDeepSamples:3200,
+  liveOptPreviewMvsSamples:3800,
+  liveOptPreviewMergeVoxelM:.045,
+  liveOptPreviewMergeVoxelAlva:.04,
+  liveOptPreviewMaxAccumulatedSurfels:6500,
+  liveOptGateMaxReprojectionPx:3.2,
+  liveOptGateMaxTranslationM:.11,
+  liveOptGateMaxTranslationAlva:.14,
+  liveOptGateMeanTranslationM:.045,
+  liveOptGateMeanTranslationAlva:.06,
+  liveOptGateMaxRotationRad:.07,
 
   // V30.29: photo-sphere puzzle -> globally aligned relative depth -> hybrid
   // structural planes + bounded residual particles. The old Gaussian and EXP

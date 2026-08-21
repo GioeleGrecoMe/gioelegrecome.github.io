@@ -1,6 +1,6 @@
 {
-  "version": "30.37.0",
-  "id": "v30.37.0-20260821-causal-feedback-confirmed-geometry",
-  "createdAt": "2026-08-21T16:50:00+02:00",
-  "notes": "V30.37 turns the hierarchical estimator into a causal feedback system. Multi-view RGB remains the primary geometric scaffold; relative Alva increments use independent translation/rotation switch variables while the absolute Alva pose is only a weak gauge prior. Depth calibration is observability-gated, globally monotone and reweighted by the previous reliability E-step. Residual fields are classified into pose/global-depth/local-depth/match/occlusion/dynamic hypotheses, confidence is maintained at frame/region/pixel levels, and dense Deep samples are kept candidate until leave-one-view-out independent evidence confirms them. Committed geometry is fused in local submaps and late loop closure moves submaps rigidly through a submap pose graph instead of re-integrating a global TSDF."
+  "version": "30.38.0",
+  "id": "v30.38.0-20260821-live-multirate-optimizer-diagnostics",
+  "date": "2026-08-21",
+  "notes": "V30.38 runs the hierarchical RGB/pose/depth estimator during acquisition in a dedicated time-sliced worker. A working candidate never changes the visible measurement state until a conservative acceptance gate checks reprojection, pose jumps, depth calibration and switch behaviour. Accepted sparse anchors are smoothed before display; rejected candidates leave the preview untouched. The diagnostics logger is upgraded to structured ROOMSCAN-V30-DIAGNOSTICS-2 with monotonic sequence/timing, checkpoints, runtime context, worker traces and explicit accepted/rejected optimisation decisions."
 }

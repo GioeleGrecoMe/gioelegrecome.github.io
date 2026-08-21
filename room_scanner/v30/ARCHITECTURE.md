@@ -1,122 +1,110 @@
-# Room Scanner V30.37 architecture
+# Room Scanner V30.38 architecture
 
 ## 1. Epistemic hierarchy
 
-The estimator is not symmetric:
+The estimator remains deliberately asymmetric:
 
-`multi-view RGB geometry > multi-view-consistent calibrated Depth > single-view Depth`
+`multi-view RGB geometry > multi-view-consistent calibrated Depth > single-view Depth`.
 
-AlvaAR supplies initialization and temporal continuity. It can be contradicted by the scene.
-
-The global state is solved hierarchically rather than by freeing pose, intrinsics, depth and surface simultaneously from the first frame.
+AlvaAR supplies initialization and temporal continuity, not final truth. The V30.38 change is not a new geometric model: it is a **runtime control layer** around the V30.37 hierarchical estimator.
 
 ## 2. Exact-frame RGB + Depth acquisition
 
-The user-visible spherical panorama still admits only frozen RGB frames whose same immutable frame has a valid Deep result. RGB registration never reads Alva pose. Alva pose, if available, is stored as optional metric evidence.
+Only a frozen RGB image whose exact immutable frame has a valid/scheduled Deep result is eligible for the photo/depth graph. RGB panorama registration is spherical and photo-only. Alva pose is optional metadata/metric evidence.
 
-Every frozen RGB frame also receives cheap image-only quality diagnostics (blur/texture/exposure/clipping). These diagnostics only modulate later authority; they never place a photograph.
+## 3. Sparse scaffold and observable Depth
 
-## 3. Sparse RGB scaffold
+RGB tracks, switchable photo edges and triangulated landmarks remain the highest-authority scaffold. Deep is calibrated as inverse depth
 
-Robust RGB feature tracks and triangulation create sparse 3-D landmarks with covariance. Individual feature residuals use a continuous robust loss. Whole RGB photo edges have a switch `s_ij`, so a bad pair can collapse without deleting all measurements in a good pair.
+`rho_i(u) = a_i * F_gamma(d_i(u)) + b_i`
 
-The factor graph persists exact `frameId` references; panorama array indices are converted to persistent frame IDs before storage.
+with one low-DOF monotone `F_gamma` shared by the scan. Per-frame scale/shift freedom is selected by observability (`full`, `shift-only`, `inherit`).
 
-## 4. Alva as switchable relative prior
+## 4. V30.38 live state split
 
-For consecutive posed frames the graph stores relative Alva increments. Translation and rotation have distinct switches because one may be reliable when the other is not.
+The live estimator has three conceptual states:
 
-The absolute Alva pose has only a small gauge weight. Relative increments are the main tracker prior. Tracking loss/relocalization lowers prior confidence instead of forcing the scene to follow the tracker.
+- **evidence graph**: latest immutable measurements;
+- **working state**: solver exploration, never rendered directly;
+- **accepted state**: last candidate that passed the live gate and is safe to expose to the user.
 
-Switch posterior state is persisted in optimizer snapshots and survives session reload.
+A rejected candidate cannot move the visible camera scaffold or surface. If it is not catastrophic under a much looser internal safety gate, it may remain as the next working seed so several small iterations can converge without making the preview oscillate.
 
-## 5. Observable Depth calibration
-
-The Deep output is interpreted as relative inverse-depth coordinate:
-
-`rho_i(u) = a_i * F_gamma(d_i(u)) + b_i`.
-
-`F_gamma` is one monotone, low-order response for the whole scan. Per-frame `(a_i,b_i)` freedom is selected by observability:
-
-- `full`: scale + shift observable;
-- `shift-only`: scale inherited, shift may update;
-- `inherit`: both inherited/predicted.
-
-The test uses depth span, geometric span, image coverage and conditioning. Nearly planar views cannot invent two independent calibration parameters.
-
-## 6. Two-rate causal feedback
+## 5. Multi-rate scheduler
 
 ### Fast loop
 
-Every optimizer iteration:
-
-`RGB switches -> landmarks -> pose -> RGB switches -> relative Alva switches`.
+Triggered by RGB keyframes, sparse anchors and useful MVS evidence. Default cadence is about 420 ms, one optimiser step and a small graph window. Photo raster payloads are stripped before structured clone when they are not needed.
 
 ### Slow loop
 
-Every N iterations (default 2):
+Triggered by same-frame Deep evidence. Default cadence is about 850 ms with 1–2 small steps. It enables the Depth/confidence feedback phase and can request a small confirmed surface preview.
 
-`Depth calibration -> leave-one-view-out consistency -> reliability E-step -> Alva/pose feedback`.
+### Adaptive load control
 
-The reliability produced by the previous slow loop reweights geometric anchors in the next Depth calibration. This prevents a pose-suspect frame from making Depth absorb the pose error.
+Solve/map time changes the next scheduling interval. Expensive cycles increase a bounded backoff; cheap cycles reduce it. The main capture/tracking loop therefore never waits for mathematical convergence.
 
-## 7. Residual cause model
+## 6. Bounded graph window
 
-The spatial residual field is summarized as a low-dimensional global component plus local deviations. The estimator scores six explanations:
+Live optimisation does **not** clone the whole historical graph every time. The worker receives:
 
-- pose error;
-- global Depth calibration error;
-- local Depth failure;
-- wrong RGB edge/matches;
-- occlusion;
-- dynamic content.
+- recent frames;
+- a limited number of strong old loop-closure endpoints;
+- immediate temporal neighbours around those endpoints;
+- only RGB/Alva/depth/MVS/landmark factors whose frame IDs remain in the window.
 
-A coherent image-wide/gradient field increases pose suspicion; a localized patch increases local-Depth suspicion. RGB reprojection improvement is part of this diagnosis.
+Post-scan optimisation still receives the full graph.
 
-## 8. Hierarchical confidence
+The window exports explicit diagnostics: selected frame IDs, excluded count, old loop endpoints, edge/evidence counts and whether photo pixels were retained.
 
-No per-pixel optimization variable is introduced. Confidence is compact:
+## 7. Conservative acceptance gate
 
-- frame confidence;
-- RGB/Alva edge switches;
-- region confidence (8x8 by default);
-- derived pixel confidence from frame + region + residual + structural edge + visibility.
+A candidate is compared against the accepted solution on the **same current evidence graph**. Hard rejection includes, among others:
 
-This keeps the feedback feasible on a phone while retaining spatial selectivity.
+- non-finite reprojection;
+- large absolute reprojection that is not clearly improving;
+- reprojection regression;
+- excessive common-frame translation jump;
+- excessive common-frame rotation jump;
+- severe Depth-calibration regression.
 
-## 9. Visibility and leave-one-view-out Depth consistency
+RGB/Alva switch spikes and large mean corrections are warnings/penalties rather than automatic truth assertions. A score combines reprojection, normalized energy, Depth improvement and jump/switch penalties, but hard physical/visual constraints take precedence.
 
-A Deep sample is reprojected only into other views. Visibility/z ordering distinguishes same-surface support, occlusion and true conflict. The evaluator records supporting frame IDs and triangulation angles, so repeated nearly identical views do not masquerade as independent evidence.
+## 8. Stable visible scaffold
 
-## 10. Candidate vs confirmed geometry
+Accepted landmark positions are smoothed toward the new solution rather than teleported. This smoothing belongs only to rendering; the solver snapshot remains unsmoothed.
 
-A new Depth sample does not enter committed geometry merely because it exists.
+The HUD exposes phase, accepted reprojection error, gate score and accepted/rejected cycle count.
 
-It becomes committed only if:
+## 9. Confirmed live surface preview
 
-- it is cross-view `trusted`; and
-- it has at least two independent supporting views with useful baseline, **or** one independent supporting view plus a local sparse RGB anchor.
+Only an **accepted slow** cycle can ask the optimiser to rebuild a compact confirmed/submap surface preview. The result is intentionally bounded in surfels, triangles, Deep samples and MVS samples.
 
-Otherwise it remains `candidate`. Candidate samples are available for diagnostics/preview but never enter the committed TSDF/mesh.
+New accepted preview surfels are spatially merged with the previous accepted preview. Therefore a local graph window moving to another part of the room does not make already stable geometry vanish from the user interface.
 
-Sparse RGB-supported surface evidence is labelled `strong`; verified multiview evidence is `confirmed`; lower-authority but still accepted evidence remains `weak`.
+Raw dense fusion continues for evidence persistence/review but cannot overwrite the accepted live optimiser preview while one exists.
 
-## 11. Correlated uncertainty and evidence budget
+## 10. Candidate/confirmed geometry and feedback
 
-Point covariance contains Depth uncertainty and pose uncertainty. A whole photograph therefore carries correlated pose error; thousands of pixels do not create infinite information. Each Deep frame has a maximum dense information budget before submap fusion.
+The V30.37 causal rules remain intact: Depth is checked leave-one-view-out, visibility is tested, frame/region/pixel confidence is derived, and candidate evidence cannot validate itself. Confirmed/strong evidence is the only dense geometry eligible for committed reconstruction.
 
-## 12. Local submaps and global feedback
+## 11. Diagnostics as part of the estimator
 
-Dense evidence is fused once into one primary local submap. Overlap between submaps exists for graph connectivity, not duplicate evidence counting.
+Diagnostics are treated as a first-class subsystem. Every live optimiser generation gets a trace ID and records:
 
-Late RGB loop closures build a separate submap pose graph. Global correction changes only each submap rigid anchor transform; already fused dense samples do not need destructive global TSDF de-integration/re-integration.
+- complete graph summary;
+- bounded window diagnostics;
+- scheduling delay/backoff and time budget;
+- accepted baseline and working baseline;
+- every optimisation step with duration and feedback phase;
+- candidate statistics;
+- gate score, hard reasons, warnings and pose deltas;
+- accepted/rejected decision;
+- working-state retention after a visible rejection;
+- preview rebuild time and surface statistics.
 
-## 13. Camera and structural priors
+Runtime `error`, `unhandledrejection`, worker errors and handled high-level operation failures generate checkpoints and an emergency persisted snapshot.
 
-Session intrinsics are locked (scaled only with raster size); focal length is not a free escape variable for bad Depth/pose.
+## 12. Post-scan continuity
 
-Planes and Manhattan priors remain late, soft structural constraints. They do not manufacture early geometry.
-
-## 14. Final committed product
-
-The final mesh is generated only from committed submap evidence. Candidate, conflicting, occluded and dynamic/suspect Deep observations cannot directly create triangles.
+The accepted live state is persisted in the session and is used as the initialization for the post-scan probabilistic optimizer. Live optimisation therefore improves the starting point without replacing the more complete final pass.

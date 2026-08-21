@@ -1,27 +1,44 @@
-# Room Scanner V30.37 · causal probabilistic feedback
+# Room Scanner V30.38 · live multi-rate optimisation + capillary diagnostics
 
-V30.37 keeps the V30.34/35 spherical RGB+Depth acquisition path and the V30.36 observability hierarchy, but changes the estimator from a one-way pipeline into a causal feedback system.
+V30.38 keeps the V30.37 causal hierarchy but moves a conservative subset of the optimisation **inside the measurement loop** so the user can see a stable, interpretable preview while scanning.
 
-The authority order is deliberately asymmetric:
+The core rule is:
 
-`multi-view RGB geometry > multi-view-consistent calibrated Depth > single-view Depth`
+`working solver state -> acceptance gate -> accepted visible state`
 
-AlvaAR is a dynamic prior, not a source of truth. Its relative frame-to-frame increments are retained with independent translation/rotation switches; its absolute pose is only a weak gauge regularizer.
+The optimiser may explore a working solution; the UI never renders it directly. Only a candidate that passes explicit reprojection, pose-jump, Depth-calibration and switch-consistency gates is promoted to the accepted state. Rejected candidates leave the visible preview untouched.
 
-The post-scan estimator now runs three nested levels:
+## Multi-rate runtime
 
-1. **Fast frame loop** — robust RGB landmark/pose refinement + switchable RGB edges + switchable relative Alva increments.
-2. **Slow Depth loop** — observability-gated inverse-depth calibration, leave-one-view-out consistency, frame/region/pixel reliability and causal residual diagnosis. The E-step confidence from one cycle reweights the next calibration cycle.
-3. **Global submap loop** — confirmed evidence is fused locally, while loop closures move whole submaps rigidly through a submap pose graph.
+1. **Fast RGB/pose loop** — triggered by new RGB keyframes, sparse anchors and MVS evidence. It uses a bounded local graph, one small optimisation step and no dense preview rebuild.
+2. **Slow Depth/confidence loop** — triggered by same-frame Deep evidence. It uses a somewhat larger graph, 1–2 time-sliced steps and may rebuild a small confirmed/submap preview.
+3. **Post-scan loop** — still receives the complete factor graph and is not constrained by the live time budget.
 
-Deep uses
+The live worker receives the recent graph window plus a few old loop-closure endpoints. This bounds CPU and structured-clone cost without throwing away useful loop evidence. If a live cycle is expensive, the scheduler automatically backs off; cheap cycles gradually restore the nominal cadence.
 
-`rho_i(u) = a_i * F_gamma(d_i(u)) + b_i`
+## Stable preview
 
-where `F_gamma` is a single low-DOF monotone function shared by the entire scan. Per-frame calibration can be `full`, `shift-only`, or `inherit` depending on geometric observability. There is no free nonlinear function per photograph.
+Sparse anchors are temporally smoothed after acceptance. Confirmed surface preview is updated only on accepted slow cycles and merged into a persistent spatial hash, so old scanned regions do not disappear simply because the current local window moved elsewhere.
 
-Dense Deep samples are split into **candidate** and **committed** geometry. A sample cannot validate itself: it must receive independent leave-one-view-out support with meaningful camera baseline, or independent support plus a local sparse RGB anchor. Conflicts and occlusions are not averaged into a false surface. Dynamic/suspect frames are heavily downweighted or kept candidate.
+The dense fusion pipeline continues collecting evidence in the background, but it cannot overwrite an already accepted optimiser preview during measurement.
 
-The final Gaussian/surface representation exposes evidence classes (`strong`, `confirmed`, `weak`); candidate Deep evidence is kept separate and never enters the committed TSDF/mesh.
+## Diagnostics
 
-The live RGB panorama remains pure-photo spherical registration. Only frozen RGB frames carrying their exact same-frame Depth evidence (or explicitly scheduled to obtain it) enter that photo/depth stream.
+Diagnostics use `ROOMSCAN-V30-DIAGNOSTICS-2` and are structured rather than free-form. Every event contains a monotonic sequence number, wall/monotonic time, level, scope, optional trace ID and compact structured data.
+
+For live optimisation the export records:
+
+- trigger and generation;
+- full graph size and exact bounded graph window;
+- selected frame IDs and recovered old loop endpoints;
+- solver time budget and per-step duration;
+- accepted and working baselines;
+- reprojection/Depth error and RGB/Alva switch statistics;
+- every gate reason and warning;
+- whether a rejected candidate was retained internally as safe `working` state;
+- scheduler backoff and live preview size;
+- checkpoints for dispatch, acceptance, rejection and runtime errors.
+
+The measurement panel has a direct **Log** button. Runtime/worker errors also preserve an emergency diagnostic snapshot in local storage; if the page is killed/reloaded, that snapshot is attached to the next exported diagnostic session instead of being silently lost.
+
+The RGB panorama remains pure-photo spherical registration, and only exact RGB+Depth frame pairs enter its graph. Alva remains probabilistic metric evidence and never places photographs in the panorama.

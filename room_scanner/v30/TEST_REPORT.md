@@ -1,49 +1,84 @@
-# V30.37.0 test report · causal feedback / confirmed geometry
+# V30.38 validation report
 
-## Full regression
+Validation date: 2026-08-21
 
-`npm test`: **162 tests, 161 PASS, 1 expected environment failure**.
+## Full Node regression suite
 
-The only failure is `tests/local-onnx-depth-ui.test.mjs`, which performs `stat()` on `models/model_q4.onnx`. The user-supplied project intentionally omits `models/`; V30.37 neither changes nor redistributes model weights.
+`npm test`
 
-## New V30.37 feedback tests
+- total: **169**
+- pass: **168**
+- fail: **1**
+- skipped: **0**
 
-`tests/feedback-estimator.test.mjs`: **9/9 PASS**.
+The only failure is the pre-existing filesystem contract that executes `stat()` on:
 
-It covers:
+`models/model_q4.onnx`
 
-- panorama index -> persistent `frameId` conversion;
-- spatial residual classification (pose-like field vs localized Deep failure);
-- switchable relative Alva translation under RGB contradiction;
-- leave-one-view-out support and independent triangulation-angle counting;
-- rigid submap loop correction;
-- committed Deep requiring independent confirmation;
-- image-only RGB quality diagnostics;
-- persistence/restoration of RGB and Alva switch posterior states;
-- faster RGB/pose loop vs slower Deep feedback loop.
+The supplied project intentionally omits `models/`, so the failure is expected and unrelated to V30.38 code.
 
-## Public-data / runtime validation
+## V30.38 live optimiser tests
 
-- `check:public`: PASS;
-- TUM RGB-D `freiburg1_xyz`: 85/86 correct real-texture matches = **98.84% precision**, **100% recall**;
-- TUM factor graph reprojection RMSE: **2.2912 px -> 0.0332 px**;
-- mean pose correction on fixture: **9.73 mm**;
-- photo puzzle: **6/6 frames, 15 RGB edges, 6 loops, 100% connected**;
-- live atlas: **15 edges, 100% connected**;
-- `check:depth`: PASS;
-- layout: PASS, **220 files** in the project root before packaging;
-- dependency closure: PASS, **49 local references**;
-- EventTarget constructor check: **5/5 PASS**;
-- mock UI boot: PASS;
-- AlvaAR runtime contract: PASS.
+Dedicated tests cover:
 
-The TUM fixture is a registration/regression check, not a benchmark of final dense reconstruction accuracy.
+- small accepted pose/reprojection improvement;
+- catastrophic pose jump rejection even when scalar energy decreases;
+- reprojection-regression rejection;
+- pose-delta comparison only over common persistent frame IDs;
+- bounded live graph window;
+- old useful loop endpoint recovery;
+- graph-window diagnostics;
+- dedicated live worker / accepted-working split contract;
+- structured diagnostics, checkpoints, monotonic sequence, runtime context and diagnostic summary.
 
-## Incremental overlay validation
+All pass.
 
-The final V30.37 archive was applied over a clean V30.36 tree and tested from that reconstructed tree:
+## Public-data regression
 
-- focused feedback/build/boot/panorama contracts: **23/23 PASS**;
-- layout: PASS, **220 files**;
-- dependency closure: PASS, **49 local references**;
-- full `npm test`: **162 total, 161 PASS**, with the same single expected missing-model failure (`models/model_q4.onnx`).
+`npm run check:public` — **PASS**
+
+TUM RGB-D `freiburg1_xyz` fixture:
+
+- 85 / 86 correct feature matches;
+- precision: **98.8372%**;
+- recall: **100%**;
+- factor-graph frames: 8;
+- factor-graph landmarks: 36;
+- reprojection RMSE: **2.29120 px -> 0.03318 px**;
+- mean pose correction: **0.009729 m**;
+- photo puzzle: 6 frames, 15 edges, 6 loops;
+- photo graph connected fraction: **1.0**;
+- live atlas connected fraction: **1.0**;
+- live RGB coverage: **0.5100**;
+- live Depth coverage: **0.5142**.
+
+This is a regression/registration fixture, not a final-room-mesh benchmark.
+
+## Other checks
+
+- `npm run check:depth` — **PASS**
+- `npm run check:layout` — **PASS**, 226 files under one V30 root
+- `npm run check:deps` — **PASS**, 50 local references resolved
+- `npm run check:constructors` — **PASS**, 5/5 EventTarget subclasses
+- `npm run check:mock` — **PASS**, UI remains interactive after simulated WebXR failure
+- `npm run check:alva` — **PASS**, Alva runtime contract
+- syntax checks for `js/app.js`, `js/logger.js`, live graph/gate modules and live worker — **PASS**
+
+## Diagnostic-specific observations
+
+The mock UI failure path now produces a structured `handled-operation-error` checkpoint, confirming that caught high-level failures are persisted into the diagnostic stream rather than only printed to console.
+
+Live diagnostic exports contain the complete factor-graph summary and the exact bounded graph window used by each optimiser generation, including frame IDs, excluded count and old loop endpoints. Accepted/rejected messages retain per-step timing and gate reasons.
+
+## Drop-in patch validation
+
+The incremental archive was extracted over a clean V30.37 project copy. The resulting tree is byte-for-byte equivalent to the V30.38 working tree (`diff -qr` empty).
+
+On that overlay:
+
+- 16 targeted boot/build/live-optimizer/diagnostic tests — **16/16 PASS**;
+- layout — **PASS**;
+- dependency closure — **PASS**;
+- mock UI boot — **PASS**;
+- Alva runtime contract — **PASS**;
+- full `npm test` reproduces exactly **168/169 PASS**, with the same and only missing-model failure described above.

@@ -205,3 +205,6 @@
   #scan #liveMapCanvas{min-height:100px}
   #scan .scanButtons button{padding:.48rem .52rem!important;font-size:.65rem!important}
 }
+#scan .scanDiagHeadActions{display:flex;align-items:center;gap:5px;color:inherit;font-size:inherit}
+#scan .scanDiagHeadActions button:first-child{font-size:.62rem;padding:.24rem .48rem;min-width:auto}
+#scan .liveOptimizerHud{border-color:rgba(92,255,141,.28);background:rgba(5,22,18,.72)}
