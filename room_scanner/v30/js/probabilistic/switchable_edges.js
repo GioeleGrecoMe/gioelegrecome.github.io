@@ -1,4 +1,4 @@
-import {projectPoint} from '../slam/math.js?v=30.40.0';
+import {projectPoint} from '../slam/math.js?v=30.41.0';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 

@@ -65,10 +65,15 @@ test('switch posteriors survive optimizer snapshot/restore',()=>{
   const a=new ProbabilisticJointOptimizer(graph);a.edgeModel.edges[0].switch=.123;a.alvaModel.rebuild(frames);a.alvaModel.edges[0].translationSwitch=.087;a.alvaModel.edges[0].rotationSwitch=.731;a.alvaModel.edges[0].switch=Math.sqrt(.087*.731);const snap=a.snapshot(),b=new ProbabilisticJointOptimizer(graph,{initial:snap});assert.ok(Math.abs(b.edgeModel.edges[0].switch-.123)<1e-9);assert.ok(Math.abs(b.alvaModel.edges[0].translationSwitch-.087)<1e-9);assert.ok(Math.abs(b.alvaModel.edges[0].rotationSwitch-.731)<1e-9);
 });
 
+function tinyDepthGraph(prefix){
+  const frames=[0,.1].map((x,i)=>({frameId:`${prefix}${i}`,posePrior:pose(x),poseEstimate:pose(x),poseCov:{diag:[1e-4,1e-4,1e-4,1e-5,1e-5,1e-5]},K,width:160,height:120})),raw=new Float32Array(16*12).fill(.5),deepFactors=frames.map(f=>({frameId:f.frameId,cols:16,rows:12,raw,quality:{suspicious:false}})),landmarkFactors=[{id:`${prefix}L`,point:[0,0,2],covariance:[1e-5,0,0,1e-5,0,2e-5],probability:.98,relativeDepthSigma:.02,measurements:frames.map(f=>({frameId:f.frameId,u:80,v:60,probability:.98}))}];
+  return {format:'ROOMSCAN-PROB-GRAPH-1',frames,edgeFactors:[],alvaFactors:[],landmarkFactors,deepFactors,mvsFactors:[]};
+}
+
 test('post-scan estimator runs RGB pose loop faster than Deep feedback loop after explicit warmup',()=>{
-  const frames=[0,.1].map((x,i)=>({frameId:`q${i}`,posePrior:pose(x),poseEstimate:pose(x),poseCov:{diag:[1e-4,1e-4,1e-4,1e-5,1e-5,1e-5]},K,width:160,height:120})),graph={format:'ROOMSCAN-PROB-GRAPH-1',frames,edgeFactors:[],alvaFactors:[],landmarkFactors:[],deepFactors:[],mvsFactors:[]},opt=new ProbabilisticJointOptimizer(graph,{depthFeedbackEvery:2,rgbWarmupIterations:0});opt.step(1);assert.equal(opt.lastStats.feedbackPhase,'depth-feedback');opt.step(1);assert.equal(opt.lastStats.feedbackPhase,'rgb-fast');opt.step(1);assert.equal(opt.lastStats.feedbackPhase,'depth-feedback');
+  const opt=new ProbabilisticJointOptimizer(tinyDepthGraph('q'),{depthFeedbackEvery:2,rgbWarmupIterations:0});opt.step(1);assert.equal(opt.lastStats.feedbackPhase,'depth-feedback');opt.step(1);assert.equal(opt.lastStats.feedbackPhase,'rgb-fast');opt.step(1);assert.equal(opt.lastStats.feedbackPhase,'depth-feedback');
 });
 
 test('default estimator bootstraps RGB scaffold before permitting Deep feedback',()=>{
-  const frames=[0,.1].map((x,i)=>({frameId:`w${i}`,posePrior:pose(x),poseEstimate:pose(x),poseCov:{diag:[1e-4,1e-4,1e-4,1e-5,1e-5,1e-5]},K,width:160,height:120})),graph={format:'ROOMSCAN-PROB-GRAPH-1',frames,edgeFactors:[],alvaFactors:[],landmarkFactors:[],deepFactors:[],mvsFactors:[]},opt=new ProbabilisticJointOptimizer(graph,{depthFeedbackEvery:2});opt.step(1);assert.equal(opt.lastStats.feedbackPhase,'rgb-bootstrap');assert.equal(opt.depthCalibration,null);opt.step(1);assert.equal(opt.lastStats.feedbackPhase,'rgb-bootstrap');assert.equal(opt.depthCalibration,null);opt.step(1);assert.equal(opt.lastStats.feedbackPhase,'depth-feedback');
+  const opt=new ProbabilisticJointOptimizer(tinyDepthGraph('w'),{depthFeedbackEvery:2});opt.step(1);assert.equal(opt.lastStats.feedbackPhase,'rgb-bootstrap');assert.equal(opt.depthCalibration,null);opt.step(1);assert.equal(opt.lastStats.feedbackPhase,'rgb-bootstrap');assert.equal(opt.depthCalibration,null);opt.step(1);assert.equal(opt.lastStats.feedbackPhase,'depth-feedback');assert.ok(opt.depthCalibration);
 });

@@ -1,12 +1,17 @@
-# Room Scanner V30.40 · robust RGB bootstrap optimizer
+# Room Scanner V30.41 · global accepted state + dense-only multi-layer surface
 
-V30.40 keeps the single hierarchical `ProbabilisticJointOptimizer`, but fixes the bootstrap failure observed on a real V30.39.2 scan: the optimizer repeatedly restarted from the same poor baseline, entered Depth feedback immediately, switched every RGB photo edge off, and was then rejected by an absolute raw-RMSE gate.
+V30.41 keeps exactly one operational estimator, `ProbabilisticJointOptimizer`, but corrects the downstream failure exposed by the real V30.40 diagnostic and PLY: a good robust RGB fit could still produce a mesh made of many tiny TSDF islands.
 
-The operational estimator is now:
+The committed pipeline is now:
 
-`RGB scaffold bootstrap -> accepted RGB/pose state -> observable Deep calibration -> causal feedback -> confirmed submaps`
+`RGB scaffold -> globally accumulated accepted state -> observable inverse-Depth calibration -> independent dense confirmation -> rigid submaps -> one global multi-layer TSDF -> topology audit`
 
-There is still exactly one optimizer in live measurement and REVIEW. There is no Gaussian/Puzzle/Surface-Lab optimizer fallback.
+Key rules: sparse RGB landmarks never create surface; local accepted windows are merged by persistent IDs; Alva translation/rotation authority starts from tracker confidence and is evaluated after an RGB-first proposal; local Depth calibration keeps a fixed normalization domain; final commit recalibrates Depth across the full eligible graph; MVS normals are camera-local; and final submap geometry is remeshed globally rather than concatenating local TSDF meshes.
+
+The final mesher preserves mutually incompatible nearby surfaces in separate TSDF layers, then welds compatible layer meshes at genuine intersections. The committed output reports a `meshQuality` topology audit and explicitly warns when the result is fragmented.
+
+See `PATCH_NOTES_V30.41.md`, `TEST_ON_PHONE_V30.41.md` and `TEST_REPORT_V30.41.md`.
+
 
 ## Bootstrap rules
 

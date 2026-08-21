@@ -1,5 +1,5 @@
-import {ProbabilisticJointOptimizer} from './joint_optimizer.js?v=30.40.0';
-import {evaluateLiveCandidate} from './live_optimization_gate.js?v=30.40.0';
+import {ProbabilisticJointOptimizer} from './joint_optimizer.js?v=30.41.0';
+import {evaluateLiveCandidate} from './live_optimization_gate.js?v=30.41.0';
 
 const now=()=>globalThis.performance?.now?.()??Date.now();
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -80,7 +80,11 @@ export class SingleOptimizerRuntime{
       const gate=evaluateLiveCandidate({baselineStats,candidateStats,baselineSnapshot,candidateSnapshot,options:gateOptions}),elapsed=now()-start;
       this.trace('gate',{...traceBase,elapsedMs:elapsed,accepted:gate.accepted,score:finiteOrNull(gate.score),hardReasons:gate.hardReasons||[],softReasons:gate.softReasons||[],poseDelta:gate.poseDelta||null,baseline:compactStats(baselineStats),candidate:compactStats(candidateStats)});
       if(gate.accepted){
-        this.acceptedSnapshot=candidateSnapshot;this.acceptedStats=candidateStats;this.workingSnapshot=candidateSnapshot;this.stallCount=0;
+        // A live cycle sees only a bounded graph window. Replacing the accepted
+        // snapshot with that local state discards every pose/landmark correction
+        // accepted in older windows. Merge by persistent IDs instead: the
+        // accepted state is global even though every solve remains local.
+        this.acceptedSnapshot=mergeOptimizerSnapshots(this.acceptedSnapshot,candidateSnapshot);this.acceptedStats=candidateStats;this.workingSnapshot=this.acceptedSnapshot;this.stallCount=0;
         const preview=await this.makePreview(opt,job,summary,traceBase);
         const anchors=opt.landmarkPreview(Math.max(40,Math.min(900,Number(job.maxPreviewLandmarks)||320)))
           .filter(x=>(x.confidence||0)>.20)
@@ -90,7 +94,7 @@ export class SingleOptimizerRuntime{
         return {type:'single-opt-accepted',generation,trigger:job.reason,elapsedMs:elapsed+preview.mapMs,solveMs:elapsed,mapMs:preview.mapMs,iterations,steps,stats:candidateStats,gate,snapshot:this.acceptedSnapshot,anchors,previewGaussians:preview.previewGaussians,previewStats:preview.previewStats,summary};
       }
       const workingGate=evaluateLiveCandidate({baselineStats:workingBaselineStats,candidateStats,baselineSnapshot:workingBaselineSnapshot,candidateSnapshot,options:{maxReprojectionPx:1e6,maxReprojectionGrowth:1.12,reprojectionSlackPx:.35,maxCommonTranslationJump:.24,maxCommonRotationJumpRad:.16,maxMeanTranslationJump:.12,maxMeanRotationJumpRad:.08,maxDepthErrorGrowth:2.2,maxRejectedEdgeGrowth:8}}),progress=evaluateBootstrapProgress(workingBaselineStats,candidateStats,workingGate),workingRetained=progress.retain;
-      this.workingSnapshot=workingRetained?candidateSnapshot:this.acceptedSnapshot;if(workingRetained)this.stallCount=0;else this.stallCount++;
+      this.workingSnapshot=workingRetained?mergeOptimizerSnapshots(this.workingSnapshot||this.acceptedSnapshot,candidateSnapshot):this.acceptedSnapshot;if(workingRetained)this.stallCount=0;else this.stallCount++;
       if(bootstrap)this.trace(workingRetained?'bootstrap-progress':'bootstrap-no-progress',{...traceBase,workingRetained,stallCount:this.stallCount,progress,workingGate,baseline:compactStats(workingBaselineStats),candidate:compactStats(candidateStats)});
       if(!workingRetained&&this.stallCount>=4)return {type:'single-opt-stalled',generation,trigger:job.reason,elapsedMs:elapsed,solveMs:elapsed,mapMs:0,iterations,steps,stats:candidateStats,baselineStats,gate,workingGate,workingRetained:false,workingSnapshot:null,bootstrap:true,stallCount:this.stallCount,progress,summary};
       return {type:'single-opt-rejected',generation,trigger:job.reason,elapsedMs:elapsed,solveMs:elapsed,mapMs:0,iterations,steps,stats:candidateStats,baselineStats,gate,workingGate,workingRetained,workingSnapshot:workingRetained?candidateSnapshot:null,bootstrap,stallCount:this.stallCount,progress,summary};
@@ -104,10 +108,27 @@ export class SingleOptimizerRuntime{
     if(!this.acceptedSnapshot)return null;
     const t=now();
     try{
-      const opt=new ProbabilisticJointOptimizer(graph,{...(options.optimizer||{}),initial:this.acceptedSnapshot});
-      const map=opt.rebuild(options.rebuild||{}),elapsedMs=now()-t;
-      this.trace('rebuild',{elapsedMs,stats:map?.stats||null,gaussians:map?.gaussians?.length||0,faces:map?.mesh?.faces?.length?map.mesh.faces.length/3:0});
-      return {map,stats:opt.computeStats(),snapshot:opt.snapshot(),elapsedMs};
+      // The live accepted snapshot is intentionally local. Before committed
+      // geometry, sweep the COMPLETE graph with the SAME optimizer but RGB-only
+      // so frames acquired after the last accepted window are not left at raw
+      // Alva priors. This is a reconciliation stage, not a second optimizer.
+      const opt=new ProbabilisticJointOptimizer(graph,{...(options.optimizer||{}),initial:this.acceptedSnapshot}),baseStats=opt.computeStats(),baseSnapshot=opt.snapshot(),n=opt.frames?.length||0,w=Math.max(6,Number(options.optimizer?.localWindowSize)||18),o=Math.max(2,Number(options.optimizer?.localWindowOverlap)||5),windows=n<=w?1:Math.max(1,Math.ceil((n-o)/Math.max(1,w-o))),passes=Math.max(1,Math.min(20,Number(options.reconcileRgbPasses)||windows*2));
+      for(let i=0;i<passes;i++){opt.step(1,{bootstrap:true,allowDepth:false});if((i&1)===1)await yieldUi();}
+      const reconciledStats=opt.computeStats(),reconciledSnapshot=opt.snapshot(),reconcileGate=evaluateLiveCandidate({baselineStats:baseStats,candidateStats:reconciledStats,baselineSnapshot:baseSnapshot,candidateSnapshot:reconciledSnapshot,options:{maxReprojectionPx:4.5,maxReprojectionGrowth:1.10,reprojectionSlackPx:.22,maxCommonTranslationJump:.20,maxCommonRotationJumpRad:.14,maxMeanTranslationJump:.08,maxMeanRotationJumpRad:.055,maxDepthErrorGrowth:99,maxRejectedEdgeGrowth:10}}),br=preferredReprojection(baseStats),cr=preferredReprojection(reconciledStats),edgeBase=Number(baseStats.edgeSwitches?.mean||0),edgeNew=Number(reconciledStats.edgeSwitches?.mean||0),useReconciled=reconcileGate.accepted&&(!Number.isFinite(br)||cr<=br*1.03+.08)&&!(edgeBase>.25&&edgeNew<edgeBase*.45);
+      this.trace('commit-reconcile',{passes,windows,useReconciled,gate:reconcileGate,baseline:compactStats(baseStats),candidate:compactStats(reconciledStats)});
+      const commitOpt=useReconciled?opt:new ProbabilisticJointOptimizer(graph,{...(options.optimizer||{}),initial:this.acceptedSnapshot}),acceptedFrameIds=new Set((this.acceptedSnapshot?.frames||[]).map(f=>String(f.frameId))),commitFrameIds=useReconciled?null:acceptedFrameIds;
+      // If full-graph reconciliation is rejected, never fill the final surface
+      // with frames that are still only raw Alva priors. Old V30.40 sessions may
+      // contain a local accepted snapshot; those unaccepted frames remain
+      // candidate-only until a later successful reconciliation.
+      const map=commitOpt.rebuild({...options.rebuild,...(commitFrameIds?{commitFrameIds}: {})}),elapsedMs=now()-t,stats=commitOpt.computeStats(),localSnapshot=commitOpt.snapshot(),snapshot=useReconciled?mergeOptimizerSnapshots(this.acceptedSnapshot,localSnapshot):this.acceptedSnapshot;
+      // REVIEW should continue from the reconciled/full-depth state rather than
+      // repeatedly returning to the last small live window.
+      if(useReconciled){this.acceptedSnapshot=snapshot;this.acceptedStats=stats;this.workingSnapshot=snapshot;}
+      const meshQuality=map?.stats?.meshQuality||null;
+      this.trace('mesh-quality',{elapsedMs,status:meshQuality?.status||'empty',quality:meshQuality,surfaceLayers:map?.mesh?.surfaceLayers??null,sourceSurfels:map?.mesh?.sourceSurfels??null,inputSurfels:map?.mesh?.inputSurfels??null,reconciled:useReconciled});
+      this.trace('rebuild',{elapsedMs,stats:map?.stats||null,gaussians:map?.gaussians?.length||0,faces:map?.mesh?.faces?.length?map.mesh.faces.length/3:0,reconciled:useReconciled,acceptedCoverage:{acceptedFrames:acceptedFrameIds.size,totalFrames:graph.frames?.length||0,excludedUnacceptedFrames:map?.stats?.excludedUnacceptedFrames||0}});
+      return {map,stats,snapshot,elapsedMs,reconciled:useReconciled,reconcileGate,acceptedFrameIds:[...acceptedFrameIds]};
     }catch(err){this.trace('rebuild-error',{message:err?.message||String(err),stack:err?.stack||null});throw err;}
   }
 
@@ -124,6 +145,25 @@ export class SingleOptimizerRuntime{
   }
   trace(event,data){try{this.onTrace?.(event,data);}catch{}}
 }
+
+export function mergeOptimizerSnapshots(base,patch){
+  if(!base)return cloneSnapshot(patch);if(!patch)return cloneSnapshot(base);
+  const out={...base,...patch,format:patch.format||base.format||'ROOMSCAN-PROB-OPT-2'};
+  out.frames=mergeBy(base.frames,patch.frames,x=>String(x.frameId));
+  out.landmarks=mergeBy(base.landmarks,patch.landmarks,x=>String(x.id));
+  out.edgeSwitches=mergeEdgeState(base.edgeSwitches,patch.edgeSwitches,'ROOMSCAN-SWITCHABLE-RGB-EDGES-1');
+  out.alvaSwitches=mergeEdgeState(base.alvaSwitches,patch.alvaSwitches,'ROOMSCAN-SWITCHABLE-ALVA-1');
+  out.depthCalibration=mergeDepthCalibration(base.depthCalibration,patch.depthCalibration);
+  out.iterations=Math.max(Number(base.iterations)||0,Number(patch.iterations)||0);
+  out.stats=patch.stats||base.stats||null;
+  return out;
+}
+function mergeBy(a,b,key){const m=new Map();for(const x of a||[])if(x)m.set(key(x),structuredCloneSafe(x));for(const x of b||[])if(x)m.set(key(x),structuredCloneSafe(x));return [...m.values()];}
+function mergeEdgeState(a,b,format){if(!a&&!b)return null;return {format:b?.format||a?.format||format,edges:mergeBy(a?.edges,b?.edges,x=>pairKey(String(x.aId),String(x.bId)))};}
+function mergeDepthCalibration(a,b){if(!a&&!b)return null;if(!a)return structuredCloneSafe(b);if(!b)return structuredCloneSafe(a);return {...a,...b,frames:mergeBy(a.frames,b.frames,x=>String(x.frameId)),stats:b.stats||a.stats||null,gamma:Array.from(b.gamma||a.gamma||[]),domain:b.domain?{...b.domain}:a.domain?{...a.domain}:null};}
+function cloneSnapshot(x){return x?structuredCloneSafe(x):null;}
+function structuredCloneSafe(x){if(x==null)return x;try{return globalThis.structuredClone?globalThis.structuredClone(x):JSON.parse(JSON.stringify(x));}catch{return JSON.parse(JSON.stringify(x));}}
+function pairKey(a,b){return a<b?`${a}|${b}`:`${b}|${a}`;}
 
 function compactStats(s){return {iterations:s?.iterations,reprojectionRmse:finiteOrNull(s?.reprojectionRmse),reprojectionRobustRmse:finiteOrNull(s?.reprojectionRobustRmse),reprojectionMedianPx:finiteOrNull(s?.reprojectionMedianPx),reprojectionP90Px:finiteOrNull(s?.reprojectionP90Px),reprojectionInlierFraction4px:finiteOrNull(s?.reprojectionInlierFraction4px),poseShiftMean:finiteOrNull(s?.poseShiftMean),poseRotationShiftMeanRad:finiteOrNull(s?.poseRotationShiftMeanRad),deepRelativeError:finiteOrNull(s?.deepRelativeError),feedbackPhase:s?.feedbackPhase,observations:s?.observations,landmarks:s?.landmarks,edgeSwitches:s?.edgeSwitches,alvaSwitches:s?.alvaSwitches,reliability:s?.reliability};}
 function preferredReprojection(s){const r=Number(s?.reprojectionRobustRmse);return Number.isFinite(r)?r:Number(s?.reprojectionRmse);}

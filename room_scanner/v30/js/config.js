@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.40.0 single hierarchical optimizer configuration.
+ * Room Scanner V30.41.0 global accepted-state + multi-layer surface configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.40.0',
-  id:'v30.40.0-20260821-robust-rgb-bootstrap-optimizer',
+  version:'30.41.0',
+  id:'v30.41.0-20260821-global-consensus-multilayer-surface',
   dbName:'room-scanner-v30',
   dbVersion:3
 };

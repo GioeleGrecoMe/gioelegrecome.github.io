@@ -1,4 +1,15 @@
-# Room Scanner V30.40 architecture
+# Room Scanner V30.41 architecture
+
+## V30.41 committed-surface invariants
+
+- Sparse RGB landmarks are scaffold only and are forbidden from TSDF meshing.
+- Accepted states from bounded live windows are merged into one global accepted snapshot by persistent frame/landmark/edge IDs.
+- Alva switches are confidence-seeded and updated after an RGB-first proposal, separately for translation and rotation.
+- Local inverse-Depth calibration freezes its raw normalization domain; committed calibration is recomputed fresh over the complete eligible scaffold.
+- Dense MVS normals live in camera coordinates and rotate with optimized pose.
+- Live fusion remains local/reversible in overlapping submaps; committed surface is regenerated once from transformed confirmed surfels.
+- Incompatible nearby surfaces have separate TSDF layers; compatible layers are welded at genuine intersections.
+- Final topology is audited and logged; fragmentation is a diagnostic state, not silently accepted quality.
 
 ## 1. Authority hierarchy
 

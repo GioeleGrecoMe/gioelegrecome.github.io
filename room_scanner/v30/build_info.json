@@ -1,6 +1,7 @@
 {
-  "version": "30.40.0",
-  "id": "v30.40.0-20260821-robust-rgb-bootstrap-optimizer",
+  "version": "30.41.0",
+  "id": "v30.41.0-20260821-global-consensus-multilayer-surface",
   "date": "2026-08-21",
-  "notes": "V30.40 fixes the real single-optimizer failure observed on-device: bootstrap starts with RGB geometry only, whole-photo edge switches are annealed instead of collapsing before pose refinement, acceptance uses robust weighted reprojection plus median/P90 while raw RMSE remains diagnostic, and repeated rejected states either retain safe internal working progress or stop after bounded no-progress cycles. Deep feedback is enabled only after the RGB scaffold bootstrap. The preview changes only on accepted states."
+  "notes": "V30.41 fixes the real V30.40 surface failure measured on the uploaded diagnostics and PLY: accepted local optimizer snapshots are merged globally by persistent IDs; Alva switch authority starts from tracker confidence and is re-evaluated after an RGB-first pose proposal; Deep calibration uses a dimensionless inverse-depth residual and freezes its normalization domain in local windows, then performs a fresh full-graph calibration at commit; sparse RGB landmarks never enter the committed TSDF; MVS normals are stored camera-local; and confirmed dense surfels from rigid submaps are remeshed once in a global multi-layer TSDF with topology diagnostics instead of concatenating local TSDF islands.",
+  "builtAt": "2026-08-21T20:36:00+02:00"
 }

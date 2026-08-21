@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.40.0 single hierarchical optimizer application.
+ * Room Scanner V30.41.0 global accepted-state + multi-layer surface application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,8 +8,8 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.40.0';
-import {DiagnosticsLog} from './logger.js?v=30.40.0';
+import {BUILD,CONFIG} from './config.js?v=30.41.0';
+import {DiagnosticsLog} from './logger.js?v=30.41.0';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
@@ -153,7 +153,7 @@ async function createAlvaFrontend(K){
  * discarded and it never corrects/steers AlvaAR again.
  */
 async function beginBridge(){
-  // V30.40.0: legacy Surface Mesh Lab was removed from the operational path.
+  // V30.41.0: only ProbabilisticJointOptimizer is operational; committed surface is rebuilt globally from confirmed dense evidence.
   // Only the single ProbabilisticJointOptimizer may own optimisation state.
   // Stop an already-running instance before starting/resuming acquisition.
   if(state.postOptBusy||state.liveOptInFlight)stopPostOptimizer();
@@ -603,6 +603,7 @@ async function ensureSingleOptimizerRuntime(){
   state.singleOptRuntime=new mod.SingleOptimizerRuntime({initial:state.liveOptAccepted||state.probOptimization||null,onTrace:(event,data)=>{
     const generation=data?.generation??state.liveOptGeneration,traceId=`singleopt-${generation}`;
     if(event==='exception'||event==='rebuild-error'||event==='preview-map-error')log.error(`single-opt-${event}`,data,{traceId});
+    else if(event==='mesh-quality'&&data?.status==='fragmented')log.warn('single-opt-mesh-quality',data,{traceId});
     else log.debug(`single-opt-${event}`,data,{traceId});
   }});
   state.liveOptReady=true;
@@ -779,7 +780,7 @@ async function startProbabilisticOptimization(){
     if(!state.postOptBusy){updateOptimizerUi('OPT UNICO fermato · stato accettato conservato.');return;}
     if(stalled&&!runtime.snapshot()?.snapshot){state.postOptBusy=false;updateReviewUi();updateOptimizerUi(`OPT UNICO FERMO · bootstrap RGB non converge: ${optimizerReprojectionLabel(state.liveOptCandidateStats)} · nessuna geometria accettata modificata. Acquisire nuovi overlap/parallasse o esportare la diagnostica.`);return;}
     const rebuilt=await runtime.rebuildAccepted(graph,{optimizer:{maxLandmarks:CONFIG.probabilisticMaxLandmarks||12000,maxObsPerFrame:CONFIG.probabilisticMaxObsPerFrame||280,posePriorScale:CONFIG.probabilisticPosePriorScale||1,absoluteAlvaScale:CONFIG.probabilisticAbsoluteAlvaScale||.04,depthFeedbackEvery:CONFIG.probabilisticDepthFeedbackEvery||2,rgbWarmupIterations:CONFIG.probabilisticRgbWarmupIterations||2},rebuild:rebuildOptions});
-    if(rebuilt?.map?.gaussians?.length){state.gaussians=rebuilt.map.gaussians;state.mesh=rebuilt.map.mesh?.vertices?.length?rebuilt.map.mesh:null;state.meshStale=!state.mesh;state.geometryCommitted=true;state.probOptimized={previewGaussians:state.gaussians,candidateGaussians:rebuilt.map.candidateGaussians||[],mapStats:rebuilt.map.stats};state.renderer?.setData(state.gaussians,{fit:false});state.renderer?.setMesh(state.mesh);state.renderer?.draw();}
+    if(rebuilt?.map?.gaussians?.length){state.gaussians=rebuilt.map.gaussians;state.mesh=rebuilt.map.mesh?.vertices?.length?rebuilt.map.mesh:null;state.meshStale=!state.mesh;state.geometryCommitted=true;state.probOptimized={previewGaussians:state.gaussians,candidateGaussians:rebuilt.map.candidateGaussians||[],mapStats:rebuilt.map.stats};state.surfaceStats={...(state.surfaceStats||{}),committed:true,committedGaussians:state.gaussians.length,committedFaces:state.mesh?.faces?.length?state.mesh.faces.length/3:0,meshQuality:rebuilt.map.stats?.meshQuality||null,surfaceLayers:rebuilt.map.mesh?.surfaceLayers??null,eligibleCommittedFrames:rebuilt.map.stats?.eligibleCommittedFrames??null,excludedUnacceptedFrames:rebuilt.map.stats?.excludedUnacceptedFrames??null};state.renderer?.setData(state.gaussians,{fit:false});state.renderer?.setMesh(state.mesh);state.renderer?.draw();const mq=rebuilt.map.stats?.meshQuality;if(mq?.status==='fragmented')log.warn('committed-mesh-fragmented',{meshQuality:mq,surfaceLayers:rebuilt.map.mesh?.surfaceLayers??null,gaussians:state.gaussians.length,faces:state.mesh?.faces?.length?state.mesh.faces.length/3:0,advice:'mesh kept for diagnostics; inspect RGB scaffold, accepted frame coverage and dense layer support before trusting export'});}
     log.info('single-opt-review-complete',{accepted,attempts,target,stalled,stats:state.liveOptStats,map:rebuilt?.map?.stats||null,graph:state.probGraph.summary?.()||null});state.postOptBusy=false;await persistCurrentSession({status:'optimized',keyframes:state.reviewKeyframes||0}).catch(err=>log.warn('single-opt-persist',{message:err?.message||String(err)}));await renderSessions().catch(()=>{});updateReviewUi();updateOptimizerUi(stalled?`OPT UNICO fermato in modo conservativo · ${accepted} iterazioni accettate / ${attempts} tentativi · ultimo stato accettato preservato.`:`OPT UNICO completato · ${accepted} iterazioni accettate / ${attempts} tentativi · committed ${state.gaussians.length}${state.mesh?` · ${state.mesh.faces.length/3} facce`:''}.`);
   }catch(err){state.postOptBusy=false;log.error('single-opt-review-error',{message:err?.message||String(err),stack:err?.stack||null,last});log.checkpoint('single-opt-review-error',{message:err?.message||String(err),graph:state.probGraph.summary?.()||null});persistEmergencyDiagnostics('single-opt-review-error');updateOptimizerUi(`OPT UNICO ERRORE · ${err?.message||err}`);throw err;}
 }
