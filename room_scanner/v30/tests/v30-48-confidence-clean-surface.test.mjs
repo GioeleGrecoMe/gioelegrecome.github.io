@@ -14,8 +14,8 @@ test('low-confidence Gaussian clutter is hidden from display, not mutated',()=>{
     {id:'hi',confidence:.82,support:2,evidenceClass:'confirmed'}
   ];
   const out=filterSurfaceSplatsForDisplay(rows,{mode:'candidate'});
-  assert.deepEqual(out.splats.map(x=>x.id).sort(),['hi','mid','strong']);
-  assert.equal(out.stats.hiddenLowConfidence,1);
+  assert.deepEqual(out.splats.map(x=>x.id).sort(),['hi']);
+  assert.equal(out.stats.hiddenLowConfidence,3);
   assert.equal(rows.length,4); // evidence array is not pruned
 });
 

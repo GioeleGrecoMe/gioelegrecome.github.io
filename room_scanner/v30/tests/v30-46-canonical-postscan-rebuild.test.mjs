@@ -36,5 +36,5 @@ test('final reconcile can preserve an observed direct RGB scaffold instead of re
 
 test('rejected dense geometry is visible diagnostically but remains non-exportable',()=>{
   const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
-  assert.match(app,/diagnostic-candidate-surface-visible/);assert.match(app,/CANDIDATO NON COMMITTED/);assert.match(app,/state\.denseCandidateGaussians=committed/);assert.match(app,/state\.gaussians=\[\];state\.mesh=null/);assert.match(app,/export disabilitato/);
+  assert.match(app,/diagnostic-candidate-surface-visible/);assert.match(app,/CANDIDATO NON COMMITTED/);assert.match(app,/state\.denseCandidateGaussians=diagnosticCandidate/);assert.match(app,/state\.gaussians=\[\];state\.mesh=null/);assert.match(app,/export disabilitato/);
 });

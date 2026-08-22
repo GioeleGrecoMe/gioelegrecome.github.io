@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {DeepLateBindingQueue} from '../js/dense/deep_late_binding_queue.js?v=30.49.0';
+import {DeepLateBindingQueue} from '../js/dense/deep_late_binding_queue.js?v=30.51.0';
 
 const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
 const config=fs.readFileSync(new URL('../js/config.js',import.meta.url),'utf8');
@@ -35,19 +35,19 @@ test('MVS is retained during scan and dispatched only after RGB scaffold freeze'
   const dispatch=app.slice(app.indexOf('async function dispatchDensePayload'),app.indexOf('function stripDeepRaster'));
   assert.match(dispatch,/mvs-postscan-dispatch/);assert.match(dispatch,/state\.denseDepthWorker\.postMessage\(payload\)/);
   const finish=app.slice(app.indexOf('async function finishScan'),app.indexOf('async function persistCurrentSession'));
-  assert.ok(finish.indexOf('reconcilePostScanRgbScaffold')<finish.indexOf('processArchivedDeepSequential'));
-  assert.ok(finish.indexOf('processArchivedDeepSequential')<finish.indexOf('drainPostScanMvsBacklog'));
+  assert.ok(finish.indexOf('reconcilePostScanRgbScaffold')<finish.indexOf('processArchivedDeepAdaptive'));
+  assert.ok(finish.indexOf('processArchivedDeepAdaptive')<finish.indexOf('drainPostScanMvsBacklog'));
 });
 
 test('default scan mode defers neural inference until post-scan',()=>{
-  assert.match(config,/deepPostScanOnly:true/);assert.match(config,/deepInferEveryDenseKeyframe:false/);assert.match(app,/await drainDeepBacklog\(\)/);assert.match(app,/stopCaptureFastLane\(\);stopLiveOptimizer\(\)/);
+  assert.match(config,/deepPostScanOnly:true/);assert.match(config,/deepInferEveryDenseKeyframe:false/);assert.match(app,/processArchivedDeepAdaptive/);assert.match(app,/stopCaptureFastLane\(\);stopLiveOptimizer\(\)/);
 });
 
 test('planned exact RGB is archived during scan, registered post-scan, then exact-frame Deep is attached',()=>{
   const preview=app.slice(app.indexOf('function requestLiveDeepPreview'),app.indexOf('function compactGrayHeartbeat'));
   assert.match(preview,/archiveSharpRgbFrame/);assert.doesNotMatch(preview,/deepDepthWorker\.postMessage/);
   const processing=app.slice(app.indexOf('async function registerArchivedPhotosPostScan'),app.indexOf('async function finishScan'));
-  assert.match(processing,/registerDepthPlannedPhoto/);assert.match(processing,/processArchivedDeepSequential/);assert.match(processing,/frameId:survey\.frameId/);
+  assert.match(processing,/registerDepthPlannedPhoto/);assert.match(processing,/processArchivedDeepAdaptive/);assert.match(processing,/frameId:survey\.frameId/);
   assert.match(app,/attachLateDepthToPhoto/);assert.match(app,/deep-keyframe-photo-late-bound/);
 });
 

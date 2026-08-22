@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import {ProbabilisticFactorGraph} from '../js/probabilistic/factor_graph.js';
+import {ProbabilisticJointOptimizer} from '../js/probabilistic/joint_optimizer.js';
+import {evaluatePoseScaffoldPolicy} from '../js/probabilistic/pose_scaffold_policy.js';
+const path=process.argv[2]||'/mnt/data/roomscan-1787388793897.r30';
+const steps=Math.max(1,Number(process.argv[3]||20));
+const x=JSON.parse(fs.readFileSync(path,'utf8'));
+const g=ProbabilisticFactorGraph.fromState(x.evidence.factorGraph);
+const opt=new ProbabilisticJointOptimizer(g.exportState(),{});
+const report=(label)=>{const s=opt.computeStats(),p=evaluatePoseScaffoldPolicy({edgeStats:s.edgeSwitches,photoAudit:g.photoEdgeAudit,frameCount:g.frames.length});console.log(JSON.stringify({label,iterations:s.iterations,reproj:s.reprojectionRobustRmse,median:s.reprojectionMedianPx,p90:s.reprojectionP90Px,edge:s.edgeSwitches,alva:s.alvaSwitches,policy:p},null,2));};
+report('initial');
+for(let i=0;i<steps;i++) opt.step(1,{bootstrap:true,allowDepth:false,rgbScaffoldRecovery:true});
+report(`after-${steps}`);

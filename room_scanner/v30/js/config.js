@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.49.0 sharp RGB archive + visual post-processing configuration.
+ * Room Scanner V30.51.0 adaptive Deep + Alva recovery configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.49.0',
-  id:'v30.49.0-20260822-sharp-rgb-visual-postprocess',
+  version:'30.51.0',
+  id:'v30.51.0-20260822-global-surface-consensus-test-lab',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -245,6 +245,36 @@ export const CONFIG={
   sharpArchiveProcessingYieldEvery:3,
   sharpArchiveDeepFrameTimeoutMs:120000,
   sharpArchiveFlushTimeoutMs:20000,
+  // V30.51 adaptive Deep: RGB/Alva sees a much larger archive, while neural
+  // depth is purchased only where it adds geometric information.
+  adaptiveDeepInitialBatch:16,
+  adaptiveDeepNextBatch:8,
+  adaptiveDeepMaxFrames:56,
+  adaptiveDeepMaxRounds:7,
+  adaptiveDeepMinMarginalScore:0.34,
+  adaptiveDeepMinUncertaintyDrop:0.025,
+  adaptiveDeepFeedbackPasses:4,
+  adaptiveDeepPreprocessShortSide:280,
+  adaptiveDeepMicrobatchMax:2,
+  adaptiveDeepMicrobatchRequiresProtocol:'infer-batch-v1',
+  photoPreprocessWorker:'workers/photo_preprocess_worker.js',
+  // Alva continuity / feature consolidation. Cyan points are tracks that survive
+  // several observations and are spatially consolidated (or carry a persistent
+  // external Alva track id); fresh/unconfirmed image points remain amber.
+  alvaPersistentFeatureMinHits:4,
+  alvaPersistentFeatureMatchPx:14,
+  alvaPersistentFeatureMaxMisses:2,
+  alvaPersistentFeatureMinViewTranslation:0.015,
+  alvaPersistentFeatureMinViewRotationRad:0.025,
+  alvaRecoveryMinPersistent:18,
+  alvaRecoveryMinPersistentFraction:0.28,
+  alvaRecoveryStableFrames:4,
+  alvaIntegrityJumpTranslation:0.55,
+  alvaIntegrityJumpRotationRad:0.62,
+  alvaIntegrityJumpWindowMs:1400,
+  alvaRecoveryReturnTranslation:0.90,
+  alvaRecoveryReturnRotationRad:0.90,
+  alvaQuarantineTailMs:900,
   deepPlanIntervalMs:6500,
   deepPlanBackpressureGain:2.5,
   deepSurveyQueueBudget:2,
@@ -461,14 +491,20 @@ export const CONFIG={
 
   // Rendering/meshing confidence gates. Low-confidence surfels remain in the
   // probabilistic state; these values only prevent visual/TSDF clutter.
-  surfaceDisplayMinConfidence:.40,
-  surfaceCandidateDisplayMinConfidence:.46,
-  surfaceLiveDisplayMinConfidence:.38,
-  surfaceMeshMinConfidence:.24,
+  surfaceDisplayMinConfidence:.52,
+  surfaceCandidateDisplayMinConfidence:.60,
+  surfaceLiveDisplayMinConfidence:.48,
+  surfaceMeshMinConfidence:.30,
 
   // Storage/rebuild budgets reused by the single hierarchical optimizer.
   // These names are retained for snapshot compatibility; they do not select
   // a second optimizer implementation.
+  // V30.51: final reconstruction is part of Processing, not a manual REVIEW step.
+  postScanFinalOptimizationPasses:10,
+  postScanFinalOptimizationMaxAttempts:30,
+  postScanFinalAutoRebuild:true,
+  pipelineTestCriticalEventLimit:80,
+
   postOptimizeDefaultIterations:30,
   postOptimizeMaxIterations:300,
   postOptimizePreviewUpdates:16,

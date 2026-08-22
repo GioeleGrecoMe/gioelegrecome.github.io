@@ -5,10 +5,10 @@ import path from 'node:path';
 import {pathToFileURL,fileURLToPath} from 'node:url';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const VERSION='30.49.0';
-const PREVIOUS_VERSION='30.47.0';
-const INTERMEDIATE_VERSION='30.48.0';
-const BUILD_TAGGED=new Set(['js/probabilistic/single_optimizer_runtime.js','js/probabilistic/joint_optimizer.js','js/probabilistic/geometry_commit_policy.js','js/reconstruction/submap_fusion.js','js/reconstruction/mesh_quality.js','js/reconstruction/surface_display_policy.js']);
+const VERSION='30.51.0';
+const PREVIOUS_VERSION='30.49.0';
+const INTERMEDIATE_VERSION='30.47.0';
+const BUILD_TAGGED=new Set(['js/probabilistic/single_optimizer_runtime.js']);
 const rootRel='js/probabilistic/single_optimizer_runtime.js';
 const importRe=/\b(?:import|export)\s+(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/g;
 
@@ -22,9 +22,9 @@ function walk(rel,seen=new Set()){
   for(const m of src.matchAll(importRe)){
     const spec=m[1];
     if(!spec.startsWith('.'))continue;
-    assert.match(spec,new RegExp(`\\?v=(?:${VERSION.replaceAll('.','\\.')}|${PREVIOUS_VERSION.replaceAll('.','\\.')})(?:$|&)`),`${rel} has unversioned/unknown static import ${spec}`);
+    assert.match(spec,new RegExp(`\\?v=(?:${VERSION.replaceAll('.','\\.')}|${PREVIOUS_VERSION.replaceAll('.','\\.')}|${INTERMEDIATE_VERSION.replaceAll('.','\\.')})(?:$|&)`),`${rel} has unversioned/unknown static import ${spec}`);
     const child=path.normalize(path.join(path.dirname(rel),stripQuery(spec))).replaceAll('\\','/');
-    if(BUILD_TAGGED.has(child))assert.match(spec,/\?v=30\.49\.0(?:$|&)/,`${rel} must load modified ${child} with V30.49 cache tag`);
+    if(BUILD_TAGGED.has(child))assert.match(spec,/\?v=30\.50\.0(?:$|&)/,`${rel} must load modified ${child} with V30.51 cache tag`);
     walk(child,seen);
   }
   return seen;

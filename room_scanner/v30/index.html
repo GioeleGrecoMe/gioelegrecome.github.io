@@ -7,22 +7,27 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="manifest" href="manifest.webmanifest?v=30.49.0">
-  <link rel="stylesheet" href="styles.css?v=30.49.0">
-  <title>Room Scanner V30.49.0</title>
+  <link rel="manifest" href="manifest.webmanifest?v=30.51.0">
+  <link rel="stylesheet" href="styles.css?v=30.51.0">
+  <title>Room Scanner V30.51.0</title>
 
 <style id="deepDiagStyle">
 .deepDiagGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin-top:.7rem}.deepDiagGrid figure{margin:0;min-width:0}.deepDiagGrid figure[hidden]{display:none}.deepDiagGrid figcaption{font-size:.72rem;opacity:.75;margin:0 0 .25rem}.deepDiagGrid canvas{display:block;width:100%;min-height:100px;background:#05070a;border:1px solid rgba(255,255,255,.15);border-radius:8px;object-fit:contain}.deepDiagReport{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.72rem;line-height:1.35;max-height:none;background:rgba(0,0,0,.28);padding:.65rem;border-radius:8px;margin:.7rem 0 0}@media(max-width:680px){.deepDiagGrid{grid-template-columns:1fr}}
+
+.pipelineTestPanel{margin-top:.7rem}.pipelineTestPanel>summary{cursor:pointer;font-weight:800}.pipelineTestToolbar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin:.7rem 0}.pipelineTestSummary{flex:1;min-width:220px;padding:.55rem .65rem;border-radius:8px;background:rgba(255,255,255,.045)}.pipelineTestSummary[data-status=fail]{outline:1px solid rgba(255,100,100,.7)}.pipelineTestSummary[data-status=warn]{outline:1px solid rgba(255,196,82,.6)}.pipelineTestStages{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem}.pipelineTestStage{padding:.65rem;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:rgba(255,255,255,.025)}.pipelineTestStage.fail{border-color:rgba(255,100,100,.55)}.pipelineTestStage.warn{border-color:rgba(255,196,82,.45)}.pipelineTestStageHead{display:flex;justify-content:space-between;gap:.5rem}.pipelineTestBadge{font-size:.7rem;font-weight:800;opacity:.88}.pipelineTestWhy,.pipelineTestAction{font-size:.78rem;margin-top:.35rem}.pipelineTestAction{opacity:.82}.pipelineTestMetrics{font-size:.68rem;white-space:pre-wrap;max-height:160px;overflow:auto;background:rgba(0,0,0,.2);padding:.45rem;border-radius:7px}.pipelineTestRaw pre{max-height:300px;overflow:auto;font-size:.66rem;white-space:pre-wrap}@media(max-width:760px){.pipelineTestStages{grid-template-columns:1fr}}
 </style>
 
 <style id="processingStyle">
 .processingScreen{overflow:auto;padding:max(18px,env(safe-area-inset-top)) 18px max(24px,env(safe-area-inset-bottom));background:#080b10;color:#fff}.processingHead{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;max-width:1180px;margin:0 auto 1rem}.processingHead h2{margin:.3rem 0 0}.processingCounter{font-variant-numeric:tabular-nums;font-weight:700;font-size:1.1rem}.processingCard{max-width:1180px;margin:0 auto 1rem;padding:.85rem 1rem;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(255,255,255,.045)}.processingStatus{font-weight:700;margin-bottom:.45rem}.processingCard progress{width:100%;height:.8rem}.processingGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem;max-width:1180px;margin:0 auto}.processingGrid figure{margin:0;padding:.65rem;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.12);min-width:0}.processingGrid figcaption{font-size:.78rem;opacity:.82;margin-bottom:.4rem}.processingGrid canvas{display:block;width:100%;height:auto;min-height:220px;max-height:42vh;object-fit:contain;background:#05070a;border-radius:8px}.processingGrid .processingWorld{grid-column:1/-1}.processingGrid .processingWorld canvas{height:340px;max-height:none}.processingLegend{display:flex;flex-wrap:wrap;gap:.55rem 1.1rem;max-width:1180px;margin:.8rem auto 0;font-size:.76rem;opacity:.86}.processingScreen>.hint{max-width:1180px;margin:.7rem auto 0}@media(max-width:760px){.processingGrid{grid-template-columns:1fr}.processingGrid .processingWorld{grid-column:auto}.processingGrid canvas{min-height:180px}.processingGrid .processingWorld canvas{height:300px}.processingHead{align-items:center}.processingHead h2{font-size:1.2rem}}
 </style>
+<style id="alvaFeatureStyle">
+#alvaFeatureOverlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:8}#alvaFeatureState{position:absolute;left:12px;top:max(82px,calc(env(safe-area-inset-top) + 74px));z-index:14;padding:.3rem .5rem;border-radius:999px;background:rgba(3,8,14,.72);border:1px solid rgba(85,220,255,.45);font-size:.72rem;font-weight:700;color:#dff8ff;pointer-events:none}#alvaFeatureState[data-recovery="1"]{border-color:#ff9a52;color:#ffd8bf}.alvaRecoveryBanner{position:absolute;z-index:18;left:50%;top:42%;transform:translate(-50%,-50%);width:min(92vw,650px);padding:1rem 1.15rem;border-radius:14px;background:rgba(78,25,8,.94);border:2px solid #ff9a52;color:#fff;font-weight:800;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.5);pointer-events:none}.alvaRecoveryBanner[hidden]{display:none}
+</style>
 </head>
 <body>
 <main id="app">
   <section id="home" class="screen active">
-    <div class="hero"><div id="buildBadge" class="badge">V30.49.0</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
+    <div class="hero"><div id="buildBadge" class="badge">V30.51.0</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
     <div class="card"><b>1 · Calibrazione</b><p class="hint">Inquadra un punto fisico con il reticolo e premi <b>Aggiungi pin</b>. Usa 3 punti ben distribuiti. Dopo poche viste utili per ciascun pin, riportane almeno 3 nella stessa inquadratura e premi Applica.</p><div id="calibSummary" class="status">Calibrazione non presente.</div><div class="actions inline"><button id="calibrateBtn" class="primary">Calibra con WebXR</button><button id="clearCalibrationBtn">Azzera calibrazione</button></div></div>
     <div class="card"><b>2 · Modello depth</b><p class="hint">Il modello locale <code>models/model_q4.onnx</code> viene caricato dal sito. Se manca o non è pubblicato, viene mostrato un errore chiaro: non parte più alcun download remoto infinito. Puoi comunque scegliere manualmente un file ONNX.</p><div class="actions inline"><button id="chooseDeepModelBtn">Scegli ONNX</button><button id="testDeepBtn" class="primary">Prova inferenza</button></div><input id="deepModelFile" type="file" accept=".onnx,application/octet-stream" hidden><div id="deepModelStatus" class="status">Depth Anything V2 Small Q4 locale · 224 px con rescue automatico 280/336 px, pronto per il test.</div><canvas id="deepTestPreview" class="depthTestPreview" aria-label="Anteprima depth map"></canvas></div>
 
@@ -54,6 +59,9 @@
   <section id="scan" class="screen">
     <video id="camera" autoplay muted playsinline></video>
     <canvas id="miniMap"></canvas>
+    <canvas id="alvaFeatureOverlay" aria-label="Feature Alva persistenti e nuove"></canvas>
+    <div id="alvaFeatureState">feature persistenti 0 · nuove 0</div>
+    <div id="alvaRecoveryBanner" class="alvaRecoveryBanner" role="status" aria-live="assertive" hidden></div>
 
     <div class="topHud scanHudBar">
       <div class="scanHudPrimary"><span id="slamState">INIT</span><span id="alvaPtsState">ALVA pts 0</span><span id="metricState">scala —</span><span id="mvsState">DENSE —</span></div>
@@ -88,9 +96,10 @@
       <figure><figcaption>RGB esatto archiviato</figcaption><canvas id="processingRgb" aria-label="Foto RGB in elaborazione"></canvas></figure>
       <figure><figcaption>DeepPrior relativo · stesso frame</figcaption><canvas id="processingDepth" aria-label="Depth prior relativo"></canvas></figure>
       <figure class="processingWorld"><figcaption>Posa AlvaAR + DeepPrior nel mondo · vista X-Z</figcaption><canvas id="processingPose" aria-label="DeepPrior proiettato sui raggi della posa Alva"></canvas></figure>
+      <figure class="processingWorld"><figcaption>Uncertainty map globale · selezione Deep adattiva</figcaption><canvas id="processingUncertainty" aria-label="Mappa globale di incertezza e prossime viste Deep"></canvas></figure>
     </div>
-    <div class="processingLegend"><span>azzurro: posa/raggi Alva + DeepPrior normalizzato</span><span>viola: posa RGB ottimizzata</span><span>arancio: salto Alva sospetto</span></div>
-    <p class="hint">La nuvola Deep è una visualizzazione diagnostica della profondità <b>relativa</b>, normalizzata sul singolo frame: non viene presentata come metrica prima della calibrazione globale. Un salto evidente tra foto consecutive resta loggato e non riceve autorità automatica.</p>
+    <div class="processingLegend"><span>azzurro: posa/raggi Alva + DeepPrior normalizzato</span><span>viola: posa RGB ottimizzata / prossima tranche Deep</span><span>ambra: regione ancora incerta</span><span>arancio: salto Alva sospetto</span></div>
+    <p class="hint">Deep non viene più eseguito su tutte le foto: il grafo RGB/Alva sceglie una prima tranche geometrica (tipicamente 16 viste), aggiorna l’incertezza con l’unico ProbabilisticJointOptimizer e richiede altre depth soltanto dove servono. La nuvola Deep resta una visualizzazione diagnostica della profondità <b>relativa</b> finché la calibrazione globale non è affidabile.</p>
   </section>
 
   <section id="review" class="screen">
@@ -101,12 +110,13 @@
       <div id="reviewStats" class="card compact"></div>
       <div id="metricGsStats" class="card compact">Dati mesh: attendo consenso multi-view / TSDF ricostruibile.</div>
       <div id="optimizerCard" class="card compact optimizerCard"><b>OPT UNICO · scaffold RGB → calibrazione Deep → feedback → submap</b><p class="hint">È l’unico ottimizzatore attivo. Usa esattamente lo stesso <code>ProbabilisticJointOptimizer</code> durante la misura e in REVIEW. Ogni ciclo produce baseline, candidato, gate e decisione nei log; non esistono fallback Gaussian/Puzzle/Surface Lab.</p><div class="optimizerControls"><label>Target iterazioni accettate <input id="optIterations" type="number" inputmode="numeric" min="1" max="120" step="1" value="12"></label><button id="optStartBtn" class="primary">Continua OPT UNICO</button><button id="optStopBtn" disabled>Ferma</button></div><progress id="optProgress" min="0" max="12" value="0"></progress><div id="optStatus" class="status">OPT UNICO · attendo factor graph.</div></div>
+      <details id="pipelineTestPanel" class="card compact pipelineTestPanel"><summary>TEST · osservabilità completa pipeline</summary><div class="pipelineTestToolbar"><div id="pipelineTestSummary" class="pipelineTestSummary">Apri TEST per localizzare il primo stadio debole.</div><button id="pipelineTestRefreshBtn">Ricalcola</button><button id="pipelineTestExportBtn">Scarica snapshot TEST</button></div><div id="pipelineTestStages" class="pipelineTestStages"></div><details class="pipelineTestRaw"><summary>JSON diagnostico compatto</summary><pre id="pipelineTestJson"></pre></details></details>
       <div class="actions wrap"><button id="buildMetricMeshBtn">Scarica mesh TSDF</button><button id="exportPlyBtn" class="primary">Scarica PLY</button><button id="exportR30Btn">Scarica .r30</button><button id="exportDiagBtn">Diagnostica</button><button id="resumeBtn">Nuova scansione</button></div>
     </div>
   </section>
 </main>
 
-<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.49.0</pre></div></details></aside>
+<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.51.0</pre></div></details></aside>
 
 <script>
 /* EXP-4 atomic boot guard.
@@ -115,7 +125,7 @@
  * revisions after a GitHub Pages refresh. Recovery is inline and therefore
  * still clickable even if every ES module fails to load. */
 (function(){
-  const VERSION='30.49.0';
+  const VERSION='30.51.0';
   const RECOVERY_KEY=`roomscan-v30-atomic-recovery-${VERSION}`;
   const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),version:VERSION,errors:[],phases:[],interactive:false,shell:null};
   const rec=(type,data={})=>{const item={time:Date.now(),type,...data};boot.errors.push(item);return item;};

@@ -1,7 +1,7 @@
-import {ProbabilisticJointOptimizer} from './joint_optimizer.js?v=30.49.0';
-import {evaluateLiveCandidate} from './live_optimization_gate.js?v=30.49.0';
-import {evaluatePoseScaffoldPolicy} from './pose_scaffold_policy.js?v=30.49.0';
-import {evaluateRgbConsensusPolicy} from './rgb_consensus_policy.js?v=30.49.0';
+import {ProbabilisticJointOptimizer} from './joint_optimizer.js?v=30.51.0';
+import {evaluateLiveCandidate} from './live_optimization_gate.js?v=30.51.0';
+import {evaluatePoseScaffoldPolicy} from './pose_scaffold_policy.js?v=30.51.0';
+import {evaluateRgbConsensusPolicy} from './rgb_consensus_policy.js?v=30.51.0';
 
 const now=()=>globalThis.performance?.now?.()??Date.now();
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -115,6 +115,21 @@ export class SingleOptimizerRuntime{
     if(accepted){this.acceptedSnapshot=mergeOptimizerSnapshots(this.acceptedSnapshot,candidateSnapshot);this.acceptedStats=candidateStats;this.workingSnapshot=this.acceptedSnapshot;this.stallCount=0;}
     this.trace('postscan-rgb-scaffold',{accepted,passes,globalPasses,windows,safeReprojection,scaffoldUpgrade,consensusUpgrade,baseline:compactStats(baseStats),candidate:compactStats(candidateStats),baselinePolicy:basePolicy,candidatePolicy,elapsedMs:now()-start});
     return {accepted,snapshot:accepted?this.acceptedSnapshot:baseSnapshot,stats:accepted?candidateStats:baseStats,baselineStats:baseStats,candidateStats,baselinePolicy:basePolicy,candidatePolicy,elapsedMs:now()-start};
+  }
+
+  async refineDepthFeedback(graph,options={}){
+    if(!graph?.frames?.length)return null;
+    if(this.busy)return {accepted:false,reason:'busy',snapshot:this.acceptedSnapshot,analysisSnapshot:this.workingSnapshot||this.acceptedSnapshot,stats:this.acceptedStats,gate:null,elapsedMs:0};
+    this.busy=true;const start=now(),passes=Math.max(1,Math.min(8,Number(options.passes)||4));
+    try{
+      const seed=this.acceptedSnapshot||options.initial||null,opt=new ProbabilisticJointOptimizer(graph,{...(options.optimizer||{}),initial:seed}),baselineStats=opt.computeStats(),baselineSnapshot=opt.snapshot();
+      this.trace('adaptive-depth-feedback-start',{passes,deepFrames:graph.deepFactors?.length||0,frames:graph.frames?.length||0,baseline:compactStats(baselineStats)});
+      for(let i=0;i<passes;i++){opt.step(1,{bootstrap:false,allowDepth:true});await yieldUi();}
+      const candidateStats=opt.computeStats(),candidateSnapshot=opt.snapshot(),gate=applyRgbConsensusGuard(evaluateLiveCandidate({baselineStats,candidateStats,baselineSnapshot,candidateSnapshot,options:{maxReprojectionPx:5,maxReprojectionGrowth:1.10,reprojectionSlackPx:.20,maxCommonTranslationJump:.20,maxCommonRotationJumpRad:.14,maxMeanTranslationJump:.08,maxMeanRotationJumpRad:.055,maxDepthErrorGrowth:1.35,maxRejectedEdgeGrowth:8,...(options.gateOptions||{})}}),candidateStats,{bootstrap:false}),accepted=!!gate.accepted;
+      if(accepted){this.acceptedSnapshot=mergeOptimizerSnapshots(this.acceptedSnapshot,candidateSnapshot);this.acceptedStats=candidateStats;this.workingSnapshot=this.acceptedSnapshot;this.stallCount=0;}else this.workingSnapshot=candidateSnapshot;
+      const elapsedMs=now()-start,analysisSnapshot=candidateSnapshot;this.trace('adaptive-depth-feedback-complete',{passes,accepted,elapsedMs,gate,baseline:compactStats(baselineStats),candidate:compactStats(candidateStats),reliability:candidateStats?.reliability||null});
+      return {accepted,snapshot:accepted?this.acceptedSnapshot:(this.acceptedSnapshot||baselineSnapshot),analysisSnapshot,stats:accepted?candidateStats:baselineStats,analysisStats:candidateStats,gate,reliability:analysisSnapshot?.reliability||null,elapsedMs};
+    }catch(err){this.trace('adaptive-depth-feedback-error',{message:err?.message||String(err),stack:err?.stack||null});throw err;}finally{this.busy=false;}
   }
 
   async rebuildAccepted(graph,options={}){
