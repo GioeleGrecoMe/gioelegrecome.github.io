@@ -1,5 +1,5 @@
-import {projectPoint,qRotate,qConj} from '../slam/math.js?v=30.46.0';
-import {estimatePhotoTranslationDirection,translationLineAngle} from './rgb_translation_direction.js?v=30.46.0';
+import {projectPoint,qRotate,qConj} from '../slam/math.js?v=30.47.0';
+import {estimatePhotoTranslationDirection,translationLineAngle} from './rgb_translation_direction.js?v=30.47.0';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 

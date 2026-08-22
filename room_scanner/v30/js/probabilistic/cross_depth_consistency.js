@@ -1,5 +1,5 @@
-import {projectPoint,pixelRay,qRotate} from '../slam/math.js?v=30.46.0';
-import {predictMetricDepth} from './depth_calibration_hierarchy.js?v=30.46.0';
+import {projectPoint,pixelRay,qRotate} from '../slam/math.js?v=30.47.0';
+import {predictMetricDepth} from './depth_calibration_hierarchy.js?v=30.47.0';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 

@@ -1,6 +1,6 @@
-import {qConj,qRotate} from '../slam/math.js?v=30.46.0';
-import {SparseDenseFusion,buildConsensusTsdfMeshFromSplats} from '../dense/fusion_core.js?v=30.46.0';
-import {analyzeMeshQuality} from './mesh_quality.js?v=30.46.0';
+import {qConj,qRotate} from '../slam/math.js?v=30.47.0';
+import {SparseDenseFusion,buildConsensusTsdfMeshFromSplats} from '../dense/fusion_core.js?v=30.47.0';
+import {analyzeMeshQuality} from './mesh_quality.js?v=30.47.0';
 
 /**
  * Small overlapping local maps.  Dense evidence is committed in one local

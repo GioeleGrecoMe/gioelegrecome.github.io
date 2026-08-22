@@ -68,6 +68,25 @@ export function mvsRelativePoseDrift(refFrame,sourceFrames=[]){
   const out=[];for(const s of sourceFrames||[]){if(!refFrame?.posePrior||!refFrame?.poseEstimate||!s?.posePrior||!s?.poseEstimate)continue;const p0=relativeTranslation(refFrame.posePrior,s.posePrior),p1=relativeTranslation(refFrame.poseEstimate,s.poseEstimate),dt=Math.hypot(p0[0]-p1[0],p0[1]-p1[1],p0[2]-p1[2]),q0=relativeQuat(refFrame.posePrior,s.posePrior),q1=relativeQuat(refFrame.poseEstimate,s.poseEstimate),dq=qNormalize(qMul(qConj(q0),q1)),dr=2*Math.atan2(Math.hypot(dq[0],dq[1],dq[2]),Math.max(1e-12,Math.abs(dq[3])));out.push({frameId:String(s.frameId),translation:dt,rotationRad:dr});}return out;
 }
 
+/**
+ * MVS depths are valid only for the relative camera geometry under which the
+ * plane sweep was run.  V30.47 binds every new factor to those poses and, on
+ * legacy archives, falls back explicitly to posePrior because V30.45/46 stored
+ * `estimatedUnder: posePrior`.  Sources whose relative pose moved too far are
+ * removed before photometric revalidation; if none survive, the entire factor
+ * is quarantined rather than projected into a different camera scaffold.
+ */
+export function filterMvsSourcesByEstimatePose(factor,refFrame,sourceFrames=[],{maxTranslationAbs=.08,maxTranslationRatio=.42,maxRotationRad=.11}={}){
+  const explicitRef=clonePoseSafe(factor?.referencePoseAtEstimate),legacy=!explicitRef&&factor?.estimatedUnder==='posePrior',ref0=explicitRef||(legacy?clonePoseSafe(refFrame?.posePrior):null),bindings=new Map();
+  for(const x of factor?.sourcePosesAtEstimate||[]){const id=String(x?.frameId??x?.id??''),p=clonePoseSafe(x?.pose||x);if(id&&p)bindings.set(id,p);}
+  const usableSources=[],rejectedSources=[],drifts=[];
+  if(!ref0||!refFrame?.poseEstimate)return {usableSources:[],rejectedSources:(sourceFrames||[]).map(s=>String(s?.frameId||'')),drifts:[],bound:false,legacy,reason:'mvs-pose-binding-unavailable'};
+  for(const src of sourceFrames||[]){const id=String(src?.frameId||''),src0=bindings.get(id)||(legacy?clonePoseSafe(src?.posePrior):null);if(!src0||!src?.poseEstimate){rejectedSources.push(id);continue;}const p0=relativeTranslation(ref0,src0),p1=relativeTranslation(refFrame.poseEstimate,src.poseEstimate),dt=Math.hypot(p0[0]-p1[0],p0[1]-p1[1],p0[2]-p1[2]),baseline=Math.max(.02,Math.hypot(...p0)),ratio=dt/baseline,q0=relativeQuat(ref0,src0),q1=relativeQuat(refFrame.poseEstimate,src.poseEstimate),dq=qNormalize(qMul(qConj(q0),q1)),dr=2*Math.atan2(Math.hypot(dq[0],dq[1],dq[2]),Math.max(1e-12,Math.abs(dq[3]))),ok=dr<=maxRotationRad&&(dt<=maxTranslationAbs||ratio<=maxTranslationRatio);drifts.push({frameId:id,translation:dt,translationRatio:ratio,rotationRad:dr,baseline,usable:ok});if(ok)usableSources.push(src);else rejectedSources.push(id);}
+  return {usableSources,rejectedSources,drifts,bound:true,legacy,reason:usableSources.length?'ok':'mvs-relative-pose-drift-high'};
+}
+
+function clonePoseSafe(p){return p?.p?.length>=3&&p?.q?.length>=4?{p:p.p.slice(0,3).map(Number),q:qNormalize(p.q.slice(0,4).map(Number))}:null;}
+
 function buildDepthCandidates(priorDepth,sigma,{candidateCount,maxCorrectionRel,depthHint,minDepth,maxDepth}){
   const vals=[],n=Math.max(7,(candidateCount|0)|1),half=(n-1)/2,relSpan=clamp(Math.max(.10,3.5*sigma/priorDepth),.10,maxCorrectionRel),logSpan=Math.log1p(relSpan);
   for(let i=0;i<n;i++){const t=(i-half)/Math.max(1,half);vals.push(priorDepth*Math.exp(t*logSpan));}

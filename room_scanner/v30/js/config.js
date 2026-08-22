@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.46.0 async RGB/Alva fast-lane + late-bound Deep configuration.
+ * Room Scanner V30.47.0 canonical RGB scaffold + post-scan dense configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.46.0',
-  id:'v30.46.0-20260822-canonical-rgb-postscan-dense',
+  version:'30.47.0',
+  id:'v30.47.0-20260822-review-provenance-pose-bound-mvs',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -205,15 +205,18 @@ export const CONFIG={
   deepLiveDuringScan:false,
   deepPostScanOnly:true,
   deepPlanIntervalMs:6500,
+  deepPlanBackpressureGain:2.5,
   deepSurveyQueueBudget:2,
   deepLateQueueMaxItems:32,
   deepPostScanMaxDrainMs:300000,
   postScanDenseDrainMs:12000,
-  sparseFastLaneMinIntervalMs:4200,
+  sparseFastLaneMinIntervalMs:6500,
   mvsPostScanOnly:true,
   postScanMvsMaxJobs:48,
+  postScanMvsSourcePool:4,
   postScanMvsJobTimeoutMs:18000,
-  postScanRgbScaffoldPasses:20,
+  postScanRgbScaffoldPasses:18,
+  postScanRgbGlobalLinePasses:36,
   fastLaneGapWarnMs:650,
   deepInferenceIntervalMs:2600,
   // 224 px = 16 ViT/14 patches on the short side. On the test phone 168 px was
@@ -265,7 +268,7 @@ export const CONFIG={
   // reintroducing unconstrained plane-sweep sheets. A later novel view will fill
   // the same surface with one calibrated AI call.
   deepSkipUnprioritized:true,
-  // V30.46: Deep is not requested for every dense keyframe. The selector keeps
+  // V30.45: Deep is not requested for every dense keyframe. The selector keeps
   // only frames that add useful depth coverage; RGB/Alva/MVS keep every useful
   // fast-lane observation independently.
   deepInferEveryDenseKeyframe:false,

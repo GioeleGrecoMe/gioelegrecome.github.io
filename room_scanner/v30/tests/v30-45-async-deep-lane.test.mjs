@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {DeepLateBindingQueue} from '../js/dense/deep_late_binding_queue.js?v=30.46.0';
+import {DeepLateBindingQueue} from '../js/dense/deep_late_binding_queue.js?v=30.47.0';
 
 const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
 const config=fs.readFileSync(new URL('../js/config.js',import.meta.url),'utf8');
@@ -29,13 +29,14 @@ test('post-scan drain prioritizes geometry-bearing keyframes over survey-only fr
   assert.equal(q.next().jobId,'k1');
 });
 
-test('plane-sweep MVS is post-scan only and never owns the acquisition clock',()=>{
+test('MVS is retained during scan and dispatched only after RGB scaffold freeze',()=>{
   const sparse=app.slice(app.indexOf('async function scheduleSparseGeometryWork'),app.indexOf('async function makeDensePayload'));
+  assert.match(sparse,/retainPostScanMvsPayload/);assert.doesNotMatch(sparse,/denseDepthWorker\.postMessage/);
   const dispatch=app.slice(app.indexOf('async function dispatchDensePayload'),app.indexOf('function stripDeepRaster'));
-  assert.match(sparse,/mvs-postscan-planned/);assert.doesNotMatch(sparse,/denseDepthWorker\.postMessage/);
   assert.match(dispatch,/mvs-postscan-dispatch/);assert.match(dispatch,/state\.denseDepthWorker\.postMessage\(payload\)/);
-  assert.match(app,/await drainPostScanMvsBacklog\(rgbScaffold\?\.snapshot\|\|null\)/);
-  assert.match(config,/mvsPostScanOnly:true/);assert.match(config,/sparseFastLaneMinIntervalMs:4200/);
+  const finish=app.slice(app.indexOf('async function finishScan'),app.indexOf('async function persistCurrentSession'));
+  assert.ok(finish.indexOf('reconcilePostScanRgbScaffold')<finish.indexOf('drainPostScanMvsBacklog'));
+  assert.ok(finish.indexOf('drainPostScanMvsBacklog')<finish.indexOf('drainDeepBacklog'));
 });
 
 test('default scan mode defers neural inference until post-scan',()=>{

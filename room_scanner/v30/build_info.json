@@ -1,7 +1,7 @@
 {
-  "version": "30.46.0",
-  "id": "v30.46.0-20260822-canonical-rgb-postscan-dense",
+  "version": "30.47.0",
+  "id": "v30.47.0-20260822-review-provenance-pose-bound-mvs",
   "date": "2026-08-22",
-  "notes": "V30.46 canonicalizes legacy photo-edge match A/B convention against the stored B-to-A rotation, recovers the global RGB translation-line scaffold before dense processing, moves plane-sweep MVS to post-scan, distributes late Deep capture over the scan, preserves strong direct epipolar evidence through final reconciliation, and shows rejected dense geometry as an explicitly non-committed diagnostic candidate while keeping export blocked.",
-  "builtAt": "2026-08-22T11:17:00+02:00"
+  "notes": "V30.47 fixes REVIEW/session state hydration, preserves evidence provenance across reloads, pose-binds every new MVS factor, quarantines stale/legacy MVS source relations before dense fusion, and hard-disables exports for non-committed geometry.",
+  "builtAt": "2026-08-22T11:43:00+02:00"
 }
