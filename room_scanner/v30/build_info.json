@@ -1,7 +1,7 @@
 {
-  "version": "30.47.0",
-  "id": "v30.47.0-20260822-review-provenance-pose-bound-mvs",
+  "version": "30.49.0",
+  "id": "v30.49.0-20260822-sharp-rgb-visual-postprocess",
   "date": "2026-08-22",
-  "notes": "V30.47 fixes REVIEW/session state hydration, preserves evidence provenance across reloads, pose-binds every new MVS factor, quarantines stale/legacy MVS source relations before dense fusion, and hard-disables exports for non-committed geometry.",
-  "builtAt": "2026-08-22T11:43:00+02:00"
+  "notes": "V30.49 archives every sufficiently still sharp Alva-valid RGB frame off-thread to IndexedDB, then runs a visible post-scan RGB scaffold + sequential exact-frame DeepPrior processing stage with Alva/world continuity diagnostics; includes V30.48 confidence-clean display/topology protections.",
+  "builtAt": "2026-08-22T12:32:00+02:00"
 }

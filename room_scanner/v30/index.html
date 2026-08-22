@@ -7,18 +7,22 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="manifest" href="manifest.webmanifest?v=30.47.0">
-  <link rel="stylesheet" href="styles.css?v=30.47.0">
-  <title>Room Scanner V30.47.0</title>
+  <link rel="manifest" href="manifest.webmanifest?v=30.49.0">
+  <link rel="stylesheet" href="styles.css?v=30.49.0">
+  <title>Room Scanner V30.49.0</title>
 
 <style id="deepDiagStyle">
 .deepDiagGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin-top:.7rem}.deepDiagGrid figure{margin:0;min-width:0}.deepDiagGrid figure[hidden]{display:none}.deepDiagGrid figcaption{font-size:.72rem;opacity:.75;margin:0 0 .25rem}.deepDiagGrid canvas{display:block;width:100%;min-height:100px;background:#05070a;border:1px solid rgba(255,255,255,.15);border-radius:8px;object-fit:contain}.deepDiagReport{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.72rem;line-height:1.35;max-height:none;background:rgba(0,0,0,.28);padding:.65rem;border-radius:8px;margin:.7rem 0 0}@media(max-width:680px){.deepDiagGrid{grid-template-columns:1fr}}
+</style>
+
+<style id="processingStyle">
+.processingScreen{overflow:auto;padding:max(18px,env(safe-area-inset-top)) 18px max(24px,env(safe-area-inset-bottom));background:#080b10;color:#fff}.processingHead{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;max-width:1180px;margin:0 auto 1rem}.processingHead h2{margin:.3rem 0 0}.processingCounter{font-variant-numeric:tabular-nums;font-weight:700;font-size:1.1rem}.processingCard{max-width:1180px;margin:0 auto 1rem;padding:.85rem 1rem;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(255,255,255,.045)}.processingStatus{font-weight:700;margin-bottom:.45rem}.processingCard progress{width:100%;height:.8rem}.processingGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem;max-width:1180px;margin:0 auto}.processingGrid figure{margin:0;padding:.65rem;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.12);min-width:0}.processingGrid figcaption{font-size:.78rem;opacity:.82;margin-bottom:.4rem}.processingGrid canvas{display:block;width:100%;height:auto;min-height:220px;max-height:42vh;object-fit:contain;background:#05070a;border-radius:8px}.processingGrid .processingWorld{grid-column:1/-1}.processingGrid .processingWorld canvas{height:340px;max-height:none}.processingLegend{display:flex;flex-wrap:wrap;gap:.55rem 1.1rem;max-width:1180px;margin:.8rem auto 0;font-size:.76rem;opacity:.86}.processingScreen>.hint{max-width:1180px;margin:.7rem auto 0}@media(max-width:760px){.processingGrid{grid-template-columns:1fr}.processingGrid .processingWorld{grid-column:auto}.processingGrid canvas{min-height:180px}.processingGrid .processingWorld canvas{height:300px}.processingHead{align-items:center}.processingHead h2{font-size:1.2rem}}
 </style>
 </head>
 <body>
 <main id="app">
   <section id="home" class="screen active">
-    <div class="hero"><div id="buildBadge" class="badge">V30.47.0</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
+    <div class="hero"><div id="buildBadge" class="badge">V30.49.0</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
     <div class="card"><b>1 · Calibrazione</b><p class="hint">Inquadra un punto fisico con il reticolo e premi <b>Aggiungi pin</b>. Usa 3 punti ben distribuiti. Dopo poche viste utili per ciascun pin, riportane almeno 3 nella stessa inquadratura e premi Applica.</p><div id="calibSummary" class="status">Calibrazione non presente.</div><div class="actions inline"><button id="calibrateBtn" class="primary">Calibra con WebXR</button><button id="clearCalibrationBtn">Azzera calibrazione</button></div></div>
     <div class="card"><b>2 · Modello depth</b><p class="hint">Il modello locale <code>models/model_q4.onnx</code> viene caricato dal sito. Se manca o non è pubblicato, viene mostrato un errore chiaro: non parte più alcun download remoto infinito. Puoi comunque scegliere manualmente un file ONNX.</p><div class="actions inline"><button id="chooseDeepModelBtn">Scegli ONNX</button><button id="testDeepBtn" class="primary">Prova inferenza</button></div><input id="deepModelFile" type="file" accept=".onnx,application/octet-stream" hidden><div id="deepModelStatus" class="status">Depth Anything V2 Small Q4 locale · 224 px con rescue automatico 280/336 px, pronto per il test.</div><canvas id="deepTestPreview" class="depthTestPreview" aria-label="Anteprima depth map"></canvas></div>
 
@@ -76,6 +80,19 @@
     <div class="scanButtons"><button id="arModeBtn">AR: Surface+Mesh</button><button id="pinBtn">◎ Repere</button><button id="finishBtn" class="danger">Salva / termina</button></div>
   </section>
 
+
+  <section id="processing" class="screen processingScreen" aria-label="Post-processing scansione">
+    <div class="processingHead"><div><div class="badge">POST-PROCESSING V30</div><h2>RGB + AlvaAR + DeepPrior</h2></div><div id="processingCounter" class="processingCounter">—</div></div>
+    <div class="processingCard"><div id="processingStatus" class="processingStatus">Preparo le fotografie nitide…</div><progress id="processingProgress" min="0" max="1" value="0"></progress><div id="processingDetail" class="hint">La camera è già ferma: qui il processing non può più disturbare AlvaAR.</div></div>
+    <div class="processingGrid">
+      <figure><figcaption>RGB esatto archiviato</figcaption><canvas id="processingRgb" aria-label="Foto RGB in elaborazione"></canvas></figure>
+      <figure><figcaption>DeepPrior relativo · stesso frame</figcaption><canvas id="processingDepth" aria-label="Depth prior relativo"></canvas></figure>
+      <figure class="processingWorld"><figcaption>Posa AlvaAR + DeepPrior nel mondo · vista X-Z</figcaption><canvas id="processingPose" aria-label="DeepPrior proiettato sui raggi della posa Alva"></canvas></figure>
+    </div>
+    <div class="processingLegend"><span>azzurro: posa/raggi Alva + DeepPrior normalizzato</span><span>viola: posa RGB ottimizzata</span><span>arancio: salto Alva sospetto</span></div>
+    <p class="hint">La nuvola Deep è una visualizzazione diagnostica della profondità <b>relativa</b>, normalizzata sul singolo frame: non viene presentata come metrica prima della calibrazione globale. Un salto evidente tra foto consecutive resta loggato e non riceve autorità automatica.</p>
+  </section>
+
   <section id="review" class="screen">
     <div class="reviewHead"><div><div class="badge">V30 REVIEW</div><h2>Gemello metrico</h2></div><button id="backHomeBtn">Home</button></div>
     <canvas id="viewer"></canvas>
@@ -89,7 +106,7 @@
   </section>
 </main>
 
-<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.47.0</pre></div></details></aside>
+<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.49.0</pre></div></details></aside>
 
 <script>
 /* EXP-4 atomic boot guard.
@@ -98,7 +115,7 @@
  * revisions after a GitHub Pages refresh. Recovery is inline and therefore
  * still clickable even if every ES module fails to load. */
 (function(){
-  const VERSION='30.47.0';
+  const VERSION='30.49.0';
   const RECOVERY_KEY=`roomscan-v30-atomic-recovery-${VERSION}`;
   const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),version:VERSION,errors:[],phases:[],interactive:false,shell:null};
   const rec=(type,data={})=>{const item={time:Date.now(),type,...data};boot.errors.push(item);return item;};

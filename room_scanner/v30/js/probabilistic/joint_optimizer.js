@@ -1,18 +1,18 @@
-import {projectPoint,pixelRay,qMul,qNormalize,qRotate,qConj} from '../slam/math.js?v=30.47.0';
-import {addPoseUncertaintyToPointCovariance} from './pose_uncertainty.js?v=30.47.0';
-import {SwitchablePhotoEdgeModel,rotationResidualVector} from './switchable_edges.js?v=30.47.0';
-import {solveHierarchicalDepthCalibration,predictMetricDepth,serializeHierarchicalDepthCalibration} from './depth_calibration_hierarchy.js?v=30.47.0';
-import {DenseDepthConsistencyEvaluator} from './cross_depth_consistency.js?v=30.47.0';
-import {SubmapFusionManager} from '../reconstruction/submap_fusion.js?v=30.47.0';
-import {SwitchableAlvaEdgeModel,relativePose,relativeResidual} from './alva_switchable_edges.js?v=30.47.0';
-import {HierarchicalReliabilityFeedback} from './reliability_feedback.js?v=30.47.0';
-import {SubmapPoseGraph} from './submap_pose_graph.js?v=30.47.0';
-import {revalidateMvsSample,mvsRelativePoseDrift,filterMvsSourcesByEstimatePose} from './final_mvs_revalidation.js?v=30.47.0';
-import {evaluateRgbConsensusPolicy} from './rgb_consensus_policy.js?v=30.47.0';
-import {evaluateDepthGeometryPolicy} from './depth_commit_policy.js?v=30.47.0';
-import {evaluateFinalGeometryPolicy} from './geometry_commit_policy.js?v=30.47.0';
-import {alignTranslationLine,translationLineAngle} from './rgb_translation_direction.js?v=30.47.0';
-import {evaluatePoseScaffoldPolicy} from './pose_scaffold_policy.js?v=30.47.0';
+import {projectPoint,pixelRay,qMul,qNormalize,qRotate,qConj} from '../slam/math.js?v=30.49.0';
+import {addPoseUncertaintyToPointCovariance} from './pose_uncertainty.js?v=30.49.0';
+import {SwitchablePhotoEdgeModel,rotationResidualVector} from './switchable_edges.js?v=30.49.0';
+import {solveHierarchicalDepthCalibration,predictMetricDepth,serializeHierarchicalDepthCalibration} from './depth_calibration_hierarchy.js?v=30.49.0';
+import {DenseDepthConsistencyEvaluator} from './cross_depth_consistency.js?v=30.49.0';
+import {SubmapFusionManager} from '../reconstruction/submap_fusion.js?v=30.49.0';
+import {SwitchableAlvaEdgeModel,relativePose,relativeResidual} from './alva_switchable_edges.js?v=30.49.0';
+import {HierarchicalReliabilityFeedback} from './reliability_feedback.js?v=30.49.0';
+import {SubmapPoseGraph} from './submap_pose_graph.js?v=30.49.0';
+import {revalidateMvsSample,mvsRelativePoseDrift,filterMvsSourcesByEstimatePose} from './final_mvs_revalidation.js?v=30.49.0';
+import {evaluateRgbConsensusPolicy} from './rgb_consensus_policy.js?v=30.49.0';
+import {evaluateDepthGeometryPolicy} from './depth_commit_policy.js?v=30.49.0';
+import {evaluateFinalGeometryPolicy} from './geometry_commit_policy.js?v=30.49.0';
+import {alignTranslationLine,translationLineAngle} from './rgb_translation_direction.js?v=30.49.0';
+import {evaluatePoseScaffoldPolicy} from './pose_scaffold_policy.js?v=30.49.0';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const DEG=Math.PI/180;
@@ -134,14 +134,14 @@ export class ProbabilisticJointOptimizer{
   snapshot(){return {format:'ROOMSCAN-PROB-OPT-2',iterations:this.iterations,frames:this.frames.map(f=>({frameId:f.frameId,poseEstimate:f.poseEstimate})),landmarks:this.landmarks.map(l=>({id:l.id,point:l.point,probability:l.probability})),depthCalibration:serializeHierarchicalDepthCalibration(this.depthCalibration),deepModel:this.deepModel,edgeSwitches:this.edgeModel.serialize(),alvaSwitches:this.alvaModel?.serialize?.()||null,reliability:this.reliability?.serialize?.()||null,stats:this.lastStats};}
 
   /** Build committed geometry only after sparse/Deep hierarchy has converged. */
-  rebuild({voxel=.035,hashVoxel=.02,maxSurfels=90000,maxTriangles=90000,maxDeepSamples=45000,maxMvsSamples=50000,submapSize=this.submapSize,submapOverlap=this.submapOverlap,deepFrameWeightBudget=18,commitFrameIds=null}={}){
+  rebuild({voxel=.035,hashVoxel=.02,maxSurfels=90000,maxTriangles=90000,maxDeepSamples=45000,maxMvsSamples=50000,submapSize=this.submapSize,submapOverlap=this.submapOverlap,deepFrameWeightBudget=18,meshMinConfidence=.24,commitFrameIds=null}={}){
     // A live accepted snapshot may cover only the most recent local window.
     // Re-estimate Depth calibration on the COMPLETE current scaffold before
     // committed fusion; otherwise newly acquired Deep frames inherit stale or
     // missing calibration from the last accepted window. This does not move poses.
     const commitSet=commitFrameIds?new Set([...commitFrameIds].map(String)):null,commitRgbReliability=this.sparseRgbFeedback().rgbSupport;
     if(this.graph.deepFactors?.length&&this.landmarks.length)this.refreshDepthCalibration({iterations:14,minGlobalFrames:8,minGlobalAnchors:55,frameReliability:commitRgbReliability,resetPrevious:true,freezeDomain:false});
-    const submaps=new SubmapFusionManager(this.frames,{size:submapSize,overlap:submapOverlap,fusionOptions:{voxel,hashVoxel,minSupport:2,minConfirmBaseline:voxel*.65,maxSurfels:Math.max(6000,Math.ceil(maxSurfels/Math.max(1,Math.ceil(this.frames.length/Math.max(1,submapSize-submapOverlap))))),maxTsdf:Math.max(70000,maxSurfels*2),tsdfMinSupport:2,tsdfMaxSurfels:Math.min(30000,maxSurfels),observationReservoir:4}});
+    const submaps=new SubmapFusionManager(this.frames,{size:submapSize,overlap:submapOverlap,fusionOptions:{voxel,hashVoxel,minSupport:2,minConfirmBaseline:voxel*.65,maxSurfels:Math.max(6000,Math.ceil(maxSurfels/Math.max(1,Math.ceil(this.frames.length/Math.max(1,submapSize-submapOverlap))))),maxTsdf:Math.max(70000,maxSurfels*2),tsdfMinSupport:2,tsdfMaxSurfels:Math.min(30000,maxSurfels),observationReservoir:4,meshMinConfidence}});
     // Sparse RGB landmarks are the geometric scaffold, NOT a surface. Meshing
     // them directly manufactured one tiny TSDF island around each feature track
     // in real scans. They remain available as pose/depth anchors and only dense
@@ -180,7 +180,7 @@ export class ProbabilisticJointOptimizer{
     // RGB photo matches contribute monocular translation DIRECTION in the rigid
     // submap graph. Magnitude remains metric-prior controlled.
     const submapGraph=new SubmapPoseGraph(submaps.submaps,this.frames,{photoEdges:this.photoEdges,edgeModel:this.edgeModel,primaryMap:submaps.primary}).optimize(12).apply();
-    const out=submaps.finalize({maxSurfels,maxTriangles}),eligibleCommittedFrames=commitSet?this.frames.filter(f=>commitSet.has(String(f.frameId))).length:this.frames.length,mvsValidation={input:mvsInput,locallyValidated:mvsLocallyValidated,poseScaffoldWithheld:mvsPoseScaffoldWithheld,committed:mvsCount,revalidated:mvsRevalidated,rejected:mvsRejected,anchorRescued:mvsAnchorRescued,poseBoundFactors:mvsPoseBoundFactors,legacyPoseBoundFactors:mvsLegacyPoseBoundFactors,poseRejectedFactors:mvsPoseRejectedFactors,poseRejectedSamples:mvsPoseRejectedSamples,poseSourceRejected:mvsPoseSourceRejected,localValidationFraction:mvsInput?mvsLocallyValidated/mvsInput:0,commitFraction:mvsInput?mvsCount/mvsInput:0,meanLocalDepthCorrectionRel:mvsLocallyValidated?mvsLocalDepthCorrectionSum/mvsLocallyValidated:0,meanLocalPhotometricCost:mvsLocallyValidated?mvsLocalPhotoCostSum/mvsLocallyValidated:null,meanLocalObservableParallaxDeg:mvsLocallyValidated?mvsLocalParallaxSum/mvsLocallyValidated*180/Math.PI:null,meanLocalDepthSensitivityPx:mvsLocallyValidated?mvsLocalSensitivitySum/mvsLocallyValidated:null,meanLocalObservableSources:mvsLocallyValidated?mvsLocalObservableSources/mvsLocallyValidated:0,meanDepthCorrectionRel:mvsRevalidated?mvsDepthCorrectionSum/mvsRevalidated:0,meanPhotometricCost:mvsRevalidated?mvsPhotoCostSum/mvsRevalidated:null,meanObservableParallaxDeg:mvsRevalidated?mvsParallaxSum/mvsRevalidated*180/Math.PI:null,meanDepthSensitivityPx:mvsRevalidated?mvsSensitivitySum/mvsRevalidated:null,meanObservableSources:mvsRevalidated?mvsObservableSources/mvsRevalidated:0,rejectReasons:mvsRejectReasons,depthEnvelope:sparseDepthEnvelope,maxRelativePoseDriftTranslation:mvsPoseDriftMaxTranslation,maxRelativePoseDriftRotationRad:mvsPoseDriftMaxRotationRad,maxEstimateRelativePoseDriftTranslation:mvsEstimateDriftMaxTranslation,maxEstimateRelativePoseDriftRotationRad:mvsEstimateDriftMaxRotationRad,maxEstimateRelativePoseDriftRatio:mvsEstimateDriftMaxRatio},geometryPolicy=evaluateFinalGeometryPolicy({meshQuality:out.stats?.meshQuality,gaussianCount:out.gaussians?.length||0,frames:this.frames,sparseDepthEnvelope});
+    const out=submaps.finalize({maxSurfels,maxTriangles}),eligibleCommittedFrames=commitSet?this.frames.filter(f=>commitSet.has(String(f.frameId))).length:this.frames.length,mvsValidation={input:mvsInput,locallyValidated:mvsLocallyValidated,poseScaffoldWithheld:mvsPoseScaffoldWithheld,committed:mvsCount,revalidated:mvsRevalidated,rejected:mvsRejected,anchorRescued:mvsAnchorRescued,poseBoundFactors:mvsPoseBoundFactors,legacyPoseBoundFactors:mvsLegacyPoseBoundFactors,poseRejectedFactors:mvsPoseRejectedFactors,poseRejectedSamples:mvsPoseRejectedSamples,poseSourceRejected:mvsPoseSourceRejected,localValidationFraction:mvsInput?mvsLocallyValidated/mvsInput:0,commitFraction:mvsInput?mvsCount/mvsInput:0,meanLocalDepthCorrectionRel:mvsLocallyValidated?mvsLocalDepthCorrectionSum/mvsLocallyValidated:0,meanLocalPhotometricCost:mvsLocallyValidated?mvsLocalPhotoCostSum/mvsLocallyValidated:null,meanLocalObservableParallaxDeg:mvsLocallyValidated?mvsLocalParallaxSum/mvsLocallyValidated*180/Math.PI:null,meanLocalDepthSensitivityPx:mvsLocallyValidated?mvsLocalSensitivitySum/mvsLocallyValidated:null,meanLocalObservableSources:mvsLocallyValidated?mvsLocalObservableSources/mvsLocallyValidated:0,meanDepthCorrectionRel:mvsRevalidated?mvsDepthCorrectionSum/mvsRevalidated:0,meanPhotometricCost:mvsRevalidated?mvsPhotoCostSum/mvsRevalidated:null,meanObservableParallaxDeg:mvsRevalidated?mvsParallaxSum/mvsRevalidated*180/Math.PI:null,meanDepthSensitivityPx:mvsRevalidated?mvsSensitivitySum/mvsRevalidated:null,meanObservableSources:mvsRevalidated?mvsObservableSources/mvsRevalidated:0,rejectReasons:mvsRejectReasons,depthEnvelope:sparseDepthEnvelope,maxRelativePoseDriftTranslation:mvsPoseDriftMaxTranslation,maxRelativePoseDriftRotationRad:mvsPoseDriftMaxRotationRad,maxEstimateRelativePoseDriftTranslation:mvsEstimateDriftMaxTranslation,maxEstimateRelativePoseDriftRotationRad:mvsEstimateDriftMaxRotationRad,maxEstimateRelativePoseDriftRatio:mvsEstimateDriftMaxRatio},geometryPolicy=evaluateFinalGeometryPolicy({meshQuality:out.stats?.meshQuality,gaussianCount:out.gaussians?.length||0,frames:this.frames,sparseDepthEnvelope,mvsValidation,depthGeometryPolicy});
     return {gaussians:out.gaussians,mesh:out.mesh,submaps:out.submaps,candidateGaussians:candidatePreview,stats:{...out.stats,geometryPolicy,landmarkCount:this.landmarks.length,sparseSurfaceAnchors,sparseLandmarksMeshed:false,sparseDepthEnvelope,mvsCount,mvsValidation,deepCount,deepTrusted,deepWeak,deepConflict,deepUnknown,deepCandidate,deepConfirmed,deepAnchoredBySparse,deepAnchoredByMvs,deepUnanchoredRejected,depthCalibration:dc?.stats||null,depthGeometryPolicy,poseScaffoldPolicy,edgeSwitches:this.edgeModel.stats(),alvaSwitches:this.alvaModel?.stats?.()||null,reliability:reliabilitySummary,submapPoseGraph:submapGraph.stats(),hierarchical:true,candidateConfirmedSplit:true,leaveOneViewOut:true,finalPoseMvsRevalidation:true,depthObservabilityRequired:true,eligibleCommittedFrames,excludedUnacceptedFrames:Math.max(0,this.frames.length-eligibleCommittedFrames)}};
   }
 }

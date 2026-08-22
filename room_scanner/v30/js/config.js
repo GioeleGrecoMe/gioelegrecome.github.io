@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.47.0 canonical RGB scaffold + post-scan dense configuration.
+ * Room Scanner V30.49.0 sharp RGB archive + visual post-processing configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.47.0',
-  id:'v30.47.0-20260822-review-provenance-pose-bound-mvs',
+  version:'30.49.0',
+  id:'v30.49.0-20260822-sharp-rgb-visual-postprocess',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -204,11 +204,52 @@ export const CONFIG={
   // plane sweep while tracking is active.
   deepLiveDuringScan:false,
   deepPostScanOnly:true,
+  // V30.48 stable-photo bank: accept every sufficiently still Alva-valid frame
+  // at the analysis cadence, bounded only by an explicit phone-memory budget.
+  // These frames are not matched or sent to Deep while Scan is active. They
+  // become the RGB/Depth post-processing dataset after the camera is stopped.
+  stablePhotoBankEnabled:false,
+  stablePhotoMinIntervalMs:420,
+  stablePhotoMaxFrames:240,
+  stablePhotoMaxBytes:100663296,
+  stablePhotoMaxSide:336,
+  stablePhotoMaxTranslationSpeedMetric:0.28,
+  stablePhotoMaxTranslationSpeedAlva:0.42,
+  stablePhotoMaxAngularSpeedRad:0.55,
+  stablePhotoMinDetail:4.0,
+  stablePhotoJumpTranslation:0.65,
+  stablePhotoJumpRotationRad:0.70,
+  stablePhotoJumpWindowMs:2200,
+  stablePhotoProcessingYieldEvery:3,
+  stablePhotoProcessingMinDeepTimeoutPerFrameMs:4500,
+  // V30.49 compressed sharp-photo archive. Acquisition saves every still,
+  // Alva-valid frame that passes objective blur/motion gates. JPEG compression
+  // happens in a dedicated worker and blobs are persisted in IndexedDB; the
+  // bounded RAM StablePhotoBank above is only a fallback reservoir.
+  sharpPhotoArchiveEnabled:true,
+  sharpArchiveMinIntervalMs:110,
+  sharpArchiveMinDetail:4.2,
+  sharpArchiveMaxTranslationSpeedMetric:0.34,
+  sharpArchiveMaxTranslationSpeedAlva:0.52,
+  sharpArchiveMaxAngularSpeedRad:0.72,
+  sharpArchiveMaxPending:4,
+  sharpArchiveMaxFrames:1600,
+  sharpArchiveMaxBytes:367001600,
+  sharpArchiveMemoryFallbackFrames:24,
+  sharpArchiveMime:'image/jpeg',
+  sharpArchiveJpegQuality:0.86,
+  sharpArchiveJumpTranslation:0.80,
+  sharpArchiveJumpRotationRad:0.78,
+  sharpArchiveJumpWindowMs:2200,
+  sharpArchiveProcessMaxFrames:240,
+  sharpArchiveProcessingYieldEvery:3,
+  sharpArchiveDeepFrameTimeoutMs:120000,
+  sharpArchiveFlushTimeoutMs:20000,
   deepPlanIntervalMs:6500,
   deepPlanBackpressureGain:2.5,
   deepSurveyQueueBudget:2,
   deepLateQueueMaxItems:32,
-  deepPostScanMaxDrainMs:300000,
+  deepPostScanMaxDrainMs:900000,
   postScanDenseDrainMs:12000,
   sparseFastLaneMinIntervalMs:6500,
   mvsPostScanOnly:true,
@@ -278,7 +319,7 @@ export const CONFIG={
   // persisted in a compact factor graph.
   probabilisticGraphEnabled:true,
   probabilisticGrayMaxSide:120,
-  probabilisticMaxFrames:360,
+  probabilisticMaxFrames:520,
   probabilisticMaxFeaturesPerFrame:360,
   probabilisticDeepGridCols:32,
   probabilisticDeepGridRows:48,
@@ -359,8 +400,8 @@ export const CONFIG={
   // available as a metric pose prior with uncertainty rather than an image-warp truth.
   livePuzzleAtlasWidth:640,
   livePuzzleAtlasHeight:320,
-  livePuzzleMaxFrames:90,
-  livePuzzleRenderFrames:64,
+  livePuzzleMaxFrames:280,
+  livePuzzleRenderFrames:80,
   livePuzzleTemporalRadius:4,
   livePuzzleLoopCandidates:2,
   livePuzzleMinEdgeMatches:6,
@@ -417,6 +458,13 @@ export const CONFIG={
   gaussianWorker:'workers/gaussian_worker.js',
   gaussianMinSupport:2,
   liveOverlayMaxSplats:3200,
+
+  // Rendering/meshing confidence gates. Low-confidence surfels remain in the
+  // probabilistic state; these values only prevent visual/TSDF clutter.
+  surfaceDisplayMinConfidence:.40,
+  surfaceCandidateDisplayMinConfidence:.46,
+  surfaceLiveDisplayMinConfidence:.38,
+  surfaceMeshMinConfidence:.24,
 
   // Storage/rebuild budgets reused by the single hierarchical optimizer.
   // These names are retained for snapshot compatibility; they do not select
