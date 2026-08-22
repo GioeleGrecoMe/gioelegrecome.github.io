@@ -28,3 +28,222 @@
 <main id="app">
   <section id="home" class="screen active">
     <div class="hero"><div id="buildBadge" class="badge">V30.52.0</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
+    <div class="card"><b>1 · Calibrazione</b><p class="hint">Inquadra un punto fisico con il reticolo e premi <b>Aggiungi pin</b>. Usa 3 punti ben distribuiti. Dopo poche viste utili per ciascun pin, riportane almeno 3 nella stessa inquadratura e premi Applica.</p><div id="calibSummary" class="status">Calibrazione non presente.</div><div class="actions inline"><button id="calibrateBtn" class="primary">Calibra con WebXR</button><button id="clearCalibrationBtn">Azzera calibrazione</button></div></div>
+    <div class="card"><b>2 · Modello depth</b><p class="hint">Il modello locale <code>models/model_q4.onnx</code> viene caricato dal sito. Se manca o non è pubblicato, viene mostrato un errore chiaro: non parte più alcun download remoto infinito. Puoi comunque scegliere manualmente un file ONNX.</p><div class="actions inline"><button id="chooseDeepModelBtn">Scegli ONNX</button><button id="testDeepBtn" class="primary">Prova inferenza</button></div><input id="deepModelFile" type="file" accept=".onnx,application/octet-stream" hidden><div id="deepModelStatus" class="status">Depth Anything V2 Small Q4 locale · 224 px con rescue automatico 280/336 px, pronto per il test.</div><canvas id="deepTestPreview" class="depthTestPreview" aria-label="Anteprima depth map"></canvas></div>
+
+    <div id="deepDiagCard" class="card" hidden><b>Depth diagnostic · contratto verificato</b><p class="hint">Sono mostrati soltanto il frame camera, il tensor RGB/NCHW effettivamente passato al modello e l’output depth H×W. Le false letture NHWC/column-major non sono mappe di profondità e restano nascoste.</p><div class="deepDiagGrid"><figure><figcaption>1 · CAMERA RGBA</figcaption><canvas id="deepDiagSource"></canvas></figure><figure><figcaption>2 · TENSOR RGB/NCHW reale</figcaption><canvas id="deepDiagNchw"></canvas></figure><figure><figcaption>3 · DEPTH H×W del modello</figcaption><canvas id="deepDiagDepthRow"></canvas></figure><figure hidden><figcaption>NHWC errato · solo debug interno</figcaption><canvas id="deepDiagNhwc"></canvas></figure><figure hidden><figcaption>column-major errato · solo debug interno</figcaption><canvas id="deepDiagDepthCol"></canvas></figure><figure hidden><figcaption>RIFERIMENTO AGGIUNTIVO</figcaption><canvas id="deepDiagReference"></canvas></figure></div><pre id="deepDiagReport" class="deepDiagReport">Esegui “Prova inferenza”.</pre></div>
+    <div class="card"><b>3 · Misura / scansione</b><p class="hint">Durante la misura la mappa mostra solo fotografie RGB realmente collegate tra loro. Una foto entra nel mosaico solo quando trova un overlap fotografico affidabile; altrimenti resta in attesa e non viene posizionata. Nessun punto Alva o arco del grafo viene disegnato sopra il preview.</p><div class="actions inline"><button id="startBtn" class="primary">Avvia AlvaAR</button><button id="loadPlyBtn">Apri PLY</button><button id="loadR30Btn">Apri .r30</button></div></div>
+    <input id="filePly" type="file" accept=".ply" hidden><input id="fileR30" type="file" accept=".r30,application/octet-stream" hidden>
+    <div id="homeStatus" class="status">Interfaccia pronta.</div>
+    <div id="updateBanner" class="card updateCard" hidden><b>Cache/runtime non coerente</b><p id="updateText" class="hint"></p><button id="forceUpdateBtn" class="primary">Pulisci cache e ricarica</button></div>
+    <div class="card"><b>Sessioni locali</b><p class="hint">A fine scansione salvo automaticamente Gaussiane, mesh corrente e un piccolo reservoir di vincoli multi-view. Le sessioni nuove possono essere riaperte qui e continuate nel post-processing senza rifare la misura.</p><div id="savedSessions"><span class="muted">Caricamento in background…</span></div><div id="buildFoot" class="buildFoot"></div></div>
+  </section>
+
+  <section id="calibration" class="screen xrSimple" aria-label="Calibrazione WebXR">
+    <canvas id="calibOverlay" aria-label="Pin WebXR ancorati alla scena"></canvas>
+    <div class="xrStatusPill"><b id="calibStatus">0 pin</b><span id="calibDepth">Inquadra una superficie con il reticolo.</span></div>
+    <div class="xrBottomBar" role="toolbar" aria-label="Comandi calibrazione">
+      <button id="calibAddPinBtn" class="primary" disabled>＋ Aggiungi pin</button>
+      <button id="calibUndoPinBtn" disabled>− Togli pin</button>
+      <button id="calibFinishBtn" class="primary" disabled>✓ Applica</button>
+      <button id="calibCancelBtn" class="danger">× Esci</button>
+    </div>
+  </section>
+
+  <section id="bridge" class="screen">
+    <video id="bridgeCamera" class="cameraPreview" autoplay muted playsinline></video>
+    <div id="bridgePinGuidance" aria-hidden="true"></div>
+    <div class="bridgeCard compactBridge"><div class="badge">AGGANCIO METRICO</div><p id="bridgeCoach">Allinea almeno 3 aree dei pin. Parti dalla vista finale della calibrazione e fai piccoli spostamenti laterali.</p><div class="stats bridgeStats"><span>template <b id="bridgeFound">0</b></span><span>inlier <b id="bridgeInliers">0</b></span><span>RMSE <b id="bridgeRmse">—</b></span></div><div id="bridgePinInstructions" class="hint" style="margin-top:.5rem"></div><div class="actions inline"><button id="bridgeRetryBtn">Riprova</button><button id="bridgeCancelBtn" class="danger">Esci</button></div></div>
+  </section>
+
+  <section id="scan" class="screen">
+    <video id="camera" autoplay muted playsinline></video>
+    <canvas id="miniMap"></canvas>
+    <canvas id="alvaFeatureOverlay" aria-label="Feature Alva persistenti e nuove"></canvas>
+    <div id="alvaFeatureState">feature persistenti 0 · nuove 0</div>
+    <div id="alvaRecoveryBanner" class="alvaRecoveryBanner" role="status" aria-live="assertive" hidden></div>
+
+    <div class="topHud scanHudBar">
+      <div class="scanHudPrimary"><span id="slamState">INIT</span><span id="alvaPtsState">ALVA pts 0</span><span id="metricState">scala —</span><span id="mvsState">DENSE —</span></div>
+      <div class="stats scanStats"><span>feat <b id="statFeat">0</b></span><span>match <b id="statMatch">0</b></span><span>KF <b id="statKf">0</b></span><span>surf <b id="statGs">0</b></span><span>depth <b id="statTri">0</b></span></div>
+    </div>
+
+    <button id="scanDiagnosticsToggle" class="scanDiagnosticsToggle" type="button" aria-controls="scanDiagnostics" aria-expanded="false">Mappa</button>
+    <aside id="scanDiagnostics" class="scanDiagnostics" aria-label="Panorama e diagnostica misura">
+      <div class="scanDiagnosticsHead"><div><b>MOSAICO RGB FAST + DEPTH LATE</b><span>RGB depth-planned immediato · Deep associata dopo · Alva esclusa dall’allineamento fotografico</span></div><div class="scanDiagHeadActions"><button id="scanExportDiagBtn" type="button">Log</button><button id="scanDiagnosticsClose" type="button" aria-label="Chiudi diagnostica">×</button></div></div>
+      <div class="livePuzzlePanel">
+        <div class="livePuzzleHead"><span id="liveMapState">MOSAICO RGB FAST · attendo primo frame depth-planned…</span><span class="livePuzzleSwitch"><button id="liveMapPhotoBtn" class="active" type="button">FOTO</button><button id="liveMapDepthBtn" type="button">DEPTH</button></span></div>
+        <canvas id="liveMapCanvas" aria-label="Mosaico fotografico RGB e depth globale live"></canvas>
+        <div class="livePuzzleLegend">RGB = fast lane e geometria panorama · Deep = late binding sullo stesso frame · finale = anchor 3D + Fγ globale + consistency multivista · Alva = prior probabilistico</div>
+      </div>
+      <div class="scanDiagGrid">
+        <div class="deepLivePreview"><div id="deepLiveState">DEEP POST —</div><canvas id="depthOverlay" aria-label="Depth map Deep Anything live"></canvas></div>
+        <div class="coverageSpherePanel"><div id="coverageState">SFERA 0% · nessuna chiusura</div><canvas id="coverageSphere" aria-label="Copertura sferica delle viste"></canvas></div>
+      </div>
+      <div id="metricPipelineHud" class="metricPipelineHud">Surface mapper: attendo tracking AlvaAR…</div>
+      <div id="liveOptimizerHud" class="metricPipelineHud liveOptimizerHud">OPT UNICO · inizializzazione…</div>
+    </aside>
+
+    <div id="coach" class="coach scanCoach">Muoviti lentamente e crea parallasse.</div>
+    <div class="scanButtons"><button id="arModeBtn">AR: Surface+Mesh</button><button id="pinBtn">◎ Repere</button><button id="finishBtn" class="danger">Salva / termina</button></div>
+  </section>
+
+
+  <section id="processing" class="screen processingScreen" aria-label="Post-processing scansione">
+    <div class="processingHead"><div><div class="badge">POST-PROCESSING V30</div><h2>RGB + AlvaAR + DeepPrior</h2></div><div id="processingCounter" class="processingCounter">—</div></div>
+    <div class="processingCard"><div id="processingStatus" class="processingStatus">Preparo le fotografie nitide…</div><progress id="processingProgress" min="0" max="1" value="0"></progress><div id="processingDetail" class="hint">La camera è già ferma: qui il processing non può più disturbare AlvaAR.</div></div>
+    <div class="processingGrid">
+      <figure><figcaption>RGB esatto archiviato</figcaption><canvas id="processingRgb" aria-label="Foto RGB in elaborazione"></canvas></figure>
+      <figure><figcaption>DeepPrior relativo · stesso frame</figcaption><canvas id="processingDepth" aria-label="Depth prior relativo"></canvas></figure>
+      <figure class="processingWorld"><figcaption>Posa AlvaAR + DeepPrior nel mondo · vista X-Z</figcaption><canvas id="processingPose" aria-label="DeepPrior proiettato sui raggi della posa Alva"></canvas></figure>
+      <figure class="processingWorld"><figcaption>Uncertainty map globale · selezione Deep adattiva</figcaption><canvas id="processingUncertainty" aria-label="Mappa globale di incertezza e prossime viste Deep"></canvas></figure>
+    </div>
+    <div class="processingLegend"><span>azzurro: posa/raggi Alva + DeepPrior normalizzato</span><span>viola: posa RGB ottimizzata / prossima tranche Deep</span><span>ambra: regione ancora incerta</span><span>arancio: salto Alva sospetto</span></div>
+    <p class="hint">Deep non viene più eseguito su tutte le foto: il grafo RGB/Alva sceglie una prima tranche geometrica (tipicamente 16 viste), aggiorna l’incertezza con l’unico ProbabilisticJointOptimizer e richiede altre depth soltanto dove servono. La nuvola Deep resta una visualizzazione diagnostica della profondità <b>relativa</b> finché la calibrazione globale non è affidabile.</p>
+  </section>
+
+  <section id="review" class="screen">
+    <div class="reviewHead"><div><div class="badge">V30 REVIEW</div><h2>Gemello metrico</h2></div><button id="backHomeBtn">Home</button></div>
+    <canvas id="viewer"></canvas>
+    <div class="viewerTools"><button id="fitBtn">Centra</button><button id="viewTopBtn">Alto</button><button id="viewFrontBtn">Fronte</button><button id="viewSideBtn">Lato</button><label>Surface <input id="splatSize" type="range" min="0.5" max="3" value="1" step="0.1"></label></div>
+    <div class="reviewPanel">
+      <div id="reviewStats" class="card compact"></div>
+      <div id="metricGsStats" class="card compact">Dati mesh: attendo consenso multi-view / TSDF ricostruibile.</div>
+      <div id="optimizerCard" class="card compact optimizerCard"><b>OPT UNICO · scaffold RGB → calibrazione Deep → feedback → submap</b><p class="hint">È l’unico ottimizzatore attivo. Usa esattamente lo stesso <code>ProbabilisticJointOptimizer</code> durante la misura e in REVIEW. Ogni ciclo produce baseline, candidato, gate e decisione nei log; non esistono fallback Gaussian/Puzzle/Surface Lab.</p><div class="optimizerControls"><label>Target iterazioni accettate <input id="optIterations" type="number" inputmode="numeric" min="1" max="120" step="1" value="12"></label><button id="optStartBtn" class="primary">Continua OPT UNICO</button><button id="optStopBtn" disabled>Ferma</button></div><progress id="optProgress" min="0" max="12" value="0"></progress><div id="optStatus" class="status">OPT UNICO · attendo factor graph.</div></div>
+      <details id="pipelineTestPanel" class="card compact pipelineTestPanel"><summary>TEST · osservabilità completa pipeline</summary><div class="pipelineTestToolbar"><div id="pipelineTestSummary" class="pipelineTestSummary">Apri TEST per localizzare il primo stadio debole.</div><button id="pipelineTestRefreshBtn">Ricalcola</button><button id="pipelineTestExportBtn">Scarica snapshot TEST</button></div><div id="pipelineTestStages" class="pipelineTestStages"></div><details class="pipelineTestRaw"><summary>JSON diagnostico compatto</summary><pre id="pipelineTestJson"></pre></details></details>
+      <div class="actions wrap"><button id="buildMetricMeshBtn">Scarica mesh TSDF</button><button id="exportPlyBtn" class="primary">Scarica PLY</button><button id="exportR30Btn">Scarica .r30</button><button id="exportDiagBtn">Diagnostica</button><button id="resumeBtn">Nuova scansione</button></div>
+    </div>
+  </section>
+</main>
+
+<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.52.0</pre></div></details></aside>
+
+<script>
+/* EXP-4 atomic boot guard.
+ * No application module is loaded until the service worker controlling this
+ * exact document reports the same build. This prevents mixed HTML/CSS/JS
+ * revisions after a GitHub Pages refresh. Recovery is inline and therefore
+ * still clickable even if every ES module fails to load. */
+(function(){
+  const VERSION='30.52.0';
+  const RECOVERY_KEY=`roomscan-v30-atomic-recovery-${VERSION}`;
+  const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),version:VERSION,errors:[],phases:[],interactive:false,shell:null};
+  const rec=(type,data={})=>{const item={time:Date.now(),type,...data};boot.errors.push(item);return item;};
+  const phase=(name,data={})=>{boot.phases.push({time:Date.now(),name,...data});document.documentElement.dataset.v30BootPhase=name;};
+  const homeStatus=()=>document.getElementById('homeStatus');
+  const setStatus=(text,kind='')=>{const h=homeStatus();if(!h)return;h.textContent=text;if(kind)h.dataset.kind=kind;else delete h.dataset.kind;};
+  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  addEventListener('error',e=>rec('error',{message:e.message,src:e.filename,line:e.lineno,col:e.colno,stack:e.error?.stack||null}));
+  addEventListener('unhandledrejection',e=>{const r=e.reason||{};rec('rejection',{name:r.name||null,message:String(r.message||r),stack:r.stack||null});});
+
+  function isOwnScope(scope){try{return new URL(scope).pathname.includes('/room_scanner/v30/');}catch{return false;}}
+  async function ping(worker,timeoutMs=900){
+    if(!worker)return null;
+    return await new Promise(resolve=>{
+      const channel=new MessageChannel();let done=false;
+      const finish=v=>{if(done)return;done=true;clearTimeout(timer);resolve(v);};
+      const timer=setTimeout(()=>finish(null),timeoutMs);
+      channel.port1.onmessage=e=>finish(e.data||null);
+      try{worker.postMessage({type:'GET_VERSION'},[channel.port2]);}catch{finish(null);}
+    });
+  }
+  async function waitForAtomicController(reg,timeoutMs=6500){
+    const started=performance.now();
+    while(performance.now()-started<timeoutMs){
+      if(reg.installing&&reg.installing.state==='installed')reg.installing.postMessage({type:'SKIP_WAITING'});
+      if(reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'});
+      const info=await ping(navigator.serviceWorker.controller,500);
+      if(info?.version===VERSION)return info;
+      await new Promise(resolve=>{
+        let done=false;const finish=()=>{if(done)return;done=true;clearTimeout(timer);navigator.serviceWorker.removeEventListener('controllerchange',finish);resolve();};
+        const timer=setTimeout(finish,220);navigator.serviceWorker.addEventListener('controllerchange',finish,{once:true});
+      });
+    }
+    const info=await ping(navigator.serviceWorker.controller,500);
+    throw new Error(`controller build ${info?.version||'none'} != ${VERSION}`);
+  }
+  async function verifyPublishedBuild(){
+    let last='unavailable';
+    for(let i=0;i<4;i++){
+      try{
+        const r=await fetch(`build_info.json?atomic=${VERSION}-${Date.now()}-${i}`,{cache:'no-store'});
+        if(!r.ok)throw new Error(`HTTP ${r.status}`);
+        const info=await r.json();last=info?.version||info?.id||'unknown';
+        if(info?.version===VERSION)return info;
+      }catch(err){last=err?.message||String(err);}
+      await sleep(450+250*i);
+    }
+    throw new Error(`published build ${last} != ${VERSION}`);
+  }
+  async function refreshStyles(){
+    const link=[...document.querySelectorAll('link[rel="stylesheet"]')].find(x=>/styles\.css/.test(x.getAttribute('href')||''));
+    if(!link)return;
+    await new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('styles.css timeout')),3500);
+      link.onload=()=>{clearTimeout(timer);resolve();};
+      link.onerror=()=>{clearTimeout(timer);reject(new Error('styles.css load failed'));};
+      link.href=`styles.css?v=${VERSION}&atomic=${Date.now()}`;
+    });
+  }
+  async function clearShellOnly(){
+    try{
+      const regs=await navigator.serviceWorker?.getRegistrations?.()||[];
+      for(const reg of regs)if(isOwnScope(reg.scope))await reg.unregister().catch(()=>{});
+    }catch{}
+    try{
+      if(window.caches)for(const key of await caches.keys()){
+        if(/^room-scanner-v.*-shell$/.test(key))await caches.delete(key);
+      }
+    }catch{}
+  }
+  function showRecovery(message){
+    phase('recovery-visible',{message});rec('atomic-boot-recovery-visible',{message});
+    setStatus(`Avvio non coerente: ${message}`,'error');
+    let b=document.getElementById('atomicBootRecoveryBtn');
+    if(!b){
+      b=document.createElement('button');b.id='atomicBootRecoveryBtn';b.className='primary';b.textContent='Ripristina interfaccia';b.style.marginTop='.65rem';
+      const h=homeStatus();h?.insertAdjacentElement('afterend',b);
+    }
+    b.onclick=async()=>{b.disabled=true;b.textContent='Ripristino…';sessionStorage.removeItem(RECOVERY_KEY);await clearShellOnly();location.replace(`${location.pathname}?atomic=${VERSION}-${Date.now()}`);};
+  }
+  async function hardRecover(reason){
+    rec('atomic-boot-recover',{reason});
+    try{sessionStorage.setItem('roomscan-v30-last-boot-failure',JSON.stringify({at:Date.now(),version:VERSION,reason,errors:boot.errors.slice(-16),phases:boot.phases.slice(-24)}));}catch{}
+    if(sessionStorage.getItem(RECOVERY_KEY)!=='1'){
+      sessionStorage.setItem(RECOVERY_KEY,'1');
+      setStatus('Aggiornamento shell in corso…');
+      await clearShellOnly();
+      location.replace(`${location.pathname}?atomic=${VERSION}-${Date.now()}`);
+      return;
+    }
+    showRecovery(reason);
+  }
+  boot.recover=hardRecover;
+  let moduleStarted=false;
+  function loadModule(){
+    if(moduleStarted)return;moduleStarted=true;phase('module-load');
+    const s=document.createElement('script');s.type='module';s.src=`js/boot.js?v=${VERSION}&atomic=${Date.now()}`;
+    s.onerror=()=>{rec('boot-script-load-failed',{src:s.src});void hardRecover('js/boot.js non caricato');};
+    document.body.appendChild(s);
+  }
+
+  const watchdog=setTimeout(()=>{
+    if(document.documentElement.dataset.v30Interactive!=='1'&&!document.getElementById('atomicBootRecoveryBtn'))void hardRecover('timeout durante il bootstrap');
+  },9000);
+  boot.markInteractive=()=>{clearTimeout(watchdog);sessionStorage.removeItem(RECOVERY_KEY);};
+
+  (async()=>{
+    setStatus('Verifica build applicazione…');phase('shell-register');
+    if('serviceWorker' in navigator){
+      const reg=await navigator.serviceWorker.register(`sw.js?build=${VERSION}`,{scope:'./',updateViaCache:'none'});
+      await reg.update().catch(err=>rec('sw-update-warning',{message:err?.message||String(err)}));
+      const shell=await waitForAtomicController(reg);boot.shell=shell;phase('shell-coherent',shell);
+    }else{phase('shell-unavailable');}
+    const published=await verifyPublishedBuild();boot.published=published;phase('published-coherent',{id:published.id||null});
+    await refreshStyles();phase('styles-coherent');
+    setStatus('Collegamento interfaccia…');loadModule();
+  })().catch(err=>{rec('atomic-boot-error',{message:err?.message||String(err),stack:err?.stack||null});void hardRecover(err?.message||String(err));});
+})();
+</script>
+
+</body></html>
