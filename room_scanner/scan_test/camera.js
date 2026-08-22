@@ -42,14 +42,16 @@ export function sourcePixelToViewport({sourceWidth,sourceHeight},x,y,viewportWid
  * the actual camera preview exactly.
  */
 export class CameraController extends EventTarget{
-  constructor({video,width=320,height=240,fps=8,log=null,stream=null,source='camera'}={}){
+  constructor({video,width=320,height=240,fps=8,log=null,stream=null,source='camera',cameraAuthorized=false}={}){
     super();this.video=video;this.width=width;this.height=height;this.fps=fps;this.log=log;this.stream=stream;this.source=source;
+    this.cameraAuthorized=cameraAuthorized===true;
     this.canvas=document.createElement('canvas');this.canvas.width=width;this.canvas.height=height;this.ctx=this.canvas.getContext('2d',{willReadFrequently:true});this.running=false;this._timer=0;this.geometry=null;this.frameSeq=0;this.lastDeliveredMediaTime=-Infinity;this.frameEpoch=`capture-${Date.now().toString(36)}`;this._onEnded=()=>this._finishExternal();
   }
   adoptStream(stream){if(this.stream&&this.stream!==stream)for(const t of this.stream.getTracks?.()||[])try{t.stop()}catch{}this.stream=stream||null;this.source='camera';return this;}
   async start(){
     if(!this.video)throw new Error('elemento video mancante');
     if(this.source==='camera'){
+      if(!this.cameraAuthorized)throw new Error('La camera reale richiede una conferma esplicita dell’utente prima di richiedere getUserMedia.');
       if(!this.stream){const constraints={audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:640},height:{ideal:480},frameRate:{ideal:12,max:15}}};this.stream=await navigator.mediaDevices.getUserMedia(constraints);}
       if(this.video.srcObject!==this.stream)this.video.srcObject=this.stream;
     }else if(!this.video.src){throw new Error('video di simulazione non impostato');}

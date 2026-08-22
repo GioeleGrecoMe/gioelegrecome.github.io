@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
-  <title>Scan Test · Alva + Deep splat</title>
+  <title>Scan Test v2 · Alva + Deep splat</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="topbar">
     <div>
-      <p class="eyebrow">ESPERIMENTO ISOLATO · nessun filtro / nessuna mesh</p>
-      <h1>Scan Test</h1>
+      <p class="eyebrow">ESPERIMENTO ISOLATO · VERSIONE v2 · nessun filtro / nessuna mesh</p>
+      <h1>Scan Test <span class="tag ok">v2</span></h1>
       <p class="lede">Posa AlvaAR → riesecuzione offline → profondità Deep globale → tutti i pixel come splat RGB.</p>
     </div>
     <div id="globalState" class="state-pill">Pronto</div>
@@ -44,7 +44,7 @@
         <label>Modello Deep ONNX (opzionale)<input id="modelFile" type="file" accept=".onnx,application/onnx"></label>
         <label>Massimo viste Deep<input id="deepLimit" type="number" min="2" max="48" step="1" value="18"></label>
       </div>
-      <p class="hint">Il valore FOV è l'unica intrinseca manuale: prima prova 60°. Se linee e vista RGB non combaciano, calibra la camera o correggi questo valore. Durante la registrazione ogni campione Alva ha esattamente un raster archiviato; 12 fps è il minimo robusto consigliato per consentire l'inizializzazione e il replay offline. Il valore “Scala Alva → metri” rende l'output metrico solo se conosci una distanza reale; altrimenti resta una scala globale coerente.</p>
+      <p class="hint">Il valore FOV è l'unica intrinseca manuale: prima prova 60°. Se linee e vista RGB non combaciano, calibra la camera o correggi questo valore. Durante la registrazione ogni campione Alva ha esattamente un raster archiviato; 12 fps è il minimo robusto consigliato per consentire l'inizializzazione e il replay offline. Il valore “Scala Alva → metri” rende l'output metrico solo se conosci una distanza reale; altrimenti resta una scala globale coerente. La camera reale richiede sempre una conferma esplicita in questa pagina e poi il permesso del browser.</p>
       <div class="actions">
         <button id="openCameraBtn" class="primary">1. Apri camera e AlvaAR</button>
         <button id="fixtureBtn">Simula con video di test</button>

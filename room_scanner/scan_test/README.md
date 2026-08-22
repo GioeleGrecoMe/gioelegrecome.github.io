@@ -1,5 +1,7 @@
 # Scan Test
 
+Pagina corrente: **v2** (la stessa etichetta è visibile nell'intestazione HTML). Ogni apertura della camera reale richiede prima una conferma esplicita nella pagina e poi il permesso nativo del browser; fixture e video locale non richiedono accesso alla camera.
+
 Banco di prova indipendente da `v30`: non modifica né carica i suoi moduli applicativi.
 
 Aprire `scan_test/index.html` attraverso un server HTTPS o `localhost` (non con `file://`), perché camera, AlvaAR e worker Deep richiedono un'origine sicura. Ad esempio dalla radice `room_scanner`:

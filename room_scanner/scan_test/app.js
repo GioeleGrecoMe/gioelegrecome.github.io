@@ -175,12 +175,12 @@ function updateArchiveUi() {
   dom.archiveState.textContent = `${S.frames.length} / ${poses} pose`;
 }
 
-async function startCaptureSource({ source, label, url = null, autoRecord = false } = {}) {
+async function startCaptureSource({ source, label, url = null, autoRecord = false, cameraAuthorized = false } = {}) {
   if (S.trackingStarted) throw new Error('Una sorgente è già attiva. Azzera la sessione prima di cambiarla.');
   if (source === 'camera' && !navigator.mediaDevices?.getUserMedia) throw new Error('getUserMedia non è disponibile: apri questa pagina da HTTPS o localhost.');
   setGlobal(`Apro ${label}…`); dom.runtimeStatus.textContent = `Preparo ${label} usando il controller di acquisizione V30 (crop coerente + frame ID).`;
   if (url) { dom.camera.srcObject = null; dom.camera.src = url; dom.camera.loop = false; dom.camera.muted = true; dom.camera.playsInline = true; }
-  const capture = new CameraController({ video: dom.camera, width: W, height: H, fps: clamp(numberValue('archiveFps', DEFAULT_ALVA_HZ), 8, 15), source, log: { info: (event, data) => log(event, data), warn: (event, data) => log(event, data, 'WARN') } });
+  const capture = new CameraController({ video: dom.camera, width: W, height: H, fps: clamp(numberValue('archiveFps', DEFAULT_ALVA_HZ), 8, 15), source, cameraAuthorized: source !== 'camera' || cameraAuthorized === true, log: { info: (event, data) => log(event, data), warn: (event, data) => log(event, data, 'WARN') } });
   await capture.start();
   S.capture = capture; S.source = source; S.K = intrinsics(capture.geometry); S.alva = await AlvaAR.Initialize(W, H, S.K.fovDeg);
   if (!S.alva?.findCameraPose) { capture.stop(); S.capture = null; throw new Error('AlvaAR.Initialize non ha restituito un tracker valido.'); }
@@ -198,7 +198,11 @@ async function startCaptureSource({ source, label, url = null, autoRecord = fals
   setGlobal(`${label} + AlvaAR pronti`, 'ok'); setStep(2); log('capture-source-ready', { source, K: S.K, geometry: capture.geometry, video: { width: dom.camera.videoWidth, height: dom.camera.videoHeight }, autoRecord });
   if (autoRecord) startRecording();
 }
-async function openCamera() { await startCaptureSource({ source: 'camera', label: 'camera posteriore' }); }
+async function openCamera() {
+  const approved = window.confirm('Vuoi autorizzare l’uso della camera posteriore per questa sessione? Verrà chiesto anche il permesso dal browser. Il video non viene caricato automaticamente: resta nella memoria della sessione finché non scarichi una diagnostica.');
+  if (!approved) { setGlobal('Camera non autorizzata'); log('camera-consent-declined'); return; }
+  await startCaptureSource({ source: 'camera', label: 'camera posteriore', cameraAuthorized: true });
+}
 async function startFixture() { await startCaptureSource({ source: 'fixture', label: 'video fixture V30', url: new URL('./fixtures/tum_freiburg1_xyz_debug_replay.mp4', location.href).href, autoRecord: true }); }
 async function chooseVideo(file) {
   if (!file) return;
