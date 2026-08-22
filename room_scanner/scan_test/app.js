@@ -75,6 +75,14 @@ function modelForWorker() {
 }
 
 function intrinsics(geometry) { const fovDeg = clamp(numberValue('fovInput', 60), 35, 110); return { ...intrinsicsForCrop(null, geometry, { fallbackFovDeg: fovDeg }), fovDeg }; }
+// The bundled AlvaAR wrapper multiplies its fov argument by width/height when
+// width > height. The UI intentionally exposes HORIZONTAL FOV, so passing it
+// through directly made a 60° camera look like an 80° one to Alva (320×240),
+// enough to prevent visual initialization and to reproduce zero offline poses.
+function alvaFovDeg(horizontalFovDeg = numberValue('fovInput', 60)) {
+  const horizontal = clamp(horizontalFovDeg, 35, 110);
+  return W > H ? horizontal * H / W : horizontal;
+}
 function clonePose(p) { return p ? { p: p.p.slice(), q: p.q.slice() } : null; }
 function qNormalize(q) { const n = Math.hypot(q[0], q[1], q[2], q[3]) || 1; return q.map(v => v / n); }
 function qConj(q) { return [-q[0], -q[1], -q[2], q[3]]; }
@@ -182,7 +190,7 @@ async function startCaptureSource({ source, label, url = null, autoRecord = fals
   if (url) { dom.camera.srcObject = null; dom.camera.src = url; dom.camera.loop = false; dom.camera.muted = true; dom.camera.playsInline = true; }
   const capture = new CameraController({ video: dom.camera, width: W, height: H, fps: clamp(numberValue('archiveFps', DEFAULT_ALVA_HZ), 8, 15), source, cameraAuthorized: source !== 'camera' || cameraAuthorized === true, log: { info: (event, data) => log(event, data), warn: (event, data) => log(event, data, 'WARN') } });
   await capture.start();
-  S.capture = capture; S.source = source; S.K = intrinsics(capture.geometry); S.alva = await AlvaAR.Initialize(W, H, S.K.fovDeg);
+  S.capture = capture; S.source = source; S.K = intrinsics(capture.geometry); const trackerFov = alvaFovDeg(S.K.fovDeg); S.alva = await AlvaAR.Initialize(W, H, trackerFov);
   if (!S.alva?.findCameraPose) { capture.stop(); S.capture = null; throw new Error('AlvaAR.Initialize non ha restituito un tracker valido.'); }
   S.trackingStarted = true;
   capture.addEventListener('ended', () => {
@@ -190,12 +198,13 @@ async function startCaptureSource({ source, label, url = null, autoRecord = fals
     $('recordBtn').disabled = true;
     dom.captureCoach.textContent = `Il video è terminato: ${S.frames.length} frame esatti sono disponibili per la riesecuzione offline.`;
     setGlobal('Video terminato · archivio pronto'); log('capture-source-ended', { source, frames: S.frames.length });
+    if (source === 'file' && S.frames.length >= 2) void processUploadedVideo();
   });
   capture.loop(handleCaptureFrame);
   $('openCameraBtn').disabled = true; $('fixtureBtn').disabled = true; $('videoFile').disabled = true; $('recordBtn').disabled = false; $('testDeepBtn').disabled = false; $('fovInput').disabled = true; $('archiveFps').disabled = true;
   dom.runtimeStatus.textContent = `${label} pronto · ${W}×${H} · FOV ${S.K.fovDeg.toFixed(1)}° · crop ${fmt(capture.geometry.sw, 0)}×${fmt(capture.geometry.sh, 0)} · Deep su richiesta.`;
-  dom.captureCoach.textContent = source === 'fixture' ? 'Fixture decoder attiva. È un'immagine statica animata: verifica archivio/crop/stop senza aspettarti una posa AlvaAR.' : source === 'file' ? 'Video caricato: premi “Inizia registrazione”, quindi attendi la fine o fermalo manualmente.' : 'Muovi lentamente la camera con parallasse. “Inizializza” prima della prima posa non equivale a traccia persa.';
-  setGlobal(`${label} + AlvaAR pronti`, 'ok'); setStep(2); log('capture-source-ready', { source, K: S.K, geometry: capture.geometry, video: { width: dom.camera.videoWidth, height: dom.camera.videoHeight }, autoRecord });
+  dom.captureCoach.textContent = source === 'fixture' ? 'Fixture decoder attiva. È un’immagine statica animata: verifica archivio/crop/stop senza aspettarti una posa AlvaAR.' : source === 'file' ? 'Video caricato: la registrazione parte automaticamente. Ogni frame campionato viene passato a AlvaAR e archiviato per replay offline e Deep.' : 'Muovi lentamente la camera con parallasse. “Inizializza” prima della prima posa non equivale a traccia persa.';
+  setGlobal(`${label} + AlvaAR pronti`, 'ok'); setStep(2); log('capture-source-ready', { source, K: S.K, alvaFovVerticalDeg: trackerFov, geometry: capture.geometry, video: { width: dom.camera.videoWidth, height: dom.camera.videoHeight }, autoRecord });
   if (autoRecord) startRecording();
 }
 async function openCamera() {
@@ -207,8 +216,29 @@ async function startFixture() { await startCaptureSource({ source: 'fixture', la
 async function chooseVideo(file) {
   if (!file) return;
   const url = URL.createObjectURL(file); S.sourceObjectUrl = url;
-  try { await startCaptureSource({ source: 'file', label: `video ${file.name}`, url }); }
+  try { await startCaptureSource({ source: 'file', label: `video ${file.name}`, url, autoRecord: true }); }
   catch (err) { URL.revokeObjectURL(url); S.sourceObjectUrl = null; throw err; }
+}
+async function processUploadedVideo() {
+  setGlobal('Video: replay AlvaAR offline…', '');
+  dom.runtimeStatus.textContent = `Video concluso: rieseguo AlvaAR su ${S.frames.length} frame archiviati, poi Deep soltanto sulle pose valide.`;
+  log('uploaded-video-autoprocess-start', { frames:S.frames.length, source:S.source });
+  try {
+    await rerunOffline();
+    const posed = S.frames.filter(f => f.pose).length;
+    if (posed < 2) {
+      const message = `AlvaAR non ha prodotto pose sufficienti (${posed}/${S.frames.length}); Deep non viene eseguito su fotogrammi senza geometria.`;
+      dom.runtimeStatus.textContent = message;
+      log('uploaded-video-autoprocess-no-pose', { posed, frames:S.frames.length, requestedHorizontalFovDeg:S.K?.fovDeg, alvaFovVerticalDeg:alvaFovDeg(S.K?.fovDeg) }, 'WARN');
+      return;
+    }
+    await runDeep();
+    dom.runtimeStatus.textContent = `Video elaborato: ${posed} pose AlvaAR e ${S.frames.filter(f => f.deep).length} depth Deep.`;
+    log('uploaded-video-autoprocess-complete', { posed, deepFrames:S.frames.filter(f => f.deep).length });
+  } catch (err) {
+    dom.runtimeStatus.textContent = `Elaborazione automatica del video interrotta: ${errorText(err)}`;
+    log('uploaded-video-autoprocess-failed', { message:errorText(err) }, 'ERROR');
+  }
 }
 function startRecording() {
   if (!S.trackingStarted) return; if (S.frames.length) { throw new Error('Questa sessione contiene già immagini. Usa “Azzera sessione” per ricominciare senza perdere accidentalmente l’archivio.'); }
@@ -300,7 +330,7 @@ function buildOfflineEdges() {
 async function rerunOffline() {
   if (S.frames.length < 2) throw new Error('Servono almeno due immagini archiviate.');
   $('offlineBtn').disabled = true; setBadge(dom.offlineBadge, 'AlvaAR offline…', 'warn'); setGlobal('Rieseguo AlvaAR offline…');
-  const tracker = await AlvaAR.Initialize(W, H, S.K.fovDeg); S.edges.length = 0; S.offlineTrackerPoints.length = 0;
+  const trackerFov = alvaFovDeg(S.K?.fovDeg); const tracker = await AlvaAR.Initialize(W, H, trackerFov); S.edges.length = 0; S.offlineTrackerPoints.length = 0;
   for (let i = 0; i < S.frames.length; i++) {
     const f = S.frames[i]; let raw = null, points = [];
     try { const output = tracker.findCameraPose(new ImageData(new Uint8ClampedArray(f.rgba), W, H)); if (output?.length >= 16) raw = Array.from(output, Number).slice(0, 16); points = compactAlvaPoints(tracker.getFramePoints?.()); }
@@ -323,7 +353,7 @@ async function rerunOffline() {
   const offlineOk = rawPoses > 0 && matched > 0;
   setBadge(dom.offlineBadge, `pose ${rawPoses}/${S.frames.length} · match ${matched}/${S.edges.length}`, offlineOk ? 'ok' : 'fail');
   setGlobal(offlineOk ? 'Replay Alva e corrispondenze pronti' : 'Replay Alva senza evidenza sufficiente', offlineOk ? 'ok' : 'fail'); setStep(4);
-  log('offline-complete', { frames: S.frames.length, warmupFrames: S.frames.filter(f => f.phase === 'alva-warmup').length, offlinePoses: rawPoses, offlineAlvaPointsMedian: median(S.offlineTrackerPoints), liveRescue: S.frames.filter(f => f.poseSource === 'alvaar-live-rescue').length, interpolated: interp, edges: S.edges.length, matchedEdges: matched, overlapAtLeast10Pct: overlap10 }, offlineOk ? 'INFO' : 'WARN');
+  log('offline-complete', { frames: S.frames.length, warmupFrames: S.frames.filter(f => f.phase === 'alva-warmup').length, requestedHorizontalFovDeg: S.K?.fovDeg, alvaFovVerticalDeg: trackerFov, offlinePoses: rawPoses, offlineAlvaPointsMedian: median(S.offlineTrackerPoints), liveRescue: S.frames.filter(f => f.poseSource === 'alvaar-live-rescue').length, interpolated: interp, edges: S.edges.length, matchedEdges: matched, overlapAtLeast10Pct: overlap10 }, offlineOk ? 'INFO' : 'WARN');
   if (!matched) log('offline-correspondence-zero', { reason: 'nessuna associazione BRIEF+ZNCC dopo replay con preroll', featuresMedian: median(S.frames.map(f => f.features.length)), offlineAlvaPointsMedian: median(S.offlineTrackerPoints) }, 'WARN');
 }
 function setupCanvas(canvas) { const r = canvas.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1), w = Math.max(2, Math.round(r.width * d)), h = Math.max(2, Math.round(r.height * d)); if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; } const g = canvas.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); return { g, w: r.width, h: r.height }; }
