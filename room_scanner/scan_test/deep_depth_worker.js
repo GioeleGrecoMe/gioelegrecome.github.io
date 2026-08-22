@@ -22,10 +22,10 @@
  *    the classic 518x518 contract.  A successful plan is cached for all later
  *    frames, so compatibility probing is paid only once.
  *
- * 4) The pre-scan "test" is single-pass on a healthy provider. The old warm
- *    duplicate and unconditional horizontal-flip inference are removed. A second
- *    WASM inference is paid only if the first WebGPU depth fails the spatial
- *    coherence gate. This makes test time representative of actual scan latency.
+ * 4) The pre-scan test makes one additional horizontal-flip inference. Its
+ *    restored result must correlate with the original depth: finite/smooth
+ *    output alone does not prove that the camera raster was not shuffled.
+ *    This spatial proof is also required once before the first scan inference.
  *
  * Drop-in replacement for:
  *   room_scanner/v30/workers/deep_depth_worker.js
@@ -79,6 +79,11 @@ let successfulInputPlan = null;
 let lastSessionLoadMs = 0;
 let diagnosticOrt = null;
 let forceWasm = false;
+// The ONNX file, not a heuristic from the camera raster, owns this contract.
+// It is inspected once before the browser runtime creates a session.  This is
+// essential because some ORT Web versions expose inputNames but omit metadata.
+let bundledModelContract = null;
+let spatialContract = { verified:false, suspicious:false, reason:'not-run' };
 // A WebGPU session is treated as untrusted until either the explicit test or
 // the first geometry inference produces a spatially coherent depth map. This
 // matters because a corrupted Q4 shader can return finite, isotropic "snow"
@@ -101,6 +106,130 @@ function isPositiveDimension(value) {
   return Number.isFinite(n) && n > 0;
 }
 
+const ONNX_DATA_TYPES = Object.freeze({
+  1:'float32', 2:'uint8', 3:'int8', 4:'uint16', 5:'int16', 6:'int32', 7:'int64',
+  9:'bool', 10:'float16', 11:'float64', 12:'uint32', 13:'uint64', 16:'bfloat16',
+});
+
+function protoVarint(bytes, start) {
+  let value = 0n, shift = 0n, at = start;
+  while (at < bytes.length && shift <= 63n) {
+    const byte = BigInt(bytes[at++]);
+    value |= (byte & 0x7fn) << shift;
+    if (!(byte & 0x80n)) return { value, at };
+    shift += 7n;
+  }
+  fail(`ONNX protobuf non valido all'offset ${start}`);
+}
+
+function protoFields(bytes) {
+  const out = [];
+  let at = 0;
+  while (at < bytes.length) {
+    const key = protoVarint(bytes, at); at = key.at;
+    const field = Number(key.value >> 3n), wire = Number(key.value & 7n);
+    if (!field) fail('ONNX protobuf con field zero');
+    if (wire === 0) {
+      const value = protoVarint(bytes, at); at = value.at;
+      out.push({ field, wire, value:value.value });
+    } else if (wire === 1) {
+      if (at + 8 > bytes.length) fail('ONNX protobuf fixed64 troncato');
+      out.push({ field, wire, value:bytes.subarray(at, at + 8) }); at += 8;
+    } else if (wire === 2) {
+      const length = protoVarint(bytes, at); at = length.at;
+      const end = at + Number(length.value);
+      if (end > bytes.length) fail('ONNX protobuf length-delimited troncato');
+      out.push({ field, wire, value:bytes.subarray(at, end) }); at = end;
+    } else if (wire === 5) {
+      if (at + 4 > bytes.length) fail('ONNX protobuf fixed32 troncato');
+      out.push({ field, wire, value:bytes.subarray(at, at + 4) }); at += 4;
+    } else {
+      fail(`ONNX protobuf wire type non supportato: ${wire}`);
+    }
+  }
+  return out;
+}
+
+function protoFirst(entries, field) { return entries.find((entry) => entry.field === field) || null; }
+function protoAll(entries, field) { return entries.filter((entry) => entry.field === field); }
+function protoText(bytes) { return new TextDecoder().decode(bytes); }
+
+function onnxDimension(bytes) {
+  const entries = protoFields(bytes);
+  const numeric = protoFirst(entries, 1);
+  if (numeric?.wire === 0) return Number(numeric.value);
+  const symbolic = protoFirst(entries, 2);
+  return symbolic?.wire === 2 ? protoText(symbolic.value) : null;
+}
+
+function onnxTensorInfo(bytes) {
+  const entries = protoFields(bytes);
+  const element = protoFirst(entries, 1);
+  const shape = protoFirst(entries, 2);
+  const dimensions = shape?.wire === 2
+    ? protoAll(protoFields(shape.value), 1).filter((entry) => entry.wire === 2).map((entry) => onnxDimension(entry.value))
+    : null;
+  return { type:ONNX_DATA_TYPES[Number(element?.value)] || `onnx-${element?.value ?? '?'}`, shape:dimensions };
+}
+
+function onnxValueInfo(bytes) {
+  const entries = protoFields(bytes);
+  const name = protoFirst(entries, 1);
+  const type = protoFirst(entries, 2);
+  const tensor = type?.wire === 2 ? protoFirst(protoFields(type.value), 1) : null;
+  return {
+    name:name?.wire === 2 ? protoText(name.value) : null,
+    ...(tensor?.wire === 2 ? onnxTensorInfo(tensor.value) : { type:null, shape:null }),
+  };
+}
+
+function inspectDepthModelContract(modelBytes) {
+  const model = protoFields(new Uint8Array(modelBytes));
+  const graph = protoFirst(model, 7);
+  if (graph?.wire !== 2) fail('GraphProto ONNX assente');
+  const graphFields = protoFields(graph.value);
+  const inputs = protoAll(graphFields, 11).filter((entry) => entry.wire === 2).map((entry) => onnxValueInfo(entry.value));
+  const outputs = protoAll(graphFields, 12).filter((entry) => entry.wire === 2).map((entry) => onnxValueInfo(entry.value));
+  const input = inputs.find((entry) => entry.name === 'pixel_values');
+  const output = outputs.find((entry) => entry.name === 'predicted_depth');
+  const validInput = input?.type === 'float32' && input.shape?.length === 4 && input.shape[1] === 3;
+  const validOutput = output?.type === 'float32' && output.shape?.length === 3;
+  if (!validInput || !validOutput) {
+    fail(`modello ONNX incompatibile: richiesti pixel_values float32 [B,3,H,W] e predicted_depth float32 [B,H,W]; trovati input=${JSON.stringify(inputs)} output=${JSON.stringify(outputs)}`);
+  }
+  return { input, output, inputs, outputs, verified:true };
+}
+
+function runtimeMetadataAgrees(meta, contract, role) {
+  if (!meta || !contract) return true;
+  const type = String(meta.type || '').toLowerCase();
+  if (type && type !== contract.type) fail(`${role} runtime ONNX type=${type}, ma modello=${contract.type}`);
+  const shape = Array.from(meta.shape || meta.dimensions || []);
+  if (shape.length && shape.length !== contract.shape.length) {
+    fail(`${role} runtime ONNX rank=${shape.length}, ma modello=${contract.shape.length}`);
+  }
+  if (shape.length && role === 'input' && isPositiveDimension(shape[1]) && Number(shape[1]) !== 3) {
+    fail(`input runtime ONNX non RGB/NCHW: ${JSON.stringify(shape)}`);
+  }
+  return true;
+}
+
+function assessFlipComparison(comparison) {
+  if (!comparison?.comparable) {
+    return { verified:false, suspicious:true, reason:comparison?.error || comparison?.reason || 'flip-not-comparable', comparison:comparison || null };
+  }
+  const correlation = Number(comparison.correlation);
+  const verified = Number.isFinite(correlation) && correlation >= .78;
+  return {
+    verified,
+    suspicious:!verified,
+    reason:verified ? 'flip-equivariant' : 'flip-correlation-below-0.78',
+    correlation,
+    nrmse:Number(comparison.nrmse),
+    samples:Number(comparison.samples) || 0,
+  };
+}
+
 function metadataEntry(metadata, name, index = 0) {
   if (!metadata) return null;
 
@@ -117,6 +246,7 @@ function metadataEntry(metadata, name, index = 0) {
 
 function inputSpec(activeSession = session) {
   if (!activeSession) fail('sessione ONNX non inizializzata');
+  if (!bundledModelContract?.verified) fail('contratto ONNX non verificato prima della sessione');
 
   const inputNames = Array.from(activeSession.inputNames || []);
   const name = inputNames[0];
@@ -124,42 +254,40 @@ function inputSpec(activeSession = session) {
     fail(`il modello ONNX non espone nomi di input (inputNames=${JSON.stringify(inputNames)})`);
   }
 
+  if (name !== bundledModelContract.input.name) {
+    fail(`input runtime ONNX inatteso: ${name}; modello verificato=${bundledModelContract.input.name}`);
+  }
   const meta = metadataEntry(activeSession.inputMetadata, name, 0);
-
-  // Several onnxruntime-web builds expose inputNames but no metadata.  That is
-  // a runtime API limitation, not evidence that the model has no input.
-  if (!meta) {
-    const side = positiveNumber(cfg.inputMaxSide, 518);
-    return {
-      name,
-      type: String(cfg.inputType || 'float32').toLowerCase(),
-      dims: [1, 3, side, side],
-      width: side,
-      height: side,
-      rawShape: null,
-      metadataAvailable: false,
-      contractFallback: true,
-      spatialFixed: false,
-    };
+  runtimeMetadataAgrees(meta, bundledModelContract.input, 'input');
+  const rawShape = bundledModelContract.input.shape;
+  const batch = rawShape[0];
+  if (isPositiveDimension(batch) && Number(batch) !== 1) {
+    fail(`batch input ONNX non supportato: ${JSON.stringify(rawShape)}`);
   }
-
-  const rawShape = Array.from(meta.shape || meta.dimensions || [1, 3, 'height', 'width']);
-  if (rawShape.length !== 4) {
-    fail(`input ONNX non supportato: name=${name}, shape=${JSON.stringify(rawShape)}`);
-  }
-
-  const channels = isPositiveDimension(rawShape[1]) ? Number(rawShape[1]) : 3;
-  if (channels !== 3) {
-    fail(`input ONNX non RGB/NCHW: name=${name}, shape=${JSON.stringify(rawShape)}`);
-  }
-
   const spatialFixed = isPositiveDimension(rawShape[2]) && isPositiveDimension(rawShape[3]);
   const height = spatialFixed ? Number(rawShape[2]) : positiveNumber(cfg.inputMaxSide, 518);
   const width = spatialFixed ? Number(rawShape[3]) : positiveNumber(cfg.inputMaxSide, 518);
 
+  // Some ONNX Runtime Web builds expose inputNames but omit inputMetadata. The
+  // model binary above remains authoritative even in that API-limited case.
+  if (!meta) {
+    return {
+      name,
+      type: bundledModelContract.input.type,
+      dims: [1, 3, height, width],
+      width,
+      height,
+      rawShape,
+      metadataAvailable: false,
+      contractFallback: false,
+      spatialFixed,
+      contractSource:'onnx-binary',
+    };
+  }
+
   return {
     name,
-    type: String(meta.type || cfg.inputType || 'float32').toLowerCase(),
+    type: bundledModelContract.input.type,
     dims: [1, 3, height, width],
     width,
     height,
@@ -167,6 +295,7 @@ function inputSpec(activeSession = session) {
     metadataAvailable: true,
     contractFallback: false,
     spatialFixed,
+    contractSource:'onnx-binary+runtime-metadata',
   };
 }
 
@@ -174,12 +303,17 @@ function outputDebugSpec(activeSession = session) {
   if (!activeSession) return null;
   const outputNames = Array.from(activeSession.outputNames || []);
   const name = outputNames[0] || null;
+  if (name && bundledModelContract?.output?.name && name !== bundledModelContract.output.name) {
+    fail(`output runtime ONNX inatteso: ${name}; modello verificato=${bundledModelContract.output.name}`);
+  }
   const meta = name ? metadataEntry(activeSession.outputMetadata, name, 0) : null;
-  const rawShape = meta?.shape || meta?.dimensions || null;
+  runtimeMetadataAgrees(meta, bundledModelContract?.output, 'output');
+  const rawShape = bundledModelContract?.output?.shape || meta?.shape || meta?.dimensions || null;
   return {
     name,
-    type: meta?.type || null,
+    type: bundledModelContract?.output?.type || meta?.type || null,
     shape: rawShape ? Array.from(rawShape) : null,
+    contractSource:bundledModelContract?.verified ? 'onnx-binary' : 'runtime-metadata',
   };
 }
 
@@ -364,7 +498,12 @@ async function ensureSession(source) {
   }
 
   successfulInputPlan = null;
+  spatialContract = { verified:false, suspicious:false, reason:'new-model-or-session' };
   const bytes = await fetchModel(source);
+  // Verify the model's declared interface before passing opaque bytes to ORT.
+  // This makes a wrong uploaded ONNX fail explicitly instead of being rendered
+  // as a plausible-looking but spatially scrambled depth raster.
+  bundledModelContract = inspectDepthModelContract(bytes);
   // Keep the already-fetched bytes only while the provider is being validated.
   // If WebGPU looks suspicious, the one-shot WASM reference can reuse these
   // bytes instead of downloading/reading the 27 MB model a second time.
@@ -406,6 +545,7 @@ async function ensureSession(source) {
           spatialFixed: spec.spatialFixed,
         },
         output,
+        modelContract:bundledModelContract,
         model: source?.label || sourceKey,
         sessionLoadMs: lastSessionLoadMs,
       });
@@ -576,11 +716,15 @@ async function prepareInput(rgba, width, height, spec, plan, forcedType = null, 
 
   const src = rgba instanceof Uint8ClampedArray ? rgba : new Uint8ClampedArray(rgba);
   const required = srcWidth * srcHeight * 4;
-  if (src.length < required) fail(`buffer RGBA incompleto: ${src.length} byte, attesi almeno ${required}`);
+  if (src.length !== required) fail(`buffer RGBA con shape errata: ${src.length} byte, attesi esattamente ${required} per ${srcWidth}x${srcHeight}x4`);
 
   const targetWidth = plan.width | 0;
   const targetHeight = plan.height | 0;
   if (!(targetWidth > 1 && targetHeight > 1)) fail('shape input ONNX non valida');
+  const patch = Math.max(1, cfg.patchSize | 0 || 14);
+  if (targetWidth % patch || targetHeight % patch) {
+    fail(`raster input non allineato ai patch ViT/${patch}: ${targetWidth}x${targetHeight}`);
+  }
 
   // Q4/Q4F16 quantize model weights, not the camera contract. Depth Anything
   // ONNX consumes pixel_values as float32 NCHW. Keeping this fixed removes one
@@ -799,6 +943,7 @@ function depthQualityDiagnosis(spatialStats) {
 }
 
 async function readOutput(result, expectedPlan, activeSession = session) {
+  if (!bundledModelContract?.verified) fail('contratto output ONNX non verificato');
   const outputNames = Array.from(activeSession?.outputNames || []);
   const name = result?.predicted_depth
     ? 'predicted_depth'
@@ -809,24 +954,31 @@ async function readOutput(result, expectedPlan, activeSession = session) {
   if (!tensor) {
     fail(`il modello non ha restituito predicted_depth; outputNames=${JSON.stringify(outputNames)}, resultKeys=${JSON.stringify(Object.keys(result || {}))}`);
   }
+  if (name !== bundledModelContract.output.name) {
+    fail(`output ONNX errato: ${name}; atteso ${bundledModelContract.output.name}`);
+  }
+  const tensorType = String(tensor.type || '').toLowerCase();
+  if (tensorType && tensorType !== bundledModelContract.output.type) {
+    fail(`dtype output ONNX errato: ${tensorType}; atteso ${bundledModelContract.output.type}`);
+  }
 
   // Official Depth Anything contract: predicted_depth = [batch, height, width].
   // Do not infer/transpose dimensions from the camera raster. The ONNX tensor
   // shape is authoritative and data are standard row-major within each plane.
   const dims = Array.from(tensor.dims || []).map(Number);
-  if (dims.length < 2) {
-    fail(`predicted_depth shape non valida: ${JSON.stringify(dims)}`);
+  if (dims.length !== 3 || dims[0] !== 1) {
+    fail(`predicted_depth deve essere [1,H,W], ricevuto ${JSON.stringify(dims)}`);
   }
-  const logicalHeight = Number(dims[dims.length - 2]);
-  const logicalWidth = Number(dims[dims.length - 1]);
+  const logicalHeight = Number(dims[1]);
+  const logicalWidth = Number(dims[2]);
   if (!(logicalWidth > 1 && logicalHeight > 1)) {
     fail(`predicted_depth H/W non valide: ${JSON.stringify(dims)}`);
   }
 
   const cpu = await tensorCpuData(tensor);
   const planeLength = logicalWidth * logicalHeight;
-  if (cpu.data.length < planeLength) {
-    fail(`predicted_depth incompleta: data=${cpu.data.length}, HxW=${logicalHeight}x${logicalWidth}`);
+  if (cpu.data.length !== planeLength) {
+    fail(`predicted_depth con buffer incoerente: data=${cpu.data.length}, shape=[1,${logicalHeight},${logicalWidth}]`);
   }
 
   // Batch 0 starts at element 0. The previous generic reader used the *last*
@@ -834,12 +986,15 @@ async function readOutput(result, expectedPlan, activeSession = session) {
   // can be wrong if a runtime attaches additional storage/alignment.
   const out = new Float32Array(planeLength);
   for (let i = 0; i < planeLength; i++) {
-    out[i] = scalarFromCpuBuffer(cpu.data, tensor.type, i);
+    out[i] = scalarFromCpuBuffer(cpu.data, tensorType, i);
   }
 
   const expectedWidth = Number(expectedPlan?.width);
   const expectedHeight = Number(expectedPlan?.height);
   const shapeMatchesInput = logicalWidth === expectedWidth && logicalHeight === expectedHeight;
+  if (!shapeMatchesInput) {
+    fail(`predicted_depth HxW ${logicalHeight}x${logicalWidth} non coincide con input patch-allineato ${expectedHeight}x${expectedWidth}`);
+  }
 
   return {
     rawDepth: out,
@@ -853,7 +1008,7 @@ async function readOutput(result, expectedPlan, activeSession = session) {
     outputGetDataError: cpu.getDataError || null,
     logicalWidth,
     logicalHeight,
-    layoutFix: shapeMatchesInput ? 'official-HW' : 'official-HW-different-from-input',
+    layoutFix: 'official-HW-row-major',
     shapeMatchesInput,
     spatialStats: depthSpatialStats(out, logicalWidth, logicalHeight),
   };
@@ -1033,20 +1188,38 @@ async function runWasmDiagnostic(d, reference) {
   }
 }
 
-async function providerABDiagnostic(d, webgpuResult, { flipCheck = false } = {}) {
+async function providerABDiagnostic(d, primaryResult, { flipCheck = false } = {}) {
+  const primaryQuality = depthQualityDiagnosis(primaryResult.spatialStats);
+  let flipComparison = null;
+  if (flipCheck) {
+    try { flipComparison = await runFlipDiagnostic(d, primaryResult); }
+    catch (err) { flipComparison = { comparable:false, error:err?.message || String(err) }; }
+    spatialContract = assessFlipComparison(flipComparison);
+  }
+  const currentSpatialContract = spatialContract;
+  const flipSuspicious = currentSpatialContract.suspicious === true;
+
+  // WASM is the selected provider in Scan Test.  It needs exactly the same
+  // spatial proof as WebGPU: a flipped camera frame must produce a flipped
+  // depth frame after restoration.  Previously this early return skipped the
+  // only test capable of detecting a coherent-looking but shuffled raster.
   if (provider !== 'webgpu') {
     providerValidated = true;
     sessionModelBytes = null;
-    return { attempted: false, reason: `primary-provider-${provider}` };
+    return {
+      attempted:false,
+      reason:`primary-provider-${provider}`,
+      flipComparison,
+      spatialContract:currentSpatialContract,
+      rasterDiagnosis:{
+        verdict:flipSuspicious ? 'spatial-contract-failed' : 'wasm-structured',
+        primaryStripe:primaryQuality.stripe,
+        primaryCoherence:primaryQuality.coherenceRatio,
+      },
+      primary:{ ms:primaryResult.steadyMs, stripe:primaryQuality.stripe, coherenceRatio:primaryQuality.coherenceRatio },
+    };
   }
-  const webgpuQuality = depthQualityDiagnosis(webgpuResult.spatialStats);
-  let flipComparison = null;
-  if (flipCheck) {
-    try { flipComparison = await runFlipDiagnostic(d, webgpuResult); }
-    catch (err) { flipComparison = { comparable:false, error:err?.message || String(err) }; }
-  }
-  const flipSuspicious = !!(flipComparison?.comparable && Number(flipComparison.correlation) < 0.78);
-  const primarySuspicious = webgpuQuality.suspicious || flipSuspicious;
+  const primarySuspicious = primaryQuality.suspicious || flipSuspicious;
 
   // Healthy maps stay on WebGPU without creating a second runtime/session.
   if (!primarySuspicious) {
@@ -1055,14 +1228,15 @@ async function providerABDiagnostic(d, webgpuResult, { flipCheck = false } = {})
     return {
       attempted:false,
       reason:'webgpu-quality-ok',
-      rasterDiagnosis:{ verdict:'webgpu-structured', primaryStripe:webgpuQuality.stripe, primaryCoherence:webgpuQuality.coherenceRatio },
+      rasterDiagnosis:{ verdict:'webgpu-structured', primaryStripe:primaryQuality.stripe, primaryCoherence:primaryQuality.coherenceRatio },
       flipComparison,
-      webgpu:{ ms:webgpuResult.steadyMs, stripe:webgpuQuality.stripe, coherenceRatio:webgpuQuality.coherenceRatio },
+      spatialContract:currentSpatialContract,
+      webgpu:{ ms:primaryResult.steadyMs, stripe:primaryQuality.stripe, coherenceRatio:primaryQuality.coherenceRatio },
     };
   }
   try {
-    const wasm = await runWasmDiagnostic(d, webgpuResult);
-    const comparison = compareDepthMaps(webgpuResult.rawDepth, wasm.rawDepth);
+    const wasm = await runWasmDiagnostic(d, primaryResult);
+    const comparison = compareDepthMaps(primaryResult.rawDepth, wasm.rawDepth);
     const wasmQuality = wasm.quality || depthQualityDiagnosis(wasm.spatialStats);
     const providerMismatch = comparison.comparable && (comparison.correlation < 0.90 || comparison.nrmse > 0.75);
     const webgpuLikelyCorrupt = primarySuspicious && providerMismatch && !wasmQuality.suspicious;
@@ -1081,14 +1255,15 @@ async function providerABDiagnostic(d, webgpuResult, { flipCheck = false } = {})
       webgpuLikelyCorrupt,
       recommendation: webgpuLikelyCorrupt ? 'use-wasm-safe-fallback' : 'keep-current-provider',
       rasterDiagnosis:{
-        verdict:webgpuLikelyCorrupt?'webgpu-corrupt-use-wasm':'provider-difference-not-conclusive',
-        primaryStripe:webgpuQuality.stripe,
-        primaryCoherence:webgpuQuality.coherenceRatio,
+        verdict:flipSuspicious ? 'spatial-contract-failed' : webgpuLikelyCorrupt?'webgpu-corrupt-use-wasm':'provider-difference-not-conclusive',
+        primaryStripe:primaryQuality.stripe,
+        primaryCoherence:primaryQuality.coherenceRatio,
         referenceStripe:wasmQuality.stripe,
         referenceCoherence:wasmQuality.coherenceRatio,
       },
       flipComparison,
-      webgpu: { ms: webgpuResult.steadyMs, summary: finiteSummary(webgpuResult.rawDepth), stripe: webgpuQuality.stripe, coherenceRatio:webgpuQuality.coherenceRatio },
+      spatialContract:currentSpatialContract,
+      webgpu: { ms: primaryResult.steadyMs, summary: finiteSummary(primaryResult.rawDepth), stripe:primaryQuality.stripe, coherenceRatio:primaryQuality.coherenceRatio },
       wasm: { ms: wasm.steadyMs, loadMs: wasm.loadMs, summary: wasm.summary, stripe: wasmQuality.stripe, coherenceRatio:wasmQuality.coherenceRatio, spatialStats:wasm.spatialStats, depthSignature: sampledFloatSignature(wasm.rawDepth, wasm.width, wasm.height) },
       comparison,
       wasmPreviewDepth: wasm.rawDepth,
@@ -1097,7 +1272,7 @@ async function providerABDiagnostic(d, webgpuResult, { flipCheck = false } = {})
     };
   } catch (err) {
     sessionModelBytes = null;
-    return { attempted: true, failed: true, message: err?.message || String(err) };
+    return { attempted: true, failed: true, message: err?.message || String(err), flipComparison, spatialContract:currentSpatialContract };
   }
 }
 
@@ -1178,10 +1353,9 @@ async function infer(d, { benchmark = false, ignoreCachedPlan = false } = {}) {
 
         successfulInputPlan = { ...plan };
 
-        // The V30.20 test executed the model twice here (cold + warm), then a
-        // third time for flip-equivariance. On a 10 s phone this alone explained
-        // the >30 s diagnostic. V30.21 keeps the first successful inference and
-        // reports it directly; the same warm session is then reused by Scan.
+        // The normal pass is deliberately single-shot.  The caller adds one
+        // flip-equivalence pass only for the explicit preflight or a fresh
+        // session whose spatial raster contract has not yet been proven.
         return {
           ...first,
           sessionMs,
@@ -1337,10 +1511,13 @@ async function handleWorkerMessage(d) {
     // quality gate remains suspicious, before paying for a second WASM runtime.
     const resolutionRescue = await maybeResolutionRescue(d, firstRaw);
     const raw = resolutionRescue.result;
-    // Fast test: one inference is enough when the map is healthy. WASM is created
-    // only after the chosen resolution is still spatially suspicious.
-    const diagnostic = d.type === 'test'
-      ? await providerABDiagnostic(d, raw, { flipCheck:cfg.testFlipCheck === true })
+    // Shape and local smoothness cannot prove that raster coordinates survived
+    // the camera -> NCHW -> ONNX -> HxW path.  Test that once per session (and
+    // always on the explicit preflight): flip the source, infer it, restore the
+    // output and require the same depth field.  This applies to WASM too.
+    const needSpatialContract = d.type === 'test' || !spatialContract.verified;
+    const diagnostic = needSpatialContract
+      ? await providerABDiagnostic(d, raw, { flipCheck:true })
       : (provider === 'webgpu' && !providerValidated
         ? await providerABDiagnostic(d, raw, { flipCheck:false })
         : null);
@@ -1351,8 +1528,16 @@ async function handleWorkerMessage(d) {
     const effectiveProvider = useSafeWasm ? 'wasm-safe' : provider;
     const finalDepthSignature = sampledFloatSignature(finalDepth, finalWidth, finalHeight);
     const finalSpatialStats = useSafeWasm ? (diagnostic.wasm?.spatialStats || raw.spatialStats) : raw.spatialStats;
-    const finalQuality = depthQualityDiagnosis(finalSpatialStats || {});
-    const qualityVerdict = finalQuality.suspicious
+    const depthQuality = depthQualityDiagnosis(finalSpatialStats || {});
+    const finalSpatialContract = diagnostic?.spatialContract || spatialContract;
+    const finalQuality = {
+      ...depthQuality,
+      spatialContract:finalSpatialContract,
+      suspicious:depthQuality.suspicious || finalSpatialContract?.suspicious === true,
+    };
+    const qualityVerdict = finalSpatialContract?.suspicious
+      ? 'spatial-contract-failed'
+      : finalQuality.suspicious
       ? 'depth-quality-warning'
       : resolutionRescue?.accepted ? 'resolution-rescue-ok' : 'depth-structured';
     const rasterDiagnosis = diagnostic?.rasterDiagnosis || {
@@ -1383,6 +1568,7 @@ async function handleWorkerMessage(d) {
       spatialStats: finalSpatialStats || null,
       quality: finalQuality,
       rasterContract: raw.preprocessBackend || 'RGBA -> RGB/NCHW',
+      modelContract:bundledModelContract,
       preprocessBackend: raw.preprocessBackend || null,
       rasterProbe: raw.rasterProbe || null,
       inputRasterDiagnostic: d.type === 'test' ? raw.inputRasterDiagnostic || null : null,

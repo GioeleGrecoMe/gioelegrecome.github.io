@@ -18,6 +18,13 @@ Nel replay, le pose restano di esclusiva competenza di AlvaAR. Le corrispondenze
 
 `models/model_q4.onnx` è il modello Deep predefinito. La pagina tenta prima un eventuale runtime ONNX locale in `vendor/onnxruntime-web/`, poi il runtime ufficiale CDN già usato da V30; quindi il primo test Deep richiede rete finché non viene aggiunto un file `ort.all.min.mjs` compatibile in quella directory. In questo banco di prova Deep gira intenzionalmente con il provider **WASM**, non WebGPU: è più lento, ma evita output Q4 finiti e casuali osservati su alcuni driver Android.
 
-“Prova Deep sul frame corrente” espone tre sole immagini: frame RGBA, tensor NCHW ricostruito in RGB e output ufficiale `H×W` row-major. Le prime due devono ritrarre la stessa scena; se la qualità spaziale non supera il gate, il test e la ricostruzione si fermano invece di usare profondità casuali. Le viste NHWC/column-major non sono diagnostiche valide e non vengono mostrate.
+“Prova Deep sul frame corrente” espone tre sole immagini: frame RGBA, tensor NCHW ricostruito in RGB e output ufficiale `H×W` row-major. Prima dell'inferenza il worker legge direttamente dal file ONNX il contratto richiesto: `pixel_values float32 [B,3,H,W]` e `predicted_depth float32 [B,H,W]`; un modello o un runtime che dichiari altro viene rifiutato. Il test ripete inoltre il frame specchiato e richiede che, dopo avere rispecchiato di nuovo l'output, la depth concordi con l'originale. Questo controllo vale anche in WASM e intercetta un ordine di pixel accidentalmente rimescolato. Se il contratto o la qualità spaziale non superano il gate, test e ricostruzione si fermano invece di usare profondità casuali. Le viste NHWC/column-major non sono diagnostiche valide e non vengono mostrate.
+
+Il controllo statico ripetibile dei due modelli inclusi è disponibile senza rete o browser:
+
+```sh
+node scan_test/tools/inspect_onnx_contract.mjs scan_test/models/model_q4.onnx scan_test/models/depth_anything_v2_small_q4f16.onnx
+node scan_test/tools/test_depth_contract.mjs
+```
 
 La scala resta quella del mondo AlvaAR finché non si inserisce un fattore noto in “Scala Alva → metri”. I fotogrammi sono conservati in memoria per la riesecuzione e l'elaborazione della sessione corrente; la diagnostica esportata contiene metadati, pose, match e parametri, non le immagini RGB.

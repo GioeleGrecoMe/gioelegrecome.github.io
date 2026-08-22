@@ -35,7 +35,7 @@ const S = {
   trackingStarted: false, trackingSamples: 0, trackingPoses: 0,
   recording: false, frames: [], preRoll: [], frameBytes: 0, edges: [], depthEdges: [], offlineTrackerPoints: [],
   selectedFrame: null, offlineDone: false, deepDone: false, finalDone: false,
-  deepWorker: null, deepWaiters: new Map(), deepModel: null, splats: null, planeSplats: null,
+  deepWorker: null, deepWaiters: new Map(), deepModel: null, deepContract: null, splats: null, planeSplats: null,
   lastDepthFrame: null, viewToken: 0, lastResult: null,
 };
 
@@ -225,7 +225,7 @@ function disposeCaptureSource() {
 }
 function clearSession() {
   if (S.recording) throw new Error('Ferma prima la registrazione.');
-  disposeCaptureSource(); S.frames.length = 0; S.preRoll.length = 0; S.edges.length = 0; S.depthEdges.length = 0; S.offlineTrackerPoints.length = 0; S.frameBytes = 0; S.offlineDone = S.deepDone = S.finalDone = false; S.splats = S.planeSplats = null; S.lastDepthFrame = null;
+  disposeCaptureSource(); S.frames.length = 0; S.preRoll.length = 0; S.edges.length = 0; S.depthEdges.length = 0; S.offlineTrackerPoints.length = 0; S.frameBytes = 0; S.offlineDone = S.deepDone = S.finalDone = false; S.splats = S.planeSplats = null; S.lastDepthFrame = null; S.deepContract = null;
   dom.frameStrip.innerHTML = '<p class="empty">L\'archivio comparirà qui. I fotogrammi sono mantenuti in memoria per la riesecuzione offline e Deep.</p>';
   updateArchiveUi(); setBadge(dom.offlineBadge, 'non avviata'); setBadge(dom.planeBadge, 'in attesa'); setBadge(dom.deepBadge, 'non avviata'); setBadge(dom.viewerBadge, 'nessuna particella');
   dom.deepDiagnostic.hidden = true; dom.deepReport.textContent = 'Esegui “Prova Deep sul frame corrente” per verificare il percorso completo.';
@@ -388,7 +388,7 @@ async function ensureDeepWorker() {
   // Correctness is the point of this isolated experiment. The Q4 model has
   // previously produced finite but visually random output on Android WebGPU,
   // so every test and scan runs through the deterministic WASM provider.
-  worker.postMessage({ type: 'init', config: { modelUrl: new URL('./models/model_q4.onnx', location.href).href, ortLocal: new URL('./vendor/onnxruntime-web/ort.all.min.mjs', location.href).href, inputMaxSide: 518, preferredShortSide: 224, compatibilityShortSide: 280, qualityRescueShortSide: 280, qualityMaxRescueShortSide: 336, testFlipCheck: false, forceWasm: true } });
+  worker.postMessage({ type: 'init', config: { modelUrl: new URL('./models/model_q4.onnx', location.href).href, ortLocal: new URL('./vendor/onnxruntime-web/ort.all.min.mjs', location.href).href, inputMaxSide: 518, preferredShortSide: 224, compatibilityShortSide: 280, qualityRescueShortSide: 280, qualityMaxRescueShortSide: 336, testFlipCheck: true, forceWasm: true } });
   return worker;
 }
 function deepRequest(message, timeout = 120000) {
@@ -403,12 +403,13 @@ async function testDeep() {
   try {
     const d = await deepRequest({ type: 'test', jobId, model: modelForWorker(), rgba: new Uint8ClampedArray(frame.rgba), width: W, height: H, frameId: jobId, frameAt: frame.at, refId: 'preflight' });
     if (d.type === 'deep-error') throw new Error(d.message || 'inferenza Deep fallita');
+    S.deepContract = d.modelContract || S.deepContract;
     renderDeepDiagnostic(d);
     drawDepth({ rawDepth: d.rawDepth, rawWidth: d.rawWidth, rawHeight: d.rawHeight });
     const bad = !!d.quality?.suspicious;
     dom.runtimeStatus.textContent = `Deep ${bad ? 'NON superato' : 'OK'} · ${d.provider} · ${d.rawWidth}×${d.rawHeight} · ${fmt(d.totalMs || d.ms, 0)} ms · ${bad ? 'mappa incoerente: non verrà usata' : 'struttura coerente'}`;
     setGlobal(bad ? 'Test Deep non superato' : 'Test Deep completato', bad ? 'fail' : 'ok');
-    log('deep-test', { provider: d.provider, output: [d.rawWidth, d.rawHeight], ms: d.totalMs || d.ms, quality: d.quality, layout: d.layoutFix, input: d.inputPlan, rasterProbe: d.rasterProbe, depthSignature: d.depthSignature }, bad ? 'WARN' : 'INFO');
+    log('deep-test', { provider: d.provider, output: [d.rawWidth, d.rawHeight], ms: d.totalMs || d.ms, quality: d.quality, layout: d.layoutFix, input: d.inputPlan, modelContract: d.modelContract, flip: d.flipComparison, rasterProbe: d.rasterProbe, depthSignature: d.depthSignature }, bad ? 'WARN' : 'INFO');
     if (bad) throw new Error('La mappa Deep non supera il controllo di coerenza: verifica i tre riquadri diagnostici; la ricostruzione non userà una profondità casuale.');
   }
   finally { $('testDeepBtn').disabled = false; }
@@ -475,6 +476,7 @@ async function runDeep() {
     const f = selected[i], jobId = `deep-${f.id}-${Date.now()}`; dom.deepBadge.textContent = `Deep ${i + 1}/${selected.length}`;
     const d = await deepRequest({ type: 'infer', jobId, model: modelForWorker(), rgba: new Uint8ClampedArray(f.rgba), width: f.width, height: f.height, frameId: f.id, frameAt: f.at, refId: f.id, targetSide: 224 });
     if (d.type === 'deep-error') throw new Error(`${f.id}: ${d.message || 'errore Deep'}`);
+    S.deepContract = d.modelContract || S.deepContract;
     const valid = Array.from(d.rawDepth, v => Math.abs(v)).filter(v => Number.isFinite(v) && v > 1e-8); f.deep = { rawDepth: d.rawDepth, rawWidth: d.rawWidth, rawHeight: d.rawHeight, median: median(valid), quality: d.quality || {}, provider: d.provider, inputPlan: d.inputPlan, ms: d.totalMs || d.ms, convention: 'direct', depthScale: Math.max(.001, numberValue('planeDistance', 2)) }; S.lastDepthFrame = f;
     drawDepth(f.deep); log('deep-frame-result', { frame: f.id, output: [d.rawWidth, d.rawHeight], inputPlan: d.inputPlan, provider: d.provider, ms: d.totalMs || d.ms, quality: d.quality, layout: d.layoutFix }); await nextPaint();
     if (d.quality?.suspicious || !Number.isFinite(f.deep.median)) throw new Error(`${f.id}: Deep ha prodotto una mappa incoerente o senza profondità relativa valida; il flusso si ferma invece di creare splat RGB casuali.`);
@@ -528,11 +530,16 @@ function renderDeepDiagnostic(d) {
   const output = depthImage(d.rawDepth, d.rawWidth, d.rawHeight);
   if (output) drawCanvasImage(dom.deepOutputCanvas, output, d.rawWidth, d.rawHeight);
   const q = d.quality || {}, stripe = q.stripe || {}, rd = d.rasterDiagnosis || {}, stats = d.spatialStats || {};
+  const flip = d.flipComparison || q.spatialContract?.comparison || null;
+  const spatial = q.spatialContract || {};
+  const model = d.modelContract || {};
   dom.deepReport.textContent = [
     `VERDETTO: ${rd.verdict || (q.suspicious ? 'depth-quality-warning' : 'depth-structured')}`,
     `provider: ${d.provider || '?'} · runtime: ${d.runtime || '?'} · output ${d.rawWidth || '?'}×${d.rawHeight || '?'} · ${fmt(d.totalMs || d.ms, 0)} ms`,
     `input: ${d.preprocessBackend || '?'} · ${d.inputPlan?.width || '?'}×${d.inputPlan?.height || '?'} · tensor ${d.inputDims?.join('×') || '?'}`,
     `output: ${d.outputDims?.join('×') || '?'} · ${d.outputReadback || '?'} @ ${d.outputLocation || '?'}`,
+    `ONNX verificato: ${model.input?.name || 'pixel_values'} ${model.input?.type || 'float32'} [B,3,H,W] → ${model.output?.name || 'predicted_depth'} ${model.output?.type || 'float32'} [B,H,W]`,
+    `flip spaziale: ${spatial.verified ? 'SUPERATO' : 'NON SUPERATO'} · correlazione ${fmt(flip?.correlation, 3)} · campioni ${flip?.samples || 0} · ${spatial.reason || 'non eseguito'}`,
     `coerenza spaziale: ${fmt(q.coherenceRatio, 2)} (rumore casuale ≈ 1; deve essere > 1.28)`,
     `banding: ${stripe.orientation || '?'} · asse dominante ${fmt(100 * (stripe.dominantExplained || 0), 0)}% · cicli ${fmt(stripe.dominantCycles, 1)} · ratio ${fmt(stripe.ratio, 2)}`,
     `pixel RGB sonda: ${JSON.stringify(d.rasterProbe || {})}`,
@@ -542,7 +549,7 @@ function renderDeepDiagnostic(d) {
     '1. CAMERA e TENSOR RGB/NCHW devono essere la stessa scena (il secondo è soltanto ridimensionato).',
     '2. DEPTH è l’unico output usato, [batch, height, width] e row-major.',
     '3. NHWC e column-major non sono output alternativi: sono letture errate e non vengono mostrate.',
-    `4. Questo test è bloccato su WASM per correttezza; stato qualità: ${q.suspicious ? 'NON SUPERATO' : 'SUPERATO'}.`,
+    `4. Questo test è bloccato su WASM per correttezza e ripete il frame specchiato; stato qualità: ${q.suspicious ? 'NON SUPERATO' : 'SUPERATO'}.`,
     `5. Statistica grezza: finite ${fmt(100 * (stats.finiteRatio || 0), 1)}% · locale ${fmt(stats.meanNeighborDiff, 5)} · lontana ${fmt(stats.meanFarDiff, 5)}.`,
   ].join('\n');
 }
@@ -571,10 +578,10 @@ function verifyGeometry() {
   log('geometry-verification', { reprojections: errors.length, medianPx: med, p90Px: p90, poseSources, note: 'verifica sola: nessuna posa e nessun pixel è stato scartato o riscritto' }); setGlobal(errors.length ? 'Verifica completata' : 'Verifica con pochi vincoli', errors.length ? 'ok' : '');
 }
 function downloadDiagnostics() {
-  const report = { format: 'SCAN-TEST-DIAGNOSTICS-2', createdAt: new Date().toISOString(), contract: { allImagesInMemory: true, alvaWarmupReplayed: true, poseAuthority: 'AlvaAR only', correspondenceAuthority: 'archived RGB BRIEF+ZNCC, no synthetic pose', noSemanticFilters: true, onlyOptimizedQuantity: 'one relative-depth scale per Deep view', projection: 'orthographic-isometric' }, intrinsics: S.K, archive: { frames: S.frames.length, warmupFrames: S.frames.filter(f => f.phase === 'alva-warmup').length, bytes: S.frameBytes, imageSize: [W, H] }, frames: S.frames.map(f => ({ id: f.id, phase: f.phase, at: f.at, livePose: f.livePose, offlinePose: f.offlinePose, chosenPose: f.pose, poseSource: f.poseSource, poseConfidence: f.poseConfidence, liveAlvaPoints: f.livePoints, offlineAlvaPoints: f.offlinePoints?.length || 0, features: f.features.length, deep: f.deep ? { rawSize: [f.deep.rawWidth, f.deep.rawHeight], provider: f.deep.provider, convention: f.deep.convention, depthScale: f.deep.depthScale, quality: f.deep.quality } : null })), edges: S.edges.map(e => ({ a: e.a.id, b: e.b.id, kind: e.kind, appearance: e.appearance, matches: e.matches.length, rawMatches: e.rawMatches, consensusMatches: e.consensusMatches, overlap: e.overlap, poseBaseline: e.poseBaseline, poseAngle: e.poseAngle })), depthEdges: S.depthEdges.map(e => ({ a: e.a.id, b: e.b.id, matches: e.matches.length, overlap: e.overlap })), splat: S.splats ? { count: S.splats.count, gridStep: S.splats.gridStep, deepPixels: S.splats.deepPixels, planePixels: S.splats.planePixels, depthRange: [S.splats.minDepth, S.splats.maxDepth] } : null };
+  const report = { format: 'SCAN-TEST-DIAGNOSTICS-2', createdAt: new Date().toISOString(), contract: { allImagesInMemory: true, alvaWarmupReplayed: true, poseAuthority: 'AlvaAR only', correspondenceAuthority: 'archived RGB BRIEF+ZNCC, no synthetic pose', noSemanticFilters: true, onlyOptimizedQuantity: 'one relative-depth scale per Deep view', projection: 'orthographic-isometric', deepOnnx: S.deepContract }, intrinsics: S.K, archive: { frames: S.frames.length, warmupFrames: S.frames.filter(f => f.phase === 'alva-warmup').length, bytes: S.frameBytes, imageSize: [W, H] }, frames: S.frames.map(f => ({ id: f.id, phase: f.phase, at: f.at, livePose: f.livePose, offlinePose: f.offlinePose, chosenPose: f.pose, poseSource: f.poseSource, poseConfidence: f.poseConfidence, liveAlvaPoints: f.livePoints, offlineAlvaPoints: f.offlinePoints?.length || 0, features: f.features.length, deep: f.deep ? { rawSize: [f.deep.rawWidth, f.deep.rawHeight], provider: f.deep.provider, convention: f.deep.convention, depthScale: f.deep.depthScale, quality: f.deep.quality } : null })), edges: S.edges.map(e => ({ a: e.a.id, b: e.b.id, kind: e.kind, appearance: e.appearance, matches: e.matches.length, rawMatches: e.rawMatches, consensusMatches: e.consensusMatches, overlap: e.overlap, poseBaseline: e.poseBaseline, poseAngle: e.poseAngle })), depthEdges: S.depthEdges.map(e => ({ a: e.a.id, b: e.b.id, matches: e.matches.length, overlap: e.overlap })), splat: S.splats ? { count: S.splats.count, gridStep: S.splats.gridStep, deepPixels: S.splats.deepPixels, planePixels: S.splats.planePixels, depthRange: [S.splats.minDepth, S.splats.maxDepth] } : null };
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })), a = document.createElement('a'); a.href = url; a.download = `scan-test-${Date.now()}-diagnostics.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); log('diagnostics-downloaded', { frames: S.frames.length });
 }
-async function chooseModel(file) { if (!file) return; const bytes = await file.arrayBuffer(); if (bytes.byteLength < 1024) throw new Error('Il file ONNX selezionato è troppo piccolo.'); S.deepModel = { id: `upload-${file.name}-${file.size}-${file.lastModified}`, label: file.name, bytes }; if (S.deepWorker) { S.deepWorker.terminate(); S.deepWorker = null; } dom.runtimeStatus.textContent = `Modello selezionato: ${file.name} (${(file.size / 1048576).toFixed(1)} MB). Il prossimo test/inferenza userà questo file.`; log('deep-model-selected', { name: file.name, bytes: file.size }); }
+async function chooseModel(file) { if (!file) return; const bytes = await file.arrayBuffer(); if (bytes.byteLength < 1024) throw new Error('Il file ONNX selezionato è troppo piccolo.'); S.deepModel = { id: `upload-${file.name}-${file.size}-${file.lastModified}`, label: file.name, bytes }; S.deepContract = null; if (S.deepWorker) { S.deepWorker.terminate(); S.deepWorker = null; } dom.runtimeStatus.textContent = `Modello selezionato: ${file.name} (${(file.size / 1048576).toFixed(1)} MB). Il prossimo test/inferenza userà questo file.`; log('deep-model-selected', { name: file.name, bytes: file.size }); }
 
 function bind(id, fn) { $(id).addEventListener('click', () => Promise.resolve().then(fn).catch(err => { if (['offlineBtn', 'deepBtn'].includes(id)) $(id).disabled = false; setGlobal('Errore', 'fail'); log('ui-operation-failed', { operation: id, message: errorText(err) }, 'ERROR'); alert(errorText(err)); })); }
 bind('openCameraBtn', openCamera); bind('fixtureBtn', startFixture); bind('recordBtn', startRecording); bind('stopBtn', stopRecording); bind('clearBtn', clearSession); bind('offlineBtn', rerunOffline); bind('planeBtn', buildPlane); bind('testDeepBtn', testDeep); bind('deepBtn', runDeep); bind('depthPreviewBtn', () => { if (S.lastDepthFrame?.deep) drawDepth(S.lastDepthFrame.deep); }); bind('finalBtn', buildFinal); bind('verifyBtn', verifyGeometry); bind('downloadBtn', downloadDiagnostics); bind('fitBtn', renderFinal);
