@@ -1,0 +1,21 @@
+{
+  "bundle": "MobileSAM-in-the-Browser coherent split",
+  "deployRev": "951h5w",
+  "files": {
+    "mobilesam.encoder.onnx": {
+      "bytes": 28195125,
+      "sha256": "4125037c5e24d6ea58e201b20e8d8fbbbd1135c0b881e34a8074b8c4f07e6918",
+      "url": "https://huggingface.co/spaces/Akbartus/projects/resolve/main/mobilesam.encoder.onnx"
+    },
+    "mobilesam.decoder.onnx": {
+      "bytes": 16514086,
+      "sha256": "b0735abf07c7affddf20fffc3ce750f44af387ee6a7323880e909389ed15d279",
+      "url": "https://raw.githubusercontent.com/akbartus/MobileSAM-in-the-Browser/main/models/mobilesam.decoder.onnx"
+    },
+    "mobilesam.decoder.quant.onnx": {
+      "bytes": 8837301,
+      "sha256": "1ef83e7921d0adc571f446849741e556e948fdd976be06f4e33f17ca675829bc",
+      "url": "https://raw.githubusercontent.com/akbartus/MobileSAM-in-the-Browser/main/models/mobilesam.decoder.quant.onnx"
+    }
+  }
+}

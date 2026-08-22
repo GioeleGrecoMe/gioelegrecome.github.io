@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>Scan Test · Alva + Deep splat</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">ESPERIMENTO ISOLATO · nessun filtro / nessuna mesh</p>
+      <h1>Scan Test</h1>
+      <p class="lede">Posa AlvaAR → riesecuzione offline → profondità Deep globale → tutti i pixel come splat RGB.</p>
+    </div>
+    <div id="globalState" class="state-pill">Pronto</div>
+  </header>
+
+  <main>
+    <section class="guide" aria-labelledby="guideTitle">
+      <div>
+        <p class="eyebrow">Protocollo consigliato</p>
+        <h2 id="guideTitle">Scansiona una parete con oggetti</h2>
+        <p>Parti fermo per 2–3 secondi, poi fai una traslazione laterale lenta mantenendo la parete nell'inquadratura. Mantieni almeno il 10% di punti in comune fra le viste consecutive; torna sul punto iniziale per dare un controllo di coerenza.</p>
+      </div>
+      <ol class="steps" id="stepList">
+        <li data-step="1" class="current"><span>1</span> Camera e AlvaAR</li>
+        <li data-step="2"><span>2</span> Acquisizione completa</li>
+        <li data-step="3"><span>3</span> Posa offline e corrispondenze</li>
+        <li data-step="4"><span>4</span> Splat piano RGB</li>
+        <li data-step="5"><span>5</span> Deep e scala globale</li>
+        <li data-step="6"><span>6</span> Coerenza e vista isometrica</li>
+      </ol>
+    </section>
+
+    <section class="card setup-card" aria-labelledby="setupTitle">
+      <div class="section-title"><div><p class="eyebrow">0 · Contratto geometrico</p><h2 id="setupTitle">Camera, intrinseche e modello</h2></div><span class="tag">scala Alva libera finché non la calibri</span></div>
+      <div class="control-grid">
+        <label>FOV orizzontale (°)<input id="fovInput" type="number" min="35" max="110" step="1" value="60"></label>
+        <label>Campionamento camera/Alva (fps)<input id="archiveFps" type="number" min="4" max="10" step="1" value="8"></label>
+        <label>Scala Alva → metri<input id="metricScale" type="number" min="0.001" max="100" step="0.001" value="1"></label>
+        <label>Profondità piano iniziale (unità Alva)<input id="planeDistance" type="number" min="0.05" max="30" step="0.05" value="2"></label>
+        <label>Modello Deep ONNX (opzionale)<input id="modelFile" type="file" accept=".onnx,application/onnx"></label>
+        <label>Massimo viste Deep<input id="deepLimit" type="number" min="2" max="48" step="1" value="18"></label>
+      </div>
+      <p class="hint">Il valore FOV è l'unica intrinseca manuale: prima prova 60°. Se linee e vista RGB non combaciano, calibra la camera o correggi questo valore. Durante la registrazione ogni campione Alva ha esattamente un raster archiviato; 8 fps è il compromesso consigliato. Il valore “Scala Alva → metri” rende l'output metrico solo se conosci una distanza reale; altrimenti resta una scala globale coerente.</p>
+      <div class="actions">
+        <button id="openCameraBtn" class="primary">1. Apri camera e AlvaAR</button>
+        <button id="testDeepBtn" disabled>Prova Deep sul frame corrente</button>
+        <button id="clearBtn" class="quiet">Azzera sessione</button>
+      </div>
+      <p id="runtimeStatus" class="status">AlvaAR non inizializzato · Deep non caricato.</p>
+    </section>
+
+    <section class="capture-layout">
+      <article class="card camera-card">
+        <div class="section-title"><div><p class="eyebrow">1 · Acquisizione</p><h2>Ogni immagine e ogni posa</h2></div><span id="trackingBadge" class="tag warn">attesa AlvaAR</span></div>
+        <div class="camera-stage">
+          <video id="camera" playsinline muted></video>
+          <canvas id="cameraOverlay" aria-label="Overlay AlvaAR"></canvas>
+        </div>
+        <div class="capture-readout">
+          <div><span>Pose Alva valide</span><strong id="poseCount">0</strong></div>
+          <div><span>Immagini archiviate</span><strong id="frameCount">0</strong></div>
+          <div><span>Keypoint live</span><strong id="liveFeatures">0</strong></div>
+          <div><span>Memoria immagini</span><strong id="memoryCount">0 MB</strong></div>
+        </div>
+        <div class="actions">
+          <button id="recordBtn" disabled class="primary">2. Inizia registrazione</button>
+          <button id="stopBtn" disabled>Ferma e conserva le immagini</button>
+        </div>
+        <p id="captureCoach" class="status">Apri la camera. I primi secondi sono riservati all'inizializzazione del tracker: non è una perdita di traccia.</p>
+      </article>
+      <article class="card frame-card">
+        <div class="section-title"><div><p class="eyebrow">Archivio immutabile</p><h2>Fotogrammi salvati</h2></div><span id="archiveState" class="tag">0 / 0 pose</span></div>
+        <div id="frameStrip" class="frame-strip" aria-live="polite"><p class="empty">L'archivio comparirà qui. I fotogrammi sono mantenuti in memoria per la riesecuzione offline e Deep.</p></div>
+      </article>
+    </section>
+
+    <section class="card stage-card" aria-labelledby="offlineTitle">
+      <div class="section-title"><div><p class="eyebrow">3 · Rielaborazione senza usare il live state</p><h2 id="offlineTitle">AlvaAR offline + corrispondenze locali</h2></div><span id="offlineBadge" class="tag">non avviata</span></div>
+      <p>Ricarica AlvaAR da zero su tutti i raster archiviati. In parallelo estrae keypoint e descrittori dai pixel, calcola corrispondenze fra viste e visualizza i buchi di tracking. Le pose interpolate restano esplicitamente contrassegnate: non sono misure AlvaAR.</p>
+      <div class="actions"><button id="offlineBtn" disabled class="primary">3. Rielabora tutte le pose</button><button id="downloadBtn" disabled class="quiet">Scarica diagnostica JSON</button></div>
+      <div class="two-pane">
+        <canvas id="trajectoryCanvas" class="diagnostic-canvas" aria-label="Traiettoria delle pose"></canvas>
+        <div class="metric-list" id="offlineMetrics"><p class="empty">Qui compariranno copertura AlvaAR, corrispondenze, overlap e tratti interpolati.</p></div>
+      </div>
+    </section>
+
+    <section class="card stage-card" aria-labelledby="planeTitle">
+      <div class="section-title"><div><p class="eyebrow">4 · Baseline senza AI</p><h2 id="planeTitle">Tutti i pixel su piani orientati</h2></div><span id="planeBadge" class="tag">in attesa</span></div>
+      <p>Ogni particella è un pixel RGB. Le immagini senza profondità sono poste sul piano a distanza scelta; posa, rotazione, FOV e centro camera sono già applicati. La decimazione è solo una griglia regolare per non saturare il browser.</p>
+      <div class="actions inline-controls"><label>Passo griglia<input id="gridStep" type="range" min="1" max="12" value="6"><output id="gridStepOut">6 px</output></label><button id="planeBtn" disabled class="primary">4. Costruisci baseline piana</button></div>
+      <div class="two-pane"><canvas id="planeCanvas" class="diagnostic-canvas" aria-label="Anteprima splat piani"></canvas><div id="planeMetrics" class="metric-list"><p class="empty">La vista ortografica mostrerà le particelle RGB prodotte dai piani.</p></div></div>
+    </section>
+
+    <section class="card stage-card" aria-labelledby="deepTitle">
+      <div class="section-title"><div><p class="eyebrow">5 · Unica ottimizzazione: profondità comune</p><h2 id="deepTitle">Deep sulle viste salienti e scala globale</h2></div><span id="deepBadge" class="tag">non avviata</span></div>
+      <p>Le viste Deep sono selezionate solo quando esiste un overlap di keypoint ≥ 10%. Per ogni match, i raggi RGB vengono trasformati con le intrinseche della foto, la dimensione nativa della mappa Deep e la posa camera. L'ottimizzatore modifica soltanto un fattore di profondità per vista.</p>
+      <div class="actions"><button id="deepBtn" disabled class="primary">5. Esegui Deep e allinea profondità</button><button id="depthPreviewBtn" disabled>Mostra ultima depth map</button></div>
+      <div class="two-pane"><canvas id="depthCanvas" class="diagnostic-canvas" aria-label="Mappa di profondità Deep"></canvas><div id="deepMetrics" class="metric-list"><p class="empty">Il log mostrerà le dimensioni native Deep, la conversione coordinate, il verso profondità scelto e il residuo prima/dopo.</p></div></div>
+    </section>
+
+    <section class="card viewer-card" aria-labelledby="viewerTitle">
+      <div class="section-title"><div><p class="eyebrow">6 · Output non filtrato</p><h2 id="viewerTitle">Gaussian splat RGB · isometrico ortografico</h2></div><span id="viewerBadge" class="tag">nessuna particella</span></div>
+      <div class="viewer-controls">
+        <label>Mostra affidabilità ≥ <input id="confidenceSlider" type="range" min="0" max="100" value="0"><output id="confidenceOut">0%</output></label>
+        <button id="finalBtn" disabled class="primary">6. Costruisci splat 3D</button>
+        <button id="verifyBtn" disabled>Verifica proiezioni e pose</button>
+        <button id="fitBtn" class="quiet">Centra vista</button>
+      </div>
+      <p class="hint">Lo slider nasconde solo per la visualizzazione: non cancella o comprime alcuna particella. Ogni disco ha la stessa dimensione, la proiezione è ortografica/isometrica e non usa prospettiva.</p>
+      <canvas id="splatCanvas" class="splat-canvas" aria-label="Gaussian splat 3D isometrico"></canvas>
+      <div id="viewerMetrics" class="metric-list"><p class="empty">Dopo Deep, qui troverai il conteggio pixel, piani di fallback, range di profondità, residuo dei punti comuni e test di riproiezione.</p></div>
+    </section>
+
+    <section class="card log-card">
+      <div class="section-title"><div><p class="eyebrow">Osservabilità completa</p><h2>Log del banco di prova</h2></div><button id="copyLogBtn" class="quiet">Copia log</button></div>
+      <pre id="log" aria-live="polite"></pre>
+    </section>
+  </main>
+  <template id="frameTemplate"><button class="frame-thumb" type="button"><canvas width="160" height="120"></canvas><span></span></button></template>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
