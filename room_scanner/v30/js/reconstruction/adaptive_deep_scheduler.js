@@ -1,5 +1,5 @@
 /*
- * V30.52 adaptive Deep selection.
+ * V30.53 adaptive Deep selection.
  *
  * Deep is requested only for RGB/Alva frames that add geometric information.
  * The selector is deliberately independent from the neural model: it uses the

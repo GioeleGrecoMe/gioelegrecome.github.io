@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {DeepLateBindingQueue} from '../js/dense/deep_late_binding_queue.js?v=30.52.0';
+import {DeepLateBindingQueue} from '../js/dense/deep_late_binding_queue.js?v=30.53.0';
 
 const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
 const config=fs.readFileSync(new URL('../js/config.js',import.meta.url),'utf8');

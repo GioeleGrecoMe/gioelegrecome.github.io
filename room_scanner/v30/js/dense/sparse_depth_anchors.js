@@ -29,7 +29,7 @@ export function buildSparseDepthAnchors(ref,sources,{maxReprojectionPx=2.8,minAn
       const tr=triangulateRays(
         {pose:ref.pose,K:ref.K,u:a.x,v:a.y},
         {pose:src.pose,K:src.K,u:b.x,v:b.y},
-        {minAngleRad:Math.min(.0015,minAngleRad),maxGapM:Math.max(1e-6,baseline*Math.max(.30,maxGapBaselineRatio*2.2))}
+        {minAngleRad:Math.max(.0015,minAngleRad),maxGapM:Math.max(1e-6,baseline*Math.max(.30,maxGapBaselineRatio*2.2))}
       );
       if(!tr.ok||!(tr.depthA>0&&tr.depthB>0))continue;
       const ra=projectPoint(ref.pose,ref.K,tr.p),rb=projectPoint(src.pose,src.K,tr.p);if(!ra||!rb)continue;

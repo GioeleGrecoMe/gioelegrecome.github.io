@@ -1,4 +1,4 @@
-import {refinePosePnP} from '../metric/pnp_pose.js?v=30.52.0';
+import {refinePosePnP} from '../metric/pnp_pose.js?v=30.53.0';
 
 /*
  * Conservative visual relocalisation sidecar.

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {AdaptiveDeepScheduler,selectGeometricPhotoSubset} from '../js/reconstruction/adaptive_deep_scheduler.js?v=30.52.0';
+import {AdaptiveDeepScheduler,selectGeometricPhotoSubset} from '../js/reconstruction/adaptive_deep_scheduler.js?v=30.53.0';
 
 const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
 const cfg=fs.readFileSync(new URL('../js/config.js',import.meta.url),'utf8');

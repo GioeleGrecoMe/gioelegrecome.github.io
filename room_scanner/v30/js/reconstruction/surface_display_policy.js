@@ -1,5 +1,5 @@
 /**
- * V30.52 surface visibility / TSDF admission policy.
+ * V30.53 surface visibility / TSDF admission policy.
  *
  * Low-probability or probability-unknown Gaussian hypotheses are never shown as
  * normal geometry. They remain in the probabilistic evidence state and in TEST

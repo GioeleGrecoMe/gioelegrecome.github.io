@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.52.0 adaptive Deep + Alva recovery configuration.
+ * Room Scanner V30.53.0 adaptive Deep + Alva recovery configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.52.0',
-  id:'v30.52.0-20260822-global-surface-consensus-test-lab',
+  version:'30.53.0',
+  id:'v30.53.0-20260822-global-mvs-scale-consensus',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -148,7 +148,7 @@ export const CONFIG={
   denseMinDistinctiveness:0.025,
   denseMinSparseSeeds:5,
   denseSeedMaxReprojectionPx:2.8,
-  denseSeedMinAngleRad:0.001,
+  denseSeedMinAngleRad:0.006,
   denseSeedMaxGapBaselineRatio:0.14,
   denseSeedRadiusPx:22,
   denseSeedMaxRelativeError:0.48,
@@ -245,7 +245,7 @@ export const CONFIG={
   sharpArchiveProcessingYieldEvery:3,
   sharpArchiveDeepFrameTimeoutMs:120000,
   sharpArchiveFlushTimeoutMs:20000,
-  // V30.52 adaptive Deep: RGB/Alva sees a much larger archive, while neural
+  // V30.53 adaptive Deep: RGB/Alva sees a much larger archive, while neural
   // depth is purchased only where it adds geometric information.
   adaptiveDeepInitialBatch:16,
   adaptiveDeepNextBatch:8,
@@ -296,6 +296,13 @@ export const CONFIG={
   postScanMvsMaxJobs:48,
   postScanMvsSourcePool:4,
   postScanMvsJobTimeoutMs:18000,
+  // One Alva-world depth envelope is inferred across all post-scan MVS views.
+  // Local triangulation still seeds individual pixels but can no longer rescale a view.
+  postScanMvsScaleMinSeeds:18,
+  postScanMvsScaleMinFrames:2,
+  postScanMvsScaleSeedsPerFrame:96,
+  postScanMvsScaleMinLandmarks:24,
+  postScanMvsScaleLandmarksPerFrame:128,
   postScanRgbScaffoldPasses:18,
   postScanRgbGlobalLinePasses:36,
   fastLaneGapWarnMs:650,
@@ -509,7 +516,7 @@ export const CONFIG={
   // Storage/rebuild budgets reused by the single hierarchical optimizer.
   // These names are retained for snapshot compatibility; they do not select
   // a second optimizer implementation.
-  // V30.52: final reconstruction is part of Processing, not a manual REVIEW step.
+  // V30.53: final reconstruction is part of Processing, not a manual REVIEW step.
   postScanFinalOptimizationPasses:10,
   postScanFinalOptimizationMaxAttempts:30,
   postScanFinalAutoRebuild:true,

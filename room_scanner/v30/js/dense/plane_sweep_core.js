@@ -29,7 +29,7 @@ export function estimateDenseDepth(job){
     minTexture:Number(job.minTexture??0.018),minDistinctiveness:Number(job.minDistinctiveness??0.025),depthSmoothRel:Number(job.depthSmoothRel??0.16),seedRadiusPx:Number(job.seedRadiusPx??22),seedMaxRelativeError:Number(job.seedMaxRelativeError??0.48),
     // A calibrated Depth Anything map is a SEARCH PRIOR, never final geometry.
     // Every accepted point must still win the Alva-pose multi-view photo test.
-    priorRelRange:Number(job.priorRelRange??0.18),priorDepthSteps:Math.max(8,job.priorDepthSteps|0||18),priorProbeSteps:Math.max(5,job.priorProbeSteps|0||8),priorWeight:0,priorMinConfidence:Number(job.priorMinConfidence??0.08),priorMinTexture:Number(job.priorMinTexture??0.006),patchRadius:Math.max(1,Math.min(3,job.patchRadius|0||2))
+    priorRelRange:Number(job.priorRelRange??0.18),priorDepthSteps:Math.max(8,job.priorDepthSteps|0||18),priorProbeSteps:Math.max(5,job.priorProbeSteps|0||8),priorWeight:0,priorMinConfidence:Number(job.priorMinConfidence??0.08),priorMinTexture:Number(job.priorMinTexture??0.006),patchRadius:Math.max(1,Math.min(3,job.patchRadius|0||2)),boundaryGuardRel:clamp(Number(job.boundaryGuardRel??0.018),.004,.08),boundarySeedRel:clamp(Number(job.boundarySeedRel??0.26),.08,.60),boundaryMinSeedProbability:clamp(Number(job.boundaryMinSeedProbability??0.06),.01,.8)
   };
   if(!(cfg.near>0&&cfg.far>cfg.near))throw new Error(`invalid plane sweep depth range ${cfg.near}..${cfg.far}`);
   const sparseSeeds=(job.sparseSeeds||[]).filter(s=>Number.isFinite(s?.u)&&Number.isFinite(s?.v)&&Number.isFinite(s?.depth)&&s.depth>0);
@@ -46,7 +46,7 @@ export function estimateDenseDepth(job){
   const depthGrid=new Float32Array(gridW*gridH),confGrid=new Float32Array(gridW*gridH),costGrid=new Float32Array(gridW*gridH),viewMaskGrid=new Uint16Array(gridW*gridH),priorEscapeGrid=new Uint8Array(gridW*gridH);costGrid.fill(1);
   const pxGrid=new Int16Array(gridW*gridH),pyGrid=new Int16Array(gridW*gridH);
 
-  let gi=0;
+  let gi=0,boundaryRejected=0;
   for(let gy=0;gy<gridH;gy++){
     const v=cfg.margin+gy*cfg.pixelStep;
     for(let gx=0;gx<gridW;gx++,gi++){
@@ -89,8 +89,15 @@ export function estimateDenseDepth(job){
       // Acceptance thresholds are identical with and without Deep. Deep affects
       // only which hypotheses are evaluated, never the evidence needed to win.
       if(best<=cfg.maxCost&&distinct>=cfg.minDistinctiveness&&confidence>=cfg.minConfidence){
-        const seed=findNearestSparseSeed(sparseSeeds,u,v,cfg.seedRadiusPx);
-        if(seed&&Math.abs(bestZ-seed.depth)/Math.max(1e-6,seed.depth)>cfg.seedMaxRelativeError)continue;
+        const seed=findNearestSparseSeed(sparseSeeds,u,v,cfg.seedRadiusPx),seedRel=seed?Math.abs(bestZ-seed.depth)/Math.max(1e-6,seed.depth):Infinity;
+        if(seed&&seedRel>cfg.seedMaxRelativeError)continue;
+        // A photometric minimum exactly on near/far is not a measured depth: it
+        // means the optimum is outside (or unobservable inside) the search
+        // interval.  Keep it only when an independent sparse triangulation near
+        // the same pixel supports that boundary depth.  This prevents an entire
+        // weak-baseline view from collapsing onto its private far plane.
+        const atBoundary=bestZ<=cfg.near*(1+cfg.boundaryGuardRel)||bestZ>=cfg.far*(1-cfg.boundaryGuardRel),seedProb=Number(seed?.geometryProbability??seed?.confidence??0),seedSupportsBoundary=!!seed&&seedRel<=cfg.boundarySeedRel&&seedProb>=cfg.boundaryMinSeedProbability;
+        if(atBoundary&&!seedSupportsBoundary){boundaryRejected++;continue;}
         depthGrid[gi]=bestZ;confGrid[gi]=seed?Math.min(1,confidence*.82+Number((seed.geometryProbability??seed.confidence)??.5)*.18):confidence;costGrid[gi]=best;viewMaskGrid[gi]=bestMask;priorEscapeGrid[gi]=hasPrior&&Math.abs(Math.log(bestZ/priorZ))>Math.log(1+cfg.priorRelRange*1.05)?1:0;
       }
     }
@@ -126,7 +133,7 @@ export function estimateDenseDepth(job){
     const step=Math.ceil(samples.length/cfg.maxSamples),thin=[];for(let i=0;i<samples.length;i+=step)thin.push(samples[i]);samples.length=0;samples.push(...thin);
   }
   const depths=samples.map(s=>s.depth).sort((a,b)=>a-b),priorEscapeCount=samples.reduce((n,s)=>n+(s.priorEscaped?1:0),0);
-  return {samples,width,height,gridW,gridH,validCount:samples.length,coverage:samples.length/Math.max(1,gridW*gridH),medianDepth:depths.length?depths[depths.length>>1]:null,near:cfg.near,far:cfg.far,sourceCount:sources.length,priorEscapeCount,priorEscapeRatio:samples.length?priorEscapeCount/samples.length:0};
+  return {samples,width,height,gridW,gridH,validCount:samples.length,coverage:samples.length/Math.max(1,gridW*gridH),medianDepth:depths.length?depths[depths.length>>1]:null,near:cfg.near,far:cfg.far,sourceCount:sources.length,priorEscapeCount,priorEscapeRatio:samples.length?priorEscapeCount/samples.length:0,boundaryRejected};
 }
 
 export function projectWorld(pose,K,p,width=K.width,height=K.height){

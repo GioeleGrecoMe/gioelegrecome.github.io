@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {canonicalizePhotoEdgeMatches,estimatePhotoTranslationDirection,translationLineAngle} from '../js/probabilistic/rgb_translation_direction.js?v=30.52.0';
-import {evaluatePoseScaffoldPolicy} from '../js/probabilistic/pose_scaffold_policy.js?v=30.52.0';
+import {canonicalizePhotoEdgeMatches,estimatePhotoTranslationDirection,translationLineAngle} from '../js/probabilistic/rgb_translation_direction.js?v=30.53.0';
+import {evaluatePoseScaffoldPolicy} from '../js/probabilistic/pose_scaffold_policy.js?v=30.53.0';
 
 const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
 const runtime=fs.readFileSync(new URL('../js/probabilistic/single_optimizer_runtime.js',import.meta.url),'utf8');
@@ -52,11 +52,15 @@ test('post-scan MVS re-triangulates sparse seeds after final pose rebound',()=>{
   assert.match(config,/postScanMvsSourcePool:4/);
 });
 
-test('capture-time sparse MVS range is not blindly reused after global RGB recovery',()=>{
-  const fn=app.slice(app.indexOf('async function refreshPostScanMvsGeometry'),app.indexOf('async function dispatchDensePayload'));
-  assert.match(fn,/buildSparseDepthAnchors\(payload\.ref,sources/);
-  assert.match(fn,/payload\.near=sparse\.range\.near/);
-  assert.match(fn,/else\{payload\.near=CONFIG\.denseNearM/);
+test('capture-time sparse MVS range cannot become a private post-scan view scale',()=>{
+  const refresh=app.slice(app.indexOf('async function refreshPostScanMvsGeometry'),app.indexOf('async function dispatchDensePayload'));
+  const drain=app.slice(app.indexOf('async function drainPostScanMvsBacklog'),app.indexOf('async function reconcilePostScanRgbScaffold'));
+  assert.match(refresh,/buildSparseDepthAnchors\(payload\.ref,sources/);
+  assert.match(refresh,/payload\.localSparseRange=sparse\.range/);
+  assert.doesNotMatch(refresh,/payload\.near=sparse\.range\.near/);
+  assert.match(drain,/buildPostScanMvsDepthConsensus/);
+  assert.match(drain,/applyPostScanMvsDepthConsensus/);
+  assert.match(drain,/optimizerSnapshot:snapshot/);
 });
 
 test('final commit can preserve an observed direct RGB scaffold despite legacy switch weakness',()=>{

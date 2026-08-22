@@ -1,7 +1,7 @@
 {
-  "version": "30.52.0",
-  "id": "v30.52.0-20260822-global-surface-consensus-test-lab",
+  "version": "30.53.0",
+  "id": "v30.53.0-20260822-global-mvs-scale-consensus",
   "date": "2026-08-22",
-  "notes": "V30.52 completes adaptive post-processing automatically, adds world-space multi-submap surface consensus before TSDF, removes low/unknown-confidence Gaussian clutter, prunes only tiny mesh islands under an explicit raw-fragmentation gate, and adds a stage-by-stage TEST laboratory with exportable blocker diagnostics.",
+  "notes": "V30.53 fixes post-scan MVS scale drift with a scan-wide RGB-landmark depth envelope, preserves verified MVS footprint/confidence through the factor graph, rejects unsupported plane-sweep boundary minima, and commits authoritative global splats independently from a still-fragmented TSDF mesh.",
   "builtAt": "2026-08-22T13:15:00+02:00"
 }
