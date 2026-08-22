@@ -47,10 +47,12 @@
       <p class="hint">Il valore FOV è l'unica intrinseca manuale: prima prova 60°. Se linee e vista RGB non combaciano, calibra la camera o correggi questo valore. Durante la registrazione ogni campione Alva ha esattamente un raster archiviato; 8 fps è il compromesso consigliato. Il valore “Scala Alva → metri” rende l'output metrico solo se conosci una distanza reale; altrimenti resta una scala globale coerente.</p>
       <div class="actions">
         <button id="openCameraBtn" class="primary">1. Apri camera e AlvaAR</button>
+        <button id="fixtureBtn">Simula con video di test</button>
+        <label class="file-action">Carica video di test<input id="videoFile" type="file" accept="video/*"></label>
         <button id="testDeepBtn" disabled>Prova Deep sul frame corrente</button>
         <button id="clearBtn" class="quiet">Azzera sessione</button>
       </div>
-      <p id="runtimeStatus" class="status">AlvaAR non inizializzato · Deep non caricato.</p>
+      <p id="runtimeStatus" class="status">AlvaAR non inizializzato · Deep non caricato. Il video di test esercita l'acquisizione, ma è statico e non deve produrre una posa 3D.</p>
     </section>
 
     <section class="capture-layout">
@@ -70,7 +72,7 @@
           <button id="recordBtn" disabled class="primary">2. Inizia registrazione</button>
           <button id="stopBtn" disabled>Ferma e conserva le immagini</button>
         </div>
-        <p id="captureCoach" class="status">Apri la camera. I primi secondi sono riservati all'inizializzazione del tracker: non è una perdita di traccia.</p>
+        <p id="captureCoach" class="status">Apri la camera o un video. I primi secondi sono riservati all'inizializzazione del tracker: non è una perdita di traccia.</p>
       </article>
       <article class="card frame-card">
         <div class="section-title"><div><p class="eyebrow">Archivio immutabile</p><h2>Fotogrammi salvati</h2></div><span id="archiveState" class="tag">0 / 0 pose</span></div>

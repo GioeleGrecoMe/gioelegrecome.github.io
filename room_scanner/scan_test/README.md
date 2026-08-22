@@ -10,6 +10,8 @@ python3 -m http.server 4173
 
 Poi aprire `http://localhost:4173/scan_test/`.
 
+La pagina ha due sorgenti senza permesso camera: “Simula con video di test” riproduce `fixtures/tum_freiburg1_xyz_debug_replay.mp4`, mentre “Carica video di test” accetta un filmato locale. Entrambe percorrono esattamente il controller di acquisizione derivato da V30: stesso `coverCrop`, stesso raster RGBA/gray, stesso frame ID e stessa geometria salvata con la posa. Il fixture incluso è intenzionalmente una singola immagine ripetuta: deve verificare decoder, crop, archivio e chiusura della ripresa, **non** produrre pose AlvaAR o una ricostruzione 3D.
+
 Protocollo per il primo test: parete con oggetti, 2–3 secondi iniziali fermi, traslazione laterale lenta, almeno 10% di elementi comuni fra viste e ritorno verso la posizione iniziale. Il campionamento predefinito a 8 fps archivia lo stesso raster RGB consegnato ad AlvaAR per ogni posa.
 
 `models/model_q4.onnx` è il modello Deep predefinito. La pagina tenta prima un eventuale runtime ONNX locale in `vendor/onnxruntime-web/`, poi il runtime ufficiale CDN già usato da V30; quindi il primo test Deep richiede rete finché non viene aggiunto un file `ort.all.min.mjs` compatibile in quella directory.
