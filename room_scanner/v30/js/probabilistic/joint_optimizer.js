@@ -1,20 +1,21 @@
-import {projectPoint,pixelRay,qMul,qNormalize,qRotate,qConj} from '../slam/math.js?v=30.44.0';
-import {addPoseUncertaintyToPointCovariance} from './pose_uncertainty.js?v=30.44.0';
-import {SwitchablePhotoEdgeModel,rotationResidualVector} from './switchable_edges.js?v=30.44.0';
-import {solveHierarchicalDepthCalibration,predictMetricDepth,serializeHierarchicalDepthCalibration} from './depth_calibration_hierarchy.js?v=30.44.0';
-import {DenseDepthConsistencyEvaluator} from './cross_depth_consistency.js?v=30.44.0';
-import {SubmapFusionManager} from '../reconstruction/submap_fusion.js?v=30.44.0';
-import {SwitchableAlvaEdgeModel,relativePose,relativeResidual} from './alva_switchable_edges.js?v=30.44.0';
-import {HierarchicalReliabilityFeedback} from './reliability_feedback.js?v=30.44.0';
-import {SubmapPoseGraph} from './submap_pose_graph.js?v=30.44.0';
-import {revalidateMvsSample,mvsRelativePoseDrift} from './final_mvs_revalidation.js?v=30.44.0';
-import {evaluateRgbConsensusPolicy} from './rgb_consensus_policy.js?v=30.44.0';
-import {evaluateDepthGeometryPolicy} from './depth_commit_policy.js?v=30.44.0';
-import {evaluateFinalGeometryPolicy} from './geometry_commit_policy.js?v=30.44.0';
-import {alignTranslationLine,translationLineAngle} from './rgb_translation_direction.js?v=30.44.0';
-import {evaluatePoseScaffoldPolicy} from './pose_scaffold_policy.js?v=30.44.0';
+import {projectPoint,pixelRay,qMul,qNormalize,qRotate,qConj} from '../slam/math.js?v=30.46.0';
+import {addPoseUncertaintyToPointCovariance} from './pose_uncertainty.js?v=30.46.0';
+import {SwitchablePhotoEdgeModel,rotationResidualVector} from './switchable_edges.js?v=30.46.0';
+import {solveHierarchicalDepthCalibration,predictMetricDepth,serializeHierarchicalDepthCalibration} from './depth_calibration_hierarchy.js?v=30.46.0';
+import {DenseDepthConsistencyEvaluator} from './cross_depth_consistency.js?v=30.46.0';
+import {SubmapFusionManager} from '../reconstruction/submap_fusion.js?v=30.46.0';
+import {SwitchableAlvaEdgeModel,relativePose,relativeResidual} from './alva_switchable_edges.js?v=30.46.0';
+import {HierarchicalReliabilityFeedback} from './reliability_feedback.js?v=30.46.0';
+import {SubmapPoseGraph} from './submap_pose_graph.js?v=30.46.0';
+import {revalidateMvsSample,mvsRelativePoseDrift} from './final_mvs_revalidation.js?v=30.46.0';
+import {evaluateRgbConsensusPolicy} from './rgb_consensus_policy.js?v=30.46.0';
+import {evaluateDepthGeometryPolicy} from './depth_commit_policy.js?v=30.46.0';
+import {evaluateFinalGeometryPolicy} from './geometry_commit_policy.js?v=30.46.0';
+import {alignTranslationLine,translationLineAngle} from './rgb_translation_direction.js?v=30.46.0';
+import {evaluatePoseScaffoldPolicy} from './pose_scaffold_policy.js?v=30.46.0';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const DEG=Math.PI/180;
 
 /**
  * Hierarchical post-scan optimiser.
@@ -37,7 +38,18 @@ export class ProbabilisticJointOptimizer{
       // reduced.  This independent proposal is what can falsify a bad Alva
       // increment.  The old code evaluated Alva against a state already pinned
       // by Alva itself, so every tracker edge self-confirmed at ~1 forever.
-      this.refineLandmarks(active);this.refinePoses(active,{alvaScale:bootstrap?.05:.18});const sparseFeedback=this.sparseRgbFeedback(),rgbSupport=mergeFeedbackMaps(sparseFeedback.rgbSupport,prevFeedback?.rgbSupportMap?.()),poseImprovement=mergeFeedbackMaps(sparseFeedback.poseImprovement,prevFeedback?.poseImprovementMap?.());this.edgeModel.update(this.frames,this.landmarks,{bootstrap});const translationContradiction=this.edgeModel.translationContradictionMap?.()||null;this.alvaModel.update(this.frames,{rgbFrameSupport:rgbSupport,poseImprovement,translationContradiction});this.refinePoses(active,{alvaScale:1});
+      const scaffoldRecovery=!!control.rgbScaffoldRecovery;
+      this.refineLandmarks(active);
+      // During post-scan RGB scaffold recovery, Alva rotation remains a strong
+      // orientation prior but its translation is deliberately weak.  Monocular
+      // RGB cannot invent metric scale, yet a high-quality epipolar line must be
+      // able to rotate a bad translational trajectory instead of being judged by
+      // the trajectory it is trying to correct.
+      this.refinePoses(active,scaffoldRecovery?{alvaTranslationScale:.012,alvaRotationScale:.55,rgbDirectionRecovery:true}:{alvaScale:bootstrap?.05:.18});
+      const sparseFeedback=this.sparseRgbFeedback(),rgbSupport=mergeFeedbackMaps(sparseFeedback.rgbSupport,prevFeedback?.rgbSupportMap?.()),poseImprovement=mergeFeedbackMaps(sparseFeedback.poseImprovement,prevFeedback?.poseImprovementMap?.());this.edgeModel.update(this.frames,this.landmarks,{bootstrap});
+      if(scaffoldRecovery)this.refineRgbTranslationLines(active,{gain:.34,maxStep:.085});
+      const translationContradiction=this.edgeModel.translationContradictionMap?.()||null;this.alvaModel.update(this.frames,{rgbFrameSupport:rgbSupport,poseImprovement,translationContradiction});
+      this.refinePoses(active,scaffoldRecovery?{alvaTranslationScale:.035,alvaRotationScale:1,rgbDirectionRecovery:true}:{alvaScale:1});
       // SLOW LOOP: Depth is never allowed into the first RGB bootstrap passes.
       // Once the scaffold has had a chance to settle, Deep runs at the requested
       // lower cadence. The runtime can explicitly hold it off during recovery.
@@ -49,7 +61,7 @@ export class ProbabilisticJointOptimizer{
       const errs=[];for(const {m,frame} of obs){const q=projectPoint(frame.poseEstimate,frame.K,l.point);if(q)errs.push(Math.hypot(q.u-m.u,q.v-m.v));}if(errs.length){const e=median(errs),prior=clamp(l.priorProbability??l.probability,.002,.998),odds=prior/(1-prior),lr=Math.exp(-.5*(e/1.6)**2)/.10,support=1+Math.log1p(Math.max(0,errs.length-2))*.18,post=odds*lr*support;l.probability=clamp(post/(1+post),.002,.998);l.posteriorReprojectionPx=e;}
     }
   }
-  refinePoses(active,{alvaScale=1}={}){
+  refinePoses(active,{alvaScale=1,alvaTranslationScale=alvaScale,alvaRotationScale=alvaScale,rgbDirectionRecovery=false}={}){
     const byFrame=new Map();for(const l of this.landmarks)for(const m of l.measurements||[]){const id=String(m.frameId);if(!this.frameMap.has(id))continue;let a=byFrame.get(id);if(!a)byFrame.set(id,a=[]);if(a.length<this.maxObsPerFrame)a.push({l,m});}
     for(let fi=1;fi<this.frames.length;fi++){if(!active.has(fi))continue;const f=this.frames[fi],list=byFrame.get(String(f.frameId))||[];if(list.length<5)continue;const H=new Float64Array(36),g=new Float64Array(6);let used=0;
       for(const {l,m} of list){const q=projectPoint(f.poseEstimate,f.K,l.point);if(!q)continue;const r=[q.u-m.u,q.v-m.v],e=Math.hypot(...r),edge=this.edgeModel.measurementSupport(l,f.frameId),w=prob(m.probability)*prob(l.probability)*edge*cauchyWeight(e,2.25),J=numericPoseJacobian(f.poseEstimate,f.K,l.point,q);if(!J)continue;accumulateJTJ6(H,g,J,r,w);used++;}
@@ -57,20 +69,52 @@ export class ProbabilisticJointOptimizer{
       // Alva is a prior, with deliberately different authority for translation
       // and rotation.  This prevents a stable orientation from lending false
       // confidence to a weak translational track.
-      const diag=f.poseCov?.diag||[2.5e-3,2.5e-3,2.5e-3,2e-4,2e-4,2e-4],deltaPrior=poseDelta6(f.posePrior,f.poseEstimate),alvaFrameConf=this.alvaModel?.frameConfidence?.(f.frameId)??.45;for(let a=0;a<6;a++){const scale=a<3?this.posePriorTranslationScale:this.posePriorRotationScale,w=this.posePriorScale*this.absoluteAlvaScale*clamp(alvaScale,.01,1)*scale*alvaFrameConf/Math.max(1e-9,+diag[a]||1e-4);H[a*6+a]+=w;g[a]+=w*deltaPrior[a];}
+      const diag=f.poseCov?.diag||[2.5e-3,2.5e-3,2.5e-3,2e-4,2e-4,2e-4],deltaPrior=poseDelta6(f.posePrior,f.poseEstimate),alvaFrameConf=this.alvaModel?.frameConfidence?.(f.frameId)??.45;for(let a=0;a<6;a++){const scale=a<3?this.posePriorTranslationScale:this.posePriorRotationScale,laneScale=a<3?clamp(alvaTranslationScale,.002,1):clamp(alvaRotationScale,.01,1),w=this.posePriorScale*this.absoluteAlvaScale*laneScale*scale*alvaFrameConf/Math.max(1e-9,+diag[a]||1e-4);H[a*6+a]+=w;g[a]+=w*deltaPrior[a];}
       // Relative Alva increments are soft switchable priors. A local tracking
       // failure can be rejected without discarding a good RGB trajectory.
-      for(const af of this.alvaModel?.factorsForFrame?.(f.frameId)||[]){const other=this.frames[this.frameMap.get(String(af.other))];if(!other)continue;const A=this.frames[this.frameMap.get(String(af.edge.aId))],B=this.frames[this.frameMap.get(String(af.edge.bId))];if(!A||!B)continue;const pred=relativePose(A.poseEstimate,B.poseEstimate),rr=relativeResidual(af.edge.observed,pred),sign=af.sign,obsT=af.edge.observed.p,predT=pred.p,on=Math.hypot(...obsT),pn=Math.hypot(...predT);if(on>1e-6&&pn>1e-6){const obsU=obsT.map(x=>x/on),parallel=predT[0]*obsU[0]+predT[1]*obsU[1]+predT[2]*obsU[2],perp=[predT[0]-obsU[0]*parallel,predT[1]-obsU[1]*parallel,predT[2]-obsU[2]*parallel],reverse=Math.min(0,parallel),dirVec=[perp[0]+obsU[0]*reverse,perp[1]+obsU[1]*reverse,perp[2]+obsU[2]*reverse],magErr=Math.max(0,parallel)-on,wtDir=clamp(af.translationWeight,.003,1)*28*clamp(alvaScale,.01,1),wtMag=clamp(af.translationWeight,.003,1)*3.2*clamp(alvaScale,.01,1);for(let k=0;k<3;k++){H[k*6+k]+=wtDir+wtMag;g[k]+=sign*(wtDir*dirVec[k]+wtMag*obsU[k]*magErr);}}for(let k=0;k<3;k++){const wr=clamp(af.rotationWeight,.003,1)*95*clamp(alvaScale,.01,1),ri=(k+3)*6+(k+3);H[ri]+=wr;g[k+3]+=wr*sign*rr[k+3];}}
+      for(const af of this.alvaModel?.factorsForFrame?.(f.frameId)||[]){const other=this.frames[this.frameMap.get(String(af.other))];if(!other)continue;const A=this.frames[this.frameMap.get(String(af.edge.aId))],B=this.frames[this.frameMap.get(String(af.edge.bId))];if(!A||!B)continue;const pred=relativePose(A.poseEstimate,B.poseEstimate),rr=relativeResidual(af.edge.observed,pred),sign=af.sign,obsT=af.edge.observed.p,predT=pred.p,on=Math.hypot(...obsT),pn=Math.hypot(...predT);if(on>1e-6&&pn>1e-6){const obsU=obsT.map(x=>x/on),parallel=predT[0]*obsU[0]+predT[1]*obsU[1]+predT[2]*obsU[2],perp=[predT[0]-obsU[0]*parallel,predT[1]-obsU[1]*parallel,predT[2]-obsU[2]*parallel],reverse=Math.min(0,parallel),dirVec=[perp[0]+obsU[0]*reverse,perp[1]+obsU[1]*reverse,perp[2]+obsU[2]*reverse],magErr=Math.max(0,parallel)-on,wtDir=clamp(af.translationWeight,.003,1)*28*clamp(alvaTranslationScale,.002,1),wtMag=clamp(af.translationWeight,.003,1)*3.2*clamp(alvaTranslationScale,.002,1);for(let k=0;k<3;k++){H[k*6+k]+=wtDir+wtMag;g[k]+=sign*(wtDir*dirVec[k]+wtMag*obsU[k]*magErr);}}for(let k=0;k<3;k++){const wr=clamp(af.rotationWeight,.003,1)*95*clamp(alvaRotationScale,.01,1),ri=(k+3)*6+(k+3);H[ri]+=wr;g[k+3]+=wr*sign*rr[k+3];}}
       // Whole-photo RGB factors constrain rotation and, when the direct photo
       // matches make it observable, monocular translation DIRECTION. The latter
       // is perpendicular-only: it bends the current metric baseline without
       // inventing a scale/magnitude that monocular RGB cannot observe.
       for(const fct of this.edgeModel.factorsForFrame(f.frameId)){const e=fct.edge,A=this.frames[this.frameMap.get(String(e.aId??e.a))],B=this.frames[this.frameMap.get(String(e.bId??e.b))];if(!A||!B)continue;const sign=String(e.bId??e.b)===String(f.frameId)?1:-1;
         if(Array.isArray(e.rotationBToA)&&e.rotationBToA.length===9){const rv=rotationResidualVector(A.poseEstimate,B.poseEstimate,e.rotationBToA),w=clamp(fct.weight,.002,1)*180;for(let k=0;k<3;k++){H[(k+3)*6+(k+3)]+=w;g[k+3]+=w*sign*rv[k];}}
-        if(Array.isArray(e.translationDirection)&&e.translationDirection.length===3&&e.translationDirectionConfidence>.08){const delta=[B.poseEstimate.p[0]-A.poseEstimate.p[0],B.poseEstimate.p[1]-A.poseEstimate.p[1],B.poseEstimate.p[2]-A.poseEstimate.p[2]],baseline=Math.hypot(...delta);if(baseline>1e-4){const pred=delta.map(x=>x/baseline),rawObs=norm(qRotate(A.poseEstimate.q,e.translationDirection)),obs=alignTranslationLine(rawObs,pred),cos=clamp(Math.abs(pred[0]*obs[0]+pred[1]*obs[1]+pred[2]*obs[2]),0,1),ang=translationLineAngle(pred,obs),perp=[pred[0]-obs[0]*cos,pred[1]-obs[1]*cos,pred[2]-obs[2]*cos],wd=clamp(fct.weight,.002,1)*clamp(e.translationDirectionConfidence,.05,1)*52/(1+(ang/.22)**2);for(let k=0;k<3;k++){H[k*6+k]+=wd;g[k]+=sign*wd*baseline*perp[k];}}}}
+        if(Array.isArray(e.translationDirection)&&e.translationDirection.length===3&&e.translationDirectionConfidence>.08){const delta=[B.poseEstimate.p[0]-A.poseEstimate.p[0],B.poseEstimate.p[1]-A.poseEstimate.p[1],B.poseEstimate.p[2]-A.poseEstimate.p[2]],baseline=Math.hypot(...delta);if(baseline>1e-4){const pred=delta.map(x=>x/baseline),rawObs=norm(qRotate(A.poseEstimate.q,e.translationDirection)),obs=alignTranslationLine(rawObs,pred),cos=clamp(Math.abs(pred[0]*obs[0]+pred[1]*obs[1]+pred[2]*obs[2]),0,1),ang=translationLineAngle(pred,obs),perp=[pred[0]-obs[0]*cos,pred[1]-obs[1]*cos,pred[2]-obs[2]*cos],dirQuality=clamp(e.translationDirectionConfidence,.05,1)*clamp(Number(e.translationDirectionInlierFraction??1),.15,1)*Math.exp(-.5*(Number(e.translationEpipolarResidualRad||0)/(.055))**2),edgeAuthority=rgbDirectionRecovery?Math.max(clamp(fct.weight,.002,1),.24*dirQuality):clamp(fct.weight,.002,1),angularScale=rgbDirectionRecovery?.62:.22,baseGain=rgbDirectionRecovery?145:52,wd=edgeAuthority*dirQuality*baseGain/(1+(ang/angularScale)**2);for(let k=0;k<3;k++){H[k*6+k]+=wd;g[k]+=sign*wd*baseline*perp[k];}}}}
 
       const d=solveLinear(H,Array.from(g),6);if(!d)continue;const dt=Math.hypot(d[0],d[1],d[2]),dr=Math.hypot(d[3],d[4],d[5]),s=Math.min(1,.035/Math.max(.035,dt),.025/Math.max(.025,dr))*this.poseDamping;f.poseEstimate=perturbPose(f.poseEstimate,d.map(x=>-x*s));
     }
+  }
+  recoverRgbScaffold({iterations=36,gain=.55,maxStep=.14}={}){
+    const active=new Set(this.frames.map((_,i)=>i)),n=Math.max(1,Math.min(64,Number(iterations)||36));
+    // Seed epipolar lines before the first position update.  Their internal
+    // quality is independent of the current Alva translation and therefore can
+    // be trusted to challenge that translation without circular gating.
+    this.edgeModel.update(this.frames,this.landmarks,{bootstrap:true});
+    for(let i=0;i<n;i++){
+      this.refineRgbTranslationLines(active,{gain,maxStep});
+      if((i&1)===1)this.refineLandmarks(active);
+      this.edgeModel.update(this.frames,this.landmarks,{bootstrap:true});
+      this.alvaModel.update(this.frames,{translationContradiction:this.edgeModel.translationContradictionMap?.()||null});
+    }
+    this.lastFeedbackPhase='rgb-scaffold-recovery';this.lastStats=this.computeStats();return this.lastStats;
+  }
+  refineRgbTranslationLines(active,{gain=.30,maxStep=.08}={}){
+    // Scale-preserving graph relaxation for post-scan recovery.  Each direct
+    // RGB edge observes only the unoriented translation line.  The current
+    // metric baseline length is therefore preserved while its perpendicular
+    // component is rotated toward the photo geometry.  This is a step of the
+    // same joint optimizer, not a second pose estimator.
+    const acc=new Map();
+    const add=(i,v,w)=>{if(i<=0||!active.has(i)||!(w>0))return;let a=acc.get(i);if(!a)acc.set(i,a={v:[0,0,0],w:0});for(let k=0;k<3;k++)a.v[k]+=w*v[k];a.w+=w;};
+    for(const e of this.edgeModel?.edges||[]){
+      if(!Array.isArray(e.translationDirection)||e.translationDirection.length!==3)continue;
+      const conf=clamp(Number(e.translationDirectionConfidence)||0,0,1),inlier=clamp(Number(e.translationDirectionInlierFraction??1),0,1),epi=Number(e.translationEpipolarResidualRad),par=Number(e.translationDirectionParallaxRad),matches=Math.max(0,Number(e.translationDirectionMatches)||0);
+      if(conf<.08||inlier<.48||matches<8||!Number.isFinite(epi)||epi>4*DEG||!Number.isFinite(par)||par<.8*DEG)continue;
+      const ia=this.frameMap.get(String(e.aId??e.a)),ib=this.frameMap.get(String(e.bId??e.b));if(ia==null||ib==null||(!active.has(ia)&&!active.has(ib)))continue;const A=this.frames[ia],B=this.frames[ib],d=[B.poseEstimate.p[0]-A.poseEstimate.p[0],B.poseEstimate.p[1]-A.poseEstimate.p[1],B.poseEstimate.p[2]-A.poseEstimate.p[2]],baseline=Math.hypot(...d);if(!(baseline>1e-4))continue;
+      const line=alignTranslationLine(qRotate(A.poseEstimate.q,e.translationDirection),d),desired=line.map(x=>x*baseline),err=[desired[0]-d[0],desired[1]-d[1],desired[2]-d[2]],q=conf*inlier*Math.exp(-.5*(epi/(2.6*DEG))**2)*clamp(par/(5*DEG),.25,1)*clamp(Math.log1p(matches)/Math.log(32),.3,1);
+      if(!(q>.015))continue;const aFree=ia>0&&active.has(ia),bFree=ib>0&&active.has(ib);if(aFree&&bFree){add(ia,err.map(x=>-.5*x),q);add(ib,err.map(x=>.5*x),q);}else if(aFree)add(ia,err.map(x=>-x),q);else if(bFree)add(ib,err,q);
+    }
+    let moved=0;for(const [i,a] of acc){if(!(a.w>0))continue;let d=a.v.map(x=>gain*x/a.w),n=Math.hypot(...d);if(n>maxStep)d=d.map(x=>x*maxStep/n);const f=this.frames[i];for(let k=0;k<3;k++)f.poseEstimate.p[k]+=d[k];moved++;}return moved;
   }
   sparseRgbFeedback(){
     const by=new Map();for(const l of this.landmarks)for(const m of l.measurements||[]){const id=String(m.frameId),f=this.frames[this.frameMap.get(id)];if(!f)continue;const qc=projectPoint(f.poseEstimate,f.K,l.point),qp=projectPoint(f.posePrior,f.K,l.point);if(!qc||!qp)continue;let a=by.get(id);if(!a)by.set(id,a={cur:[],prior:[],support:0});a.cur.push(Math.hypot(qc.u-m.u,qc.v-m.v));a.prior.push(Math.hypot(qp.u-m.u,qp.v-m.v));a.support+=prob(m.probability)*prob(l.probability);}

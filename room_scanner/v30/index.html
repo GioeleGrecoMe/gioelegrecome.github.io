@@ -7,9 +7,9 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="manifest" href="manifest.webmanifest?v=30.45.0">
-  <link rel="stylesheet" href="styles.css?v=30.45.0">
-  <title>Room Scanner V30.45.0</title>
+  <link rel="manifest" href="manifest.webmanifest?v=30.46.0">
+  <link rel="stylesheet" href="styles.css?v=30.46.0">
+  <title>Room Scanner V30.46.0</title>
 
 <style id="deepDiagStyle">
 .deepDiagGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin-top:.7rem}.deepDiagGrid figure{margin:0;min-width:0}.deepDiagGrid figure[hidden]{display:none}.deepDiagGrid figcaption{font-size:.72rem;opacity:.75;margin:0 0 .25rem}.deepDiagGrid canvas{display:block;width:100%;min-height:100px;background:#05070a;border:1px solid rgba(255,255,255,.15);border-radius:8px;object-fit:contain}.deepDiagReport{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.72rem;line-height:1.35;max-height:none;background:rgba(0,0,0,.28);padding:.65rem;border-radius:8px;margin:.7rem 0 0}@media(max-width:680px){.deepDiagGrid{grid-template-columns:1fr}}
@@ -18,7 +18,7 @@
 <body>
 <main id="app">
   <section id="home" class="screen active">
-    <div class="hero"><div id="buildBadge" class="badge">V30.45.0</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
+    <div class="hero"><div id="buildBadge" class="badge">V30.46.0</div><h1>Room Scanner V30</h1><p>Pin WebXR 3D semplici, calibrazione metrica e scansione camera-only.</p></div>
     <div class="card"><b>1 · Calibrazione</b><p class="hint">Inquadra un punto fisico con il reticolo e premi <b>Aggiungi pin</b>. Usa 3 punti ben distribuiti. Dopo poche viste utili per ciascun pin, riportane almeno 3 nella stessa inquadratura e premi Applica.</p><div id="calibSummary" class="status">Calibrazione non presente.</div><div class="actions inline"><button id="calibrateBtn" class="primary">Calibra con WebXR</button><button id="clearCalibrationBtn">Azzera calibrazione</button></div></div>
     <div class="card"><b>2 · Modello depth</b><p class="hint">Il modello locale <code>models/model_q4.onnx</code> viene caricato dal sito. Se manca o non è pubblicato, viene mostrato un errore chiaro: non parte più alcun download remoto infinito. Puoi comunque scegliere manualmente un file ONNX.</p><div class="actions inline"><button id="chooseDeepModelBtn">Scegli ONNX</button><button id="testDeepBtn" class="primary">Prova inferenza</button></div><input id="deepModelFile" type="file" accept=".onnx,application/octet-stream" hidden><div id="deepModelStatus" class="status">Depth Anything V2 Small Q4 locale · 224 px con rescue automatico 280/336 px, pronto per il test.</div><canvas id="deepTestPreview" class="depthTestPreview" aria-label="Anteprima depth map"></canvas></div>
 
@@ -89,7 +89,7 @@
   </section>
 </main>
 
-<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.45.0</pre></div></details></aside>
+<aside class="diagDock"><details id="diagPanel"><summary>Debug</summary><div class="diagBody"><div class="diagActions"><button id="diagDownloadBtn">Log</button><button id="diagCopyBtn">Copia</button><button id="selfTestBtn">Self-test</button><button id="diagForceUpdateBtn">Reset cache</button></div><div id="selfTestSummary" class="diagSummary">Diagnostica caricata solo su richiesta.</div><pre id="diagLive">Runtime V30.46.0</pre></div></details></aside>
 
 <script>
 /* EXP-4 atomic boot guard.
@@ -98,7 +98,7 @@
  * revisions after a GitHub Pages refresh. Recovery is inline and therefore
  * still clickable even if every ES module fails to load. */
 (function(){
-  const VERSION='30.45.0';
+  const VERSION='30.46.0';
   const RECOVERY_KEY=`roomscan-v30-atomic-recovery-${VERSION}`;
   const boot=window.__ROOMSCAN_PREBOOT={at:Date.now(),version:VERSION,errors:[],phases:[],interactive:false,shell:null};
   const rec=(type,data={})=>{const item={time:Date.now(),type,...data};boot.errors.push(item);return item;};

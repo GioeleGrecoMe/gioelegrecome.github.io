@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.45.0 async RGB/Alva fast-lane + late-bound Deep configuration.
+ * Room Scanner V30.46.0 async RGB/Alva fast-lane + late-bound Deep configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.45.0',
-  id:'v30.45.0-20260822-async-rgb-alva-late-deep',
+  version:'30.46.0',
+  id:'v30.46.0-20260822-canonical-rgb-postscan-dense',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -198,16 +198,22 @@ export const CONFIG={
   deepModelUrl:'models/model_q4.onnx',
   deepModelRemoteUrl:null,
   deepModelLabel:'Depth Anything V2 Small Q4 locale',
-  // V30.45: camera/Alva/RGB/MVS form a strict fast lane. During Scan we only
-  // freeze exact frames explicitly destined for Depth; neural inference is
-  // deferred until acquisition stops, then late-bound by frameId.
+  // V30.46: only camera/Alva/sparse RGB own the acquisition clock. MVS and
+  // Deep are both post-scan consumers. A throttled sparse triangulation pass
+  // preserves enough landmark geometry for the live pose graph without running
+  // plane sweep while tracking is active.
   deepLiveDuringScan:false,
   deepPostScanOnly:true,
-  deepPlanIntervalMs:2600,
-  deepSurveyQueueBudget:8,
+  deepPlanIntervalMs:6500,
+  deepSurveyQueueBudget:2,
   deepLateQueueMaxItems:32,
   deepPostScanMaxDrainMs:300000,
   postScanDenseDrainMs:12000,
+  sparseFastLaneMinIntervalMs:4200,
+  mvsPostScanOnly:true,
+  postScanMvsMaxJobs:48,
+  postScanMvsJobTimeoutMs:18000,
+  postScanRgbScaffoldPasses:20,
   fastLaneGapWarnMs:650,
   deepInferenceIntervalMs:2600,
   // 224 px = 16 ViT/14 patches on the short side. On the test phone 168 px was
@@ -238,8 +244,8 @@ export const CONFIG={
   deepMinAnchorCells:3,
   // Inference is now sub-second on the test phone. Collect redundant Deep
   // constraints much more often; near-duplicate poses are still rejected.
-  deepMinIntervalMs:750,
-  deepMaxIntervalMs:2200,
+  deepMinIntervalMs:4200,
+  deepMaxIntervalMs:9500,
   deepMinTranslationM:0.025,
   deepMinTranslationAlva:0.014,
   deepMinRotationRad:0.040,
@@ -259,7 +265,7 @@ export const CONFIG={
   // reintroducing unconstrained plane-sweep sheets. A later novel view will fill
   // the same surface with one calibrated AI call.
   deepSkipUnprioritized:true,
-  // V30.45: Deep is not requested for every dense keyframe. The selector keeps
+  // V30.46: Deep is not requested for every dense keyframe. The selector keeps
   // only frames that add useful depth coverage; RGB/Alva/MVS keep every useful
   // fast-lane observation independently.
   deepInferEveryDenseKeyframe:false,

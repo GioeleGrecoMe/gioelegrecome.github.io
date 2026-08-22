@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import {ProbabilisticFactorGraph} from '../js/probabilistic/factor_graph.js';
+import {SingleOptimizerRuntime} from '../js/probabilistic/single_optimizer_runtime.js';
+const typed={Float32Array,Float64Array,Uint8Array,Uint16Array,Uint32Array,Int8Array,Int16Array,Int32Array};
+const revive=(k,v)=>v&&typeof v==='object'&&v.__r30Typed&&Array.isArray(v.data)&&typed[v.__r30Typed]?new typed[v.__r30Typed](v.data):v;
+const path=process.argv[2]||'/mnt/data/roomscan-1787388793897.r30';
+const x=JSON.parse(fs.readFileSync(path,'utf8'),revive);
+const g=ProbabilisticFactorGraph.fromState(x.evidence.factorGraph);const graph=g.exportState();
+const rt=new SingleOptimizerRuntime({onTrace:(e,d)=>{if(['postscan-rgb-scaffold','commit-reconcile','mesh-quality','rebuild','commit-withheld'].includes(e)) console.error(e,JSON.stringify(d));}});
+const rec=await rt.reconcileRgbScaffold(graph,{passes:18,globalLinePasses:36,optimizer:{localWindowSize:20,localWindowOverlap:6}});
+console.log('RECONCILE',JSON.stringify({accepted:rec?.accepted,policy:rec?.candidatePolicy,stats:{reproj:rec?.candidateStats?.reprojectionRobustRmse,median:rec?.candidateStats?.reprojectionMedianPx,p90:rec?.candidateStats?.reprojectionP90Px,edges:rec?.candidateStats?.edgeSwitches}},null,2));
+const out=await rt.rebuildAccepted(graph,{reconcileRgbPasses:12,optimizer:{localWindowSize:20,localWindowOverlap:6,globalLinePasses:24},rebuild:{maxSurfels:15000,maxTriangles:20000,maxDeepSamples:12000,maxMvsSamples:25000,voxel:.05,hashVoxel:.035}});
+console.log('REBUILD',JSON.stringify({withheldReason:out?.withheldReason,reconciled:out?.reconciled,gaussians:out?.map?.gaussians?.length||0,faces:out?.map?.mesh?.faces?.length?out.map.mesh.faces.length/3:0,posePolicy:out?.map?.stats?.poseScaffoldPolicy,depthPolicy:out?.map?.stats?.depthGeometryPolicy,mvs:out?.map?.stats?.mvsValidation,geometry:out?.map?.stats?.geometryPolicy,meshQuality:out?.map?.stats?.meshQuality},null,2));

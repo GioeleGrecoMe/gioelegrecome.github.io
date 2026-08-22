@@ -1,5 +1,5 @@
 /**
- * V30.45 bounded late-binding queue for Depth Anything.
+ * V30.46 bounded late-binding queue for Depth Anything.
  *
  * The queue has no authority over the camera/Alva/RGB fast lane.  It stores an
  * immutable exact-frame job and lets the caller decide when inference may run.

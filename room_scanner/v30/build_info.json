@@ -1,7 +1,7 @@
 {
-  "version": "30.45.0",
-  "id": "v30.45.0-20260822-async-rgb-alva-late-deep",
+  "version": "30.46.0",
+  "id": "v30.46.0-20260822-canonical-rgb-postscan-dense",
   "date": "2026-08-22",
-  "notes": "V30.45 decouples the Alva/RGB/MVS fast lane from Depth Anything. Exact RGB frames are marked depth-planned and registered immediately when possible; Deep inference is queued and runs post-scan, then raw depth is late-bound by immutable frameId to the already-registered photo and final pose scaffold. MVS dispatch no longer waits for Deep.",
-  "builtAt": "2026-08-22T10:23:00+02:00"
+  "notes": "V30.46 canonicalizes legacy photo-edge match A/B convention against the stored B-to-A rotation, recovers the global RGB translation-line scaffold before dense processing, moves plane-sweep MVS to post-scan, distributes late Deep capture over the scan, preserves strong direct epipolar evidence through final reconciliation, and shows rejected dense geometry as an explicitly non-committed diagnostic candidate while keeping export blocked.",
+  "builtAt": "2026-08-22T11:17:00+02:00"
 }
