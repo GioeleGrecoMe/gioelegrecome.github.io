@@ -1,5 +1,5 @@
-import {projectPoint,pixelRay,qRotate} from '../slam/math.js?v=30.42.0';
-import {predictMetricDepth} from './depth_calibration_hierarchy.js?v=30.42.0';
+import {projectPoint,pixelRay,qRotate} from '../slam/math.js?v=30.43.0';
+import {predictMetricDepth} from './depth_calibration_hierarchy.js?v=30.43.0';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
@@ -13,8 +13,12 @@ export class DenseDepthConsistencyEvaluator{
     const id=String(frameId),fi=this.frameMap.get(id),f=this.frames[fi],d=this.deepMap.get(id),cal=this.calMap.get(id);if(fi==null||!f||!d||!cal||!(z>0))return unknown();
     const edgeQ=structuralConfidence(d,u,v,f.K.width||f.width,f.K.height||f.height),srcSigma=Math.max(.006,Number(sigmaDepth)||depthSigma(cal,z,f.poseCov)),p=unproject(f.poseEstimate||f.posePrior,f.K,u,v,z),neighbors=(this.adj.get(id)||[]).slice(0,this.maxNeighbors);let support=0,conflict=0,occluded=0,used=0,score=0,conflictScore=0;const residuals=[],supportIds=[],supportAngles=[];
     for(const n of neighbors){const j=this.frameMap.get(n.id),g=this.frames[j],dj=this.deepMap.get(n.id),cj=this.calMap.get(n.id);if(j==null||!g||!dj||!cj)continue;const q=projectPoint(g.poseEstimate||g.posePrior,g.K,p);if(!q||!(q.z>.05)||q.u<1||q.v<1||q.u>(g.K.width||g.width)-2||q.v>(g.K.height||g.height)-2)continue;const raw=sampleDeepGrid(dj,q.u,q.v,g.K.width||g.width,g.K.height||g.height),zj=predictMetricDepth(cj,raw,this.calibration);if(!(zj>.05&&zj<30))continue;used++;const cEdge=structuralConfidence(dj,q.u,q.v,g.K.width||g.width,g.K.height||g.height),sigJ=depthSigma(cj,zj,g.poseCov),sig=Math.sqrt(srcSigma*srcSigma+sigJ*sigJ),gate=Math.max(.018,this.kSigma*sig),r=q.z-zj,w=n.w*Math.sqrt(edgeQ*cEdge);residuals.push(r);if(Math.abs(r)<=gate){support++;score+=w*Math.exp(-.5*(r/gate)**2);supportIds.push(String(n.id));supportAngles.push(triangulationAngle(f.poseEstimate||f.posePrior,g.poseEstimate||g.posePrior,p));}else if(r>gate){occluded++;score+=.20*w;}else{conflict++;conflictScore+=w*clamp(Math.abs(r)/gate,1,4);}}
-    let cls='unknown',weight=.12;if(support>=2&&conflict===0){cls='trusted';weight=clamp(.58+.16*support+.16*score,0,1);}else if(support>=1&&conflictScore<score*1.3){cls='weak';weight=clamp(.28+.22*support+.12*score,.15,.78);}else if(conflict>0&&conflictScore>Math.max(.25,score*1.2)){cls='conflicting';weight=.02;}else if(occluded>0&&conflict===0){cls='occluded';weight=.16;}else if(used>0){cls='weak';weight=.18;}
-    weight*=edgeQ;const independentSupport=supportAngles.filter(a=>a>Math.PI/180*.55).length;return {class:cls,weight:clamp(weight,.005,1),support,independentSupport,supportIds,supportAngles,conflicts:conflict,occluded,used,structuralConfidence:edgeQ,sigmaDepth:srcSigma*(cls==='trusted'?.82:cls==='weak'?1.18:1.7),residualMedian:median(residuals),residualMad:mad(residuals)};
+    // Cross-view depth agreement is only independent when the camera rays have
+    // enough triangulation angle. V30.42 classified two near-pure-rotation
+    // neighbours as trusted and then used them to self-confirm bad metric depth.
+    const independentSupport=supportAngles.filter(a=>a>Math.PI/180*1.0).length;
+    let cls='unknown',weight=.12;if(support>=2&&independentSupport>=2&&conflict===0){cls='trusted';weight=clamp(.54+.15*support+.18*score,0,1);}else if(support>=1&&independentSupport>=1&&conflictScore<score*1.3){cls='weak';weight=clamp(.24+.20*support+.12*score,.12,.72);}else if(conflict>0&&conflictScore>Math.max(.25,score*1.2)){cls='conflicting';weight=.02;}else if(occluded>0&&conflict===0){cls='occluded';weight=.12;}else if(used>0){cls='weak';weight=.10;}
+    weight*=edgeQ;return {class:cls,weight:clamp(weight,.005,1),support,independentSupport,supportIds,supportAngles,conflicts:conflict,occluded,used,structuralConfidence:edgeQ,sigmaDepth:srcSigma*(cls==='trusted'?.82:cls==='weak'?1.28:1.8),residualMedian:median(residuals),residualMad:mad(residuals)};
   }
 }
 

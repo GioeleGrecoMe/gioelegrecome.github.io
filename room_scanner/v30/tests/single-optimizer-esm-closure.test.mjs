@@ -5,7 +5,7 @@ import path from 'node:path';
 import {pathToFileURL,fileURLToPath} from 'node:url';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const VERSION='30.42.0';
+const VERSION='30.43.0';
 const rootRel='js/probabilistic/single_optimizer_runtime.js';
 const importRe=/\b(?:import|export)\s+(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/g;
 

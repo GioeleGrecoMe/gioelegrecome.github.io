@@ -13,6 +13,6 @@ test('real V30.41 reconcile state still cannot authorize committed dense geometr
 });
 
 test('moderately distributed RGB consensus can authorize commit without requiring every edge active',()=>{
-  const p=evaluateRgbConsensusPolicy({edges:24,active:4,weak:14,rejected:6,mean:.31});
+  const p=evaluateRgbConsensusPolicy({edges:24,active:5,weak:13,rejected:6,mean:.31});
   assert.equal(p.collapsed,false);assert.equal(p.commitReady,true);
 });

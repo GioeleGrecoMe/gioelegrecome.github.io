@@ -6,7 +6,7 @@ import {analyzeMeshQuality} from '../js/reconstruction/mesh_quality.js';
 
 const K={fx:100,fy:100,cx:50,cy:50,width:100,height:100};
 const pose=x=>({p:[x,0,0],q:[0,0,0,1]});
-function texture(x,y){return 128+54*Math.sin(x*.31)+39*Math.cos(y*.27)+24*Math.sin((x+y)*.17);}
+function texture(x,y){return 128+45*Math.sin(x*1.2)+40*Math.cos(y*.93)+25*Math.sin((x+y)*.924)+18*Math.cos((2*x-y)*.732);}
 function photo(shift=0){const gray=new Uint8Array(100*100);for(let y=0;y<100;y++)for(let x=0;x<100;x++)gray[y*100+x]=Math.max(0,Math.min(255,Math.round(texture(x+shift,y))));return {gray,width:100,height:100,K};}
 function frame(id,x,p){return {frameId:id,posePrior:pose(x),poseEstimate:pose(x),K,width:100,height:100,photo:p};}
 function splat(x,y,z,n=[0,0,-1]){return {position:[x,y,z],normal:n,normalReliable:true,viewOrigin:[0,0,0],sourceMask:2,color:[180,185,190],scale:[.025,.025,.006],positionCovariance:[1e-5,0,0,1e-5,0,1e-5],positionSigma:.003,confidence:.9,support:3,independentSupport:2,finalPoseValidated:true};}

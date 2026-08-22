@@ -1,7 +1,7 @@
 {
-  "version": "30.42.0",
-  "id": "v30.42.0-20260822-final-pose-dense-consensus",
+  "version": "30.43.0",
+  "id": "v30.43.0-20260822-parallax-observable-global-geometry",
   "date": "2026-08-22",
-  "notes": "V30.42 makes dense geometry conservative and final-pose consistent: MVS depths are photometrically revalidated after pose optimization; raw dense worker splats/meshes remain candidate-only; RGB validation uses an independent robust reprojection metric and withholds committed geometry when RGB consensus collapses; RGB submap edges no longer fabricate translation from their own prior; surface confirmation requires explicit independent support; and global multi-layer meshing uses conflict coloring instead of connected components, preserving disconnected compatible surfels.",
-  "builtAt": "2026-08-22T00:21:00+02:00"
+  "notes": "V30.43 requires true depth observability before dense commit: final-pose MVS support needs triangulation parallax and reprojection depth sensitivity; globally poor Depth Anything calibration cannot create surface; Deep densification must be anchored by independent MVS/RGB geometry; RGB photo matches add monocular translation-direction constraints without fabricating scale; and severely fragmented or scale-exploded meshes are diagnostic-only.",
+  "builtAt": "2026-08-22T08:42:00+02:00"
 }

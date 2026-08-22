@@ -1,6 +1,6 @@
-import {ProbabilisticJointOptimizer} from './joint_optimizer.js?v=30.42.0';
-import {evaluateLiveCandidate} from './live_optimization_gate.js?v=30.42.0';
-import {evaluateRgbConsensusPolicy} from './rgb_consensus_policy.js?v=30.42.0';
+import {ProbabilisticJointOptimizer} from './joint_optimizer.js?v=30.43.0';
+import {evaluateLiveCandidate} from './live_optimization_gate.js?v=30.43.0';
+import {evaluateRgbConsensusPolicy} from './rgb_consensus_policy.js?v=30.43.0';
 
 const now=()=>globalThis.performance?.now?.()??Date.now();
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -123,11 +123,8 @@ export class SingleOptimizerRuntime{
       // the trajectory while dense evidence is projected into a wrong world.
       // Keep the optimized snapshot for diagnostics, but do not manufacture a
       // committed surface until independent RGB consensus exists again.
-      if(preCommitStats?.rgbConsensusCollapsed||preCommitStats?.rgbConsensusCommitReady===false){
-        const elapsedMs=now()-t,localSnapshot=commitOpt.snapshot(),snapshot=useReconciled?mergeOptimizerSnapshots(this.acceptedSnapshot,localSnapshot):this.acceptedSnapshot;
-        this.trace('commit-withheld',{elapsedMs,reason:preCommitStats?.rgbConsensusCollapsed?'rgb-consensus-collapsed':'rgb-consensus-insufficient-for-commit',reconciled:useReconciled,stats:compactStats(preCommitStats),acceptedCoverage:{acceptedFrames:acceptedFrameIds.size,totalFrames:graph.frames?.length||0}});
-        return {map:null,stats:preCommitStats,snapshot,elapsedMs,reconciled:useReconciled,reconcileGate,acceptedFrameIds:[...acceptedFrameIds],withheldReason:preCommitStats?.rgbConsensusCollapsed?'rgb-consensus-collapsed':'rgb-consensus-insufficient-for-commit'};
-      }
+      const rgbWithheldReason=preCommitStats?.rgbConsensusCollapsed?'rgb-consensus-collapsed':preCommitStats?.rgbConsensusCommitReady===false?'rgb-consensus-insufficient-for-commit':null;
+      if(rgbWithheldReason)this.trace('commit-candidate-rebuild',{reason:rgbWithheldReason,reconciled:useReconciled,stats:compactStats(preCommitStats),acceptedCoverage:{acceptedFrames:acceptedFrameIds.size,totalFrames:graph.frames?.length||0},advice:'rebuild continues only to measure MVS/Deep observability; output remains candidate-only'});
       // If full-graph reconciliation is rejected, never fill the final surface
       // with frames that are still only raw Alva priors. Old V30.40 sessions may
       // contain a local accepted snapshot; those unaccepted frames remain
@@ -136,9 +133,11 @@ export class SingleOptimizerRuntime{
       // REVIEW should continue from the reconciled/full-depth state rather than
       // repeatedly returning to the last small live window.
       if(useReconciled){this.acceptedSnapshot=snapshot;this.acceptedStats=stats;this.workingSnapshot=snapshot;}
-      const meshQuality=map?.stats?.meshQuality||null;
-      this.trace('mesh-quality',{elapsedMs,status:meshQuality?.status||'empty',quality:meshQuality,surfaceLayers:map?.mesh?.surfaceLayers??null,sourceSurfels:map?.mesh?.sourceSurfels??null,inputSurfels:map?.mesh?.inputSurfels??null,reconciled:useReconciled});
+      const meshQuality=map?.stats?.meshQuality||null,geometryPolicy=map?.stats?.geometryPolicy||null;
+      this.trace('mesh-quality',{elapsedMs,status:meshQuality?.status||'empty',quality:meshQuality,geometryPolicy,depthGeometryPolicy:map?.stats?.depthGeometryPolicy||null,mvsValidation:map?.stats?.mvsValidation||null,surfaceLayers:map?.mesh?.surfaceLayers??null,sourceSurfels:map?.mesh?.sourceSurfels??null,inputSurfels:map?.mesh?.inputSurfels??null,reconciled:useReconciled});
       this.trace('rebuild',{elapsedMs,stats:map?.stats||null,gaussians:map?.gaussians?.length||0,faces:map?.mesh?.faces?.length?map.mesh.faces.length/3:0,reconciled:useReconciled,acceptedCoverage:{acceptedFrames:acceptedFrameIds.size,totalFrames:graph.frames?.length||0,excludedUnacceptedFrames:map?.stats?.excludedUnacceptedFrames||0}});
+      const geometryWithheldReason=geometryPolicy&&geometryPolicy.commitReady===false?(geometryPolicy.reason||'final-geometry-policy-rejected'):null,withheldReason=rgbWithheldReason||geometryWithheldReason;
+      if(withheldReason){this.trace('commit-withheld',{elapsedMs,reason:withheldReason,rgbWithheldReason,geometryWithheldReason,reconciled:useReconciled,geometryPolicy,depthGeometryPolicy:map?.stats?.depthGeometryPolicy||null,mvsValidation:map?.stats?.mvsValidation||null});return {map,stats,snapshot,elapsedMs,reconciled:useReconciled,reconcileGate,acceptedFrameIds:[...acceptedFrameIds],withheldReason};}
       return {map,stats,snapshot,elapsedMs,reconciled:useReconciled,reconcileGate,acceptedFrameIds:[...acceptedFrameIds]};
     }catch(err){this.trace('rebuild-error',{message:err?.message||String(err),stack:err?.stack||null});throw err;}
   }
@@ -148,7 +147,7 @@ export class SingleOptimizerRuntime{
     if(job.previewMap&&String(opt.lastFeedbackPhase||opt.computeStats()?.feedbackPhase)==='depth-feedback'&&(summary.deepFrames||0)>0){
       const mt=now();try{
         const map=opt.rebuild({voxel:Number(job.previewVoxel)||.055,hashVoxel:Number(job.previewHashVoxel)||.04,maxSurfels:Math.max(700,Math.min(3500,Number(job.previewMaxSurfels)||2200)),maxTriangles:Math.max(300,Math.min(1800,Number(job.previewMaxTriangles)||900)),maxDeepSamples:Math.max(800,Math.min(6000,Number(job.previewMaxDeepSamples)||3200)),maxMvsSamples:Math.max(1000,Math.min(7000,Number(job.previewMaxMvsSamples)||3800)),submapSize:Math.max(4,Number(job.previewSubmapSize)||6),submapOverlap:2,deepFrameWeightBudget:10});
-        previewGaussians=(map.gaussians||[]).slice(0,Number(job.previewMaxSurfels)||2200);previewStats=map.stats||null;
+        previewStats=map.stats||null;previewGaussians=map.stats?.geometryPolicy?.commitReady===false?null:(map.gaussians||[]).slice(0,Number(job.previewMaxSurfels)||2200);if(!previewGaussians?.length&&map.gaussians?.length)this.trace('preview-map-withheld',{...traceBase,reason:map.stats?.geometryPolicy?.reason||'geometry-policy',geometryPolicy:map.stats?.geometryPolicy||null,mvsValidation:map.stats?.mvsValidation||null,depthGeometryPolicy:map.stats?.depthGeometryPolicy||null});
       }catch(err){this.trace('preview-map-error',{...traceBase,message:err?.message||String(err),stack:err?.stack||null});}
       mapMs=now()-mt;
     }

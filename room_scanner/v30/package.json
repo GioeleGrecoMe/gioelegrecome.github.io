@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-42-final-pose-dense-consensus",
+  "name": "room-scanner-v30-43-parallax-observable-global-geometry",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,6 +14,6 @@
     "vendor:alva": "node tools/vendor_alvaar.mjs",
     "check:public": "node tools/validate_public_data.mjs"
   },
-  "version": "30.42.0",
-  "description": "Room Scanner V30.42 conservative final-pose dense consensus with MVS revalidation, independent RGB validation and conflict-colored global TSDF"
+  "version": "30.43.0",
+  "description": "Room Scanner V30.43 parallax-observable dense consensus with global Deep gating, RGB translation direction and conservative geometry commit"
 }
