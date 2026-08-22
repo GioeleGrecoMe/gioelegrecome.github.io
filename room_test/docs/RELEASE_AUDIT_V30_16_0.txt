@@ -1,0 +1,7 @@
+Room Scanner V30.16.0 release audit
+files=90
+version_refs=23
+legacy_runtime_refs=0
+geometry_anchor_module=present
+dense_worker=present
+fusion_worker=present

@@ -1,0 +1,45 @@
+ROOM SCANNER V30.20.0 - DIAGNOSTICA DEPTH E BOOTSTRAP
+
+Cause verificate del comportamento "download perenne" e delle mappe incoerenti:
+
+1. La pagina 18.8 dichiarava quella versione, ma il bootstrap importava 18.7 e
+   app.js importava config/logger 18.0. Il service worker cache-first ignorava
+   inoltre il query string degli import. Una pagina poteva dunque mischiare tre
+   build differenti.
+
+2. CONFIG cercava models/depth_anything_v2_small_q4.onnx, file assente. Il
+   worker riceveva il 404 e avviava un fallback remoto non controllato. Ora il
+   nome configurato e' models/model_q4.onnx, che esiste nella cartella models,
+   e l'assenza genera un errore leggibile.
+
+3. Tensor.fromImage(ImageData) riceveva una dimensione di resize ma non
+   ricampionava i byte della camera: per fotogrammi 320x480 -> tensor dinamico
+   leggeva un crop come se fosse l'intera immagine. Ora il worker effettua
+   esplicitamente resize RGBA bilinear + packing RGB/NCHW + normalizzazione
+   ImageNet. Il target ufficiale DPT e' 518 con aspect ratio preservato e
+   multipli di 14; l'output e' il primo piano [H,W] row-major dopo getData(false).
+
+4. L'A/B WASM passava due Promise al runner perche' mancavano await. Ora gli
+   await sono presenti, la chiave modello distingue gli upload byte-per-byte e
+   input/output temporanei vengono rilasciati durante il loop live.
+
+5. La V30.19 riconosceva come corruzione WebGPU quasi soltanto le mappe a bande.
+   Una mappa isotropicamente rumorosa come "neve" aveva stripe ratio circa 1 e
+   quindi poteva essere dichiarata valida. V30.20 misura anche la coerenza
+   spaziale (variazione locale contro variazione a lunga distanza) e il test
+   esplicito aggiunge un controllo di equivarianza al flip orizzontale.
+
+6. La V30.19 aveva due percorsi neurali di preview oltre all'inferenza scelta dal
+   selettore geometrico. Potevano eseguire Depth Anything circa ogni secondo
+   anche quando la mappa non sarebbe stata usata nella ricostruzione. V30.20 non
+   importa piu' deep_live_controller e non lancia piu' requestLiveDepth: l'unica
+   inferenza di scansione nasce da un keyframe con sufficienti anchor Alva.
+
+7. Il default upstream DPT resta 518, ma per il telefono V30.20 usa un target
+   dinamico 392, sempre con aspect ratio preservato e multipli di patch 14. Per
+   un frame portrait tipico si passa circa da 350x518 a 266x392. Deep rimane un
+   prior relativo: la scala comune viene imposta dagli anchor Alva e verificata
+   nuovamente dal plane sweep multi-view.
+
+Il test esplicito invia anche il frame e il tensor NCHW. Il normale scan non
+trasferisce questi buffer diagnostici aggiuntivi.

@@ -1,0 +1,5 @@
+import fs from 'node:fs';import {ProbabilisticFactorGraph} from '../js/probabilistic/factor_graph.js';import {estimatePhotoTranslationDirection,translationLineAngle} from '../js/probabilistic/rgb_translation_direction.js';
+const x=JSON.parse(fs.readFileSync(process.argv[2]||'/mnt/data/roomscan-1787388793897.r30','utf8')),g=ProbabilisticFactorGraph.fromState(x.evidence.factorGraph),fm=new Map(g.frames.map(f=>[String(f.frameId),f]));
+function qc(q){return [-q[0],-q[1],-q[2],q[3]]}function qr(q,v){const [x,y,z,w]=q,tx=2*(y*v[2]-z*v[1]),ty=2*(z*v[0]-x*v[2]),tz=2*(x*v[1]-y*v[0]);return [v[0]+w*tx+(y*tz-z*ty),v[1]+w*ty+(z*tx-x*tz),v[2]+w*tz+(x*ty-y*tx)]}
+let r=[];for(const e of g.edgeFactors){const A=fm.get(e.aId),B=fm.get(e.bId),d=estimatePhotoTranslationDirection(e,A,B);if(!d)continue;const dp=[B.posePrior.p[0]-A.posePrior.p[0],B.posePrior.p[1]-A.posePrior.p[1],B.posePrior.p[2]-A.posePrior.p[2]],t=qr(qc(A.posePrior.q),dp);r.push(translationLineAngle(t,d.direction)*180/Math.PI)}
+r.sort((a,b)=>a-b);const q=p=>r[Math.floor((r.length-1)*p)];console.log({n:r.length,q10:q(.1),median:q(.5),q90:q(.9),under28:r.filter(x=>x<=28).length,under45:r.filter(x=>x<=45).length});

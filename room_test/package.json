@@ -1,0 +1,20 @@
+{
+  "name": "room-scanner-v30-51-global-surface-consensus-test-lab",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check:layout": "node tools/check_v30_layout.mjs",
+    "check:deps": "node tools/check_dependencies.mjs",
+    "verify": "npm test && npm run check:public && npm run check:depth && npm run check:layout && npm run check:deps && npm run check:constructors && npm run check:mock && npm run check:alva",
+    "check:depth": "node tools/test_worker_diagnostics.mjs",
+    "check:mock": "node tools/mock_ui_boot.mjs",
+    "check:constructors": "node tools/check_eventtarget_constructors.mjs",
+    "check:alva": "node tools/check_alvaar_runtime.mjs",
+    "vendor:alva": "node tools/vendor_alvaar.mjs",
+    "check:public": "node tools/validate_public_data.mjs",
+    "test:room-test": "node --test tests/room-test-geometry-diagnostics.test.mjs"
+  },
+  "version": "30.51.0",
+  "description": "Room Scanner V30.51 adaptive Deep + automatic global reconstruction, multi-submap surface consensus, strict Gaussian visibility and pipeline TEST diagnostics"
+}

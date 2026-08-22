@@ -1,0 +1,15 @@
+{
+  "seed": "0x5eedc0de",
+  "rigidFitExactCases": 2000,
+  "rigidFitExactMaxRmseM": 1.6574518010108025e-14,
+  "rigidFitNoiseSigmaM": 0.003,
+  "rigidFitNoisyMedianRmseM": 0.0039305130424598204,
+  "rigidFitNoisyP95RmseM": 0.005586114280635833,
+  "rigidFitNoisyMaxRmseM": 0.006788827253897712,
+  "deliberateOutlierCases": 500,
+  "alignmentOnlyOutliersRejected": 486,
+  "endToEndOutlierVerificationsRejected": 500,
+  "collinearRejectedCases": 100,
+  "frustumPropertyCases": 20000,
+  "onlineTumPreviewBytes": 506503
+}

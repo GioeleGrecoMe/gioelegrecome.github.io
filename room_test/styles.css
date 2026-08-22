@@ -1,0 +1,210 @@
+:root{color-scheme:dark;--bg:#080b10;--panel:#111824;--panel2:#0c121b;--text:#eef5ff;--muted:#8da0b8;--line:#26364b;--accent:#61d6ff;--ok:#5cff8d;--bad:#ff6b6b;--radius:16px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:var(--bg);color:var(--text);overflow:hidden}body{overscroll-behavior:none}button,input{font:inherit}button{border:1px solid var(--line);border-radius:12px;background:#182334;color:var(--text);padding:.72rem 1rem;font-weight:700;cursor:pointer;touch-action:manipulation}button:disabled{opacity:.42;cursor:not-allowed}.primary{background:#0f6c8f;border-color:#168bb6}.danger{background:#68252b;border-color:#a13b45}.screen{display:none;position:absolute;inset:0;overflow:auto;padding:max(18px,env(safe-area-inset-top)) 16px max(18px,env(safe-area-inset-bottom));background:var(--bg)}.screen.active{display:block}.hero{padding:1rem 0 .4rem}.hero h1,.screen h2{margin:.35rem 0}.badge{display:inline-block;border:1px solid #2d4c64;border-radius:999px;padding:.35rem .65rem;color:#bfeeff;background:#0c2231;font-size:.78rem;font-weight:800}.card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:var(--radius);padding:1rem;margin:.8rem 0;box-shadow:0 12px 36px #0005}.compact{padding:.75rem}.hint,.muted{color:var(--muted);line-height:1.42}.status{padding:.72rem;border-radius:10px;background:#0a1018;border:1px solid #1f2d3e;color:#c6d6e9}.status[data-kind=error]{border-color:#7f3139;color:#ffb9bf}.actions{display:flex;gap:.6rem;margin-top:.8rem}.actions.inline,.actions.wrap{flex-wrap:wrap}.stats{display:flex;gap:.7rem;flex-wrap:wrap;color:var(--muted);font-size:.85rem}.stats b{color:var(--text)}video,#miniMap,#viewer{position:absolute;inset:0;width:100%;height:100%}video{object-fit:cover;background:#000}.topHud{position:absolute;top:max(12px,env(safe-area-inset-top));left:12px;right:12px;display:flex;gap:.5rem;z-index:3}.topHud span{background:#08111ccc;border:1px solid var(--line);border-radius:999px;padding:.45rem .7rem}.coach{position:absolute;left:12px;right:12px;bottom:5.4rem;z-index:3;background:#08111cdd;border:1px solid var(--line);border-radius:13px;padding:.7rem;color:#dceafa}.scanButtons{position:absolute;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:4;display:flex;justify-content:space-between}.scanStats{position:absolute;top:4rem;left:12px;z-index:4;background:#08111ccc;padding:.4rem .6rem;border-radius:10px}.reviewHead{display:flex;align-items:center;justify-content:space-between}.viewerTools{position:absolute;top:4.6rem;left:12px;z-index:4;display:flex;gap:.4rem;flex-wrap:wrap}.bridgeCard{position:absolute;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:5;background:#101722ee;backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:16px;padding:.8rem}.compactBridge{max-height:34vh;overflow:auto}.buildFoot{color:var(--muted);font-size:.76rem;margin-top:.7rem}.updateCard{border-color:#725d22}.bridgeStats{margin-top:.7rem}
+/* Calibration is intentionally minimal. The DOM canvas is diagnostic only and
+ * NEVER owns touch input; the true pin is also rendered in the XRWebGLLayer. */
+.xrSimple{background:transparent!important;padding:0!important;overflow:hidden!important}.xrSimple #calibOverlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}.xrStatusPill{position:absolute;top:max(10px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:5;display:flex;gap:.5rem;align-items:center;max-width:calc(100vw - 24px);padding:.5rem .75rem;border:1px solid #ffffff35;background:#07101bcc;border-radius:999px;backdrop-filter:blur(8px);font-size:.8rem;white-space:nowrap}.xrStatusPill span{color:#c8d7e8;overflow:hidden;text-overflow:ellipsis}.xrBottomBar{position:absolute;left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));z-index:10;display:grid;grid-template-columns:1.35fr 1fr .8fr .8fr;gap:6px;padding:7px;background:#07101bd9;border:1px solid #ffffff2b;border-radius:15px;backdrop-filter:blur(8px)}.xrBottomBar button{padding:.72rem .45rem;font-size:.86rem}
+.diagDock{position:fixed;right:8px;bottom:8px;z-index:100;max-width:min(94vw,720px)}.diagDock details{background:#08111cee;border:1px solid var(--line);border-radius:12px}.diagDock summary{padding:.55rem .75rem;cursor:pointer;font-weight:700}.diagBody{padding:.8rem}.diagActions{display:flex;gap:.4rem;flex-wrap:wrap}.diagLive{white-space:pre-wrap;word-break:break-word;max-height:34vh;overflow:auto;background:#05080c;padding:.6rem;border-radius:8px;font-size:.72rem}body.immersive-ui .diagDock{display:none!important}#bridgePinGuidance{pointer-events:none!important}@media(min-width:760px){.screen:not(.xrSimple){padding-left:max(24px,calc((100vw - 720px)/2));padding-right:max(24px,calc((100vw - 720px)/2))}.bridgeCard{left:50%;right:auto;width:min(720px,calc(100vw - 24px));transform:translateX(-50%)}}
+/* V30.17.0 metric-lock interaction safety: overlay canvases never intercept
+ * touch/clicks and the control card always stays above the camera layers. */
+#bridgePinGuidance{pointer-events:none!important}.bridgeCard{pointer-events:auto!important;z-index:8!important}
+
+/* V30.17.0 measurement/scan camera viewport fix.
+ *
+ * Measurement screens must NOT inherit the padded, scrollable layout used by
+ * normal app pages. The camera preview gets a definite viewport-sized box in
+ * dynamic viewport units and is the only full-screen graphics layer. This
+ * avoids percentage-height collapse and mobile video/canvas compositor bugs.
+ */
+#bridge,#scan{
+  padding:0!important;
+  overflow:hidden!important;
+  width:100vw!important;
+  height:100dvh!important;
+  min-height:100svh!important;
+  max-height:100dvh!important;
+  background:#000!important;
+  contain:layout paint;
+}
+#bridgeCamera,#camera{
+  position:absolute!important;
+  inset:0!important;
+  display:block!important;
+  width:100vw!important;
+  height:100dvh!important;
+  min-width:100%!important;
+  min-height:100%!important;
+  max-width:none!important;
+  max-height:none!important;
+  object-fit:cover!important;
+  object-position:50% 50%!important;
+  background:#000!important;
+  transform:none!important;
+  z-index:0!important;
+}
+#bridgePinGuidance{
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  z-index:3!important;
+  pointer-events:none!important;
+  overflow:hidden!important;
+}
+.bridgePinRing{
+  --pin-radius-n:.07;
+  position:absolute;
+  width:clamp(56px,calc(var(--pin-radius-n) * 200vmin),180px);
+  aspect-ratio:1;
+  transform:translate(-50%,-50%);
+  border:3px solid #61d6ff;
+  border-radius:50%;
+  box-shadow:0 0 0 2px #00131dcc,0 0 18px #61d6ff88,inset 0 0 18px #61d6ff33;
+  background:rgba(30,170,255,.055);
+}
+.bridgePinCore{
+  position:absolute;left:50%;top:50%;width:9px;height:9px;
+  transform:translate(-50%,-50%);border-radius:50%;
+  background:#fff;box-shadow:0 0 0 3px #168bb6aa;
+}
+.bridgePinLabel{
+  position:absolute;left:calc(100% + 7px);top:50%;transform:translateY(-50%);
+  white-space:nowrap;background:#07111ddd;border:1px solid #31526c;
+  border-radius:8px;padding:.28rem .42rem;font-size:.72rem;font-weight:800;color:#eef5ff;
+  text-shadow:0 1px 2px #000;
+}
+#bridge .bridgeCard{z-index:10!important;pointer-events:auto!important;}
+@supports not (height:100dvh){
+  #bridge,#scan,#bridgeCamera,#camera{height:100vh!important;max-height:100vh!important;}
+}
+
+/* V30.14 live reconstruction: the camera stays the base layer and the metric
+ * splat / mesh renderer is a transparent, non-interactive AR layer above it. */
+#scan #miniMap{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;z-index:2!important;pointer-events:none!important;background:transparent!important;touch-action:none!important}
+#scan .topHud,#scan .scanStats,#scan .coach,#scan .scanButtons{z-index:6!important}
+#scan .scanButtons{gap:.45rem;justify-content:flex-end;flex-wrap:wrap}
+#scan .scanButtons button:first-child{margin-right:auto}
+#review #viewer{touch-action:none;cursor:grab}
+#review #viewer:active{cursor:grabbing}
+.viewerTools{background:#07101bcc;border:1px solid #26364b;border-radius:12px;padding:.35rem;backdrop-filter:blur(8px)}
+
+/* V30.17.0 recovery: DOM overlay controls must remain visible in immersive AR,
+ * and the live diagnostic HUDs must not cover one another. */
+#calibration:xr-overlay,#calibration.xrSimple.active{
+  display:block!important;
+  position:fixed!important;
+  inset:0!important;
+  width:100vw!important;
+  height:100dvh!important;
+  pointer-events:none;
+  background:transparent!important;
+}
+#calibration .xrStatusPill,#calibration .xrBottomBar{pointer-events:auto!important;}
+#calibration #calibOverlay{display:block!important;visibility:visible!important;opacity:1!important;}
+.metricPipelineHud{bottom:8.7rem!important;max-width:min(760px,calc(100vw - 24px));}
+#scan .topHud{flex-wrap:wrap;pointer-events:none;}
+#alvaPtsState{color:#bfffd0;}
+
+/* Depth Anything preview: a non-interactive heat map between video and the
+ * sparse/mesh AR canvas. It intentionally never intercepts scan controls. */
+#scan .deepLivePreview{position:absolute!important;right:12px!important;top:205px!important;width:min(42vw,190px)!important;z-index:6!important;padding:6px!important;border-radius:12px!important;background:rgba(5,10,18,.78)!important;border:1px solid rgba(120,205,255,.45)!important;box-shadow:0 8px 24px rgba(0,0,0,.35)!important;pointer-events:none!important}#scan .deepLivePreview #deepLiveState{font-size:.66rem!important;line-height:1.2!important;color:#dff7ff!important;margin:0 0 5px!important;white-space:normal!important}#scan #depthOverlay{display:block!important;position:static!important;width:100%!important;height:auto!important;aspect-ratio:2/3!important;border-radius:8px!important;background:#05070a!important;opacity:1!important;mix-blend-mode:normal!important;image-rendering:auto!important;}
+#scan #miniMap{z-index:2!important}
+.depthTestPreview{display:block;width:100%;max-width:260px;aspect-ratio:4/3;margin-top:.7rem;border:1px solid var(--line);border-radius:10px;background:#05080c;}
+
+/* V30.26 post-scan review: keep the 3D viewport visible while controls live in
+ * one bounded, scrollable panel.  Optimisation runs in a Worker, so the panel
+ * stays responsive even on low-budget phones. */
+#review{overflow:hidden!important;padding:0!important;background:#020407!important}
+#review .reviewHead{position:absolute;top:max(10px,env(safe-area-inset-top));left:12px;right:12px;z-index:7;pointer-events:none;display:flex;align-items:center;justify-content:space-between}
+#review .reviewHead button{pointer-events:auto}
+#review .viewerTools{top:5.4rem!important;right:12px;max-width:calc(100vw - 24px)}
+#review .reviewPanel{position:absolute;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:6;max-height:min(43vh,440px);overflow:auto;padding:.15rem .45rem .55rem;background:#07101bd9;border:1px solid var(--line);border-radius:14px;backdrop-filter:blur(10px);overscroll-behavior:contain}
+#review .reviewPanel .card{margin:.45rem 0;box-shadow:none}
+#review .reviewPanel .actions{margin:.5rem 0 0}
+.optimizerControls{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}
+.optimizerControls label{display:flex;align-items:center;gap:.4rem;color:#c6d6e9}
+.optimizerControls input{width:5.4rem;padding:.55rem .6rem;border:1px solid var(--line);border-radius:10px;background:#09111b;color:var(--text)}
+.optimizerCard progress{display:block;width:100%;height:.8rem;margin:.65rem 0;accent-color:var(--accent)}
+.savedSessionRow{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin:.4rem 0!important}
+.savedSessionRow span{min-width:0;line-height:1.35}
+.savedSessionRow button{flex:0 0 auto;padding:.55rem .7rem}
+@media(max-width:560px){#review .reviewPanel{max-height:46vh}.optimizerControls{display:grid;grid-template-columns:1fr 1fr}.optimizerControls label{grid-column:1/-1}.savedSessionRow{align-items:flex-start;flex-direction:column}.savedSessionRow button{align-self:flex-end}}
+
+/* V30.27 EXP-1: isolated Surface Mesh Lab.  The visual distinction is deliberate:
+ * BASE and EXP are separate review modes, not two names for the same state. */
+.experimentalCard{border-style:dashed!important}
+.experimentalCard .compactActions{margin-top:.45rem!important}
+.experimentalCard .status{min-height:2.3rem}
+.experimentalCard progress{display:block;width:100%;height:.8rem;margin:.65rem 0}
+@media(max-width:560px){.experimentalCard .optimizerControls{grid-template-columns:1fr 1fr}.experimentalCard .optimizerControls label{grid-column:auto}.experimentalCard .optimizerControls button{min-width:0}}
+
+/* V30.29 spherical scan coverage + Photo Puzzle post-processing */
+.coverageSpherePanel{position:absolute;left:max(10px,env(safe-area-inset-left));bottom:calc(78px + env(safe-area-inset-bottom));width:min(46vw,260px);z-index:8;padding:7px 8px;border-radius:12px;background:rgba(5,8,13,.72);backdrop-filter:blur(7px);box-shadow:0 4px 18px rgba(0,0,0,.28);font-size:.68rem;line-height:1.25;color:#eef4fa;pointer-events:none}.coverageSpherePanel canvas{display:block;width:100%;height:auto;aspect-ratio:2/1;margin-top:5px;border-radius:7px;background:#101722}.puzzleCard{border-color:rgba(123,228,149,.35)}.photoSpherePreview{display:block;width:100%;aspect-ratio:2/1;max-height:220px;margin:.65rem 0;background:#05070a;border:1px solid rgba(255,255,255,.15);border-radius:9px;image-rendering:auto}.puzzleCard progress{width:100%;margin:.55rem 0}.puzzleCard input[type=number]{max-width:7.5rem}@media(max-width:620px){.coverageSpherePanel{width:min(55vw,220px);bottom:calc(92px + env(safe-area-inset-bottom));}.photoSpherePreview{max-height:160px}}
+
+/* V30.34 spherical RGB+Depth mosaic diagnostics. The RGB atlas is solved only from image overlap:
+ * every accepted RGB+Depth frame is inverse-warped through a rigid spherical camera rotation.
+ * Alva poses are not read by the panorama renderer or photographic registration. */
+#scan .livePuzzlePanel{position:absolute;left:max(10px,env(safe-area-inset-left));top:118px;width:min(50vw,350px);z-index:8;padding:7px 8px;border-radius:12px;background:rgba(5,9,15,.80);border:1px solid rgba(123,228,149,.42);box-shadow:0 8px 24px rgba(0,0,0,.34);backdrop-filter:blur(7px);pointer-events:auto;color:#eef5ff}
+#scan .livePuzzleHead{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;font-size:.65rem;line-height:1.2}
+#scan #liveMapState{flex:1;min-width:0;color:#e8f7ed}
+#scan .livePuzzleSwitch{display:flex;gap:3px;flex:0 0 auto}
+#scan .livePuzzleSwitch button{padding:.22rem .42rem;border-radius:7px;font-size:.60rem;line-height:1.1;background:#111c29;border-color:#2b4158;color:#c8d7e9}
+#scan .livePuzzleSwitch button.active{background:#17677a;border-color:#61d6ff;color:#fff;box-shadow:0 0 0 1px rgba(97,214,255,.22) inset}
+#scan #liveMapCanvas{display:block;width:100%;height:auto;aspect-ratio:2/1;margin-top:5px;border-radius:7px;background:#030609;border:1px solid rgba(255,255,255,.10);image-rendering:auto;touch-action:none;pointer-events:none}
+#scan .livePuzzleLegend{margin-top:4px;color:#9db0c5;font-size:.56rem;line-height:1.15;white-space:normal}
+#scan .deepLivePreview{top:262px!important}
+@media(max-width:620px){#scan .livePuzzlePanel{width:min(50vw,230px);top:116px;padding:6px}#scan .livePuzzleLegend{display:none}#scan .deepLivePreview{top:242px!important;width:min(42vw,178px)!important}}
+
+/* Photo-first panorama measurement UI.
+ * The camera remains a true full-screen layer. Diagnostics are now one
+ * collapsible dock instead of four independent overlays competing for pixels. */
+#scan .scanHudBar{left:max(8px,env(safe-area-inset-left))!important;right:auto!important;top:max(8px,env(safe-area-inset-top))!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:5px!important;max-width:calc(100vw - 92px)!important;pointer-events:none!important}
+#scan .scanHudPrimary{display:flex;gap:5px;flex-wrap:wrap}
+#scan .scanHudBar span{padding:.31rem .52rem!important;font-size:.69rem!important;background:rgba(4,10,17,.72)!important;border-color:rgba(155,190,220,.24)!important;backdrop-filter:blur(6px)}
+#scan .scanStats{position:static!important;display:flex!important;padding:.28rem .42rem!important;gap:.55rem!important;border:1px solid rgba(155,190,220,.20)!important;background:rgba(4,10,17,.62)!important;border-radius:9px!important;backdrop-filter:blur(6px);font-size:.66rem!important}
+#scan .scanStats span{padding:0!important;background:transparent!important;border:0!important}
+
+#scan .scanDiagnosticsToggle{position:absolute;right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));z-index:10;padding:.42rem .68rem;border-radius:999px;background:rgba(8,17,28,.84);border-color:#3e6079;color:#fff;font-size:.72rem;box-shadow:0 5px 18px rgba(0,0,0,.28);backdrop-filter:blur(8px)}
+#scan .scanDiagnosticsToggle[aria-expanded="true"]{background:#0f6078;border-color:#61d6ff}
+#scan .scanDiagnostics{position:absolute;z-index:9;top:max(52px,calc(env(safe-area-inset-top) + 48px));right:max(8px,env(safe-area-inset-right));width:min(390px,38vw);max-height:calc(100dvh - 132px - env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;padding:9px;background:rgba(4,9,15,.90);border:1px solid rgba(122,182,220,.32);border-radius:15px;box-shadow:0 12px 34px rgba(0,0,0,.43);backdrop-filter:blur(12px);overflow:auto;overscroll-behavior:contain;transform:translateX(calc(100% + 24px));opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}
+#scan .scanDiagnostics.open{transform:translateX(0);opacity:1;pointer-events:auto}
+#scan .scanDiagnosticsHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 1px;color:#f3f8ff}
+#scan .scanDiagnosticsHead>div{display:flex;flex-direction:column;gap:1px;font-size:.69rem;line-height:1.18}
+#scan .scanDiagnosticsHead span{color:#90a9bf;font-size:.59rem}
+#scan .scanDiagnosticsHead button{padding:.16rem .50rem;min-width:32px;border-radius:8px;background:#111d29;color:#fff;font-size:1.05rem;line-height:1.1}
+
+#scan .livePuzzlePanel{position:static!important;left:auto!important;top:auto!important;width:100%!important;z-index:auto!important;padding:7px!important;margin:0!important;background:rgba(7,13,21,.86)!important;box-shadow:none!important;backdrop-filter:none!important;border-radius:11px!important}
+#scan .livePuzzleHead{font-size:.65rem!important}
+#scan #liveMapCanvas{aspect-ratio:2/1;min-height:118px;max-height:215px}
+#scan .livePuzzleLegend{font-size:.57rem!important;color:#9eb3c6!important}
+#scan .scanDiagGrid{display:grid;grid-template-columns:minmax(0,.86fr) minmax(0,1.14fr);gap:8px;align-items:start}
+#scan .deepLivePreview,#scan .coverageSpherePanel{position:static!important;inset:auto!important;width:100%!important;z-index:auto!important;margin:0!important;padding:6px!important;border-radius:10px!important;background:rgba(7,13,21,.80)!important;border:1px solid rgba(120,205,255,.25)!important;box-shadow:none!important;backdrop-filter:none!important;pointer-events:none!important;color:#eaf4ff}
+#scan .deepLivePreview #deepLiveState,#scan .coverageSpherePanel #coverageState{font-size:.59rem!important;line-height:1.25!important;margin:0 0 4px!important;color:#dfefff!important}
+#scan #depthOverlay{width:100%!important;aspect-ratio:3/4!important;max-height:160px!important;object-fit:contain!important}
+#scan .coverageSpherePanel canvas{margin-top:4px!important;aspect-ratio:2/1!important}
+#scan .metricPipelineHud{position:static!important;left:auto!important;right:auto!important;bottom:auto!important;max-width:none!important;padding:.52rem .60rem!important;border:1px solid rgba(155,190,220,.18);border-radius:10px;background:rgba(7,13,21,.74);color:#bdd0e1;font-size:.62rem;line-height:1.28}
+
+#scan .scanCoach{left:50%!important;right:auto!important;bottom:calc(66px + env(safe-area-inset-bottom))!important;width:min(720px,calc(100vw - 20px))!important;transform:translateX(-50%);padding:.48rem .68rem!important;text-align:center;font-size:.72rem;line-height:1.25;background:rgba(5,12,20,.76)!important;border-color:rgba(155,190,220,.25)!important;backdrop-filter:blur(7px);pointer-events:none}
+#scan .scanButtons{left:max(8px,env(safe-area-inset-left))!important;right:max(8px,env(safe-area-inset-right))!important;bottom:max(8px,env(safe-area-inset-bottom))!important;padding:5px!important;gap:5px!important;background:rgba(4,9,15,.72);border:1px solid rgba(155,190,220,.20);border-radius:13px;backdrop-filter:blur(8px)}
+#scan .scanButtons button{padding:.54rem .68rem!important;border-radius:9px!important;font-size:.70rem!important;color:#fff!important;background:#182334!important}
+#scan .scanButtons .danger{background:#68252b!important}
+
+@media(max-width:760px){
+  #scan .scanDiagnostics{left:8px;right:8px;top:auto;bottom:calc(66px + env(safe-area-inset-bottom));width:auto;max-height:min(58dvh,520px);transform:translateY(calc(100% + 82px));border-radius:15px 15px 11px 11px}
+  #scan .scanDiagnostics.open{transform:translateY(0)}
+  #scan .scanHudBar{max-width:calc(100vw - 86px)!important}
+  #scan .scanHudPrimary span:nth-child(4){display:none}
+  #scan .scanStats{gap:.38rem!important}
+  #scan .scanStats span:nth-child(4),#scan .scanStats span:nth-child(5){display:none}
+  #scan .scanCoach{bottom:calc(65px + env(safe-area-inset-bottom))!important;font-size:.67rem;width:calc(100vw - 16px)!important}
+  #scan .scanDiagnostics.open~.scanCoach{opacity:.18}
+}
+@media(max-width:430px){
+  #scan .scanHudPrimary span{font-size:.62rem!important;padding:.27rem .43rem!important}
+  #scan .scanStats{display:none!important}
+  #scan .scanDiagGrid{grid-template-columns:.82fr 1.18fr}
+  #scan .livePuzzleLegend{display:block!important}
+  #scan #liveMapCanvas{min-height:100px}
+  #scan .scanButtons button{padding:.48rem .52rem!important;font-size:.65rem!important}
+}
+#scan .scanDiagHeadActions{display:flex;align-items:center;gap:5px;color:inherit;font-size:inherit}
+#scan .scanDiagHeadActions button:first-child{font-size:.62rem;padding:.24rem .48rem;min-width:auto}
+#scan .liveOptimizerHud{border-color:rgba(92,255,141,.28);background:rgba(5,22,18,.72)}

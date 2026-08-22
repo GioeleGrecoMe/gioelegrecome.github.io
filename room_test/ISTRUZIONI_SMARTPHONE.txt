@@ -1,0 +1,19 @@
+ROOM SCANNER V30.20.0 - PUBBLICAZIONE E TEST TELEFONO
+
+Pubblica l'intera cartella room_scanner/v30/, incluso models/model_q4.onnx.
+Il modello predefinito e' locale: se non viene pubblicato, il test mostra un
+errore esplicito anziche' passare a un download remoto indefinito.
+
+Dopo il deploy:
+1. Apri room_scanner_v30.html e verifica il badge V30.20.0.
+2. Premi "Prova inferenza" e autorizza la camera. Il caricamento del modello
+   mostra avanzamento in MB; alla fine deve comparire backend, tempo e preview.
+3. Nel pannello Depth diagnostic, CAMERA e TENSOR RGB/NCHW devono rappresentare
+   la stessa scena. DEPTH HxW e' la lettura realmente usata. Le viste NHWC e
+   column-major non sono risultati DeepAI e sono state nascoste.
+4. Aggiorna normalmente la pagina: il service worker e' network-first e puo'
+   effettuare una sola ricarica quando una nuova versione prende il controllo.
+
+Per testare un modello differente usa "Scegli ONNX". Deve avere un input immagine
+NCHW chiamato normalmente pixel_values e un output depth denso. I file MobileSAM
+non sono modelli di profondita'.

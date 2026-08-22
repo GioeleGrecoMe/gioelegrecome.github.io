@@ -1,0 +1,6 @@
+import fs from 'node:fs';import {ProbabilisticFactorGraph} from '../js/probabilistic/factor_graph.js';import {ProbabilisticJointOptimizer} from '../js/probabilistic/joint_optimizer.js';
+const typed={Float32Array,Float64Array,Uint8Array,Uint16Array,Uint32Array,Int8Array,Int16Array,Int32Array};const x=JSON.parse(fs.readFileSync('/mnt/data/roomscan-1787388793897.r30','utf8'),(_,v)=>v&&v.__r30Typed&&Array.isArray(v.data)&&typed[v.__r30Typed]?new typed[v.__r30Typed](v.data):v),g=ProbabilisticFactorGraph.fromState(x.evidence.factorGraph),opt=new ProbabilisticJointOptimizer(g.exportState(),{});opt.recoverRgbScaffold({iterations:36,gain:.55,maxStep:.14});for(let i=0;i<12;i++)opt.step(1,{bootstrap:true,allowDepth:false,rgbScaffoldRecovery:true});
+const s=opt.computeStats();console.log('pre',JSON.stringify({edge:s.edgeSwitches,alva:s.alvaSwitches,reproj:s.reprojectionRobustRmse},null,2));
+const map=opt.rebuild({maxSurfels:12000,maxTriangles:12000,maxMvsSamples:16000,maxDeepSamples:0,voxel:.05,hashVoxel:.04});
+console.log('rebuild',JSON.stringify({gaussians:map.gaussians?.length||0,faces:(map.mesh?.faces?.length||0)/3,stats:{poseScaffoldPolicy:map.stats?.poseScaffoldPolicy,mvsCount:map.stats?.mvsCount,mvsValidation:map.stats?.mvsValidation,geometryPolicy:map.stats?.geometryPolicy}},null,2));
+if(!(map.stats?.mvsValidation?.committed>0))process.exitCode=2;

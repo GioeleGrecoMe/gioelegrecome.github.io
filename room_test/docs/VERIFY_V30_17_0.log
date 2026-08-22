@@ -1,0 +1,502 @@
+
+> room-scanner-v30-17-alva-deep-prior-sparse-inference@30.17.0 verify
+> npm test && npm run check:layout && npm run check:deps && npm run check:constructors && npm run check:mock && npm run check:alva
+
+
+> room-scanner-v30-17-alva-deep-prior-sparse-inference@30.17.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: MVS descriptors are extracted preferentially at Alva-tracked frame points
+ok 1 - MVS descriptors are extracted preferentially at Alva-tracked frame points
+  ---
+  duration_ms: 4.651464
+  type: 'test'
+  ...
+# Subtest: AlvaAR matrix conversion matches Room Scanner signs
+ok 2 - AlvaAR matrix conversion matches Room Scanner signs
+  ---
+  duration_ms: 1.684914
+  type: 'test'
+  ...
+# Subtest: Alva pose uses one proper 180deg-X basis rotation for position AND orientation
+ok 3 - Alva pose uses one proper 180deg-X basis rotation for position AND orientation
+  ---
+  duration_ms: 0.266224
+  type: 'test'
+  ...
+# Subtest: one-shot bootstrap recovers a fixed Alva->metric Sim3
+ok 4 - one-shot bootstrap recovers a fixed Alva->metric Sim3
+  ---
+  duration_ms: 1.908394
+  type: 'test'
+  ...
+# Subtest: SlamEngine never synthesizes motion when Alva loses tracking and resumes on relocalization
+ok 5 - SlamEngine never synthesizes motion when Alva loses tracking and resumes on relocalization
+  ---
+  duration_ms: 1.94607
+  type: 'test'
+  ...
+# Subtest: official Alva source validator rejects the tiny wasm/sentinel path
+ok 6 - official Alva source validator rejects the tiny wasm/sentinel path
+  ---
+  duration_ms: 0.944708
+  type: 'test'
+  ...
+# Subtest: official Alva source validator accepts a full-size bundle with the public API
+ok 7 - official Alva source validator accepts a full-size bundle with the public API
+  ---
+  duration_ms: 4.618045
+  type: 'test'
+  ...
+# Subtest: runtime downloads once and reuses CacheStorage offline
+ok 8 - runtime downloads once and reuses CacheStorage offline
+  ---
+  duration_ms: 129.337962
+  type: 'test'
+  ...
+# Subtest: minimal boot imports only the versioned core app
+ok 9 - minimal boot imports only the versioned core app
+  ---
+  duration_ms: 1.149862
+  type: 'test'
+  ...
+# Subtest: HTML handshakes with active service worker and removes stale V30 workers before modules
+ok 10 - HTML handshakes with active service worker and removes stale V30 workers before modules
+  ---
+  duration_ms: 0.411068
+  type: 'test'
+  ...
+# Subtest: service worker is atomic and cache-first for static runtime assets
+ok 11 - service worker is atomic and cache-first for static runtime assets
+  ---
+  duration_ms: 0.217202
+  type: 'test'
+  ...
+# Subtest: AlvaAR official runtime is managed by its dedicated validated cache without gating shell install
+ok 12 - AlvaAR official runtime is managed by its dedicated validated cache without gating shell install
+  ---
+  duration_ms: 0.348916
+  type: 'test'
+  ...
+# Subtest: all published identities are V30.17.0
+ok 13 - all published identities are V30.17.0
+  ---
+  duration_ms: 2.172876
+  type: 'test'
+  ...
+# Subtest: real anchors are mandatory and one user pin maps to one XRAnchor
+ok 14 - real anchors are mandatory and one user pin maps to one XRAnchor
+  ---
+  duration_ms: 0.505188
+  type: 'test'
+  ...
+# Subtest: screen markers come from live XRAnchor projection and XR layer has a true 3D marker
+ok 15 - screen markers come from live XRAnchor projection and XR layer has a true 3D marker
+  ---
+  duration_ms: 0.240636
+  type: 'test'
+  ...
+# Subtest: minimal calibration UI replaces the old full panel
+ok 16 - minimal calibration UI replaces the old full panel
+  ---
+  duration_ms: 0.544426
+  type: 'test'
+  ...
+# Subtest: ROI atlas is retained and reused by measurement matching
+ok 17 - ROI atlas is retained and reused by measurement matching
+  ---
+  duration_ms: 0.509394
+  type: 'test'
+  ...
+# Subtest: Apply is ready after exactly three useful visible pins without global pose gate
+ok 18 - Apply is ready after exactly three useful visible pins without global pose gate
+  ---
+  duration_ms: 1.984367
+  type: 'test'
+  ...
+# Subtest: an extra incomplete fourth pin does not disable Apply
+ok 19 - an extra incomplete fourth pin does not disable Apply
+  ---
+  duration_ms: 0.957327
+  type: 'test'
+  ...
+# Subtest: three useful pins still require a coherent common view
+ok 20 - three useful pins still require a coherent common view
+  ---
+  duration_ms: 0.553859
+  type: 'test'
+  ...
+# Subtest: degenerate collinear pins do not enable Apply
+ok 21 - degenerate collinear pins do not enable Apply
+  ---
+  duration_ms: 0.369908
+  type: 'test'
+  ...
+# Subtest: runtime thresholds make one pin useful after four separated ROI views and 8 cm baseline
+ok 22 - runtime thresholds make one pin useful after four separated ROI views and 8 cm baseline
+  ---
+  duration_ms: 0.145906
+  type: 'test'
+  ...
+# Subtest: camera analysis uses a central cover crop instead of stretching 16:9 into portrait
+ok 23 - camera analysis uses a central cover crop instead of stretching 16:9 into portrait
+  ---
+  duration_ms: 1.065547
+  type: 'test'
+  ...
+# Subtest: intrinsics and AR viewport mapping follow the same crop geometry
+ok 24 - intrinsics and AR viewport mapping follow the same crop geometry
+  ---
+  duration_ms: 0.681549
+  type: 'test'
+  ...
+# Subtest: all recovered core runtime files are present and non-empty
+ok 25 - all recovered core runtime files are present and non-empty
+  ---
+  duration_ms: 2.322037
+  type: 'test'
+  ...
+# Subtest: slam_core.wasm is a real WebAssembly binary
+ok 26 - slam_core.wasm is a real WebAssembly binary
+  ---
+  duration_ms: 5.615722
+  type: 'test'
+  ...
+# Subtest: Depth Anything relative output is robustly calibrated to Alva world depth
+ok 27 - Depth Anything relative output is robustly calibrated to Alva world depth
+  ---
+  duration_ms: 15.336139
+  type: 'test'
+  ...
+# Subtest: sparse AI selector skips duplicate photos and requests a new spatial context
+ok 28 - sparse AI selector skips duplicate photos and requests a new spatial context
+  ---
+  duration_ms: 1.004467
+  type: 'test'
+  ...
+# Subtest: calibrated AI prior narrows multi-view search around the physical surface
+ok 29 - calibrated AI prior narrows multi-view search around the physical surface
+  ---
+  duration_ms: 114.226041
+  type: 'test'
+  ...
+# Subtest: Alva feature geometry recovers true scene depth and a bounded search interval
+ok 30 - Alva feature geometry recovers true scene depth and a bounded search interval
+  ---
+  duration_ms: 25.488124
+  type: 'test'
+  ...
+# Subtest: seed-constrained plane sweep stays on the Alva-anchored surface instead of a front sheet
+ok 31 - seed-constrained plane sweep stays on the Alva-anchored surface instead of a front sheet
+  ---
+  duration_ms: 188.027431
+  type: 'test'
+  ...
+# Subtest: CV projection is +Y down and round-trips a rotated camera
+ok 32 - CV projection is +Y down and round-trips a rotated camera
+  ---
+  duration_ms: 0.254026
+  type: 'test'
+  ...
+# Subtest: rotated Alva cameras still anchor dense geometry to the same world plane
+ok 33 - rotated Alva cameras still anchor dense geometry to the same world plane
+  ---
+  duration_ms: 258.452655
+  type: 'test'
+  ...
+# Subtest: geometry-anchored depth fuses to a mesh near the physical plane, not near the camera
+ok 34 - geometry-anchored depth fuses to a mesh near the physical plane, not near the camera
+  ---
+  duration_ms: 234.822285
+  type: 'test'
+  ...
+# Subtest: online splat fusion records independent multi-view support and anisotropic uncertainty
+ok 35 - online splat fusion records independent multi-view support and anisotropic uncertainty
+  ---
+  duration_ms: 3.01322
+  type: 'test'
+  ...
+# Subtest: isolated one-view floaters are hidden until spatial or multi-view support exists
+ok 36 - isolated one-view floaters are hidden until spatial or multi-view support exists
+  ---
+  duration_ms: 2.473721
+  type: 'test'
+  ...
+# Subtest: existing v3 + requested v2 never issues a downgrade open
+ok 37 - existing v3 + requested v2 never issues a downgrade open
+  ---
+  duration_ms: 2.90838
+  type: 'test'
+  ...
+# Subtest: older schema upgrades only after version probe
+ok 38 - older schema upgrades only after version probe
+  ---
+  duration_ms: 0.749119
+  type: 'test'
+  ...
+# Subtest: upgrade race VersionError recovers with versionless reopen
+ok 39 - upgrade race VersionError recovers with versionless reopen
+  ---
+  duration_ms: 0.29707
+  type: 'test'
+  ...
+# Subtest: core has no heavy static imports before UI binding
+ok 40 - core has no heavy static imports before UI binding
+  ---
+  duration_ms: 3.015934
+  type: 'test'
+  ...
+# Subtest: core marks UI interactive before detached background initialization
+ok 41 - core marks UI interactive before detached background initialization
+  ---
+  duration_ms: 0.511727
+  type: 'test'
+  ...
+# Subtest: calibration buttons are bound independently
+ok 42 - calibration buttons are bound independently
+  ---
+  duration_ms: 1.470736
+  type: 'test'
+  ...
+# Subtest: diagnostics and service worker are not startup gates
+ok 43 - diagnostics and service worker are not startup gates
+  ---
+  duration_ms: 0.713976
+  type: 'test'
+  ...
+# Subtest: scan draws splats/mesh over camera from the live metric pose
+ok 44 - scan draws splats/mesh over camera from the live metric pose
+  ---
+  duration_ms: 2.509394
+  type: 'test'
+  ...
+# Subtest: review viewer exposes orbit pan pinch and fixed orientation presets
+ok 45 - review viewer exposes orbit pan pinch and fixed orientation presets
+  ---
+  duration_ms: 0.565897
+  type: 'test'
+  ...
+# Subtest: Alva remains the only trajectory source before dense mapping
+ok 46 - Alva remains the only trajectory source before dense mapping
+  ---
+  duration_ms: 1.258353
+  type: 'test'
+  ...
+# Subtest: dense keyframe manager builds a small multi-view graph instead of every video frame
+ok 47 - dense keyframe manager builds a small multi-view graph instead of every video frame
+  ---
+  duration_ms: 50.28524
+  type: 'test'
+  ...
+# Subtest: multi-view plane sweep recovers a dense 2 m plane from known Alva poses
+ok 48 - multi-view plane sweep recovers a dense 2 m plane from known Alva poses
+  ---
+  duration_ms: 112.619172
+  type: 'test'
+  ...
+# Subtest: multi-view depth fuses into confirmed surfels and a TSDF mesh
+ok 49 - multi-view depth fuses into confirmed surfels and a TSDF mesh
+  ---
+  duration_ms: 179.243415
+  type: 'test'
+  ...
+# Subtest: app no longer feeds sparse MVS points directly into Gaussian accumulation
+ok 50 - app no longer feeds sparse MVS points directly into Gaussian accumulation
+  ---
+  duration_ms: 1.739314
+  type: 'test'
+  ...
+# Subtest: dense mapper refuses textureless walls instead of hallucinating arbitrary depth
+ok 51 - dense mapper refuses textureless walls instead of hallucinating arbitrary depth
+  ---
+  duration_ms: 1.761457
+  type: 'test'
+  ...
+# Subtest: manual hit-test preview exposes metric depth and becomes stable
+ok 52 - manual hit-test preview exposes metric depth and becomes stable
+  ---
+  duration_ms: 2.838471
+  type: 'test'
+  ...
+# Subtest: ROI atlas requires camera motion/new viewpoint and stores multiple scales
+ok 53 - ROI atlas requires camera motion/new viewpoint and stores multiple scales
+  ---
+  duration_ms: 1.191764
+  type: 'test'
+  ...
+# Subtest: metric GS helpers preserve metres and provide mesh-oriented samples
+ok 54 - metric GS helpers preserve metres and provide mesh-oriented samples
+  ---
+  duration_ms: 0.570124
+  type: 'test'
+  ...
+# Subtest: metric preview has no unused full-screen bridge canvas
+ok 55 - metric preview has no unused full-screen bridge canvas
+  ---
+  duration_ms: 2.804641
+  type: 'test'
+  ...
+# Subtest: pin guidance uses DOM rings, not a full-screen canvas
+ok 56 - pin guidance uses DOM rings, not a full-screen canvas
+  ---
+  duration_ms: 0.268758
+  type: 'test'
+  ...
+# Subtest: bridge camera is forced to a real viewport-sized rectangle
+ok 57 - bridge camera is forced to a real viewport-sized rectangle
+  ---
+  duration_ms: 0.559969
+  type: 'test'
+  ...
+# Subtest: metric mesh worker creates metric faces from occupied Gaussian samples
+ok 58 - metric mesh worker creates metric faces from occupied Gaussian samples
+  ---
+  duration_ms: 2.860373
+  type: 'test'
+  ...
+# Subtest: metric guidance cannot self-trigger a MutationObserver loop
+ok 59 - metric guidance cannot self-trigger a MutationObserver loop
+  ---
+  duration_ms: 1.55423
+  type: 'test'
+  ...
+# Subtest: camera preview starts before optional measurement guidance
+ok 60 - camera preview starts before optional measurement guidance
+  ---
+  duration_ms: 1.94548
+  type: 'test'
+  ...
+# Subtest: metric matcher has an explicit bounded work budget
+ok 61 - metric matcher has an explicit bounded work budget
+  ---
+  duration_ms: 0.374845
+  type: 'test'
+  ...
+# Subtest: metric lock hands the existing camera stream to scan
+ok 62 - metric lock hands the existing camera stream to scan
+  ---
+  duration_ms: 0.507291
+  type: 'test'
+  ...
+# Subtest: short-lived pin PnP recovers metric camera pose from >=3 known 3D pins
+ok 63 - short-lived pin PnP recovers metric camera pose from >=3 known 3D pins
+  ---
+  duration_ms: 5.256961
+  type: 'test'
+  ...
+# Subtest: all visual runtime hosts are present in the published HTML
+ok 64 - all visual runtime hosts are present in the published HTML
+  ---
+  duration_ms: 11.319353
+  type: 'test'
+  ...
+# Subtest: WebXR anchor placement does not require raw camera access
+ok 65 - WebXR anchor placement does not require raw camera access
+  ---
+  duration_ms: 1.935414
+  type: 'test'
+  ...
+# Subtest: Alva is not compiled in background during home or WebXR calibration
+ok 66 - Alva is not compiled in background during home or WebXR calibration
+  ---
+  duration_ms: 0.87191
+  type: 'test'
+  ...
+# Subtest: live AR overlay always exposes Alva tracking points and a persistent repere
+ok 67 - live AR overlay always exposes Alva tracking points and a persistent repere
+  ---
+  duration_ms: 0.644124
+  type: 'test'
+  ...
+# Subtest: scale-free Alva world still feeds dense depth, surface fusion and live mesh
+ok 68 - scale-free Alva world still feeds dense depth, surface fusion and live mesh
+  ---
+  duration_ms: 0.467882
+  type: 'test'
+  ...
+# Subtest: SlamEngine derived constructor is runtime-safe with fixed metric transform
+ok 69 - SlamEngine derived constructor is runtime-safe with fixed metric transform
+  ---
+  duration_ms: 4.595903
+  type: 'test'
+  ...
+# Subtest: world anchor stays fixed while screen projection changes with camera motion
+ok 70 - world anchor stays fixed while screen projection changes with camera motion
+  ---
+  duration_ms: 1.900914
+  type: 'test'
+  ...
+# Subtest: lost trackedAnchors hides marker instead of freezing seed UV on screen
+ok 71 - lost trackedAnchors hides marker instead of freezing seed UV on screen
+  ---
+  duration_ms: 1.090213
+  type: 'test'
+  ...
+# Subtest: three distinct poses require at least three visible anchored targets
+ok 72 - three distinct poses require at least three visible anchored targets
+  ---
+  duration_ms: 0.539999
+  type: 'test'
+  ...
+# Subtest: two visible pins cannot create a qualifying global pose
+ok 73 - two visible pins cannot create a qualifying global pose
+  ---
+  duration_ms: 0.280495
+  type: 'test'
+  ...
+# Subtest: projection helper moves opposite camera translation
+ok 74 - projection helper moves opposite camera translation
+  ---
+  duration_ms: 0.147758
+  type: 'test'
+  ...
+# Subtest: XR scene renderer consumes current anchor pose in raw WebXR coordinates
+ok 75 - XR scene renderer consumes current anchor pose in raw WebXR coordinates
+  ---
+  duration_ms: 0.475173
+  type: 'test'
+  ...
+1..75
+# tests 75
+# suites 0
+# pass 75
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 924.62121
+
+> room-scanner-v30-17-alva-deep-prior-sparse-inference@30.17.0 check:layout
+> node tools/check_v30_layout.mjs
+
+PASS v30-layout · 95 file sotto una sola radice v30/
+
+> room-scanner-v30-17-alva-deep-prior-sparse-inference@30.17.0 check:deps
+> node tools/check_dependencies.mjs
+
+PASS dependency-closure · 25 riferimenti locali risolti
+
+> room-scanner-v30-17-alva-deep-prior-sparse-inference@30.17.0 check:constructors
+> node tools/check_eventtarget_constructors.mjs
+
+PASS EventTarget constructors · 5/5 derived classes call super() first
+
+> room-scanner-v30-17-alva-deep-prior-sparse-inference@30.17.0 check:mock
+> node tools/mock_ui_boot.mjs
+
+[RoomScan:ui-interactive] { build: 'v30.17.0-20260820-alva-deep-prior-sparse-inference' }
+[RoomScan:begin-calibration] {
+  message: 'WebXR non disponibile su questo browser',
+  stack: 'Error: WebXR non disponibile su questo browser\n' +
+    '    at XRMetricCalibrator.start (file:///mnt/data/work_roomscan/v30/js/xr/xr_calibration.js?v=30.17.0:149:28)\n' +
+    '    at beginCalibration (file:///mnt/data/work_roomscan/v30/js/app.js?mock=1787219415554:41:475)\n' +
+    '    at async El.<anonymous> (file:///mnt/data/work_roomscan/v30/js/app.js?mock=1787219415554:20:59)'
+}
+[RoomScan:db-open] { message: 'IndexedDB is unavailable' }
+PASS mock-ui-boot · controls bound · failed WebXR returns to Home · UI remains interactive
+
+> room-scanner-v30-17-alva-deep-prior-sparse-inference@30.17.0 check:alva
+> node tools/check_alvaar_runtime.mjs
+
+PASS alvaar-runtime-contract

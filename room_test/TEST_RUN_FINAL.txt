@@ -1,0 +1,15 @@
+== JavaScript syntax ==
+PASS javascript_syntax
+PASS static_contract_camera_only_xr_metric
+PASS bootstrap_contract ids=63
+PASS camera_portrait_fit
+PASS wasm_frontend features=35 matches=8
+PASS wasm_portrait 270x480 features=700
+PASS math_triangulation_plane
+PASS xr_coordinate_contract
+PASS metric_bridge_template score=1.000 at=90.0,58.0
+PASS mvs_camera_only points=217 triangles=12 z=1.822
+PASS format_roundtrip
+PASS http_smoke
+PASS json_contracts
+ALL TESTS PASSED

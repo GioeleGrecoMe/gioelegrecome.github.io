@@ -1,0 +1,5 @@
+Room Scanner V30.29.0 spherical photo-puzzle + hybrid room reconstruction patch
+Base: V30.28.0 probabilistic factor-graph build.
+Overlay this archive at the v30 project root.
+Only changed/new files are included. No ONNX model or unchanged vendor/model asset is included.
+Existing V30.28 sessions remain loadable; new scans additionally persist compact RGB photo packets and the reversible Photo Puzzle reconstruction state.

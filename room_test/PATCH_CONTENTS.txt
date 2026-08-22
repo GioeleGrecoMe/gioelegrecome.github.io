@@ -1,0 +1,44 @@
+Room Scanner V30.43 incremental patch
+Base: V30.42 final-pose dense consensus patch applied over the existing V30 project tree.
+Build: v30.43.0-20260822-parallax-observable-global-geometry
+
+This archive contains only files modified/new in V30.43. It contains no model files and no test-overlay stubs for unchanged base modules.
+
+Files:
+PATCH_CONTENTS.txt
+PATCH_NOTES_V30.43.md
+TEST_ON_PHONE_V30.43.md
+TEST_REPORT_V30.43.md
+build_info.json
+index.html
+js/app.js
+js/boot.js
+js/config.js
+js/dense/fusion_core.js
+js/probabilistic/alva_switchable_edges.js
+js/probabilistic/cross_depth_consistency.js
+js/probabilistic/depth_calibration_hierarchy.js
+js/probabilistic/depth_commit_policy.js
+js/probabilistic/final_mvs_revalidation.js
+js/probabilistic/geometry_commit_policy.js
+js/probabilistic/joint_optimizer.js
+js/probabilistic/reliability_feedback.js
+js/probabilistic/rgb_consensus_policy.js
+js/probabilistic/rgb_translation_direction.js
+js/probabilistic/single_optimizer_runtime.js
+js/probabilistic/submap_pose_graph.js
+js/probabilistic/switchable_edges.js
+js/reconstruction/submap_fusion.js
+optimizer_import_test.html
+package.json
+room_scanner_v30.html
+sw.js
+tests/build-contract.test.mjs
+tests/single-optimizer-esm-closure.test.mjs
+tests/v30-42-final-geometry-regressions.test.mjs
+tests/v30-42-real-log-policy.test.mjs
+tests/v30-42-rgb-submap-regressions.test.mjs
+tests/v30-43-observability-regressions.test.mjs
+tools/analyze_ply_mesh.mjs
+tools/check_v30_layout.mjs
+tools/mock_ui_boot.mjs

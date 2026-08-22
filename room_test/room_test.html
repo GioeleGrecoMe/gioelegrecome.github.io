@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#081018">
+  <title>Room Test · V30.51 Geometry Lab</title>
+  <link rel="stylesheet" href="./room_test.css?v=30.51.0">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">ROOM SCANNER · DIAGNOSTIC CLONE</div>
+      <h1>Room Test <span>V30.51</span></h1>
+      <p>Diagnostica read-only: camera → pose → RGB → triangolazione → Deep → optimizer.</p>
+    </div>
+    <div id="sourceBadge" class="sourceBadge">Nessun dataset</div>
+  </header>
+
+  <main class="layout">
+    <section class="card sourceCard">
+      <div class="sectionHead"><h2>1 · Dataset</h2><span class="muted">Nessun modello neurale richiesto</span></div>
+      <div class="controls wrap">
+        <select id="sessionSelect"><option value="">Sessioni locali…</option></select>
+        <button id="refreshSessionsBtn">↻ Sessioni</button>
+        <button id="loadSessionBtn">Carica sessione</button>
+        <button id="loadLatestBtn">Ultima sessione</button>
+        <label class="fileButton">Apri .r30<input id="r30File" type="file" accept=".r30,application/octet-stream"></label>
+      </div>
+      <div id="datasetSummary" class="statusBox">Carica una sessione salvata dalla V30 oppure un file .r30.</div>
+    </section>
+
+    <section class="card runCard">
+      <div class="sectionHead"><h2>2 · Diagnosi</h2><span id="runState" class="muted">idle</span></div>
+      <div class="controls wrap">
+        <button id="runQuickBtn" class="primary" disabled>▶ Test rapido</button>
+        <button id="runFullBtn" disabled>◆ Test completo + ablation</button>
+        <button id="exportBtn" disabled>⇩ Esporta JSON</button>
+        <button id="copyBtn" disabled>⧉ Copia sintesi</button>
+      </div>
+      <div class="progress"><div id="progressBar"></div></div>
+      <div id="firstFailure" class="firstFailure neutral"><b>FIRST FAILURE</b><span>Non ancora calcolato.</span></div>
+    </section>
+
+    <section class="card stageCard">
+      <div class="sectionHead"><h2>3 · Catena geometrica</h2><span class="muted">Il primo errore a monte rende i successivi meno affidabili</span></div>
+      <div id="stageList" class="stageList"></div>
+    </section>
+
+    <section class="card viewerCard">
+      <div class="sectionHead"><h2>4 · Viewer 3D diagnostico</h2><span id="viewerStats" class="muted"></span></div>
+      <div class="viewerTools controls wrap">
+        <label><input id="showCameras" type="checkbox" checked> camere</label>
+        <label><input id="showLandmarks" type="checkbox" checked> RGB points</label>
+        <label><input id="showDeep" type="checkbox" checked> Deep cloud</label>
+        <label><input id="showOptimized" type="checkbox"> pose estimate</label>
+        <button id="fitViewBtn">Fit</button><button id="topViewBtn">Top</button><button id="frontViewBtn">Front</button><button id="sideViewBtn">Side</button>
+      </div>
+      <canvas id="sceneCanvas" width="1200" height="720"></canvas>
+      <div class="hint">Trascina per ruotare · rotella/pinch per zoom · le Deep cloud sono ricostruite solo da calibrazioni diagnostiche, mai scritte nella sessione.</div>
+    </section>
+
+    <section class="card inspectorCard">
+      <div class="sectionHead"><h2>5 · Frame inspector</h2><span class="muted">RGB/downsample persistito e Deep grid associata</span></div>
+      <div class="controls wrap"><select id="frameSelect"></select><select id="edgeSelect"></select></div>
+      <div class="inspectGrid">
+        <div><h3>RGB</h3><canvas id="rgbCanvas" width="384" height="288"></canvas><pre id="frameMeta"></pre></div>
+        <div><h3>Deep RAW</h3><canvas id="deepCanvas" width="384" height="288"></canvas><pre id="deepMeta"></pre></div>
+      </div>
+      <div><h3>Pair matches</h3><canvas id="matchCanvas" width="900" height="360"></canvas></div>
+    </section>
+
+    <section class="card rawCard">
+      <details><summary>Report JSON completo</summary><pre id="rawJson"></pre></details>
+    </section>
+  </main>
+
+  <script type="module" src="./js/test/room_test_app.js?v=30.51.0"></script>
+</body>
+</html>
