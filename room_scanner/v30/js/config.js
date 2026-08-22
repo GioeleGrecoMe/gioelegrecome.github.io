@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.53.0 adaptive Deep + Alva recovery configuration.
+ * Room Scanner V30.54.0 adaptive Deep + Alva recovery configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.53.0',
-  id:'v30.53.0-20260822-global-mvs-scale-consensus',
+  version:'30.54.0',
+  id:'v30.54.0-20260822-alva-epoch-pnp-backprojection',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -245,7 +245,7 @@ export const CONFIG={
   sharpArchiveProcessingYieldEvery:3,
   sharpArchiveDeepFrameTimeoutMs:120000,
   sharpArchiveFlushTimeoutMs:20000,
-  // V30.53 adaptive Deep: RGB/Alva sees a much larger archive, while neural
+  // V30.54 adaptive Deep: RGB/Alva sees a much larger archive, while neural
   // depth is purchased only where it adds geometric information.
   adaptiveDeepInitialBatch:16,
   adaptiveDeepNextBatch:8,
@@ -285,6 +285,15 @@ export const CONFIG={
   alvaRelocalizationMaxRmsePx:5.5,
   alvaRelocalizationMaxTranslation:1.15,
   alvaRelocalizationMaxRotationRad:0.95,
+  // When Alva is genuinely lost (never during INIT), retain a sparse set of
+  // sharp RGB packets with local descriptors.  They are *not* geometry during
+  // capture; post-processing may verify them against triangulated landmarks
+  // through PnP and only then admit them as explicit recovery hypotheses.
+  alvaRecoveryArchiveEnabled:true,
+  alvaRecoveryArchiveMinIntervalMs:900,
+  alvaRecoveryArchiveMaxFrames:72,
+  alvaRecoveryArchiveMinDetail:5.0,
+  alvaPostScanRecoveryMaxFrames:32,
   deepPlanIntervalMs:6500,
   deepPlanBackpressureGain:2.5,
   deepSurveyQueueBudget:2,
@@ -516,7 +525,7 @@ export const CONFIG={
   // Storage/rebuild budgets reused by the single hierarchical optimizer.
   // These names are retained for snapshot compatibility; they do not select
   // a second optimizer implementation.
-  // V30.53: final reconstruction is part of Processing, not a manual REVIEW step.
+  // V30.54: final reconstruction is part of Processing, not a manual REVIEW step.
   postScanFinalOptimizationPasses:10,
   postScanFinalOptimizationMaxAttempts:30,
   postScanFinalAutoRebuild:true,

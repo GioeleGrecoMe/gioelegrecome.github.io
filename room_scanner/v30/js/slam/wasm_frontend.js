@@ -12,7 +12,7 @@ import {loadAlvaModule,getAlvaRuntimeStatus} from './alva_runtime_loader.js';
 export class WasmVisionFrontend{
   constructor(options={}){
     if(typeof options==='string')options={sentinelUrl:options};
-    this.options=options||{};this.instance=null;this.alva=null;this.alvaModule=null;this.alvaLoadError=null;this.previous=null;this.width=0;this.height=0;this.fovDeg=45;this.mode='uninitialized';this.lastPoseAt=0;this.hasProcessedPose=false;
+    this.options=options||{};this.instance=null;this.alva=null;this.alvaModule=null;this.alvaLoadError=null;this.previous=null;this.width=0;this.height=0;this.fovDeg=45;this.mode='uninitialized';this.lastPoseAt=0;this.hasProcessedPose=false;this.trackingEpoch=0;this.hasPoseInEpoch=false;
     this.limits={maxFeatures:4096,descriptorBytes:16,implementation:'AlvaAR-WASM+local-MVS-descriptors'};
   }
 
@@ -49,9 +49,14 @@ export class WasmVisionFrontend{
     if(!this.alva)throw new Error('AlvaAR not initialized');
     if(!frame?.imageData)throw new TypeError('ImageData frame required by AlvaAR');
     let cameraPose=null,framePoints=[];
-    try{const p=this.alva.findCameraPose(frame.imageData);if(p&&p.length>=16){cameraPose=Array.from(p).slice(0,16).map(Number);this.lastPoseAt=frame.at||performance.now();}framePoints=this.alva.getFramePoints?.()||[];}
+    try{const p=this.alva.findCameraPose(frame.imageData);if(p&&p.length>=16){cameraPose=Array.from(p).slice(0,16).map(Number);this.lastPoseAt=frame.at||performance.now();this.hasPoseInEpoch=true;}framePoints=this.alva.getFramePoints?.()||[];}
     catch(err){this.alvaLoadError=err;}
-    return {cameraPose,framePoints,trackingMode:cameraPose?'alvaar-wasm':(this.lastPoseAt?'alvaar-lost':'alvaar-initializing')};
+    // `lastPoseAt` belongs to the physical Alva instance and may legitimately
+    // predate Scan (for example the metric-bootstrap bridge).  It must never
+    // turn the first empty Scan result into a tracking loss.  The epoch is
+    // deliberately app-side bookkeeping only: the internal Alva map remains
+    // alive, so its own relocalisation/loop-closure memory is preserved.
+    return {cameraPose,framePoints,trackingEpoch:this.trackingEpoch,hasPoseInEpoch:this.hasPoseInEpoch,trackingMode:cameraPose?'alvaar-wasm':(this.hasPoseInEpoch?'alvaar-lost':'alvaar-initializing')};
   }
 
   /** Full path: Alva pose + lightweight descriptors for MVS only. */
@@ -93,8 +98,10 @@ export class WasmVisionFrontend{
     const features=detect(gray,width,height,maxFeatures,threshold),matches=match(this.previous?.features||[],features);this.previous={features,width,height};return {count:features.length,features,matches:{count:matches.length,items:matches}};
   }
 
+  /** Start a new UI/Scan lifecycle without resetting AlvaAR's persistent map. */
+  beginTrackingEpoch({reason='scan'}={}){this.previous=null;this.hasProcessedPose=false;this.hasPoseInEpoch=false;this.trackingEpoch++;return {trackingEpoch:this.trackingEpoch,reason,alvaMapPreserved:!!this.alva};}
   resetLocalFeatures(){this.previous=null;this.hasProcessedPose=false;}
-  resetAll(){this.previous=null;this.lastPoseAt=0;this.hasProcessedPose=false;try{this.alva?.reset?.();}catch{}}
+  resetAll(){this.previous=null;this.lastPoseAt=0;this.hasProcessedPose=false;this.hasPoseInEpoch=false;this.trackingEpoch++;try{this.alva?.reset?.();}catch{}}
   reset(){this.resetLocalFeatures();}
 }
 

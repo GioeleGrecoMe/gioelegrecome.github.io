@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.53.0 adaptive Deep + Alva continuity processing.
+ * Room Scanner V30.54.0 adaptive Deep + Alva continuity processing.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,13 +8,13 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.53.0';
-import {DeepLateBindingQueue} from './dense/deep_late_binding_queue.js?v=30.53.0';
-import {DiagnosticsLog} from './logger.js?v=30.53.0';
-import {filterSurfaceSplatsForDisplay} from './reconstruction/surface_display_policy.js?v=30.53.0';
-import {StablePhotoBank,quatAngle,gradientDetail} from './reconstruction/stable_photo_bank.js?v=30.53.0';
-import {AdaptiveDeepScheduler,selectGeometricPhotoSubset} from './reconstruction/adaptive_deep_scheduler.js?v=30.53.0';
-import {buildPipelineTestSnapshot} from './reconstruction/pipeline_diagnostics.js?v=30.53.0';
+import {BUILD,CONFIG} from './config.js?v=30.54.0';
+import {DeepLateBindingQueue} from './dense/deep_late_binding_queue.js?v=30.54.0';
+import {DiagnosticsLog} from './logger.js?v=30.54.0';
+import {filterSurfaceSplatsForDisplay} from './reconstruction/surface_display_policy.js?v=30.54.0';
+import {StablePhotoBank,quatAngle,gradientDetail} from './reconstruction/stable_photo_bank.js?v=30.54.0';
+import {AdaptiveDeepScheduler,selectGeometricPhotoSubset} from './reconstruction/adaptive_deep_scheduler.js?v=30.54.0';
+import {buildPipelineTestSnapshot} from './reconstruction/pipeline_diagnostics.js?v=30.54.0';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
@@ -251,15 +251,21 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
   const K=metric?.K||intrinsicsForCrop(metric?.intrinsicsNorm||cal?.commonView?.intrinsicsNorm||cal?.intrinsicsNorm,geometry,{fallbackFovDeg:CONFIG.cameraFovDeg});
   state.scanK=K;state.lastFrameGeometry=geometry;
   if(!state.frontend?.alva){state.frontend=await createAlvaFrontend(K);}else{state.frontend.resetLocalFeatures?.();}
+  // Reusing the same Alva instance is intentional: its map, loop closures and
+  // native relocalisation state survive the metric bridge.  Start a *logical*
+  // Scan epoch so a pose timestamp from the bridge cannot be mistaken for a
+  // prior Scan pose and turn INIT into a false "lost tracking" event.
+  const trackingEpoch=state.frontend.beginTrackingEpoch?.({reason:'scan-start'})||null;
   if(epoch!==state.bridgeEpoch){state.camera.stop();return;}
   if($('slamState'))$('slamState').textContent='ALVA TRACKING · INIT';
-  log.info('slam-frontend-reused',{mode:state.frontend.mode,fromMetricBootstrap:!!bridge,metricTransform:!!metric?.alvaTransform});
+  log.info('slam-frontend-reused',{mode:state.frontend.mode,fromMetricBootstrap:!!bridge,metricTransform:!!metric?.alvaTransform,trackingEpoch,alvaMapPreserved:!!state.frontend.alva});
 
   state.slam=new SlamEngine({frontend:state.frontend,K,log,keyframeIntervalMs:CONFIG.keyframeIntervalMs,observationIntervalMs:CONFIG.alvaObservationIntervalMs||900,maxObservations:CONFIG.alvaHeartbeatBufferFrames||8});
   if(metric?.alvaTransform)state.slam.setWorldTransform(metric.alvaTransform);
 
   state.liveOverlay=new LiveReconstructionOverlay($('miniMap'),{maxSplats:CONFIG.liveOverlayMaxSplats||4200});state.liveOverlay.setMode('both');
   stopPostOptimizer();state.gaussians=[];state.denseCandidateGaussians=[];state.denseCandidateMesh=null;state.mesh=null;state.meshStale=false;state.geometryCommitted=false;state.optimizerObservations=null;state.probOptimization=null;state.probOptimized=null;state.optimization={iterations:0,lastEnergy:null};state.reviewMetricLocked=null;state.reviewKeyframes=0;window.__ROOMSCAN_METRIC_MESH=null;state.alvaHeartbeatFrames=[];state.alvaHeartbeatCount=0;state.denseBusy=false;state.denseActivePayload=null;state.denseJobs=0;state.denseDepthSamples=0;state.denseDepthHint=null;state.densePixelStep=CONFIG.densePixelStep||4;state.denseSourceLimit=Math.min(CONFIG.denseInitialSourceLimit||2,CONFIG.denseMaxSourceViews||4);state.surfaceStats=null;state.surfaceDisplayStats=null;state.geometryAnchors=[];state.deepPending=null;state.deepDisabled=false;state.deepCalls=0;state.deepAccepted=0;state.deepRaySamples=0;state.deepPreviewLastAt=0;state.deepPlanLastAt=0;state.photoSurveyLastAt=0;state.photoDepthCommittedFrameIds?.clear?.();state.deepPreviewInFlight=null;state.deepPreviewSeq=0;state.deepPreviewFrames=0;state.deepPreviewLastQuality=null;state.deepJobs.clear();state.deepSyncRejected=0;state.deepLateQueue?.reset?.();state.deepDrainActive=false;state.deepLaneInFlight=null;state.deepLaneQueuedFrames?.clear?.();state.photoPlannedFrameIds?.clear?.();state.photoArchiveWorker?.terminate?.();state.photoArchiveWorker=null;state.photoArchivePending=0;state.photoArchivePendingMeta?.clear?.();state.photoArchiveSeq=0;state.photoArchiveAccepted=0;state.photoArchiveRejected=0;state.photoArchiveBackpressureDropped=0;state.photoArchiveBytes=0;state.photoArchiveEntries=[];state.photoArchiveMemoryFallback=[];state.photoArchiveLastAt=0;state.photoArchivePrevPose=null;state.photoArchiveStorageError=false;state.processingPhotos=[];state.processingPoseList=[];state.processingOptimizedPoseMap?.clear?.();state.processingActive=false;state.processingAbort=false;state.processingPoseJumps=0;state.processingDeepAccepted=0;state.processingRgbImported=0;state.processingDeepRounds=0;state.processingDeepProcessedIds?.clear?.();state.processingUncertainty=null;state.processingUncertaintyHistory=[];state.photoResizeCacheHits=0;state.photoResizeCacheMisses=0;state.alvaFeatureTracks=[];state.alvaFeatureTrackSeq=0;state.alvaPersistentFeatures=0;state.alvaNewFeatures=0;state.alvaRecoveryRequired=false;state.alvaRecoveryReason=null;state.alvaRecoveryStableFrames=0;state.alvaLastTrustedPose=null;state.alvaLastTrustedAt=0;state.alvaQuarantinedFrameIds?.clear?.();state.stablePhotoBank?.reset?.();state.stablePhotoProcessingIndex=0;state.stablePhotoProcessingPhase=null;state.stablePhotoProcessingDeepDone=0;state.stablePhotoProcessingMvsDone=0;state.stablePhotoProcessingStartedAt=0;state.fastLaneFrames=0;state.fastLaneLastAt=0;state.fastLaneLastGapMs=0;state.fastLaneMaxGapMs=0;state.sparseBusy=false;state.sparseJobs=0;state.sparseLastAt=0;state.postScanMvsPayloads=[];state.postScanMvsReplaced=0;state.postScanMvsDropped=0;state.postScanMvsRefreshed=0;state.postScanMvsRefreshFailed=0;state.postScanMvsDrainActive=false;state.postScanRgbScaffold=null;state.evidenceSourceBuild=BUILD.id;state.denseEvidenceStatus=null;state.coverageSphere=new coverageApi.ViewSphereCoverage({cols:CONFIG.coverageSphereCols||24,rows:CONFIG.coverageSphereRows||12,maxFrames:CONFIG.coverageSphereMaxFrames||72});state.coverageStatus=state.coverageSphere.status();coverageApi.drawCoverageSphere($('coverageSphere'),state.coverageStatus);if($('coverageState'))$('coverageState').textContent='SFERA 0% · nessuna chiusura';state.liveMap=new liveMapApi.LivePhotoPuzzleMap({width:CONFIG.livePuzzleAtlasWidth||640,height:CONFIG.livePuzzleAtlasHeight||320,maxFrames:CONFIG.livePuzzleMaxFrames||90,maxRenderFrames:CONFIG.livePuzzleRenderFrames||64,temporalRadius:CONFIG.livePuzzleTemporalRadius||4,maxLoopCandidates:CONFIG.livePuzzleLoopCandidates||2,minEdgeMatches:CONFIG.livePuzzleMinEdgeMatches||6,minEdgeProbability:CONFIG.livePuzzleMinEdgeProbability||.10,maxWorldSamples:CONFIG.livePuzzleWorldSamples||12000,photoMaxSide:CONFIG.livePuzzlePhotoMaxSide||256,depthMaxSide:CONFIG.livePuzzleDepthMaxSide||168,depthMinPairs:CONFIG.livePuzzleDepthMinPairs||6,depthRegularizeIterations:CONFIG.livePuzzleDepthRegularizeIterations||8,maxPhotoSamples:CONFIG.livePuzzleMaxPhotoSamples||260000,maxDepthSamples:CONFIG.livePuzzleMaxDepthSamples||190000});log.info('live-map-depth-planned-api',{addDepthPlannedFrame:typeof state.liveMap?.addDepthPlannedFrame==='function',addCameraFrame:typeof state.liveMap?.addCameraFrame==='function',addFrame:typeof state.liveMap?.addFrame==='function',updateRelativeDepth:typeof state.liveMap?.updateRelativeDepth==='function',commitExact:typeof state.liveMap?.commitCameraFrameWithRelativeDepth==='function'});state.liveMapMode='photo';state.photoPanoramaState=null;state.liveMapStats=state.liveMap.stats();state.liveMapRenderPending=false;updateLiveMapUi();scheduleLiveMapRender();stopLiveOptimizer();state.liveOptAccepted=null;state.liveOptStats=null;state.liveOptCandidateStats=null;state.liveOptWorkingSnapshot=null;state.liveOptWorkingRetained=false;state.liveOptStalled=false;state.liveOptGate=null;state.liveOptPendingSlow=false;state.liveOptGeneration=0;state.liveOptRejected=0;state.liveOptAcceptedCount=0;state.liveOptBackoff=1;state.liveOptLastElapsedMs=0;state.postOptRejectedRun=0;state.liveOptAcceptedAnchors=[];state.liveOptPreviewGaussians=[];state.liveOptPreviewStats=null;state.liveOptLastAt=0;state.liveOptLastReason=null;
+  state.alvaInitAnnounced=false;state.alvaTrackingStarted=false;state.alvaRecoveryArchiveLastAt=0;state.alvaRecoveryArchiveAccepted=0;state.postScanAlvaRecovery=null;
   state.frameQualityApi=await lazy('./probabilistic/frame_quality.js');
   if(CONFIG.probabilisticGraphEnabled!==false){
     const [{ProbabilisticFactorGraph},{DeepSequenceModel}]=await Promise.all([lazy('./probabilistic/factor_graph.js'),lazy('./probabilistic/deep_sequence_model.js')]);
@@ -329,6 +335,7 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
     // FAST LANE: archive only frames whose Alva reference passed the integrity
     // guard. A lost/jumped tail is quarantined and never reaches RGB/Deep/MVS.
     requestLiveDeepPreview(frame,r);
+    if(integrity.recovery&&!r.trackingValid)archiveAlvaRecoveryFrame(frame,r);
     if(r.newObservation&&integrity.accept)recordAlvaHeartbeat(r.newObservation,frame,K);
     if(r.newKeyframe&&r.trackingValid&&integrity.accept)void queueDenseKeyframe(r.newKeyframe,frame,K).catch(err=>log.warn('dense-keyframe-sync',{frameId:frame.frameId||null,keyframeFrameId:r.newKeyframe?.frameId||null,message:err?.message||String(err)}));
     // Keep the AR overlay and the tracking diagnostics on the same exact Alva
@@ -487,13 +494,22 @@ function drawAlvaFeatureOverlay(featureState,srcWidth=CONFIG.analysisWidth,srcHe
 }
 function quarantineRecentArchive(at,reason){const win=Math.max(250,Number(CONFIG.alvaQuarantineTailMs)||900);let n=0;for(const r of state.photoArchiveEntries||[]){if(Math.abs((Number(r.at)||0)-at)<=win&&!r.trackingRejected){r.trackingRejected=true;r.trackingRejectReason=reason;state.alvaQuarantinedFrameIds.add(String(r.frameId));n++;try{state.db?.put?.('events',r)?.catch?.(()=>{});}catch{}}}if(n)log.warn('alva-photo-tail-quarantined',{reason,count:n,windowMs:win,at});return n;}
 function maybeRelocalizeAlva(r,frame){
+  // A visual sidecar is meaningful only after this Scan had an official Alva
+  // pose.  During INIT it would compare unrelated bootstrap-era state and make
+  // the UI look as if Alva had already failed.
+  if(r?.trackingMode==='alvaar-initializing'||r?.initializing||!r?.hasTrackedPose)return state.alvaRelocalization;
   if(CONFIG.alvaRelocalizationEnabled===false||!state.alvaRelocalizer||!state.probGraph||(!state.alvaRecoveryRequired&&r?.trackingValid))return state.alvaRelocalization;
   const previous=state.alvaRelocalization,result=state.alvaRelocalizer.evaluate({features:r?.featureObservations||[],K:state.scanK,graph:state.probGraph,at:Number(frame?.at)||performance.now()});state.alvaRelocalization=result;
   if(result?.ok&&(!previous?.ok||previous.candidateFrameId!==result.candidateFrameId)){log.info('alva-reference-memory-match',{frameId:frame?.frameId||null,candidateFrameId:result.candidateFrameId,matches:result.matches,inliers:result.inliers,rmsePx:result.rmsePx,available:result.available});}
   return result;
 }
 function updateAlvaTrackingIntegrity(r,frame,featureState){
-  const at=Number(frame?.at)||performance.now(),valid=!!(r?.trackingValid&&r?.pose?.p&&r?.pose?.q),persistent=featureState?.persistent?.length||0,fraction=featureState?.persistentFraction||0,minPersistent=Math.max(4,Number(CONFIG.alvaRecoveryMinPersistent)||18),minFraction=Math.max(.05,Number(CONFIG.alvaRecoveryMinPersistentFraction)||.28),trusted=state.alvaLastTrustedPose,sidecar=state.alvaRelocalization;let jump=false,tr=0,rot=0,dt=0;
+  const at=Number(frame?.at)||performance.now(),valid=!!(r?.trackingValid&&r?.pose?.p&&r?.pose?.q),initializing=!!(r?.initializing||r?.trackingMode==='alvaar-initializing'||(!valid&&!r?.hasTrackedPose)),persistent=featureState?.persistent?.length||0,fraction=featureState?.persistentFraction||0,minPersistent=Math.max(4,Number(CONFIG.alvaRecoveryMinPersistent)||18),minFraction=Math.max(.05,Number(CONFIG.alvaRecoveryMinPersistentFraction)||.28),trusted=state.alvaLastTrustedPose,sidecar=state.alvaRelocalization;let jump=false,tr=0,rot=0,dt=0;
+  if(initializing){
+    if(!state.alvaInitAnnounced){state.alvaInitAnnounced=true;log.info('alva-initializing',{frameId:frame?.frameId||null,trackingEpoch:r?.trackingEpoch??null,alvaPoints:r?.alvaPoints||0,persistentFeatures:persistent,alvaMapPreserved:!!state.frontend?.alva});}
+    return {accept:false,recovery:false,initializing:true,reason:'initializing',jump:false,translation:0,rotationRad:0};
+  }
+  if(valid&&!state.alvaTrackingStarted){state.alvaTrackingStarted=true;log.info('alva-first-scan-pose',{frameId:frame?.frameId||null,trackingEpoch:r?.trackingEpoch??null,alvaPoints:r?.alvaPoints||0,metricLocked:!!state.slam?.metricLocked});}
   if(valid&&trusted?.p&&trusted?.q&&state.alvaLastTrustedAt){dt=Math.max(1,at-state.alvaLastTrustedAt);tr=Math.hypot(r.pose.p[0]-trusted.p[0],r.pose.p[1]-trusted.p[1],r.pose.p[2]-trusted.p[2]);rot=quatAngle(r.pose.q,trusted.q);jump=dt<=(Number(CONFIG.alvaIntegrityJumpWindowMs)||1400)&&(tr>(Number(CONFIG.alvaIntegrityJumpTranslation)||.55)||rot>(Number(CONFIG.alvaIntegrityJumpRotationRad)||.62));}
   if(!valid){if(!state.alvaRecoveryRequired){state.alvaRecoveryRequired=true;state.alvaRecoveryReason='tracking-lost';state.alvaRecoveryStableFrames=0;quarantineRecentArchive(at,'tracking-lost-tail');log.warn('alva-reference-lost',{frameId:frame?.frameId||null,persistentFeatures:persistent,persistentFraction:fraction});}return {accept:false,recovery:true,reason:state.alvaRecoveryReason,jump:false,translation:tr,rotationRad:rot};}
   if(jump){state.alvaRecoveryRequired=true;state.alvaRecoveryReason='pose-jump';state.alvaRecoveryStableFrames=0;quarantineRecentArchive(at,'pose-jump-tail');state.alvaQuarantinedFrameIds.add(String(frame?.frameId||''));log.warn('alva-pose-jump',{frameId:frame?.frameId||null,translation:tr,rotationRad:rot,dtMs:dt,persistentFeatures:persistent,persistentFraction:fraction});}
@@ -513,15 +529,29 @@ function archiveSharpRgbFrame(frame,tracking){
   const stableQuality=Math.max(0,Math.min(1,.58*Math.min(1,Math.max(0,(detail-2)/12))+.24*(motion.valid?Math.max(0,1-motion.translationSpeed/Math.max(.001,motion.translationLimit)):.7)+.18*(motion.valid?Math.max(0,1-motion.angularSpeed/.9):.7))),meta={id,sessionId:state.currentSession.id,seq,kind:'sharp-rgb-photo',frameId:String(frame.frameId),captureAt:at,at,width:frame.width,height:frame.height,K:{...state.scanK},pose:{p:[...tracking.pose.p],q:[...tracking.pose.q]},poseCov:tracking.poseCov||null,trackingMode:tracking.trackingMode||'alvaar',trackingValid:true,metricLocked,features:compactArchiveFeatures(tracking.featureObservations||tracking.newKeyframe?.features||[]),photoQuality:{detail,stableQuality},stability:{detail,translationSpeed:motion.translationSpeed,angularSpeed:motion.angularSpeed,dtMs:motion.dtMs,jumpSuspect:jump.suspect,jumpTranslation:jump.translation,jumpRotationRad:jump.rotationRad,jumpDtMs:jump.dtMs},depthCandidate:true,depthPlanned:false};
   const rgba=new Uint8ClampedArray(frame.rgba);state.photoArchivePendingMeta.set(id,meta);state.photoArchivePending++;state.photoArchiveLastAt=at;worker.postMessage({type:'archive-rgb',id,width:frame.width,height:frame.height,rgba:rgba.buffer,mime:CONFIG.sharpArchiveMime||'image/jpeg',quality:CONFIG.sharpArchiveJpegQuality||.86},[rgba.buffer]);return true;
 }
+function archiveAlvaRecoveryFrame(frame,tracking){
+  // These are deliberately quarantined from live geometry.  Their only role is
+  // to let post-scan PnP test whether a genuinely lost view belongs to an
+  // already triangulated portion of the Alva world.
+  if(CONFIG.alvaRecoveryArchiveEnabled===false||!state.currentSession||!frame?.rgba?.length||!frame?.gray?.length||tracking?.trackingValid||tracking?.trackingMode!=='alvaar-lost')return false;
+  const at=Number(frame.at)||performance.now(),minInterval=Math.max(250,Number(CONFIG.alvaRecoveryArchiveMinIntervalMs)||900),maxFrames=Math.max(1,Number(CONFIG.alvaRecoveryArchiveMaxFrames)||72),detail=gradientDetail(frame.gray,frame.width,frame.height),minDetail=Number(CONFIG.alvaRecoveryArchiveMinDetail)||5;
+  if(at-(state.alvaRecoveryArchiveLastAt||0)<minInterval||detail<minDetail||(state.alvaRecoveryArchiveAccepted||0)>=maxFrames)return false;
+  if(state.photoArchivePending>=(CONFIG.sharpArchiveMaxPending||2)){state.photoArchiveBackpressureDropped++;return false;}
+  if(state.photoArchiveAccepted>=(CONFIG.sharpArchiveMaxFrames||1600)||state.photoArchiveBytes>=(CONFIG.sharpArchiveMaxBytes||367001600))return false;
+  const features=compactArchiveFeatures(tracking.featureObservations||[]);if(features.length<Math.max(6,Number(CONFIG.alvaRelocalizationMinMatches)||8))return false;
+  const worker=ensurePhotoArchiveWorker();if(!worker)return false;
+  const seq=++state.photoArchiveSeq,id=`alva-recovery-${state.currentSession.id}-${seq}`,meta={id,sessionId:state.currentSession.id,seq,kind:'alva-recovery-rgb',frameId:String(frame.frameId),captureAt:at,at,width:frame.width,height:frame.height,K:{...state.scanK},pose:null,poseCov:null,trackingMode:'alvaar-lost',trackingValid:false,alvaPoseAuthority:false,recoveryOnly:true,features,photoQuality:{detail,stableQuality:Math.max(.05,Math.min(1,(detail-2)/12))},stability:{detail,recoveryCapture:true,jumpSuspect:false},depthCandidate:false,depthPlanned:false};
+  const rgba=new Uint8ClampedArray(frame.rgba);state.photoArchivePendingMeta.set(id,meta);state.photoArchivePending++;state.alvaRecoveryArchiveLastAt=at;worker.postMessage({type:'archive-rgb',id,width:frame.width,height:frame.height,rgba:rgba.buffer,mime:CONFIG.sharpArchiveMime||'image/jpeg',quality:CONFIG.sharpArchiveJpegQuality||.86},[rgba.buffer]);log.debug('alva-recovery-photo-queued',{frameId:meta.frameId,features:features.length,detail,seq});return true;
+}
 async function handlePhotoArchiveWorkerMessage(d){
   if(d.type!=='archive-rgb-result'&&d.type!=='archive-rgb-error')return;const id=String(d.id||''),meta=state.photoArchivePendingMeta.get(id);state.photoArchivePendingMeta.delete(id);state.photoArchivePending=Math.max(0,state.photoArchivePending-1);if(!meta)return;
   if(d.type==='archive-rgb-error'){state.photoArchiveRejected++;log.warn('sharp-photo-archive-compress',{frameId:meta.frameId,message:d.message||'compression failed'});return;}
   const record={...meta,mime:d.mime||'image/jpeg',bytes:Number(d.bytes)||d.blob?.size||0,blob:d.blob};let stored=false;
   try{if(state.db){await state.db.put('events',record);stored=true;}}catch(err){state.photoArchiveStorageError=true;log.warn('sharp-photo-archive-store',{frameId:meta.frameId,message:err?.message||String(err)});}
   if(!stored){const max=Math.max(8,Number(CONFIG.sharpArchiveMemoryFallbackFrames)||24);state.photoArchiveMemoryFallback.push(record);if(state.photoArchiveMemoryFallback.length>max)state.photoArchiveMemoryFallback.shift();}
-  state.photoArchiveAccepted++;state.photoArchiveBytes+=record.bytes||0;const summary={...record,stored};state.photoArchiveEntries.push(summary);
+  state.photoArchiveAccepted++;if(record.kind==='alva-recovery-rgb')state.alvaRecoveryArchiveAccepted=(state.alvaRecoveryArchiveAccepted||0)+1;state.photoArchiveBytes+=record.bytes||0;const summary={...record,stored};state.photoArchiveEntries.push(summary);
   if(state.photoArchiveEntries.length>(CONFIG.sharpArchiveMaxFrames||1600))state.photoArchiveEntries.shift();
-  if(state.photoArchiveAccepted%16===0||record.stability?.jumpSuspect)log[record.stability?.jumpSuspect?'warn':'debug']('sharp-photo-archived',{frameId:record.frameId,stored,accepted:state.photoArchiveAccepted,pending:state.photoArchivePending,bytes:state.photoArchiveBytes,detail:record.photoQuality?.detail,jump:record.stability});
+  if(record.kind==='alva-recovery-rgb')log.info('alva-recovery-photo-archived',{frameId:record.frameId,stored,recoveryPhotos:state.alvaRecoveryArchiveAccepted,features:record.features?.length||0,detail:record.photoQuality?.detail});else if(state.photoArchiveAccepted%16===0||record.stability?.jumpSuspect)log[record.stability?.jumpSuspect?'warn':'debug']('sharp-photo-archived',{frameId:record.frameId,stored,accepted:state.photoArchiveAccepted,pending:state.photoArchivePending,bytes:state.photoArchiveBytes,detail:record.photoQuality?.detail,jump:record.stability});
   if($('deepLiveState'))$('deepLiveState').textContent=`FOTO NITIDE ${state.photoArchiveAccepted} · ${(state.photoArchiveBytes/1048576).toFixed(0)} MB compressi · Deep dopo Fine`;
 }
 async function waitForPhotoArchiveIdle(timeoutMs=12000){const t=performance.now();while(state.photoArchivePending>0&&performance.now()-t<timeoutMs)await new Promise(r=>setTimeout(r,25));return {pending:state.photoArchivePending,accepted:state.photoArchiveAccepted,bytes:state.photoArchiveBytes,timedOut:state.photoArchivePending>0};}
@@ -535,6 +565,13 @@ async function loadSharpPhotoArchive(){
   if(!rows.length)try{if(state.db)rows=(await state.db.getAll('events')).filter(x=>x?.kind==='sharp-rgb-photo'&&String(x.sessionId)===String(sessionId));}catch(err){log.warn('sharp-photo-archive-load',{message:err?.message||String(err)});}
   const byId=new Map(rows.map(x=>[String(x.id),x]));for(const x of state.photoArchiveMemoryFallback||[])if(String(x.sessionId)===String(sessionId)&&!byId.has(String(x.id)))byId.set(String(x.id),x);
   rows=[...byId.values()].filter(x=>x?.blob&&x?.pose?.p&&x?.pose?.q).sort((a,b)=>(Number(a.at)||0)-(Number(b.at)||0));return rows;
+}
+async function loadAlvaRecoveryPhotoArchive(){
+  const sessionId=state.currentSession?.id;if(!sessionId)return [];
+  let rows=(state.photoArchiveEntries||[]).filter(x=>x?.blob&&x?.kind==='alva-recovery-rgb'&&String(x.sessionId)===String(sessionId));
+  if(!rows.length)try{if(state.db)rows=(await state.db.getAll('events')).filter(x=>x?.kind==='alva-recovery-rgb'&&String(x.sessionId)===String(sessionId));}catch(err){log.warn('alva-recovery-photo-load',{message:err?.message||String(err)});}
+  const byId=new Map(rows.map(x=>[String(x.id),x]));for(const x of state.photoArchiveMemoryFallback||[])if(x?.kind==='alva-recovery-rgb'&&String(x.sessionId)===String(sessionId)&&!byId.has(String(x.id)))byId.set(String(x.id),x);
+  return [...byId.values()].filter(x=>x?.blob&&Array.isArray(x.features)&&x.features.length>=Math.max(6,Number(CONFIG.alvaRelocalizationMinMatches)||8)).sort((a,b)=>(Number(a.at)||0)-(Number(b.at)||0));
 }
 function selectSharpPhotosForProcessing(rows,maxFrames=300){
   const valid=(rows||[]).filter(r=>!r?.trackingRejected&&!state.alvaQuarantinedFrameIds?.has?.(String(r?.frameId||''))&&!r?.stability?.jumpSuspect);
@@ -554,7 +591,8 @@ async function decodeSharpPhotoRecord(record,{deepShortSide=0}={}){
 function archiveRecordToSurvey(record){
   let poseCov=record.poseCov||null;const jump=!!record.stability?.jumpSuspect;
   if(jump){const d=Array.isArray(poseCov?.diag)?poseCov.diag.slice(0,6):[];while(d.length<6)d.push(0);for(let i=0;i<3;i++)d[i]=Math.max(Number(d[i])||0,.02);for(let i=3;i<6;i++)d[i]=Math.max(Number(d[i])||0,.006);poseCov={...(poseCov||{}),diag:d,jumpSuspect:true};}
-  return {id:`photo-archive-${record.frameId}`,frameId:String(record.frameId),captureAt:Number(record.captureAt??record.at),at:Number(record.at??record.captureAt),pose:record.pose?{p:[...record.pose.p],q:[...record.pose.q]}:null,poseCov,K:{...(record.K||state.scanK)},width:record.width,height:record.height,gray:record.gray,rgba:record.rgba,features:record.features||[],metricLocked:!!record.metricLocked,trackingMode:jump?'alvaar-archive-jump-suspect':(record.trackingMode||'alvaar-archive'),trackingValid:true,depthCandidate:true,depthPlanned:false,photoQuality:record.photoQuality||null,stability:record.stability||null};
+  const hasPose=!!(record.pose?.p&&record.pose?.q);
+  return {id:`photo-archive-${record.frameId}`,frameId:String(record.frameId),captureAt:Number(record.captureAt??record.at),at:Number(record.at??record.captureAt),pose:hasPose?{p:[...record.pose.p],q:[...record.pose.q]}:null,poseCov,K:{...(record.K||state.scanK)},width:record.width,height:record.height,gray:record.gray,rgba:record.rgba,features:record.features||[],metricLocked:!!record.metricLocked,trackingMode:jump?'alvaar-archive-jump-suspect':(record.trackingMode||'alvaar-archive'),trackingValid:hasPose&&record.trackingValid!==false,alvaPoseAuthority:record.alvaPoseAuthority!==false,postscanRecovery:!!record.postscanRecovery,depthCandidate:hasPose,depthPlanned:false,photoQuality:record.photoQuality||null,stability:record.stability||null};
 }
 function requestLiveDeepPreview(frame,tracking){
   // V30.49: first archive every camera-still Alva-valid frame to compressed
@@ -904,38 +942,82 @@ function drawProcessingDepth(d){
   const canvas=$('processingDepth');if(!canvas)return;if(!d?.rawDepth?.length){const c=canvas.getContext('2d');canvas.width=320;canvas.height=220;c?.clearRect(0,0,canvas.width,canvas.height);return;}drawDepth(canvas,d.rawDepth,d.rawWidth,d.rawHeight);
 }
 function qRotateProcessing(q,v){const x=q?.[0]||0,y=q?.[1]||0,z=q?.[2]||0,w=Number.isFinite(q?.[3])?q[3]:1,vx=v[0],vy=v[1],vz=v[2],tx=2*(y*vz-z*vy),ty=2*(z*vx-x*vz),tz=2*(x*vy-y*vx);return [vx+w*tx+(y*tz-z*ty),vy+w*ty+(z*tx-x*tz),vz+w*tz+(x*ty-y*tx)];}
-function diagnosticDepthWorldPoints(photo,d,maxPoints=900){
-  if(!photo?.pose?.p||!photo?.pose?.q||!photo?.K||!d?.rawDepth?.length)return [];const W=d.rawWidth|0,H=d.rawHeight|0;if(W<2||H<2)return [];
-  const raw=d.rawDepth,probe=[],stride=Math.max(1,Math.floor(raw.length/2500));for(let i=0;i<raw.length;i+=stride){const v=Number(raw[i]);if(Number.isFinite(v))probe.push(v);}if(probe.length<8)return [];probe.sort((a,b)=>a-b);const q=(t)=>probe[Math.min(probe.length-1,Math.max(0,Math.floor(t*(probe.length-1))))],lo=q(.08),hi=q(.92),span=Math.max(1e-9,hi-lo),step=Math.max(1,Math.ceil(Math.sqrt((W*H)/Math.max(1,maxPoints)))),sx=photo.width/W,sy=photo.height/H,K=photo.K,p=photo.pose.p,qq=photo.pose.q,out=[];
-  for(let y=Math.floor(step/2);y<H;y+=step)for(let x=Math.floor(step/2);x<W;x+=step){const rv=Number(raw[y*W+x]);if(!Number.isFinite(rv))continue;const n=Math.max(0,Math.min(1,(rv-lo)/span));const depth=.55+(1-n)*3.7,u=(x+.5)*sx,v=(y+.5)*sy,ray=[(u-K.cx)/Math.max(1e-6,K.fx),(v-K.cy)/Math.max(1e-6,K.fy),1],norm=Math.hypot(...ray)||1,local=ray.map(a=>a/norm*depth),world=qRotateProcessing(qq,local);out.push([p[0]+world[0],p[1]+world[1],p[2]+world[2]]);}
-  return out;
-}
 function processingOptimizedPose(frameId){return state.processingOptimizedPoseMap?.get?.(String(frameId||''))||null;}
-function drawProcessingPose(photo,index,total,deep=null){
+function processingDepthCalibrationFor(frameId){const cal=state.processingDepthCalibration||state.liveOptAccepted?.depthCalibration||null;return {model:cal,frame:(cal?.frames||[]).find(x=>String(x?.frameId||'')===String(frameId||''))||null};}
+function calibratedDepthForPreview(calibration,raw){
+  const domain=calibration?.model?.domain,frame=calibration?.frame;if(!domain||!frame||!(Number(frame.confidence)>.045)||!Number.isFinite(raw))return NaN;
+  const x=Math.max(-1.8,Math.min(1.8,(raw-Number(domain.center||0))/Math.max(1e-10,Number(domain.scale)||1))),g=calibration.model.gamma||[0,0],p2=.5*(3*x*x-1),p3=.5*(5*x*x*x-3*x),rho=Math.max(1e-8,Math.max(1e-4,Number(frame.a)||1)*(x+(Number(g[0])||0)*p2+(Number(g[1])||0)*p3)+(Number(frame.b)||0)),z=1/rho;
+  return Number.isFinite(z)&&z>.08&&z<40?z:NaN;
+}
+function compactProcessingDepth(d,maxSide=96){
+  const sw=d?.rawWidth|0,sh=d?.rawHeight|0,raw=d?.rawDepth;if(!(sw>1&&sh>1)||!raw?.length)return null;const scale=Math.min(1,maxSide/Math.max(sw,sh)),w=Math.max(2,Math.round(sw*scale)),h=Math.max(2,Math.round(sh*scale)),out=new Float32Array(w*h);for(let y=0;y<h;y++){const sy=Math.min(sh-1,Math.floor((y+.5)*sh/h));for(let x=0;x<w;x++){const sx=Math.min(sw-1,Math.floor((x+.5)*sw/w));out[y*w+x]=Number(raw[sy*sw+sx]);}}return {rawDepth:out,rawWidth:w,rawHeight:h};
+}
+function storeProcessingDepthDiagnostic(photo,d){
+  const preview=state.processingPreview||(state.processingPreview={});const compact=compactProcessingDepth(d);if(!compact||!photo?.frameId)return;preview.depths??=new Map();preview.photos??=new Map();preview.depths.set(String(photo.frameId),compact);preview.photos.set(String(photo.frameId),{...photo,pose:photo.pose?{p:[...photo.pose.p],q:[...photo.pose.q]}:null,K:{...photo.K}});
+}
+function diagnosticDepthWorldPoints(photo,d,maxPoints=650){
+  if(!photo?.pose?.p||!photo?.pose?.q||!photo?.K||!d?.rawDepth?.length)return {points:[],reason:'missing-pose-or-depth'};const W=d.rawWidth|0,H=d.rawHeight|0;if(W<2||H<2)return {points:[],reason:'invalid-depth-raster'};
+  const calibration=processingDepthCalibrationFor(photo.frameId);if(!calibration.frame)return {points:[],reason:'global-calibration-pending'};
+  const pose=processingOptimizedPose(photo.frameId)||photo.pose,K=photo.K,step=Math.max(1,Math.ceil(Math.sqrt((W*H)/Math.max(1,maxPoints)))),sx=photo.width/W,sy=photo.height/H,p=pose.p,qq=pose.q,out=[];let rejected=0;
+  for(let y=Math.floor(step/2);y<H;y+=step)for(let x=Math.floor(step/2);x<W;x+=step){const z=calibratedDepthForPreview(calibration,Number(d.rawDepth[y*W+x]));if(!Number.isFinite(z)){rejected++;continue;}const u=(x+.5)*sx,v=(y+.5)*sy,local=[(u-K.cx)/Math.max(1e-6,K.fx)*z,(v-K.cy)/Math.max(1e-6,K.fy)*z,z],world=qRotateProcessing(qq,local);out.push([p[0]+world[0],p[1]+world[1],p[2]+world[2]]);}
+  return {points:out,reason:out.length?'calibrated':'calibrated-depth-rejected',rejected,frameCalibration:calibration.frame};
+}
+function rebuildProcessingBackprojection({logChange=false}={}){
+  const preview=state.processingPreview||(state.processingPreview={}),depths=preview.depths||new Map(),photos=preview.photos||new Map(),points=[];let calibratedFrames=0,pendingFrames=0,rejected=0,frameIndex=0;
+  for(const [frameId,d] of depths){const photo=photos.get(frameId),result=diagnosticDepthWorldPoints(photo,d,620);if(result.points.length){calibratedFrames++;for(const p of result.points)points.push({p,frameId,frameIndex});}else pendingFrames++;rejected+=result.rejected||0;frameIndex++;}
+  const max=24000;if(points.length>max){const stride=points.length/max,thin=[];for(let i=0;i<max;i++)thin.push(points[Math.floor(i*stride)]);preview.worldPoints=thin;}else preview.worldPoints=points;
+  preview.worldStats={depthFrames:depths.size,calibratedFrames,pendingFrames,points:preview.worldPoints.length,rejected,calibrationReady:calibratedFrames>0,calibrationProvisional:!!state.processingDepthCalibrationProvisional};
+  if(logChange)log.info('processing-depth-backprojection',{mode:preview.worldStats.calibrationReady?'global-calibrated-camera-z':'waiting-for-global-calibration',...preview.worldStats,calibration:state.processingDepthCalibration?.stats||null});
+  return preview.worldStats;
+}
+function processingBackprojectionLabel(){const s=state.processingPreview?.worldStats;if(!s?.depthFrames)return 'splat: attendo Deep';return s.calibrationReady?`splat ${s.calibrationProvisional?'candidati':'globali'} ${s.points} · ${s.calibratedFrames}/${s.depthFrames} viste calibrate`:`splat: attendo calibrazione globale (${s.depthFrames} Deep)`;}
+function drawProcessingPose(photo,index,total){
   const canvas=$('processingPose');if(!canvas)return;const ctx=canvas.getContext('2d');canvas.width=Math.max(520,canvas.clientWidth||520);canvas.height=340;ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#05070a';ctx.fillRect(0,0,canvas.width,canvas.height);
-  const poses=(state.processingPoseList||[]).filter(x=>x?.pose?.p),deepPts=diagnosticDepthWorldPoints(photo,deep,950),opt=processingOptimizedPose(photo?.frameId),all=[];for(const x of poses)all.push([x.pose.p[0],x.pose.p[2]]);for(const p of deepPts)all.push([p[0],p[2]]);if(opt?.p)all.push([opt.p[0],opt.p[2]]);if(!all.length)return;
+  const poses=(state.processingPoseList||[]).filter(x=>x?.pose?.p),world=state.processingPreview?.worldPoints||[],opt=processingOptimizedPose(photo?.frameId),all=[];for(const x of poses)all.push([x.pose.p[0],x.pose.p[2]]);for(const x of world)all.push([x.p[0],x.p[2]]);if(opt?.p)all.push([opt.p[0],opt.p[2]]);if(!all.length)return;
   let minX=Math.min(...all.map(p=>p[0])),maxX=Math.max(...all.map(p=>p[0])),minZ=Math.min(...all.map(p=>p[1])),maxZ=Math.max(...all.map(p=>p[1]));const pad=Math.max(.25,.08*Math.max(maxX-minX,maxZ-minZ,1));minX-=pad;maxX+=pad;minZ-=pad;maxZ+=pad;const sx=(canvas.width-44)/Math.max(.1,maxX-minX),sz=(canvas.height-54)/Math.max(.1,maxZ-minZ),sc=Math.min(sx,sz),tx=x=>22+(x-minX)*sc,tz=z=>canvas.height-28-(z-minZ)*sc;
-  ctx.lineWidth=1.5;ctx.strokeStyle='rgba(130,210,255,.42)';ctx.beginPath();poses.forEach((x,i)=>{const a=tx(x.pose.p[0]),b=tz(x.pose.p[2]);if(i)ctx.lineTo(a,b);else ctx.moveTo(a,b);});ctx.stroke();
-  if(deepPts.length){ctx.fillStyle='rgba(94,222,255,.55)';for(const p of deepPts){ctx.fillRect(tx(p[0]),tz(p[2]),1.6,1.6);}}
-  if(photo?.pose?.p){const jump=!!photo?.stability?.jumpSuspect;ctx.fillStyle=jump?'#ff9a52':'#8de6ff';ctx.beginPath();ctx.arc(tx(photo.pose.p[0]),tz(photo.pose.p[2]),6,0,Math.PI*2);ctx.fill();const f=qRotateProcessing(photo.pose.q,[0,0,1]);ctx.strokeStyle=jump?'#ff9a52':'#8de6ff';ctx.beginPath();ctx.moveTo(tx(photo.pose.p[0]),tz(photo.pose.p[2]));ctx.lineTo(tx(photo.pose.p[0]+f[0]*.45),tz(photo.pose.p[2]+f[2]*.45));ctx.stroke();}
-  if(opt?.p){ctx.fillStyle='#ef8cff';ctx.beginPath();ctx.arc(tx(opt.p[0]),tz(opt.p[2]),5,0,Math.PI*2);ctx.fill();if(photo?.pose?.p){ctx.strokeStyle='rgba(239,140,255,.65)';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(tx(photo.pose.p[0]),tz(photo.pose.p[2]));ctx.lineTo(tx(opt.p[0]),tz(opt.p[2]));ctx.stroke();ctx.setLineDash([]);}}
-  ctx.fillStyle='rgba(255,255,255,.78)';ctx.font='12px system-ui';ctx.fillText(`frame ${Math.min(index+1,total)}/${total} · vista X-Z`,14,18);ctx.fillStyle='#8de6ff';ctx.fillText('Alva + DeepPrior relativo',14,canvas.height-9);ctx.fillStyle='#ef8cff';ctx.fillText('posa RGB ottimizzata',180,canvas.height-9);
+  ctx.lineWidth=1.5;ctx.strokeStyle='rgba(130,210,255,.38)';ctx.beginPath();poses.forEach((x,i)=>{const a=tx(x.pose.p[0]),b=tz(x.pose.p[2]);if(i)ctx.lineTo(a,b);else ctx.moveTo(a,b);});ctx.stroke();
+  for(const x of world){ctx.fillStyle=`hsla(${(x.frameIndex*47)%360},82%,66%,.56)`;ctx.fillRect(tx(x.p[0]),tz(x.p[2]),1.7,1.7);}
+  if(photo?.pose?.p){const pose=processingOptimizedPose(photo.frameId)||photo.pose,jump=!!photo?.stability?.jumpSuspect;ctx.fillStyle=jump?'#ff9a52':photo.postscanRecovery?'#9ff07a':'#8de6ff';ctx.beginPath();ctx.arc(tx(pose.p[0]),tz(pose.p[2]),6,0,Math.PI*2);ctx.fill();const f=qRotateProcessing(pose.q,[0,0,1]);ctx.strokeStyle=ctx.fillStyle;ctx.beginPath();ctx.moveTo(tx(pose.p[0]),tz(pose.p[2]));ctx.lineTo(tx(pose.p[0]+f[0]*.45),tz(pose.p[2]+f[2]*.45));ctx.stroke();}
+  if(opt?.p&&photo?.pose?.p){ctx.strokeStyle='rgba(239,140,255,.65)';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(tx(photo.pose.p[0]),tz(photo.pose.p[2]));ctx.lineTo(tx(opt.p[0]),tz(opt.p[2]));ctx.stroke();ctx.setLineDash([]);}
+  const stat=state.processingPreview?.worldStats||{};ctx.fillStyle='rgba(255,255,255,.84)';ctx.font='12px system-ui';ctx.fillText(`frame ${Math.min(index+1,total)}/${total} · X-Z · ${processingBackprojectionLabel()}`,14,18);ctx.fillStyle='#8de6ff';ctx.fillText('traiettoria Alva',14,canvas.height-9);ctx.fillStyle='#ef8cff';ctx.fillText('posa ottimizzata',118,canvas.height-9);ctx.fillStyle='#7be495';ctx.fillText(`splat camera-z calibrati · ${stat.rejected||0} scartati`,238,canvas.height-9);
 }
 function showProcessingFrame(photo,index,total,{phase='rgb',deep=null,message=''}={}){
   if(!photo)return;const preview=state.processingPreview||(state.processingPreview={deep:null,photo:null,index:0,total:0,phase:null});drawRasterToCanvas($('processingRgb'),photo.rgba,photo.width,photo.height);
   // RGB/scaffold/MVS progress must not erase the last successful neural map.
   // The Depth result is a completed measurement, not a transient spinner.
-  if(deep?.rawDepth?.length){preview.deep=deep;preview.photo=photo;preview.index=index;preview.total=total;preview.phase=phase;}
+  if(deep?.rawDepth?.length){preview.deep=deep;preview.photo=photo;preview.index=index;preview.total=total;preview.phase=phase;storeProcessingDepthDiagnostic(photo,deep);rebuildProcessingBackprojection();}
   if(preview.deep?.rawDepth?.length)drawProcessingDepth(preview.deep);else drawProcessingDepth(null);
-  const posePhoto=preview.deep?.rawDepth?.length&&preview.photo?preview.photo:photo,poseIndex=preview.deep?.rawDepth?.length?preview.index:index,poseTotal=preview.deep?.rawDepth?.length?preview.total:total;drawProcessingPose(posePhoto,poseIndex,poseTotal,preview.deep);
-  const jump=photo.stability?.jumpSuspect,pose=photo.pose?.p||[],detail=Number(photo.photoQuality?.detail||0),quality=Number(photo.photoQuality?.stableQuality||0);processingSetPhase(phase,{index:index+1,total,message:message||`${phase==='deep'?'DeepPrior':'RGB'} · ${photo.frameId}`,detail:`nitidezza ${detail.toFixed(1)} · stabilità ${(100*quality).toFixed(0)}% · Alva [${pose.map(x=>Number(x).toFixed(2)).join(', ')}]${jump?' · ⚠ salto Alva candidato':''} · RGB ${state.processingRgbImported} · Deep ${state.processingDeepAccepted}`});
+  const posePhoto=preview.deep?.rawDepth?.length&&preview.photo?preview.photo:photo,poseIndex=preview.deep?.rawDepth?.length?preview.index:index,poseTotal=preview.deep?.rawDepth?.length?preview.total:total;drawProcessingPose(posePhoto,poseIndex,poseTotal);
+  const jump=photo.stability?.jumpSuspect,pose=photo.pose?.p||[],detail=Number(photo.photoQuality?.detail||0),quality=Number(photo.photoQuality?.stableQuality||0);processingSetPhase(phase,{index:index+1,total,message:message||`${phase==='deep'?'DeepPrior':'RGB'} · ${photo.frameId}`,detail:`nitidezza ${detail.toFixed(1)} · stabilità ${(100*quality).toFixed(0)}% · Alva [${pose.map(x=>Number(x).toFixed(2)).join(', ')}]${jump?' · ⚠ salto Alva candidato':''} · RGB ${state.processingRgbImported} · Deep ${state.processingDeepAccepted} · ${processingBackprojectionLabel()}`});
 }
 function showProcessingDeepResult(photo,d){if(!state.processingActive||!photo)return;state.processingDeepAccepted++;state.stablePhotoProcessingDeepDone=state.processingDeepAccepted;const i=Math.max(0,(state.processingPhotos||[]).findIndex(x=>String(x.frameId)===String(photo.frameId)));showProcessingFrame(photo,i,state.processingPhotos.length,{phase:'deep',deep:d,message:`DeepPrior ${state.processingDeepAccepted}/${state.processingPhotos.length} · ${photo.frameId}`});log.info('processing-deep-prior-visible',{frameId:photo.frameId,index:i,rawDepth:[d?.rawWidth||0,d?.rawHeight||0],alvaPose:photo.pose||null,optimizedPose:processingOptimizedPose(photo.frameId)||null,jumpSuspect:!!photo.stability?.jumpSuspect});}
-function updateProcessingOptimizedPoses(snapshot){state.processingOptimizedPoseMap?.clear?.();for(const f of snapshot?.frames||[]){const pose=f?.poseEstimate||f?.pose;if(pose?.p&&pose?.q)state.processingOptimizedPoseMap.set(String(f.frameId||f.id||''),pose);}log.info('processing-rgb-pose-map',{frames:state.processingOptimizedPoseMap.size});}
+function updateProcessingOptimizedPoses(snapshot){state.processingOptimizedPoseMap?.clear?.();for(const f of snapshot?.frames||[]){const pose=f?.poseEstimate||f?.pose;if(pose?.p&&pose?.q)state.processingOptimizedPoseMap.set(String(f.frameId||f.id||''),pose);}state.processingDepthCalibration=snapshot?.depthCalibration||null;state.processingDepthCalibrationProvisional=false;const splats=rebuildProcessingBackprojection({logChange:true});const preview=state.processingPreview||{};if(preview.photo)drawProcessingPose(preview.photo,preview.index||0,preview.total||state.processingPhotos?.length||0);log.info('processing-rgb-pose-map',{frames:state.processingOptimizedPoseMap.size,depthCalibration:!!state.processingDepthCalibration,splats});}
 async function registerArchivedPhotosPostScan(records){
-  state.processingRgbImported=0;state.processingPoseJumps=0;state.processingPreview={deep:null,photo:null,index:0,total:0,phase:null};state.processingPoseList=records.map(r=>({frameId:r.frameId,at:r.at,pose:r.pose,stability:r.stability,photoQuality:r.photoQuality}));processingSetPhase('rgb',{index:0,total:records.length,message:`Registro ${records.length} fotografie nitide nel grafo RGB`});
+  state.processingRgbImported=0;state.processingPoseJumps=0;state.processingDepthCalibration=null;state.processingDepthCalibrationProvisional=false;state.processingPreview={deep:null,photo:null,index:0,total:0,phase:null,depths:new Map(),photos:new Map(),worldPoints:[],worldStats:null};state.processingPoseList=records.map(r=>({frameId:r.frameId,at:r.at,pose:r.pose,stability:r.stability,photoQuality:r.photoQuality}));processingSetPhase('rgb',{index:0,total:records.length,message:`Registro ${records.length} fotografie nitide nel grafo RGB`});
   const yieldEvery=Math.max(1,Number(CONFIG.sharpArchiveProcessingYieldEvery)||3);for(let i=0;i<records.length;i++){const decoded=await decodeSharpPhotoRecord(records[i]),survey=archiveRecordToSurvey(decoded);if(survey.stability?.jumpSuspect)state.processingPoseJumps++;showProcessingFrame(survey,i,records.length,{phase:'rgb'});const reg=registerDepthPlannedPhoto(survey,{source:'sharp-rgb-adaptive-candidate',optimize:false,render:false,adaptiveCandidate:true});if(reg?.ok)state.processingRgbImported++;if((i+1)%yieldEvery===0)await new Promise(r=>setTimeout(r,0));}
   state.liveMapStats=state.liveMap?.stats?.()||state.liveMapStats;scheduleLiveMapRender(true);log.info('processing-rgb-import-complete',{selected:records.length,imported:state.processingRgbImported,jumpSuspects:state.processingPoseJumps,graph:state.probGraph?.summary?.()||null,liveMap:state.liveMapStats});return {selected:records.length,imported:state.processingRgbImported,jumps:state.processingPoseJumps};
+}
+function postScanRecoveryPoseCov(result){
+  const rmse=Math.max(.5,Number(result?.rmsePx)||6),t=Math.min(.18,.018+.010*rmse),r=Math.min(.14,.012+.006*rmse);return {diag:[t*t,0,0,t*t,0,t*t],translationStd:t,rotationStdRad:r,quality:Math.max(.05,Math.min(.75,(Number(result?.inliers)||0)/18*(1/(1+rmse*.18)))),source:'postscan-reference-pnp'};
+}
+async function recoverArchivedAlvaViewsPostScan(){
+  const records=await loadAlvaRecoveryPhotoArchive(),max=Math.max(1,Number(CONFIG.alvaPostScanRecoveryMaxFrames)||32),api=state.alvaRelocalizerApi,graph=state.probGraph;if(!records.length||!api?.AlvaReferenceRelocalizer||!graph)return {available:records.length,accepted:[],rejected:{},reason:records.length?'relocalizer-unavailable':'no-recovery-photos'};
+  const relocalizer=new api.AlvaReferenceRelocalizer({maxLandmarks:CONFIG.alvaRelocalizationMaxLandmarks||900,minMatches:CONFIG.alvaRelocalizationMinMatches||8,minInliers:CONFIG.alvaRelocalizationMinInliers||6,maxRmsePx:CONFIG.alvaRelocalizationMaxRmsePx||5.5,intervalMs:0}),accepted=[],rejected={};
+  log.info('postscan-alva-recovery-start',{available:records.length,maxFrames:max,landmarks:graph.landmarkFactors?.length||0});
+  for(const record of records.slice(0,max)){
+    let result;
+    try{result=relocalizer.evaluate({features:record.features||[],K:record.K||state.scanK,graph:graph.exportState(),at:Number(record.at)||performance.now()});}catch(err){result={ok:false,reason:`exception:${err?.message||String(err)}`};}
+    if(!result?.ok){const reason=result?.reason||result?.pnpReason||'pnp-rejected';rejected[reason]=(rejected[reason]||0)+1;continue;}
+    try{
+      const knownLandmarks=new Set((graph.landmarkFactors||[]).map(x=>String(x.id||''))),linkable=(result.observations||[]).filter(x=>knownLandmarks.has(String(x.landmarkId||''))).length;
+      if(linkable<Math.max(4,Number(CONFIG.alvaRelocalizationMinInliers)||6)){const reason='graph-link-insufficient';rejected[reason]=(rejected[reason]||0)+1;continue;}
+      const decoded=await decodeSharpPhotoRecord(record),recovered={...decoded,pose:{p:[...result.pose.p],q:[...result.pose.q]},poseCov:postScanRecoveryPoseCov(result),trackingValid:true,trackingMode:'postscan-reference-pnp',alvaPoseAuthority:false,postscanRecovery:true,metricLocked:!!state.slam?.metricLocked},survey=archiveRecordToSurvey(recovered);survey.alvaPoseAuthority=false;survey.postscanRecovery=true;survey.trackingMode='postscan-reference-pnp';survey.trackingValid=true;
+      const reg=registerDepthPlannedPhoto(survey,{source:'postscan-reference-pnp',optimize:false,render:false,adaptiveCandidate:true}),linked=graph.addReferenceRelocalization?.(survey.frameId,result)||{attached:0};
+      if(!reg?.metricGraphNode){const reason='graph-frame-register-failed';rejected[reason]=(rejected[reason]||0)+1;continue;}
+      accepted.push(recovered);state.processingPoseList.push({frameId:survey.frameId,at:survey.at,pose:survey.pose,stability:survey.stability,photoQuality:survey.photoQuality,postscanRecovery:true});log.info('postscan-alva-recovery-accepted',{frameId:survey.frameId,candidateFrameId:result.candidateFrameId,matches:result.matches,inliers:result.inliers,rmsePx:result.rmsePx,landmarkFactors:linked.attached,alvaPoseAuthority:false});
+    }catch(err){const reason=`decode-or-register:${err?.message||String(err)}`;rejected[reason]=(rejected[reason]||0)+1;}
+  }
+  const out={available:records.length,considered:Math.min(records.length,max),accepted,rejected};state.postScanAlvaRecovery={available:out.available,considered:out.considered,accepted:accepted.length,rejected};log.checkpoint('postscan-alva-recovery',state.postScanAlvaRecovery);return out;
 }
 async function waitForDeepJobCompletion(jobId,timeoutMs){const started=performance.now();while((state.deepJobs.has(String(jobId))||String(state.deepLaneInFlight||'')===String(jobId))&&performance.now()-started<timeoutMs)await new Promise(r=>setTimeout(r,35));return !state.deepJobs.has(String(jobId))&&String(state.deepLaneInFlight||'')!==String(jobId);}
 function drawProcessingUncertainty(map,batchRecords=[]){
@@ -949,7 +1031,7 @@ function drawProcessingUncertainty(map,batchRecords=[]){
 function markAdaptivePhotoDepthPlanned(survey,round){if(!survey?.frameId)return;const id=String(survey.frameId);if(state.photoPlannedFrameIds?.has?.(id))return;state.photoPlannedFrameIds.add(id);survey.depthPlanned=true;survey.depthCandidate=true;log.info('adaptive-deep-frame-planned',{frameId:id,round,at:survey.at,quality:survey.photoQuality||null,features:survey.features?.length||0});}
 async function runAdaptiveDepthFeedback(round){
   if(!state.probGraph)return null;const runtime=await ensureSingleOptimizerRuntime(),graph=state.probGraph.exportState(),result=await runtime.refineDepthFeedback?.(graph,{passes:CONFIG.adaptiveDeepFeedbackPasses||4,optimizer:{localWindowSize:CONFIG.postOptimizeLocalWindowFrames||20,localWindowOverlap:CONFIG.postOptimizeLocalWindowOverlap||6}});if(!result)return null;
-  if(result.accepted){state.liveOptAccepted=result.snapshot||state.liveOptAccepted;state.liveOptStats=result.stats||state.liveOptStats;state.liveOptGate=result.gate||state.liveOptGate;state.liveOptAcceptedCount++;updateProcessingOptimizedPoses(result.snapshot);}
+  if(result.accepted){state.liveOptAccepted=result.snapshot||state.liveOptAccepted;state.liveOptStats=result.stats||state.liveOptStats;state.liveOptGate=result.gate||state.liveOptGate;state.liveOptAcceptedCount++;updateProcessingOptimizedPoses(result.snapshot);}else if((result.analysisSnapshot||result.snapshot)?.depthCalibration){state.processingDepthCalibration=(result.analysisSnapshot||result.snapshot).depthCalibration;state.processingDepthCalibrationProvisional=true;const splats=rebuildProcessingBackprojection({logChange:true}),preview=state.processingPreview||{};if(preview.photo)drawProcessingPose(preview.photo,preview.index||0,preview.total||state.processingPhotos?.length||0);log.warn('processing-depth-backprojection-provisional',{round,reason:'optimizer-candidate-not-committed',splats,gate:result.gate||null});}
   const analysis=result.analysisSnapshot||result.snapshot||state.liveOptAccepted;log.info('adaptive-deep-feedback',{round,accepted:!!result.accepted,elapsedMs:result.elapsedMs,deepFrames:graph.deepFactors?.length||0,stats:result.analysisStats||result.stats||null,gate:result.gate||null});return {...result,analysisSnapshot:analysis};
 }
 function deepFactorExists(frameId){const id=String(frameId||'');return !!state.probGraph?.deepFactors?.some?.(d=>String(d?.frameId||'')===id);}
@@ -994,12 +1076,19 @@ async function finishScan(){
   stopCaptureFastLane();stopLiveOptimizer();
   while(state.sparseBusy)await new Promise(r=>setTimeout(r,20));
   state.processingActive=true;state.processingAbort=false;show('processing');processingSetPhase('rgb',{message:'Chiudo archivio foto nitide…'});
-  const archiveIdle=await waitForPhotoArchiveIdle(Math.max(12000,Number(CONFIG.sharpArchiveFlushTimeoutMs)||20000)),archived=await loadSharpPhotoArchive(),selected=selectSharpPhotosForProcessing(archived,Math.max(16,Number(CONFIG.sharpArchiveProcessMaxFrames)||240));state.processingPhotos=selected;
+  const archiveIdle=await waitForPhotoArchiveIdle(Math.max(12000,Number(CONFIG.sharpArchiveFlushTimeoutMs)||20000)),archived=await loadSharpPhotoArchive();let selected=selectSharpPhotosForProcessing(archived,Math.max(16,Number(CONFIG.sharpArchiveProcessMaxFrames)||240));state.processingPhotos=selected;
   log.checkpoint('processing-photo-dataset',{archiveIdle,archived:archived.length,selected:selected.length,archiveBytes:state.photoArchiveBytes,backpressureDropped:state.photoArchiveBackpressureDropped});
   if(selected.length)await registerArchivedPhotosPostScan(selected);else log.warn('processing-photo-dataset-empty',{stableFallback:state.stablePhotoBank?.stats?.()||null});
   processingSetPhase('scaffold',{index:0,total:1,message:'Risolvo scaffold RGB + prior Alva…'});
-  const rgbScaffold=await reconcilePostScanRgbScaffold();updateProcessingOptimizedPoses(rgbScaffold?.snapshot||null);processingSetPhase('scaffold',{index:1,total:1,message:rgbScaffold?.accepted?'Scaffold RGB consolidato':'Scaffold RGB conservativo · continuo con diagnostica'});
-  // V30.53: the large RGB archive builds the scaffold first. Deep is then
+  let rgbScaffold=await reconcilePostScanRgbScaffold();updateProcessingOptimizedPoses(rgbScaffold?.snapshot||null);
+  processingSetPhase('scaffold',{index:1,total:1,message:rgbScaffold?.accepted?'Scaffold RGB consolidato':'Scaffold RGB conservativo · continuo con diagnostica'});
+  // Lost views were archived separately and never used during capture.  Once
+  // the valid RGB/Alva scaffold exists, test each one with PnP against its
+  // triangulated landmarks.  Accepted hypotheses add robust reprojection
+  // evidence, never a synthetic Alva trajectory edge.
+  const recovery=await recoverArchivedAlvaViewsPostScan();
+  if(recovery.accepted?.length){selected=[...selected,...recovery.accepted];state.processingPhotos=selected;processingSetPhase('scaffold',{index:0,total:1,message:`Recupero post-scan Alva: ${recovery.accepted.length}/${recovery.considered} viste PnP verificate`});const repaired=await reconcilePostScanRgbScaffold();if(repaired?.snapshot){rgbScaffold=repaired;updateProcessingOptimizedPoses(repaired.snapshot);}processingSetPhase('scaffold',{index:1,total:1,message:`Scaffold aggiornato con ${recovery.accepted.length} viste recuperate`,detail:`PnP post-scan: ${recovery.accepted.length} accettate · nessuna posa sintetica inserita in Alva`});}
+  // V30.54: the large RGB archive builds the scaffold first. Deep is then
   // requested adaptively (16, then 8...) only where geometric/reliability
   // uncertainty remains high. No Deep job is preplanned during acquisition.
   state.deepLateQueue?.reset?.();state.deepLaneQueuedFrames?.clear?.();
@@ -1019,7 +1108,7 @@ async function finishScan(){
   // built before final pose/depth consensus and is only a live candidate.
   state.gaussians=[];state.mesh=null;state.meshStale=true;state.geometryCommitted=false;window.__ROOMSCAN_METRIC_MESH=null;
   const kfCount=state.slam?.keyframes?.length||0;state.reviewKeyframes=kfCount;state.reviewMetricLocked=!!state.slam?.metricLocked;stopScan();
-  // V30.53: Processing is responsible for producing the final authoritative
+  // V30.54: Processing is responsible for producing the final authoritative
   // reconstruction. REVIEW is no longer an intermediate state that requires a
   // manual click before the first global rebuild.
   let automaticFinal=null;
@@ -1068,7 +1157,7 @@ function surfaceGaussiansForDisplay(rows,{mode='review',source='surface'}={}){
 
 
 function collectPipelineTestSnapshot(){
-  const snap=buildPipelineTestSnapshot({build:BUILD,graph:state.probGraph?.summary?.()||{},optimizer:{stats:state.liveOptStats,candidateStats:state.liveOptCandidateStats,gate:state.liveOptGate,accepted:state.liveOptAcceptedCount,rejected:state.liveOptRejected,stalled:state.liveOptStalled},processing:{active:state.processingActive,photos:state.processingPhotos?.length||0,rgbImported:state.processingRgbImported,deepAccepted:state.processingDeepAccepted,deepRounds:state.processingDeepRounds,poseJumps:state.processingPoseJumps,uncertainty:state.processingUncertainty?.globalUncertainty??null,resizeCacheHits:state.photoResizeCacheHits,resizeCacheMisses:state.photoResizeCacheMisses},tracking:{mode:state.lastTracking?.trackingMode||null,valid:!!state.lastTracking?.trackingValid,recoveryRequired:state.alvaRecoveryRequired,recoveryReason:state.alvaRecoveryReason,persistentFeatures:state.alvaPersistentFeatures,newFeatures:state.alvaNewFeatures,quarantinedFrames:state.alvaQuarantinedFrameIds?.size||0},photoArchive:{accepted:state.photoArchiveAccepted,rejected:state.photoArchiveRejected,backpressureDropped:state.photoArchiveBackpressureDropped,pending:state.photoArchivePending,bytes:state.photoArchiveBytes,entries:state.photoArchiveEntries?.length||0},fastLane:{frames:state.fastLaneFrames,lastGapMs:state.fastLaneLastGapMs,maxGapMs:state.fastLaneMaxGapMs},dense:{jobs:state.denseJobs,samples:state.denseDepthSamples,postScanQueued:state.postScanMvsPayloads?.length||0,postScanRefreshed:state.postScanMvsRefreshed,postScanRefreshFailed:state.postScanMvsRefreshFailed,evidenceStatus:state.denseEvidenceStatus||null},surface:{...(state.surfaceStats||{}),display:state.surfaceDisplayStats||null},events:log.entries||[]});state.pipelineTestSnapshot=snap;state.pipelineTestUpdatedAt=Date.now();return snap;
+  const snap=buildPipelineTestSnapshot({build:BUILD,graph:state.probGraph?.summary?.()||{},optimizer:{stats:state.liveOptStats,candidateStats:state.liveOptCandidateStats,gate:state.liveOptGate,accepted:state.liveOptAcceptedCount,rejected:state.liveOptRejected,stalled:state.liveOptStalled},processing:{active:state.processingActive,photos:state.processingPhotos?.length||0,rgbImported:state.processingRgbImported,deepAccepted:state.processingDeepAccepted,deepRounds:state.processingDeepRounds,poseJumps:state.processingPoseJumps,uncertainty:state.processingUncertainty?.globalUncertainty??null,backprojection:state.processingPreview?.worldStats||null,depthCalibrationProvisional:!!state.processingDepthCalibrationProvisional,resizeCacheHits:state.photoResizeCacheHits,resizeCacheMisses:state.photoResizeCacheMisses},tracking:{mode:state.lastTracking?.trackingMode||null,valid:!!state.lastTracking?.trackingValid,initializing:!!state.lastTracking?.initializing,trackingEpoch:state.lastTracking?.trackingEpoch??null,recoveryRequired:state.alvaRecoveryRequired,recoveryReason:state.alvaRecoveryReason,persistentFeatures:state.alvaPersistentFeatures,newFeatures:state.alvaNewFeatures,recoveryArchiveFrames:state.alvaRecoveryArchiveAccepted||0,postScanRecovery:state.postScanAlvaRecovery||null,quarantinedFrames:state.alvaQuarantinedFrameIds?.size||0},photoArchive:{accepted:state.photoArchiveAccepted,rejected:state.photoArchiveRejected,backpressureDropped:state.photoArchiveBackpressureDropped,pending:state.photoArchivePending,bytes:state.photoArchiveBytes,entries:state.photoArchiveEntries?.length||0},fastLane:{frames:state.fastLaneFrames,lastGapMs:state.fastLaneLastGapMs,maxGapMs:state.fastLaneMaxGapMs},dense:{jobs:state.denseJobs,samples:state.denseDepthSamples,postScanQueued:state.postScanMvsPayloads?.length||0,postScanRefreshed:state.postScanMvsRefreshed,postScanRefreshFailed:state.postScanMvsRefreshFailed,evidenceStatus:state.denseEvidenceStatus||null},surface:{...(state.surfaceStats||{}),display:state.surfaceDisplayStats||null},events:log.entries||[]});state.pipelineTestSnapshot=snap;state.pipelineTestUpdatedAt=Date.now();return snap;
 }
 function updatePipelineTestUi(force=false){
   const summary=$('pipelineTestSummary'),list=$('pipelineTestStages'),raw=$('pipelineTestJson'),panel=$('pipelineTestPanel');if(!summary||!list)return null;if(!force&&panel&&!panel.open&&state.pipelineTestSnapshot)return state.pipelineTestSnapshot;const snap=collectPipelineTestSnapshot(),first=snap.firstFailure;summary.textContent=first?`Primo punto debole: ${first.name} · ${first.status.toUpperCase()} · ${first.reasons?.[0]||'vedi metriche'}`:'Pipeline: nessun blocker evidente nei dati disponibili.';summary.dataset.status=first?.status||'ok';list.textContent='';

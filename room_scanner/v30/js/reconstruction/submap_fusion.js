@@ -1,15 +1,15 @@
-import {qConj,qRotate} from '../slam/math.js?v=30.53.0';
-import {SparseDenseFusion,buildConsensusTsdfMeshFromSplats} from '../dense/fusion_core.js?v=30.53.0';
-import {analyzeMeshQuality,retainMeaningfulMeshComponents} from './mesh_quality.js?v=30.53.0';
-import {filterSurfaceSplatsForMeshing} from './surface_display_policy.js?v=30.53.0';
-import {buildGlobalSurfaceConsensus} from './global_surface_consensus.js?v=30.53.0';
+import {qConj,qRotate} from '../slam/math.js?v=30.54.0';
+import {SparseDenseFusion,buildConsensusTsdfMeshFromSplats} from '../dense/fusion_core.js?v=30.54.0';
+import {analyzeMeshQuality,retainMeaningfulMeshComponents} from './mesh_quality.js?v=30.54.0';
+import {filterSurfaceSplatsForMeshing} from './surface_display_policy.js?v=30.54.0';
+import {buildGlobalSurfaceConsensus} from './global_surface_consensus.js?v=30.54.0';
 
 /**
  * Small overlapping local maps. Dense evidence is committed in one local
  * coordinate system only; loop/pose updates move the submap rigidly instead of
  * requiring a monolithic global TSDF to be de-integrated.
  *
- * V30.53 adds a mandatory WORLD-SPACE consensus before meshing. Local submaps
+ * V30.54 adds a mandatory WORLD-SPACE consensus before meshing. Local submaps
  * may keep alternative hypotheses, but REVIEW/TSDF only sees representatives
  * that remain consistent after all submaps have been transformed by the final
  * pose graph.

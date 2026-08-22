@@ -1,4 +1,4 @@
-import {addPoseUncertaintyToPointCovariance} from '../probabilistic/pose_uncertainty.js?v=30.53.0';
+import {addPoseUncertaintyToPointCovariance} from '../probabilistic/pose_uncertainty.js?v=30.54.0';
 /**
  * Online information-form 3D Gaussian map.
  *

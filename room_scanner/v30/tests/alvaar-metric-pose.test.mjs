@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {alvaMatrixToPose,SlamEngine} from '../js/slam/slam_engine.js';
 import {AlvaMetricBootstrap,applySimilarityPose} from '../js/slam/alva_metric_bootstrap.js';
 import {qNormalize,qRotate} from '../js/slam/math.js';
+import {WasmVisionFrontend} from '../js/slam/wasm_frontend.js';
 
 function alvaMatrixAt(x=0,y=0,z=0){return [1,0,0,0, 0,1,0,0, 0,0,1,0, x,-y,-z,1];}
 
@@ -56,4 +57,17 @@ test('SlamEngine emits ~1 Hz observations even before Alva has an initial pose',
   const c=slam.process({gray:new Uint8Array(1),imageData:{data:new Uint8ClampedArray(4)},width:1,height:1,at:1950});
   assert.ok(a.newObservation);assert.equal(b.newObservation,null);assert.ok(c.newObservation);
   assert.equal(c.trackingMode,'alvaar-initializing');assert.equal(c.newKeyframe,null);assert.equal(c.observations,2);
+});
+
+test('a reused Alva instance begins a fresh Scan in INIT, not LOST',async()=>{
+  const alva={findCameraPose(){return null;},getFramePoints(){return [];}};
+  const frontend=new WasmVisionFrontend({alva});await frontend.init({width:320,height:240});
+  // Simulate a successful metric bridge before Scan. This timestamp belongs to
+  // the persistent native map, not to the new Scan lifecycle.
+  frontend.lastPoseAt=1234;frontend.hasPoseInEpoch=true;const epoch=frontend.beginTrackingEpoch({reason:'test'});
+  assert.equal(epoch.alvaMapPreserved,true);const r=frontend.trackPose({imageData:{data:new Uint8ClampedArray(4)},at:2000});
+  assert.equal(r.trackingMode,'alvaar-initializing');assert.equal(r.hasPoseInEpoch,false);
+  const slam=new SlamEngine({frontend:{processFrame(){return {...r,count:0,features:[],matches:{count:0,items:[]}};}},K:{fx:300,fy:300,cx:160,cy:120,width:320,height:240}});
+  const out=slam.process({gray:new Uint8Array(1),imageData:{data:new Uint8ClampedArray(4)},width:1,height:1,at:2000});
+  assert.equal(out.trackingMode,'alvaar-initializing');assert.equal(out.lostFrames,0);assert.equal(out.initializing,true);
 });

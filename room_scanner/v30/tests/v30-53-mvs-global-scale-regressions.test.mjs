@@ -47,7 +47,7 @@ test('authoritative splats can commit while a fragmented mesh remains withheld',
   assert.equal(p.splatCommitReady,true,p);assert.equal(p.meshCommitReady,false,p);assert.equal(p.commitReady,false,p);assert.match(p.reason,/fragmented/);
 });
 
-test('V30.53 production path preserves global MVS scale, footprint and splat/mesh authority separation',()=>{
+test('V30.54 production path preserves global MVS scale, footprint and splat/mesh authority separation',()=>{
   const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8'),sparse=fs.readFileSync(new URL('../js/dense/sparse_depth_anchors.js',import.meta.url),'utf8'),joint=fs.readFileSync(new URL('../js/probabilistic/joint_optimizer.js',import.meta.url),'utf8'),runtime=fs.readFileSync(new URL('../js/probabilistic/single_optimizer_runtime.js',import.meta.url),'utf8'),fusion=fs.readFileSync(new URL('../js/dense/fusion_core.js',import.meta.url),'utf8');
   assert.match(sparse,/Math\.max\(\.0015,minAngleRad\)/);
   assert.match(app,/optimizerSnapshot:snapshot/);assert.match(app,/mvs-postscan-scale-consensus/);

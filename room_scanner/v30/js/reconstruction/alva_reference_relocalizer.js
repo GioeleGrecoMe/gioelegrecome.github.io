@@ -1,4 +1,4 @@
-import {refinePosePnP} from '../metric/pnp_pose.js?v=30.53.0';
+import {refinePosePnP} from '../metric/pnp_pose.js?v=30.54.0';
 
 /*
  * Conservative visual relocalisation sidecar.
@@ -34,10 +34,14 @@ export class AlvaReferenceRelocalizer{
     for(const [frameId,seedMatches] of candidates){
       if(seedMatches.length<this.minMatches)continue;
       const frame=this._frames.get(frameId),initial=clonePose(frame?.poseEstimate||frame?.posePrior);if(!initial)continue;
-      const observations=spreadMatches(seedMatches).map(m=>({world:m.landmark.point,u:m.feature.x,v:m.feature.y}));if(observations.length<this.minMatches||spatialSpread(observations)<.012)continue;
+      const support=spreadMatches(seedMatches),observations=support.map(m=>({world:m.landmark.point,u:m.feature.x,v:m.feature.y}));if(observations.length<this.minMatches||spatialSpread(observations)<.012)continue;
       let pnp;
       try{pnp=refinePosePnP({initialPose:initial,K,observations,maxIterations:16,huberPx:Math.max(4,this.maxRmsePx*1.35)});}catch{continue;}
-      const candidate={...base,candidateFrameId:frameId,matches:observations.length,inliers:pnp.inliers||0,rmsePx:pnp.rmsePx,pose:clonePose(pnp.pose),pnpReason:pnp.reason||null,referencePose:initial};
+      // Preserve the exact landmark correspondence for optional *post-scan*
+      // recovery.  The live sidecar still only validates Alva; it never passes
+      // this pose to SlamEngine.  Post-processing can add the observations as
+      // ordinary robust reprojection factors, with no synthetic Alva edge.
+      const candidate={...base,candidateFrameId:frameId,matches:observations.length,inliers:pnp.inliers||0,rmsePx:pnp.rmsePx,pose:clonePose(pnp.pose),pnpReason:pnp.reason||null,referencePose:initial,observations:support.map(m=>({landmarkId:String(m.landmark.id||''),u:+m.feature.x,v:+m.feature.y,probability:Math.max(.05,Math.min(.98,1-m.distance))})).filter(m=>m.landmarkId)};
       candidate.ok=!!pnp.ok&&candidate.inliers>=this.minInliers&&candidate.rmsePx<=this.maxRmsePx;
       if(!best||(candidate.ok&&!best.ok)||(candidate.ok===best.ok&&rank(candidate)>rank(best)))best=candidate;
     }

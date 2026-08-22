@@ -1,7 +1,7 @@
-import {ProbabilisticJointOptimizer} from './joint_optimizer.js?v=30.53.0';
-import {evaluateLiveCandidate} from './live_optimization_gate.js?v=30.53.0';
-import {evaluatePoseScaffoldPolicy} from './pose_scaffold_policy.js?v=30.53.0';
-import {evaluateRgbConsensusPolicy} from './rgb_consensus_policy.js?v=30.53.0';
+import {ProbabilisticJointOptimizer} from './joint_optimizer.js?v=30.54.0';
+import {evaluateLiveCandidate} from './live_optimization_gate.js?v=30.54.0';
+import {evaluatePoseScaffoldPolicy} from './pose_scaffold_policy.js?v=30.54.0';
+import {evaluateRgbConsensusPolicy} from './rgb_consensus_policy.js?v=30.54.0';
 
 const now=()=>globalThis.performance?.now?.()??Date.now();
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));

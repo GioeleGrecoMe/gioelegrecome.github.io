@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {AdaptiveDeepScheduler,selectGeometricPhotoSubset} from '../js/reconstruction/adaptive_deep_scheduler.js?v=30.53.0';
+import {AdaptiveDeepScheduler,selectGeometricPhotoSubset} from '../js/reconstruction/adaptive_deep_scheduler.js?v=30.54.0';
 
 const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
 const cfg=fs.readFileSync(new URL('../js/config.js',import.meta.url),'utf8');
@@ -70,10 +70,12 @@ test('Alva persistent/new feature semantics and recovery gate are wired into sca
   assert.match(cfg,/alvaPersistentFeatureMinViewTranslation/);assert.match(cfg,/alvaPersistentFeatureMinViewRotationRad/);
   assert.match(app,/maxViewTranslation/);assert.match(app,/maxViewRotation/);assert.match(app,/firstPose/);
   assert.match(app,/maybeRelocalizeAlva/);assert.match(app,/AlvaReferenceRelocalizer/);assert.match(app,/relocalizationPoseCompatible/);assert.match(cfg,/alvaRelocalizationMinMatches/);
+  assert.match(app,/beginTrackingEpoch/);assert.match(app,/alva-initializing/);assert.match(app,/archiveAlvaRecoveryFrame/);assert.match(app,/recoverArchivedAlvaViewsPostScan/);assert.match(cfg,/alvaRecoveryArchiveEnabled:true/);
 });
 
 test('processing keeps the last validated Deep/pose preview while RGB and MVS advance',()=>{
   assert.match(app,/processingPreview:\{deep:null/);assert.match(app,/if\(preview\.deep\?\.rawDepth\?\.length\)drawProcessingDepth\(preview\.deep\)/);assert.match(app,/const posePhoto=preview\.deep\?\.rawDepth\?\.length&&preview\.photo\?preview\.photo:photo/);
+  assert.match(app,/global-calibrated-camera-z/);assert.match(app,/calibratedDepthForPreview/);assert.match(app,/local=\[\(u-K\.cx\).*z/);
 });
 
 test('MVS consumes the latest accepted pose snapshot after adaptive Deep feedback',()=>{

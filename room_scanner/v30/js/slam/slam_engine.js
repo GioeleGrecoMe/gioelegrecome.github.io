@@ -1,6 +1,6 @@
-import {poseIdentity,qNormalize,qConj,qMul,qRotate} from './math.js?v=30.53.0';
-import {applySimilarityPose} from './alva_metric_bootstrap.js?v=30.53.0';
-import {estimatePoseCovariance} from '../probabilistic/pose_uncertainty.js?v=30.53.0';
+import {poseIdentity,qNormalize,qConj,qMul,qRotate} from './math.js?v=30.54.0';
+import {applySimilarityPose} from './alva_metric_bootstrap.js?v=30.54.0';
+import {estimatePoseCovariance} from '../probabilistic/pose_uncertainty.js?v=30.54.0';
 
 /**
  * AlvaAR world tracker wrapper.
@@ -32,11 +32,15 @@ export class SlamEngine extends EventTarget{
   process(frame){
     const r=this.frontend.processFrame(frame,{maxFeatures:850,threshold:9});
     const raw=r.cameraPose?alvaMatrixToPose(r.cameraPose):null;
-    let trackingMode=r.trackingMode==='alvaar-initializing'?'alvaar-initializing':'alvaar-lost',trackingValid=false,relocalized=false;
+    let trackingMode=r.trackingMode==='alvaar-initializing'?'alvaar-initializing':'alvaar-lost',trackingValid=false,relocalized=false,initializing=!raw&&(r.trackingMode==='alvaar-initializing'||this.alvaTrackedFrames===0);
     if(raw){
       trackingValid=true;relocalized=this.wasLost&&this.alvaTrackedFrames>0;this.wasLost=false;this.alvaLostFrames=0;this.alvaTrackedFrames++;
       this.pose=this.worldTransform?applySimilarityPose(this.worldTransform,raw):raw;
       trackingMode=relocalized?'alvaar-relocalized':'alvaar-wasm';
+    }else if(initializing){
+      // Before the first pose of this Scan there is no trajectory to lose.
+      // Do not quarantine evidence or manufacture a recovery event here.
+      this.alvaLostFrames=0;this.wasLost=false;trackingMode='alvaar-initializing';
     }else{this.alvaLostFrames++;this.wasLost=true;}
 
     const poseCov=estimatePoseCovariance({metricLocked:this.metricLocked,alvaPoints:r.framePoints?.length||0,matches:r.matches?.count||0,trackingMode,relocalized,lostFrames:this.alvaLostFrames});
@@ -55,7 +59,7 @@ export class SlamEngine extends EventTarget{
     // Keep the exact 2-D feature packet on the transient tracking result. It is
     // not appended to the long-lived SLAM history; the 1 Hz Deep/photo survey
     // clock may synchronously compact it together with the exact camera frame.
-    const detail={frame:this.frameIndex++,frameId:sourceFrameId,pose:clonePose(this.pose),rawPose:raw?clonePose(raw):null,features:r.count||0,matches:r.matches?.count||0,keyframes:this.keyframes.length,newKeyframe,observations:this.observations.length,newObservation,metricLocked:this.metricLocked,metricScale:this.metricScale,trackingMode,trackingValid,relocalized,alvaPoints:r.framePoints?.length||0,framePoints:Array.from(r.framePoints||[]),featureObservations:r.features||[],lostFrames:this.alvaLostFrames,poseCov};
+    const detail={frame:this.frameIndex++,frameId:sourceFrameId,pose:clonePose(this.pose),rawPose:raw?clonePose(raw):null,features:r.count||0,matches:r.matches?.count||0,keyframes:this.keyframes.length,newKeyframe,observations:this.observations.length,newObservation,metricLocked:this.metricLocked,metricScale:this.metricScale,trackingMode,trackingValid,relocalized,initializing,hasTrackedPose:this.alvaTrackedFrames>0,trackingEpoch:r.trackingEpoch??null,alvaPoints:r.framePoints?.length||0,framePoints:Array.from(r.framePoints||[]),featureObservations:r.features||[],lostFrames:this.alvaLostFrames,poseCov};
     this.dispatchEvent(new CustomEvent('tracking',{detail}));if(newObservation)this.dispatchEvent(new CustomEvent('observation',{detail:newObservation}));if(newKeyframe)this.dispatchEvent(new CustomEvent('keyframe',{detail:newKeyframe}));return detail;
   }
 }

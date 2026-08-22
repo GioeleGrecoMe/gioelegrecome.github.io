@@ -5,7 +5,7 @@
  * only the current 3D answer. Post-scan processing can therefore revisit pose,
  * association, Deep scale and surface estimates without needing all video frames.
  */
-import {canonicalizePhotoEdgeMatches} from './rgb_translation_direction.js?v=30.53.0';
+import {canonicalizePhotoEdgeMatches} from './rgb_translation_direction.js?v=30.54.0';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
@@ -18,8 +18,8 @@ export class ProbabilisticFactorGraph{
     if(!frame?.frameId||!frame?.pose||!frame?.K)return null;const id=String(frame.frameId),old=this.frameIndex.get(id);if(old!=null)return this.frames[old];
     const thumb=downsampleGray(frame.gray,frame.width,frame.height,this.grayMaxSide),features=(frame.features||[]).slice(0,this.maxFeaturesPerFrame).map((f,index)=>({index,x:+f.x,y:+f.y,score:+(f.score||0),source:f.source||'mvs',desc:Array.isArray(f.desc)?f.desc.slice(0,24).map(Number):[],referenceDesc:Array.isArray(f.referenceDesc)?f.referenceDesc.slice(0,24).map(Number):(Array.isArray(f.desc)?f.desc.slice(0,24).map(Number):[])})),photo=downsamplePhoto(frame,this.photoMaxSide,features);
     const observedK={fx:+frame.K.fx,fy:+frame.K.fy,cx:+frame.K.cx,cy:+frame.K.cy,width:+(frame.K.width||frame.width),height:+(frame.K.height||frame.height)};if(!this.cameraModel)this.cameraModel=makeCameraModel(observedK,frame.D||frame.distortion||null);const sessionK=scaledCameraK(this.cameraModel,observedK.width,observedK.height),intrinsicsDeviation=intrinsicDeviation(observedK,sessionK);
-    const node={id,frameId:id,keyframeId:frame.id||id,at:+(frame.captureAt??frame.at??0),posePrior:clonePose(frame.pose),poseEstimate:clonePose(frame.pose),poseCov:clonePoseCov(frame.poseCov),K:sessionK,KObserved:observedK,intrinsicsDeviation,D:Array.isArray(this.cameraModel?.D)?this.cameraModel.D.slice():null,width:frame.width|0,height:frame.height|0,grayWidth:thumb.width,grayHeight:thumb.height,gray:thumb.gray,features,photo,metricLocked:!!frame.metricLocked,trackingMode:frame.trackingMode||null,photoQuality:compactPhotoQuality(frame.photoQuality)};
-    const prev=this.frames[this.frames.length-1]||null;this.frameIndex.set(id,this.frames.length);this.frames.push(node);if(prev?.posePrior&&node.posePrior)this.addAlvaRelativeFactor(prev,node);while(this.frames.length>this.maxFrames){this.frames.shift();this.reindex();this.pruneOrphans();}return node;
+    const node={id,frameId:id,keyframeId:frame.id||id,at:+(frame.captureAt??frame.at??0),posePrior:clonePose(frame.pose),poseEstimate:clonePose(frame.pose),poseCov:clonePoseCov(frame.poseCov),K:sessionK,KObserved:observedK,intrinsicsDeviation,D:Array.isArray(this.cameraModel?.D)?this.cameraModel.D.slice():null,width:frame.width|0,height:frame.height|0,grayWidth:thumb.width,grayHeight:thumb.height,gray:thumb.gray,features,photo,metricLocked:!!frame.metricLocked,trackingMode:frame.trackingMode||null,alvaPoseAuthority:frame.alvaPoseAuthority!==false,photoQuality:compactPhotoQuality(frame.photoQuality)};
+    const prev=this.frames[this.frames.length-1]||null;this.frameIndex.set(id,this.frames.length);this.frames.push(node);if(prev?.posePrior&&node.posePrior&&prev.alvaPoseAuthority!==false&&node.alvaPoseAuthority!==false)this.addAlvaRelativeFactor(prev,node);while(this.frames.length>this.maxFrames){this.frames.shift();this.reindex();this.pruneOrphans();}return node;
   }
   addSparseAnchors(ref,seeds){
     const refId=String(ref?.frameId||ref?.id||'');if(!refId)return;
@@ -35,6 +35,19 @@ export class ProbabilisticFactorGraph{
   addDeepRaw(frameId,{rawDepth,rawWidth,rawHeight,calibration=null,quality=null}={}){
     if(!rawDepth?.length||!(rawWidth>1&&rawHeight>1))return;const id=String(frameId),grid=sampleGrid(rawDepth,rawWidth,rawHeight,this.deepGridCols,this.deepGridRows),item={frameId:id,cols:this.deepGridCols,rows:this.deepGridRows,raw:grid,rawWidth,rawHeight,calibration:calibration?compactCalibration(calibration):null,quality:quality?compactQuality(quality):null};
     const i=this.deepFactors.findIndex(x=>String(x.frameId)===id);if(i>=0)this.deepFactors[i]={...this.deepFactors[i],...item,calibration:item.calibration||this.deepFactors[i].calibration};else this.deepFactors.push(item);trim(this.deepFactors,this.maxFrames);
+  }
+
+  /**
+   * Attach a post-scan visual-PnP hypothesis to existing sparse landmarks.
+   * It creates reprojection evidence only.  In particular it never fabricates
+   * an Alva relative-pose factor, so a bad recovery cannot bend the tracked
+   * Alva trajectory merely by being adjacent in capture time.
+   */
+  addReferenceRelocalization(frameId,{observations=[]}={}){
+    const fid=String(frameId||'');if(!fid||!this.frameIndex.has(fid))return {attached:0,reason:'frame-missing'};
+    const byId=new Map(this.landmarkFactors.map((l,i)=>[String(l.id||''),{l,i}]));let attached=0;
+    for(const o of observations||[]){const hit=byId.get(String(o?.landmarkId||''));if(!hit||!Number.isFinite(+o?.u)||!Number.isFinite(+o?.v))continue;const l=hit.l,old=(l.measurements||[]).find(m=>String(m.frameId)===fid&&Math.hypot((+m.u)-(+o.u),(+m.v)-(+o.v))<2.5);if(old){old.probability=Math.max(Number(old.probability)||.001,clamp(Number(o.probability)||.15,.001,.999));continue;}l.measurements.push({frameId:fid,u:+o.u,v:+o.v,probability:clamp(Number(o.probability)||.15,.001,.999),epipolarPx:null,zncc:null,recoveryPnP:true});this.indexLandmark(hit.i,l);attached++;}
+    return {attached,reason:attached?'ok':'no-matching-landmarks'};
   }
 
   addPhotoEdges(edges){

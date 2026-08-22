@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-53-global-mvs-scale-consensus",
+  "name": "room-scanner-v30-54-alva-epoch-pnp-backprojection",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,6 +14,6 @@
     "vendor:alva": "node tools/vendor_alvaar.mjs",
     "check:public": "node tools/validate_public_data.mjs"
   },
-  "version": "30.53.0",
-  "description": "Room Scanner V30.53 global MVS scale consensus, preserved dense footprint, authoritative splat commit and conservative mesh gate"
+  "version": "30.54.0",
+  "description": "Room Scanner V30.54 Alva tracking epochs, conservative post-scan PnP recovery, and calibrated cumulative splat diagnostics"
 }
