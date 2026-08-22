@@ -327,7 +327,10 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
     requestLiveDeepPreview(frame,r);
     if(r.newObservation&&integrity.accept)recordAlvaHeartbeat(r.newObservation,frame,K);
     if(r.newKeyframe&&r.trackingValid&&integrity.accept)void queueDenseKeyframe(r.newKeyframe,frame,K).catch(err=>log.warn('dense-keyframe-sync',{frameId:frame.frameId||null,keyframeFrameId:r.newKeyframe?.frameId||null,message:err?.message||String(err)}));
-    state.liveOverlay?.draw({pose:r.pose,K,geometry:frame.geometry,video:state.camera.video,framePoints:[]});
+    // Keep the AR overlay and the tracking diagnostics on the same exact Alva
+    // observations.  Passing an empty array here hid the valid tracking points
+    // from the live view even though they were available to the mapper.
+    state.liveOverlay?.draw({pose:r.pose,K,geometry:frame.geometry,video:state.camera.video,framePoints:r.framePoints||[]});
     if(state.currentSession&&r.newKeyframe&&r.keyframes%5===0)state.db?.updateSession(state.currentSession.id,{status:'scanning',counts:{keyframes:r.keyframes,denseSamples:state.denseDepthSamples,surfels:state.surfaceStats?.confirmed||0,gaussians:state.gaussians.length,meshFaces:state.mesh?.faces?.length?state.mesh.faces.length/3:0}}).catch(()=>{});
   }catch(err){log.warn('scan-frame',{message:err.message,stack:err.stack||null});}});
 }

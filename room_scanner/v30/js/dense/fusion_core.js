@@ -260,7 +260,12 @@ function normaliseObservation(s,origin,hashVoxel,mode,frameId){
   const sigmaLateral=Math.max(hashVoxel*.04,Number(s.sigmaLateral)||radius*.72),defaultRel=/deep/i.test(source)?.10:.022,sigmaDepth=Math.max(hashVoxel*.05,Number(s.sigmaDepth)||Math.max(radius*1.1,depth*defaultRel));
   const probability=clamp(Number(s.probability??s.geometryProbability??s.confidence)||.08,.005,.999),baseCov=validCov(s.covariance)?regularizeCov(s.covariance,hashVoxel*.012):rayCovariance(ray,sigmaDepth,sigmaLateral),probCov=scaleCov(baseCov,1/Math.max(.06,probability)),cov=addPoseUncertaintyToPointCovariance(probCov,s.poseCov,p,o),surfaceCov=validCov(s.surfaceCovariance)?regularizeCov(s.surfaceCovariance,hashVoxel*.006):surfaceFromRadius(n,radius,normalReliable),confidence=clamp((Number(s.confidence)||.15)*Math.sqrt(probability),.01,1);
   const sourceKind=/track/i.test(source)?'track':(/verified|mvs/i.test(source)?'verified':'deep'),sourceWeight=sourceKind==='deep'?.36:(sourceKind==='track'?1.12:1),precision=1/Math.max(1e-9,traceCov(cov)),weight=clamp(confidence*probability*sourceWeight*precision*hashVoxel*hashVoxel,.005,5.0),evidence=Array.isArray(s.evidenceFrames)&&s.evidenceFrames.length?s.evidenceFrames:[frameId],mask=evidenceMask(evidence);
-  const independentSupport=Math.max(0,Number(s.independentSupport)||0),geometricSupport=Math.max(1,Math.min(Math.max(1,Number(s.viewSupport)||1),1+independentSupport));
+  // Plane-sweep samples are independently checked against the source views,
+  // and report that fact as `viewSupport`.  Keeping only an optional explicit
+  // `independentSupport` erased their multi-view provenance at this boundary,
+  // causing every otherwise valid MVS surfel to be withheld as a one-view
+  // observation.  Deep samples still require explicit independent support.
+  const declaredViews=Math.max(1,Number(s.viewSupport)||1),inferredIndependent=sourceKind==='verified'?Math.max(0,declaredViews-1):0,independentSupport=Math.max(0,Number(s.independentSupport)||0,inferredIndependent),geometricSupport=Math.max(1,Math.min(declaredViews,1+independentSupport));
   return {p,origin:o,ray,depth,n,normalReliable,color:(s.color||[180,200,220]).slice(0,3).map(Number),descriptor:Array.isArray(s.descriptor)?s.descriptor.slice(0,24).map(Number):null,radius,confidence,probability,sigmaDepth,sigmaLateral,cov,surfaceCov,source,sourceKind,weight,anchorSupport:Math.max(0,Number(s.anchorSupport)||0),independentSupport,finalPoseValidated:!!s.finalPoseValidated,trackId:s.trackId||null,geometricSupport,viewMaskLo:mask[0],viewMaskHi:mask[1]};
 }
 
