@@ -21,3 +21,9 @@ test('direct photo epipolar direction distinguishes correct and wrong translatio
   const A={frameId:'a',poseEstimate:{p:[0,0,0],q:[0,0,0,1]},K},goodB={frameId:'b',poseEstimate:{p:[.72,0,0],q:[0,0,0,1]},K},badB={frameId:'b',poseEstimate:{p:[0,.72,0],q:[0,0,0,1]},K};
   const good=new SwitchablePhotoEdgeModel([edge]),bad=new SwitchablePhotoEdgeModel([edge]);for(let i=0;i<8;i++){good.update([A,goodB],[]);bad.update([A,badB],[]);}assert.ok(good.stats().mean>.55,{good:good.stats(),edge:good.edges[0]});assert.ok(bad.stats().mean<good.stats().mean*.55,{good:good.stats(),bad:bad.stats(),badEdge:bad.edges[0]});assert.ok(Number.isFinite(good.edges[0].translationDirectionResidualRad));
 });
+
+test('RGB translation line is sign-invariant inside submap optimization',()=>{
+  const matches=[];for(let i=0;i<30;i++){const x=-.65+(i%6)*.22,y=-.32+Math.floor(i/6)*.15,z=1.7+(i%5)*.31;matches.push({aU:K.fx*x/z+K.cx,aV:K.fy*y/z+K.cy,bU:K.fx*(x-.72)/z+K.cx,bV:K.fy*y/z+K.cy,probability:.98,photometricProbability:.98});}
+  const A={frameId:'a',poseEstimate:{p:[0,0,0],q:[0,0,0,1]},posePrior:{p:[0,0,0],q:[0,0,0,1]},K},B={frameId:'b',poseEstimate:{p:[-.72,0,0],q:[0,0,0,1]},posePrior:{p:[-.72,0,0],q:[0,0,0,1]},K};
+  const submaps=[{id:'s0',anchorPose:pose(0),frameIds:['a']},{id:'s1',anchorPose:{p:[-.72,0,0],q:[0,0,0,1]},frameIds:['b']}],edge={aId:'a',bId:'b',visualConfidence:.95,rotationBToA:[1,0,0,0,1,0,0,0,1],matches},g=new SubmapPoseGraph(submaps,[A,B],{photoEdges:[edge],edgeModel:{pairWeight:()=>.95}});g.optimize(8).apply();assert.ok((g.stats().meanTranslationDirectionResidualDeg??99)<1,{stats:g.stats(),pose:g.nodes[1].pose});assert.ok(g.nodes[1].pose.p[0]<-.6,g.nodes[1].pose);
+});

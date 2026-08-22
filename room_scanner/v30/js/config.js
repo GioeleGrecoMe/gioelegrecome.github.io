@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.43.0 global accepted-state + multi-layer surface configuration.
+ * Room Scanner V30.44.0 RGB-line pose-scaffold + observable dense surface configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.43.0',
-  id:'v30.43.0-20260822-parallax-observable-global-geometry',
+  version:'30.44.0',
+  id:'v30.44.0-20260822-rgb-line-pose-scaffold',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
