@@ -1,7 +1,7 @@
 {
-  "version": "30.44.0",
-  "id": "v30.44.0-20260822-rgb-line-pose-scaffold",
+  "version": "30.45.0",
+  "id": "v30.45.0-20260822-async-rgb-alva-late-deep",
   "date": "2026-08-22",
-  "notes": "V30.44 fixes monocular RGB translation as an unoriented robust epipolar line, lets independent photo contradiction reduce Alva translation authority, weakens monocular Alva translation magnitude to a scale prior, gates dense surface on a globally observed RGB pose scaffold, and reuses exact-Deep dense keyframes in the RGB+Depth photo graph to increase overlap without extra inference.",
-  "builtAt": "2026-08-22T09:11:00+02:00"
+  "notes": "V30.45 decouples the Alva/RGB/MVS fast lane from Depth Anything. Exact RGB frames are marked depth-planned and registered immediately when possible; Deep inference is queued and runs post-scan, then raw depth is late-bound by immutable frameId to the already-registered photo and final pose scaffold. MVS dispatch no longer waits for Deep.",
+  "builtAt": "2026-08-22T10:23:00+02:00"
 }

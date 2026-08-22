@@ -1,5 +1,5 @@
 {
-  "name": "room-scanner-v30-44-rgb-line-pose-scaffold",
+  "name": "room-scanner-v30-45-async-rgb-alva-late-deep",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,6 +14,6 @@
     "vendor:alva": "node tools/vendor_alvaar.mjs",
     "check:public": "node tools/validate_public_data.mjs"
   },
-  "version": "30.44.0",
-  "description": "Room Scanner V30.44 robust sign-invariant RGB translation-line scaffold with Alva scale relaxation and dense commit observability"
+  "version": "30.45.0",
+  "description": "Room Scanner V30.45 decoupled RGB/Alva/MVS fast lane with bounded post-scan Depth Anything late binding"
 }

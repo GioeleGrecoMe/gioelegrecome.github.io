@@ -4,12 +4,12 @@ function record(type,data={}){pre.errors.push({time:Date.now(),type,...data});}
 (async()=>{
   try{
     const s=status();if(s)s.textContent='Collegamento interfaccia…';
-    await import('./app.js?v=30.44.0');
+    await import('./app.js?v=30.45.0');
     pre.coreLoaded=true;
     // Diagnostics are useful but not boot-critical. A missing optional module
     // must never turn an already interactive UI into a fake BOOT ERROR.
     try{
-      await import('./deep_diagnostic_controller.js?v=30.44.0');
+      await import('./deep_diagnostic_controller.js?v=30.45.0');
       pre.diagnosticsLoaded=true;
     }catch(err){
       pre.diagnosticsLoaded=false;

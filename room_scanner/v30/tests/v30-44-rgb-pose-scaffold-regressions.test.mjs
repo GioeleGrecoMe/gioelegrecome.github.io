@@ -43,7 +43,7 @@ test('production source contains no Alva sign-orientation of RGB translation lin
 
 test('exact Deep dense keyframes are eligible for the same RGB+Depth photo stream',()=>{
   const src=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
-  assert.match(src,/deep-keyframe-photo-committed/);assert.match(src,/commitExactRgbDepthPhoto\(denseSurvey,d/);
+  assert.match(src,/deep-keyframe-photo-late-bound/);assert.match(src,/attachLateDepthToPhoto\(denseSurvey,d/);
 });
 
 

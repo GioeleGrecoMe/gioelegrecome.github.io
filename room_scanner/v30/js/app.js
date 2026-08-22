@@ -1,5 +1,5 @@
 /**
- * Room Scanner V30.44.0 final-pose dense consensus application.
+ * Room Scanner V30.45.0 async RGB/Alva fast-lane + late-bound Deep application.
  *
  * BOOT CONTRACT
  * -------------
@@ -8,14 +8,15 @@
  * lazily after the page is already interactive. A failure in an optional module
  * therefore cannot leave the visible page with dead buttons.
  */
-import {BUILD,CONFIG} from './config.js?v=30.44.0';
-import {DiagnosticsLog} from './logger.js?v=30.44.0';
+import {BUILD,CONFIG} from './config.js?v=30.45.0';
+import {DeepLateBindingQueue} from './dense/deep_late_binding_queue.js?v=30.45.0';
+import {DiagnosticsLog} from './logger.js?v=30.45.0';
 
 const $=id=>document.getElementById(id);
 const log=new DiagnosticsLog({build:BUILD});
-const state={db:null,calibrator:null,bridge:null,bridgeStable:0,bridgeEpoch:0,bridgeTransition:false,alvaBootstrap:null,camera:null,frontend:null,slam:null,denseManager:null,denseDepthWorker:null,denseFusionWorker:null,deepDepthWorker:null,deepWorkerModelId:null,deepSelector:null,deepPending:null,deepModel:null,deepDisabled:false,deepCalls:0,deepAccepted:0,deepPreviewLastAt:0,photoSurveyLastAt:0,photoDepthCommittedFrameIds:new Set(),deepPreviewInFlight:null,deepPreviewSeq:0,deepPreviewFrames:0,deepPreviewLastQuality:null,deepSync:null,deepJobs:new Map(),deepSyncRejected:0,denseBusy:false,denseActivePayload:null,denseJobs:0,denseDepthSamples:0,denseDepthHint:null,densePixelStep:null,denseSourceLimit:null,surfaceStats:null,mesh:null,meshStale:false,geometryCommitted:false,gaussians:[],denseCandidateGaussians:[],denseCandidateMesh:null,optimizerObservations:null,probGraph:null,deepSequence:null,probOptimization:null,probOptimized:null,optimization:{iterations:0,lastEnergy:null},postOptBusy:false,postOptRunBase:0,reviewMetricLocked:null,reviewKeyframes:0,renderer:null,currentSession:null,scanStop:null,liveOverlay:null,scanK:null,lastFrameGeometry:null,lastTracking:null,geometryAnchors:[],alvaHeartbeatFrames:[],alvaHeartbeatCount:0,coverageSphere:null,coverageApi:null,coverageStatus:null,liveMap:null,liveMapApi:null,liveMapMode:'photo',liveMapStats:null,liveMapRenderPending:false,photoPanoramaState:null,frameQualityApi:null,singleOptRuntime:null,singleOptModule:null,liveOptReady:false,liveOptInFlight:false,liveOptDirty:false,liveOptPendingSlow:false,liveOptTimer:null,liveOptGeneration:0,liveOptAccepted:null,liveOptStats:null,liveOptCandidateStats:null,liveOptWorkingSnapshot:null,liveOptWorkingRetained:false,liveOptStalled:false,liveOptGate:null,liveOptLastAt:0,liveOptLastReason:null,liveOptAcceptedAnchors:[],liveOptPreviewGaussians:[],liveOptPreviewStats:null,liveOptRejected:0,liveOptAcceptedCount:0,liveOptBackoff:1,liveOptLastElapsedMs:0,postOptRejectedRun:0};
+const state={db:null,calibrator:null,bridge:null,bridgeStable:0,bridgeEpoch:0,bridgeTransition:false,alvaBootstrap:null,camera:null,frontend:null,slam:null,denseManager:null,denseDepthWorker:null,denseFusionWorker:null,deepDepthWorker:null,deepWorkerModelId:null,deepSelector:null,deepPending:null,deepModel:null,deepDisabled:false,deepCalls:0,deepAccepted:0,deepPreviewLastAt:0,photoSurveyLastAt:0,photoDepthCommittedFrameIds:new Set(),deepPreviewInFlight:null,deepPreviewSeq:0,deepPreviewFrames:0,deepPreviewLastQuality:null,deepSync:null,deepJobs:new Map(),deepSyncRejected:0,deepLateQueue:new DeepLateBindingQueue({maxItems:CONFIG.deepLateQueueMaxItems||20}),deepDrainActive:false,deepLaneInFlight:null,deepLaneQueuedFrames:new Set(),photoPlannedFrameIds:new Set(),fastLaneFrames:0,fastLaneLastAt:0,fastLaneLastGapMs:0,fastLaneMaxGapMs:0,denseBusy:false,denseActivePayload:null,denseJobs:0,denseDepthSamples:0,denseDepthHint:null,densePixelStep:null,denseSourceLimit:null,surfaceStats:null,mesh:null,meshStale:false,geometryCommitted:false,gaussians:[],denseCandidateGaussians:[],denseCandidateMesh:null,optimizerObservations:null,probGraph:null,deepSequence:null,probOptimization:null,probOptimized:null,optimization:{iterations:0,lastEnergy:null},postOptBusy:false,postOptRunBase:0,reviewMetricLocked:null,reviewKeyframes:0,renderer:null,currentSession:null,scanStop:null,liveOverlay:null,scanK:null,lastFrameGeometry:null,lastTracking:null,geometryAnchors:[],alvaHeartbeatFrames:[],alvaHeartbeatCount:0,coverageSphere:null,coverageApi:null,coverageStatus:null,liveMap:null,liveMapApi:null,liveMapMode:'photo',liveMapStats:null,liveMapRenderPending:false,photoPanoramaState:null,frameQualityApi:null,singleOptRuntime:null,singleOptModule:null,liveOptReady:false,liveOptInFlight:false,liveOptDirty:false,liveOptPendingSlow:false,liveOptTimer:null,liveOptGeneration:0,liveOptAccepted:null,liveOptStats:null,liveOptCandidateStats:null,liveOptWorkingSnapshot:null,liveOptWorkingRetained:false,liveOptStalled:false,liveOptGate:null,liveOptLastAt:0,liveOptLastReason:null,liveOptAcceptedAnchors:[],liveOptPreviewGaussians:[],liveOptPreviewStats:null,liveOptRejected:0,liveOptAcceptedCount:0,liveOptBackoff:1,liveOptLastElapsedMs:0,postOptRejectedRun:0};
 window.RoomScanV30={BUILD,CONFIG,state,log};
-log.setContextProvider(()=>({screen:document.querySelector('.screen.active')?.id||null,tracking:{mode:state.lastTracking?.trackingMode||null,valid:!!state.lastTracking?.trackingValid,frameId:state.lastTracking?.frameId||null},graph:state.probGraph?.summary?.()||null,liveMap:state.liveMap?.stats?.()||state.liveMapStats||null,liveOptimizer:{mode:'single-hierarchical-probabilistic-joint',implementation:'ProbabilisticJointOptimizer',execution:'main-thread-timesliced',legacyFallback:false,ready:state.liveOptReady,inFlight:state.liveOptInFlight,generation:state.liveOptGeneration,accepted:state.liveOptAcceptedCount,rejected:state.liveOptRejected,lastReason:state.liveOptLastReason,stats:state.liveOptStats,candidateStats:state.liveOptCandidateStats,workingRetained:state.liveOptWorkingRetained,stalled:state.liveOptStalled,gate:state.liveOptGate},deep:{calls:state.deepCalls,accepted:state.deepAccepted,syncRejected:state.deepSyncRejected,pending:state.deepJobs?.size||0},dense:{busy:state.denseBusy,jobs:state.denseJobs,samples:state.denseDepthSamples},surface:state.surfaceStats||null}));
+log.setContextProvider(()=>({screen:document.querySelector('.screen.active')?.id||null,tracking:{mode:state.lastTracking?.trackingMode||null,valid:!!state.lastTracking?.trackingValid,frameId:state.lastTracking?.frameId||null},graph:state.probGraph?.summary?.()||null,liveMap:state.liveMap?.stats?.()||state.liveMapStats||null,liveOptimizer:{mode:'single-hierarchical-probabilistic-joint',implementation:'ProbabilisticJointOptimizer',execution:'main-thread-timesliced',legacyFallback:false,ready:state.liveOptReady,inFlight:state.liveOptInFlight,generation:state.liveOptGeneration,accepted:state.liveOptAcceptedCount,rejected:state.liveOptRejected,lastReason:state.liveOptLastReason,stats:state.liveOptStats,candidateStats:state.liveOptCandidateStats,workingRetained:state.liveOptWorkingRetained,stalled:state.liveOptStalled,gate:state.liveOptGate},deep:{calls:state.deepCalls,accepted:state.deepAccepted,syncRejected:state.deepSyncRejected,pending:state.deepJobs?.size||0,lateQueue:state.deepLateQueue?.stats?.()||null,drainActive:state.deepDrainActive,plannedPhotos:state.photoPlannedFrameIds?.size||0,depthBoundPhotos:state.photoDepthCommittedFrameIds?.size||0},fastLane:{frames:state.fastLaneFrames,lastGapMs:state.fastLaneLastGapMs,maxGapMs:state.fastLaneMaxGapMs,deepInferenceDuringScan:!!state.deepLaneInFlight},dense:{busy:state.denseBusy,jobs:state.denseJobs,samples:state.denseDepthSamples},surface:state.surfaceStats||null}));
 globalThis.addEventListener?.('error',e=>{log.error('runtime-window-error',{message:e?.message||String(e?.error||'window error'),filename:e?.filename||null,line:e?.lineno||null,column:e?.colno||null,stack:e?.error?.stack||null});log.checkpoint('window-error',{message:e?.message||null,graph:state.probGraph?.summary?.()||null,liveOptimizer:state.liveOptStats||null});persistEmergencyDiagnostics('window-error');});
 globalThis.addEventListener?.('unhandledrejection',e=>{const r=e?.reason;log.error('runtime-unhandled-rejection',{message:r?.message||String(r),stack:r?.stack||null});log.checkpoint('unhandled-rejection',{message:r?.message||String(r),graph:state.probGraph?.summary?.()||null,liveOptimizer:state.liveOptStats||null});persistEmergencyDiagnostics('unhandled-rejection');});
 globalThis.addEventListener?.('pagehide',()=>persistEmergencyDiagnostics('pagehide'));
@@ -114,6 +115,13 @@ function deepWorkerConfig(){return {modelUrl:selectedDeepModel().url||CONFIG.dee
 function updateDeepModelUi(message=null,kind=''){const el=$('deepModelStatus');if(!el)return;el.dataset.kind=kind;el.textContent=message||`Modello: ${selectedDeepModel().label}.`;}
 function modelForWorker(){const m=selectedDeepModel();return m.bytes?(state.deepWorkerModelId===m.id?{id:m.id,label:m.label}:{id:m.id,label:m.label,bytes:m.bytes.slice(0)}):{id:m.id,label:m.label,url:m.url};}
 function ensureDeepWorker(){if(state.deepDepthWorker)return state.deepDepthWorker;const worker=new Worker(`${CONFIG.deepDepthWorker}?v=${BUILD.version}`,{type:'module'});state.deepDepthWorker=worker;state.deepWorkerModelId=null;worker.postMessage({type:'init',config:deepWorkerConfig()});return worker;}
+function bindDeepRuntimeWorker(worker){
+  if(!worker)return null;
+  worker.onmessage=e=>void handleDeepDepthMessage(e.data||{});
+  worker.onerror=e=>{state.deepDisabled=true;state.deepSelector?.fail?.();const inFlight=state.deepLaneInFlight;if(inFlight)finishDeepLaneJob(inFlight,{failed:true});state.deepJobs.clear();state.deepLaneInFlight=null;log.warn('deep-depth-worker',{message:e.message||'worker error',fastLaneUnaffected:true,queue:state.deepLateQueue?.stats?.()||null});if($('mvsState'))$('mvsState').textContent='AI depth non disponibile · Alva/RGB/MVS continuano';if($('deepLiveState'))$('deepLiveState').textContent='DEEP POST · worker non disponibile';};
+  return worker;
+}
+function ensureDeepRuntimeWorker(){return bindDeepRuntimeWorker(ensureDeepWorker());}
 function heatColor(t){const x=Math.max(0,Math.min(1,t)),r=Math.round(255*Math.max(0,Math.min(1,1.8-Math.abs(4*x-3)))),g=Math.round(255*Math.max(0,Math.min(1,1.8-Math.abs(4*x-2)))),b=Math.round(255*Math.max(0,Math.min(1,1.8-Math.abs(4*x-1))));return [r,g,b];}
 function drawDepth(canvas,raw,width,height){if(!canvas||!raw?.length||!(width>1&&height>1))return;const values=[];for(const v of raw)if(Number.isFinite(v))values.push(v);if(values.length<8)return;values.sort((a,b)=>a-b);const lo=values[Math.floor(values.length*.03)],hi=values[Math.floor(values.length*.97)];if(!(hi>lo))return;const rect=canvas.getBoundingClientRect(),dpr=Math.min(2,globalThis.devicePixelRatio||1),cw=Math.max(1,Math.round(rect.width*dpr)||width),ch=Math.max(1,Math.round(rect.height*dpr)||height);if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch;}const tiny=document.createElement('canvas');tiny.width=width;tiny.height=height;const tg=tiny.getContext('2d'),image=tg.createImageData(width,height);for(let i=0;i<raw.length&&i<width*height;i++){const c=heatColor((raw[i]-lo)/(hi-lo)),j=i*4;image.data[j]=c[0];image.data[j+1]=c[1];image.data[j+2]=c[2];image.data[j+3]=Number.isFinite(raw[i])?220:0;}tg.putImageData(image,0,0);const g=canvas.getContext('2d');g.clearRect(0,0,cw,ch);g.imageSmoothingEnabled=true;g.drawImage(tiny,0,0,cw,ch);}
 async function captureDepthTestFrame(){
@@ -153,7 +161,7 @@ async function createAlvaFrontend(K){
  * discarded and it never corrects/steers AlvaAR again.
  */
 async function beginBridge(){
-  // V30.44.0: only ProbabilisticJointOptimizer is operational; committed surface is rebuilt globally from confirmed dense evidence.
+  // V30.45.0: only ProbabilisticJointOptimizer is operational; Deep is late-bound and cannot stall the RGB/Alva fast lane.
   // Only the single ProbabilisticJointOptimizer may own optimisation state.
   // Stop an already-running instance before starting/resuming acquisition.
   if(state.postOptBusy||state.liveOptInFlight)stopPostOptimizer();
@@ -244,7 +252,7 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
   if(metric?.alvaTransform)state.slam.setWorldTransform(metric.alvaTransform);
 
   state.liveOverlay=new LiveReconstructionOverlay($('miniMap'),{maxSplats:CONFIG.liveOverlayMaxSplats||4200});state.liveOverlay.setMode('both');
-  stopPostOptimizer();state.gaussians=[];state.denseCandidateGaussians=[];state.denseCandidateMesh=null;state.mesh=null;state.meshStale=false;state.geometryCommitted=false;state.optimizerObservations=null;state.probOptimization=null;state.probOptimized=null;state.optimization={iterations:0,lastEnergy:null};state.reviewMetricLocked=null;state.reviewKeyframes=0;window.__ROOMSCAN_METRIC_MESH=null;state.alvaHeartbeatFrames=[];state.alvaHeartbeatCount=0;state.denseBusy=false;state.denseActivePayload=null;state.denseJobs=0;state.denseDepthSamples=0;state.denseDepthHint=null;state.densePixelStep=CONFIG.densePixelStep||4;state.denseSourceLimit=Math.min(CONFIG.denseInitialSourceLimit||2,CONFIG.denseMaxSourceViews||4);state.surfaceStats=null;state.geometryAnchors=[];state.deepPending=null;state.deepDisabled=false;state.deepCalls=0;state.deepAccepted=0;state.deepRaySamples=0;state.deepPreviewLastAt=0;state.photoSurveyLastAt=0;state.photoDepthCommittedFrameIds?.clear?.();state.deepPreviewInFlight=null;state.deepPreviewSeq=0;state.deepPreviewFrames=0;state.deepPreviewLastQuality=null;state.deepJobs.clear();state.deepSyncRejected=0;state.coverageSphere=new coverageApi.ViewSphereCoverage({cols:CONFIG.coverageSphereCols||24,rows:CONFIG.coverageSphereRows||12,maxFrames:CONFIG.coverageSphereMaxFrames||72});state.coverageStatus=state.coverageSphere.status();coverageApi.drawCoverageSphere($('coverageSphere'),state.coverageStatus);if($('coverageState'))$('coverageState').textContent='SFERA 0% · nessuna chiusura';state.liveMap=new liveMapApi.LivePhotoPuzzleMap({width:CONFIG.livePuzzleAtlasWidth||640,height:CONFIG.livePuzzleAtlasHeight||320,maxFrames:CONFIG.livePuzzleMaxFrames||90,maxRenderFrames:CONFIG.livePuzzleRenderFrames||64,temporalRadius:CONFIG.livePuzzleTemporalRadius||4,maxLoopCandidates:CONFIG.livePuzzleLoopCandidates||2,minEdgeMatches:CONFIG.livePuzzleMinEdgeMatches||6,minEdgeProbability:CONFIG.livePuzzleMinEdgeProbability||.10,maxWorldSamples:CONFIG.livePuzzleWorldSamples||12000,photoMaxSide:CONFIG.livePuzzlePhotoMaxSide||256,depthMaxSide:CONFIG.livePuzzleDepthMaxSide||168,depthMinPairs:CONFIG.livePuzzleDepthMinPairs||6,depthRegularizeIterations:CONFIG.livePuzzleDepthRegularizeIterations||8,maxPhotoSamples:CONFIG.livePuzzleMaxPhotoSamples||260000,maxDepthSamples:CONFIG.livePuzzleMaxDepthSamples||190000});state.liveMapMode='photo';state.photoPanoramaState=null;state.liveMapStats=state.liveMap.stats();state.liveMapRenderPending=false;updateLiveMapUi();scheduleLiveMapRender();stopLiveOptimizer();state.liveOptAccepted=null;state.liveOptStats=null;state.liveOptCandidateStats=null;state.liveOptWorkingSnapshot=null;state.liveOptWorkingRetained=false;state.liveOptStalled=false;state.liveOptGate=null;state.liveOptPendingSlow=false;state.liveOptGeneration=0;state.liveOptRejected=0;state.liveOptAcceptedCount=0;state.liveOptBackoff=1;state.liveOptLastElapsedMs=0;state.postOptRejectedRun=0;state.liveOptAcceptedAnchors=[];state.liveOptPreviewGaussians=[];state.liveOptPreviewStats=null;state.liveOptLastAt=0;state.liveOptLastReason=null;
+  stopPostOptimizer();state.gaussians=[];state.denseCandidateGaussians=[];state.denseCandidateMesh=null;state.mesh=null;state.meshStale=false;state.geometryCommitted=false;state.optimizerObservations=null;state.probOptimization=null;state.probOptimized=null;state.optimization={iterations:0,lastEnergy:null};state.reviewMetricLocked=null;state.reviewKeyframes=0;window.__ROOMSCAN_METRIC_MESH=null;state.alvaHeartbeatFrames=[];state.alvaHeartbeatCount=0;state.denseBusy=false;state.denseActivePayload=null;state.denseJobs=0;state.denseDepthSamples=0;state.denseDepthHint=null;state.densePixelStep=CONFIG.densePixelStep||4;state.denseSourceLimit=Math.min(CONFIG.denseInitialSourceLimit||2,CONFIG.denseMaxSourceViews||4);state.surfaceStats=null;state.geometryAnchors=[];state.deepPending=null;state.deepDisabled=false;state.deepCalls=0;state.deepAccepted=0;state.deepRaySamples=0;state.deepPreviewLastAt=0;state.photoSurveyLastAt=0;state.photoDepthCommittedFrameIds?.clear?.();state.deepPreviewInFlight=null;state.deepPreviewSeq=0;state.deepPreviewFrames=0;state.deepPreviewLastQuality=null;state.deepJobs.clear();state.deepSyncRejected=0;state.deepLateQueue?.reset?.();state.deepDrainActive=false;state.deepLaneInFlight=null;state.deepLaneQueuedFrames?.clear?.();state.photoPlannedFrameIds?.clear?.();state.fastLaneFrames=0;state.fastLaneLastAt=0;state.fastLaneLastGapMs=0;state.fastLaneMaxGapMs=0;state.coverageSphere=new coverageApi.ViewSphereCoverage({cols:CONFIG.coverageSphereCols||24,rows:CONFIG.coverageSphereRows||12,maxFrames:CONFIG.coverageSphereMaxFrames||72});state.coverageStatus=state.coverageSphere.status();coverageApi.drawCoverageSphere($('coverageSphere'),state.coverageStatus);if($('coverageState'))$('coverageState').textContent='SFERA 0% · nessuna chiusura';state.liveMap=new liveMapApi.LivePhotoPuzzleMap({width:CONFIG.livePuzzleAtlasWidth||640,height:CONFIG.livePuzzleAtlasHeight||320,maxFrames:CONFIG.livePuzzleMaxFrames||90,maxRenderFrames:CONFIG.livePuzzleRenderFrames||64,temporalRadius:CONFIG.livePuzzleTemporalRadius||4,maxLoopCandidates:CONFIG.livePuzzleLoopCandidates||2,minEdgeMatches:CONFIG.livePuzzleMinEdgeMatches||6,minEdgeProbability:CONFIG.livePuzzleMinEdgeProbability||.10,maxWorldSamples:CONFIG.livePuzzleWorldSamples||12000,photoMaxSide:CONFIG.livePuzzlePhotoMaxSide||256,depthMaxSide:CONFIG.livePuzzleDepthMaxSide||168,depthMinPairs:CONFIG.livePuzzleDepthMinPairs||6,depthRegularizeIterations:CONFIG.livePuzzleDepthRegularizeIterations||8,maxPhotoSamples:CONFIG.livePuzzleMaxPhotoSamples||260000,maxDepthSamples:CONFIG.livePuzzleMaxDepthSamples||190000});log.info('live-map-depth-planned-api',{addDepthPlannedFrame:typeof state.liveMap?.addDepthPlannedFrame==='function',addCameraFrame:typeof state.liveMap?.addCameraFrame==='function',addFrame:typeof state.liveMap?.addFrame==='function',updateRelativeDepth:typeof state.liveMap?.updateRelativeDepth==='function',commitExact:typeof state.liveMap?.commitCameraFrameWithRelativeDepth==='function'});state.liveMapMode='photo';state.photoPanoramaState=null;state.liveMapStats=state.liveMap.stats();state.liveMapRenderPending=false;updateLiveMapUi();scheduleLiveMapRender();stopLiveOptimizer();state.liveOptAccepted=null;state.liveOptStats=null;state.liveOptCandidateStats=null;state.liveOptWorkingSnapshot=null;state.liveOptWorkingRetained=false;state.liveOptStalled=false;state.liveOptGate=null;state.liveOptPendingSlow=false;state.liveOptGeneration=0;state.liveOptRejected=0;state.liveOptAcceptedCount=0;state.liveOptBackoff=1;state.liveOptLastElapsedMs=0;state.postOptRejectedRun=0;state.liveOptAcceptedAnchors=[];state.liveOptPreviewGaussians=[];state.liveOptPreviewStats=null;state.liveOptLastAt=0;state.liveOptLastReason=null;
   state.frameQualityApi=await lazy('./probabilistic/frame_quality.js');
   if(CONFIG.probabilisticGraphEnabled!==false){
     const [{ProbabilisticFactorGraph},{DeepSequenceModel}]=await Promise.all([lazy('./probabilistic/factor_graph.js'),lazy('./probabilistic/deep_sequence_model.js')]);
@@ -269,17 +277,17 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
   state.denseDepthWorker.onerror=e=>{state.denseBusy=false;state.denseActivePayload=null;log.warn('dense-depth-worker',{message:e.message||'worker error'});if($('mvsState'))$('mvsState').textContent='DENSE errore · tracking Alva continua';};
   state.denseDepthWorker.postMessage({type:'init',config:{depthSteps:CONFIG.denseDepthSteps||40,pixelStep:CONFIG.densePixelStep||3,maxCost:CONFIG.denseMaxPhotoCost||.22,minConfidence:CONFIG.denseMinConfidence||.11,minTexture:CONFIG.denseMinTexture||.018,minDistinctiveness:CONFIG.denseMinDistinctiveness||.025,minViews:CONFIG.denseMinSourceViews||2,maxSamples:CONFIG.denseMaxSamplesPerDepth||14000}});
 
-  // The ONNX worker may already be warm from the explicit pre-scan test.
-  // V30.25 has TWO consumers with different authority:
-  // 1) a ~1 Hz live preview independent from Alva, used only for visual diagnosis;
-  // 2) selected Alva keyframes, whose depth may be calibrated/fused into 3D.
-  // The live preview never creates pose, scale or geometry by itself.
+  // Deep owns no acquisition resources in the default post-scan policy. If the
+  // explicit model test left a warm ONNX worker alive, terminate it here so its
+  // WASM heap/threads cannot compete with camera + Alva + RGB. Exact RGB frames
+  // are queued without a Deep worker and the worker is recreated only after the
+  // fast lane has been frozen by finishScan().
   state.deepSelector=new DeepKeyframeSelector({minIntervalMs:CONFIG.deepMinIntervalMs||2600,maxIntervalMs:CONFIG.deepMaxIntervalMs||8000,minTranslationM:CONFIG.deepMinTranslationM||.20,minTranslationAlva:CONFIG.deepMinTranslationAlva||.10,minRotationRad:CONFIG.deepMinRotationRad||.16,minAnchors:CONFIG.deepMinAnchors||7,minAnchorCells:CONFIG.deepMinAnchorCells||3,depthNovelty:CONFIG.deepDepthNovelty||.22});
   if(CONFIG.deepDepthEnabled!==false){
-    state.deepDepthWorker=ensureDeepWorker();
-    state.deepDepthWorker.onmessage=e=>void handleDeepDepthMessage(e.data||{});
-    state.deepDepthWorker.onerror=e=>{const pending=state.deepPending;state.deepDisabled=true;state.deepPending=null;state.deepJobs.clear();state.deepPreviewInFlight=null;state.deepSelector?.fail?.();log.warn('deep-depth-worker',{message:e.message||'worker error'});if($('mvsState'))$('mvsState').textContent='AI depth non disponibile · feature track + multi-view continuano';if($('deepLiveState'))$('deepLiveState').textContent='DEEP LIVE · worker non disponibile';if(pending&&state.denseDepthWorker){stripDeepRaster(pending);state.denseActivePayload=pending;state.denseBusy=true;state.denseDepthWorker.postMessage(pending);}else{state.denseActivePayload=null;state.denseBusy=false;void scheduleDenseWork();}};
-    state.deepDepthWorker.postMessage({type:'init',config:deepWorkerConfig()});
+    if(CONFIG.deepPostScanOnly!==false){
+      state.deepDepthWorker?.terminate?.();state.deepDepthWorker=null;state.deepWorkerModelId=null;
+      log.info('deep-worker-deferred',{postScanOnly:true,fastLaneOwnsAcquisition:true});
+    }else ensureDeepRuntimeWorker();
   }
 
   const voxel=metricWorld?(CONFIG.denseTsdfVoxelM||.035):(CONFIG.denseTsdfVoxelAlva||.03);
@@ -296,8 +304,8 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
 
   state.currentSession=await state.db?.createSession({calibrationBuild:cal?.createdAt||null,metricLocked:metricWorld,reconstruction:'alva+photo-puzzle+global-depth-scale+hybrid-planes-particles'});
   if($('metricState'))$('metricState').textContent=metricWorld?`scala METRIC · Alva×${state.slam.metricScale?.toFixed?.(3)||'?'}`:'ALVA WORLD · scala libera';
-  if($('mvsState'))$('mvsState').textContent='DENSE: Deep live ~1 Hz · fusione solo su keyframe Alva validi';
-  if($('deepLiveState'))$('deepLiveState').textContent='DEEP LIVE · attendo primo frame…';
+  if($('mvsState'))$('mvsState').textContent='FAST: Alva+RGB+MVS · Deep accodata per post-scan';
+  if($('deepLiveState'))$('deepLiveState').textContent='DEEP POST · coda vuota';
   if($('metricPipelineHud'))$('metricPipelineHud').textContent='Surface mapper: attendo 3 viste con parallasse.';
 
   // The calibration bridge has no authority after the one-shot similarity is
@@ -305,13 +313,13 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
   if(bridge===state.bridge)state.bridge=null;state.alvaBootstrap=null;
 
   state.scanStop=state.camera.loop(frame=>{try{
-    state.lastFrameGeometry=frame.geometry;const r=state.slam.process(frame);state.lastTracking=r;
+    state.lastFrameGeometry=frame.geometry;noteFastLaneFrame(frame);const r=state.slam.process(frame);state.lastTracking=r;
     if($('statFeat'))$('statFeat').textContent=String(r.features);if($('statMatch'))$('statMatch').textContent=String(r.matches);if($('statKf'))$('statKf').textContent=String(r.keyframes);if($('alvaPtsState'))$('alvaPtsState').textContent=`ALVA pts ${r.alvaPoints||0}`;
     const status=r.trackingMode==='alvaar-relocalized'?'ALVA RELOCALIZED':r.trackingValid?'ALVA TRACKING':r.trackingMode==='alvaar-initializing'?'ALVA INIT':'ALVA LOST';
     if($('slamState'))$('slamState').textContent=`${status}${state.gaussians.length?' + SURFACE':''}`;
     if($('coach'))$('coach').textContent=r.trackingValid?'AlvaAR stabile · trasla lentamente, mantieni overlap e torna sulle zone già viste.':r.trackingMode==='alvaar-initializing'?'AlvaAR INIT · muovi lentamente il telefono di lato mantenendo texture e luce stabili; salvo 1 frame/s anche prima del primo pose.':'Tracking Alva perso · continuo a salvare 1 frame/s per diagnosi/recovery; torna verso una zona già osservata.';
-    // Deep live is intentionally independent from tracking validity. This gives
-    // an immediate on-screen truth check even while Alva is still INIT.
+    // FAST LANE: capture only an immutable RGB frame and enqueue its future Depth.
+    // No neural inference is allowed to block Alva/RGB while scanning.
     requestLiveDeepPreview(frame,r);
     if(r.newObservation)recordAlvaHeartbeat(r.newObservation,frame,K);
     if(r.newKeyframe&&r.trackingValid)void queueDenseKeyframe(r.newKeyframe,frame,K).catch(err=>log.warn('dense-keyframe-sync',{frameId:frame.frameId||null,keyframeFrameId:r.newKeyframe?.frameId||null,message:err?.message||String(err)}));
@@ -321,9 +329,9 @@ async function startScan(metric={},epoch=state.bridgeEpoch,bridge=null){
 }
 
 function captureLiveSurveyFrame(frame,tracking){
-  // Freeze the exact RGB frame that WILL be sent to Deep. It is only a pending
-  // candidate here: no photo graph, no live mosaic and no coverage vote exist
-  // until a valid depth result returns for this same immutable frame.
+  // Freeze the exact RGB frame that is explicitly depth-planned. V30.45 may
+  // register it in the RGB graph immediately; Depth is late-bound later to this
+  // immutable frameId and never controls the tracking/photo clock.
   if(!state.scanK||!frame?.gray?.length||!frame?.rgba?.length||!frame?.frameId)return null;
   const photoQuality=state.frameQualityApi?.assessRgbFrameQuality?.(frame.gray,frame.width,frame.height)||null;
   const hasAlva=!!(tracking?.trackingValid&&tracking?.pose?.p&&tracking?.pose?.q),survey={
@@ -352,20 +360,100 @@ function denseKeyframeSurvey(ref){
   if(!ref?.frameId||!ref?.gray?.length||!ref?.rgba?.length||!ref?.K)return null;const pose=ref.pose?.p&&ref.pose?.q?{p:[...ref.pose.p],q:[...ref.pose.q]}:null;return {id:`photo-depth-${ref.frameId}`,frameId:String(ref.frameId),captureAt:Number(ref.captureAt??ref.at),at:Number(ref.at??ref.captureAt),pose,poseCov:ref.poseCov||null,K:{...ref.K},width:ref.width,height:ref.height,gray:new Uint8Array(ref.gray),rgba:new Uint8ClampedArray(ref.rgba),features:ref.features||[],metricLocked:!!state.slam?.metricLocked,trackingMode:pose?'alva-keyframe':'alva-unavailable',trackingValid:!!pose,depthPlanned:true,photoQuality:state.frameQualityApi?.assessRgbFrameQuality?.(ref.gray,ref.width,ref.height)||null};
 }
 
-function requestLiveDeepPreview(frame,tracking){
-  if(!frame?.rgba?.length||!frame?.gray?.length||!state.scanK)return;
-  const now=Number(frame.at)||performance.now(),interval=Math.max(500,Number(CONFIG.deepInferenceIntervalMs)||1000);
-  // Consistency invariant: there is no photo-only clock anymore. If Deep cannot
-  // accept this exact frame, the frame is not registered and cannot appear in
-  // the mosaic. Dense/SLAM geometry continues separately.
-  if(CONFIG.deepLiveDuringScan===false||!state.deepDepthWorker||state.deepDisabled||!state.deepSync){if($('deepLiveState'))$('deepLiveState').textContent='MOSAICO RGB+DEEP · fermo (Depth non attiva)';return;}
-  if(state.deepPreviewInFlight||now-state.deepPreviewLastAt<interval)return;
-  const capture=captureLiveSurveyFrame(frame,tracking);if(!capture?.survey)return;
-  state.photoSurveyLastAt=now;state.deepPreviewLastAt=now;const jobId=`preview-ticker-${++state.deepPreviewSeq}-${Math.round(now)}`;state.deepPreviewInFlight=jobId;
-  const rgba=new Uint8ClampedArray(capture.survey.rgba),binding=state.deepSync.createDeepFrameBinding({jobId,kind:'preview',frameId:capture.survey.frameId,frameAt:capture.survey.at,rgba,width:capture.survey.width,height:capture.survey.height,survey:capture.survey,tracking:{frameId:tracking?.frameId||null,trackingValid:!!tracking?.trackingValid,trackingMode:tracking?.trackingMode||null,pose:tracking?.pose?{p:[...tracking.pose.p],q:[...tracking.pose.q]}:null,poseCov:tracking?.poseCov||null,alvaPoints:tracking?.alvaPoints||0,keyframeId:tracking?.newKeyframe?.id||null}});
-  state.deepJobs.set(jobId,binding);state.deepDepthWorker.postMessage({type:'infer',jobId,frameId:binding.frameId,frameAt:binding.frameAt,model:modelForWorker(),rgba,width:capture.survey.width,height:capture.survey.height},[rgba.buffer]);if($('deepLiveState'))$('deepLiveState').textContent=`RGB+DEEP F${frame.captureSeq||'?'} · frame congelato · inferenza ${state.deepPreviewSeq}…`;
-}
 
+function registerDepthPlannedPhoto(survey,{source='depth-planned'}={}){
+  if(!survey?.frameId)return {ok:false,reason:'missing-frame'};
+  const id=String(survey.frameId);if(state.photoPlannedFrameIds?.has?.(id))return {ok:true,deduplicated:true,method:'already-planned'};
+  let mapOk=false,method='none',error=null;
+  if(state.liveMap){
+    const candidates=['addDepthPlannedFrame','addCameraFrame','addFrame'];
+    for(const name of candidates){
+      const fn=state.liveMap?.[name];if(typeof fn!=='function')continue;
+      try{
+        const before=state.liveMap?.stats?.()?.frames||0,r=fn.call(state.liveMap,survey,{depthPlanned:true,source,fallbackDepth:state.denseDepthHint||CONFIG.livePuzzleFallbackDepth||2.2}),after=state.liveMap?.stats?.()?.frames||0,exported=state.liveMap?.exportState?.(),present=!!exported?.frames?.some?.(f=>String(f?.frameId||'')===id);
+        if(r?.ok===true||present||after>before){mapOk=true;method=name;break;}
+        error=`${name}-did-not-register-frame`;
+      }catch(err){error=err?.message||String(err);}
+    }
+  }
+  // The metric graph can ingest the pose-bearing exact frame immediately. The
+  // photo-map placement remains RGB-only; Alva is only an initial metric node.
+  const graphFrame=survey.pose?(state.probGraph?.addFrame(survey)||null):null;
+  state.photoPlannedFrameIds?.add?.(id);
+  if(mapOk){state.liveMapStats=state.liveMap?.stats?.()||state.liveMapStats;scheduleLiveMapRender(true);}
+  log.info('rgb-depth-planned-photo',{frameId:id,source,mapRegistered:mapOk,mapMethod:method,metricGraphNode:!!graphFrame,error,queue:state.deepLateQueue?.stats?.()||null});
+  if(graphFrame)scheduleLiveOptimization('rgb-depth-planned',{slow:false});
+  return {ok:true,mapRegistered:mapOk,method,metricGraphNode:!!graphFrame};
+}
+function attachLateDepthToPhoto(survey,d,{source='deep-late'}={}){
+  if(!survey?.frameId||!d?.rawDepth?.length)return {ok:false,reason:'missing-exact-rgb-depth'};
+  const id=String(survey.frameId),q=d.quality||{},confidence=q.suspicious?.025:.18;
+  let updated=false;
+  try{updated=!!state.liveMap?.updateRelativeDepth?.(id,{rawDepth:d.rawDepth,width:d.rawWidth,height:d.rawHeight,quality:q,confidence,source});}catch(err){log.warn('deep-late-depth-attach',{frameId:id,source,message:err?.message||String(err)});}
+  if(updated){state.photoDepthCommittedFrameIds?.add?.(id);state.liveMapStats=state.liveMap?.stats?.()||state.liveMapStats;scheduleLiveMapRender(true);return {ok:true,lateBound:true,stats:state.liveMapStats};}
+  const committed=commitExactRgbDepthPhoto(survey,d,{source});
+  if(committed?.ok){state.liveMapStats=committed.stats||state.liveMap?.stats?.()||state.liveMapStats;scheduleLiveMapRender(true);}
+  return committed;
+}
+function enqueueLateDeepJob(job){
+  if(!job?.frameId||!job?.rgba?.length)return {ok:false,reason:'missing-raster'};
+  const result=state.deepLateQueue?.enqueue?.({...job,queuedAt:performance.now()})||{ok:false,reason:'queue-unavailable'};
+  if(!result.ok){log.warn('deep-late-queue-rejected',{frameId:job.frameId,kind:job.kind,reason:result.reason,queue:state.deepLateQueue?.stats?.()||null});return result;}
+  state.deepLaneQueuedFrames?.add?.(String(job.frameId));
+  log.debug('deep-late-queued',{jobId:job.jobId,frameId:job.frameId,kind:job.kind,replaced:!!result.replaced,deduplicated:!!result.deduplicated,queue:state.deepLateQueue?.stats?.()||null});
+  if(CONFIG.deepPostScanOnly===false)void pumpDeepLateLane();
+  return result;
+}
+async function pumpDeepLateLane(){
+  if(!state.deepDepthWorker||state.deepDisabled||state.deepLaneInFlight)return false;
+  if(CONFIG.deepPostScanOnly!==false&&!state.deepDrainActive)return false;
+  const job=state.deepLateQueue?.next?.();if(!job)return false;
+  const rgba=new Uint8ClampedArray(job.rgba),binding=state.deepSync.createDeepFrameBinding({jobId:job.jobId,kind:job.kind,frameId:job.frameId,frameAt:job.frameAt,refId:job.refId||null,rgba,width:job.width,height:job.height,survey:job.survey||null,payload:job.payload||null,tracking:job.tracking||null});
+  state.deepJobs.set(job.jobId,binding);state.deepLaneInFlight=job.jobId;state.deepCalls++;
+  state.deepDepthWorker.postMessage({type:'infer',jobId:job.jobId,refId:job.refId||null,frameId:binding.frameId,frameAt:binding.frameAt,model:modelForWorker(),rgba,width:job.width,height:job.height},[rgba.buffer]);
+  const wait=Math.max(0,performance.now()-(job.queuedAt||performance.now()));
+  log.info('deep-late-dispatch',{jobId:job.jobId,frameId:job.frameId,kind:job.kind,calls:state.deepCalls,queueWaitMs:wait,fastLaneActive:!!state.scanStop,fastLaneAgeMs:state.fastLaneLastAt?Math.max(0,performance.now()-state.fastLaneLastAt):null,queue:state.deepLateQueue?.stats?.()||null});
+  if($('deepLiveState'))$('deepLiveState').textContent=`DEEP POST · ${state.deepCalls} · coda ${state.deepLateQueue?.stats?.().queued||0}`;
+  return true;
+}
+function finishDeepLaneJob(jobId,{failed=false}={}){
+  if(failed)state.deepLateQueue?.fail?.(jobId);else state.deepLateQueue?.complete?.(jobId);
+  if(String(state.deepLaneInFlight||'')===String(jobId||''))state.deepLaneInFlight=null;
+  state.deepLaneQueuedFrames?.delete?.(String(state.deepJobs.get(String(jobId||''))?.frameId||''));
+  if(state.deepDrainActive||CONFIG.deepPostScanOnly===false)queueMicrotask(()=>void pumpDeepLateLane());
+}
+async function drainDeepBacklog(){
+  if(CONFIG.deepDepthEnabled===false||state.deepDisabled)return {ok:false,reason:'deep-unavailable'};
+  try{ensureDeepRuntimeWorker();}catch(err){state.deepDisabled=true;log.warn('deep-postscan-worker-init',{message:err?.message||String(err)});return {ok:false,reason:'deep-worker-init-failed'};}
+  state.deepDrainActive=true;const started=performance.now(),timeout=Math.max(10000,Number(CONFIG.deepPostScanMaxDrainMs)||180000);
+  log.info('deep-postscan-drain-start',{queue:state.deepLateQueue?.stats?.()||null,fastLaneFrames:state.fastLaneFrames,maxFastLaneGapMs:state.fastLaneMaxGapMs});
+  await pumpDeepLateLane();
+  while((state.deepLaneInFlight||(state.deepLateQueue?.stats?.().queued||0)>0)&&performance.now()-started<timeout){await new Promise(r=>setTimeout(r,40));}
+  const timedOut=!!(state.deepLaneInFlight||(state.deepLateQueue?.stats?.().queued||0)>0),stats=state.deepLateQueue?.stats?.()||null;state.deepDrainActive=false;
+  log.info('deep-postscan-drain-complete',{elapsedMs:performance.now()-started,timedOut,queue:stats,calls:state.deepCalls,accepted:state.deepAccepted});
+  if($('deepLiveState'))$('deepLiveState').textContent=timedOut?`DEEP POST ⚠ coda residua ${stats?.queued||0}`:`DEEP POST ✓ ${stats?.completed||0} frame`;
+  return {ok:!timedOut,timedOut,stats};
+}
+function noteFastLaneFrame(frame){
+  const now=Number(frame?.at)||performance.now();if(state.fastLaneLastAt){const gap=Math.max(0,now-state.fastLaneLastAt);state.fastLaneLastGapMs=gap;state.fastLaneMaxGapMs=Math.max(state.fastLaneMaxGapMs||0,gap);if(gap>(CONFIG.fastLaneGapWarnMs||650))log.warn('fast-lane-frame-gap',{gapMs:gap,deepInFlight:state.deepLaneInFlight||null,deepDrainActive:state.deepDrainActive,denseBusy:state.denseBusy,queue:state.deepLateQueue?.stats?.()||null});}state.fastLaneLastAt=now;state.fastLaneFrames++;
+}
+function stopCaptureFastLane(){state.scanStop?.();state.scanStop=null;state.camera?.stop();state.camera=null;}
+
+function requestLiveDeepPreview(frame,tracking){
+  if(!frame?.rgba?.length||!frame?.gray?.length||!state.scanK||CONFIG.deepDepthEnabled===false||state.deepDisabled||!state.deepSync)return;
+  const now=Number(frame.at)||performance.now(),interval=Math.max(700,Number(CONFIG.deepPlanIntervalMs||CONFIG.deepInferenceIntervalMs)||1800);
+  if(now-state.deepPreviewLastAt<interval)return;
+  const qstats=state.deepLateQueue?.stats?.()||{};if((qstats.surveys||0)>=(CONFIG.deepSurveyQueueBudget||8))return;
+  const capture=captureLiveSurveyFrame(frame,tracking);if(!capture?.survey)return;
+  const survey=capture.survey,jobId=`preview-ticker-${++state.deepPreviewSeq}-${Math.round(now)}`,rgba=new Uint8ClampedArray(survey.rgba);
+  const queued=enqueueLateDeepJob({jobId,kind:'preview',frameId:survey.frameId,frameAt:survey.at,rgba,width:survey.width,height:survey.height,survey,tracking:{frameId:tracking?.frameId||null,trackingValid:!!tracking?.trackingValid,trackingMode:tracking?.trackingMode||null,pose:tracking?.pose?{p:[...tracking.pose.p],q:[...tracking.pose.q]}:null,poseCov:tracking?.poseCov||null,alvaPoints:tracking?.alvaPoints||0,keyframeId:tracking?.newKeyframe?.id||null}});
+  if(!queued.ok)return;
+  // The RGB frame is admitted NOW because Depth is explicitly planned for this
+  // exact immutable frame. Deep may arrive seconds later or after Scan ends.
+  registerDepthPlannedPhoto(survey,{source:'survey-depth-planned'});
+  state.photoSurveyLastAt=now;state.deepPreviewLastAt=now;
+  if($('deepLiveState'))$('deepLiveState').textContent=`RGB FAST ✓ · Deep in coda ${state.deepLateQueue?.stats?.().queued||0}`;
+}
 function compactGrayHeartbeat(gray,width,height,maxSide=160){
   const scale=Math.min(1,Math.max(32,Number(maxSide)||160)/Math.max(width,height)),w=Math.max(1,Math.round(width*scale)),h=Math.max(1,Math.round(height*scale)),out=new Uint8Array(w*h);
   for(let y=0;y<h;y++){const sy=Math.min(height-1,Math.floor((y+.5)*height/h));for(let x=0;x<w;x++){const sx=Math.min(width-1,Math.floor((x+.5)*width/w));out[y*w+x]=gray[sy*width+sx];}}
@@ -430,123 +518,70 @@ async function makeDensePayload(job){
 function cloneDenseFrame(f,includeDeep=false){const out={id:f.id,frameId:f.frameId||f.id,captureAt:f.captureAt??f.at,at:f.at,pose:f.pose,poseCov:f.poseCov||null,K:f.K,width:f.width,height:f.height,gray:f.gray,rgba:f.rgba,features:f.features||[]};if(includeDeep&&f.deepRgba?.length){out.deepWidth=f.deepWidth;out.deepHeight=f.deepHeight;out.deepRgba=f.deepRgba;}return out;}
 async function dispatchDensePayload(payload){
   const baseDecision=state.deepSelector?.evaluate({ref:payload.ref,sparseSeeds:payload.sparseSeeds,metricLocked:!!state.slam?.metricLocked})||{infer:false,reason:'selector-unavailable'};
-  // V30.25 wants one statistically useful proxy depth per accepted dense
-  // keyframe. Near-duplicate *video* frames are still rejected by the keyframe
-  // manager, but a keyframe that already passed Alva/parallax/anchor gating is
-  // worth a Deep observation even when the selector calls its motion small.
   const forceEvery=CONFIG.deepInferEveryDenseKeyframe===true;
   const decision=forceEvery&&!baseDecision.infer?{...baseDecision,infer:true,reason:'accepted-dense-keyframe'}:baseDecision;
-  if(!state.deepDisabled&&state.deepDepthWorker&&decision.infer){
-    state.deepSelector.noteAttempt(payload.ref,payload.sparseSeeds);state.deepPending=payload;state.deepCalls++;
+  if(!state.deepDisabled&&decision.infer){
     const useDeepRaster=payload.ref.deepRgba?.length>0,source=useDeepRaster?payload.ref.deepRgba:payload.ref.rgba,sourceWidth=useDeepRaster?payload.ref.deepWidth:payload.ref.width,sourceHeight=useDeepRaster?payload.ref.deepHeight:payload.ref.height;
-    const rgba=new Uint8ClampedArray(source),binding=state.deepSync.createDeepFrameBinding({jobId:payload.jobId,kind:'keyframe',frameId:payload.ref.frameId,frameAt:payload.ref.at,refId:payload.ref.id,rgba,width:sourceWidth,height:sourceHeight,payload,tracking:{pose:payload.ref.pose,featureCount:payload.ref.features?.length||0,anchorCount:payload.sparseSeeds.length}});state.deepJobs.set(payload.jobId,binding);
-    state.deepDepthWorker.postMessage({type:'infer',jobId:payload.jobId,refId:payload.ref.id,frameId:binding.frameId,frameAt:binding.frameAt,model:modelForWorker(),rgba,width:sourceWidth,height:sourceHeight},[rgba.buffer]);
-    if($('mvsState'))$('mvsState').textContent=`PROXY ${state.deepCalls}: SYNC ${binding.frameId} · Deep + ${payload.sparseSeeds.length} track anchor`;
-    log.info('deep-depth-request',{jobId:payload.jobId,refId:payload.ref.id,frameId:binding.frameId,frameAt:binding.frameAt,frameSignature:binding.frameSignature,calls:state.deepCalls,reason:decision.reason,anchors:payload.sparseSeeds.length,cells:decision.cells});return;
+    const queued=enqueueLateDeepJob({jobId:payload.jobId,kind:'keyframe',frameId:payload.ref.frameId,frameAt:payload.ref.at,refId:payload.ref.id,rgba:new Uint8ClampedArray(source),width:sourceWidth,height:sourceHeight,payload,tracking:{pose:payload.ref.pose,featureCount:payload.ref.features?.length||0,anchorCount:payload.sparseSeeds.length}});
+    if(queued.ok){state.deepSelector?.noteAttempt?.(payload.ref,payload.sparseSeeds);const survey=denseKeyframeSurvey(payload.ref);if(survey)registerDepthPlannedPhoto(survey,{source:'dense-keyframe-depth-planned'});log.info('deep-depth-planned',{jobId:payload.jobId,refId:payload.ref.id,frameId:payload.ref.frameId,reason:decision.reason,anchors:payload.sparseSeeds.length,cells:decision.cells,queue:state.deepLateQueue?.stats?.()||null});}
   }
-  // Deep is optional. If unavailable, keep the geometrically verified MVS path
-  // rather than dropping a useful Alva keyframe.
+  // CRITICAL V30.45: MVS is dispatched immediately. Deep is a late-bound
+  // observation and can no longer hold denseBusy or delay the next Alva/RGB job.
   stripDeepRaster(payload);state.denseActivePayload=payload;state.denseDepthWorker.postMessage(payload);
-  log.info('proxy-depth-mvs-only',{jobId:payload.jobId,refId:payload.ref.id,reason:state.deepDisabled?'ai-disabled':decision.reason});
+  log.info('mvs-fastlane-dispatch',{jobId:payload.jobId,refId:payload.ref.id,frameId:payload.ref.frameId,deepQueued:state.deepLaneQueuedFrames?.has?.(String(payload.ref.frameId))||false,queue:state.deepLateQueue?.stats?.()||null});
+  if($('mvsState'))$('mvsState').textContent=`MVS immediato · Deep coda ${state.deepLateQueue?.stats?.().queued||0}`;
 }
 function stripDeepRaster(payload){if(!payload?.ref)return;delete payload.ref.deepRgba;delete payload.ref.deepWidth;delete payload.ref.deepHeight;}
 async function handleDeepDepthMessage(d){
   if(d.type==='deep-ready'){log.info('deep-depth-ready',{modelUrl:d.modelUrl,preferredShortSide:d.preferredShortSide,qualityRescueShortSide:d.qualityRescueShortSide});return;}
   if(d.type==='deep-loaded'){log.info('deep-depth-loaded',{model:d.model,provider:d.provider,input:d.input});return;}
-  if(d.type==='deep-preview-queued'){if(d.jobId===state.deepPreviewInFlight&&$('deepLiveState'))$('deepLiveState').textContent=`DEEP LIVE · ${d.frameId||'frame'} in coda dietro keyframe…`;return;}
-  if(d.type==='deep-preview-error'){
-    state.deepJobs.delete(String(d.jobId||''));if(d.jobId===state.deepPreviewInFlight)state.deepPreviewInFlight=null;
-    log.warn('deep-live-preview-error',{jobId:d.jobId,frameId:d.frameId||null,message:d.message,provider:d.provider,ms:d.ms});
-    if($('deepLiveState'))$('deepLiveState').textContent=`DEEP LIVE · errore ${d.message||'inferenza'}`;return;
-  }
-  if(d.type==='deep-error'){
-    const binding=state.deepJobs.get(String(d.jobId||''));state.deepJobs.delete(String(d.jobId||''));const pending=binding?.payload||state.deepPending;state.deepPending=null;state.deepDisabled=true;state.deepPreviewInFlight=null;state.deepSelector?.fail?.();
-    log.warn('deep-depth-error',{jobId:d.jobId,frameId:d.frameId||binding?.frameId||null,message:d.message,provider:d.provider,ms:d.ms});if($('mvsState'))$('mvsState').textContent='Depth Anything non disponibile · continuo con feature track + multi-view';if($('deepLiveState'))$('deepLiveState').textContent='DEEP LIVE · non disponibile';
-    // Deep is a completion prior, not a prerequisite. A keyframe that already
-    // has Alva poses and triangulated feature tracks remains geometrically useful.
-    if(pending&&state.denseDepthWorker){stripDeepRaster(pending);state.denseActivePayload=pending;state.denseBusy=true;state.denseDepthWorker.postMessage(pending);log.info('deep-depth-mvs-fallback',{refId:pending.ref.id,frameId:pending.ref.frameId||null});return;}
-    state.denseBusy=false;void scheduleDenseWork();return;
-  }
-  if(d.type!=='deep-result')return;
-
-  // CRITICAL: completion time has zero authority. The result may return hundreds
-  // of milliseconds later, after Alva has processed several newer frames. Only
-  // the immutable job binding created from the exact source raster may accept it.
-  const binding=state.deepJobs.get(String(d.jobId||'')),sync=state.deepSync?.validateDeepFrameResult?.(d,binding)||{ok:false,reason:'sync-module-missing'};
-  if(!sync.ok){
-    state.deepJobs.delete(String(d.jobId||''));state.deepSyncRejected++;
-    log.error('deep-frame-sync-rejected',{jobId:d.jobId,resultFrameId:d.frameId||null,boundFrameId:binding?.frameId||null,refId:d.refId||null,boundRefId:binding?.refId||null,reason:sync.reason,deltaMs:sync.deltaMs??null,resultSignature:d.frameSignature||null,boundSignature:binding?.frameSignature||null});
-    if(binding?.kind==='preview'||String(d.jobId||'').startsWith('preview-ticker-')){if(d.jobId===state.deepPreviewInFlight)state.deepPreviewInFlight=null;if($('deepLiveState'))$('deepLiveState').textContent=`DEEP LIVE ⚠ frame non sincronizzato (${sync.reason})`;return;}
-    const payload=binding?.payload;if(state.deepPending?.jobId===d.jobId)state.deepPending=null;state.deepSelector?.fail?.();
-    if(payload&&state.denseDepthWorker){stripDeepRaster(payload);state.denseActivePayload=payload;state.denseBusy=true;state.denseDepthWorker.postMessage(payload);if($('mvsState'))$('mvsState').textContent='Deep scartata: frame/Alva non identici · uso solo multi-view';return;}
-    state.denseBusy=false;void scheduleDenseWork();return;
-  }
-  state.deepJobs.delete(String(d.jobId||''));
-
-  if(binding.kind==='preview'){
-    if(d.jobId===state.deepPreviewInFlight)state.deepPreviewInFlight=null;
-    state.deepPreviewFrames++;state.deepPreviewLastQuality=d.quality||null;drawDepth($('depthOverlay'),d.rawDepth,d.rawWidth,d.rawHeight);
-    const survey=binding.survey,q=d.quality||{},confidence=q.suspicious?.025:.18;
-    // ATOMIC RGB+DEPTH COMMIT. A survey photograph becomes a mosaic node only
-    // after the exact-frame Deep raster has passed the sync contract and the
-    // depth map itself contains enough valid samples.
-    const committed=survey?commitExactRgbDepthPhoto(survey,d,{source:'deep-survey'}):null;
-    if(!committed?.ok){
-      log.warn('deep-survey-not-committed',{jobId:d.jobId,frameId:binding.frameId,reason:committed?.reason||'missing-survey',validRatio:committed?.validRatio??null});
-      if($('deepLiveState'))$('deepLiveState').textContent=`RGB+DEEP · frame scartato (${committed?.reason||'depth non valida'})`;return;
-    }
-    state.liveMapStats=committed.stats||state.liveMap?.stats?.()||state.liveMapStats;scheduleLiveMapRender(true);
-    // The optional metric/factor graph receives the same survey node only now,
-    // after depth exists. Unposed photos remain valid RGB+Deep mosaic nodes and
-    // may acquire a pose later without affecting their 2-D placement.
-    const graphFrame=survey.pose?(state.probGraph?.addFrame(survey)||null):null;if(graphFrame){state.probGraph.addDeepRaw(binding.frameId,{rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,calibration:null,quality:q});scheduleLiveOptimization('survey-depth',{slow:true});}
-    if(survey.pose&&state.coverageSphere){state.coverageStatus=state.coverageSphere.addFrame(survey);state.coverageApi?.drawCoverageSphere?.($('coverageSphere'),state.coverageStatus);updateCoverageUi();}
-    const stripe=q.stripe||{},band=Math.round(100*Number(stripe.dominantExplained||0)),cycles=Number(stripe.dominantCycles||0).toFixed(1),rescue=d.resolutionRescue?.accepted?' · rescue':'',lag=Math.max(0,performance.now()-binding.frameAt),warning=stripe.suspicious?`banding ${band}%/${cycles}c`:`coerenza ${Number(q.coherenceRatio||0).toFixed(2)}`;
-    if($('deepLiveState'))$('deepLiveState').textContent=q.suspicious?`RGB+DEEP ✓ · depth debole (${warning}) · foto ammessa a bassa confidenza · lag ${lag.toFixed(0)} ms${rescue}`:`RGB+DEEP ✓ · foto+depth ${d.rawWidth}×${d.rawHeight} · lag ${lag.toFixed(0)} ms${rescue}`;
-    if(state.deepPreviewFrames<=3||q.suspicious)log.info('deep-live-preview',{frame:state.deepPreviewFrames,frameId:binding.frameId,alvaFrameId:binding.tracking?.frameId||null,sync:sync.reason,lagMs:lag,provider:d.provider,ms:d.ms,totalMs:d.totalMs,quality:q,resolutionRescue:d.resolutionRescue||null,output:[d.rawWidth,d.rawHeight],metricGraphNode:!!graphFrame,mosaicCommitted:true});
+  if(d.type==='deep-preview-queued')return;
+  if(d.type==='deep-preview-error'||d.type==='deep-error'){
+    const binding=state.deepJobs.get(String(d.jobId||''));
+    log.warn('deep-late-error',{jobId:d.jobId,frameId:d.frameId||binding?.frameId||null,kind:binding?.kind||null,message:d.message,provider:d.provider,ms:d.ms,fastLaneActive:!!state.scanStop});
+    state.deepSelector?.fail?.();finishDeepLaneJob(d.jobId,{failed:true});state.deepJobs.delete(String(d.jobId||''));
+    if($('deepLiveState'))$('deepLiveState').textContent=`DEEP POST · errore ${d.message||'inferenza'} · continuo RGB/MVS`;
     return;
   }
-  const payload=binding.payload;if(!payload||payload.jobId!==d.jobId){state.deepSyncRejected++;log.error('deep-frame-payload-missing',{jobId:d.jobId,frameId:binding.frameId});state.denseBusy=false;void scheduleDenseWork();return;}
-  if(state.deepPending?.jobId===d.jobId)state.deepPending=null;
-  log.info('deep-frame-sync-ok',{jobId:d.jobId,frameId:binding.frameId,refId:binding.refId,frameSignature:binding.frameSignature,featureCount:binding.tracking?.featureCount||0,anchors:binding.tracking?.anchorCount||0,completionLagMs:Math.max(0,performance.now()-binding.frameAt)});
-  await applyDeepDepthResult(d,payload);
+  if(d.type!=='deep-result')return;
+  const binding=state.deepJobs.get(String(d.jobId||'')),sync=state.deepSync?.validateDeepFrameResult?.(d,binding)||{ok:false,reason:'sync-module-missing'};
+  if(!sync.ok){
+    state.deepSyncRejected++;log.error('deep-frame-sync-rejected',{jobId:d.jobId,resultFrameId:d.frameId||null,boundFrameId:binding?.frameId||null,refId:d.refId||null,boundRefId:binding?.refId||null,reason:sync.reason,deltaMs:sync.deltaMs??null,resultSignature:d.frameSignature||null,boundSignature:binding?.frameSignature||null});
+    finishDeepLaneJob(d.jobId,{failed:true});state.deepJobs.delete(String(d.jobId||''));return;
+  }
+  try{
+    const lag=Math.max(0,performance.now()-binding.frameAt);log.info('deep-frame-sync-ok',{jobId:d.jobId,frameId:binding.frameId,refId:binding.refId||null,kind:binding.kind,frameSignature:binding.frameSignature,featureCount:binding.tracking?.featureCount||0,anchors:binding.tracking?.anchorCount||0,completionLagMs:lag,postScan:!state.scanStop});
+    if(binding.kind==='preview'){
+      state.deepPreviewFrames++;state.deepPreviewLastQuality=d.quality||null;drawDepth($('depthOverlay'),d.rawDepth,d.rawWidth,d.rawHeight);
+      const survey=binding.survey,q=d.quality||{},attached=survey?attachLateDepthToPhoto(survey,d,{source:'deep-postscan-survey'}):null;
+      state.probGraph?.addDeepRaw?.(binding.frameId,{rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,calibration:null,quality:q});
+      state.liveOptDirty=true;state.liveOptPendingSlow=true;state.liveOptLastReason='survey-depth-late';
+      const stripe=q.stripe||{},band=Math.round(100*Number(stripe.dominantExplained||0)),warning=stripe.suspicious?`banding ${band}%`:`coerenza ${Number(q.coherenceRatio||0).toFixed(2)}`;
+      if($('deepLiveState'))$('deepLiveState').textContent=`DEEP POST ${attached?.ok?'✓':'⚠'} · ${warning} · lag ${(lag/1000).toFixed(1)} s`;
+      log.info('deep-late-photo-bound',{jobId:d.jobId,frameId:binding.frameId,kind:'survey',attached:!!attached?.ok,lateBound:!!attached?.lateBound,lagMs:lag,provider:d.provider,aiMs:d.ms,quality:q});
+    }else{
+      const payload=binding.payload;if(!payload){state.deepSyncRejected++;log.error('deep-frame-payload-missing',{jobId:d.jobId,frameId:binding.frameId});return;}
+      await applyDeepDepthResult(d,payload,{lateBound:true});
+    }
+  }finally{
+    finishDeepLaneJob(d.jobId);state.deepJobs.delete(String(d.jobId||''));
+  }
 }
-async function applyDeepDepthResult(d,payload){
-  if(String(d?.frameId||'')!==String(payload?.ref?.frameId||'')){state.deepSyncRejected++;log.error('deep-frame-sync-defense',{jobId:d?.jobId||null,resultFrameId:d?.frameId||null,payloadFrameId:payload?.ref?.frameId||null});stripDeepRaster(payload);state.denseActivePayload=payload;state.denseDepthWorker?.postMessage(payload);return;}
+async function applyDeepDepthResult(d,payload,{lateBound=true}={}){
+  if(String(d?.frameId||'')!==String(payload?.ref?.frameId||'')){state.deepSyncRejected++;log.error('deep-frame-sync-defense',{jobId:d?.jobId||null,resultFrameId:d?.frameId||null,payloadFrameId:payload?.ref?.frameId||null});return;}
   drawDepth($('depthOverlay'),d.rawDepth,d.rawWidth,d.rawHeight);
-  // Raw relative depth is evidence even when its current metric calibration is
-  // weak. Persist it BEFORE any online quality/calibration decision so post-scan
-  // optimisation can re-estimate scale after poses/landmarks improve. The live
-  // photo puzzle receives the same exact frame-bound raw map and may calibrate it
-  // from neighbouring RGB correspondences even before the dense keyframe has
-  // enough sparse anchors for the traditional online Deep calibration.
-  // Reuse every exact Deep result on a dense keyframe as a PHOTO+DEPTH mosaic
-  // node too. This is not a second photo stream: the node is admitted only now,
-  // when Depth for this exact frozen RGB frame exists. It greatly improves RGB
-  // overlap without any additional neural inference and all such keyframes already
-  // have a metric factor-graph node.
-  const denseSurvey=denseKeyframeSurvey(payload.ref),densePhotoCommit=denseSurvey?commitExactRgbDepthPhoto(denseSurvey,d,{source:'deep-dense-keyframe'}):null;
-  if(densePhotoCommit?.ok&&!densePhotoCommit.deduplicated){state.liveMapStats=densePhotoCommit.stats||state.liveMap?.stats?.()||state.liveMapStats;scheduleLiveMapRender(true);log.info('deep-keyframe-photo-committed',{jobId:d.jobId,frameId:payload.ref.frameId,rawDepth:[d.rawWidth,d.rawHeight],mosaicFrames:state.liveMapStats?.frames||null,mosaicEdges:state.liveMapStats?.edges||null});scheduleLiveOptimization('dense-photo-depth',{slow:false});}
-  state.liveMap?.updateRelativeDepth?.(payload.ref.frameId,{rawDepth:d.rawDepth,width:d.rawWidth,height:d.rawHeight,quality:d.quality,confidence:d.quality?.suspicious?.025:.24});scheduleLiveMapRender();
-  if(d.quality?.suspicious){
-    state.probGraph?.addDeepRaw(payload.ref.frameId,{rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,calibration:null,quality:d.quality});scheduleLiveOptimization('deep-suspicious',{slow:true});
-    state.deepSelector?.fail?.();const band=Math.round(100*Number(d.quality?.stripe?.dominantExplained||0));log.warn('deep-depth-quality-rejected',{jobId:d.jobId,quality:d.quality,resolutionRescue:d.resolutionRescue||null});if($('mvsState'))$('mvsState').textContent=`Deep anomala (${band}% banding) · salvata come evidenza a bassa autorità`;stripDeepRaster(payload);state.denseActivePayload=payload;state.denseDepthWorker.postMessage(payload);return;
-  }
-  let cal;
-  if(state.deepSequence)cal=state.deepSequence.calibrate({frameId:payload.ref.frameId,at:payload.ref.at,rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,outWidth:payload.ref.width,outHeight:payload.ref.height,sparseSeeds:payload.sparseSeeds,near:payload.near,far:payload.far});
-  else{const {calibrateRelativeDepth}=await lazy('./dense/deep_metric.js');cal=calibrateRelativeDepth({rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,outWidth:payload.ref.width,outHeight:payload.ref.height,sparseSeeds:payload.sparseSeeds,near:payload.near,far:payload.far,minAnchors:CONFIG.deepMinAnchors||5,minCells:CONFIG.deepMinAnchorCells||3,maxMedianRelativeError:CONFIG.deepCalibrationMaxMedianRelativeError||.35});}
-  state.probGraph?.addDeepRaw(payload.ref.frameId,{rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,calibration:cal?.ok?cal:null,quality:d.quality});scheduleLiveOptimization(cal?.ok?'deep-calibrated':'deep-raw',{slow:true});
-  if(cal?.ok&&state.liveMap){state.liveMapStats=state.liveMap.updateDepth(payload.ref.frameId,{depth:cal.depth,width:cal.width,height:cal.height,confidence:cal.posteriorConfidence??cal.confidence,mode:cal.sequenceMode||cal.mode,calibration:{ok:true,mode:cal.sequenceMode||cal.mode,a:cal.a,b:cal.b,confidence:cal.posteriorConfidence??cal.confidence,posteriorConfidence:cal.posteriorConfidence??cal.confidence}})?state.liveMap.stats():state.liveMapStats;scheduleLiveMapRender(true);}
-  if(!cal?.ok){
-    state.deepSelector?.fail?.();log.info('deep-depth-calibration-uncertain',{jobId:d.jobId,reason:cal?.reason||'unknown',anchors:cal?.anchorCount||payload.sparseSeeds.length});if($('mvsState'))$('mvsState').textContent=`Deep relativa salvata · scala non ancora osservabile (${cal?.reason||'pochi anchor'})`;stripDeepRaster(payload);state.denseActivePayload=payload;state.denseDepthWorker.postMessage(payload);return;
-  }
+  const denseSurvey=denseKeyframeSurvey(payload.ref),depthAttach=denseSurvey?attachLateDepthToPhoto(denseSurvey,d,{source:'deep-postscan-keyframe'}):null;
+  if(depthAttach?.ok)log.info('deep-keyframe-photo-late-bound',{jobId:d.jobId,frameId:payload.ref.frameId,rawDepth:[d.rawWidth,d.rawHeight],lateBound:!!depthAttach.lateBound,mosaicFrames:state.liveMap?.stats?.()?.frames||null,mosaicEdges:state.liveMap?.stats?.()?.edges||null});
+  // V30.45 deliberately stores RAW relative depth only. Any metric mapping made
+  // here from payload.sparseSeeds would use capture-time geometry and could be
+  // stale after RGB pose optimisation. Hierarchical calibration is recomputed
+  // later by ProbabilisticJointOptimizer from the current/final pose scaffold.
+  state.probGraph?.addDeepRaw(payload.ref.frameId,{rawDepth:d.rawDepth,rawWidth:d.rawWidth,rawHeight:d.rawHeight,calibration:null,quality:d.quality,lateBound:true});
+  state.liveOptDirty=true;state.liveOptPendingSlow=true;state.liveOptLastReason=d.quality?.suspicious?'deep-suspicious-late':'deep-raw-late';
+  if(d.quality?.suspicious){state.deepSelector?.fail?.();const band=Math.round(100*Number(d.quality?.stripe?.dominantExplained||0));log.warn('deep-depth-quality-rejected',{jobId:d.jobId,quality:d.quality,resolutionRescue:d.resolutionRescue||null,lateBound,metricCalibrationDeferred:true});if($('mvsState'))$('mvsState').textContent=`Deep post-scan anomala (${band}% banding) · raw salvata a bassa autorità`;return;}
   state.deepSelector?.commit?.(payload.ref,payload.sparseSeeds);state.deepAccepted++;
-  payload.depthPrior={depth:cal.depth,relativeSigma:cal.relativeSigma,width:cal.width,height:cal.height,confidence:cal.posteriorConfidence??cal.confidence,mode:cal.sequenceMode||cal.mode};
-  payload.deepCalibration={confidence:cal.posteriorConfidence??cal.confidence,medianRelativeError:cal.medianRelativeError,heldOutRelativeError:cal.heldOutRelativeError??null,sequenceSigma:cal.sequenceSigma??null,mode:cal.sequenceMode||cal.mode,a:cal.a,b:cal.b};
-  const uncertainty=Math.max(.06,Number(cal.sequenceSigma??cal.medianRelativeError??.18));Object.assign(payload.config,{priorRelRange:clampNumber(Math.max(CONFIG.deepPriorRelRange||.26,uncertainty*2.2),.18,.55),priorDepthSteps:CONFIG.deepPriorDepthSteps||10,priorWeight:0,priorMinConfidence:CONFIG.deepPriorMinConfidence||.08,priorMinTexture:CONFIG.deepPriorMinTexture||.006});
-  log.info('deep-sequence-calibrated',{jobId:d.jobId,provider:d.provider,aiMs:d.ms,frameMode:cal.frameMode||cal.mode,sequenceMode:cal.sequenceMode||cal.mode,confidence:cal.posteriorConfidence??cal.confidence,anchors:cal.anchorCount,medianRelativeError:cal.medianRelativeError,heldOutRelativeError:cal.heldOutRelativeError??null,sequenceSigma:cal.sequenceSigma??null,parameterDrift:cal.parameterDrift??null});
-  if($('mvsState'))$('mvsState').textContent=`Deep seq ${cal.sequenceMode||cal.mode} · σ ${(100*uncertainty).toFixed(1)}% · MVS indipendente`;
-  stripDeepRaster(payload);state.denseActivePayload=payload;state.denseDepthWorker.postMessage(payload);
+  log.info('deep-late-raw-bound',{jobId:d.jobId,provider:d.provider,aiMs:d.ms,frameId:payload.ref.frameId,anchorsAtCapture:payload.sparseSeeds?.length||0,metricCalibrationDeferred:true,lateBound:true});
+  if($('mvsState'))$('mvsState').textContent='Deep post-scan ✓ · raw associata al frame · calibrazione su pose finali';
 }
 function clampNumber(v,a,b){return Math.max(a,Math.min(b,v));}
 async function handleDenseDepthMessage(d){
@@ -678,7 +713,7 @@ function smoothAcceptedAnchors(next){const old=new Map((state.liveOptAcceptedAnc
 function adaptLiveOptBackoff(current,solveMs,mapMs){let b=Math.max(1,Number(current)||1),cost=Math.max(0,Number(solveMs)||0)+.35*Math.max(0,Number(mapMs)||0);if(cost>180)b=Math.min(3,b*1.28);else if(cost>110)b=Math.min(3,b*1.12);else if(cost<65)b=Math.max(1,b*.92);return b;}
 function replaceValidatedPreviewGaussians(next,{max=6500}={}){const rank=x=>(Number(x?.confidence)||.1)+.10*(Number(x?.independentSupport)||0)+.08*(Number(x?.support)||0)+(x?.evidenceClass==='strong'?.35:x?.evidenceClass==='confirmed'?.18:0),out=(next||[]).filter(g=>Array.isArray(g?.position||g?.p)&&((g.position||g.p).length>=3));out.sort((a,b)=>rank(b)-rank(a));return out.slice(0,max);}
 
-function stopScan(){stopLiveOptimizer();scanAbortController?.abort();scanAbortController=null;state.scanStop?.();state.scanStop=null;state.camera?.stop();state.camera=null;state.deepDepthWorker?.terminate();state.deepDepthWorker=null;state.deepWorkerModelId=null;state.deepSelector?.reset?.();state.deepSelector=null;state.deepPending=null;state.deepJobs.clear();state.deepPreviewInFlight=null;state.deepPreviewLastAt=0;state.photoSurveyLastAt=0;state.denseDepthWorker?.terminate();state.denseDepthWorker=null;state.denseFusionWorker?.terminate();state.denseFusionWorker=null;state.denseManager?.reset?.();state.denseManager=null;state.denseBusy=false;state.liveOverlay=null;const depth=$('depthOverlay');if(depth)depth.getContext('2d')?.clearRect(0,0,depth.width,depth.height);if($('deepLiveState'))$('deepLiveState').textContent='DEEP LIVE —';state.liveMapRenderPending=false;}
+function stopScan(){stopLiveOptimizer();scanAbortController?.abort();scanAbortController=null;state.scanStop?.();state.scanStop=null;state.camera?.stop();state.camera=null;state.deepDepthWorker?.terminate();state.deepDepthWorker=null;state.deepWorkerModelId=null;state.deepSelector?.reset?.();state.deepSelector=null;state.deepPending=null;state.deepJobs.clear();state.deepPreviewInFlight=null;state.deepPreviewLastAt=0;state.photoSurveyLastAt=0;state.denseDepthWorker?.terminate();state.denseDepthWorker=null;state.denseFusionWorker?.terminate();state.denseFusionWorker=null;state.denseManager?.reset?.();state.denseManager=null;state.denseBusy=false;state.liveOverlay=null;const depth=$('depthOverlay');if(depth)depth.getContext('2d')?.clearRect(0,0,depth.width,depth.height);if($('deepLiveState'))$('deepLiveState').textContent='DEEP POST —';state.liveMapRenderPending=false;}
 async function finishScan(){
   // Closing quality is judged first from the photo-only graph. Alva coverage is
   // secondary geometric guidance and must never define photographic closure.
@@ -690,7 +725,15 @@ async function finishScan(){
     const pct=Math.round(100*(cov.strongCoverage||0)),conn=Math.round(100*(cov.connectedFraction||0)),msg=`La copertura geometrica e ancora incompleta (${pct}% copertura forte, ${conn}% viste connesse).\n\n${cov.guidance||'Ripassa le zone deboli.'}\n\nTerminare comunque?`;
     if(!window.confirm(msg)){if($('coach'))$('coach').textContent=cov.guidance||'Ripassa la zona meno coperta prima di terminare.';return;}
   }
-  await waitForDenseIdle();
+  // Freeze the fast lane first. From this point no camera/Alva/RGB frame can
+  // be delayed by neural work because acquisition is already complete.
+  stopCaptureFastLane();stopLiveOptimizer();
+  await waitForDenseIdle(CONFIG.postScanDenseDrainMs||12000);
+  // Depth Anything is deliberately late-bound: process the bounded exact-frame
+  // backlog only after the RGB/Alva scan has finished.
+  await drainDeepBacklog();
+  const latePanorama=state.liveMap?.exportState?.()||null;if(latePanorama?.edges?.length)state.probGraph?.addPhotoEdges?.(latePanorama.edges);
+  log.checkpoint('fast-lane-frozen-deep-bound',{fastLaneFrames:state.fastLaneFrames,maxFastLaneGapMs:state.fastLaneMaxGapMs,photoPanorama:latePanorama?.stats||state.liveMap?.stats?.()||null,deepQueue:state.deepLateQueue?.stats?.()||null,graph:state.probGraph?.summary?.()||null});
   // Persist the compact multi-view ray reservoir BEFORE terminating the fusion
   // worker. This makes later iterative optimisation a real geometric refinement
   // rather than a smoothing pass over an already flattened PLY.
@@ -739,9 +782,9 @@ function toggleScanDiagnostics(){setScanDiagnosticsOpen(!$('scanDiagnostics')?.c
 function setLiveMapMode(mode){state.liveMapMode=mode==='depth'?'depth':'photo';updateLiveMapUi();scheduleLiveMapRender(true);}
 function updateLiveMapUi(extra=null){
   const photo=$('liveMapPhotoBtn'),depth=$('liveMapDepthBtn'),status=$('liveMapState'),s=state.liveMap?.stats?.()||state.liveMapStats||{};
-  if(photo)photo.classList.toggle('active',state.liveMapMode==='photo');if(depth)depth.classList.toggle('active',state.liveMapMode==='depth');if(!status)return;if(extra){status.textContent=extra;return;}if(!s.frames){status.textContent=`${state.liveMapMode==='depth'?'DEPTH CONSENSUS':'MOSAICO RGB+DEPTH'} · attendo primo frame con Depth valida…`;return;}
+  if(photo)photo.classList.toggle('active',state.liveMapMode==='photo');if(depth)depth.classList.toggle('active',state.liveMapMode==='depth');if(!status)return;if(extra){status.textContent=extra;return;}if(!s.frames){status.textContent=`${state.liveMapMode==='depth'?'DEPTH CONSENSUS':'MOSAICO RGB FAST'} · attendo primo frame depth-planned…`;return;}
   const placed=s.visualRegisteredFrames||0,pending=Math.max(0,(s.frames||0)-placed),visual=`${placed} foto unite${pending?` · ${pending} in attesa overlap`:''}`;
-  if(state.liveMapMode==='photo')status.textContent=`MOSAICO RGB+DEPTH · ${visual} · ${s.rawDepthFrames||0} depth associate · nessun punto/posa · ${(100*(s.coverage||0)).toFixed(0)}% canvas`;
+  if(state.liveMapMode==='photo')status.textContent=`MOSAICO RGB FAST · ${visual} · ${s.rawDepthFrames||0} depth late-bound · nessun punto/posa · coda Deep ${state.deepLateQueue?.stats?.().queued||0} · ${(100*(s.coverage||0)).toFixed(0)}% canvas`;
   else{const metric=s.metricDepthFrames||0,cons=s.depthConsensusAlignedFrames||0,derr=Number.isFinite(s.depthConsensusError)&&s.depthConsensusError<9?` · err overlap ${(100*s.depthConsensusError).toFixed(1)}%`:'',amb=s.depthAmbiguousFraction>0?` · amb ${(100*s.depthAmbiguousFraction).toFixed(0)}%`:'';status.textContent=`DEPTH PREVIEW · Deep ${s.rawDepthFrames||0}F · overlap ${cons}F · scala affine provvisoria · metriche ${metric}F${derr}${amb} · ${(100*(s.coverage||0)).toFixed(0)}% canvas`;}
 }
 

@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.44.0 RGB-line pose-scaffold + observable dense surface configuration.
+ * Room Scanner V30.45.0 async RGB/Alva fast-lane + late-bound Deep configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.44.0',
-  id:'v30.44.0-20260822-rgb-line-pose-scaffold',
+  version:'30.45.0',
+  id:'v30.45.0-20260822-async-rgb-alva-late-deep',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -198,11 +198,18 @@ export const CONFIG={
   deepModelUrl:'models/model_q4.onnx',
   deepModelRemoteUrl:null,
   deepModelLabel:'Depth Anything V2 Small Q4 locale',
-  // Live diagnostic depth is intentionally independent from Alva tracking. It
-  // runs at roughly 1 Hz during Scan even while Alva is still INIT, so the user
-  // can immediately see whether the neural prior is geometrically meaningful.
-  deepLiveDuringScan:true,
-  deepInferenceIntervalMs:1000,
+  // V30.45: camera/Alva/RGB/MVS form a strict fast lane. During Scan we only
+  // freeze exact frames explicitly destined for Depth; neural inference is
+  // deferred until acquisition stops, then late-bound by frameId.
+  deepLiveDuringScan:false,
+  deepPostScanOnly:true,
+  deepPlanIntervalMs:2600,
+  deepSurveyQueueBudget:8,
+  deepLateQueueMaxItems:32,
+  deepPostScanMaxDrainMs:300000,
+  postScanDenseDrainMs:12000,
+  fastLaneGapWarnMs:650,
+  deepInferenceIntervalMs:2600,
   // 224 px = 16 ViT/14 patches on the short side. On the test phone 168 px was
   // fast (~0.5 s) but collapsed into global vertical bands. 224 remains close to
   // the sub-second budget while providing substantially more spatial tokens.
@@ -252,9 +259,10 @@ export const CONFIG={
   // reintroducing unconstrained plane-sweep sheets. A later novel view will fill
   // the same surface with one calibrated AI call.
   deepSkipUnprioritized:true,
-  // Every geometrically accepted dense keyframe gets a Deep proxy. The dense
-  // keyframe manager, not the neural selector, is now the sampling authority.
-  deepInferEveryDenseKeyframe:true,
+  // V30.45: Deep is not requested for every dense keyframe. The selector keeps
+  // only frames that add useful depth coverage; RGB/Alva/MVS keep every useful
+  // fast-lane observation independently.
+  deepInferEveryDenseKeyframe:false,
 
   // V30.28 probabilistic evidence graph. Online mapping remains responsive,
   // while every reversible measurement required for post-scan re-estimation is
