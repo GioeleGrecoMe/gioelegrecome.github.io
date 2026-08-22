@@ -1,7 +1,7 @@
-import {ProbabilisticJointOptimizer} from './joint_optimizer.js?v=30.54.0';
-import {evaluateLiveCandidate} from './live_optimization_gate.js?v=30.54.0';
-import {evaluatePoseScaffoldPolicy} from './pose_scaffold_policy.js?v=30.54.0';
-import {evaluateRgbConsensusPolicy} from './rgb_consensus_policy.js?v=30.54.0';
+import {ProbabilisticJointOptimizer} from './joint_optimizer.js?v=30.55.0';
+import {evaluateLiveCandidate} from './live_optimization_gate.js?v=30.55.0';
+import {evaluatePoseScaffoldPolicy} from './pose_scaffold_policy.js?v=30.55.0';
+import {evaluateRgbConsensusPolicy} from './rgb_consensus_policy.js?v=30.55.0';
 
 const now=()=>globalThis.performance?.now?.()??Date.now();
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -132,8 +132,27 @@ export class SingleOptimizerRuntime{
     }catch(err){this.trace('adaptive-depth-feedback-error',{message:err?.message||String(err),stack:err?.stack||null});throw err;}finally{this.busy=false;}
   }
 
+  async rebuildAtAcceptedPoses(graph,options={}){
+    if(!this.acceptedSnapshot)return null;
+    const t=now();
+    try{
+      // Post-scan MVS samples are ray intersections in this exact snapshot.
+      // A subsequent RGB-only solve can be useful, but it cannot be applied
+      // between their generation and their first final validation.
+      const opt=new ProbabilisticJointOptimizer(graph,{...(options.optimizer||{}),initial:this.acceptedSnapshot}),stats=opt.computeStats(),snapshot=this.acceptedSnapshot,acceptedFrameIds=new Set((snapshot.frames||[]).map(f=>String(f.frameId))),scaffold=scaffoldPolicyFromStats(stats,graph),rgbWithheldReason=stats?.rgbConsensusCollapsed?'rgb-consensus-collapsed':(stats?.rgbConsensusCommitReady===false&&!scaffold.observed)?'rgb-consensus-insufficient-for-commit':null,map=opt.rebuild(options.rebuild||{}),elapsedMs=now()-t,geometryPolicy=map?.stats?.geometryPolicy||null,splatReady=geometryPolicy?.splatCommitReady??geometryPolicy?.commitReady??true,meshReady=geometryPolicy?.meshCommitReady??geometryPolicy?.commitReady??true,geometryWithheldReason=geometryPolicy&&splatReady===false?(geometryPolicy.reason||'final-geometry-policy-rejected'):null,meshWithheldReason=splatReady&&meshReady===false?(geometryPolicy.reason||'mesh-policy-rejected'):null,withheldReason=rgbWithheldReason||geometryWithheldReason;
+      this.acceptedStats=stats;this.workingSnapshot=snapshot;
+      this.trace('mvs-final-pose-frozen',{elapsedMs,frames:graph?.frames?.length||0,acceptedFrames:acceptedFrameIds.size,stats:compactStats(stats),poseScaffoldPolicy:scaffold,mvsValidation:map?.stats?.mvsValidation||null,geometryPolicy});
+      this.trace('mesh-quality',{elapsedMs,status:map?.stats?.meshQuality?.status||'empty',quality:map?.stats?.meshQuality||null,geometryPolicy,poseScaffoldPolicy:map?.stats?.poseScaffoldPolicy||null,depthGeometryPolicy:map?.stats?.depthGeometryPolicy||null,mvsValidation:map?.stats?.mvsValidation||null,poseFrozen:true});
+      this.trace('rebuild',{elapsedMs,stats:map?.stats||null,gaussians:map?.gaussians?.length||0,faces:map?.mesh?.faces?.length?map.mesh.faces.length/3:0,reconciled:false,poseFrozen:true,acceptedCoverage:{acceptedFrames:acceptedFrameIds.size,totalFrames:graph?.frames?.length||0,excludedUnacceptedFrames:map?.stats?.excludedUnacceptedFrames||0}});
+      if(withheldReason)this.trace('commit-withheld',{elapsedMs,reason:withheldReason,rgbWithheldReason,geometryWithheldReason,meshWithheldReason,reconciled:false,poseFrozen:true,geometryPolicy,poseScaffoldPolicy:map?.stats?.poseScaffoldPolicy||null,depthGeometryPolicy:map?.stats?.depthGeometryPolicy||null,mvsValidation:map?.stats?.mvsValidation||null});
+      else if(meshWithheldReason)this.trace('mesh-commit-withheld',{elapsedMs,reason:meshWithheldReason,reconciled:false,poseFrozen:true,geometryPolicy});
+      return {map,stats,snapshot,elapsedMs,reconciled:false,poseFrozen:true,acceptedFrameIds:[...acceptedFrameIds],withheldReason,meshWithheldReason};
+    }catch(err){this.trace('rebuild-frozen-error',{message:err?.message||String(err),stack:err?.stack||null});throw err;}
+  }
+
   async rebuildAccepted(graph,options={}){
     if(!this.acceptedSnapshot)return null;
+    if(options.freezePose===true)return this.rebuildAtAcceptedPoses(graph,options);
     const t=now();
     try{
       // The live accepted snapshot is intentionally local. Before committed

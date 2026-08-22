@@ -1,7 +1,7 @@
 {
-  "version": "30.54.0",
-  "id": "v30.54.0-20260822-alva-epoch-pnp-backprojection",
+  "version": "30.55.0",
+  "id": "v30.55.0-20260822-archive-mvs-pose-freeze-wall-baseline",
   "date": "2026-08-22",
-  "notes": "V30.54 separates Alva Scan initialization from true loss while preserving Alva's native map, retains lost-view RGB evidence for conservative post-scan PnP recovery, and makes the processing view show cumulative globally calibrated camera-Z splats rather than per-frame normalized pseudo-3D.",
-  "builtAt": "2026-08-22T13:15:00+02:00"
+  "notes": "V30.55 builds post-scan MVS from the complete sharp-photo archive, freezes the exact RGB/Alva pose snapshot for the first MVS surface validation, exposes color-coded diagnostic splat evidence, and adds a wall-with-objects baseline to the pipeline TEST.",
+  "builtAt": "2026-08-22T14:20:00+02:00"
 }

@@ -1,6 +1,6 @@
-import {poseIdentity,qNormalize,qConj,qMul,qRotate} from './math.js?v=30.54.0';
-import {applySimilarityPose} from './alva_metric_bootstrap.js?v=30.54.0';
-import {estimatePoseCovariance} from '../probabilistic/pose_uncertainty.js?v=30.54.0';
+import {poseIdentity,qNormalize,qConj,qMul,qRotate} from './math.js?v=30.55.0';
+import {applySimilarityPose} from './alva_metric_bootstrap.js?v=30.55.0';
+import {estimatePoseCovariance} from '../probabilistic/pose_uncertainty.js?v=30.55.0';
 
 /**
  * AlvaAR world tracker wrapper.

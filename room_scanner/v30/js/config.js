@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.54.0 adaptive Deep + Alva recovery configuration.
+ * Room Scanner V30.55.0 adaptive Deep + Alva recovery configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.54.0',
-  id:'v30.54.0-20260822-alva-epoch-pnp-backprojection',
+  version:'30.55.0',
+  id:'v30.55.0-20260822-archive-mvs-pose-freeze-wall-baseline',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -245,7 +245,7 @@ export const CONFIG={
   sharpArchiveProcessingYieldEvery:3,
   sharpArchiveDeepFrameTimeoutMs:120000,
   sharpArchiveFlushTimeoutMs:20000,
-  // V30.54 adaptive Deep: RGB/Alva sees a much larger archive, while neural
+  // V30.55 adaptive Deep: RGB/Alva sees a much larger archive, while neural
   // depth is purchased only where it adds geometric information.
   adaptiveDeepInitialBatch:16,
   adaptiveDeepNextBatch:8,
@@ -305,6 +305,14 @@ export const CONFIG={
   postScanMvsMaxJobs:48,
   postScanMvsSourcePool:4,
   postScanMvsJobTimeoutMs:18000,
+  // Build the final plane-sweep queue from the complete sharp-photo archive,
+  // not only from the few sparse jobs that fit during acquisition.
+  postScanArchiveMvsMaxJobs:36,
+  postScanArchiveMvsMinSources:2,
+  // MVS is generated after the RGB scaffold. Keep that exact pose snapshot
+  // for the first final surface rebuild; moving cameras afterwards invalidates
+  // ray/depth intersections and makes a wall dissolve into disconnected blobs.
+  postScanMvsFreezePose:true,
   // One Alva-world depth envelope is inferred across all post-scan MVS views.
   // Local triangulation still seeds individual pixels but can no longer rescale a view.
   postScanMvsScaleMinSeeds:18,
@@ -520,15 +528,19 @@ export const CONFIG={
   surfaceDisplayMinConfidence:.52,
   surfaceCandidateDisplayMinConfidence:.60,
   surfaceLiveDisplayMinConfidence:.48,
+  diagnosticSurfaceMaxSplats:12000,
   surfaceMeshMinConfidence:.30,
 
   // Storage/rebuild budgets reused by the single hierarchical optimizer.
   // These names are retained for snapshot compatibility; they do not select
   // a second optimizer implementation.
-  // V30.54: final reconstruction is part of Processing, not a manual REVIEW step.
+  // V30.55: final reconstruction is part of Processing, not a manual REVIEW step.
   postScanFinalOptimizationPasses:10,
   postScanFinalOptimizationMaxAttempts:30,
   postScanFinalAutoRebuild:true,
+  wallBaselineMinArchiveFrames:20,
+  wallBaselineMinMvsJobs:16,
+  wallBaselineMinMvsSamples:1600,
   pipelineTestCriticalEventLimit:80,
 
   postOptimizeDefaultIterations:30,

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {AdaptiveDeepScheduler,selectGeometricPhotoSubset} from '../js/reconstruction/adaptive_deep_scheduler.js?v=30.54.0';
+import {AdaptiveDeepScheduler,selectGeometricPhotoSubset} from '../js/reconstruction/adaptive_deep_scheduler.js?v=30.55.0';
 
 const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
 const cfg=fs.readFileSync(new URL('../js/config.js',import.meta.url),'utf8');
@@ -78,9 +78,10 @@ test('processing keeps the last validated Deep/pose preview while RGB and MVS ad
   assert.match(app,/global-calibrated-camera-z/);assert.match(app,/calibratedDepthForPreview/);assert.match(app,/local=\[\(u-K\.cx\).*z/);
 });
 
-test('MVS consumes the latest accepted pose snapshot after adaptive Deep feedback',()=>{
+test('MVS consumes the post-scaffold pose snapshot and preserves it for final validation',()=>{
   const finish=app.slice(app.indexOf('async function finishScan'),app.indexOf('async function persistCurrentSession'));
-  assert.match(finish,/const mvsSnapshot=state\.liveOptAccepted\|\|rgbScaffold\?\.snapshot\|\|null/);
+  assert.match(finish,/const mvsSnapshot=rgbScaffold\?\.snapshot\|\|state\.liveOptAccepted\|\|null/);
+  assert.match(finish,/freezePoseForMvs:CONFIG\.postScanMvsFreezePose!==false/);
   assert.match(finish,/drainPostScanMvsBacklog\(mvsSnapshot\)/);
 });
 
