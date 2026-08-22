@@ -1,5 +1,5 @@
 /*
- * V30.51 adaptive Deep selection.
+ * V30.52 adaptive Deep selection.
  *
  * Deep is requested only for RGB/Alva frames that add geometric information.
  * The selector is deliberately independent from the neural model: it uses the
@@ -44,8 +44,34 @@ export class AdaptiveDeepScheduler{
   }
   next(processedIds=new Set(),snapshot=null){
     const map=this.buildUncertainty(processedIds,snapshot),remaining=Math.max(0,this.maxDepthFrames-processedIds.size),count=Math.min(remaining,this.round===0?this.initialBatch:this.nextBatch);if(count<=0)return {records:[],stopReason:'max-depth-frames',map,marginalScore:0,round:this.round};
-    const chosen=[],chosenIds=new Set();for(const s of map.scores){if(chosen.length>=count)break;let redundancy=0;if(chosen.length)redundancy=clamp(1-nearestDistance(s.record,chosen,this.scale)/.7);const adjusted=s.score*(1-.48*redundancy);if(adjusted<this.minMarginalScore&&this.round>0)continue;chosen.push(s.record);chosenIds.add(s.frameId);}
-    const marginal=chosen.length?map.scores.filter(x=>chosenIds.has(x.frameId)).reduce((s,x)=>s+x.score,0)/chosen.length:0,stopReason=!chosen.length?'marginal-gain-low':null,round=this.round++;
+    // The uncertainty map describes the state *before* this tranche.  Ranking
+    // it once and taking its first N entries used to buy sixteen almost
+    // identical photographs: the already picked photographs did not lower
+    // novelty or cell uncertainty until the following Deep round.  Select
+    // greedily instead.  We first cover distinct pose/yaw cells, then relax the
+    // cap only if the session really has too few distinct views.
+    const chosen=[],chosenIds=new Set(),chosenMeta=new Map(),cellCounts=new Map(),stages=[{cellCap:1,minSeparation:.48},{cellCap:2,minSeparation:.30},{cellCap:3,minSeparation:.18},{cellCap:Infinity,minSeparation:.10}];
+    while(chosen.length<count){
+      let best=null;
+      for(const stage of stages){
+        for(const s of map.scores){
+          if(chosenIds.has(s.frameId)||(cellCounts.get(s.cell)||0)>=stage.cellCap)continue;
+          const separation=chosen.length?nearestDistance(s.record,chosen,this.scale):1.5;
+          if(chosen.length&&separation<stage.minSeparation)continue;
+          const redundancy=chosen.length?clamp(1-separation/.86):0,cellReuse=cellCounts.get(s.cell)||0;
+          // A repeated cell can still be useful after the first coverage pass,
+          // but it must beat a genuinely new viewpoint by a substantial margin.
+          const adjusted=s.score*(1-.62*redundancy)*(1-.18*Math.min(3,cellReuse));
+          if(!best||adjusted>best.adjusted||(adjusted===best.adjusted&&s.score>best.s.score))best={s,adjusted,separation,redundancy,cellReuse,stage};
+        }
+        if(best)break;
+      }
+      if(!best)break;
+      if(best.adjusted<this.minMarginalScore&&this.round>0)break;
+      chosen.push(best.s.record);chosenIds.add(best.s.frameId);cellCounts.set(best.s.cell,(cellCounts.get(best.s.cell)||0)+1);chosenMeta.set(best.s.frameId,{batchNovelty:clamp(best.separation/1.25),batchSeparation:best.separation,batchRedundancy:best.redundancy,batchCellReuse:best.cellReuse,adjustedScore:best.adjusted,selectionCellCap:best.stage.cellCap});
+    }
+    for(const s of map.scores){const meta=chosenMeta.get(s.frameId);if(meta)Object.assign(s,meta);}
+    const marginal=chosen.length?map.scores.filter(x=>chosenIds.has(x.frameId)).reduce((s,x)=>s+(x.adjustedScore??x.score),0)/chosen.length:0,stopReason=!chosen.length?'marginal-gain-low':null,round=this.round++;
     return {records:chosen,stopReason,map,marginalScore:marginal,round};
   }
   _cells(){const ps=this.rows.map(poseOf).filter(Boolean).map(p=>p.p);let minX=0,maxX=1,minZ=0,maxZ=1;if(ps.length){minX=Math.min(...ps.map(p=>p[0]));maxX=Math.max(...ps.map(p=>p[0]));minZ=Math.min(...ps.map(p=>p[2]));maxZ=Math.max(...ps.map(p=>p[2]));}return {minX,maxX,minZ,maxZ,gridBins:this.gridBins,yawBins:this.yawBins};}

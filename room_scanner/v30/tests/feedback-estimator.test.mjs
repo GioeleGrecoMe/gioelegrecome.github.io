@@ -42,16 +42,16 @@ test('dense consistency is leave-one-view-out and reports independent multiview 
 
 test('submap loop graph adjusts only rigid submap poses',()=>{
   const a=Math.PI/12,c=Math.cos(a),s=Math.sin(a),R=[c,0,s,0,1,0,-s,0,c],subs=[0,1,2].map(i=>({id:`S${i}`,anchorPose:pose(i),frameIds:[`f${i}`]})),frames=[0,1,2].map(i=>({frameId:`f${i}`,poseEstimate:pose(i),posePrior:pose(i)})),edgeModel={pairWeight:()=>.95};
-  const g=new SubmapPoseGraph(subs,frames,{photoEdges:[{aId:'f0',bId:'f2',loop:true,rotationBToA:R}],edgeModel}).optimize(10);const before=[0,0,0,1],after=g.nodes[2].pose.q;assert.equal(g.stats().loops,1);assert.ok(Math.hypot(after[0]-before[0],after[1]-before[1],after[2]-before[2],after[3]-before[3])>1e-4,{after});g.apply();assert.deepEqual(subs[2].anchorPose.q,after);
+  const g=new SubmapPoseGraph(subs,frames,{photoEdges:[{aId:'f0',bId:'f2',loop:true,rotationBToA:R}],edgeModel}).optimize(10);const before=[0,0,0,1],after=g.nodes[2].pose.q;assert.equal(g.stats().loops,1);assert.ok(Math.hypot(after[0]-before[0],after[1]-before[1],after[2]-before[2],after[3]-before[3])>1e-4,{after});g.apply();assert.ok(subs[2].anchorPose.q.every((v,i)=>Math.abs(v-after[i])<1e-12),{actual:subs[2].anchorPose.q,after});
 });
 
 import {ProbabilisticJointOptimizer} from '../js/probabilistic/joint_optimizer.js';
 
-test('committed dense surface accepts only leave-one-out confirmed Deep samples',()=>{
+test('unanchored leave-one-out Deep samples remain candidates, not committed surface',()=>{
   const frames=[-.20,0,.20].map((x,i)=>({frameId:`c${i}`,posePrior:pose(x),poseEstimate:pose(x),poseCov:{diag:[1e-6,1e-6,1e-6,1e-7,1e-7,1e-7]},K,width:160,height:120,photo:{width:16,height:12,rgb:new Uint8Array(16*12*3).fill(140)}}));
   const deepFactors=frames.map(f=>({frameId:f.frameId,cols:16,rows:12,raw:new Float32Array(16*12).fill(2)})),photoEdges=[];for(let i=0;i<3;i++)for(let j=i+1;j<3;j++)photoEdges.push({aId:`c${i}`,bId:`c${j}`,visualConfidence:.95,rotationBToA:[1,0,0,0,1,0,0,0,1],matches:Array.from({length:20},()=>({probability:.95}))});
   const opt=new ProbabilisticJointOptimizer({format:'ROOMSCAN-PROB-GRAPH-1',frames,edgeFactors:photoEdges,alvaFactors:[],landmarkFactors:[],deepFactors,mvsFactors:[]});opt.depthCalibration={format:'ROOMSCAN-DEPTH-CAL-HIER-1',representation:'inverse-depth',domain:{center:0,scale:1},gamma:[0,0],frames:frames.map(f=>({frameId:f.frameId,a:.5/1.8,b:0,confidence:.95,residualSigma:.004,anchorCount:0})),stats:{frames:3}};
-  const out=opt.rebuild({voxel:.05,hashVoxel:.035,maxSurfels:4000,maxTriangles:4000,maxDeepSamples:1000,submapSize:4,submapOverlap:1});assert.equal(out.stats.leaveOneViewOut,true);assert.equal(out.stats.candidateConfirmedSplit,true);assert.ok(out.stats.deepConfirmed>0,out.stats);assert.ok(out.stats.deepCount>0,out.stats);assert.ok(out.stats.submapPoseGraph.nodes>=1,out.stats);
+  const out=opt.rebuild({voxel:.05,hashVoxel:.035,maxSurfels:4000,maxTriangles:4000,maxDeepSamples:1000,submapSize:4,submapOverlap:1});assert.equal(out.stats.leaveOneViewOut,true);assert.equal(out.stats.candidateConfirmedSplit,true);assert.equal(out.stats.deepConfirmed,0,out.stats);assert.equal(out.stats.deepCount,0,out.stats);assert.ok(out.stats.submapPoseGraph.nodes>=1,out.stats);
 });
 
 test('RGB acquisition quality lowers authority for blank/clipped frames without inventing geometry',async()=>{

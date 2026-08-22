@@ -1,5 +1,5 @@
 /**
- * V30.51 final geometry policy.
+ * V30.52 final geometry policy.
  *
  * Dense geometry is authoritative only when:
  *  - the evidence is tied to the final camera scaffold;

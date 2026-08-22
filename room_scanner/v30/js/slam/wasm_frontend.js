@@ -12,7 +12,7 @@ import {loadAlvaModule,getAlvaRuntimeStatus} from './alva_runtime_loader.js';
 export class WasmVisionFrontend{
   constructor(options={}){
     if(typeof options==='string')options={sentinelUrl:options};
-    this.options=options||{};this.instance=null;this.alva=null;this.alvaModule=null;this.alvaLoadError=null;this.previous=null;this.width=0;this.height=0;this.fovDeg=45;this.mode='uninitialized';this.lastPoseAt=0;
+    this.options=options||{};this.instance=null;this.alva=null;this.alvaModule=null;this.alvaLoadError=null;this.previous=null;this.width=0;this.height=0;this.fovDeg=45;this.mode='uninitialized';this.lastPoseAt=0;this.hasProcessedPose=false;
     this.limits={maxFeatures:4096,descriptorBytes:16,implementation:'AlvaAR-WASM+local-MVS-descriptors'};
   }
 
@@ -70,9 +70,15 @@ export class WasmVisionFrontend{
     // which the real SLAM initializer saw camera frames. Keep them disabled until
     // Alva has produced its first pose; after that they remain available for MVS.
     if(!tracking.cameraPose){
-      this.previous=null;
-      return {count:alvaFeatures.length,features:alvaFeatures,matches:{count:0,items:[]},...tracking,alvaFeatureCount:alvaFeatures.length,initializerFastPath:true};
+      // Never steal CPU from first-map initialization. Once a real Alva pose
+      // existed, retain a compact local feature packet while it is lost so the
+      // app-side reference memory can recognise a known area. These features
+      // never feed Alva and cannot synthesize a camera trajectory.
+      if(!this.hasProcessedPose){this.previous=null;return {count:alvaFeatures.length,features:alvaFeatures,matches:{count:0,items:[]},...tracking,alvaFeatureCount:alvaFeatures.length,initializerFastPath:true};}
+      const recoveryFeatures=mergeFeatures(alvaFeatures,detect(frame.gray,frame.width,frame.height,Math.min(280,maxFeatures),threshold),Math.min(280,maxFeatures)),matches=match(this.previous?.features||[],recoveryFeatures);this.previous={features:recoveryFeatures,width:frame.width,height:frame.height};
+      return {count:recoveryFeatures.length,features:recoveryFeatures,matches:{count:matches.length,items:matches},...tracking,alvaFeatureCount:alvaFeatures.length,initializerFastPath:false,localRecoveryFeatures:true};
     }
+    this.hasProcessedPose=true;
     let features=alvaFeatures;
     if(features.length<Math.min(90,maxFeatures)){
       const extra=detect(frame.gray,frame.width,frame.height,maxFeatures,threshold);
@@ -87,12 +93,12 @@ export class WasmVisionFrontend{
     const features=detect(gray,width,height,maxFeatures,threshold),matches=match(this.previous?.features||[],features);this.previous={features,width,height};return {count:features.length,features,matches:{count:matches.length,items:matches}};
   }
 
-  resetLocalFeatures(){this.previous=null;}
-  resetAll(){this.previous=null;this.lastPoseAt=0;try{this.alva?.reset?.();}catch{}}
+  resetLocalFeatures(){this.previous=null;this.hasProcessedPose=false;}
+  resetAll(){this.previous=null;this.lastPoseAt=0;this.hasProcessedPose=false;try{this.alva?.reset?.();}catch{}}
   reset(){this.resetLocalFeatures();}
 }
 
-function detect(g,w,h,maxN,thr){const out=[],step=3;for(let y=3;y<h-3;y+=step)for(let x=3;x<w-3;x+=step){const i=y*w+x,gx=(g[i+1]-g[i-1])+(g[i+w+1]-g[i+w-1]),gy=(g[i+w]-g[i-w])+(g[i+w+1]-g[i-w-1]),score=Math.abs(gx)+Math.abs(gy);if(score<thr*5)continue;const desc=[];for(const [dx,dy] of [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[2,2],[-2,2],[2,-2],[-3,1],[3,-1],[1,3],[-1,-3]])desc.push(g[(y+dy)*w+(x+dx)]);out.push({x,y,score,desc});}out.sort((a,b)=>b.score-a.score);return out.slice(0,maxN);}
+function detect(g,w,h,maxN,thr){const out=[],step=3;for(let y=5;y<h-5;y+=step)for(let x=5;x<w-5;x+=step){const i=y*w+x,gx=(g[i+1]-g[i-1])+(g[i+w+1]-g[i+w-1]),gy=(g[i+w]-g[i-w])+(g[i+w+1]-g[i-w-1]),score=Math.abs(gx)+Math.abs(gy);if(score<thr*5)continue;const desc=[];for(const [dx,dy] of [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[2,2],[-2,2],[2,-2],[-3,1],[3,-1],[1,3],[-1,-3]])desc.push(g[(y+dy)*w+(x+dx)]);out.push({x,y,score,desc,referenceDesc:referenceDescriptor(g,w,x,y)});}out.sort((a,b)=>b.score-a.score);return out.slice(0,maxN);}
 function distDesc(a,b){if(!a?.length||a.length!==b?.length)return Infinity;let s=0;for(let i=0;i<a.length;i++)s+=Math.abs(a[i]-b[i]);return s;}
 function match(prev,cur){const provisional=[];for(let j=0;j<cur.length;j++){let best=-1,bd=Infinity,second=Infinity;for(let i=0;i<prev.length;i++){const d=distDesc(cur[j].desc,prev[i].desc)+.18*Math.hypot(cur[j].x-prev[i].x,cur[j].y-prev[i].y);if(d<bd){second=bd;bd=d;best=i}else if(d<second)second=d;}if(best>=0&&bd<1050&&(second===Infinity||bd<second*.90))provisional.push({prev:best,curr:j,distance:bd,dx:cur[j].x-prev[best].x,dy:cur[j].y-prev[best].y});}const bestByPrev=new Map();for(const m of provisional){const old=bestByPrev.get(m.prev);if(!old||m.distance<old.distance)bestByPrev.set(m.prev,m);}return [...bestByPrev.values()];}
 
@@ -103,9 +109,10 @@ function featuresAtTrackedPoints(gray,w,h,points,maxN){
   for(const p of Array.from(points||[])){
     const x=Math.round(Number(p?.x)),y=Math.round(Number(p?.y));if(!Number.isFinite(x)||!Number.isFinite(y)||x<5||y<5||x>=w-5||y>=h-5)continue;
     const cell=`${x>>2}:${y>>2}`;if(seen.has(cell))continue;seen.add(cell);
-    const desc=ALVA_DESC_OFFSETS.map(([dx,dy])=>gray[(y+dy)*w+(x+dx)]),i=y*w+x,gx=Math.abs(gray[i+1]-gray[i-1]),gy=Math.abs(gray[i+w]-gray[i-w]);
-    out.push({x,y,score:gx+gy+128,desc,source:'alva-track'});if(out.length>=maxN)break;
+    const desc=referenceDescriptor(gray,w,x,y),i=y*w+x,gx=Math.abs(gray[i+1]-gray[i-1]),gy=Math.abs(gray[i+w]-gray[i-w]);
+    out.push({x,y,score:gx+gy+128,desc,referenceDesc:desc.slice(),source:'alva-track'});if(out.length>=maxN)break;
   }
   return out;
 }
+function referenceDescriptor(gray,w,x,y){return ALVA_DESC_OFFSETS.map(([dx,dy])=>gray[(y+dy)*w+(x+dx)]);}
 function mergeFeatures(primary,extra,maxN){const out=[...primary],cells=new Set(out.map(f=>`${Math.round(f.x)>>2}:${Math.round(f.y)>>2}`));for(const f of extra){const c=`${Math.round(f.x)>>2}:${Math.round(f.y)>>2}`;if(cells.has(c))continue;cells.add(c);out.push({...f,source:'local-mvs'});if(out.length>=maxN)break;}return out;}

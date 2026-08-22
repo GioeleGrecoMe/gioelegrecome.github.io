@@ -1,6 +1,6 @@
-import {poseIdentity,qNormalize,qConj,qMul,qRotate} from './math.js?v=30.51.0';
-import {applySimilarityPose} from './alva_metric_bootstrap.js?v=30.51.0';
-import {estimatePoseCovariance} from '../probabilistic/pose_uncertainty.js?v=30.51.0';
+import {poseIdentity,qNormalize,qConj,qMul,qRotate} from './math.js?v=30.52.0';
+import {applySimilarityPose} from './alva_metric_bootstrap.js?v=30.52.0';
+import {estimatePoseCovariance} from '../probabilistic/pose_uncertainty.js?v=30.52.0';
 
 /**
  * AlvaAR world tracker wrapper.
@@ -49,7 +49,7 @@ export class SlamEngine extends EventTarget{
       this.observations.push(newObservation);this.lastObservationAt=now;if(this.observations.length>this.maxObservations)this.observations.shift();
     }
     if(trackingValid&&(!this.lastAt||now-this.lastAt>=this.keyframeIntervalMs)){
-      newKeyframe={id:`kf-${this.frameIndex}`,frameId:sourceFrameId,at:now,pose:clonePose(this.pose),rawPose:clonePose(raw),features:(r.features||[]).map(f=>({x:+f.x,y:+f.y,score:+(f.score||0),source:f.source||'mvs',desc:Array.from(f.desc||[])})),width:frame.width,height:frame.height,trackingMode,metricLocked:this.metricLocked,geometry:frame.geometry||null,poseCov};
+      newKeyframe={id:`kf-${this.frameIndex}`,frameId:sourceFrameId,at:now,pose:clonePose(this.pose),rawPose:clonePose(raw),features:(r.features||[]).map(f=>({x:+f.x,y:+f.y,score:+(f.score||0),source:f.source||'mvs',desc:Array.from(f.desc||[]),referenceDesc:Array.from(f.referenceDesc||f.desc||[])})),width:frame.width,height:frame.height,trackingMode,metricLocked:this.metricLocked,geometry:frame.geometry||null,poseCov};
       this.keyframes.push(newKeyframe);this.lastAt=now;if(this.keyframes.length>520)this.keyframes.shift();
     }
     // Keep the exact 2-D feature packet on the transient tracking result. It is

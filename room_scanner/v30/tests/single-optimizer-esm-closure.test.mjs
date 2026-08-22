@@ -5,7 +5,7 @@ import path from 'node:path';
 import {pathToFileURL,fileURLToPath} from 'node:url';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const VERSION='30.51.0';
+const VERSION='30.52.0';
 const PREVIOUS_VERSION='30.49.0';
 const INTERMEDIATE_VERSION='30.47.0';
 const BUILD_TAGGED=new Set(['js/probabilistic/single_optimizer_runtime.js']);
@@ -24,7 +24,7 @@ function walk(rel,seen=new Set()){
     if(!spec.startsWith('.'))continue;
     assert.match(spec,new RegExp(`\\?v=(?:${VERSION.replaceAll('.','\\.')}|${PREVIOUS_VERSION.replaceAll('.','\\.')}|${INTERMEDIATE_VERSION.replaceAll('.','\\.')})(?:$|&)`),`${rel} has unversioned/unknown static import ${spec}`);
     const child=path.normalize(path.join(path.dirname(rel),stripQuery(spec))).replaceAll('\\','/');
-    if(BUILD_TAGGED.has(child))assert.match(spec,/\?v=30\.50\.0(?:$|&)/,`${rel} must load modified ${child} with V30.51 cache tag`);
+    if(BUILD_TAGGED.has(child))assert.match(spec,/\?v=30\.50\.0(?:$|&)/,`${rel} must load modified ${child} with V30.52 cache tag`);
     walk(child,seen);
   }
   return seen;

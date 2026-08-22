@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {buildGlobalSurfaceConsensus} from '../js/reconstruction/global_surface_consensus.js?v=30.51.0';
-import {filterSurfaceSplatsForDisplay} from '../js/reconstruction/surface_display_policy.js?v=30.51.0';
-import {retainMeaningfulMeshComponents,analyzeMeshQuality} from '../js/reconstruction/mesh_quality.js?v=30.51.0';
-import {evaluateFinalGeometryPolicy} from '../js/probabilistic/geometry_commit_policy.js?v=30.51.0';
-import {buildPipelineTestSnapshot} from '../js/reconstruction/pipeline_diagnostics.js?v=30.51.0';
+import {buildGlobalSurfaceConsensus} from '../js/reconstruction/global_surface_consensus.js?v=30.52.0';
+import {filterSurfaceSplatsForDisplay} from '../js/reconstruction/surface_display_policy.js?v=30.52.0';
+import {retainMeaningfulMeshComponents,analyzeMeshQuality} from '../js/reconstruction/mesh_quality.js?v=30.52.0';
+import {evaluateFinalGeometryPolicy} from '../js/probabilistic/geometry_commit_policy.js?v=30.52.0';
+import {buildPipelineTestSnapshot} from '../js/reconstruction/pipeline_diagnostics.js?v=30.52.0';
 
 const splat=(id,p,{c=.72,sub='S0',ind=2,support=3,n=[0,0,1]}={})=>({id,position:p,normal:n,color:[180,190,200],confidence:c,support,independentSupport:ind,anchorSupport:1.5,finalPoseValidated:true,evidenceClass:'strong',submapId:sub,scale:[.02,.02,.008],positionCovariance:[1e-4,0,0,1e-4,0,1e-4]});
 
@@ -47,7 +47,7 @@ test('final policy refuses a mesh whose apparent coherence comes from discarding
 });
 
 test('pipeline TEST identifies the earliest broken stage rather than only reporting mesh failure',()=>{
-  const snap=buildPipelineTestSnapshot({build:{version:'30.51.0'},graph:{frames:80,photoEdges:60,photoEdgeImportFraction:.9},optimizer:{candidateStats:{edgeSwitches:{translationDirectionEdges:1,meanEpipolarPlaneResidualDeg:11,translationDirectionMeanInlierFraction:.2}}},photoArchive:{accepted:300},fastLane:{maxGapMs:300},surface:{committed:false,withheldReason:'mesh-severely-fragmented'}});
+  const snap=buildPipelineTestSnapshot({build:{version:'30.52.0'},graph:{frames:80,photoEdges:60,photoEdgeImportFraction:.9},optimizer:{candidateStats:{edgeSwitches:{translationDirectionEdges:1,meanEpipolarPlaneResidualDeg:11,translationDirectionMeanInlierFraction:.2}}},photoArchive:{accepted:300},fastLane:{maxGapMs:300},surface:{committed:false,withheldReason:'mesh-severely-fragmented'}});
   assert.equal(snap.firstFailure.name,'Scaffold RGB');
   assert.equal(snap.firstFailure.status,'fail');
 });

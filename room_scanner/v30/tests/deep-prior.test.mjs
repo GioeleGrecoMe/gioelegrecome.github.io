@@ -38,7 +38,7 @@ test('sparse AI selector skips duplicate photos and requests a new spatial conte
   let d=s.evaluate({ref:ref(1000,0),sparseSeeds:seeds,metricLocked:true});assert.equal(d.infer,true);s.noteAttempt(ref(1000,0),seeds);s.commit(ref(1000,0),seeds);
   d=s.evaluate({ref:ref(2100,.05),sparseSeeds:seeds,metricLocked:true});assert.equal(d.infer,false);assert.equal(d.reason,'cooldown');
   d=s.evaluate({ref:ref(4200,.08),sparseSeeds:seeds,metricLocked:true});assert.equal(d.infer,false);assert.equal(d.reason,'near-duplicate');
-  d=s.evaluate({ref:ref(4700,.25),sparseSeeds:seeds,metricLocked:true});assert.equal(d.infer,true);assert.equal(d.reason,'new-position');
+  d=s.evaluate({ref:ref(4700,.25),sparseSeeds:seeds,metricLocked:true});assert.equal(d.infer,true);assert.equal(d.reason,'new-parallax');
 });
 
 function periodicPlaneFrame(px,{w=96,h=72,z=2.3}={}){

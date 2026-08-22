@@ -47,7 +47,7 @@ export function buildSparseDepthAnchors(ref,sources,{maxReprojectionPx=2.8,minAn
         // per-frame structure is retained in the persistent Gaussian map.
         sourcePose:src.pose,sourcePoseCov:src.poseCov||null,sourceK:src.K,sourceU:b.x,sourceV:b.y
       };
-      let track=tracks.get(m.i);if(!track){track={refIndex:m.i,u:a.x,v:a.y,featureSource:a.source||'mvs',desc:a.desc||null,obs:[]};tracks.set(m.i,track);}track.obs.push(obs);
+      let track=tracks.get(m.i);if(!track){track={refIndex:m.i,u:a.x,v:a.y,featureSource:a.source||'mvs',desc:a.desc||null,referenceDesc:a.referenceDesc||a.desc||null,obs:[]};tracks.set(m.i,track);}track.obs.push(obs);
     }
   }
 
@@ -131,6 +131,10 @@ function fuseTrack(track,ref,maxReprojectionPx){
     // This lets the Gaussian mapper consume the feature track as a genuine
     // metric landmark rather than merely a scalar depth hint.
     descriptor:Array.isArray(track.desc)?track.desc.slice(0,24).map(Number):null,
+    // This fixed patch descriptor is shared by Alva-tracked and recovery-only
+    // features. It is retained with the triangulated landmark solely to verify
+    // a later official Alva relocalisation against already observed geometry.
+    referenceDesc:Array.isArray(track.referenceDesc)?track.referenceDesc.slice(0,24).map(Number):null,
     covariance,relativeDepthSigma,geometryProbability:confidence,matchProbability:matchP,calibrationWeight,
     measurements:[{frameId:ref.frameId||ref.id,u:track.u,v:track.v,probability:1},...kept.map(o=>({frameId:o.sourceId,u:o.sourceU,v:o.sourceV,probability:o.matchProbability||o.confidence,epipolarPx:o.epipolarPx??null,zncc:o.zncc??null}))],
     evidenceFrames:[ref.frameId||ref.id,...new Set(kept.map(o=>o.sourceId))].filter(Boolean)

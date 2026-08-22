@@ -1,6 +1,6 @@
-import {qMul,qNormalize,qRotate,qConj} from '../slam/math.js?v=30.51.0';
-import {relativePose,relativeResidual} from './alva_switchable_edges.js?v=30.51.0';
-import {estimatePhotoTranslationDirection,alignTranslationLine,translationLineAngle} from './rgb_translation_direction.js?v=30.51.0';
+import {qMul,qNormalize,qRotate,qConj} from '../slam/math.js?v=30.52.0';
+import {relativePose,relativeResidual} from './alva_switchable_edges.js?v=30.52.0';
+import {estimatePhotoTranslationDirection,alignTranslationLine,translationLineAngle} from './rgb_translation_direction.js?v=30.52.0';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 

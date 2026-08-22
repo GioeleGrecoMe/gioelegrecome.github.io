@@ -13,14 +13,14 @@ test('RGB+Deep admission survives missing Alva tracking and detects features on 
 
 test('measurement GUI keeps diagnostics in one collapsible dock over a full-screen camera',()=>{for(const id of ['scanDiagnosticsToggle','scanDiagnostics','scanDiagnosticsClose','liveMapCanvas','depthOverlay','coverageSphere']){assert.match(html,new RegExp(`id="${id}"`));assert.match(index,new RegExp(`id="${id}"`));}assert.match(css,/#scan \.scanDiagnostics\.open/);assert.match(css,/transform:translateX/);assert.match(app,/setScanDiagnosticsOpen/);});
 
-test('.r30 stores the pure photo mosaic plus optional Alva metadata for later geometry',()=>{assert.match(app,/photoPanorama/);assert.match(app,/evidence:\{factorGraph,deepSequence,photoPanorama\}/);assert.match(live,/alvaPose:clonePoseNullable\(f\.pose\)/);assert.match(live,/mosaicTransforms:/);assert.doesNotMatch(live,/visualQ:Array\.from/);});
+test('.r30 stores the pure photo mosaic plus optional Alva metadata for later geometry',()=>{assert.match(app,/photoPanorama/);assert.match(app,/evidence:\{factorGraph,deepSequence,photoPanorama,probOptimization/);assert.match(live,/alvaPose:clonePoseNullable\(f\.pose\)/);assert.match(live,/mosaicTransforms:/);assert.doesNotMatch(live,/visualQ:Array\.from/);});
 
 test('V30.37 keeps spherical RGB geometry and separates provisional live Depth from geometry-anchored final calibration',()=>{
   assert.match(photo,/modelType:'spherical-rotation'/);
   assert.match(photo,/rotationBToA/);
   assert.match(photo,/common panorama sphere/);
   assert.doesNotMatch(photo,/homographyRansac|fitHomographyRansac/);
-  assert.match(live,/relative-global-affine-hann-preview/);assert.match(live,/createProbabilisticDepthAtlas/);assert.match(live,/overlapHannWeight/);
+  assert.match(live,/relative-global-layerwise-hann-map/);assert.match(live,/createProbabilisticDepthAtlas/);assert.match(live,/overlapHannWeight/);
   assert.match(live,/depthConsensus\.globalRange/);
-  assert.match(html,/panorama sferica/);assert.match(html,/anchor 3D \+ Fγ globale/);
+  assert.match(html,/id="liveMapCanvas"/);assert.match(html,/fotografie RGB realmente collegate/);
 });

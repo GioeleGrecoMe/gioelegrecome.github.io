@@ -5,7 +5,7 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 
 const ROOT=path.resolve(new URL('..',import.meta.url).pathname);
-const VERSION='30.51.0';
+const VERSION='30.52.0';
 
 test('SLAM lazy module and its static dependency closure are shipped coherently', async()=>{
   const engine=path.join(ROOT,'js/slam/slam_engine.js');

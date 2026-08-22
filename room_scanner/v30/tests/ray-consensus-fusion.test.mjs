@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {SparseDenseFusion,extractTsdfMesh} from '../js/dense/fusion_core.js';
 import {depthMapToRaySamples,rayCovariance} from '../js/dense/deep_ray_samples.js';
 
-function sample({p=[0,0,2],origin=[0,0,0],source='deep-proxy',sigmaDepth=.14,sigmaLateral=.018,confidence=.8,evidenceFrames=null}={}){const ray=[p[0]-origin[0],p[1]-origin[1],p[2]-origin[2]],n=Math.hypot(...ray)||1,r=ray.map(x=>x/n);return {p,normal:[0,0,-1],normalReliable:true,color:[180,190,200],confidence,radius:.018,depth:n,sigmaDepth,sigmaLateral,covariance:rayCovariance(r,sigmaDepth,sigmaLateral),source,evidenceFrames};}
+function sample({p=[0,0,2],origin=[0,0,0],source='deep-proxy',sigmaDepth=.14,sigmaLateral=.018,confidence=.8,evidenceFrames=null,independentSupport=0,viewSupport=1}={}){const ray=[p[0]-origin[0],p[1]-origin[1],p[2]-origin[2]],n=Math.hypot(...ray)||1,r=ray.map(x=>x/n);return {p,normal:[0,0,-1],normalReliable:true,color:[180,190,200],confidence,radius:.018,depth:n,sigmaDepth,sigmaLateral,covariance:rayCovariance(r,sigmaDepth,sigmaLateral),source,evidenceFrames,independentSupport,viewSupport};}
 
 test('replaying correlated evidence from one camera cannot self-confirm or shrink a surface',()=>{
   const f=new SparseDenseFusion({voxel:.035,minSupport:2,minConfirmBaseline:.03});
@@ -20,7 +20,7 @@ test('out-of-order replay of an already seen keyframe cannot inflate view suppor
 
 test('a second Alva view confirms an elongated ray Gaussian and an axial outlier stays separate',()=>{
   const f=new SparseDenseFusion({voxel:.035,minSupport:2,minConfirmBaseline:.03});
-  f.integrate([sample({evidenceFrames:['a']})],{origin:[0,0,0],frameId:'a'});f.integrate([sample({p:[.004,0,2.015],origin:[.08,0,0],sigmaDepth:.12,evidenceFrames:['b']})],{origin:[.08,0,0],frameId:'b'});const good=f.splats();assert.equal(good.length,1);assert.equal(good[0].support,2);const before=good[0].position[2];
+  f.integrate([sample({source:'proxy-verified',independentSupport:1,evidenceFrames:['a']})],{origin:[0,0,0],frameId:'a'});f.integrate([sample({p:[.004,0,2.015],origin:[.08,0,0],sigmaDepth:.12,source:'proxy-verified',independentSupport:1,evidenceFrames:['b']})],{origin:[.08,0,0],frameId:'b'});const good=f.splats();assert.equal(good.length,1);assert.equal(good[0].support,2);const before=good[0].position[2];
   f.integrate([sample({p:[0,0,1.1],origin:[.16,0,0],sigmaDepth:.05,source:'proxy-verified',evidenceFrames:['c']})],{origin:[.16,0,0],frameId:'c'});const after=f.splats();assert.equal(after.length,1);assert.ok(Math.abs(after[0].position[2]-before)<.04);
 });
 

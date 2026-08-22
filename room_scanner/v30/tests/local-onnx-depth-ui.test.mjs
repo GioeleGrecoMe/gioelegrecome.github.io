@@ -8,7 +8,7 @@ test('bundled local ONNX model and mobile worker path are explicit',()=>{
   assert.equal(CONFIG.analysisWidth,320);
   assert.equal(CONFIG.analysisHeight,480);
   assert.equal(CONFIG.analysisFps,8);
-  assert.equal(CONFIG.deepInferenceIntervalMs,1000);
+  assert.equal(CONFIG.deepInferenceIntervalMs,2600);
   assert.equal(CONFIG.deepModelUrl,'models/model_q4.onnx');
   assert.equal(CONFIG.deepModelRemoteUrl,null);
   assert.equal(CONFIG.deepOrtLocal,null);
@@ -32,14 +32,15 @@ test('bundled local ONNX model and mobile worker path are explicit',()=>{
   assert.match(worker,/maybeResolutionRescue/);
   assert.match(worker,/wasm\.numThreads = Number/);
 });
-test('pre-scan test plus independent live scan depth preview are wired in both entry pages',()=>{
+test('pre-scan test and deferred Depth processing controls are wired in both entry pages',()=>{
   for(const page of ['index.html','room_scanner_v30.html']){const html=read(page);for(const id of ['chooseDeepModelBtn','deepModelFile','testDeepBtn','deepModelStatus','deepTestPreview','depthOverlay','deepLiveState'])assert.match(html,new RegExp(`id="${id}"`));}
   const app=read('js/app.js');
   assert.match(app,/captureDepthTestFrame/);
-  assert.match(app,/drawDepth\(\$\('depthOverlay'\)/);
+  assert.match(app,/drawDepth\(\$\('deepTestPreview'\)/);
   assert.match(app,/requestLiveDeepPreview\(frame,r\)/);
-  assert.match(app,/preview-ticker-/);
-  assert.match(app,/deep-depth-quality-rejected/);
+  assert.match(app,/archiveSharpRgbFrame\(frame,tracking\)/);
+  assert.match(app,/Deep dopo Fine/);
+  assert.match(app,/processArchivedDeepAdaptive/);
   assert.doesNotMatch(app,/requestLiveDepth/);
   const boot=read('js/boot.js');
   assert.doesNotMatch(boot,/deep_live_controller/);

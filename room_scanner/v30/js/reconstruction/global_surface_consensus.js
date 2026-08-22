@@ -1,5 +1,5 @@
 /**
- * V30.51 global surface consensus.
+ * V30.52 global surface consensus.
  *
  * Local submaps are intentionally allowed to create multiple nearby hypotheses.
  * Before REVIEW/TSDF, however, those hypotheses must agree in world space.

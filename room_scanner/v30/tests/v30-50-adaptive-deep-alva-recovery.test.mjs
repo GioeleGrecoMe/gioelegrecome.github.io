@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {AdaptiveDeepScheduler,selectGeometricPhotoSubset} from '../js/reconstruction/adaptive_deep_scheduler.js?v=30.51.0';
+import {AdaptiveDeepScheduler,selectGeometricPhotoSubset} from '../js/reconstruction/adaptive_deep_scheduler.js?v=30.52.0';
 
 const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
 const cfg=fs.readFileSync(new URL('../js/config.js',import.meta.url),'utf8');
@@ -20,6 +20,13 @@ test('adaptive scheduler uses 16 then <=8 and never reselects processed frames',
   const rows=Array.from({length:100},(_,i)=>mk(i)),s=new AdaptiveDeepScheduler(rows,{initialBatch:16,nextBatch:8,maxDepthFrames:36,minMarginalScore:.05}),done=new Set();
   const a=s.next(done,null);assert.equal(a.records.length,16);for(const r of a.records)done.add(r.frameId);
   const b=s.next(done,null);assert.ok(b.records.length<=8);assert.ok(b.records.every(r=>!a.records.some(x=>x.frameId===r.frameId)));
+});
+
+test('one adaptive Deep tranche covers distinct pose cells before buying near duplicates',()=>{
+  const cluster=Array.from({length:24},(_,i)=>({frameId:`c${i}`,at:i,pose:{p:[0.005*i,0,0],q:[0,0,0,1]},photoQuality:{stableQuality:.99,detail:12},features:Array.from({length:120},()=>({}))}));
+  const spread=Array.from({length:20},(_,i)=>({frameId:`s${i}`,at:100+i,pose:{p:[1+(i%5),0,1+Math.floor(i/5)],q:[0,Math.sin((i+1)*.29),0,Math.cos((i+1)*.29)]},photoQuality:{stableQuality:.62,detail:7},features:Array.from({length:72},()=>({}))}));
+  const plan=new AdaptiveDeepScheduler([...cluster,...spread],{initialBatch:16,nextBatch:8,maxDepthFrames:24,minMarginalScore:.05,gridBins:8,yawBins:8}).next(new Set(),null);
+  const chosen=plan.map.scores.filter(x=>plan.records.some(r=>r.frameId===x.frameId));assert.equal(chosen.length,16);assert.ok(chosen.filter(x=>x.cell===chosen[0].cell).length<=1,chosen.map(x=>x.cell));assert.ok(chosen.every(x=>(x.batchCellReuse||0)===0),chosen.map(x=>x.batchCellReuse));
 });
 
 test('processed reliable coverage lowers uncertainty and low marginal score can stop',()=>{
@@ -62,6 +69,11 @@ test('Alva persistent/new feature semantics and recovery gate are wired into sca
   assert.match(app,/r\.newKeyframe&&r\.trackingValid&&integrity\.accept/);assert.match(app,/ALVA HA PERSO IL RIFERIMENTO/);assert.match(app,/ALVA HA FATTO UN SALTO/);
   assert.match(cfg,/alvaPersistentFeatureMinViewTranslation/);assert.match(cfg,/alvaPersistentFeatureMinViewRotationRad/);
   assert.match(app,/maxViewTranslation/);assert.match(app,/maxViewRotation/);assert.match(app,/firstPose/);
+  assert.match(app,/maybeRelocalizeAlva/);assert.match(app,/AlvaReferenceRelocalizer/);assert.match(app,/relocalizationPoseCompatible/);assert.match(cfg,/alvaRelocalizationMinMatches/);
+});
+
+test('processing keeps the last validated Deep/pose preview while RGB and MVS advance',()=>{
+  assert.match(app,/processingPreview:\{deep:null/);assert.match(app,/if\(preview\.deep\?\.rawDepth\?\.length\)drawProcessingDepth\(preview\.deep\)/);assert.match(app,/const posePhoto=preview\.deep\?\.rawDepth\?\.length&&preview\.photo\?preview\.photo:photo/);
 });
 
 test('MVS consumes the latest accepted pose snapshot after adaptive Deep feedback',()=>{

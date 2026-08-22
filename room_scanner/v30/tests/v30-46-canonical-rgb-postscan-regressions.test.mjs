@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {canonicalizePhotoEdgeMatches,estimatePhotoTranslationDirection,translationLineAngle} from '../js/probabilistic/rgb_translation_direction.js?v=30.51.0';
-import {evaluatePoseScaffoldPolicy} from '../js/probabilistic/pose_scaffold_policy.js?v=30.51.0';
+import {canonicalizePhotoEdgeMatches,estimatePhotoTranslationDirection,translationLineAngle} from '../js/probabilistic/rgb_translation_direction.js?v=30.52.0';
+import {evaluatePoseScaffoldPolicy} from '../js/probabilistic/pose_scaffold_policy.js?v=30.52.0';
 
 const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
 const runtime=fs.readFileSync(new URL('../js/probabilistic/single_optimizer_runtime.js',import.meta.url),'utf8');

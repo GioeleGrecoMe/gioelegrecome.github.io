@@ -268,13 +268,30 @@ export class LivePhotoPuzzleMap{
   recoverRecentOrphans(anchor){let root=new Set(this.rootComponent()),tries=0;for(let k=Math.max(1,anchor-this.temporalRadius*3);k<anchor&&tries<10;k++){if(root.has(k)||!hasDepthEvidence(this.frames[k]))continue;tries++;if(this.tryConnectPair(k,anchor,true)){this.recomputeConnectivity();root=new Set(this.rootComponent());}}
   }
   components(){const seen=new Set(),out=[];for(let s=0;s<this.frames.length;s++){if(seen.has(s))continue;const q=[s],c=[];seen.add(s);while(q.length){const i=q.pop();c.push(i);for(const e of this.adj.get(i)||[]){const j=e.a===i?e.b:e.a;if(!seen.has(j)){seen.add(j);q.push(j);}}}out.push(c);}return out.sort((a,b)=>b.length-a.length);}
-  rootComponent(){const comps=this.components();return comps.find(c=>c.includes(0))||(this.frames.length?[0]:[]);}
+  rootComponent(){
+    // The first captured photograph is often a pre-init/no-Depth frame.  It
+    // can legitimately stay isolated while a later, well-connected component
+    // contains the usable panorama.  Pinning visibility to index 0 therefore
+    // made a healthy mosaic report one connected frame and discarded its
+    // visual/depth consensus.  Select the evidence-rich component instead.
+    const comps=this.components();if(!comps.length)return [];
+    const score=c=>{let depth=0,rawDepth=0,edges=0,confidence=0;for(const i of c){const f=this.frames[i];if(this.frameHasMetricDepth(f))depth++;if(f?.relativeDepth?.length)rawDepth++;for(const e of this.adj.get(i)||[]){if(e.a===i)edges++;confidence+=Number(e.visualConfidence??e.weight??0);}}return 6*c.length+5*depth+3*rawDepth+2*edges+.25*confidence;};
+    return comps.slice().sort((a,b)=>score(b)-score(a)||b.length-a.length||Math.min(...a)-Math.min(...b))[0];
+  }
+  rootIndex(component=this.rootComponent()){
+    if(!component?.length)return -1;
+    const score=i=>{const f=this.frames[i],degree=(this.adj.get(i)||[]).length,depth=this.frameHasMetricDepth(f)?1:0,raw=f?.relativeDepth?.length?1:0,q=Number(f?.relativeConfidence??f?.metricConfidence??0);return 5*degree+3*depth+2*raw+q;};
+    // Within the same evidence class keep the oldest member as the gauge. It
+    // avoids moving an already rendered panorama merely because a later frame
+    // tied the root score; component choice above is what fixes isolated F0.
+    return component.slice().sort((a,b)=>score(b)-score(a)||a-b)[0];
+  }
   recomputeConnectivity(){const visible=new Set(this.rootComponent());this.frames.forEach((f,i)=>f.connected=visible.has(i));}
   recomputeVisualSolution(persisted=null){
     if(!persisted&&!this.visualDirty&&this.visualSolution)return;if(!this.frames.length){this.visualSolution=null;this.visualDirty=false;return;}
-    const saved=persisted?.sphericalRotations||((persisted?.projection==='spherical'||['ROOMSCAN-LIVE-PHOTO-MOSAIC-4','ROOMSCAN-LIVE-PHOTO-MOSAIC-5'].includes(persisted?.format))?persisted?.mosaicTransforms:null);
-    if(Array.isArray(saved)&&saved.length===this.frames.length){const confidence=Float32Array.from(persisted.visualConfidence||saved.map((R,i)=>R?i===0?1:.25:0));this.visualSolution={transforms:saved.map(R=>Array.isArray(R)&&R.length===9?R.map(Number):null),confidence,rootIndex:Number.isInteger(persisted.rootIndex)?persisted.rootIndex:0,parent:new Int32Array(this.frames.length),component:(persisted.components?.[0]||saved.map((R,i)=>R?i:null).filter(Number.isInteger)),projection:'spherical'};}
-    else this.visualSolution=solvePhotoMosaic(this.frames,this.edges,{iterations:10,rootIndex:0});
+    const preferredComponent=this.rootComponent(),preferredRoot=this.rootIndex(preferredComponent),saved=persisted?.sphericalRotations||((persisted?.projection==='spherical'||['ROOMSCAN-LIVE-PHOTO-MOSAIC-4','ROOMSCAN-LIVE-PHOTO-MOSAIC-5'].includes(persisted?.format))?persisted?.mosaicTransforms:null),savedRoot=Number.isInteger(persisted?.rootIndex)?persisted.rootIndex:null;
+    if(Array.isArray(saved)&&saved.length===this.frames.length&&savedRoot===preferredRoot){const confidence=Float32Array.from(persisted.visualConfidence||saved.map((R,i)=>R?i===preferredRoot?1:.25:0));this.visualSolution={transforms:saved.map(R=>Array.isArray(R)&&R.length===9?R.map(Number):null),confidence,rootIndex:preferredRoot,parent:new Int32Array(this.frames.length),component:preferredComponent,projection:'spherical'};}
+    else this.visualSolution=solvePhotoMosaic(this.frames,this.edges,{iterations:10,rootIndex:preferredRoot});
     this.visualSolution.bounds=computeMosaicBounds(this.frames,this.visualSolution.transforms,{padding:.055});this.frames.forEach((f,i)=>{f.mosaicR=this.visualSolution.transforms[i];f.mosaicH=null;f.visualConfidence=this.visualSolution.confidence[i];});this.visualDirty=false;
   }
 
@@ -293,7 +310,7 @@ export class LivePhotoPuzzleMap{
     if(!this.origin){const f=this.frames.find(x=>x.pose?.p);if(f)this.origin=f.pose.p.slice(0,3).map(Number);}
   }
   recomputePhotoGains(){
-    if(!this.frames.length)return;const comp=this.rootComponent();if(!comp.length)return;const root=comp.includes(0)?0:comp[0],known=new Uint8Array(this.frames.length);known[root]=1;
+    if(!this.frames.length)return;const comp=this.rootComponent();if(!comp.length)return;const root=this.rootIndex(comp),known=new Uint8Array(this.frames.length);known[root]=1;
     // Brown/Lowe-style exposure compensation, but solved independently per RGB
     // channel.  This absorbs auto-exposure/white-balance drift without changing
     // panorama geometry or blurring textures across a seam.

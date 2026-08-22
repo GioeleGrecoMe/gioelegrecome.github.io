@@ -37,6 +37,15 @@ test('RGB photos without a valid exact-frame depth map never enter the live mosa
   const staged=map.addCameraFrame(f);assert.equal(staged.frames,1);assert.equal(staged.rawDepthFrames,0);assert.equal(map.edges.length,0);const atlas=map.renderPhotoAtlas();assert.equal(atlas.coverage,0);
 });
 
+test('an isolated first RGB frame cannot hide a later depth-connected panorama component',()=>{
+  const map=new LivePhotoPuzzleMap({width:160,height:80,photoMaxSide:80,depthMaxSide:80,maxFrames:8});
+  map.addCameraFrame(frame('F0',0)); // first capture was pre-Depth / isolated
+  commit(map,frame('F1',.12),rawMap(.12));commit(map,frame('F2',.24),rawMap(.24));
+  const e={a:1,b:2,aId:'F1',bId:'F2',matches:matchesForBaseline(.12),rotationBToA:[1,0,0,0,1,0,0,0,1],rotationInliers:24,rotationMedianErrorDeg:.4,rotationP90ErrorDeg:.8,rotationAngleDeg:0,visualConfidence:.92,meanProbability:.96,weight:.92,loop:false,gainAB:1};
+  map.edges=[e];map.adj=new Map([[0,[]],[1,[e]],[2,[e]]]);map.recomputeConnectivity();map.visualDirty=true;map.recomputeVisualSolution();
+  const s=map.stats();assert.equal(s.connectedFrames,2);assert.ok([1,2].includes(map.visualSolution.rootIndex),map.visualSolution.rootIndex);assert.ok(!map.frames[0].connected);assert.ok(map.frames[1].connected&&map.frames[2].connected);
+});
+
 
 test('localized feature clusters cannot place a photograph even with a low spherical residual',()=>{
   const a={width:320,height:240},b={width:320,height:240},I=[1,0,0,0,1,0,0,0,1],cluster=[];for(let y=100;y<=120;y+=5)for(let x=140;x<=165;x+=5)cluster.push({aU:x,aV:y,bU:x+4,bV:y+2,probability:.99});
@@ -56,12 +65,12 @@ test('sharp photo-first atlas uses best-source compositing instead of blur-produ
   assert.ok(lum.length>30,lum.length);assert.ok(Math.max(...lum)-Math.min(...lum)>190,{min:Math.min(...lum),max:Math.max(...lum)});
 });
 
-test('survey RGB is only committed after exact-frame Deep succeeds',()=>{
+test('survey RGB is frozen first and Depth is attached only to the exact archived frame',()=>{
   const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
-  for(const token of ['function captureLiveSurveyFrame(frame,tracking)','commitCameraFrameWithRelativeDepth?.(survey','survey:capture.survey','state.probGraph?.addFrame(survey)'])assert.ok(app.includes(token),token);
-  assert.ok(!app.includes('state.liveMap.addCameraFrame(survey'),'live preview must not admit RGB before depth');
-  assert.ok(app.indexOf('captureLiveSurveyFrame(frame,tracking)')<app.indexOf("postMessage({type:'infer'"),'exact RGB must be frozen before Deep launch');
-  assert.ok(app.indexOf("if(binding.kind==='preview')")<app.indexOf('commitCameraFrameWithRelativeDepth?.(survey'),'commit must happen in the validated Deep-result branch');
+  for(const token of ['function captureLiveSurveyFrame(frame,tracking)','function attachLateDepthToPhoto(survey,d','function commitExactRgbDepthPhoto(survey,depthResult','state.deepSync?.validateDeepFrameResult'])assert.ok(app.includes(token),token);
+  assert.ok(app.includes('new Uint8ClampedArray(frame.rgba)'),'the Depth job must never read a reused camera buffer');
+  assert.ok(app.indexOf('validateDeepFrameResult')<app.indexOf('await applyDeepDepthResult'),'sync validation must precede geometry updates');
+  assert.match(app,/CONFIG\.deepPostScanOnly===false/,'live inference must remain explicitly gated while the archive is collected');
 });
 
 test('an unposed RGB+Deep photograph is a first-class mosaic node and remains visible',()=>{

@@ -5,7 +5,7 @@
  * only the current 3D answer. Post-scan processing can therefore revisit pose,
  * association, Deep scale and surface estimates without needing all video frames.
  */
-import {canonicalizePhotoEdgeMatches} from './rgb_translation_direction.js?v=30.51.0';
+import {canonicalizePhotoEdgeMatches} from './rgb_translation_direction.js?v=30.52.0';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
@@ -16,7 +16,7 @@ export class ProbabilisticFactorGraph{
   }
   addFrame(frame){
     if(!frame?.frameId||!frame?.pose||!frame?.K)return null;const id=String(frame.frameId),old=this.frameIndex.get(id);if(old!=null)return this.frames[old];
-    const thumb=downsampleGray(frame.gray,frame.width,frame.height,this.grayMaxSide),features=(frame.features||[]).slice(0,this.maxFeaturesPerFrame).map((f,index)=>({index,x:+f.x,y:+f.y,score:+(f.score||0),source:f.source||'mvs',desc:Array.isArray(f.desc)?f.desc.slice(0,24).map(Number):[]})),photo=downsamplePhoto(frame,this.photoMaxSide,features);
+    const thumb=downsampleGray(frame.gray,frame.width,frame.height,this.grayMaxSide),features=(frame.features||[]).slice(0,this.maxFeaturesPerFrame).map((f,index)=>({index,x:+f.x,y:+f.y,score:+(f.score||0),source:f.source||'mvs',desc:Array.isArray(f.desc)?f.desc.slice(0,24).map(Number):[],referenceDesc:Array.isArray(f.referenceDesc)?f.referenceDesc.slice(0,24).map(Number):(Array.isArray(f.desc)?f.desc.slice(0,24).map(Number):[])})),photo=downsamplePhoto(frame,this.photoMaxSide,features);
     const observedK={fx:+frame.K.fx,fy:+frame.K.fy,cx:+frame.K.cx,cy:+frame.K.cy,width:+(frame.K.width||frame.width),height:+(frame.K.height||frame.height)};if(!this.cameraModel)this.cameraModel=makeCameraModel(observedK,frame.D||frame.distortion||null);const sessionK=scaledCameraK(this.cameraModel,observedK.width,observedK.height),intrinsicsDeviation=intrinsicDeviation(observedK,sessionK);
     const node={id,frameId:id,keyframeId:frame.id||id,at:+(frame.captureAt??frame.at??0),posePrior:clonePose(frame.pose),poseEstimate:clonePose(frame.pose),poseCov:clonePoseCov(frame.poseCov),K:sessionK,KObserved:observedK,intrinsicsDeviation,D:Array.isArray(this.cameraModel?.D)?this.cameraModel.D.slice():null,width:frame.width|0,height:frame.height|0,grayWidth:thumb.width,grayHeight:thumb.height,gray:thumb.gray,features,photo,metricLocked:!!frame.metricLocked,trackingMode:frame.trackingMode||null,photoQuality:compactPhotoQuality(frame.photoQuality)};
     const prev=this.frames[this.frames.length-1]||null;this.frameIndex.set(id,this.frames.length);this.frames.push(node);if(prev?.posePrior&&node.posePrior)this.addAlvaRelativeFactor(prev,node);while(this.frames.length>this.maxFrames){this.frames.shift();this.reindex();this.pruneOrphans();}return node;
@@ -25,7 +25,7 @@ export class ProbabilisticFactorGraph{
     const refId=String(ref?.frameId||ref?.id||'');if(!refId)return;
     for(const s of seeds||[]){
       if(!Array.isArray(s.p)||!s.measurements?.length)continue;
-      const candidate={id:s.trackId||`${refId}:L${this.landmarkFactors.length}`,refFrameId:refId,point:Array.from(s.p.slice(0,3),Number),covariance:cov6(s.covariance),probability:clamp(Number(s.geometryProbability??s.confidence??.1),.001,.999),relativeDepthSigma:Number(s.relativeDepthSigma??(s.sigmaDepth/Math.max(.05,s.depth))??.3),depth:+s.depth,calibrationWeight:+(s.calibrationWeight||0),measurements:s.measurements.map(m=>({frameId:String(m.frameId),u:+m.u,v:+m.v,probability:clamp(Number(m.probability??.1),.001,.999),epipolarPx:m.epipolarPx==null?null:+m.epipolarPx,zncc:m.zncc==null?null:+m.zncc})),sourceIds:(s.sourceIds||[]).map(String)};
+      const candidate={id:s.trackId||`${refId}:L${this.landmarkFactors.length}`,refFrameId:refId,point:Array.from(s.p.slice(0,3),Number),covariance:cov6(s.covariance),probability:clamp(Number(s.geometryProbability??s.confidence??.1),.001,.999),relativeDepthSigma:Number(s.relativeDepthSigma??(s.sigmaDepth/Math.max(.05,s.depth))??.3),depth:+s.depth,calibrationWeight:+(s.calibrationWeight||0),descriptor:Array.isArray(s.referenceDesc||s.descriptor)?Array.from(s.referenceDesc||s.descriptor).slice(0,24).map(Number):[],measurements:s.measurements.map(m=>({frameId:String(m.frameId),u:+m.u,v:+m.v,probability:clamp(Number(m.probability??.1),.001,.999),epipolarPx:m.epipolarPx==null?null:+m.epipolarPx,zncc:m.zncc==null?null:+m.zncc})),sourceIds:(s.sourceIds||[]).map(String)};
       const existing=this.findLandmarkByMeasurement(candidate.measurements);
       if(existing>=0){mergeLandmarkFactor(this.landmarkFactors[existing],candidate);this.indexLandmark(existing,this.landmarkFactors[existing]);}
       else{const idx=this.landmarkFactors.length;this.landmarkFactors.push(candidate);this.indexLandmark(idx,candidate);}
@@ -105,7 +105,7 @@ function sampleGrid(a,w,h,cols,rows){const out=new Float32Array(cols*rows);for(l
 function measurementKey(fid,u,v){return `${fid}:${Math.round((+u||0)/3)}:${Math.round((+v||0)/3)}`;}
 function mergeLandmarkFactor(a,b){
   const wa=mixtureWeight(a),wb=mixtureWeight(b),s=wa+wb||1,alpha=wa/s,mu=a.point.slice(0,3),nu=b.point.slice(0,3),m=[alpha*mu[0]+(1-alpha)*nu[0],alpha*mu[1]+(1-alpha)*nu[1],alpha*mu[2]+(1-alpha)*nu[2]];
-  a.covariance=mixtureCov(a.covariance,b.covariance,mu,nu,m,alpha);a.point=m;a.depth=alpha*(+a.depth||0)+(1-alpha)*(+b.depth||0);a.relativeDepthSigma=alpha*(+a.relativeDepthSigma||.3)+(1-alpha)*(+b.relativeDepthSigma||.3);
+  a.covariance=mixtureCov(a.covariance,b.covariance,mu,nu,m,alpha);a.point=m;a.depth=alpha*(+a.depth||0)+(1-alpha)*(+b.depth||0);a.relativeDepthSigma=alpha*(+a.relativeDepthSigma||.3)+(1-alpha)*(+b.relativeDepthSigma||.3);if(!a.descriptor?.length&&b.descriptor?.length)a.descriptor=b.descriptor.slice();
   const pa=clamp(+a.probability||.01,.001,.999),pb=clamp(+b.probability||.01,.001,.999);a.probability=clamp(Math.max(pa,pb)+.25*Math.min(pa,pb)*(1-Math.max(pa,pb)),.001,.999);a.calibrationWeight=Math.max(+a.calibrationWeight||0,+b.calibrationWeight||0);
   const byFrame=new Map((a.measurements||[]).map(x=>[String(x.frameId),{...x}]));for(const x of b.measurements||[]){const k=String(x.frameId),old=byFrame.get(k);if(!old||(+x.probability||0)>(+old.probability||0))byFrame.set(k,{...x});}a.measurements=[...byFrame.values()];a.sourceIds=[...new Set([...(a.sourceIds||[]),...(b.sourceIds||[])].map(String))];return a;
 }

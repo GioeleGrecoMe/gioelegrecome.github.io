@@ -7,7 +7,7 @@ import {rayCovariance} from '../js/dense/deep_ray_samples.js';
 
 function obs(p,origin,id){
   const v=p.map((x,k)=>x-origin[k]),d=Math.hypot(...v),r=v.map(x=>x/d);
-  return {p,depth:d,normal:[0,0,-1],normalReliable:true,color:[160,180,200],confidence:.92,radius:.015,covariance:rayCovariance(r,.045,.006),surfaceCovariance:[.00018,0,0,.00018,0,.000008],source:'deep-proxy',evidenceFrames:[id],viewSupport:1};
+  return {p,depth:d,normal:[0,0,-1],normalReliable:true,color:[160,180,200],confidence:.92,radius:.015,covariance:rayCovariance(r,.045,.006),surfaceCovariance:[.00018,0,0,.00018,0,.000008],source:'proxy-verified',independentSupport:1,evidenceFrames:[id],viewSupport:1};
 }
 
 test('fusion snapshot persists a bounded view-diverse observation reservoir aligned with Gaussians',()=>{

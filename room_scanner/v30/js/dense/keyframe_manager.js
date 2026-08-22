@@ -51,4 +51,4 @@ export function downsampleRgba(frame,width,height){
 function quatAngle(a,b){a=qNormalize(a);b=qNormalize(b);const d=Math.min(1,Math.abs(a[0]*b[0]+a[1]*b[1]+a[2]*b[2]+a[3]*b[3]));return 2*Math.acos(d);}
 function clonePose(p){return {p:p.p.slice(0,3).map(Number),q:p.q.slice(0,4).map(Number)};}
 
-function scaleFeatures(fs,sw,sh,dw,dh){const sx=dw/sw,sy=dh/sh;return (fs||[]).filter(f=>Number.isFinite(f?.x)&&Number.isFinite(f?.y)&&Array.isArray(f?.desc)).map(f=>({x:f.x*sx,y:f.y*sy,score:+(f.score||0),source:f.source||'mvs',desc:Array.from(f.desc)}));}
+function scaleFeatures(fs,sw,sh,dw,dh){const sx=dw/sw,sy=dh/sh;return (fs||[]).filter(f=>Number.isFinite(f?.x)&&Number.isFinite(f?.y)&&Array.isArray(f?.desc)).map(f=>({x:f.x*sx,y:f.y*sy,score:+(f.score||0),source:f.source||'mvs',desc:Array.from(f.desc),referenceDesc:Array.from(f.referenceDesc||f.desc||[])}));}

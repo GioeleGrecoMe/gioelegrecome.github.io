@@ -83,14 +83,14 @@ test('sparse RGB landmarks constrain geometry but never manufacture a committed 
   assert.equal(out.stats.sparseLandmarksMeshed,false);assert.equal(out.stats.sparseSurfaceAnchors,landmarks.length);assert.equal(out.mesh.faces.length,0,'track landmarks are anchors, not little TSDF blobs');
 });
 
-test('global final dense surface is coherent across submaps instead of concatenating tiny local islands',()=>{
+test('unbound historical MVS factors are withheld instead of producing an untrustworthy global surface',()=>{
   const frames=[-.15,0,.15].map((x,i)=>frame(`p${i}`,x,{poseCov:{diag:[1e-6,1e-6,1e-6,1e-7,1e-7,1e-7]}})),mvsFactors=frames.map((f,fi)=>{const samples=[];for(let v=40;v<=200;v+=10)for(let u=60;u<=260;u+=10)samples.push({u,v,depth:2,probability:.9,sigmaDepth:.012,normal:[0,0,-1],normalSpace:'camera',color:[150,160,170],sourceFrames:frames.filter((_,j)=>j!==fi).map(x=>x.frameId)});return {frameId:f.frameId,packed:false,samples};}),graph={format:'ROOMSCAN-PROB-GRAPH-1',frames,edgeFactors:[],alvaFactors:[],landmarkFactors:[],deepFactors:[],mvsFactors},out=new ProbabilisticJointOptimizer(graph).rebuild({voxel:.04,hashVoxel:.025,maxSurfels:20000,maxTriangles:30000,maxMvsSamples:100000,submapSize:4,submapOverlap:1}),q=analyzeMeshQuality(out.mesh);
-  assert.equal(out.stats.globalFinalTsdf,true);assert.equal(q.status,'coherent',q);assert.equal(q.componentCount,1,q);assert.ok(q.largestComponentFraction>.95,q);
+  assert.equal(out.stats.globalFinalTsdf,true);assert.equal(out.stats.mvsCount,0,out.stats);assert.equal(out.stats.mvsValidation.poseRejectedFactors,frames.length,out.stats.mvsValidation);assert.equal(q.status,'empty',q);
 });
 
 test('multi-layer final mesher preserves nearby parallel surfaces without a phantom averaged sheet',()=>{
   const z0=2,z1=2.12,mesh=buildConsensusTsdfMeshFromSplats([...planeSplats(z0),...planeSplats(z1)],{voxel:.03,maxTriangles:50000}),q=analyzeMeshQuality(mesh),zs=[];for(let i=2;i<mesh.vertices.length;i+=3)zs.push(mesh.vertices[i]);const mid=(z0+z1)/2,midCount=zs.filter(z=>Math.abs(z-mid)<.02).length;
-  assert.equal(mesh.consensusMode,'multi-layer-tsdf');assert.equal(mesh.surfaceLayers,2,mesh);assert.equal(q.componentCount,2,q);assert.equal(midCount,0,{midCount,min:Math.min(...zs),max:Math.max(...zs)});assert.ok(zs.some(z=>Math.abs(z-z0)<.015)&&zs.some(z=>Math.abs(z-z1)<.015));
+  assert.equal(mesh.consensusMode,'conflict-colored-multi-layer-tsdf');assert.equal(mesh.surfaceLayers,2,mesh);assert.equal(q.componentCount,2,q);assert.equal(midCount,0,{midCount,min:Math.min(...zs),max:Math.max(...zs)});assert.ok(zs.some(z=>Math.abs(z-z0)<.015)&&zs.some(z=>Math.abs(z-z1)<.015));
 });
 
 test('mesh quality detector flags the exact many-island topology seen in the bad exported mesh class',()=>{
@@ -108,9 +108,9 @@ test('accepted live state is merged by persistent IDs instead of forgetting olde
   const m=mergeOptimizerSnapshots(a,b);assert.deepEqual(m.frames.map(x=>x.frameId).sort(),['f0','f1','f2']);assert.equal(m.frames.find(x=>x.frameId==='f1').poseEstimate.p[0],.11);assert.deepEqual(m.landmarks.map(x=>x.id).sort(),['l0','l1']);assert.equal(m.edgeSwitches.edges.length,2);assert.equal(m.alvaSwitches.edges.length,2);assert.equal(m.iterations,8);
 });
 
-test('commit frame mask excludes raw/unaccepted pose frames from dense final geometry',()=>{
+test('an accepted-frame mask cannot turn unbound historical MVS into final geometry',()=>{
   const frames=[-.15,0,.15].map((x,i)=>frame(`c${i}`,x,{poseCov:{diag:[1e-6,1e-6,1e-6,1e-7,1e-7,1e-7]}})),mvsFactors=frames.map((f,fi)=>{const samples=[];for(let v=50;v<=190;v+=14)for(let u=70;u<=250;u+=14)samples.push({u,v,depth:2+.5*fi,probability:.9,sigmaDepth:.012,normal:[0,0,-1],normalSpace:'camera',color:[150,160,170],sourceFrames:frames.filter((_,j)=>j!==fi).map(x=>x.frameId)});return {frameId:f.frameId,packed:false,samples};}),graph={format:'ROOMSCAN-PROB-GRAPH-1',frames,edgeFactors:[],alvaFactors:[],landmarkFactors:[],deepFactors:[],mvsFactors},out=new ProbabilisticJointOptimizer(graph).rebuild({voxel:.04,hashVoxel:.025,maxSurfels:20000,maxTriangles:30000,maxMvsSamples:100000,submapSize:4,submapOverlap:1,commitFrameIds:new Set(['c0','c1'])});
-  assert.equal(out.stats.eligibleCommittedFrames,2);assert.equal(out.stats.excludedUnacceptedFrames,1);assert.ok(out.stats.mvsCount>0);const zs=[];for(let i=2;i<out.mesh.vertices.length;i+=3)zs.push(out.mesh.vertices[i]);assert.ok(!zs.some(z=>z>2.85),{maxZ:zs.length?Math.max(...zs):null});
+  assert.equal(out.stats.eligibleCommittedFrames,2);assert.equal(out.stats.excludedUnacceptedFrames,1);assert.equal(out.stats.mvsCount,0,out.stats);assert.equal(out.stats.mvsValidation.poseRejectedFactors,2,out.stats.mvsValidation);assert.equal(out.mesh.faces.length,0);
 });
 
 test('local Depth calibration freezes normalization domain while full reinitialization can choose a session-wide domain',()=>{

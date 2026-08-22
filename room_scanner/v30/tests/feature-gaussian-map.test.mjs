@@ -39,7 +39,9 @@ test('continuous information Gaussian map is not quantised to one hypothesis per
 
 test('information fusion converges the centre and shrinks uncertainty only with new camera evidence',()=>{
   const f=new SparseDenseFusion({voxel:.035,hashVoxel:.02,minSupport:2,minConfirmBaseline:.02});
-  const obs=(p,origin,id)=>{const ray=[p[0]-origin[0],p[1]-origin[1],p[2]-origin[2]],n=Math.hypot(...ray),r=ray.map(x=>x/n);return {p,normal:[0,0,-1],normalReliable:true,color:[140,170,200],confidence:.9,radius:.012,depth:n,sigmaDepth:.07,sigmaLateral:.007,covariance:rayCovariance(r,.07,.007),source:'deep-proxy',evidenceFrames:[id]};};
+  // Each ray is already independently checked by another view.  Raw monocular
+  // Deep evidence without this provenance is intentionally withheld.
+  const obs=(p,origin,id)=>{const ray=[p[0]-origin[0],p[1]-origin[1],p[2]-origin[2]],n=Math.hypot(...ray),r=ray.map(x=>x/n);return {p,normal:[0,0,-1],normalReliable:true,color:[140,170,200],confidence:.9,radius:.012,depth:n,sigmaDepth:.07,sigmaLateral:.007,covariance:rayCovariance(r,.07,.007),source:'proxy-verified',independentSupport:1,evidenceFrames:[id]};};
   f.integrate([obs([.006,0,2.025],[0,0,0],'a')],{origin:[0,0,0],frameId:'a'});f.integrate([obs([-.004,0,1.985],[.08,0,0],'b')],{origin:[.08,0,0],frameId:'b'});let a=[...f.surfels.values()][0],t2=a.positionCov[0]+a.positionCov[3]+a.positionCov[5];assert.equal(a.support,2);assert.equal(f.splats().length,1);
   f.integrate([obs([[.002][0],.002,2.005],[0,.08,0],'c')],{origin:[0,.08,0],frameId:'c'});a=[...f.surfels.values()].sort((x,y)=>y.support-x.support)[0];const t3=a.positionCov[0]+a.positionCov[3]+a.positionCov[5];assert.ok(t3<t2,`${t3} !< ${t2}`);assert.ok(Math.hypot(a.p[0],a.p[1],a.p[2]-2)<.035,`mean ${a.p}`);
   const support=a.support,observations=a.observations;f.integrate([obs([.001,0,2.01],[0,.08,0],'c')],{origin:[0,.08,0],frameId:'c'});a=[...f.surfels.values()].sort((x,y)=>y.support-x.support)[0];assert.equal(a.support,support);assert.equal(a.observations,observations,'replaying the same view must not manufacture precision');

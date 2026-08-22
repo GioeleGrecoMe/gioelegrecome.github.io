@@ -31,6 +31,6 @@ test('Alva keyframe and camera raster must carry the same source frameId',()=>{
 test('Deep worker echoes correlation metadata and app rejects late mismatched results before fusion',()=>{
   const root=new URL('../',import.meta.url),worker=fs.readFileSync(new URL('workers/deep_depth_worker.js',root),'utf8'),app=fs.readFileSync(new URL('js/app.js',root),'utf8');
   assert.match(worker,/function correlationFields\(d\)/);assert.match(worker,/\.\.\.correlationFields\(d\)/);assert.match(worker,/frameSignature: raw\.frameSignature/);
-  assert.match(app,/validateDeepFrameResult/);assert.match(app,/deep-frame-sync-rejected/);assert.match(app,/Deep scartata: frame\/Alva non identici/);
+  assert.match(app,/validateDeepFrameResult/);assert.match(app,/deep-frame-sync-rejected/);assert.match(app,/deep-frame-sync-defense/);
   const validationAt=app.indexOf('validateDeepFrameResult'),applyAt=app.indexOf('await applyDeepDepthResult');assert.ok(validationAt>=0&&applyAt>validationAt,'sync validation must happen before Deep can update geometry');
 });
