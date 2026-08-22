@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
-import {analyzeMeshQuality} from '../js/reconstruction/mesh_quality.js?v=30.41.0';
+import {analyzeMeshQuality} from '../js/reconstruction/mesh_quality.js?v=30.42.0';
 
 const path=process.argv[2];
 if(!path){console.error('usage: node tools/analyze_ply_mesh.mjs <ascii.ply>');process.exit(2);}

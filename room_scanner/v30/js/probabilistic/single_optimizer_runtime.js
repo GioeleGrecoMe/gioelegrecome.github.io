@@ -1,5 +1,6 @@
-import {ProbabilisticJointOptimizer} from './joint_optimizer.js?v=30.41.0';
-import {evaluateLiveCandidate} from './live_optimization_gate.js?v=30.41.0';
+import {ProbabilisticJointOptimizer} from './joint_optimizer.js?v=30.42.0';
+import {evaluateLiveCandidate} from './live_optimization_gate.js?v=30.42.0';
+import {evaluateRgbConsensusPolicy} from './rgb_consensus_policy.js?v=30.42.0';
 
 const now=()=>globalThis.performance?.now?.()??Date.now();
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -77,7 +78,7 @@ export class SingleOptimizerRuntime{
       }
       if(this.stopped||token!==this.token)return {type:'single-opt-stopped',generation,trigger:job.reason||null,summary};
       const candidateStats=opt.computeStats(),candidateSnapshot=opt.snapshot();
-      const gate=evaluateLiveCandidate({baselineStats,candidateStats,baselineSnapshot,candidateSnapshot,options:gateOptions}),elapsed=now()-start;
+      const gate=applyRgbConsensusGuard(evaluateLiveCandidate({baselineStats,candidateStats,baselineSnapshot,candidateSnapshot,options:gateOptions}),candidateStats,{bootstrap}),elapsed=now()-start;
       this.trace('gate',{...traceBase,elapsedMs:elapsed,accepted:gate.accepted,score:finiteOrNull(gate.score),hardReasons:gate.hardReasons||[],softReasons:gate.softReasons||[],poseDelta:gate.poseDelta||null,baseline:compactStats(baselineStats),candidate:compactStats(candidateStats)});
       if(gate.accepted){
         // A live cycle sees only a bounded graph window. Replacing the accepted
@@ -114,9 +115,19 @@ export class SingleOptimizerRuntime{
       // Alva priors. This is a reconciliation stage, not a second optimizer.
       const opt=new ProbabilisticJointOptimizer(graph,{...(options.optimizer||{}),initial:this.acceptedSnapshot}),baseStats=opt.computeStats(),baseSnapshot=opt.snapshot(),n=opt.frames?.length||0,w=Math.max(6,Number(options.optimizer?.localWindowSize)||18),o=Math.max(2,Number(options.optimizer?.localWindowOverlap)||5),windows=n<=w?1:Math.max(1,Math.ceil((n-o)/Math.max(1,w-o))),passes=Math.max(1,Math.min(20,Number(options.reconcileRgbPasses)||windows*2));
       for(let i=0;i<passes;i++){opt.step(1,{bootstrap:true,allowDepth:false});if((i&1)===1)await yieldUi();}
-      const reconciledStats=opt.computeStats(),reconciledSnapshot=opt.snapshot(),reconcileGate=evaluateLiveCandidate({baselineStats:baseStats,candidateStats:reconciledStats,baselineSnapshot:baseSnapshot,candidateSnapshot:reconciledSnapshot,options:{maxReprojectionPx:4.5,maxReprojectionGrowth:1.10,reprojectionSlackPx:.22,maxCommonTranslationJump:.20,maxCommonRotationJumpRad:.14,maxMeanTranslationJump:.08,maxMeanRotationJumpRad:.055,maxDepthErrorGrowth:99,maxRejectedEdgeGrowth:10}}),br=preferredReprojection(baseStats),cr=preferredReprojection(reconciledStats),edgeBase=Number(baseStats.edgeSwitches?.mean||0),edgeNew=Number(reconciledStats.edgeSwitches?.mean||0),useReconciled=reconcileGate.accepted&&(!Number.isFinite(br)||cr<=br*1.03+.08)&&!(edgeBase>.25&&edgeNew<edgeBase*.45);
+      const reconciledStats=opt.computeStats(),reconciledSnapshot=opt.snapshot(),reconcileGate=applyRgbConsensusGuard(evaluateLiveCandidate({baselineStats:baseStats,candidateStats:reconciledStats,baselineSnapshot:baseSnapshot,candidateSnapshot:reconciledSnapshot,options:{maxReprojectionPx:4.5,maxReprojectionGrowth:1.10,reprojectionSlackPx:.22,maxCommonTranslationJump:.20,maxCommonRotationJumpRad:.14,maxMeanTranslationJump:.08,maxMeanRotationJumpRad:.055,maxDepthErrorGrowth:99,maxRejectedEdgeGrowth:10}}),reconciledStats,{bootstrap:false,commit:true}),br=preferredReprojection(baseStats),cr=preferredReprojection(reconciledStats),edgeBase=Number(baseStats.edgeSwitches?.mean||0),edgeNew=Number(reconciledStats.edgeSwitches?.mean||0),useReconciled=reconcileGate.accepted&&(!Number.isFinite(br)||cr<=br*1.03+.08)&&!(edgeBase>.25&&edgeNew<edgeBase*.45);
       this.trace('commit-reconcile',{passes,windows,useReconciled,gate:reconcileGate,baseline:compactStats(baseStats),candidate:compactStats(reconciledStats)});
-      const commitOpt=useReconciled?opt:new ProbabilisticJointOptimizer(graph,{...(options.optimizer||{}),initial:this.acceptedSnapshot}),acceptedFrameIds=new Set((this.acceptedSnapshot?.frames||[]).map(f=>String(f.frameId))),commitFrameIds=useReconciled?null:acceptedFrameIds;
+      const commitOpt=useReconciled?opt:new ProbabilisticJointOptimizer(graph,{...(options.optimizer||{}),initial:this.acceptedSnapshot}),acceptedFrameIds=new Set((this.acceptedSnapshot?.frames||[]).map(f=>String(f.frameId))),commitFrameIds=useReconciled?null:acceptedFrameIds,preCommitStats=commitOpt.computeStats();
+      // A numerically low reprojection is not enough when the RGB graph has
+      // switched itself almost completely off. In that state Alva can explain
+      // the trajectory while dense evidence is projected into a wrong world.
+      // Keep the optimized snapshot for diagnostics, but do not manufacture a
+      // committed surface until independent RGB consensus exists again.
+      if(preCommitStats?.rgbConsensusCollapsed||preCommitStats?.rgbConsensusCommitReady===false){
+        const elapsedMs=now()-t,localSnapshot=commitOpt.snapshot(),snapshot=useReconciled?mergeOptimizerSnapshots(this.acceptedSnapshot,localSnapshot):this.acceptedSnapshot;
+        this.trace('commit-withheld',{elapsedMs,reason:preCommitStats?.rgbConsensusCollapsed?'rgb-consensus-collapsed':'rgb-consensus-insufficient-for-commit',reconciled:useReconciled,stats:compactStats(preCommitStats),acceptedCoverage:{acceptedFrames:acceptedFrameIds.size,totalFrames:graph.frames?.length||0}});
+        return {map:null,stats:preCommitStats,snapshot,elapsedMs,reconciled:useReconciled,reconcileGate,acceptedFrameIds:[...acceptedFrameIds],withheldReason:preCommitStats?.rgbConsensusCollapsed?'rgb-consensus-collapsed':'rgb-consensus-insufficient-for-commit'};
+      }
       // If full-graph reconciliation is rejected, never fill the final surface
       // with frames that are still only raw Alva priors. Old V30.40 sessions may
       // contain a local accepted snapshot; those unaccepted frames remain
@@ -165,7 +176,15 @@ function cloneSnapshot(x){return x?structuredCloneSafe(x):null;}
 function structuredCloneSafe(x){if(x==null)return x;try{return globalThis.structuredClone?globalThis.structuredClone(x):JSON.parse(JSON.stringify(x));}catch{return JSON.parse(JSON.stringify(x));}}
 function pairKey(a,b){return a<b?`${a}|${b}`:`${b}|${a}`;}
 
-function compactStats(s){return {iterations:s?.iterations,reprojectionRmse:finiteOrNull(s?.reprojectionRmse),reprojectionRobustRmse:finiteOrNull(s?.reprojectionRobustRmse),reprojectionMedianPx:finiteOrNull(s?.reprojectionMedianPx),reprojectionP90Px:finiteOrNull(s?.reprojectionP90Px),reprojectionInlierFraction4px:finiteOrNull(s?.reprojectionInlierFraction4px),poseShiftMean:finiteOrNull(s?.poseShiftMean),poseRotationShiftMeanRad:finiteOrNull(s?.poseRotationShiftMeanRad),deepRelativeError:finiteOrNull(s?.deepRelativeError),feedbackPhase:s?.feedbackPhase,observations:s?.observations,landmarks:s?.landmarks,edgeSwitches:s?.edgeSwitches,alvaSwitches:s?.alvaSwitches,reliability:s?.reliability};}
+
+function applyRgbConsensusGuard(gate,stats,{bootstrap=false,commit=false}={}){
+  const e=stats?.edgeSwitches||{},policy=evaluateRgbConsensusPolicy(e),{edges,rejected,active,mean}=policy,collapsed=!!stats?.rgbConsensusCollapsed||policy.collapsed,commitReady=stats?.rgbConsensusCommitReady!==false&&policy.commitReady;
+  if(bootstrap||(!collapsed&&(!commit||commitReady)))return gate;
+  const hard=[...(gate?.hardReasons||[])],reason=collapsed?'rgb-consensus-collapsed':'rgb-consensus-insufficient-for-commit';if(!hard.includes(reason))hard.push(reason);
+  const warnings=[...(gate?.warnings||gate?.softReasons||[])];if(commit&&!warnings.includes('commit-requires-rgb-consensus'))warnings.push('commit-requires-rgb-consensus');
+  return {...gate,accepted:false,hardReasons:hard,warnings,softReasons:warnings,rgbConsensusGuard:{edges,active,rejected,mean,collapsed,commitReady}};
+}
+function compactStats(s){return {iterations:s?.iterations,reprojectionRmse:finiteOrNull(s?.reprojectionRmse),reprojectionRobustRmse:finiteOrNull(s?.reprojectionRobustRmse),reprojectionIndependentRobustRmse:finiteOrNull(s?.reprojectionIndependentRobustRmse),reprojectionOptimizationRobustRmse:finiteOrNull(s?.reprojectionOptimizationRobustRmse),reprojectionMedianPx:finiteOrNull(s?.reprojectionMedianPx),reprojectionP90Px:finiteOrNull(s?.reprojectionP90Px),reprojectionInlierFraction4px:finiteOrNull(s?.reprojectionInlierFraction4px),poseShiftMean:finiteOrNull(s?.poseShiftMean),poseRotationShiftMeanRad:finiteOrNull(s?.poseRotationShiftMeanRad),deepRelativeError:finiteOrNull(s?.deepRelativeError),feedbackPhase:s?.feedbackPhase,observations:s?.observations,landmarks:s?.landmarks,edgeSwitches:s?.edgeSwitches,rgbConsensusCollapsed:!!s?.rgbConsensusCollapsed,rgbConsensusCommitReady:s?.rgbConsensusCommitReady!==false,rgbActiveFraction:finiteOrNull(s?.rgbActiveFraction),rgbRejectedFraction:finiteOrNull(s?.rgbRejectedFraction),rgbEdgeImportFraction:finiteOrNull(s?.rgbEdgeImportFraction),rgbEdgeInput:s?.rgbEdgeInput,rgbEdgeUnresolved:s?.rgbEdgeUnresolved,alvaSwitches:s?.alvaSwitches,reliability:s?.reliability};}
 function preferredReprojection(s){const r=Number(s?.reprojectionRobustRmse);return Number.isFinite(r)?r:Number(s?.reprojectionRmse);}
 function evaluateBootstrapProgress(b,c,gate){const br=preferredReprojection(b),cr=preferredReprojection(c),be=Number(b?.energy),ce=Number(c?.energy),bm=Number(b?.reprojectionMedianPx),cm=Number(c?.reprojectionMedianPx),hard=(gate?.hardReasons||[]).filter(x=>x!=='robust-reprojection-absolute'),reprojGain=Number.isFinite(br)&&Number.isFinite(cr)?(br-cr)/Math.max(.25,br):0,energyGain=Number.isFinite(be)&&Number.isFinite(ce)?(be-ce)/Math.max(.05,Math.abs(be)):0,medianGain=Number.isFinite(bm)&&Number.isFinite(cm)?(bm-cm)/Math.max(.25,bm):0,catastrophic=hard.length>0||(Number.isFinite(br)&&Number.isFinite(cr)&&cr>br*1.08+.25),retain=!catastrophic&&(reprojGain>.002||energyGain>.006||medianGain>.003);return {retain,reprojGain,energyGain,medianGain,baselineRobustPx:finiteOrNull(br),candidateRobustPx:finiteOrNull(cr),hardReasons:hard};}
 function graphSignature(s){return [s?.frames||0,s?.landmarks||0,s?.photoEdges||0,s?.alvaEdges||0,s?.deepFrames||0,s?.mvsSamples||0].join(':');}

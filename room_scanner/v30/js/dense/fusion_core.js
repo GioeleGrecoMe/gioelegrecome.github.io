@@ -1,4 +1,4 @@
-import {addPoseUncertaintyToPointCovariance} from '../probabilistic/pose_uncertainty.js?v=30.41.0';
+import {addPoseUncertaintyToPointCovariance} from '../probabilistic/pose_uncertainty.js?v=30.42.0';
 /**
  * Online information-form 3D Gaussian map.
  *
@@ -84,7 +84,7 @@ export class SparseDenseFusion{
       radius:s.radius,confidence:s.confidence,weight:s.weight,sigmaDepth:s.sigmaDepth,sigmaLateral:s.sigmaLateral,support,observations:1,
       viewMaskLo:s.viewMaskLo,viewMaskHi:s.viewMaskHi,firstOrigin:[...s.origin],lastOrigin:[...s.origin],firstRay:[...s.ray],maxBaseline:0,maxViewAngle:0,lastSeenFrame:this.frames,
       deepWeight:s.sourceKind==='deep'?s.weight:0,verifiedWeight:s.sourceKind==='verified'?s.weight:0,trackWeight:s.sourceKind==='track'?s.weight:0,
-      sourceMask:s.sourceKind==='deep'?1:(s.sourceKind==='verified'?2:4),anchorSupport:s.anchorSupport||0,geometricSupport:s.geometricSupport||0,trackHits:s.trackId?1:0,colorM2:[0,0,0],
+      sourceMask:s.sourceKind==='deep'?1:(s.sourceKind==='verified'?2:4),anchorSupport:s.anchorSupport||0,geometricSupport:s.geometricSupport||0,independentSupport:s.independentSupport||0,finalPoseValidated:!!s.finalPoseValidated,trackHits:s.trackId?1:0,colorM2:[0,0,0],
       // Keep only a tiny, view-diverse reservoir.  These rays are the compact
       // sufficient data used by the post-scan batch optimiser; image history
       // itself is still discarded.
@@ -115,7 +115,7 @@ export class SparseDenseFusion{
     for(let k=0;k<3;k++){const delta=s.color[k]-oldColor[k];a.colorM2[k]=(a.colorM2[k]||0)+effectiveW*delta*(s.color[k]-a.color[k]);}
     a.descriptor=mergeDescriptor(a.descriptor,s.descriptor,Math.min(.25,effectiveW/nw));a.confidence=Math.min(1,(a.confidence*oldW+s.confidence*effectiveW)/nw);a.weight=nw;a.observations++;a.lastSeenFrame=this.frames;
     if(s.sourceKind==='deep'){a.deepWeight+=effectiveW;a.sourceMask|=1;}else if(s.sourceKind==='verified'){a.verifiedWeight+=effectiveW;a.sourceMask|=2;}else{a.trackWeight+=effectiveW;a.sourceMask|=4;}
-    a.anchorSupport=Math.max(a.anchorSupport||0,s.anchorSupport||0);a.geometricSupport=Math.max(a.geometricSupport||0,s.geometricSupport||0);if(s.trackId)a.trackHits++;
+    a.anchorSupport=Math.max(a.anchorSupport||0,s.anchorSupport||0);a.geometricSupport=Math.max(a.geometricSupport||0,s.geometricSupport||0);a.independentSupport=Math.max(a.independentSupport||0,s.independentSupport||0);a.finalPoseValidated=!!(a.finalPoseValidated||s.finalPoseValidated);if(s.trackId)a.trackHits++;
     a.viewMaskLo=(a.viewMaskLo|s.viewMaskLo)>>>0;a.viewMaskHi=(a.viewMaskHi|s.viewMaskHi)>>>0;a.support=popcountPair(a.viewMaskLo,a.viewMaskHi);
     a.lastOrigin=[...s.origin];a.maxBaseline=Math.max(a.maxBaseline,Math.hypot(...sub(s.origin,a.firstOrigin)));a.maxViewAngle=Math.max(a.maxViewAngle,viewAngle);
     this._rememberOptimObservation(a,s);
@@ -146,7 +146,12 @@ export class SparseDenseFusion{
 
   _isConfirmed(s){
     if(s.support<this.minSupport||s.confidence<.10)return false;
-    const hasTrueMultiView=(s.geometricSupport>=2)||s.maxBaseline>=this.minConfirmBaseline||s.maxViewAngle>=.025;if(!hasTrueMultiView)return false;
+    const surfaceEvidence=!!(s.sourceMask&3),independent=Math.max(0,Number(s.independentSupport)||0),anchored=(Number(s.anchorSupport)||0)>=1.5;
+    // Dense evidence may only become committed surface when at least one source
+    // view independently validates it under the final geometry (or a strong RGB
+    // sparse anchor agrees). A list of historical source IDs is not evidence.
+    if(surfaceEvidence&&independent<1&&!anchored)return false;
+    const hasTrueMultiView=independent>=1||(s.geometricSupport>=2&&anchored)||s.maxBaseline>=this.minConfirmBaseline||s.maxViewAngle>=.025;if(!hasTrueMultiView)return false;
     const rms=Math.sqrt(Math.max(0,traceCov(s.positionCov)/3)),limit=Math.max(this.hashVoxel*2.4,s.radius*4.0)*((s.sourceMask&6)?1.7:1);return rms<=limit;
   }
   _confirmedCount(){let n=0;for(const s of this.surfels.values())if(this._isConfirmed(s))n++;return n;}
@@ -160,8 +165,8 @@ export class SparseDenseFusion{
     // the actual 3D covariance, not an axis-aligned radius approximation.
     const normalVar=quadPacked(cov,n),wanted=Math.max(.0008**2,Math.min((s.radius*.34)**2,(positionSigma*.55+this.hashVoxel*.025)**2));if(normalVar<wanted)cov=addCov(cov,scaleCov(outerPacked(n),wanted-normalVar));
     const scale=[Math.sqrt(Math.max(1e-12,quadPacked(cov,t1))),Math.sqrt(Math.max(1e-12,quadPacked(cov,t2))),Math.sqrt(Math.max(1e-12,quadPacked(cov,n)))],mixed=(s.sourceMask&3)===3;
-    const evidenceClass=(s.sourceMask&4)||(s.anchorSupport||0)>=1.5?'strong':((s.sourceMask&2)||s.support>=3||s.geometricSupport>=3?'confirmed':'weak');
-    return {id:id??undefined,position:s.p,normal:n,normalReliable:!!s.normalReliable,viewOrigin:Array.isArray(s.firstOrigin)?s.firstOrigin.slice(0,3):null,sourceMask:s.sourceMask||0,color:s.color.map(v=>Math.round(clamp(v,0,255))),scale,covariance:cov,positionCovariance:[...s.positionCov],basis:[t1,t2,n],opacity:clamp(.12+.075*Math.min(6,s.support)+.38*s.confidence+(mixed?.06:0)+Math.min(.10,(s.anchorSupport||0)*.025),.18,.96),confidence:s.confidence,support:s.support,observations:s.observations,maxBaseline:s.maxBaseline,positionSigma,anchorSupport:s.anchorSupport||0,geometricSupport:s.geometricSupport||0,mixedEvidence:mixed,evidenceClass};
+    const independentSupport=Math.max(0,Number(s.independentSupport)||0),evidenceClass=(s.sourceMask&4)||(s.anchorSupport||0)>=1.5||independentSupport>=2?'strong':(independentSupport>=1&&((s.sourceMask&3)||s.support>=2)?'confirmed':'weak');
+    return {id:id??undefined,position:s.p,normal:n,normalReliable:!!s.normalReliable,viewOrigin:Array.isArray(s.firstOrigin)?s.firstOrigin.slice(0,3):null,sourceMask:s.sourceMask||0,color:s.color.map(v=>Math.round(clamp(v,0,255))),scale,covariance:cov,positionCovariance:[...s.positionCov],basis:[t1,t2,n],opacity:clamp(.12+.075*Math.min(6,s.support)+.38*s.confidence+(mixed?.06:0)+Math.min(.10,(s.anchorSupport||0)*.025),.18,.96),confidence:s.confidence,support:s.support,observations:s.observations,maxBaseline:s.maxBaseline,positionSigma,anchorSupport:s.anchorSupport||0,geometricSupport:s.geometricSupport||0,independentSupport,finalPoseValidated:!!s.finalPoseValidated,mixedEvidence:mixed,evidenceClass};
   }
   splats(opts={}){return this.confirmedSurfels(opts).map(s=>this._splatOf(s));}
 
@@ -204,15 +209,41 @@ export function buildConsensusTsdfMeshFromSplats(splats,{voxel=.035,truncation=n
   // merge their meshes.  This is the surface analogue of the two-hypothesis
   // Depth posterior used earlier in the pipeline: conflicts stay multi-modal
   // instead of being averaged into a phantom intermediate sheet.
-  const layers=clusterSurfaceLayers(prepared,vv),meshes=[];let occupied=0,triLeft=Math.max(0,maxTriangles|0),voxLeft=Math.max(1000,maxTsdf|0),usedSurfels=0;
-  for(const layer of layers){if(triLeft<=0||voxLeft<=64)break;if(layer.length<4)continue;const cap=Math.max(256,Math.min(voxLeft,Math.ceil(maxTsdf*Math.max(.04,layer.length/prepared.length)))),map=buildLayerTsdf(layer,vv,trBase,cap),m=extractTsdfMesh(map,vv,triLeft);occupied+=map.size;voxLeft=Math.max(0,voxLeft-map.size);usedSurfels+=layer.length;if(m.faces?.length){meshes.push(m);triLeft-=Math.floor(m.faces.length/3);}}
-  const mesh=mergeSurfaceLayerMeshes(meshes,maxTriangles,vv);mesh.globalConsensus=true;mesh.consensusMode='multi-layer-tsdf';mesh.sourceSurfels=usedSurfels;mesh.inputSurfels=prepared.length;mesh.surfaceLayers=layers.filter(x=>x.length>=4).length;mesh.occupiedVoxels=occupied;return mesh;
+  const layers=clusterSurfaceLayers(prepared,vv),meshes=[];let occupied=0,triLeft=Math.max(0,maxTriangles|0),voxLeft=Math.max(1000,maxTsdf|0),usedSurfels=0,processedLayers=0;
+  for(const layer of layers){if(triLeft<=0||voxLeft<=64)break;if(!layer.length)continue;const cap=Math.max(256,Math.min(voxLeft,Math.ceil(maxTsdf*Math.max(.04,layer.length/prepared.length)))),map=buildLayerTsdf(layer,vv,trBase,cap),m=extractTsdfMesh(map,vv,triLeft);occupied+=map.size;voxLeft=Math.max(0,voxLeft-map.size);usedSurfels+=layer.length;processedLayers++;if(m.faces?.length){meshes.push(m);triLeft-=Math.floor(m.faces.length/3);}}
+  const mesh=mergeSurfaceLayerMeshes(meshes,maxTriangles,vv);mesh.globalConsensus=true;mesh.consensusMode='conflict-colored-multi-layer-tsdf';mesh.sourceSurfels=usedSurfels;mesh.inputSurfels=prepared.length;mesh.droppedSurfels=Math.max(0,prepared.length-usedSurfels);mesh.meshedSurfelFraction=prepared.length?usedSurfels/prepared.length:0;mesh.surfaceLayers=processedLayers;mesh.occupiedVoxels=occupied;return mesh;
 }
 function buildLayerTsdf(rows,vv,trBase,maxTsdf){const map=new Map(),ref=rows.find(g=>finite3(g?.normal))?.normal,refN=finite3(ref)?norm(ref):null;for(const g of rows){if(map.size>=maxTsdf)break;if(!finite3(g.position)||!finite3(g.normal))continue;let n=norm(g.normal);if(refN&&dot(n,refN)<0)n=n.map(x=>-x);const [t1,t2]=tangentBasis(n),s0=Math.max(vv*.35,Number(g.scale?.[0])||vv*.6),s1=Math.max(vv*.35,Number(g.scale?.[1])||vv*.6),r1=clamp(Math.max(vv*.90,s0*1.65),vv*.75,vv*2.35),r2=clamp(Math.max(vv*.90,s1*1.65),vv*.75,vv*2.35),posSigma=Math.max(vv*.05,Number(g.positionSigma)||packedSigma(g.positionCovariance)),tr=Math.max(trBase,posSigma*2.1,Math.min(vv*4,Math.max(r1,r2)*1.15)),tStep=vv*.62,nStep=vv*.62,baseWeight=Math.max(.025,Number(g.confidence)||.1)*(.55+.45*clamp((Number(g.support)||1)/3,0,1));
     for(let aa=-r1;aa<=r1+1e-9;aa+=tStep)for(let bb=-r2;bb<=r2+1e-9;bb+=tStep){const rr=Math.hypot(aa/r1,bb/r2);if(rr>1)continue;const hann=.5*(1+Math.cos(Math.PI*rr)),tw=.12+.88*hann,base=[g.position[0]+t1[0]*aa+t2[0]*bb,g.position[1]+t1[1]*aa+t2[1]*bb,g.position[2]+t1[2]*aa+t2[2]*bb];for(let off=-tr;off<=tr+1e-9;off+=nStep){if(map.size>=maxTsdf)break;const q=[base[0]+n[0]*off,base[1]+n[1]*off,base[2]+n[2]*off],key=voxelKey(q,vv),sd=clamp(off/tr,-1,1),nw=.10+.90*(1-Math.abs(sd)),w=baseWeight*tw*nw,old=map.get(key),color=g.color||[180,200,220];if(old){const sw=old.w+w;old.d=(old.d*old.w+sd*w)/sw;old.w=Math.min(255,sw);if(Math.abs(sd)<.5)old.color=mix3(old.color,color,w/sw);}else map.set(key,{d:sd,w,color:[...color]});}if(map.size>=maxTsdf)break;}
   }return map;}
-function clusterSurfaceLayers(rows,voxel){const cell=Math.max(voxel*2.8,.012),hash=new Map(),parent=rows.map((_,i)=>i),rank=new Uint8Array(rows.length),find=i=>{while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i];}return i;},join=(a,b)=>{a=find(a);b=find(b);if(a===b)return;if(rank[a]<rank[b])[a,b]=[b,a];parent[b]=a;if(rank[a]===rank[b])rank[a]++;};for(let i=0;i<rows.length;i++){const c=cellOf(rows[i].position,cell),key=`${c[0]},${c[1]},${c[2]}`,a=hash.get(key)||[];a.push(i);hash.set(key,a);}for(let i=0;i<rows.length;i++){const a=rows[i],c=cellOf(a.position,cell),ra=surfaceLinkRadius(a,voxel),span=Math.max(1,Math.min(3,Math.ceil(ra/cell)+1));for(let dz=-span;dz<=span;dz++)for(let dy=-span;dy<=span;dy++)for(let dx=-span;dx<=span;dx++)for(const j of hash.get(`${c[0]+dx},${c[1]+dy},${c[2]+dz}`)||[]){if(j<=i)continue;const b=rows[j],rb=surfaceLinkRadius(b,voxel),d=sub(b.position,a.position),dist=Math.hypot(...d),reach=Math.max(voxel*3.0,Math.min(voxel*6.2,ra+rb));if(dist>reach)continue;const na=norm(a.normal),nb=norm(b.normal),nd=Math.abs(dot(na,nb));if(nd<.70)continue;const normalGap=Math.max(Math.abs(dot(d,na)),Math.abs(dot(d,nb))),normalTol=Math.max(voxel*1.15,Math.min(voxel*2.0,packedSigma(a.positionCovariance)*2.2+packedSigma(b.positionCovariance)*2.2));if(normalGap>normalTol)continue;join(i,j);}}
-  const by=new Map();for(let i=0;i<rows.length;i++){const r=find(i),a=by.get(r)||[];a.push(rows[i]);by.set(r,a);}const out=[...by.values()];out.sort((a,b)=>b.length-a.length);return out;}
+function clusterSurfaceLayers(rows,voxel){
+  // Layers are GLOBAL conflict colours, not connected components. Spatially
+  // disconnected pieces of the same physical surface are allowed to share one
+  // TSDF layer. Only locally interacting, mutually incompatible hypotheses are
+  // forced into different colours. This prevents the old catastrophic failure
+  // where hundreds of tiny local components were mistaken for hundreds of
+  // layers and most surfels were discarded before meshing.
+  if(!rows.length)return [];
+  const cell=Math.max(voxel*3.0,.012),hash=new Map(),conflicts=Array.from({length:rows.length},()=>new Set());
+  for(let i=0;i<rows.length;i++){const c=cellOf(rows[i].position,cell),k=`${c[0]},${c[1]},${c[2]}`,a=hash.get(k)||[];a.push(i);hash.set(k,a);}
+  for(let i=0;i<rows.length;i++){const a=rows[i],c=cellOf(a.position,cell),ra=surfaceLinkRadius(a,voxel),span=2;for(let dz=-span;dz<=span;dz++)for(let dy=-span;dy<=span;dy++)for(let dx=-span;dx<=span;dx++)for(const j of hash.get(`${c[0]+dx},${c[1]+dy},${c[2]+dz}`)||[]){if(j<=i)continue;const b=rows[j],rb=surfaceLinkRadius(b,voxel),d=sub(b.position,a.position),dist=Math.hypot(...d),interaction=Math.max(voxel*3.2,Math.min(voxel*7.0,ra+rb+voxel*1.4));if(dist>interaction)continue;const na=norm(a.normal),nb=norm(b.normal),nd=Math.abs(dot(na,nb)),normalGap=Math.max(Math.abs(dot(d,na)),Math.abs(dot(d,nb))),sigma=packedSigma(a.positionCovariance)+packedSigma(b.positionCovariance),sameSurfaceTol=Math.max(voxel*.95,Math.min(voxel*2.2,2.2*sigma+voxel*.45));let conflict=false;
+      if(nd>=.72){
+        // Parallel/near-parallel sheets only conflict when they are close enough
+        // to interact in one truncation band yet too far apart to be the same
+        // physical surface.
+        conflict=normalGap>sameSurfaceTol&&normalGap<interaction*.92;
+      }else{
+        // Strongly different normals form corners/occlusion modes. Keep them in
+        // separate fields only in their local interaction neighbourhood; far
+        // disconnected walls may reuse the same colour.
+        conflict=dist<Math.max(voxel*3.8,Math.min(interaction,ra+rb+voxel*1.8));
+      }
+      if(conflict){conflicts[i].add(j);conflicts[j].add(i);}
+    }}
+  const order=rows.map((_,i)=>i).sort((a,b)=>conflicts[b].size-conflicts[a].size),color=new Int32Array(rows.length);color.fill(-1);let maxColor=-1;
+  for(const i of order){const blocked=new Set();for(const j of conflicts[i])if(color[j]>=0)blocked.add(color[j]);let c=0;while(blocked.has(c))c++;color[i]=c;if(c>maxColor)maxColor=c;}
+  const layers=Array.from({length:maxColor+1},()=>[]);for(let i=0;i<rows.length;i++)layers[color[i]].push(rows[i]);layers.sort((a,b)=>b.length-a.length);return layers;
+}
 function surfaceLinkRadius(g,voxel){const sx=Math.max(0,Number(g.scale?.[0])||0),sy=Math.max(0,Number(g.scale?.[1])||0);return clamp(Math.max(voxel*1.55,1.7*Math.max(sx,sy)),voxel*1.5,voxel*3.1);}
 function mergeSurfaceLayerMeshes(meshes,maxTriangles,voxel){const vertices=[],colors=[],faces=[],bins=new Map(),tol=Math.max(1e-6,voxel*.62),cell=tol;let tri=0,layer=0;const key=(x,y,z)=>`${x},${y},${z}`;for(const m of meshes||[]){if(!m?.vertices?.length||!m?.faces?.length){layer++;continue;}const local=new Int32Array(Math.floor(m.vertices.length/3)),newIds=[];local.fill(-1);for(let vi=0;vi<local.length;vi++){const p=[m.vertices[vi*3],m.vertices[vi*3+1],m.vertices[vi*3+2]],c=[Math.floor(p[0]/cell),Math.floor(p[1]/cell),Math.floor(p[2]/cell)];let best=-1,bd=tol;for(let dz=-1;dz<=1;dz++)for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)for(const rec of bins.get(key(c[0]+dx,c[1]+dy,c[2]+dz))||[]){if(rec.layer===layer)continue;const gp=[vertices[rec.id*3],vertices[rec.id*3+1],vertices[rec.id*3+2]],d=Math.hypot(p[0]-gp[0],p[1]-gp[1],p[2]-gp[2]);if(d<bd){bd=d;best=rec.id;}}if(best>=0)local[vi]=best;else{const id=vertices.length/3;vertices.push(...p);colors.push(m.colors?.[vi*3]??180,m.colors?.[vi*3+1]??200,m.colors?.[vi*3+2]??220);local[vi]=id;newIds.push({id,p,c});}}const allow=Math.min(Math.floor(m.faces.length/3),Math.max(0,maxTriangles-tri));for(let fi=0;fi<allow;fi++){const a=local[m.faces[fi*3]],b=local[m.faces[fi*3+1]],c=local[m.faces[fi*3+2]];if(a===b||b===c||a===c)continue;const pa=[vertices[a*3],vertices[a*3+1],vertices[a*3+2]],pb=[vertices[b*3],vertices[b*3+1],vertices[b*3+2]],pc=[vertices[c*3],vertices[c*3+1],vertices[c*3+2]],area2=Math.hypot(...cross(sub(pb,pa),sub(pc,pa)));if(!(area2>voxel*voxel*1e-5))continue;faces.push(a,b,c);tri++;if(tri>=maxTriangles)break;}for(const rec of newIds){const k=key(rec.c[0],rec.c[1],rec.c[2]),a=bins.get(k)||[];a.push({id:rec.id,layer});bins.set(k,a);}layer++;if(tri>=maxTriangles)break;}const compact=compactMeshArrays(vertices,colors,faces);return {voxelM:voxel,vertices:compact.vertices,colors:compact.colors,faces:compact.faces,surfaceLayerMesh:true};}
 function compactMeshArrays(vertices,colors,faces){const nv=Math.floor(vertices.length/3),used=new Uint8Array(nv);for(const i of faces)if(i>=0&&i<nv)used[i]=1;const remap=new Int32Array(nv);remap.fill(-1);const v=[],c=[];for(let i=0;i<nv;i++)if(used[i]){remap[i]=v.length/3;v.push(vertices[i*3],vertices[i*3+1],vertices[i*3+2]);c.push(colors[i*3]??180,colors[i*3+1]??200,colors[i*3+2]??220);}const f=new Uint32Array(faces.length);for(let i=0;i<faces.length;i++)f[i]=remap[faces[i]];return {vertices:new Float32Array(v),colors:new Uint8Array(c),faces:f};}
@@ -229,7 +260,8 @@ function normaliseObservation(s,origin,hashVoxel,mode,frameId){
   const sigmaLateral=Math.max(hashVoxel*.04,Number(s.sigmaLateral)||radius*.72),defaultRel=/deep/i.test(source)?.10:.022,sigmaDepth=Math.max(hashVoxel*.05,Number(s.sigmaDepth)||Math.max(radius*1.1,depth*defaultRel));
   const probability=clamp(Number(s.probability??s.geometryProbability??s.confidence)||.08,.005,.999),baseCov=validCov(s.covariance)?regularizeCov(s.covariance,hashVoxel*.012):rayCovariance(ray,sigmaDepth,sigmaLateral),probCov=scaleCov(baseCov,1/Math.max(.06,probability)),cov=addPoseUncertaintyToPointCovariance(probCov,s.poseCov,p,o),surfaceCov=validCov(s.surfaceCovariance)?regularizeCov(s.surfaceCovariance,hashVoxel*.006):surfaceFromRadius(n,radius,normalReliable),confidence=clamp((Number(s.confidence)||.15)*Math.sqrt(probability),.01,1);
   const sourceKind=/track/i.test(source)?'track':(/verified|mvs/i.test(source)?'verified':'deep'),sourceWeight=sourceKind==='deep'?.36:(sourceKind==='track'?1.12:1),precision=1/Math.max(1e-9,traceCov(cov)),weight=clamp(confidence*probability*sourceWeight*precision*hashVoxel*hashVoxel,.005,5.0),evidence=Array.isArray(s.evidenceFrames)&&s.evidenceFrames.length?s.evidenceFrames:[frameId],mask=evidenceMask(evidence);
-  return {p,origin:o,ray,depth,n,normalReliable,color:(s.color||[180,200,220]).slice(0,3).map(Number),descriptor:Array.isArray(s.descriptor)?s.descriptor.slice(0,24).map(Number):null,radius,confidence,probability,sigmaDepth,sigmaLateral,cov,surfaceCov,source,sourceKind,weight,anchorSupport:Math.max(0,Number(s.anchorSupport)||0),trackId:s.trackId||null,geometricSupport:Math.max(Number(s.viewSupport)||0,evidence.length),viewMaskLo:mask[0],viewMaskHi:mask[1]};
+  const independentSupport=Math.max(0,Number(s.independentSupport)||0),geometricSupport=Math.max(1,Math.min(Math.max(1,Number(s.viewSupport)||1),1+independentSupport));
+  return {p,origin:o,ray,depth,n,normalReliable,color:(s.color||[180,200,220]).slice(0,3).map(Number),descriptor:Array.isArray(s.descriptor)?s.descriptor.slice(0,24).map(Number):null,radius,confidence,probability,sigmaDepth,sigmaLateral,cov,surfaceCov,source,sourceKind,weight,anchorSupport:Math.max(0,Number(s.anchorSupport)||0),independentSupport,finalPoseValidated:!!s.finalPoseValidated,trackId:s.trackId||null,geometricSupport,viewMaskLo:mask[0],viewMaskHi:mask[1]};
 }
 
 function compatibilityScore(a,s,hashVoxel,maxMahalanobis2,minNormalDot){
