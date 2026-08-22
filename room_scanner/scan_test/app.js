@@ -22,6 +22,7 @@ const dom = Object.freeze({
   offlineBadge: $('offlineBadge'), offlineMetrics: $('offlineMetrics'), trajectoryCanvas: $('trajectoryCanvas'),
   planeBadge: $('planeBadge'), planeMetrics: $('planeMetrics'), planeCanvas: $('planeCanvas'),
   deepBadge: $('deepBadge'), deepMetrics: $('deepMetrics'), depthCanvas: $('depthCanvas'),
+  deepDiagnostic: $('deepDiagnostic'), deepSourceCanvas: $('deepSourceCanvas'), deepTensorCanvas: $('deepTensorCanvas'), deepOutputCanvas: $('deepOutputCanvas'), deepReport: $('deepReport'),
   viewerBadge: $('viewerBadge'), viewerMetrics: $('viewerMetrics'), splatCanvas: $('splatCanvas'),
   gridStepOut: $('gridStepOut'), confidenceOut: $('confidenceOut'),
 });
@@ -228,6 +229,7 @@ function clearSession() {
   disposeCaptureSource(); S.frames.length = 0; S.edges.length = 0; S.depthEdges.length = 0; S.frameBytes = 0; S.offlineDone = S.deepDone = S.finalDone = false; S.splats = S.planeSplats = null; S.lastDepthFrame = null;
   dom.frameStrip.innerHTML = '<p class="empty">L\'archivio comparirà qui. I fotogrammi sono mantenuti in memoria per la riesecuzione offline e Deep.</p>';
   updateArchiveUi(); setBadge(dom.offlineBadge, 'non avviata'); setBadge(dom.planeBadge, 'in attesa'); setBadge(dom.deepBadge, 'non avviata'); setBadge(dom.viewerBadge, 'nessuna particella');
+  dom.deepDiagnostic.hidden = true; dom.deepReport.textContent = 'Esegui “Prova Deep sul frame corrente” per verificare il percorso completo.';
   dom.offlineMetrics.innerHTML = '<p class="empty">Qui compariranno copertura AlvaAR, corrispondenze, overlap e tratti interpolati.</p>'; dom.planeMetrics.innerHTML = '<p class="empty">La vista ortografica mostrerà le particelle RGB prodotte dai piani.</p>'; dom.deepMetrics.innerHTML = '<p class="empty">Il log mostrerà le dimensioni native Deep, la conversione coordinate, il verso profondità scelto e il residuo prima/dopo.</p>'; dom.viewerMetrics.innerHTML = '<p class="empty">Dopo Deep, qui troverai il conteggio pixel, piani di fallback, range di profondità, residuo dei punti comuni e test di riproiezione.</p>';
   $('recordBtn').disabled = true; $('stopBtn').disabled = true; $('offlineBtn').disabled = true; $('planeBtn').disabled = true; $('deepBtn').disabled = true; $('finalBtn').disabled = true; $('verifyBtn').disabled = true; $('downloadBtn').disabled = true; $('depthPreviewBtn').disabled = true;
   dom.runtimeStatus.textContent = 'AlvaAR non inizializzato · Deep non caricato. Il video di test esercita l’acquisizione, ma è statico e non deve produrre una posa 3D.';
@@ -331,7 +333,10 @@ async function ensureDeepWorker() {
     const pending = S.deepWaiters.get(String(d.jobId || '')); if (pending) { S.deepWaiters.delete(String(d.jobId)); clearTimeout(pending.timer); pending.resolve(d); }
   };
   worker.onerror = e => { const err = new Error(e.message || 'errore worker Deep'); for (const p of S.deepWaiters.values()) { clearTimeout(p.timer); p.reject(err); } S.deepWaiters.clear(); log('deep-worker-error', { message: err.message }, 'ERROR'); };
-  worker.postMessage({ type: 'init', config: { modelUrl: new URL('./models/model_q4.onnx', location.href).href, ortLocal: new URL('./vendor/onnxruntime-web/ort.all.min.mjs', location.href).href, inputMaxSide: 518, preferredShortSide: 224, compatibilityShortSide: 280, qualityRescueShortSide: 280, qualityMaxRescueShortSide: 336, testFlipCheck: false } });
+  // Correctness is the point of this isolated experiment. The Q4 model has
+  // previously produced finite but visually random output on Android WebGPU,
+  // so every test and scan runs through the deterministic WASM provider.
+  worker.postMessage({ type: 'init', config: { modelUrl: new URL('./models/model_q4.onnx', location.href).href, ortLocal: new URL('./vendor/onnxruntime-web/ort.all.min.mjs', location.href).href, inputMaxSide: 518, preferredShortSide: 224, compatibilityShortSide: 280, qualityRescueShortSide: 280, qualityMaxRescueShortSide: 336, testFlipCheck: false, forceWasm: true } });
   return worker;
 }
 function deepRequest(message, timeout = 120000) {
@@ -343,7 +348,17 @@ function deepRequest(message, timeout = 120000) {
 async function testDeep() {
   const frame = S.current; if (!frame) throw new Error('Nessun fotogramma acquisito disponibile per il test Deep.');
   $('testDeepBtn').disabled = true; setGlobal('Test Deep…'); const jobId = `test-${Date.now()}`;
-  try { const d = await deepRequest({ type: 'test', jobId, model: modelForWorker(), rgba: new Uint8ClampedArray(frame.rgba), width: W, height: H, frameId: jobId, frameAt: frame.at, refId: 'preflight' }); if (d.type === 'deep-error') throw new Error(d.message || 'inferenza Deep fallita'); drawDepth({ rawDepth: d.rawDepth, rawWidth: d.rawWidth, rawHeight: d.rawHeight }); dom.runtimeStatus.textContent = `Deep OK · ${d.provider} · ${d.rawWidth}×${d.rawHeight} · ${fmt(d.totalMs || d.ms, 0)} ms · ${d.quality?.suspicious ? 'qualità da controllare' : 'struttura coerente'}`; setGlobal('Test Deep completato', d.quality?.suspicious ? '' : 'ok'); log('deep-test', { provider: d.provider, output: [d.rawWidth, d.rawHeight], ms: d.totalMs || d.ms, quality: d.quality, layout: d.layoutFix, input: d.inputPlan }); }
+  try {
+    const d = await deepRequest({ type: 'test', jobId, model: modelForWorker(), rgba: new Uint8ClampedArray(frame.rgba), width: W, height: H, frameId: jobId, frameAt: frame.at, refId: 'preflight' });
+    if (d.type === 'deep-error') throw new Error(d.message || 'inferenza Deep fallita');
+    renderDeepDiagnostic(d);
+    drawDepth({ rawDepth: d.rawDepth, rawWidth: d.rawWidth, rawHeight: d.rawHeight });
+    const bad = !!d.quality?.suspicious;
+    dom.runtimeStatus.textContent = `Deep ${bad ? 'NON superato' : 'OK'} · ${d.provider} · ${d.rawWidth}×${d.rawHeight} · ${fmt(d.totalMs || d.ms, 0)} ms · ${bad ? 'mappa incoerente: non verrà usata' : 'struttura coerente'}`;
+    setGlobal(bad ? 'Test Deep non superato' : 'Test Deep completato', bad ? 'fail' : 'ok');
+    log('deep-test', { provider: d.provider, output: [d.rawWidth, d.rawHeight], ms: d.totalMs || d.ms, quality: d.quality, layout: d.layoutFix, input: d.inputPlan, rasterProbe: d.rasterProbe, depthSignature: d.depthSignature }, bad ? 'WARN' : 'INFO');
+    if (bad) throw new Error('La mappa Deep non supera il controllo di coerenza: verifica i tre riquadri diagnostici; la ricostruzione non userà una profondità casuale.');
+  }
   finally { $('testDeepBtn').disabled = false; }
 }
 function selectDeepFrames() {
@@ -359,8 +374,12 @@ function selectDeepFrames() {
 function scalarDepth(frame, u, v, convention) {
   const d = frame.deep; if (!d?.rawDepth?.length) return NaN; const x = clamp((u + .5) * d.rawWidth / frame.width - .5, 0, d.rawWidth - 1), y = clamp((v + .5) * d.rawHeight / frame.height - .5, 0, d.rawHeight - 1), x0 = Math.floor(x), y0 = Math.floor(y), x1 = Math.min(d.rawWidth - 1, x0 + 1), y1 = Math.min(d.rawHeight - 1, y0 + 1), tx = x - x0, ty = y - y0;
   const raw = (d.rawDepth[y0 * d.rawWidth + x0] * (1 - tx) + d.rawDepth[y0 * d.rawWidth + x1] * tx) * (1 - ty) + (d.rawDepth[y1 * d.rawWidth + x0] * (1 - tx) + d.rawDepth[y1 * d.rawWidth + x1] * tx) * ty;
-  if (!(Number.isFinite(raw) && raw > 0 && d.median > 0)) return NaN;
-  return convention === 'inverse' ? d.median / raw : raw / d.median;
+  // Monocular depth is relative: its affine offset/sign is not a physical
+  // depth. Use its magnitude only after the map passes the spatial test;
+  // rejecting negative values here used to turn valid pixels into a plane.
+  const magnitude = Math.abs(raw);
+  if (!(Number.isFinite(magnitude) && magnitude > 1e-8 && d.median > 1e-8)) return NaN;
+  return convention === 'inverse' ? d.median / magnitude : magnitude / d.median;
 }
 function depthAt(frame, u, v) { return scalarDepth(frame, u, v, frame.deep.convention) * frame.deep.depthScale; }
 function buildDepthEdges(selected) {
@@ -404,8 +423,9 @@ async function runDeep() {
     const f = selected[i], jobId = `deep-${f.id}-${Date.now()}`; dom.deepBadge.textContent = `Deep ${i + 1}/${selected.length}`;
     const d = await deepRequest({ type: 'infer', jobId, model: modelForWorker(), rgba: new Uint8ClampedArray(f.rgba), width: f.width, height: f.height, frameId: f.id, frameAt: f.at, refId: f.id, targetSide: 224 });
     if (d.type === 'deep-error') throw new Error(`${f.id}: ${d.message || 'errore Deep'}`);
-    const valid = Array.from(d.rawDepth).filter(v => Number.isFinite(v) && v > 0); f.deep = { rawDepth: d.rawDepth, rawWidth: d.rawWidth, rawHeight: d.rawHeight, median: median(valid), quality: d.quality || {}, provider: d.provider, inputPlan: d.inputPlan, ms: d.totalMs || d.ms, convention: 'direct', depthScale: Math.max(.001, numberValue('planeDistance', 2)) }; S.lastDepthFrame = f;
+    const valid = Array.from(d.rawDepth, v => Math.abs(v)).filter(v => Number.isFinite(v) && v > 1e-8); f.deep = { rawDepth: d.rawDepth, rawWidth: d.rawWidth, rawHeight: d.rawHeight, median: median(valid), quality: d.quality || {}, provider: d.provider, inputPlan: d.inputPlan, ms: d.totalMs || d.ms, convention: 'direct', depthScale: Math.max(.001, numberValue('planeDistance', 2)) }; S.lastDepthFrame = f;
     drawDepth(f.deep); log('deep-frame-result', { frame: f.id, output: [d.rawWidth, d.rawHeight], inputPlan: d.inputPlan, provider: d.provider, ms: d.totalMs || d.ms, quality: d.quality, layout: d.layoutFix }); await nextPaint();
+    if (d.quality?.suspicious || !Number.isFinite(f.deep.median)) throw new Error(`${f.id}: Deep ha prodotto una mappa incoerente o senza profondità relativa valida; il flusso si ferma invece di creare splat RGB casuali.`);
   }
   S.depthEdges = buildDepthEdges(selected); if (!S.depthEdges.length) log('depth-global-weak-graph', { reason: 'nessuna coppia Deep ha superato overlap 10%' }, 'WARN');
   const direct = solveDepthScales(selected, S.depthEdges, 'direct'), inverse = solveDepthScales(selected, S.depthEdges, 'inverse'); const best = direct.after.median <= inverse.after.median ? direct : inverse;
@@ -414,17 +434,70 @@ async function runDeep() {
   drawDepth(S.lastDepthFrame.deep); updateDeepMetrics(selected, best, direct, inverse); setBadge(dom.deepBadge, `${selected.length} viste · ${best.convention}`, best.after.count ? 'ok' : 'warn'); setGlobal('Profondità globali allineate', best.after.count ? 'ok' : ''); setStep(6);
   log('depth-global-solve', { selected: selected.length, graphEdges: S.depthEdges.length, convention: best.convention, scales: Array.from(best.scales).map(v => +v.toFixed(4)), beforeMedian: best.before.median, afterMedian: best.after.median, residualCount: best.after.count });
 }
-function heat(t) { const x = clamp(t, 0, 1), r = Math.round(255 * clamp(1.8 - Math.abs(4 * x - 3), 0, 1)), g = Math.round(255 * clamp(1.8 - Math.abs(4 * x - 2), 0, 1)), b = Math.round(255 * clamp(1.8 - Math.abs(4 * x - 1), 0, 1)); return [r, g, b]; }
+function depthShade(t) { const x = clamp(t, 0, 1), v = Math.round(18 + 237 * x); return [Math.round(v * .80), Math.round(v * .93), v]; }
+function drawCanvasImage(canvas, source, sourceWidth, sourceHeight, label = '') {
+  if (!canvas || !source || !(sourceWidth > 1 && sourceHeight > 1)) return;
+  const { g, w, h } = setupCanvas(canvas), scale = Math.min(w / sourceWidth, h / sourceHeight), dw = sourceWidth * scale, dh = sourceHeight * scale;
+  g.fillStyle = '#050c15'; g.fillRect(0, 0, w, h); g.imageSmoothingEnabled = true; g.drawImage(source, (w - dw) * .5, (h - dh) * .5, dw, dh);
+  if (label) { g.fillStyle = '#edf6ff'; g.font = '12px system-ui'; g.fillText(label, 9, 18); }
+}
+function depthImage(rawDepth, rawWidth, rawHeight) {
+  if (!rawDepth?.length || !(rawWidth > 1 && rawHeight > 1)) return null;
+  const lo = percentile(Array.from(rawDepth), .03), hi = percentile(Array.from(rawDepth), .97);
+  if (!(hi > lo)) return null;
+  const small = document.createElement('canvas'); small.width = rawWidth; small.height = rawHeight;
+  const sg = small.getContext('2d'), image = sg.createImageData(rawWidth, rawHeight), n = Math.min(rawDepth.length, rawWidth * rawHeight);
+  for (let i = 0; i < n; i++) {
+    const value = Number(rawDepth[i]), k = i * 4;
+    if (!Number.isFinite(value)) { image.data[k + 3] = 0; continue; }
+    const [r, gg, b] = depthShade((value - lo) / (hi - lo)); image.data[k] = r; image.data[k + 1] = gg; image.data[k + 2] = b; image.data[k + 3] = 255;
+  }
+  sg.putImageData(image, 0, 0); return small;
+}
 function drawDepth(deep) {
-  if (!deep?.rawDepth?.length) return; const { g, w, h } = setupCanvas(dom.depthCanvas), lo = percentile(Array.from(deep.rawDepth), .03), hi = percentile(Array.from(deep.rawDepth), .97); if (!(hi > lo)) return;
-  const small = document.createElement('canvas'); small.width = deep.rawWidth; small.height = deep.rawHeight; const sg = small.getContext('2d'), image = sg.createImageData(deep.rawWidth, deep.rawHeight);
-  for (let i = 0; i < deep.rawDepth.length; i++) { const [r, gg, b] = heat((deep.rawDepth[i] - lo) / (hi - lo)), k = i * 4; image.data[k] = r; image.data[k + 1] = gg; image.data[k + 2] = b; image.data[k + 3] = 255; } sg.putImageData(image, 0, 0);
-  g.fillStyle = '#050c15'; g.fillRect(0, 0, w, h); g.imageSmoothingEnabled = true; g.drawImage(small, 0, 0, w, h); g.fillStyle = '#fff'; g.font = '12px system-ui'; g.fillText(`Depth nativa ${deep.rawWidth}×${deep.rawHeight} · row-major H×W · percentile 3–97`, 9, 18);
+  if (!deep?.rawDepth?.length) return;
+  const image = depthImage(deep.rawDepth, deep.rawWidth, deep.rawHeight);
+  if (image) drawCanvasImage(dom.depthCanvas, image, deep.rawWidth, deep.rawHeight, `Depth nativa ${deep.rawWidth}×${deep.rawHeight} · H×W row-major · scala 3–97%`);
+}
+function drawRgbaDiagnostic(canvas, rgba, width, height) {
+  if (!canvas || !rgba?.length || !(width > 1 && height > 1)) return;
+  const small = document.createElement('canvas'); small.width = width; small.height = height;
+  const g = small.getContext('2d'), image = g.createImageData(width, height);
+  image.data.set(new Uint8ClampedArray(rgba).subarray(0, image.data.length)); g.putImageData(image, 0, 0);
+  drawCanvasImage(canvas, small, width, height);
+}
+function renderDeepDiagnostic(d) {
+  dom.deepDiagnostic.hidden = false;
+  const input = d.inputRasterDiagnostic;
+  if (input) {
+    drawRgbaDiagnostic(dom.deepSourceCanvas, input.sourcePreview, input.sourceWidth, input.sourceHeight);
+    drawRgbaDiagnostic(dom.deepTensorCanvas, input.tensorNchwPreview, input.tensorWidth, input.tensorHeight);
+  }
+  const output = depthImage(d.rawDepth, d.rawWidth, d.rawHeight);
+  if (output) drawCanvasImage(dom.deepOutputCanvas, output, d.rawWidth, d.rawHeight);
+  const q = d.quality || {}, stripe = q.stripe || {}, rd = d.rasterDiagnosis || {}, stats = d.spatialStats || {};
+  dom.deepReport.textContent = [
+    `VERDETTO: ${rd.verdict || (q.suspicious ? 'depth-quality-warning' : 'depth-structured')}`,
+    `provider: ${d.provider || '?'} · runtime: ${d.runtime || '?'} · output ${d.rawWidth || '?'}×${d.rawHeight || '?'} · ${fmt(d.totalMs || d.ms, 0)} ms`,
+    `input: ${d.preprocessBackend || '?'} · ${d.inputPlan?.width || '?'}×${d.inputPlan?.height || '?'} · tensor ${d.inputDims?.join('×') || '?'}`,
+    `output: ${d.outputDims?.join('×') || '?'} · ${d.outputReadback || '?'} @ ${d.outputLocation || '?'}`,
+    `coerenza spaziale: ${fmt(q.coherenceRatio, 2)} (rumore casuale ≈ 1; deve essere > 1.28)`,
+    `banding: ${stripe.orientation || '?'} · asse dominante ${fmt(100 * (stripe.dominantExplained || 0), 0)}% · cicli ${fmt(stripe.dominantCycles, 1)} · ratio ${fmt(stripe.ratio, 2)}`,
+    `pixel RGB sonda: ${JSON.stringify(d.rasterProbe || {})}`,
+    `firma frame: ${d.frameSignature || '—'} → firma depth: ${d.depthSignature || '—'}`,
+    '',
+    'COME LEGGERLO:',
+    '1. CAMERA e TENSOR RGB/NCHW devono essere la stessa scena (il secondo è soltanto ridimensionato).',
+    '2. DEPTH è l’unico output usato, [batch, height, width] e row-major.',
+    '3. NHWC e column-major non sono output alternativi: sono letture errate e non vengono mostrate.',
+    `4. Questo test è bloccato su WASM per correttezza; stato qualità: ${q.suspicious ? 'NON SUPERATO' : 'SUPERATO'}.`,
+    `5. Statistica grezza: finite ${fmt(100 * (stats.finiteRatio || 0), 1)}% · locale ${fmt(stats.meanNeighborDiff, 5)} · lontana ${fmt(stats.meanFarDiff, 5)}.`,
+  ].join('\n');
 }
 function updateDeepMetrics(selected, best, direct, inverse) {
   const p = selected[0]?.deep, weak = best.after.count < 8;
   dom.deepMetrics.innerHTML = metricsHtml([
-    ['Viste Deep salienti', selected.length], ['Coppie con overlap ≥ 10%', `${S.depthEdges.length}`, S.depthEdges.length ? 'good' : 'bad'], ['Output nativo Deep', p ? `${p.rawWidth}×${p.rawHeight} row-major` : '—', 'good'], ['Coordinate Deep → RGB', 'uD=(uRGB+.5)·WD/WRGB−.5', 'good'], ['Verso relativo scelto', best.convention === 'direct' ? 'raw / mediana' : 'mediana / raw', 'good'], ['Residuo mediano prima', fmt(best.before.median, 4)], ['Residuo mediano dopo', fmt(best.after.median, 4), best.after.median < best.before.median ? 'good' : 'warn'], ['Campioni di vincolo', best.after.count, weak ? 'warn' : 'good'], ['Ipotesi direct / inverse', `${fmt(direct.after.median, 4)} / ${fmt(inverse.after.median, 4)}`], ['Fattore metrico finale', `Alva × ${fmt(numberValue('metricScale', 1), 4)}`]
+    ['Viste Deep salienti', selected.length], ['Provider verificato', p?.provider || '—', p?.provider?.startsWith('wasm') ? 'good' : 'warn'], ['Coppie con overlap ≥ 10%', `${S.depthEdges.length}`, S.depthEdges.length ? 'good' : 'bad'], ['Output nativo Deep', p ? `${p.rawWidth}×${p.rawHeight} row-major` : '—', 'good'], ['Coordinate Deep → RGB', 'uD=(uRGB+.5)·WD/WRGB−.5', 'good'], ['Normalizzazione relativa', 'abs(raw) / mediana(abs(raw))', 'good'], ['Verso relativo scelto', best.convention === 'direct' ? 'raw / mediana' : 'mediana / raw', 'good'], ['Residuo mediano prima', fmt(best.before.median, 4)], ['Residuo mediano dopo', fmt(best.after.median, 4), best.after.median < best.before.median ? 'good' : 'warn'], ['Campioni di vincolo', best.after.count, weak ? 'warn' : 'good'], ['Ipotesi direct / inverse', `${fmt(direct.after.median, 4)} / ${fmt(inverse.after.median, 4)}`], ['Fattore metrico finale', `Alva × ${fmt(numberValue('metricScale', 1), 4)}`]
   ]);
 }
 function buildFinal() {

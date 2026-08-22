@@ -207,15 +207,15 @@ function fromFloat16(value) {
 async function importOrt() {
   if (ort) return ort;
 
-  // Prefer a current WebGPU runtime before the project's historical 1.20.1
-  // fallback. The Q4 graph uses modern quantized WebGPU kernels and old
-  // builds have had dynamic-shape/correctness issues.
-  const sources = Array.from(new Set([
-    cfg.ortLocal,
-    cfg.ortCurrentWebGpu,
-    cfg.ortCurrentAll,
-    cfg.ortRemote,
-  ].filter(Boolean)));
+  // A scan-test result must be reproducible before it is fast.  In particular,
+  // some Android WebGPU implementations have returned finite-but-random Q4
+  // output, so a requested WASM run must not accidentally import the WebGPU
+  // only build as its primary runtime.  Keep WebGPU available only in the
+  // explicit performance path.
+  const sources = Array.from(new Set((forceWasm
+    ? [cfg.ortLocal, cfg.ortCurrentAll, cfg.ortRemote]
+    : [cfg.ortLocal, cfg.ortCurrentWebGpu, cfg.ortCurrentAll, cfg.ortRemote]
+  ).filter(Boolean)));
   const errors = [];
 
   for (const source of sources) {
@@ -343,7 +343,9 @@ function configureWasmRuntime(runtime) {
 }
 
 async function ensureSession(source) {
-  const sourceKey = modelSourceKey(source);
+  // Provider is part of the session contract.  Otherwise changing from a
+  // suspicious WebGPU result to WASM could silently reuse the old session.
+  const sourceKey = `${modelSourceKey(source)}|provider:${forceWasm ? 'wasm' : 'auto'}`;
   if (session && sessionKey === sourceKey) return session;
 
   const sessionStarted = performance.now();
@@ -1240,6 +1242,10 @@ async function handleWorkerMessage(d) {
 
   if (d.type === 'init') {
     cfg = { ...cfg, ...(d.config || {}) };
+    // This test page deliberately defaults to the deterministic provider.
+    // The flag is explicit so a diagnostic export tells us whether a result
+    // came from WASM rather than merely assuming it from browser capabilities.
+    forceWasm = d.config?.forceWasm === true;
     // The page forwards this setting; preserve a safe value for external calls.
     if (Number(d.config?.preferredShortSide) > 0) cfg.preferredShortSide = Number(d.config.preferredShortSide);
     if (Number(d.config?.compatibilityShortSide) > 0) cfg.compatibilityShortSide = Number(d.config.compatibilityShortSide);

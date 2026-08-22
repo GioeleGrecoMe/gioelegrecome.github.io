@@ -99,9 +99,18 @@
 
     <section class="card stage-card" aria-labelledby="deepTitle">
       <div class="section-title"><div><p class="eyebrow">5 · Unica ottimizzazione: profondità comune</p><h2 id="deepTitle">Deep sulle viste salienti e scala globale</h2></div><span id="deepBadge" class="tag">non avviata</span></div>
-      <p>Le viste Deep sono selezionate solo quando esiste un overlap di keypoint ≥ 10%. Per ogni match, i raggi RGB vengono trasformati con le intrinseche della foto, la dimensione nativa della mappa Deep e la posa camera. L'ottimizzatore modifica soltanto un fattore di profondità per vista.</p>
+      <p>Le viste Deep sono selezionate solo quando esiste un overlap di keypoint ≥ 10%. Il test usa WASM in modo deterministico: è più lento di WebGPU, ma evita che un driver mobile produca una mappa apparentemente valida e invece casuale. Per ogni match, i raggi RGB vengono trasformati con le intrinseche della foto, la dimensione nativa della mappa Deep e la posa camera. L'ottimizzatore modifica soltanto un fattore di profondità per vista.</p>
       <div class="actions"><button id="deepBtn" disabled class="primary">5. Esegui Deep e allinea profondità</button><button id="depthPreviewBtn" disabled>Mostra ultima depth map</button></div>
       <div class="two-pane"><canvas id="depthCanvas" class="diagnostic-canvas" aria-label="Mappa di profondità Deep"></canvas><div id="deepMetrics" class="metric-list"><p class="empty">Il log mostrerà le dimensioni native Deep, la conversione coordinate, il verso profondità scelto e il residuo prima/dopo.</p></div></div>
+      <div id="deepDiagnostic" class="deep-diagnostic" hidden>
+        <p class="hint">Controllo del contratto: i primi due riquadri devono mostrare la stessa scena. L'ultimo è l'unica mappa Deep usata dal sistema, in ordine ufficiale H×W/row-major; non sono mostrate letture NHWC o column-major intenzionalmente errate.</p>
+        <div class="deep-diagnostic-grid">
+          <figure><figcaption>1 · Camera RGBA acquisita</figcaption><canvas id="deepSourceCanvas" class="diagnostic-canvas" aria-label="Frame RGB passato a Deep"></canvas></figure>
+          <figure><figcaption>2 · Tensor RGB/NCHW ricostruito</figcaption><canvas id="deepTensorCanvas" class="diagnostic-canvas" aria-label="Tensor NCHW ricostruito in RGB"></canvas></figure>
+          <figure><figcaption>3 · Depth H×W ufficiale</figcaption><canvas id="deepOutputCanvas" class="diagnostic-canvas" aria-label="Output ufficiale della depth map"></canvas></figure>
+        </div>
+        <pre id="deepReport" class="deep-report">Esegui “Prova Deep sul frame corrente” per verificare il percorso completo.</pre>
+      </div>
     </section>
 
     <section class="card viewer-card" aria-labelledby="viewerTitle">
