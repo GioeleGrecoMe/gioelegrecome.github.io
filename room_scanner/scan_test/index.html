@@ -38,13 +38,13 @@
       <div class="section-title"><div><p class="eyebrow">0 · Contratto geometrico</p><h2 id="setupTitle">Camera, intrinseche e modello</h2></div><span class="tag">scala Alva libera finché non la calibri</span></div>
       <div class="control-grid">
         <label>FOV orizzontale (°)<input id="fovInput" type="number" min="35" max="110" step="1" value="60"></label>
-        <label>Campionamento camera/Alva (fps)<input id="archiveFps" type="number" min="4" max="10" step="1" value="8"></label>
+        <label>Campionamento Alva + archivio (fps)<input id="archiveFps" type="number" min="8" max="15" step="1" value="12"></label>
         <label>Scala Alva → metri<input id="metricScale" type="number" min="0.001" max="100" step="0.001" value="1"></label>
         <label>Profondità piano iniziale (unità Alva)<input id="planeDistance" type="number" min="0.05" max="30" step="0.05" value="2"></label>
         <label>Modello Deep ONNX (opzionale)<input id="modelFile" type="file" accept=".onnx,application/onnx"></label>
         <label>Massimo viste Deep<input id="deepLimit" type="number" min="2" max="48" step="1" value="18"></label>
       </div>
-      <p class="hint">Il valore FOV è l'unica intrinseca manuale: prima prova 60°. Se linee e vista RGB non combaciano, calibra la camera o correggi questo valore. Durante la registrazione ogni campione Alva ha esattamente un raster archiviato; 8 fps è il compromesso consigliato. Il valore “Scala Alva → metri” rende l'output metrico solo se conosci una distanza reale; altrimenti resta una scala globale coerente.</p>
+      <p class="hint">Il valore FOV è l'unica intrinseca manuale: prima prova 60°. Se linee e vista RGB non combaciano, calibra la camera o correggi questo valore. Durante la registrazione ogni campione Alva ha esattamente un raster archiviato; 12 fps è il minimo robusto consigliato per consentire l'inizializzazione e il replay offline. Il valore “Scala Alva → metri” rende l'output metrico solo se conosci una distanza reale; altrimenti resta una scala globale coerente.</p>
       <div class="actions">
         <button id="openCameraBtn" class="primary">1. Apri camera e AlvaAR</button>
         <button id="fixtureBtn">Simula con video di test</button>
@@ -82,7 +82,7 @@
 
     <section class="card stage-card" aria-labelledby="offlineTitle">
       <div class="section-title"><div><p class="eyebrow">3 · Rielaborazione senza usare il live state</p><h2 id="offlineTitle">AlvaAR offline + corrispondenze locali</h2></div><span id="offlineBadge" class="tag">non avviata</span></div>
-      <p>Ricarica AlvaAR da zero su tutti i raster archiviati. In parallelo estrae keypoint e descrittori dai pixel, calcola corrispondenze fra viste e visualizza i buchi di tracking. Le pose interpolate restano esplicitamente contrassegnate: non sono misure AlvaAR.</p>
+      <p>Ricarica AlvaAR da zero, includendo prima il pre-roll che lo aveva inizializzato prima di “Registra”. In parallelo ricalcola i punti Alva sul raster archiviato e cerca associazioni RGB con BRIEF+ZNCC, anche contro una vista precedente quando torni indietro. Le pose interpolate restano esplicitamente contrassegnate: non sono misure AlvaAR.</p>
       <div class="actions"><button id="offlineBtn" disabled class="primary">3. Rielabora tutte le pose</button><button id="downloadBtn" disabled class="quiet">Scarica diagnostica JSON</button></div>
       <div class="two-pane">
         <canvas id="trajectoryCanvas" class="diagnostic-canvas" aria-label="Traiettoria delle pose"></canvas>
