@@ -1,5 +1,5 @@
 /*
- * Scan Test v3.2.1 - Depth Anything V2 reference path.
+ * Scan Test v3.3.0 - Depth Anything V2 reference path + independent output checks.
  *
  * Deliberately no hand-written ONNX tensor packing, output reshaping or WebGPU.
  * The official Transformers.js depth-estimation pipeline owns the
@@ -8,6 +8,7 @@
  * depth while still returning finite numbers.
  */
 
+const WORKER_BUILD = 'deep-worker-v3.3.0-official-crosscheck';
 let config = null;
 let api = null;
 let pipe = null;
@@ -29,7 +30,7 @@ const MODEL_CONTRACT = Object.freeze({
 });
 
 function post(type, data = {}, transfer = undefined) {
-  const message = { type, ...data };
+  const message = { type, workerBuild: WORKER_BUILD, ...data };
   if (transfer?.length) self.postMessage(message, transfer); else self.postMessage(message);
 }
 function diag(event, message, data = null, level = 'info') { post('deep-diag', { event, message, data, level }); }
@@ -67,6 +68,31 @@ function spatialStats(data, width, height) {
   const meanNeighborDiff = nl ? local / nl : NaN, meanFarDiff = nf ? far / nf : NaN;
   return { meanNeighborDiff, meanFarDiff, coherenceRatio: meanNeighborDiff > 0 ? meanFarDiff / meanNeighborDiff : NaN };
 }
+function officialDepthAgreement(rawData, rawWidth, rawHeight, image) {
+  const data = image?.data;
+  const iw = Number(image?.width), ih = Number(image?.height), ch = Math.max(1, Number(image?.channels) || 1);
+  if (!data?.length || !(iw > 1 && ih > 1)) return { verified:false, correlation:NaN, samples:0, reason:'pipeline depth RawImage mancante' };
+  const a = [], b = [];
+  const maxSamples = 12000;
+  const step = Math.max(1, Math.floor((rawWidth * rawHeight) / maxSamples));
+  for (let i = 0; i < rawWidth * rawHeight; i += step) {
+    const x = i % rawWidth, y = Math.floor(i / rawWidth), rv = Number(rawData[i]);
+    if (!Number.isFinite(rv)) continue;
+    const px = Math.max(0, Math.min(iw - 1, Math.round((x + .5) * iw / rawWidth - .5)));
+    const py = Math.max(0, Math.min(ih - 1, Math.round((y + .5) * ih / rawHeight - .5)));
+    const j = (py * iw + px) * ch;
+    let pv = Number(data[j]);
+    if (ch >= 3) pv = .299 * Number(data[j]) + .587 * Number(data[j + 1]) + .114 * Number(data[j + 2]);
+    if (!Number.isFinite(pv)) continue;
+    a.push(rv); b.push(pv);
+  }
+  const cmp = pearson(a, b), absCorrelation = Math.abs(Number(cmp.correlation));
+  const verified = Number.isFinite(absCorrelation) && absCorrelation >= .80 && cmp.samples >= 100;
+  return { verified, correlation:cmp.correlation, absCorrelation, normalizedMae:cmp.normalizedMae, samples:cmp.samples,
+    width:iw, height:ih, channels:ch,
+    reason: verified ? 'predicted_depth concorda con depth RawImage ufficiale' : `predicted_depth non concorda con depth RawImage (|r|=${Number(absCorrelation).toFixed(3)})` };
+}
+
 function fnvDepth(data) {
   let h = 2166136261 >>> 0;
   const n = Math.min(257, data.length);
@@ -130,12 +156,37 @@ function tensorToDepth(tensor) {
   const n = width * height;
   return { data: data.length === n ? data : data.slice(data.length - n), width, height, dims };
 }
+async function verifyLocalModelAssets() {
+  const base = `${config.localModelBase.replace(/\/$/, '')}/${config.localModelId}/`;
+  const required = ['config.json', 'preprocessor_config.json'];
+  for (const rel of required) {
+    const url = new URL(rel, base).href;
+    const r = await fetch(url, { cache:'no-store' });
+    if (!r.ok) throw new Error(`Asset Deep locale mancante: ${url} -> HTTP ${r.status}`);
+    await r.text();
+  }
+  const modelUrl = new URL('onnx/model_q4.onnx', base).href;
+  let modelStatus = null, modelBytes = null;
+  try {
+    const h = await fetch(modelUrl, { method:'HEAD', cache:'no-store' });
+    modelStatus = h.status; modelBytes = Number(h.headers.get('content-length')) || null;
+    if (!h.ok && h.status !== 405) throw new Error(`HTTP ${h.status}`);
+  } catch (err) {
+    // Some static hosts/proxies reject HEAD even though GET works. Do not download
+    // 27 MB twice; pipeline() is the authoritative model GET below.
+    diag('local-model-head-warning', `HEAD modello non verificabile: ${err?.message || err}`, { modelUrl }, 'warn');
+  }
+  diag('local-model-assets-ok', 'Metadata locale Depth Anything trovata.', { base, modelUrl, modelStatus, modelBytes });
+  return { base, modelUrl, modelStatus, modelBytes };
+}
+
 async function ensurePipeline() {
   if (pipe) return pipe;
   if (loadPromise) return loadPromise;
   loadPromise = (async () => {
     if (!config) throw new Error('Worker Deep non inizializzato.');
-    diag('engine-load-start', 'Carico Transformers.js e la pipeline Depth Anything V2 ufficiale.', { transformersUrl: config.transformersUrl, device: config.device, dtype: config.dtype });
+    diag('engine-load-start', 'Carico Transformers.js e la pipeline Depth Anything V2 ufficiale.', { transformersUrl: config.transformersUrl, device: config.device, dtype: config.dtype, localModelBase:config.localModelBase, localModelId:config.localModelId });
+    await verifyLocalModelAssets();
     api = await import(config.transformersUrl);
     const { env, pipeline } = api;
     if (!env || !pipeline || !api.RawImage) throw new Error('Modulo Transformers.js incompleto: mancano env/pipeline/RawImage.');
@@ -197,6 +248,9 @@ async function handleInference(message) {
   const total0 = now();
   const original = await inferOne(input, width, height);
   const stats = finiteStats(original.data), spatial = spatialStats(original.data, original.width, original.height);
+  const official = officialDepthAgreement(original.data, original.width, original.height, original.processedDepth);
+  const normalizedNeighborDiff = stats.robustRange > 1e-12 ? spatial.meanNeighborDiff / stats.robustRange : Infinity;
+  const noiseLike = Number.isFinite(normalizedNeighborDiff) && normalizedNeighborDiff > .16 && (!Number.isFinite(spatial.coherenceRatio) || spatial.coherenceRatio < 1.35);
   inferenceCounter++;
   // A full mirrored second inference is expensive on a phone, but the gate must
   // never be skipped entirely. Validate every explicit test, the first real
@@ -206,12 +260,16 @@ async function handleInference(message) {
   if (validateNow) spatialValidation = await validateSpatial(input, width, height, original);
   const comparison = spatialValidation?.comparison || null;
   const numericBad = stats.finiteRatio < .999 || !(stats.robustRange > 1e-7);
-  const suspicious = numericBad || spatialValidation?.verified !== true;
+  const officialBad = official.verified !== true;
+  const suspicious = numericBad || spatialValidation?.verified !== true || officialBad || noiseLike;
   const quality = {
     suspicious,
     finiteRatio: stats.finiteRatio,
     robustRange: stats.robustRange,
     coherenceRatio: spatial.coherenceRatio,
+    normalizedNeighborDiff,
+    noiseLike,
+    officialDepthAgreement: official,
     spatialContract: { verified: spatialValidation?.verified === true, reason: spatialValidation?.reason || 'non verificato', comparison, validatedOnThisFrame: validateNow },
     stripe: { orientation: 'not-used', dominantExplained: 0, dominantCycles: 0, ratio: 0 },
   };
@@ -227,20 +285,27 @@ async function handleInference(message) {
     layoutFix: 'none: official pipeline owns tensor layout/output interpretation',
     totalMs: now() - total0, ms: original.elapsed,
     quality, spatialStats: spatial, flipComparison: comparison,
-    rasterDiagnosis: { verdict: suspicious ? 'REJECTED: official pipeline spatial validation failed' : 'ACCEPTED: official pipeline + flip validation' },
+    rasterDiagnosis: { verdict: suspicious ? `REJECTED: ${numericBad?'numerical ':''}${officialBad?'official-depth-mismatch ':''}${noiseLike?'high-frequency-noise ':''}${spatialValidation?.verified!==true?'flip-failed ':''}`.trim() : 'ACCEPTED: official pipeline + official-depth agreement + spatial gates' },
     rasterProbe: { rgbaLength: input.length, expectedRgbaLength: pixels * 4, firstPixel: Array.from(input.slice(0, 4)), centerPixel: Array.from(input.slice((((height >> 1) * width + (width >> 1)) * 4), (((height >> 1) * width + (width >> 1)) * 4) + 4)) },
     frameSignature: rgbaSignature(input), depthSignature: fnvDepth(original.data),
   };
   if (message.type === 'test') {
-    // Diagnostic preview only. It is explicitly NOT a reconstruction of the
-    // internal NCHW tensor, because v3 intentionally stopped duplicating the processor.
+    // Diagnostic previews. `officialDepthPreview` is the pipeline's own
+    // post-processed RawImage and therefore an independent view of the tensor
+    // readback used by this app.
+    const pd = original.processedDepth;
     response.inputRasterDiagnostic = {
       sourcePreview: new Uint8ClampedArray(input), sourceWidth: width, sourceHeight: height,
       tensorNchwPreview: new Uint8ClampedArray(input), tensorWidth: width, tensorHeight: height,
+      officialDepthPreview: pd?.data ? new Uint8ClampedArray(pd.data) : null,
+      officialDepthWidth: Number(pd?.width) || 0, officialDepthHeight: Number(pd?.height) || 0, officialDepthChannels: Number(pd?.channels) || 1,
     };
   }
   const transfer = [response.rawDepth.buffer];
-  if (response.inputRasterDiagnostic) transfer.push(response.inputRasterDiagnostic.sourcePreview.buffer, response.inputRasterDiagnostic.tensorNchwPreview.buffer);
+  if (response.inputRasterDiagnostic) {
+    transfer.push(response.inputRasterDiagnostic.sourcePreview.buffer, response.inputRasterDiagnostic.tensorNchwPreview.buffer);
+    if (response.inputRasterDiagnostic.officialDepthPreview?.buffer) transfer.push(response.inputRasterDiagnostic.officialDepthPreview.buffer);
+  }
   post(response.type, response, transfer);
 }
 

@@ -161,3 +161,14 @@ La pagina corretta deve mostrare **v3.2.1**. Nel log iniziale deve comparire:
 `scan-test-v3.2.1-continuous-native-depth-pipeline`
 
 Se compare una versione v2.x, un raster fisso 320x240/640x480 o `provider:webgpu`, e ancora in esecuzione almeno un file precedente.
+
+## v3.3.0 - bootstrap guard + depth cross-check
+
+Questa patch va copiata **direttamente** dentro `room_scanner/scan_test/` (non dentro una seconda cartella `scan_test`).
+La pagina deve mostrare in alto il fingerprint `scan-test-v3.3.0-bootstrap-guard-depth-crosscheck` e il conteggio degli asset. Se il fingerprint non compare, il browser/GitHub Pages sta ancora servendo un'altra build.
+
+Correzioni principali:
+- video file: bootstrap rVFC a 0.0625x, poi 0.25x dopo lock/2 s media, per evitare frame saltati sui telefoni lenti;
+- replay Alva: prova automaticamente più valori del parametro FOV interno di AlvaAR se il default non inizializza; il FOV orizzontale UI resta separato e serve alla proiezione;
+- Deep: `predicted_depth` deve concordare con la `depth` RawImage post-processata dalla pipeline ufficiale e superare un gate ad alta frequenza, oltre al controllo flip;
+- preflight del modello locale e self-check degli asset serviti dal deploy.

@@ -145,3 +145,12 @@ The delivered browser path is intentionally fail-closed: it cannot turn an unver
 ## Full-app localhost test limitation
 
 `tools/test_app_file_video.py` was also attempted against the final directory, but hardened Chromium returned `net::ERR_BLOCKED_BY_ADMINISTRATOR` for `http://127.0.0.1:<port>/index.html`. The lower-level browser regression still executes the same delivered `camera.js` and bundled `vendor/alva_ar.js`, including real `<input type=file>`, decoded video frames, `requestVideoFrameCallback` and `AlvaAR.findCameraPose()`.
+
+## v3.3.0 regressions
+
+- `node tools/test_app_contract.mjs`
+- `node tools/test_v330_deep_assets.mjs`
+- `node tools/test_depth_noise_gate.mjs`
+- `python3 tools/test_alva_browser_path.py fixtures/external_hallway_validation.mp4 1 .25`
+
+Il test browser di riferimento ha consegnato 50/50 frame unici, 0 duplicati e 45 pose Alva sul video esterno `external_hallway_validation.mp4` a raster 960x540. Il test Deep numerico WASM non viene dichiarato eseguito nel sandbox: il runtime Transformers.js arriva da CDN e la rete del sandbox non lo rende disponibile. La build quindi rende espliciti asset, provider e tre gate indipendenti e rifiuta l'output se non li supera.

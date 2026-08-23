@@ -33,9 +33,10 @@ assert(!processUploaded.includes('.nextDecodedFrame('),
   'uploaded native path must not use the old play/pause one-frame stepping loop');
 assert(app.includes('const ANALYSIS_LONG_SIDE = 960;'),
   'Alva raster long-side contract must be 960 px');
-assert(app.includes("scan-test-v3.2.1-continuous-native-depth-pipeline"),
-  'build id must be v3.2.1');
-assert(index.includes('v3.2.1'), 'UI must expose v3.2.1');
+assert(app.includes("scan-test-v3.3.0-bootstrap-guard-depth-crosscheck"), 'build id must be v3.3.0');
+assert(index.includes('v3.3.0') && index.includes('buildSentinel'), 'UI must expose an unmistakable v3.3.0 build sentinel');
+assert(processUploaded.includes('FILE_BOOTSTRAP_PLAYBACK_RATE') && app.includes('const FILE_BOOTSTRAP_PLAYBACK_RATE = .0625;'), 'mobile file bootstrap must start at 0.0625x');
+assert(app.includes('chooseOfflineTrackerFov') && app.includes('AlvaAR.Initialize(W, H, fov)'), 'offline Alva replay must probe and pass an explicit tracker FOV');
 
 const consume = between(camera, 'async consumeDecodedFrames', '\n  async nextDecodedFrame');
 assert(consume.includes('includeInitial'), 'continuous decoder must explicitly support the t=0 frame');
@@ -57,7 +58,7 @@ assert(runDeep.includes("$('deepBtn').disabled = false"),
   'Deep button must be re-enabled after success/failure');
 
 console.log(JSON.stringify({
-  build: 'v3.2.1',
+  build: 'v3.3.0',
   recordingBeforeDecode: true,
   continuousRvfc: true,
   t0FrameExplicit: true,

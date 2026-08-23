@@ -4,14 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
-  <title>Scan Test v3.2.1 · Alva + Deep splat</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>Scan Test v3.3.0 · Alva + Deep splat</title>
+  <link rel="stylesheet" href="styles.css?v=scan-test-v3.3.0">
 </head>
 <body>
   <header class="topbar">
     <div>
-      <p class="eyebrow">ESPERIMENTO ISOLATO · VERSIONE v3.2.1 · build controllata · nessun filtro / nessuna mesh</p>
-      <h1>Scan Test <span class="tag ok">v3.2.1</span></h1>
+      <p class="eyebrow">ESPERIMENTO ISOLATO · VERSIONE v3.3.0 · build controllata · nessun filtro / nessuna mesh</p>
+      <h1>Scan Test <span class="tag ok">v3.3.0</span></h1>
+      <div id="buildSentinel" data-state="checking" style="margin:.7rem 0 0;padding:.55rem .75rem;border:1px solid #ffc95e;border-radius:.6rem;color:#ffe6a8;font:600 .82rem/1.35 ui-monospace,SFMono-Regular,Consolas,monospace">scan-test-v3.3.0-bootstrap-guard-depth-crosscheck · verifica asset in corso…</div>
       <p class="lede">Posa AlvaAR → riesecuzione offline → profondità Deep globale → tutti i pixel come splat RGB.</p>
     </div>
     <div id="globalState" class="state-pill">Pronto</div>
@@ -43,7 +44,7 @@
         <label>Profondità piano iniziale (unità Alva)<input id="planeDistance" type="number" min="0.05" max="30" step="0.05" value="2"></label>
         <label>Massimo viste Deep<input id="deepLimit" type="number" min="2" max="48" step="1" value="18"></label>
       </div>
-      <p class="hint">Il valore FOV è l'unica intrinseca manuale: prima prova 60°. Se linee e vista RGB non combaciano, calibra la camera o correggi questo valore. AlvaAR riceve tutti i frame presentati e usa un raster che conserva orientamento e aspect ratio della sorgente (lato lungo 960 px). Il valore fps pilota soltanto l'archivio fotografico. Per i video caricati vengono usati i frame nativi del decoder e Deep non parte automaticamente, così tracking e profondità restano diagnosticabili separatamente. Il valore “Scala Alva → metri” rende l'output metrico solo se conosci una distanza reale; altrimenti resta una scala globale coerente. La camera reale richiede sempre una conferma esplicita in questa pagina e poi il permesso del browser.</p>
+      <p class="hint">Il FOV orizzontale qui serve alla ricostruzione/proiezione. Il parametro FOV interno di AlvaAR è distinto e viene sondato automaticamente nel replay offline se il bootstrap non produce pose. AlvaAR riceve tutti i frame presentati e usa un raster che conserva orientamento e aspect ratio della sorgente (lato lungo 960 px). Il valore fps pilota soltanto l'archivio fotografico. Per i video caricati vengono usati i frame nativi del decoder e Deep non parte automaticamente, così tracking e profondità restano diagnosticabili separatamente. Il valore “Scala Alva → metri” rende l'output metrico solo se conosci una distanza reale; altrimenti resta una scala globale coerente. La camera reale richiede sempre una conferma esplicita in questa pagina e poi il permesso del browser.</p>
       <div class="actions">
         <button id="openCameraBtn" class="primary">1. Apri camera e AlvaAR</button>
         <button id="fixtureBtn">Simula con video di test</button>
@@ -98,15 +99,15 @@
 
     <section class="card stage-card" aria-labelledby="deepTitle">
       <div class="section-title"><div><p class="eyebrow">5 · Unica ottimizzazione: profondità comune</p><h2 id="deepTitle">Deep sulle viste salienti e scala globale</h2></div><span id="deepBadge" class="tag">non avviata</span></div>
-      <p>Le viste Deep sono selezionate solo quando esiste un overlap di keypoint ≥ 10%. Deep usa la pipeline ufficiale Transformers.js `depth-estimation` su WASM/Q4. Il preprocessing DPT e la lettura di `predicted_depth` non sono più reimplementati nel progetto; il primo test esegue anche una verifica sul frame specchiato per intercettare output casuali. Per ogni match, i raggi RGB vengono trasformati con le intrinseche della foto, la dimensione nativa della mappa Deep e la posa camera. L'ottimizzatore modifica soltanto un fattore di profondità per vista.</p>
+      <p>Le viste Deep sono selezionate solo quando esiste un overlap di keypoint ≥ 10%. Deep usa la pipeline ufficiale Transformers.js `depth-estimation` su WASM/Q4. Il preprocessing DPT e la lettura di `predicted_depth` non sono più reimplementati nel progetto; il test confronta anche il tensore grezzo con la depth post-processata dalla pipeline, misura il rumore spaziale ad alta frequenza ed esegue una verifica sul frame specchiato. Per ogni match, i raggi RGB vengono trasformati con le intrinseche della foto, la dimensione nativa della mappa Deep e la posa camera. L'ottimizzatore modifica soltanto un fattore di profondità per vista.</p>
       <div class="actions"><button id="deepBtn" disabled class="primary">5. Esegui Deep e allinea profondità</button><button id="depthPreviewBtn" disabled>Mostra ultima depth map</button></div>
       <div class="two-pane"><canvas id="depthCanvas" class="diagnostic-canvas" aria-label="Mappa di profondità Deep"></canvas><div id="deepMetrics" class="metric-list"><p class="empty">Il log mostrerà le dimensioni native Deep, la conversione coordinate, il verso profondità scelto e il residuo prima/dopo.</p></div></div>
       <div id="deepDiagnostic" class="deep-diagnostic" hidden>
-        <p class="hint">Controllo del contratto: il primo riquadro è l'RGBA passato direttamente a `RawImage`; il secondo conferma la stessa sorgente ma il vero DPTImageProcessor è interno a Transformers.js e non viene duplicato. Il terzo è `predicted_depth`, l'unico output usato.</p>
+        <p class="hint">Controllo del contratto: il primo riquadro è l'RGBA passato a RawImage; il secondo è la depth post-processata prodotta direttamente dalla pipeline ufficiale; il terzo è predicted_depth grezzo. Il tensore viene usato solo se i due output concordano e non presenta energia spaziale compatibile con rumore.</p>
         <div class="deep-diagnostic-grid">
           <figure><figcaption>1 · Camera RGBA acquisita</figcaption><canvas id="deepSourceCanvas" class="diagnostic-canvas" aria-label="Frame RGB passato a Deep"></canvas></figure>
-          <figure><figcaption>2 · Input affidato al DPTImageProcessor</figcaption><canvas id="deepTensorCanvas" class="diagnostic-canvas" aria-label="Frame affidato al processor ufficiale"></canvas></figure>
-          <figure><figcaption>3 · predicted_depth ufficiale</figcaption><canvas id="deepOutputCanvas" class="diagnostic-canvas" aria-label="Output ufficiale della depth map"></canvas></figure>
+          <figure><figcaption>2 · Depth post-processata dalla pipeline</figcaption><canvas id="deepTensorCanvas" class="diagnostic-canvas" aria-label="Depth RawImage ufficiale della pipeline"></canvas></figure>
+          <figure><figcaption>3 · predicted_depth grezzo verificato</figcaption><canvas id="deepOutputCanvas" class="diagnostic-canvas" aria-label="Output ufficiale della depth map"></canvas></figure>
         </div>
         <pre id="deepReport" class="deep-report">Esegui “Prova Deep sul frame corrente” per verificare il percorso completo.</pre>
       </div>
@@ -131,6 +132,6 @@
     </section>
   </main>
   <template id="frameTemplate"><button class="frame-thumb" type="button"><canvas width="160" height="120"></canvas><span></span></button></template>
-  <script type="module" src="app.js?v=scan-test-v3.2.1"></script>
+  <script type="module" src="app.js?v=scan-test-v3.3.0"></script>
 </body>
 </html>
