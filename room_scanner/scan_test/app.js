@@ -1,6 +1,10 @@
-import { AlvaAR } from './vendor/alva_ar.js';
-import { CameraController, intrinsicsForCrop } from './camera.js';
-import { detectScanFeatures, matchArchivedFrames } from './feature_matching.js';
+// This identifier is deliberately present in the UI, diagnostic export and URLs.
+// It makes a stale GitHub Pages/service-worker cache immediately recognizable.
+const BUILD_ID = 'scan-test-v2.1.1-controlled-alva30';
+
+import { AlvaAR } from './vendor/alva_ar.js?v=scan-test-v2.1.1';
+import { CameraController, intrinsicsForCrop } from './camera.js?v=scan-test-v2.1.1';
+import { detectScanFeatures, matchArchivedFrames } from './feature_matching.js?v=scan-test-v2.1.1';
 
 /*
  * Scan Test is deliberately separate from V30.  Its contract is intentionally
@@ -447,7 +451,7 @@ function buildPlane() {
 
 async function ensureDeepWorker() {
   if (S.deepWorker) return S.deepWorker;
-  const worker = new Worker('./deep_depth_worker.js', { type: 'module' }); S.deepWorker = worker;
+  const worker = new Worker('./deep_depth_worker.js?v=scan-test-v2.1.1', { type: 'module' }); S.deepWorker = worker;
   worker.onmessage = e => {
     const d = e.data || {};
     if (d.type === 'deep-download-progress') { dom.runtimeStatus.textContent = `${d.label}: ${d.pct == null ? `${Math.round((d.received || 0) / 1048576)} MB` : `${d.pct}%`}`; return; }
@@ -649,7 +653,7 @@ function verifyGeometry() {
   log('geometry-verification', { reprojections: errors.length, medianPx: med, p90Px: p90, poseSources, note: 'verifica sola: nessuna posa e nessun pixel è stato scartato o riscritto' }); setGlobal(errors.length ? 'Verifica completata' : 'Verifica con pochi vincoli', errors.length ? 'ok' : '');
 }
 function downloadDiagnostics() {
-  const report = { format: 'SCAN-TEST-DIAGNOSTICS-2', createdAt: new Date().toISOString(), contract: { allImagesInMemory: true, alvaWarmupReplayed: true, poseAuthority: 'AlvaAR only', correspondenceAuthority: 'archived RGB BRIEF+ZNCC, no synthetic pose', noSemanticFilters: true, onlyOptimizedQuantity: 'one relative-depth scale per Deep view', projection: 'orthographic-isometric', deepOnnx: S.deepContract }, intrinsics: S.K, archive: { frames: S.frames.length, warmupFrames: S.frames.filter(f => f.phase === 'alva-warmup').length, bytes: S.frameBytes, imageSize: [W, H] }, frames: S.frames.map(f => ({ id: f.id, phase: f.phase, at: f.at, livePose: f.livePose, offlinePose: f.offlinePose, chosenPose: f.pose, poseSource: f.poseSource, poseConfidence: f.poseConfidence, liveAlvaPoints: f.livePoints, offlineAlvaPoints: f.offlinePoints?.length || 0, features: f.features.length, deep: f.deep ? { rawSize: [f.deep.rawWidth, f.deep.rawHeight], provider: f.deep.provider, convention: f.deep.convention, depthScale: f.deep.depthScale, quality: f.deep.quality } : null })), edges: S.edges.map(e => ({ a: e.a.id, b: e.b.id, kind: e.kind, appearance: e.appearance, matches: e.matches.length, rawMatches: e.rawMatches, consensusMatches: e.consensusMatches, overlap: e.overlap, poseBaseline: e.poseBaseline, poseAngle: e.poseAngle })), depthEdges: S.depthEdges.map(e => ({ a: e.a.id, b: e.b.id, matches: e.matches.length, overlap: e.overlap })), splat: S.splats ? { count: S.splats.count, gridStep: S.splats.gridStep, deepPixels: S.splats.deepPixels, planePixels: S.splats.planePixels, depthRange: [S.splats.minDepth, S.splats.maxDepth] } : null };
+  const report = { format: 'SCAN-TEST-DIAGNOSTICS-2.1', build: BUILD_ID, createdAt: new Date().toISOString(), contract: { allImagesInMemory: true, alvaWarmupReplayed: true, alvaFileReplay: `${FILE_ALVA_FPS} fps controlled seek`, alvaRaster: [W, H], poseAuthority: 'AlvaAR only', correspondenceAuthority: 'archived RGB BRIEF+ZNCC, no synthetic pose', noSemanticFilters: true, onlyOptimizedQuantity: 'one relative-depth scale per Deep view', projection: 'orthographic-isometric', deepOnnx: S.deepContract }, intrinsics: S.K, archive: { frames: S.frames.length, warmupFrames: S.frames.filter(f => f.phase === 'alva-warmup').length, bytes: S.frameBytes, imageSize: [W, H] }, frames: S.frames.map(f => ({ id: f.id, phase: f.phase, at: f.at, livePose: f.livePose, offlinePose: f.offlinePose, chosenPose: f.pose, poseSource: f.poseSource, poseConfidence: f.poseConfidence, liveAlvaPoints: f.livePoints, offlineAlvaPoints: f.offlinePoints?.length || 0, features: f.features.length, deep: f.deep ? { rawSize: [f.deep.rawWidth, f.deep.rawHeight], provider: f.deep.provider, convention: f.deep.convention, depthScale: f.deep.depthScale, quality: f.deep.quality } : null })), edges: S.edges.map(e => ({ a: e.a.id, b: e.b.id, kind: e.kind, appearance: e.appearance, matches: e.matches.length, rawMatches: e.rawMatches, consensusMatches: e.consensusMatches, overlap: e.overlap, poseBaseline: e.poseBaseline, poseAngle: e.poseAngle })), depthEdges: S.depthEdges.map(e => ({ a: e.a.id, b: e.b.id, matches: e.matches.length, overlap: e.overlap })), splat: S.splats ? { count: S.splats.count, gridStep: S.splats.gridStep, deepPixels: S.splats.deepPixels, planePixels: S.splats.planePixels, depthRange: [S.splats.minDepth, S.splats.maxDepth] } : null };
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })), a = document.createElement('a'); a.href = url; a.download = `scan-test-${Date.now()}-diagnostics.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); log('diagnostics-downloaded', { frames: S.frames.length });
 }
 async function chooseModel(file) { if (!file) return; const bytes = await file.arrayBuffer(); if (bytes.byteLength < 1024) throw new Error('Il file ONNX selezionato è troppo piccolo.'); S.deepModel = { id: `upload-${file.name}-${file.size}-${file.lastModified}`, label: file.name, bytes }; S.deepContract = null; if (S.deepWorker) { S.deepWorker.terminate(); S.deepWorker = null; } dom.runtimeStatus.textContent = `Modello selezionato: ${file.name} (${(file.size / 1048576).toFixed(1)} MB). Il prossimo test/inferenza userà questo file.`; log('deep-model-selected', { name: file.name, bytes: file.size }); }
@@ -664,4 +668,4 @@ $('copyLogBtn').addEventListener('click', async () => { try { await navigator.cl
 window.addEventListener('resize', () => { if (S.offlineDone) drawTrajectory(); if (S.planeSplats) renderIso(dom.planeCanvas, S.planeSplats); if (S.splats) renderFinal(); });
 window.addEventListener('beforeunload', () => { S.capture?.stop?.(); S.deepWorker?.terminate(); });
 
-setStep(1); dom.gridStepOut.textContent = `${$('gridStep').value} px`; dom.confidenceOut.textContent = '0%'; log('scan-test-ready', { imageSize: [W, H], defaultSamplingHz: DEFAULT_ALVA_HZ, archiveDefaultHz: numberValue('archiveFps', DEFAULT_ALVA_HZ), deepModel: 'models/model_q4.onnx' });
+setStep(1); dom.gridStepOut.textContent = `${$('gridStep').value} px`; dom.confidenceOut.textContent = '0%'; log('scan-test-ready', { build: BUILD_ID, imageSize: [W, H], defaultSamplingHz: DEFAULT_ALVA_HZ, archiveDefaultHz: numberValue('archiveFps', DEFAULT_ALVA_HZ), deepModel: 'models/model_q4.onnx' });
