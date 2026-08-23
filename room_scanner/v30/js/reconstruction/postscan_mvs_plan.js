@@ -57,7 +57,7 @@ function chooseSources(ref,frames,{minSources,maxSources,minBaseline,maxBaseline
   return picked.length>=minSources?picked:null;
 }
 
-export function buildPostScanArchiveMvsPlan(inputFrames=[],options={}){
+export function buildUnifiedPostScanKeyframePlan(inputFrames=[],options={}){
   const minSources=Math.max(2,Number(options.minSources)||2),maxSources=Math.max(minSources,Number(options.maxSources)||4),maxJobs=Math.max(1,Number(options.maxJobs)||36),minBaseline=Math.max(.0001,Number(options.minBaseline)||.014),maxBaseline=Math.max(minBaseline*1.5,Number(options.maxBaseline)||1.5),maxAngleRad=Math.max(.02,Number(options.maxAngleRad)||.38);
   const rejected={missingRaster:0,missingPose:0,jumpSuspect:0,trackingInvalid:0};
   const eligible=[];
@@ -76,5 +76,22 @@ export function buildPostScanArchiveMvsPlan(inputFrames=[],options={}){
     totalSources+=selected.length;
     jobs.push({ref:cloneFrame(ref),sources:selected.map(x=>cloneFrame(x.source)),baselines:selected.map(x=>x.baseline),angles:selected.map(x=>x.angle)});
   }
-  return {jobs,stats:{input:inputFrames?.length||0,eligible:chronological.length,references:references.length,planned:jobs.length,noUsableSources,meanSources:jobs.length?totalSources/jobs.length:0,minSources,maxSources,minBaseline,maxBaseline,maxAngleRad,rejected}};
+  const keyframeIds=jobs.map(x=>String(x.ref.frameId));
+  return {
+    format:'ROOMSCAN-POSTSCAN-KEYFRAME-PLAN-1',
+    jobs,
+    keyframeIds,
+    stats:{
+      input:inputFrames?.length||0,eligible:chronological.length,references:references.length,
+      planned:jobs.length,atomicKeyframes:keyframeIds.length,keyframeIds,
+      deepRequired:keyframeIds.length,mvsReferences:keyframeIds.length,
+      noUsableSources,meanSources:jobs.length?totalSources/jobs.length:0,
+      minSources,maxSources,minBaseline,maxBaseline,maxAngleRad,rejected
+    }
+  };
 }
+
+// Compatibility name for saved diagnostics and older tests. There is only one
+// production planner: its references are the atomic RGB + pose + Deep + MVS
+// keyframes used by the closure pipeline.
+export const buildPostScanArchiveMvsPlan=buildUnifiedPostScanKeyframePlan;

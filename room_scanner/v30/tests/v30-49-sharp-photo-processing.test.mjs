@@ -27,10 +27,11 @@ test('processing screen shows exact RGB, DeepPrior and Alva world placement',()=
   assert.match(app,/processingOptimizedPoseMap/);
 });
 
-test('post-scan retains the large RGB archive while Deep scheduling may be adaptive',()=>{
+test('post-scan retains the large RGB archive while Deep uses the atomic MVS keyframes',()=>{
   assert.match(app,/selectSharpPhotosForProcessing/);
   assert.match(app,/registerArchivedPhotosPostScan/);
-  assert.match(app,/processArchivedDeepAdaptive/);
+  assert.match(app,/processDeepBatchPipelined/);
+  assert.doesNotMatch(app,/processArchivedDeepAdaptive/);
   assert.match(app,/kind:'preview'.*frameId:survey\.frameId/s);
   assert.match(app,/registerDepthPlannedPhoto\(survey,\{source:'sharp-rgb-adaptive-candidate',optimize:false,render:false,adaptiveCandidate:true\}\)/);
   assert.match(cfg,/sharpArchiveProcessMaxFrames:240/);

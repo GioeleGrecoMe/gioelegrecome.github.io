@@ -1,15 +1,15 @@
-import {qConj,qRotate} from '../slam/math.js?v=30.55.0';
-import {SparseDenseFusion,buildConsensusTsdfMeshFromSplats} from '../dense/fusion_core.js?v=30.55.0';
-import {analyzeMeshQuality,retainMeaningfulMeshComponents} from './mesh_quality.js?v=30.55.0';
-import {filterSurfaceSplatsForMeshing} from './surface_display_policy.js?v=30.55.0';
-import {buildGlobalSurfaceConsensus} from './global_surface_consensus.js?v=30.55.0';
+import {qConj,qRotate} from '../slam/math.js?v=30.56.0';
+import {SparseDenseFusion,buildConsensusTsdfMeshFromSplats} from '../dense/fusion_core.js?v=30.56.0';
+import {analyzeMeshQuality,retainMeaningfulMeshComponents} from './mesh_quality.js?v=30.56.0';
+import {filterSurfaceSplatsForMeshing} from './surface_display_policy.js?v=30.56.0';
+import {buildGlobalSurfaceConsensus} from './global_surface_consensus.js?v=30.56.0';
 
 /**
  * Small overlapping local maps. Dense evidence is committed in one local
  * coordinate system only; loop/pose updates move the submap rigidly instead of
  * requiring a monolithic global TSDF to be de-integrated.
  *
- * V30.55 adds a mandatory WORLD-SPACE consensus before meshing. Local submaps
+ * V30.56 adds a mandatory WORLD-SPACE consensus before meshing. Local submaps
  * may keep alternative hypotheses, but REVIEW/TSDF only sees representatives
  * that remain consistent after all submaps have been transformed by the final
  * pose graph.
@@ -24,7 +24,10 @@ export class SubmapFusionManager{
     for(const s of this.submaps){const gs=s.fusion.splats({max:per}).map(g=>splatToWorld(g,s.anchorPose,s.id));rawGaussians.push(...gs);submaps.push({id:s.id,anchorFrameId:s.anchorFrameId,anchorPose:clonePose(s.anchorPose),frameIds:s.frameIds.slice(),integratedFrames:[...s.integratedFrames],gaussians:gs.length});}
     const voxel=Math.max(.004,Number(this.fusionOptions?.voxel)||.035),consensus=buildGlobalSurfaceConsensus(rawGaussians,{voxel,max:maxSurfels,minConfidence:Math.max(.24,Number(this.fusionOptions?.meshMinConfidence)||.24)}),kept=consensus.splats,evidence={strong:0,confirmed:0,weak:0};for(const g of kept)evidence[g.evidenceClass]=(evidence[g.evidenceClass]||0)+1;
     const meshSelection=filterSurfaceSplatsForMeshing(kept,{minConfidence:Math.max(.30,Number(this.fusionOptions?.meshMinConfidence)||.24),max:maxSurfels}),rawMesh=buildConsensusTsdfMeshFromSplats(meshSelection.splats,{voxel,truncation:Number(this.fusionOptions?.truncation)||voxel*3,maxTsdf:Math.max(70000,Number(this.fusionOptions?.maxTsdf)||maxSurfels*3),maxTriangles}),rawMeshQuality=analyzeMeshQuality(rawMesh),cleanup=retainMeaningfulMeshComponents(rawMesh,{minVertices:Math.max(32,Math.round(1.2/voxel)),minRelativeToLargest:.035,maxComponents:14}),mesh=cleanup.mesh,meshQuality=analyzeMeshQuality(mesh);
-    return {gaussians:kept,mesh,submaps,stats:{submaps:submaps.length,integratedFrames:new Set(submaps.flatMap(s=>s.integratedFrames)).size,rawGaussians:rawGaussians.length,gaussians:kept.length,faces:mesh?.faces?.length?mesh.faces.length/3:0,evidence,globalFinalTsdf:true,globalSurfaceConsensus:consensus.stats,rawMeshQuality,meshCleanup:cleanup.stats,meshQuality,meshingEvidence:meshSelection.stats,mesher:{inputSurfels:rawMesh?.inputSurfels??0,sourceSurfels:rawMesh?.sourceSurfels??0,droppedSurfels:rawMesh?.droppedSurfels??0,meshedSurfelFraction:rawMesh?.meshedSurfelFraction??0,surfaceLayers:rawMesh?.surfaceLayers??0,consensusMode:rawMesh?.consensusMode||null}}};
+    // `denseCloud` is the authoritative pre-TSDF surface sample set. Gaussian
+    // splats are a rendering view of the same sufficient statistics; TSDF is
+    // built directly from these samples and its success never owns their life.
+    return {denseCloud:kept,gaussians:kept,mesh,submaps,stats:{surfacePrimary:'dense-cross-view-samples',surfaceRender:'gaussian-splats',denseCloudSamples:kept.length,submaps:submaps.length,integratedFrames:new Set(submaps.flatMap(s=>s.integratedFrames)).size,rawGaussians:rawGaussians.length,gaussians:kept.length,faces:mesh?.faces?.length?mesh.faces.length/3:0,evidence,globalFinalTsdf:true,globalSurfaceConsensus:consensus.stats,rawMeshQuality,meshCleanup:cleanup.stats,meshQuality,meshingEvidence:meshSelection.stats,mesher:{inputSurfels:rawMesh?.inputSurfels??0,sourceSurfels:rawMesh?.sourceSurfels??0,droppedSurfels:rawMesh?.droppedSurfels??0,meshedSurfelFraction:rawMesh?.meshedSurfelFraction??0,surfaceLayers:rawMesh?.surfaceLayers??0,consensusMode:rawMesh?.consensusMode||null}}};
   }
 }
 

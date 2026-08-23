@@ -40,7 +40,8 @@ test('pre-scan test and deferred Depth processing controls are wired in both ent
   assert.match(app,/requestLiveDeepPreview\(frame,r\)/);
   assert.match(app,/archiveSharpRgbFrame\(frame,tracking\)/);
   assert.match(app,/Deep dopo Fine/);
-  assert.match(app,/processArchivedDeepAdaptive/);
+  assert.match(app,/processDeepBatchPipelined/);
+  assert.doesNotMatch(app,/processArchivedDeepAdaptive/);
   assert.doesNotMatch(app,/requestLiveDepth/);
   const boot=read('js/boot.js');
   assert.doesNotMatch(boot,/deep_live_controller/);

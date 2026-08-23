@@ -39,7 +39,7 @@ export function buildSparseDepthAnchors(ref,sources,{maxReprojectionPx=2.8,minAn
       const meanReproj=(ea+eb)/2,geom=1-Math.exp(-Math.pow(tr.angle/.030,2)),reproj=Math.exp(-.5*Math.pow(meanReproj/Math.max(.5,maxReprojectionPx),2)),gapP=Math.exp(-.5*Math.pow(tr.gap/Math.max(1e-5,baseline*maxGapBaselineRatio),2));
       const matchProbability=Math.max(.01,Number(m.probability)||.05),confidence=Math.max(.002,Math.pow(matchProbability*geom*reproj*gapP,.25));
       const obs={
-        p:tr.p.slice(0,3),depth:ra.z,confidence,angle:tr.angle,reprojectionPx:(ea+eb)/2,
+        p:tr.p.slice(0,3),depth:ra.z,confidence,angle:tr.angle,reprojectionPx:(ea+eb)/2,rayGap:tr.gap,rayGapRatio:tr.gap/baseline,
         sourceId:src.frameId||src.id,baseline,u:a.x,v:a.y,featureSource:a.source||'mvs',matchDistance:m.hamming??m.d,matchProbability,epipolarPx:m.epipolarPx??null,zncc:m.zncc??null,matchDiagnostics:{descriptorProbability:m.descriptorProbability??null,epipolarProbability:m.epipolarProbability??null,photometricProbability:m.photometricProbability??null,uniquenessProbability:m.uniquenessProbability??null},
         // Keep the source observation only while this keyframe job is active.
         // It lets the fused landmark solve one true multi-view reprojection
@@ -102,7 +102,7 @@ function fuseTrack(track,ref,maxReprojectionPx){
   const pr=projectPoint(ref.pose,ref.K,p);if(!pr||!(pr.z>0))return null;
   const reprojRef=Math.hypot(pr.u-track.u,pr.v-track.v);if(reprojRef>maxReprojectionPx*1.25)return null;
 
-  const depths=kept.map(o=>o.depth),sigmaSample=robustSigma(depths),meanAngle=angleW/sw,meanReproj=refined?.meanReprojectionPx??(reprojW/sw);
+  const depths=kept.map(o=>o.depth),sigmaSample=robustSigma(depths),meanAngle=angleW/sw,meanReproj=refined?.meanReprojectionPx??(reprojW/sw),leaveOneViewOut=leaveOneViewOutReprojection(p,track,ref,kept);
   // A floor derived from ray geometry avoids claiming millimetre precision from
   // only two nearly parallel monocular views. More independent views reduce the
   // sample term, but never below a conservative sub-percent depth floor.
@@ -122,6 +122,8 @@ function fuseTrack(track,ref,maxReprojectionPx){
 
   return {
     u:track.u,v:track.v,depth:pr.z,p,confidence,angle:meanAngle,reprojectionPx:meanReproj,
+    leaveOneViewOutReprojectionPx:leaveOneViewOut.median,leaveOneViewOutReprojectionP90Px:leaveOneViewOut.p90,
+    rayGap:median(kept.map(o=>o.rayGap)),rayGapRatio:median(kept.map(o=>o.rayGapRatio)),cheirality:true,
     sourceId:kept[0]?.sourceId,sourceIds:[...new Set(kept.map(o=>o.sourceId))],viewSupport,
     featureSource:track.featureSource,trackId:`${ref.frameId||ref.id||'ref'}:${track.refIndex}`,
     sigmaDepth,worldSigma:Math.max(sigmaDepth,robustWorldSigma(kept,p)),trackObservations:kept.length,
@@ -186,6 +188,12 @@ function refineMultiViewTrack(initial,track,ref,kept,maxReprojectionPx){
   const inv=invertCov(lastH);if(!inv)return {ok:true,p,meanReprojectionPx,covariance:null,views:errors.length};const residualSigma=Math.max(.45,Math.min(2.5,1.4826*median(errors.map(e=>Math.abs(e-median(errors))))||meanReprojectionPx||.6)),covariance=scaleCov(inv,residualSigma*residualSigma);
   return {ok:true,p,meanReprojectionPx,covariance:regularizeCov(covariance,Math.max(1e-6,(projectPoint(ref.pose,ref.K,p)?.z||1)*1e-6)),views:errors.length};
 }
+function leaveOneViewOutReprojection(initial,track,ref,kept){
+  const views=[{pose:ref.pose,K:ref.K,u:track.u,v:track.v,weight:1.15},...kept.map(o=>({pose:o.sourcePose,K:o.sourceK,u:o.sourceU,v:o.sourceV,weight:Math.max(.15,o.confidence)}))].filter(v=>v.pose&&v.K&&Number.isFinite(v.u+v.v)),errors=[];
+  if(views.length<3)return {median:Infinity,p90:Infinity};
+  for(let held=0;held<views.length;held++){const train=views.filter((_,i)=>i!==held);let p=initial.slice(0,3);for(let it=0;it<4;it++){const acc=normalEquations(p,train);if(!acc||acc.used<2)break;const trace=acc.H[0]+acc.H[3]+acc.H[5],H=acc.H.slice(),lambda=Math.max(1e-8,trace*2e-7);H[0]+=lambda;H[3]+=lambda;H[5]+=lambda;const inv=invertCov(H);if(!inv)break;let d=mulCovVec(inv,acc.g).map(x=>-x),dn=Math.hypot(...d),limit=Math.max(.004,Math.hypot(...p)*.05);if(dn>limit)d=d.map(x=>x*limit/dn);p=[p[0]+d[0],p[1]+d[1],p[2]+d[2]];if(dn<2e-6)break;}const q=projectPoint(views[held].pose,views[held].K,p);if(q?.z>0)errors.push(Math.hypot(q.u-views[held].u,q.v-views[held].v));}
+  errors.sort((a,b)=>a-b);return {median:quantile(errors,.5),p90:quantile(errors,.9)};
+}
 function normalEquations(p,views){
   const H=[0,0,0,0,0,0],g=[0,0,0];let used=0;const eps=Math.max(2e-6,Math.hypot(...p)*2e-6),huber=1.6;
   for(const v of views){const q=projectPoint(v.pose,v.K,p);if(!q||!(q.z>0))continue;const ru=q.u-v.u,rv=q.v-v.v,e=Math.hypot(ru,rv),robust=e<=huber?1:huber/Math.max(huber,e),w=Math.max(.05,v.weight||1)*robust,ju=[0,0,0],jv=[0,0,0];let valid=true;
@@ -214,3 +222,4 @@ function addCov(a,b){return [a[0]+b[0],a[1]+b[1],a[2]+b[2],a[3]+b[3],a[4]+b[4],a
 function rotationFromQuat(q){let [x,y,z,w]=(q||[0,0,0,1]).map(Number),n=Math.hypot(x,y,z,w)||1;x/=n;y/=n;z/=n;w/=n;return [1-2*(y*y+z*z),2*(x*y-w*z),2*(x*z+w*y),2*(x*y+w*z),1-2*(x*x+z*z),2*(y*z-w*x),2*(x*z-w*y),2*(y*z+w*x),1-2*(x*x+y*y)];}
 function rotate(R,v){return [R[0]*v[0]+R[1]*v[1]+R[2]*v[2],R[3]*v[0]+R[4]*v[1]+R[5]*v[2],R[6]*v[0]+R[7]*v[1]+R[8]*v[2]];}
 function normalize(v){const n=Math.hypot(...v)||1;return v.map(x=>x/n);}
+function quantile(a,q){if(!a?.length)return Infinity;const x=(a.length-1)*q,i=Math.floor(x),t=x-i;return a[i]*(1-t)+a[Math.min(a.length-1,i+1)]*t;}

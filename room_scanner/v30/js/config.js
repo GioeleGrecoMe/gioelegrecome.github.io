@@ -1,5 +1,5 @@
 /*
- * Room Scanner V30.55.0 adaptive Deep + Alva recovery configuration.
+ * Room Scanner V30.56.0 RGB-first metric-depth closure configuration.
  *
  * Debugging note:
  * - V30.8 used dbVersion=2 even on devices that already contained schema v3,
@@ -10,8 +10,8 @@
  *   no screen-space/static-coordinate fallback for calibration pins.
  */
 export const BUILD={
-  version:'30.55.0',
-  id:'v30.55.0-20260822-archive-mvs-pose-freeze-wall-baseline',
+  version:'30.56.0',
+  id:'v30.56.0-20260823-rgb-mvs-deep-tsdf-closure',
   dbName:'room-scanner-v30',
   dbVersion:3
 };
@@ -245,8 +245,8 @@ export const CONFIG={
   sharpArchiveProcessingYieldEvery:3,
   sharpArchiveDeepFrameTimeoutMs:120000,
   sharpArchiveFlushTimeoutMs:20000,
-  // V30.55 adaptive Deep: RGB/Alva sees a much larger archive, while neural
-  // depth is purchased only where it adds geometric information.
+  // Legacy adaptive scheduler values remain readable for saved diagnostics.
+  // The closure path instead uses the one atomic RGB/Deep/MVS plan below.
   adaptiveDeepInitialBatch:16,
   adaptiveDeepNextBatch:8,
   adaptiveDeepMaxFrames:56,
@@ -307,7 +307,10 @@ export const CONFIG={
   postScanMvsJobTimeoutMs:18000,
   // Build the final plane-sweep queue from the complete sharp-photo archive,
   // not only from the few sparse jobs that fit during acquisition.
-  postScanArchiveMvsMaxJobs:36,
+  postScanArchiveMvsMaxJobs:28,
+  // One atomic planner after the RGB solve. Each reference carries the frozen
+  // pose, exact RGB/features, Deep output and final-pose MVS evidence.
+  postScanClosureKeyframes:28,
   postScanArchiveMvsMinSources:2,
   // MVS is generated after the RGB scaffold. Keep that exact pose snapshot
   // for the first final surface rebuild; moving cameras afterwards invalidates
@@ -534,7 +537,7 @@ export const CONFIG={
   // Storage/rebuild budgets reused by the single hierarchical optimizer.
   // These names are retained for snapshot compatibility; they do not select
   // a second optimizer implementation.
-  // V30.55: final reconstruction is part of Processing, not a manual REVIEW step.
+  // V30.56: final reconstruction is part of Processing, not a manual REVIEW step.
   postScanFinalOptimizationPasses:10,
   postScanFinalOptimizationMaxAttempts:30,
   postScanFinalAutoRebuild:true,

@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {buildGlobalSurfaceConsensus} from '../js/reconstruction/global_surface_consensus.js?v=30.55.0';
-import {filterSurfaceSplatsForDisplay} from '../js/reconstruction/surface_display_policy.js?v=30.55.0';
-import {retainMeaningfulMeshComponents,analyzeMeshQuality} from '../js/reconstruction/mesh_quality.js?v=30.55.0';
-import {evaluateFinalGeometryPolicy} from '../js/probabilistic/geometry_commit_policy.js?v=30.55.0';
-import {buildPipelineTestSnapshot} from '../js/reconstruction/pipeline_diagnostics.js?v=30.55.0';
+import {buildGlobalSurfaceConsensus} from '../js/reconstruction/global_surface_consensus.js?v=30.56.0';
+import {filterSurfaceSplatsForDisplay} from '../js/reconstruction/surface_display_policy.js?v=30.56.0';
+import {retainMeaningfulMeshComponents,analyzeMeshQuality} from '../js/reconstruction/mesh_quality.js?v=30.56.0';
+import {evaluateFinalGeometryPolicy} from '../js/probabilistic/geometry_commit_policy.js?v=30.56.0';
+import {buildPipelineTestSnapshot} from '../js/reconstruction/pipeline_diagnostics.js?v=30.56.0';
 
 const splat=(id,p,{c=.72,sub='S0',ind=2,support=3,n=[0,0,1]}={})=>({id,position:p,normal:n,color:[180,190,200],confidence:c,support,independentSupport:ind,anchorSupport:1.5,finalPoseValidated:true,evidenceClass:'strong',submapId:sub,scale:[.02,.02,.008],positionCovariance:[1e-4,0,0,1e-4,0,1e-4]});
 
@@ -42,12 +42,12 @@ test('mesh cleanup removes tiny islands but reports how much raw geometry was di
 });
 
 test('final policy refuses a mesh whose apparent coherence comes from discarding too much raw topology',()=>{
-  const p=evaluateFinalGeometryPolicy({meshQuality:{componentCount:3,largestComponentFraction:.72,fragmentationScore:.28,faceCount:8000,bbox:{diagonal:9},status:'coherent'},rawMeshQuality:{componentCount:90,largestComponentFraction:.31,faceCount:12000,bbox:{diagonal:10}},meshCleanup:{discardedVertexFraction:.42},surfaceConsensus:{authoritative:900,occupiedCells:420,medianConfidence:.61},gaussianCount:900,frames:[{poseEstimate:{p:[0,0,0]}},{poseEstimate:{p:[5,0,0]}}],mvsValidation:{poseBoundFactors:30,legacyPoseBoundFactors:0,committed:5000},depthGeometryPolicy:{commitAllowed:false}});
+  const p=evaluateFinalGeometryPolicy({meshQuality:{componentCount:3,largestComponentFraction:.72,fragmentationScore:.28,faceCount:8000,bbox:{diagonal:9},status:'coherent'},rawMeshQuality:{componentCount:90,largestComponentFraction:.31,faceCount:12000,bbox:{diagonal:10}},meshCleanup:{discardedVertexFraction:.42},surfaceConsensus:{authoritative:1900,occupiedCells:420,medianConfidence:.61},gaussianCount:1900,frames:[{poseEstimate:{p:[0,0,0]}},{poseEstimate:{p:[5,0,0]}}],mvsValidation:{poseBoundFactors:30,legacyPoseBoundFactors:0,committed:5000},depthGeometryPolicy:{commitAllowed:false}});
   assert.equal(p.commitReady,false);assert.equal(p.reason,'mesh-fragmented-before-cleanup');
 });
 
 test('pipeline TEST identifies the earliest broken stage rather than only reporting mesh failure',()=>{
-  const snap=buildPipelineTestSnapshot({build:{version:'30.55.0'},graph:{frames:80,photoEdges:60,photoEdgeImportFraction:.9},optimizer:{candidateStats:{edgeSwitches:{translationDirectionEdges:1,meanEpipolarPlaneResidualDeg:11,translationDirectionMeanInlierFraction:.2}}},photoArchive:{accepted:300},fastLane:{maxGapMs:300},surface:{committed:false,withheldReason:'mesh-severely-fragmented'}});
+  const snap=buildPipelineTestSnapshot({build:{version:'30.56.0'},graph:{frames:80,photoEdges:60,photoEdgeImportFraction:.9},optimizer:{candidateStats:{edgeSwitches:{translationDirectionEdges:1,meanEpipolarPlaneResidualDeg:11,translationDirectionMeanInlierFraction:.2}}},photoArchive:{accepted:300},fastLane:{maxGapMs:300},surface:{committed:false,withheldReason:'mesh-severely-fragmented'}});
   assert.equal(snap.firstFailure.name,'Scaffold RGB');
   assert.equal(snap.firstFailure.status,'fail');
 });

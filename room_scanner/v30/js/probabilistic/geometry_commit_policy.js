@@ -1,5 +1,5 @@
 /**
- * V30.55 final geometry policy.
+ * V30.56 final geometry policy.
  *
  * Dense geometry is authoritative only when:
  *  - the evidence is tied to the final camera scaffold;
@@ -17,7 +17,7 @@ export function evaluateFinalGeometryPolicy({meshQuality=null,rawMeshQuality=nul
   const rawComponents=Math.max(0,Number(raw.componentCount)||0),discardedVertexFraction=finiteOr(cleanup.discardedVertexFraction,0),rawFragmentationHigh=rawComponents>=18&&discardedVertexFraction>.30;
 
   const scaleExplosion=denseDiagonal>Math.max(18,referenceScale*9+2)&&scaleRatio>8,empty=gaussianCount<=0||faces<=0;
-  const authoritativeConsensus=Math.max(0,Number(cons.authoritative)||gaussianCount),consensusCells=Math.max(0,Number(cons.occupiedCells)||0),consensusMedian=finiteOr(cons.medianConfidence,NaN),consensusReady=!surfaceConsensus||(authoritativeConsensus>=80&&consensusCells>=24&&(!Number.isFinite(consensusMedian)||consensusMedian>=.28));
+  const authoritativeConsensus=Math.max(0,Number(cons.authoritative)||gaussianCount),consensusCells=Math.max(0,Number(cons.occupiedCells)||0),consensusMedian=finiteOr(cons.medianConfidence,NaN),consensusReady=!surfaceConsensus||(authoritativeConsensus>=1000&&consensusCells>=48&&(!Number.isFinite(consensusMedian)||consensusMedian>=.28));
 
   const mv=mvsValidation||{},poseBound=Math.max(0,Number(mv.poseBoundFactors)||0),legacy=Math.max(0,Math.min(poseBound,Number(mv.legacyPoseBoundFactors)||0)),authoritativeMvsFactors=Math.max(0,poseBound-legacy),committedMvs=Math.max(0,Number(mv.committed)||0),deepAuthority=depthGeometryPolicy?.commitAllowed===true,minAuthoritativeMvsFactors=poseBound?Math.min(poseBound,Math.max(3,Math.ceil(poseBound*.15))):0,legacyOnlyMvs=committedMvs>0&&poseBound>0&&authoritativeMvsFactors===0&&!deepAuthority,insufficientAuthoritativeMvs=committedMvs>0&&poseBound>0&&authoritativeMvsFactors<minAuthoritativeMvsFactors&&!deepAuthority,denseAuthorityReady=!legacyOnlyMvs&&!insufficientAuthoritativeMvs;
 

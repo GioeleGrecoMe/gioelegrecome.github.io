@@ -43,11 +43,11 @@ test('MVS radius survives factor-graph packing',()=>{
 
 test('authoritative splats can commit while a fragmented mesh remains withheld',()=>{
   const frames=[{poseEstimate:pose(0)},{poseEstimate:pose(2)}];
-  const p=evaluateFinalGeometryPolicy({meshQuality:{componentCount:9,largestComponentFraction:.39,fragmentationScore:.61,faceCount:39000,bbox:{diagonal:12.5},status:'fragmented'},rawMeshQuality:{componentCount:25,largestComponentFraction:.32,faceCount:40000,bbox:{diagonal:12.8}},meshCleanup:{discardedVertexFraction:.02},surfaceConsensus:{authoritative:140,occupiedCells:140,medianConfidence:.44},gaussianCount:140,frames,sparseDepthEnvelope:{q90:9},mvsValidation:{poseBoundFactors:8,legacyPoseBoundFactors:0,committed:140},depthGeometryPolicy:{commitAllowed:false}});
+  const p=evaluateFinalGeometryPolicy({meshQuality:{componentCount:9,largestComponentFraction:.39,fragmentationScore:.61,faceCount:39000,bbox:{diagonal:12.5},status:'fragmented'},rawMeshQuality:{componentCount:25,largestComponentFraction:.32,faceCount:40000,bbox:{diagonal:12.8}},meshCleanup:{discardedVertexFraction:.02},surfaceConsensus:{authoritative:1400,occupiedCells:140,medianConfidence:.44},gaussianCount:1400,frames,sparseDepthEnvelope:{q90:9},mvsValidation:{poseBoundFactors:8,legacyPoseBoundFactors:0,committed:1400},depthGeometryPolicy:{commitAllowed:false}});
   assert.equal(p.splatCommitReady,true,p);assert.equal(p.meshCommitReady,false,p);assert.equal(p.commitReady,false,p);assert.match(p.reason,/fragmented/);
 });
 
-test('V30.55 production path preserves global MVS scale, footprint and splat/mesh authority separation',()=>{
+test('V30.56 production path preserves global MVS scale, footprint and splat/mesh authority separation',()=>{
   const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8'),sparse=fs.readFileSync(new URL('../js/dense/sparse_depth_anchors.js',import.meta.url),'utf8'),joint=fs.readFileSync(new URL('../js/probabilistic/joint_optimizer.js',import.meta.url),'utf8'),runtime=fs.readFileSync(new URL('../js/probabilistic/single_optimizer_runtime.js',import.meta.url),'utf8'),fusion=fs.readFileSync(new URL('../js/dense/fusion_core.js',import.meta.url),'utf8');
   assert.match(sparse,/Math\.max\(\.0015,minAngleRad\)/);
   assert.match(app,/optimizerSnapshot:snapshot/);assert.match(app,/mvs-postscan-scale-consensus/);

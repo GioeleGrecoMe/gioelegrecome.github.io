@@ -1,7 +1,7 @@
 {
-  "version": "30.55.0",
-  "id": "v30.55.0-20260822-archive-mvs-pose-freeze-wall-baseline",
-  "date": "2026-08-22",
-  "notes": "V30.55 builds post-scan MVS from the complete sharp-photo archive, freezes the exact RGB/Alva pose snapshot for the first MVS surface validation, exposes color-coded diagnostic splat evidence, and adds a wall-with-objects baseline to the pipeline TEST.",
-  "builtAt": "2026-08-22T14:20:00+02:00"
+  "version": "30.56.0",
+  "id": "v30.56.0-20260823-rgb-mvs-deep-tsdf-closure",
+  "date": "2026-08-23",
+  "notes": "V30.56 closure solves RGB/Alva geometry first, freezes one global gauge and the final poses, shares one atomic keyframe plan between final-pose MVS and Deep, calibrates inverse depth with one scan-wide affine model validated leave-one-frame-out, and commits dense cross-view samples before TSDF, splats and mesh.",
+  "builtAt": "2026-08-23T12:00:00+02:00"
 }

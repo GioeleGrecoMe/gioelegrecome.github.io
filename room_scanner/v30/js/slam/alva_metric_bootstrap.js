@@ -1,4 +1,4 @@
-import {qConj,qMul,qNormalize,qRotate} from './math.js?v=30.55.0';
+import {qConj,qMul,qNormalize,qRotate} from './math.js?v=30.56.0';
 
 /**
  * One-shot Sim(3) bootstrap from AlvaAR coordinates to the metric room frame.

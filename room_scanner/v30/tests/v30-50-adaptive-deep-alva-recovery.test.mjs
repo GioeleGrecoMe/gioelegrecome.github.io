@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {AdaptiveDeepScheduler,selectGeometricPhotoSubset} from '../js/reconstruction/adaptive_deep_scheduler.js?v=30.55.0';
+import {AdaptiveDeepScheduler,selectGeometricPhotoSubset} from '../js/reconstruction/adaptive_deep_scheduler.js?v=30.56.0';
 
 const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
 const cfg=fs.readFileSync(new URL('../js/config.js',import.meta.url),'utf8');
@@ -34,17 +34,19 @@ test('processed reliable coverage lowers uncertainty and low marginal score can 
   assert.ok(after.globalUncertainty<before.globalUncertainty);const plan=s.next(done,{reliability});assert.equal(plan.records.length,0);assert.equal(plan.stopReason,'marginal-gain-low');
 });
 
-test('scan never plans Deep and post-scan order is RGB scaffold -> adaptive Deep -> MVS',()=>{
+test('scan never plans Deep and post-scan closure is RGB scaffold -> MVS -> exact-frame Deep',()=>{
   const sparse=app.slice(app.indexOf('async function scheduleSparseGeometryWork'),app.indexOf('async function makeDensePayload'));
   assert.doesNotMatch(sparse,/planLateDeepFromPayload\(payload\)/);
   const finish=app.slice(app.indexOf('async function finishScan'),app.indexOf('async function persistCurrentSession'));
-  assert.ok(finish.indexOf('reconcilePostScanRgbScaffold')<finish.indexOf('processArchivedDeepAdaptive'));
-  assert.ok(finish.indexOf('processArchivedDeepAdaptive')<finish.indexOf('drainPostScanMvsBacklog'));
+  assert.ok(finish.indexOf('reconcilePostScanRgbScaffold')<finish.indexOf('queueArchiveMvsPlan'));
+  assert.ok(finish.indexOf('queueArchiveMvsPlan')<finish.indexOf('drainPostScanMvsBacklog'));
+  assert.ok(finish.indexOf('drainPostScanMvsBacklog')<finish.indexOf('processDeepBatchPipelined'));
+  assert.match(finish,/atomicIds\.has\(String\(r\.frameId\)\)/);
   assert.doesNotMatch(finish,/processArchivedDeepSequential/);
 });
 
 test('next JPEG decode/preprocess starts before current Deep wait and resize maps are cached',()=>{
-  const fn=app.slice(app.indexOf('async function processDeepBatchPipelined'),app.indexOf('async function processArchivedDeepAdaptive'));
+  const fn=app.slice(app.indexOf('async function processDeepBatchPipelined'),app.indexOf('async function finishScan'));
   assert.match(fn,/prep=\(i\+1<records\.length\)\?decodeSharpPhotoRecord/);
   assert.ok(fn.indexOf('prep=(i+1<records.length)')<fn.indexOf('waitForDeepJobCompletion'));
   for(const key of ['resizeCache','x0','x1','tx','y0','y1','ty'])assert.match(worker,new RegExp(key));
@@ -85,7 +87,7 @@ test('MVS consumes the post-scaffold pose snapshot and preserves it for final va
   assert.match(finish,/drainPostScanMvsBacklog\(mvsSnapshot\)/);
 });
 
-test('RGB candidates are distinct from actual adaptive depth-planned frames',()=>{
-  assert.match(app,/adaptiveCandidate:true/);assert.match(app,/rgb-adaptive-depth-candidate/);assert.match(app,/adaptive-deep-frame-planned/);
+test('RGB candidates are distinct from the atomic depth-planned frames',()=>{
+  assert.match(app,/adaptiveCandidate:true/);assert.match(app,/rgb-adaptive-depth-candidate/);assert.match(app,/atomic-deep-frame-planned/);
   assert.match(app,/if\(!adaptiveCandidate\)state\.photoPlannedFrameIds/);
 });

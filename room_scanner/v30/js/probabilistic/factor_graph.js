@@ -5,7 +5,7 @@
  * only the current 3D answer. Post-scan processing can therefore revisit pose,
  * association, Deep scale and surface estimates without needing all video frames.
  */
-import {canonicalizePhotoEdgeMatches} from './rgb_translation_direction.js?v=30.55.0';
+import {canonicalizePhotoEdgeMatches} from './rgb_translation_direction.js?v=30.56.0';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
@@ -25,7 +25,7 @@ export class ProbabilisticFactorGraph{
     const refId=String(ref?.frameId||ref?.id||'');if(!refId)return;
     for(const s of seeds||[]){
       if(!Array.isArray(s.p)||!s.measurements?.length)continue;
-      const candidate={id:s.trackId||`${refId}:L${this.landmarkFactors.length}`,refFrameId:refId,point:Array.from(s.p.slice(0,3),Number),covariance:cov6(s.covariance),probability:clamp(Number(s.geometryProbability??s.confidence??.1),.001,.999),relativeDepthSigma:Number(s.relativeDepthSigma??(s.sigmaDepth/Math.max(.05,s.depth))??.3),depth:+s.depth,calibrationWeight:+(s.calibrationWeight||0),descriptor:Array.isArray(s.referenceDesc||s.descriptor)?Array.from(s.referenceDesc||s.descriptor).slice(0,24).map(Number):[],measurements:s.measurements.map(m=>({frameId:String(m.frameId),u:+m.u,v:+m.v,probability:clamp(Number(m.probability??.1),.001,.999),epipolarPx:m.epipolarPx==null?null:+m.epipolarPx,zncc:m.zncc==null?null:+m.zncc})),sourceIds:(s.sourceIds||[]).map(String)};
+      const candidate={id:s.trackId||`${refId}:L${this.landmarkFactors.length}`,refFrameId:refId,point:Array.from(s.p.slice(0,3),Number),covariance:cov6(s.covariance),probability:clamp(Number(s.geometryProbability??s.confidence??.1),.001,.999),relativeDepthSigma:Number(s.relativeDepthSigma??(s.sigmaDepth/Math.max(.05,s.depth))??.3),depth:+s.depth,calibrationWeight:+(s.calibrationWeight||0),triangulationAngleRad:finiteOrNull(s.angle),rayGap:finiteOrNull(s.rayGap),rayGapRatio:finiteOrNull(s.rayGapRatio),posteriorReprojectionPx:finiteOrNull(s.reprojectionPx),leaveOneViewOutReprojectionPx:finiteOrNull(s.leaveOneViewOutReprojectionPx),leaveOneViewOutReprojectionP90Px:finiteOrNull(s.leaveOneViewOutReprojectionP90Px),cheirality:s.cheirality!==false,descriptor:Array.isArray(s.referenceDesc||s.descriptor)?Array.from(s.referenceDesc||s.descriptor).slice(0,24).map(Number):[],measurements:s.measurements.map(m=>({frameId:String(m.frameId),u:+m.u,v:+m.v,probability:clamp(Number(m.probability??.1),.001,.999),epipolarPx:m.epipolarPx==null?null:+m.epipolarPx,zncc:m.zncc==null?null:+m.zncc})),sourceIds:(s.sourceIds||[]).map(String)};
       const existing=this.findLandmarkByMeasurement(candidate.measurements);
       if(existing>=0){mergeLandmarkFactor(this.landmarkFactors[existing],candidate);this.indexLandmark(existing,this.landmarkFactors[existing]);}
       else{const idx=this.landmarkFactors.length;this.landmarkFactors.push(candidate);this.indexLandmark(idx,candidate);}
@@ -102,6 +102,7 @@ function intrinsicDeviation(a,b){return {fxRel:Math.abs(a.fx-b.fx)/Math.max(1,b.
 function clonePose(p){return {p:p.p.slice(0,3).map(Number),q:p.q.slice(0,4).map(Number)};}
 function clonePoseCov(c){if(!c)return null;return {diag:Array.isArray(c.diag)?c.diag.slice(0,6).map(Number):null,translationStd:+(c.translationStd||0),rotationStdRad:+(c.rotationStdRad||0),quality:+(c.quality||0),source:c.source||null};}
 function cov6(c){return Array.isArray(c)&&c.length>=6?c.slice(0,6).map(Number):[.01,0,0,.01,0,.01];}
+function finiteOrNull(x){x=Number(x);return Number.isFinite(x)?x:null;}
 function trim(a,n){if(a.length>n)a.splice(0,a.length-n);}
 function compactCalibration(c){return {ok:!!c.ok,mode:c.mode||null,a:+(c.a||0),b:+(c.b||0),confidence:+(c.confidence||0),medianRelativeError:+(c.medianRelativeError||0),posteriorConfidence:+(c.posteriorConfidence||c.confidence||0),sequenceMode:c.sequenceMode||c.mode||null};}
 function compactQuality(q){return {suspicious:!!q.suspicious,coherenceRatio:+(q.coherenceRatio||0),stripe:{suspicious:!!q.stripe?.suspicious,dominantExplained:+(q.stripe?.dominantExplained||0),dominantCycles:+(q.stripe?.dominantCycles||0)}};}
@@ -118,10 +119,11 @@ function sampleGrid(a,w,h,cols,rows){const out=new Float32Array(cols*rows);for(l
 function measurementKey(fid,u,v){return `${fid}:${Math.round((+u||0)/3)}:${Math.round((+v||0)/3)}`;}
 function mergeLandmarkFactor(a,b){
   const wa=mixtureWeight(a),wb=mixtureWeight(b),s=wa+wb||1,alpha=wa/s,mu=a.point.slice(0,3),nu=b.point.slice(0,3),m=[alpha*mu[0]+(1-alpha)*nu[0],alpha*mu[1]+(1-alpha)*nu[1],alpha*mu[2]+(1-alpha)*nu[2]];
-  a.covariance=mixtureCov(a.covariance,b.covariance,mu,nu,m,alpha);a.point=m;a.depth=alpha*(+a.depth||0)+(1-alpha)*(+b.depth||0);a.relativeDepthSigma=alpha*(+a.relativeDepthSigma||.3)+(1-alpha)*(+b.relativeDepthSigma||.3);if(!a.descriptor?.length&&b.descriptor?.length)a.descriptor=b.descriptor.slice();
+  a.covariance=mixtureCov(a.covariance,b.covariance,mu,nu,m,alpha);a.point=m;a.depth=alpha*(+a.depth||0)+(1-alpha)*(+b.depth||0);a.relativeDepthSigma=alpha*(+a.relativeDepthSigma||.3)+(1-alpha)*(+b.relativeDepthSigma||.3);a.triangulationAngleRad=Math.max(+a.triangulationAngleRad||0,+b.triangulationAngleRad||0)||null;a.rayGapRatio=minFinite(a.rayGapRatio,b.rayGapRatio);a.rayGap=minFinite(a.rayGap,b.rayGap);a.posteriorReprojectionPx=minFinite(a.posteriorReprojectionPx,b.posteriorReprojectionPx);a.leaveOneViewOutReprojectionPx=minFinite(a.leaveOneViewOutReprojectionPx,b.leaveOneViewOutReprojectionPx);a.leaveOneViewOutReprojectionP90Px=minFinite(a.leaveOneViewOutReprojectionP90Px,b.leaveOneViewOutReprojectionP90Px);a.cheirality=a.cheirality!==false&&b.cheirality!==false;if(!a.descriptor?.length&&b.descriptor?.length)a.descriptor=b.descriptor.slice();
   const pa=clamp(+a.probability||.01,.001,.999),pb=clamp(+b.probability||.01,.001,.999);a.probability=clamp(Math.max(pa,pb)+.25*Math.min(pa,pb)*(1-Math.max(pa,pb)),.001,.999);a.calibrationWeight=Math.max(+a.calibrationWeight||0,+b.calibrationWeight||0);
   const byFrame=new Map((a.measurements||[]).map(x=>[String(x.frameId),{...x}]));for(const x of b.measurements||[]){const k=String(x.frameId),old=byFrame.get(k);if(!old||(+x.probability||0)>(+old.probability||0))byFrame.set(k,{...x});}a.measurements=[...byFrame.values()];a.sourceIds=[...new Set([...(a.sourceIds||[]),...(b.sourceIds||[])].map(String))];return a;
 }
+function minFinite(a,b){a=Number(a);b=Number(b);return Number.isFinite(a)&&Number.isFinite(b)?Math.min(a,b):Number.isFinite(a)?a:Number.isFinite(b)?b:null;}
 function mixtureWeight(l){return clamp(+l?.probability||.05,.01,.999)/Math.max(1e-8,covTrace(l?.covariance));}
 function covTrace(c){return Math.max(1e-9,(+c?.[0]||0)+(+c?.[3]||0)+(+c?.[5]||0));}
 function mixtureCov(c1,c2,m1,m2,m,a){c1=cov6(c1);c2=cov6(c2);const d1=[m1[0]-m[0],m1[1]-m[1],m1[2]-m[2]],d2=[m2[0]-m[0],m2[1]-m[1],m2[2]-m[2]],o=(d)=>[d[0]*d[0],d[0]*d[1],d[0]*d[2],d[1]*d[1],d[1]*d[2],d[2]*d[2]],q1=o(d1),q2=o(d2);return c1.map((x,i)=>a*(x+q1[i])+(1-a)*(c2[i]+q2[i]));}
