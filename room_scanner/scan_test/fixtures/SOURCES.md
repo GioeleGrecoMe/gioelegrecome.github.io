@@ -1,18 +1,24 @@
-# Public debug fixtures
+# Debug / validation fixtures
 
-## TUM RGB-D Benchmark — Freiburg1
+## `tum_freiburg1_xyz_debug_replay.mp4`
 
-The fixture `tum_freiburg1_xyz_rgb_preview.png` is the official RGB preview image published by the Technical University of Munich RGB-D SLAM Dataset and Benchmark.
+Derivato localmente dalla preview pubblica del TUM RGB-D Benchmark Freiburg1. E intenzionalmente quasi statico e viene mantenuto solo come test deterministico del decoder/crop/EOF; **non e un test valido di visual odometry** e zero pose AlvaAR e l'esito atteso.
 
-- Dataset page: https://cvg.cit.tum.de/data/datasets/rgbd-dataset
-- Download/debugging page: https://cvg.cit.tum.de/data/datasets/rgbd-dataset/download
-- File formats/intrinsics: https://cvg.cit.tum.de/data/datasets/rgbd-dataset/file_formats
-- Preview source: https://cvg.cit.tum.de/rgbd/dataset/freiburg1/rgbd_dataset_freiburg1_xyz-rgb.png
+- Dataset: https://cvg.cit.tum.de/data/datasets/rgbd-dataset
+- Download/debug: https://cvg.cit.tum.de/data/datasets/rgbd-dataset/download
+- Formati/intrinsics: https://cvg.cit.tum.de/data/datasets/rgbd-dataset/file_formats
 
-The benchmark states that its data is CC BY 4.0 unless otherwise noted. The tests also use a short numeric excerpt from the public `freiburg1_rpy` ground-truth trajectory and the published Freiburg1 RGB intrinsics (fx=517.3, fy=516.5, cx=318.6, cy=255.3).
+Il benchmark dichiara CC BY 4.0 salvo diversa indicazione.
 
-`tum_freiburg1_xyz_debug_replay.mp4` is generated locally from the official preview image only. It is a deterministic media-decoder fixture, not a claim that the original TUM AVI was redistributed in this package.
+## `alva_dynamic_regression.mp4`
 
-V30.28 additionally includes the complete official `freiburg1_xyz` ground-truth text file downloaded from
-`https://cvg.cit.tum.de/rgbd/dataset/freiburg1/rgbd_dataset_freiburg1_xyz-groundtruth.txt`.
-`tum_freiburg1_xyz_rgb_preview_gray.pgm` is a deterministic 320x240 grayscale derivative of the official RGB preview used only for dependency-free real-texture association tests.
+Fixture sintetico/deterministico creato per Scan Test con texture, traslazione e parallasse. Serve a verificare che il decoder consegni frame distinti e che il binding AlvaAR riesca effettivamente a inizializzare e produrre pose. Non rappresenta una metrica di accuratezza geometrica.
+
+## `external_hallway_validation.mp4`
+
+Clip di validazione ricavata dal pannello RGB di `figures/demo.gif` del repository pubblico `raahimnawaz/monocular-vo` (licenza MIT). Il repository descrive la demo come una camminata indoor in corridoio di 5 m misurata con metro e pubblica anche la versione MP4 ad alta qualita.
+
+- Repository: https://github.com/raahimnawaz/monocular-vo
+- Demo: https://github.com/raahimnawaz/monocular-vo/blob/main/figures/demo.mp4
+
+La clip inclusa e usata esclusivamente come regressione esterna per verificare che AlvaAR non dipenda dal fixture sintetico.

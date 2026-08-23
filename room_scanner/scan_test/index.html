@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
-  <title>Scan Test v2.2.0 · Alva + Deep splat</title>
+  <title>Scan Test v2.4.0 · Alva + Deep splat</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="topbar">
     <div>
-      <p class="eyebrow">ESPERIMENTO ISOLATO · VERSIONE v2.2.0 · build controllata · nessun filtro / nessuna mesh</p>
-      <h1>Scan Test <span class="tag ok">v2.2.0</span></h1>
+      <p class="eyebrow">ESPERIMENTO ISOLATO · VERSIONE v2.4.0 · build controllata · nessun filtro / nessuna mesh</p>
+      <h1>Scan Test <span class="tag ok">v2.4.0</span></h1>
       <p class="lede">Posa AlvaAR → riesecuzione offline → profondità Deep globale → tutti i pixel come splat RGB.</p>
     </div>
     <div id="globalState" class="state-pill">Pronto</div>
@@ -44,7 +44,7 @@
         <label>Modello Deep ONNX (opzionale)<input id="modelFile" type="file" accept=".onnx,application/onnx"></label>
         <label>Massimo viste Deep<input id="deepLimit" type="number" min="2" max="48" step="1" value="18"></label>
       </div>
-      <p class="hint">Il valore FOV è l'unica intrinseca manuale: prima prova 60°. Se linee e vista RGB non combaciano, calibra la camera o correggi questo valore. Con camera live il campionamento selezionato pilota tracking e archivio. Con un video caricato Alva riceve invece tutti i frame nativi: il bootstrap viene conservato fitto e, dopo la prima posa, l'archivio viene diradato automaticamente per restare entro il budget di memoria. Il valore “Scala Alva → metri” rende l'output metrico solo se conosci una distanza reale; altrimenti resta una scala globale coerente. La camera reale richiede sempre una conferma esplicita in questa pagina e poi il permesso del browser.</p>
+      <p class="hint">Il valore FOV è l'unica intrinseca manuale: prima prova 60°. Se linee e vista RGB non combaciano, calibra la camera o correggi questo valore. Con camera live AlvaAR riceve tutti i frame presentati (fino a 30 fps); il campionamento selezionato pilota solo l'archivio fotografico. Con un video caricato Alva riceve invece tutti i frame nativi: il bootstrap viene conservato fitto e, dopo la prima posa, l'archivio viene diradato automaticamente per restare entro il budget di memoria. Il valore “Scala Alva → metri” rende l'output metrico solo se conosci una distanza reale; altrimenti resta una scala globale coerente. La camera reale richiede sempre una conferma esplicita in questa pagina e poi il permesso del browser.</p>
       <div class="actions">
         <button id="openCameraBtn" class="primary">1. Apri camera e AlvaAR</button>
         <button id="fixtureBtn">Simula con video di test</button>
@@ -132,6 +132,6 @@
     </section>
   </main>
   <template id="frameTemplate"><button class="frame-thumb" type="button"><canvas width="160" height="120"></canvas><span></span></button></template>
-  <script type="module" src="app.js?v=scan-test-v2.2.0"></script>
+  <script type="module" src="app.js?v=scan-test-v2.4.0"></script>
 </body>
 </html>

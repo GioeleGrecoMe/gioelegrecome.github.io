@@ -7,9 +7,9 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import { AlvaAR } from '../vendor/alva_ar.js';
 
-const [videoPath, fovArg='60', maxFramesArg='300'] = process.argv.slice(2);
+const [videoPath, fovArg='60', maxFramesArg='300', minPosesArg='1'] = process.argv.slice(2);
 if (!videoPath) {
-  console.error('Usage: node tools/test_alva_video.mjs <video> [horizontalFovDeg=60] [maxFrames=300]');
+  console.error('Usage: node tools/test_alva_video.mjs <video> [horizontalFovDeg=60] [maxFrames=300] [minValidPoses=1]');
   process.exit(2);
 }
 if (!fs.existsSync(videoPath)) {
@@ -20,6 +20,7 @@ if (!fs.existsSync(videoPath)) {
 const W=640, H=480;
 const horizontalFovDeg=Number(fovArg)||60;
 const maxFrames=Math.max(1, Number(maxFramesArg)||300);
+const minValidPoses=Math.max(0, Number(minPosesArg)||0);
 // The wrapper treats the supplied FOV as the vertical value for landscape and
 // derives horizontal FOV linearly with aspect ratio. Mirror app.js conversion.
 const alvaFovArgumentDeg=horizontalFovDeg * H / W;
@@ -77,7 +78,7 @@ if (!stoppedEarly && exitCode!==0) throw new Error(`ffmpeg failed (${exitCode}):
 
 const sorted=pointCounts.slice().sort((a,b)=>a-b);
 const medianFramePoints=sorted.length ? sorted[Math.floor(sorted.length/2)] : 0;
-console.log(JSON.stringify({
+const result={
   video:videoPath,
   frames,
   validPoses,
@@ -86,4 +87,10 @@ console.log(JSON.stringify({
   medianFramePoints,
   horizontalFovDeg,
   alvaFovArgumentDeg,
-},null,2));
+  minValidPoses,
+};
+console.log(JSON.stringify(result,null,2));
+if (validPoses < minValidPoses) {
+  console.error(`Regression failed: ${validPoses} valid poses < required ${minValidPoses}.`);
+  process.exitCode=1;
+}

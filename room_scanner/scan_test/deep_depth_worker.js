@@ -52,8 +52,8 @@ let cfg = {
   // 168px profile was fast on the phone but produced global vertical bands.
   preferredShortSide: 518,
   compatibilityShortSide: 518,
-  // Resolution quality ladder. 280 is the normal rescue; 336 is used only if
-  // the global banding detector still sees a collapsed map.
+  // Scan Test uses one authoritative 518 px preprocessing contract everywhere.
+  // Keeping rescue targets identical prevents preflight/reconstruction drift.
   qualityRescueShortSide: 518,
   qualityMaxRescueShortSide: 518,
   patchSize: 14,
@@ -580,7 +580,7 @@ function roundToMultiple(value, multiple) {
  * Match the lower-bound DPT resize used for dynamic Depth Anything inputs:
  * preserve the camera aspect ratio, make the SHORT side reach the requested
  * ViT/14 patch budget, then round both axes to a patch multiple. This makes the
- * meaning of 336 -> 392 -> 518 deterministic on portrait and landscape frames.
+ * requested 518 px contract deterministic on portrait and landscape frames.
  */
 function adaptiveInputGeometry(sourceWidth, sourceHeight, shortSide) {
   const sw = Math.max(2, sourceWidth | 0);
@@ -1281,8 +1281,8 @@ async function maybeResolutionRescue(d, primary) {
       if (score > bestScore + .15 || (!rescuedQuality.suspicious && bestQuality.suspicious)) {
         best = rescued; bestQuality = rescuedQuality; bestScore = score;
       }
-      // First structurally healthy raster wins. Avoid paying 518px after a good
-      // 392px map, keeping the steady-state mobile profile as light as possible.
+      // First structurally healthy raster wins. In Scan Test all rescue targets
+      // intentionally resolve to the same authoritative 518 px short-side plan.
       if (!rescuedQuality.suspicious) break;
     } catch (err) {
       attempts.push({side,failed:true,message:err?.message||String(err)});
@@ -1478,10 +1478,9 @@ async function handleWorkerMessage(d) {
     }
 
     const firstRaw = await infer(d, { benchmark: d.type === 'test' });
-    // V30.25: first distinguish a resolution-dependent DPT collapse from a genuine
-    // WebGPU/Q4 problem. Phone screenshots at 112/168 px showed global bands; the
-    // same provider therefore climbs 336 -> 392 -> 518 only while the structural
-    // quality gate remains suspicious, before paying for a second WASM runtime.
+    // Distinguish a preprocessing/layout collapse from a genuine runtime/model
+    // problem before any provider fallback. Scan Test deliberately keeps every
+    // production and diagnostic inference on the same 518 px short-side contract.
     const resolutionRescue = await maybeResolutionRescue(d, firstRaw);
     const raw = resolutionRescue.result;
     // Shape and local smoothness cannot prove that raster coordinates survived
