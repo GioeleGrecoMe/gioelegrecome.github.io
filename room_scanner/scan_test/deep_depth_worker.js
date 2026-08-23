@@ -1,5 +1,5 @@
 /*
- * Scan Test v3.3.0 - Depth Anything V2 reference path + independent output checks.
+ * Scan Test v3.4.0 - Depth Anything V2 reference path + independent output checks.
  *
  * Deliberately no hand-written ONNX tensor packing, output reshaping or WebGPU.
  * The official Transformers.js depth-estimation pipeline owns the
@@ -8,7 +8,7 @@
  * depth while still returning finite numbers.
  */
 
-const WORKER_BUILD = 'deep-worker-v3.3.0-official-crosscheck';
+const WORKER_BUILD = 'deep-worker-v3.4.0-watchdog-336';
 let config = null;
 let api = null;
 let pipe = null;
@@ -23,7 +23,7 @@ const MODEL_CONTRACT = Object.freeze({
   input: { name: 'pixel_values', type: 'float32', layout: 'owned-by-DPTImageProcessor' },
   output: { name: 'predicted_depth', type: 'float32', layout: '[...,H,W]' },
   processor: {
-    type: 'DPTImageProcessor', size: [518, 518], keepAspectRatio: true,
+    type: 'DPTImageProcessor', size: [336, 336], keepAspectRatio: true,
     ensureMultipleOf: 14, resample: 'bicubic', rescaleFactor: 1 / 255,
     mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225],
   },
@@ -35,6 +35,31 @@ function post(type, data = {}, transfer = undefined) {
 }
 function diag(event, message, data = null, level = 'info') { post('deep-diag', { event, message, data, level }); }
 function now() { return typeof performance !== 'undefined' ? performance.now() : Date.now(); }
+let activeStage = { name:'BOOT', detail:'Worker creato', since:now(), state:'busy' };
+function setStage(name, detail, state = 'busy', data = null) {
+  activeStage = { name:String(name), detail:String(detail || ''), since:now(), state };
+  post('deep-stage', { stage:activeStage.name, detail:activeStage.detail, state, elapsedMs:0, data });
+}
+setInterval(() => {
+  post('deep-heartbeat', { stage:activeStage.name, detail:activeStage.detail, state:activeStage.state, elapsedMs:Math.round(now() - activeStage.since) });
+}, 1000);
+function withTimeout(promise, timeoutMs, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${label}: timeout dopo ${Math.round(timeoutMs/1000)} s`)), timeoutMs); });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+async function fetchTextWithTimeout(url, timeoutMs = 7000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { cache:'no-store', signal:controller.signal });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.text();
+  } catch (err) {
+    if (err?.name === 'AbortError') throw new Error(`${url}: timeout dopo ${Math.round(timeoutMs/1000)} s`);
+    throw err;
+  } finally { clearTimeout(timer); }
+}
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function percentileSorted(sorted, p) {
   if (!sorted.length) return NaN;
@@ -159,25 +184,17 @@ function tensorToDepth(tensor) {
 async function verifyLocalModelAssets() {
   const base = `${config.localModelBase.replace(/\/$/, '')}/${config.localModelId}/`;
   const required = ['config.json', 'preprocessor_config.json'];
+  setStage('MODEL-METADATA', 'Verifico config e preprocessor locali (timeout 7 s per file).');
   for (const rel of required) {
     const url = new URL(rel, base).href;
-    const r = await fetch(url, { cache:'no-store' });
-    if (!r.ok) throw new Error(`Asset Deep locale mancante: ${url} -> HTTP ${r.status}`);
-    await r.text();
+    await fetchTextWithTimeout(url, 7000).catch(err => { throw new Error(`Asset Deep locale ${rel} non leggibile: ${err?.message || err}`); });
   }
+  // Do not HEAD/GET the 27 MB model here. On Android a static-host request can
+  // remain pending for minutes. pipeline() below is the single authoritative GET
+  // and its progress callback/heartbeat keeps the UI observable.
   const modelUrl = new URL('onnx/model_q4.onnx', base).href;
-  let modelStatus = null, modelBytes = null;
-  try {
-    const h = await fetch(modelUrl, { method:'HEAD', cache:'no-store' });
-    modelStatus = h.status; modelBytes = Number(h.headers.get('content-length')) || null;
-    if (!h.ok && h.status !== 405) throw new Error(`HTTP ${h.status}`);
-  } catch (err) {
-    // Some static hosts/proxies reject HEAD even though GET works. Do not download
-    // 27 MB twice; pipeline() is the authoritative model GET below.
-    diag('local-model-head-warning', `HEAD modello non verificabile: ${err?.message || err}`, { modelUrl }, 'warn');
-  }
-  diag('local-model-assets-ok', 'Metadata locale Depth Anything trovata.', { base, modelUrl, modelStatus, modelBytes });
-  return { base, modelUrl, modelStatus, modelBytes };
+  diag('local-model-assets-ok', 'Metadata locale Depth Anything trovata; il Q4 sarà letto una sola volta dalla pipeline.', { base, modelUrl });
+  return { base, modelUrl };
 }
 
 async function ensurePipeline() {
@@ -187,7 +204,8 @@ async function ensurePipeline() {
     if (!config) throw new Error('Worker Deep non inizializzato.');
     diag('engine-load-start', 'Carico Transformers.js e la pipeline Depth Anything V2 ufficiale.', { transformersUrl: config.transformersUrl, device: config.device, dtype: config.dtype, localModelBase:config.localModelBase, localModelId:config.localModelId });
     await verifyLocalModelAssets();
-    api = await import(config.transformersUrl);
+    setStage('TRANSFORMERS-JS', 'Import del runtime Transformers.js dal CDN (timeout 30 s).');
+    api = await withTimeout(import(config.transformersUrl), 30000, 'Import Transformers.js');
     const { env, pipeline } = api;
     if (!env || !pipeline || !api.RawImage) throw new Error('Modulo Transformers.js incompleto: mancano env/pipeline/RawImage.');
     env.allowLocalModels = true;
@@ -200,34 +218,47 @@ async function ensurePipeline() {
       env.backends.onnx.wasm.proxy = false;
     }
     const t0 = now();
-    pipe = await pipeline('depth-estimation', config.localModelId, {
+    setStage('MODELLO-Q4', 'Creo pipeline WASM e carico model_q4.onnx locale. Questa è la fase più pesante sul telefono.');
+    const pipelinePromise = pipeline('depth-estimation', config.localModelId, {
       dtype: config.dtype || 'q4', device: config.device || 'wasm', local_files_only: true,
       progress_callback: p => {
         if (!p) return;
         const pct = Number.isFinite(p.progress) ? Math.round(p.progress) : null;
-        post('deep-download-progress', { label: p.file ? `Deep: ${p.file}` : 'Deep: caricamento modello', pct, received: p.loaded || 0, total: p.total || 0 });
+        const label = p.file ? `Deep: ${p.file}` : 'Deep: caricamento modello';
+        post('deep-download-progress', { label, pct, received: p.loaded || 0, total: p.total || 0 });
+        activeStage.detail = `${label}${pct == null ? '' : ` · ${pct}%`}`;
       },
     });
+    pipe = await withTimeout(pipelinePromise, 150000, 'Caricamento pipeline/model_q4.onnx');
     diag('engine-load-complete', 'Pipeline depth-estimation pronta.', { ms: Math.round(now() - t0), modelId: config.localModelId });
-    post('deep-ready', { engine: 'Transformers.js depth-estimation', modelId: config.localModelId, provider: PROVIDER, modelRaster: 'DPTImageProcessor 518, aspect-preserving' });
+    setStage('PIPELINE-PRONTA', `Pipeline WASM/Q4 pronta in ${Math.round(now()-t0)} ms.`, 'ok');
+    post('deep-ready', { engine: 'Transformers.js depth-estimation', modelId: config.localModelId, provider: PROVIDER, modelRaster: 'DPTImageProcessor 336, aspect-preserving' });
     return pipe;
   })();
-  try { return await loadPromise; } catch (err) { loadPromise = null; pipe = null; throw err; }
+  try { return await loadPromise; }
+  catch (err) {
+    loadPromise = null; pipe = null;
+    setStage('PIPELINE-ERRORE', err?.message || String(err), 'error');
+    throw err;
+  }
 }
 
-async function inferOne(rgba, width, height) {
+async function inferOne(rgba, width, height, label = 'INFERENZA') {
   const estimator = await ensurePipeline();
   const input = new api.RawImage(new Uint8ClampedArray(rgba), width, height, 4);
   const t0 = now();
-  const result = await estimator(input);
+  setStage(label, `Depth Anything su RGB ${width}×${height} → profilo DPT 336, WASM/Q4.`);
+  const result = await withTimeout(estimator(input), 90000, label);
   const elapsed = now() - t0;
+  setStage(`${label}-OUTPUT`, `Inferenza terminata in ${Math.round(elapsed)} ms; verifico predicted_depth e depth ufficiale.`);
   const raw = tensorToDepth(result?.predicted_depth);
   return { ...raw, elapsed, processedDepth: result?.depth || null };
 }
 
 async function validateSpatial(rgba, width, height, original) {
   const flipped = flipRgbaHorizontal(rgba, width, height);
-  const second = await inferOne(flipped, width, height);
+  setStage('CONTROLLO-SPECCHIO', 'Seconda inferenza sul frame specchiato per rilevare output spazialmente corrotti.');
+  const second = await inferOne(flipped, width, height, 'INFERENZA-SPECCHIO');
   if (second.width !== original.width || second.height !== original.height) {
     return { verified: false, reason: `flip shape diversa ${second.width}×${second.height} vs ${original.width}×${original.height}`, comparison: { correlation: NaN, samples: 0, normalizedMae: NaN } };
   }
@@ -246,7 +277,7 @@ async function handleInference(message) {
   const input = rgba instanceof Uint8ClampedArray ? rgba : new Uint8ClampedArray(rgba);
   if (input.length !== pixels * 4) throw new Error(`RGBA non contiguo: ${input.length} byte per ${width}×${height}, attesi ${pixels * 4}.`);
   const total0 = now();
-  const original = await inferOne(input, width, height);
+  const original = await inferOne(input, width, height, 'INFERENZA-PRIMARIA');
   const stats = finiteStats(original.data), spatial = spatialStats(original.data, original.width, original.height);
   const official = officialDepthAgreement(original.data, original.width, original.height, original.processedDepth);
   const normalizedNeighborDiff = stats.robustRange > 1e-12 ? spatial.meanNeighborDiff / stats.robustRange : Infinity;
@@ -256,12 +287,13 @@ async function handleInference(message) {
   // never be skipped entirely. Validate every explicit test, the first real
   // inference, and then periodically during a batch so a later runtime/backend
   // corruption cannot silently turn into geometry.
-  const validateNow = message.type === 'test' || !spatialValidation || spatialValidation.verified !== true || (inferenceCounter % 4 === 0);
+  const validateNow = message.type === 'test' || !spatialValidation || spatialValidation.verified !== true || (inferenceCounter % 8 === 0);
   if (validateNow) spatialValidation = await validateSpatial(input, width, height, original);
   const comparison = spatialValidation?.comparison || null;
   const numericBad = stats.finiteRatio < .999 || !(stats.robustRange > 1e-7);
   const officialBad = official.verified !== true;
   const suspicious = numericBad || spatialValidation?.verified !== true || officialBad || noiseLike;
+  setStage('CONTROLLO-QUALITA', `finite=${(stats.finiteRatio*100).toFixed(1)}% · noise=${noiseLike ? 'SI' : 'no'} · official=${official.verified ? 'ok' : 'fail'} · flip=${spatialValidation?.verified === true ? 'ok' : 'fail'}`);
   const quality = {
     suspicious,
     finiteRatio: stats.finiteRatio,
@@ -279,7 +311,7 @@ async function handleInference(message) {
     rawDepth: original.data, rawWidth: original.width, rawHeight: original.height,
     outputDims: original.dims, outputReadback: 'predicted_depth.data', outputLocation: 'WASM/CPU',
     preprocessBackend: 'official DPTImageProcessor',
-    inputPlan: { mode: 'official DPTImageProcessor: 518 + keep_aspect_ratio + multiple-of-14 + bicubic', sourceWidth: width, sourceHeight: height },
+    inputPlan: { mode: 'official DPTImageProcessor: 336 + keep_aspect_ratio + multiple-of-14 + bicubic', sourceWidth: width, sourceHeight: height },
     inputDims: null,
     modelContract: MODEL_CONTRACT,
     layoutFix: 'none: official pipeline owns tensor layout/output interpretation',
@@ -306,6 +338,7 @@ async function handleInference(message) {
     transfer.push(response.inputRasterDiagnostic.sourcePreview.buffer, response.inputRasterDiagnostic.tensorNchwPreview.buffer);
     if (response.inputRasterDiagnostic.officialDepthPreview?.buffer) transfer.push(response.inputRasterDiagnostic.officialDepthPreview.buffer);
   }
+  setStage(suspicious ? 'DEPTH-RIFIUTATA' : 'DEPTH-VALIDA', suspicious ? response.rasterDiagnosis.verdict : `Depth ${original.width}×${original.height} validata.`, suspicious ? 'error' : 'ok');
   post(response.type, response, transfer);
 }
 
@@ -318,6 +351,7 @@ self.onmessage = async event => {
       localModelBase: message.config?.localModelBase || new URL('./models/', self.location.href).href,
       dtype: 'q4', device: 'wasm',
     };
+    setStage('INIT', `Worker ${WORKER_BUILD} inizializzato · WASM/Q4 · modello locale.`);
     // Start loading immediately but keep the message loop responsive. All
     // inference jobs await the same promise, so there is exactly one session.
     void ensurePipeline().catch(err => diag('engine-load-failed', err?.message || String(err), { stack: err?.stack }, 'warn'));
@@ -326,6 +360,7 @@ self.onmessage = async event => {
   if (message.type !== 'test' && message.type !== 'infer') return;
   try { await handleInference(message); }
   catch (err) {
+    setStage('JOB-ERRORE', err?.message || String(err), 'error');
     post('deep-error', { jobId: message.jobId, frameId: message.frameId || null, refId: message.refId || null, message: err?.message || String(err), stack: err?.stack || null, provider: PROVIDER });
   }
 };

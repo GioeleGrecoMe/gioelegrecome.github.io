@@ -18,6 +18,13 @@ test('factor graph merges repeated cross-keyframe evidence instead of double-cou
   assert.equal(g.landmarkFactors.length,1);assert.equal(new Set(g.landmarkFactors[0].measurements.map(x=>x.frameId)).size,3);assert.ok(g.landmarkFactors[0].covariance[5]>.001,'correlated repeats must not collapse covariance to zero');
 });
 
+test('factor graph does not merge a nearby repeated-texture measurement with incompatible 3D geometry',()=>{
+  const g=new ProbabilisticFactorGraph();
+  g.addSparseAnchors({frameId:'f0'},[{trackId:'near',p:[0,0,2],depth:2,covariance:[1e-4,0,0,1e-4,0,4e-4],geometryProbability:.9,measurements:[{frameId:'f0',u:160,v:120,probability:.9},{frameId:'f1',u:148,v:120,probability:.8}]}]);
+  g.addSparseAnchors({frameId:'f0'},[{trackId:'repeat',p:[.8,0,2.2],depth:2.2,covariance:[1e-4,0,0,1e-4,0,4e-4],geometryProbability:.9,measurements:[{frameId:'f0',u:162,v:121,probability:.9},{frameId:'f2',u:151,v:120,probability:.8}]}]);
+  assert.equal(g.landmarkFactors.length,2);
+});
+
 test('pose uncertainty is propagated into point information instead of treating Alva poses as exact',()=>{
   const c=[1e-4,0,0,1e-4,0,4e-4],lo=addPoseUncertaintyToPointCovariance(c,{diag:[1e-6,1e-6,1e-6,1e-7,1e-7,1e-7]},[0,0,3],[0,0,0]),hi=addPoseUncertaintyToPointCovariance(c,{diag:[4e-4,4e-4,4e-4,1e-4,1e-4,1e-4]},[0,0,3],[0,0,0]);assert.ok(hi[0]>lo[0]*5&&hi[3]>lo[3]*5&&hi[5]>lo[5]);
 });

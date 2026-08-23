@@ -15,5 +15,6 @@ ok(worker.includes('officialDepthAgreement'), 'worker must cross-check predicted
 ok(worker.includes('normalizedNeighborDiff') && worker.includes('noiseLike'), 'worker must gate high-frequency noise');
 ok(worker.includes('verifyLocalModelAssets'), 'worker must preflight local model metadata');
 ok(app.includes('verifyDeployedBuild'), 'app must expose live asset self-check');
-ok(app.includes("new URL('./models/depth-anything-v2-small/onnx/model_q4.onnx'"), 'app self-check must address nested Q4 asset');
-console.log(JSON.stringify({q4Bytes:q4.length,sha256:sha,officialDepthCrosscheck:true,highFrequencyGate:true,liveAssetSelfcheck:true},null,2));
+ok(!app.slice(app.indexOf('async function verifyDeployedBuild'), app.indexOf("bind('openCameraBtn'")).includes('model_q4.onnx'), 'startup self-check must not request the 27 MB Q4 asset');
+ok(worker.includes("new URL('onnx/model_q4.onnx', base)"), 'Deep worker must resolve the nested local Q4 asset at step 5');
+console.log(JSON.stringify({q4Bytes:q4.length,sha256:sha,officialDepthCrosscheck:true,highFrequencyGate:true,boundedStartupSelfcheck:true},null,2));

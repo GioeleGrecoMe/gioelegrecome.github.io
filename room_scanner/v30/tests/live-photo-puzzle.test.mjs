@@ -37,6 +37,12 @@ test('RGB photos without a valid exact-frame depth map never enter the live mosa
   const staged=map.addCameraFrame(f);assert.equal(staged.frames,1);assert.equal(staged.rawDepthFrames,0);assert.equal(map.edges.length,0);const atlas=map.renderPhotoAtlas();assert.equal(atlas.coverage,0);
 });
 
+test('an explicitly depth-planned RGB keyframe builds the photo scaffold before Depth exists',()=>{
+  const map=new LivePhotoPuzzleMap({width:160,height:80,photoMaxSide:80,depthMaxSide:80,maxFrames:8}),f=frame('F0',0,'checker');
+  const staged=map.addDepthPlannedFrame(f);assert.equal(staged.frames,1);assert.equal(staged.rawDepthFrames,0);assert.equal(staged.rgbPlannedFrames,1);assert.equal(staged.pendingDepthFrames,1);
+  const atlas=map.renderPhotoAtlas();assert.ok(atlas.coverage>.05,atlas.coverage);
+});
+
 test('an isolated first RGB frame cannot hide a later depth-connected panorama component',()=>{
   const map=new LivePhotoPuzzleMap({width:160,height:80,photoMaxSide:80,depthMaxSide:80,maxFrames:8});
   map.addCameraFrame(frame('F0',0)); // first capture was pre-Depth / isolated
@@ -97,8 +103,9 @@ test('live RGB preview is inverse-warped as a continuous photograph, never rende
   const src=fs.readFileSync(new URL('../js/reconstruction/live_photo_puzzle.js',import.meta.url),'utf8');const body=src.slice(src.indexOf('renderPhotoAtlas(){'),src.indexOf('renderDepthAtlas(){'));assert.match(body,/spherical inverse warp/i);assert.match(body,/canvasPointToPhotoPixel/);assert.doesNotMatch(body,/splatPanoramaSharp|homography/);
 });
 
-test('dense SLAM keyframes are not injected into the user-visible RGB mosaic',()=>{
+test('dense SLAM keyframes stay separate while selected RGB archive frames can precede Depth',()=>{
   const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
   assert.ok(!app.includes('state.liveMap.addFrame(graphFrame'), 'metric keyframes must not enter live RGB preview');
-  assert.ok(app.includes('commitCameraFrameWithRelativeDepth?.(survey'), 'only Deep-bound survey photographs may enter live RGB preview');
+  assert.ok(app.includes("'addDepthPlannedFrame','addCameraFrame','addFrame'"), 'post-scan RGB planning must prefer the RGB-first API');
+  assert.ok(app.includes('commitCameraFrameWithRelativeDepth?.(survey'), 'late Deep must still bind to the exact archived RGB frame');
 });

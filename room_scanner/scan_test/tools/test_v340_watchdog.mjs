@@ -1,0 +1,30 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const here = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(here, '..');
+const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+const worker = fs.readFileSync(path.join(root, 'deep_depth_worker.js'), 'utf8');
+const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
+const processor = JSON.parse(fs.readFileSync(path.join(root, 'models/depth-anything-v2-small/preprocessor_config.json'), 'utf8'));
+function assert(x, m) { if (!x) throw new Error(`FAIL: ${m}`); }
+function between(text, a, b) { const i=text.indexOf(a); assert(i>=0,`missing ${a}`); const j=text.indexOf(b,i+a.length); assert(j>i,`missing ${b}`); return text.slice(i,j); }
+assert(app.includes("scan-test-v3.4.0-watchdog-live-log"), 'v3.4 build fingerprint');
+assert(index.includes('liveLogDock') && index.includes('liveActivity') && index.includes('liveLogTail'), 'fixed live log markup');
+assert(css.includes('.live-log-dock') && css.includes('position: fixed'), 'fixed log CSS');
+const verify = between(app, 'async function verifyDeployedBuild()', '\nbind(\'openCameraBtn\'');
+assert(verify.includes('Promise.all('), 'startup asset verification must be parallel');
+assert(verify.includes('timeoutMs:5000'), 'startup asset verification must be bounded');
+assert(!verify.includes("model_q4.onnx"), 'startup self-check must not touch 27 MB q4 model');
+assert(app.includes('function fetchWithTimeout'), 'main fetch watchdog helper');
+assert(worker.includes("post('deep-heartbeat'"), 'worker heartbeat');
+assert(worker.includes("post('deep-stage'"), 'worker stage reporting');
+assert(worker.includes("withTimeout(import(config.transformersUrl), 30000"), 'runtime import watchdog');
+assert(worker.includes("withTimeout(pipelinePromise, 150000"), 'pipeline/model watchdog');
+assert(!between(worker,'async function verifyLocalModelAssets()','\nasync function ensurePipeline()').includes("method:'HEAD'"), 'worker metadata check must not HEAD q4');
+assert(app.includes('worker.postMessage(message, transfer)'), 'RGBA request must transfer ownership instead of structured-cloning pixels');
+assert(app.includes("width: frame.width, height: frame.height"), 'Deep preflight must use actual current-frame dimensions');
+assert(processor.size?.height === 336 && processor.size?.width === 336, 'mobile browser DPT profile must be 336');
+assert(worker.includes('DPTImageProcessor 336'), 'worker reports 336 profile');
+console.log(JSON.stringify({build:'v3.4.0',startupSelfCheck:'bounded-parallel-small-assets',deepStages:true,heartbeat:true,mainThreadTimeout:true,rgbaTransfer:true,dptProfile:336,liveDock:true},null,2));

@@ -36,6 +36,16 @@ test('well connected low-residual RGB scaffold can authorize dense surface',()=>
   assert.equal(p.observed,true,p);assert.equal(p.mvsSurfaceAllowed,true,p);assert.equal(p.reason,'ok');
 });
 
+test('distributed multi-view RGB landmarks can carry pose authority when panorama directions are noisy',()=>{
+  const p=evaluatePoseScaffoldPolicy({frameCount:60,edgeStats:{edges:280,active:34,weak:190,rejected:56,mean:.35,translationDirectionEdges:205,meanTranslationDirectionResidualDeg:31,translationDirectionMeanInlierFraction:.90,meanEpipolarPlaneResidualDeg:1.6},photoAudit:{inputEdges:280,unresolvedEdges:0,importFraction:1},landmarkStats:{landmarks:1800,observations:6900,reprojectionRobustRmse:2.4,reprojectionMedianPx:3.1,reprojectionInlierFraction4px:.61}});
+  assert.equal(p.observed,true,p);assert.equal(p.landmarkBackbone,true,p);assert.equal(p.photoObserved,false,p);assert.equal(p.mvsSurfaceAllowed,true,p);
+});
+
+test('many landmarks with poor reprojection cannot bypass a failed photo scaffold',()=>{
+  const p=evaluatePoseScaffoldPolicy({frameCount:60,edgeStats:{edges:0},landmarkStats:{landmarks:1800,observations:6900,reprojectionRobustRmse:4.8,reprojectionMedianPx:8,reprojectionInlierFraction4px:.2}});
+  assert.equal(p.observed,false,p);assert.equal(p.landmarkBackbone,false,p);
+});
+
 test('production source contains no Alva sign-orientation of RGB translation line',()=>{
   const src=fs.readFileSync(new URL('../js/probabilistic/rgb_translation_direction.js',import.meta.url),'utf8');
   assert.doesNotMatch(src,/dot\(dir\s*,\s*prior\)/);assert.doesNotMatch(src,/relativeTranslation\(frameA/);

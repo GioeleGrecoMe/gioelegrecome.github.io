@@ -1,10 +1,10 @@
 // This identifier is deliberately present in the UI, diagnostic export and URLs.
 // It makes a stale GitHub Pages/service-worker cache immediately recognizable.
-const BUILD_ID = 'scan-test-v3.3.0-bootstrap-guard-depth-crosscheck';
+const BUILD_ID = 'scan-test-v3.4.0-watchdog-live-log';
 
-import { AlvaAR } from './vendor/alva_ar.js?v=scan-test-v3.3.0';
-import { CameraController, intrinsicsForCrop } from './camera.js?v=scan-test-v3.3.0';
-import { detectScanFeatures, matchArchivedFrames } from './feature_matching.js?v=scan-test-v3.3.0';
+import { AlvaAR } from './vendor/alva_ar.js?v=scan-test-v3.4.0';
+import { CameraController, intrinsicsForCrop } from './camera.js?v=scan-test-v3.4.0';
+import { detectScanFeatures, matchArchivedFrames } from './feature_matching.js?v=scan-test-v3.4.0';
 
 /*
  * Scan Test is deliberately separate from V30.  Its contract is intentionally
@@ -17,7 +17,8 @@ import { detectScanFeatures, matchArchivedFrames } from './feature_matching.js?v
 // Alva receives the complete source frame with its native orientation/aspect
 // ratio. Alva is much more stable when feature cells are not starved, so the
 // analysis raster uses a 960 px long side (upscaling low-resolution videos as
-// needed). Deep remains independent and performs its own 518-px preprocessing.
+// needed). Deep remains independent and performs a 336-px browser diagnostic profile
+// through DPTImageProcessor; this reduces mobile WASM work without touching Alva.
 let W = 0;
 let H = 0;
 const ANALYSIS_LONG_SIDE = 960;
@@ -49,6 +50,7 @@ const dom = Object.freeze({
   deepDiagnostic: $('deepDiagnostic'), deepSourceCanvas: $('deepSourceCanvas'), deepTensorCanvas: $('deepTensorCanvas'), deepOutputCanvas: $('deepOutputCanvas'), deepReport: $('deepReport'),
   viewerBadge: $('viewerBadge'), viewerMetrics: $('viewerMetrics'), splatCanvas: $('splatCanvas'),
   gridStepOut: $('gridStepOut'), confidenceOut: $('confidenceOut'),
+  liveLogDock: $('liveLogDock'), livePhase: $('livePhase'), liveElapsed: $('liveElapsed'), liveActivity: $('liveActivity'), liveLogTail: $('liveLogTail'), liveLogToggle: $('liveLogToggle'),
 });
 
 const S = {
@@ -63,11 +65,34 @@ const S = {
 };
 
 function nowText() { return new Date().toLocaleTimeString('it-IT', { hour12: false }); }
+const LIVE_LOG_ROWS = [];
+const ACTIVITY = { phase: 'AVVIO', detail: 'Inizializzazione applicazione...', state: 'busy', since: performance.now(), deepHeartbeatAt: 0 };
+function renderActivityClock() {
+  if (!dom.liveElapsed) return;
+  const elapsed = Math.max(0, performance.now() - ACTIVITY.since) / 1000;
+  dom.liveElapsed.textContent = `${elapsed.toFixed(elapsed < 10 ? 1 : 0)} s`;
+}
+function setActivity(phase, detail = '', state = 'busy') {
+  ACTIVITY.phase = String(phase || 'ATTIVITA');
+  ACTIVITY.detail = String(detail || '');
+  ACTIVITY.state = state || 'busy';
+  ACTIVITY.since = performance.now();
+  if (dom.livePhase) dom.livePhase.textContent = ACTIVITY.phase;
+  if (dom.liveActivity) dom.liveActivity.textContent = ACTIVITY.detail;
+  if (dom.liveLogDock) dom.liveLogDock.dataset.state = ACTIVITY.state;
+  renderActivityClock();
+}
 function log(event, data = null, level = 'INFO') {
-  const row = `${nowText()} ${level.padEnd(5)} ${event}${data ? ` ${JSON.stringify(data)}` : ''}`;
+  let serialized = '';
+  try { serialized = data == null ? '' : ` ${JSON.stringify(data)}`; } catch { serialized = ' [dati non serializzabili]'; }
+  const row = `${nowText()} ${level.padEnd(5)} ${event}${serialized}`;
   dom.log.textContent = `${row}\n${dom.log.textContent}`.slice(0, 55000);
+  LIVE_LOG_ROWS.unshift(row); if (LIVE_LOG_ROWS.length > 8) LIVE_LOG_ROWS.length = 8;
+  if (dom.liveLogTail) dom.liveLogTail.textContent = LIVE_LOG_ROWS.join('\n');
+  if (level === 'ERROR' && ACTIVITY.state !== 'error') setActivity('ERRORE', `${event}${data?.message ? `: ${data.message}` : ''}`, 'error');
   console[level === 'ERROR' ? 'error' : level === 'WARN' ? 'warn' : 'info'](`[scan_test] ${event}`, data || '');
 }
+setInterval(renderActivityClock, 500);
 function errorText(err) { return err?.message || String(err); }
 function setGlobal(text, kind = '') { dom.globalState.textContent = text; dom.globalState.className = `state-pill ${kind}`; }
 function setBadge(el, text, kind = '') { el.textContent = text; el.className = `tag ${kind}`; }
@@ -212,6 +237,7 @@ async function startCaptureSource({ source, label, url = null, autoRecord = fals
   if (S.trackingStarted) throw new Error('Una sorgente è già attiva. Azzera la sessione prima di cambiarla.');
   if (source === 'camera' && !navigator.mediaDevices?.getUserMedia) throw new Error('getUserMedia non è disponibile: apri questa pagina da HTTPS o localhost.');
   setGlobal(`Apro ${label}…`);
+  setActivity('SORGENTE · APERTURA', `Apro ${label} e leggo le dimensioni native...`, 'busy');
   dom.runtimeStatus.textContent = `Preparo ${label}: prima leggo le dimensioni reali del video, poi inizializzo Alva sullo stesso aspect ratio.`;
   if (url) { dom.camera.srcObject = null; dom.camera.src = url; dom.camera.loop = false; dom.camera.muted = true; dom.camera.playsInline = true; }
   const archiveHz = clamp(numberValue('archiveFps', DEFAULT_ALVA_HZ), 3, 15);
@@ -223,6 +249,7 @@ async function startCaptureSource({ source, label, url = null, autoRecord = fals
   // Official AlvaAR usage: initialize on the exact raster that will be passed to
   // findCameraPose(). Do not force portrait sources into a landscape 4:3 crop.
   S.trackerFovDeg = 45;
+  setActivity('ALVA · INIT', `Inizializzo AlvaAR su raster ${W}×${H} · fovA ${S.trackerFovDeg}°...`, 'busy');
   S.alva = await AlvaAR.Initialize(W, H, S.trackerFovDeg);
   if (!S.alva?.findCameraPose) { capture.stop(); S.capture = null; throw new Error('AlvaAR.Initialize non ha restituito un tracker valido.'); }
   S.trackingStarted = true;
@@ -246,6 +273,7 @@ async function startCaptureSource({ source, label, url = null, autoRecord = fals
   dom.runtimeStatus.textContent = `${label} pronto · sorgente ${dom.camera.videoWidth}×${dom.camera.videoHeight} → Alva ${W}×${H} · frame completo, crop 0% · Deep su richiesta.`;
   dom.captureCoach.textContent = source === 'file' ? 'Video caricato: ogni frame decodificato viene passato ad Alva nello stesso orientamento/aspect ratio del file. Deep non parte automaticamente: prima puoi verificare separatamente le pose.' : 'Muovi lentamente la camera con parallasse. Il raster Alva conserva orientamento e intero campo visivo della camera.';
   setGlobal(`${label} + AlvaAR pronti`, 'ok'); setStep(2);
+  setActivity('ALVA · PRONTO', `${label} · raster ${W}×${H} · in attesa/acquisizione`, 'ok');
   log('capture-source-ready', { source, K: S.K, trackerInit:'AlvaAR.Initialize(width,height,trackerFovDeg)', trackerFovDeg:S.trackerFovDeg, trackerRaster:[W,H], trackerTargetHz: source === 'camera' ? LIVE_TRACKER_HZ : 'continuous-native-decoder', archiveHz, geometry: capture.geometry, sourceVideo: { width: dom.camera.videoWidth, height: dom.camera.videoHeight }, exactAspectPreserved:exactAspect, autoRecord });
   if (autoRecord && !S.recording) startRecording();
 }
@@ -278,6 +306,7 @@ async function processUploadedVideo(capture) {
   const bootstrapCap = Math.max(8, Math.min(FILE_INIT_ARCHIVE_MAX_FRAMES, maxArchiveFrames - 8));
 
   setGlobal('Video: decodifica sequenziale AlvaAR…', '');
+  setActivity('VIDEO · DECODIFICA', `Avvio decoder continuo · durata ${duration.toFixed(2)} s · Alva ${W}×${H}`, 'busy');
   dom.runtimeStatus.textContent = nativeFrames
     ? 'Leggo i frame realmente presentati dal decoder. AlvaAR vede ogni frame unico; l’archivio viene diradato solo dopo il bootstrap.'
     : `requestVideoFrameCallback non disponibile: fallback seek a ${FILE_FALLBACK_FPS} fps con controllo firma frame.`;
@@ -340,7 +369,9 @@ async function processUploadedVideo(capture) {
       }
       if (consumed && (uniqueFrames % 6 === 0 || frame.mediaTime >= duration - .05)) {
         const pct = Math.min(100, 100 * frame.mediaTime / duration);
-        dom.runtimeStatus.textContent = `AlvaAR ${playbackStage} ${uniqueFrames} · t=${frame.mediaTime.toFixed(2)}/${duration.toFixed(2)} s (${pct.toFixed(0)}%) · pose ${S.trackingPoses} · archivio ${S.frames.length}`;
+        const status = `AlvaAR ${playbackStage} ${uniqueFrames} · t=${frame.mediaTime.toFixed(2)}/${duration.toFixed(2)} s (${pct.toFixed(0)}%) · pose ${S.trackingPoses} · archivio ${S.frames.length}`;
+        dom.runtimeStatus.textContent = status;
+        if (dom.liveActivity) dom.liveActivity.textContent = status;
       }
     }, { timeout:timeoutMs, playbackRate:FILE_BOOTSTRAP_PLAYBACK_RATE, includeInitial:true });
     repeatedContent += Number(decode?.duplicates) || 0;
@@ -372,6 +403,7 @@ async function processUploadedVideo(capture) {
   capture.stop({ clearVideo:false });
   setGlobal('Video: replay AlvaAR offline…', '');
   dom.runtimeStatus.textContent = `Sequenza letta: ${uniqueFrames} frame unici realmente passati ad AlvaAR (${repeatedContent} duplicati esatti ignorati), ${S.frames.length} conservati. Replay offline in corso.`;
+  setActivity('VIDEO · REPLAY OFFLINE', `${uniqueFrames} frame unici letti; avvio replay Alva sull'archivio ${S.frames.length}.`, 'busy');
   log('uploaded-video-native-decode-complete', S.fileDecodeStats);
   try {
     await rerunOffline();
@@ -383,6 +415,7 @@ async function processUploadedVideo(capture) {
       return;
     }
     dom.runtimeStatus.textContent = `Video letto e Alva verificato: ${posed}/${S.frames.length} frame archiviati hanno una posa utilizzabile. Deep resta separato: usa “Prova Deep” o il passo 5.`;
+    setActivity('VIDEO · ALVA OK', `${posed}/${S.frames.length} frame archiviati con posa utilizzabile.`, 'ok');
     log('uploaded-video-alva-complete', { posed, uniqueFrames, archivedFrames:S.frames.length, trackerRaster:[W,H] });
   } catch (err) {
     dom.runtimeStatus.textContent = `Elaborazione automatica del video interrotta: ${errorText(err)}`;
@@ -396,12 +429,12 @@ function startRecording() {
   S.lastLiveArchiveAt = warmup.length ? Number(warmup[warmup.length - 1].at) : -Infinity;
   S.liveArchiveSamplesSinceRecord = 0;
   S.recording = true; $('recordBtn').disabled = true; $('stopBtn').disabled = false; dom.captureCoach.textContent = S.source === 'file' ? `Replay attivo: Alva riceve ogni frame video unico; il bootstrap viene salvato fitto e l’archivio successivo è adattivo al budget di memoria.` : `Registrazione attiva: Alva continua a ricevere tutti i frame camera; l’archivio conserva ${warmup.length} frame di pre-roll e poi ${numberValue('archiveFps', DEFAULT_ALVA_HZ)} fps, salvo bootstrap fitto finché manca la prima posa.`;
-  setGlobal('Registro immagini + pose', 'ok'); log('recording-start', { samplingHz: numberValue('archiveFps', DEFAULT_ALVA_HZ), warmupFrames: warmup.length, contract: 'same exact RGB raster for Alva live, replay offline and correspondence' });
+  setGlobal('Registro immagini + pose', 'ok'); setActivity('ACQUISIZIONE', `Registrazione attiva · sorgente ${S.source || '?'} · archivio ${numberValue('archiveFps', DEFAULT_ALVA_HZ)} Hz`, 'busy'); log('recording-start', { samplingHz: numberValue('archiveFps', DEFAULT_ALVA_HZ), warmupFrames: warmup.length, contract: 'same exact RGB raster for Alva live, replay offline and correspondence' });
 }
 function stopRecording({ reason = 'manual' } = {}) {
   S.recording = false; $('stopBtn').disabled = true; $('offlineBtn').disabled = S.frames.length < 2; $('downloadBtn').disabled = S.frames.length < 1;
   dom.captureCoach.textContent = `${S.frames.length} immagini conservate. Il replay offline usa l’archivio; per i video caricati le pose live native restano anche disponibili come misura Alva esplicita quando il replay diradato non riesce a reinizializzare.`;
-  setGlobal('Acquisizione completata'); setStep(3); log('recording-stop', { reason, source: S.source, frames: S.frames.length, livePoseFrames: S.frames.filter(f => f.livePose).length, imageBytes: S.frameBytes });
+  setGlobal('Acquisizione completata'); setStep(3); setActivity('ACQUISIZIONE · FINE', `${S.frames.length} immagini archiviate · ${S.frames.filter(f=>f.livePose).length} con posa live`, 'ok'); log('recording-stop', { reason, source: S.source, frames: S.frames.length, livePoseFrames: S.frames.filter(f => f.livePose).length, imageBytes: S.frameBytes });
 }
 function disposeCaptureSource() {
   S.capture?.stop?.(); S.capture = null; S.alva = null; S.K = null; W = 0; H = 0; S.current = null; S.livePose = null; S.liveMatrix = null; S.livePoints = []; S.trackingStarted = false; S.source = null; S.lastLiveArchiveAt = -Infinity; S.liveArchiveSamplesSinceRecord = 0; S.offlineFovDeg = null; S.trackerFovDeg = 45; S.trackerFovSweep = null;
@@ -417,7 +450,7 @@ function clearSession() {
   dom.offlineMetrics.innerHTML = '<p class="empty">Qui compariranno copertura AlvaAR, corrispondenze, overlap e tratti interpolati.</p>'; dom.planeMetrics.innerHTML = '<p class="empty">La vista ortografica mostrerà le particelle RGB prodotte dai piani.</p>'; dom.deepMetrics.innerHTML = '<p class="empty">Il log mostrerà le dimensioni native Deep, la conversione coordinate, il verso profondità scelto e il residuo prima/dopo.</p>'; dom.viewerMetrics.innerHTML = '<p class="empty">Dopo Deep, qui troverai il conteggio pixel, piani di fallback, range di profondità, residuo dei punti comuni e test di riproiezione.</p>';
   $('recordBtn').disabled = true; $('stopBtn').disabled = true; $('offlineBtn').disabled = true; $('planeBtn').disabled = true; $('deepBtn').disabled = true; $('finalBtn').disabled = true; $('verifyBtn').disabled = true; $('downloadBtn').disabled = true; $('depthPreviewBtn').disabled = true;
   dom.runtimeStatus.textContent = 'AlvaAR non inizializzato · Deep non caricato. Il fixture dinamico incluso è una regressione con parallasse e deve produrre pose valide.';
-  setStep(1); setGlobal('Pronto'); log('session-cleared');
+  setStep(1); setGlobal('Pronto'); setActivity('PRONTO', 'Sessione azzerata. Scegli camera, fixture o video.', 'ok'); log('session-cleared');
 }
 
 function combinedPose(frame) { return frame.offlinePose || frame.livePose || null; }
@@ -535,6 +568,7 @@ async function chooseOfflineTrackerFov() {
 async function rerunOffline() {
   if (S.frames.length < 2) throw new Error('Servono almeno due immagini archiviate.');
   $('offlineBtn').disabled = true; setBadge(dom.offlineBadge, 'AlvaAR offline…', 'warn'); setGlobal('Rieseguo AlvaAR offline…');
+  setActivity('ALVA · REPLAY', `Sondo il bootstrap su ${S.frames.length} frame archiviati...`, 'busy');
   S.edges.length = 0;
   const projectionFov = clamp(Number(S.K?.fovDeg) || numberValue('fovInput', 60), 35, 110);
   // First probe the tracker calibration. This is deliberately separate from the
@@ -554,6 +588,7 @@ async function rerunOffline() {
   const offlineOk = measuredPoses > 0 && matched > 0;
   setBadge(dom.offlineBadge, `pose misurate ${measuredPoses}/${S.frames.length} · offline ${rawPoses} · fovA ${S.trackerFovDeg.toFixed(0)}° · match ${matched}/${S.edges.length}`, offlineOk ? 'ok' : 'fail');
   setGlobal(offlineOk ? 'Replay Alva e corrispondenze pronti' : 'Replay Alva senza evidenza sufficiente', offlineOk ? 'ok' : 'fail'); setStep(4);
+  setActivity(offlineOk ? 'ALVA · REPLAY OK' : 'ALVA · REPLAY DEBOLE', `${measuredPoses}/${S.frames.length} pose misurate · ${matched}/${S.edges.length} coppie con match`, offlineOk ? 'ok' : 'warn');
   log('offline-complete', { frames:S.frames.length, trackerInit:'AlvaAR.Initialize(width,height,trackerFovDeg)', trackerRaster:[W,H], trackerFovDeg:S.trackerFovDeg, trackerFovSweep:S.trackerFovSweep, projectionHorizontalFovDeg:projectionFov, offlinePoses:rawPoses, firstOfflinePose:replay.firstPose, offlineAlvaPointsMedian:median(S.offlineTrackerPoints), liveRescue, interpolated:interp, edges:S.edges.length, matchedEdges:matched, overlapAtLeast10Pct:overlap10 }, offlineOk ? 'INFO' : 'WARN');
   if (!matched) log('offline-correspondence-zero', { reason:'nessuna associazione BRIEF+ZNCC dopo replay con preroll', featuresMedian:median(S.frames.map(f => f.features.length)), offlineAlvaPointsMedian:median(S.offlineTrackerPoints) }, 'WARN');
 }
@@ -606,20 +641,59 @@ function buildPlane() {
   S.planeSplats = buildSplats({ useDeep: false }); renderIso(dom.planeCanvas, S.planeSplats, 0); S.finalDone = false; $('finalBtn').disabled = !S.deepDone;
   setBadge(dom.planeBadge, `${S.planeSplats.count.toLocaleString('it-IT')} pixel`, 'ok'); dom.planeMetrics.innerHTML = metricsHtml([
     ['Modalità', 'un piano per ogni foto'], ['Foto con posa', S.planeSplats.frames], ['Pixel/particelle', S.planeSplats.count.toLocaleString('it-IT')], ['Decimazione regolare', `1 ogni ${S.planeSplats.gridStep}×${S.planeSplats.gridStep} px`], ['Profondità del piano', `${fmt(numberValue('planeDistance', 2), 3)} unità Alva`], ['Punti comuni conservati', S.edges.reduce((n, e) => n + e.matches.length, 0).toLocaleString('it-IT')], ['Coppie con overlap ≥ 10%', `${S.edges.filter(e => e.overlap >= .10).length}/${S.edges.length}`, S.edges.some(e => e.overlap >= .10) ? 'good' : 'warn'], ['Camera trasferita', 'p + R·[(u−cx)/fx·z, (v−cy)/fy·z, z]', 'good'], ['Proiezione', 'isometrica ortografica', 'good']
-  ]); setGlobal('Baseline piana visibile', 'ok'); setStep(5); log('plane-splats-built', { particles: S.planeSplats.count, gridStep: S.planeSplats.gridStep, frames: S.planeSplats.frames });
+  ]); setGlobal('Baseline piana visibile', 'ok'); setStep(5); setActivity('PASSO 5 · PRONTO', 'Baseline piana costruita. Deep non è ancora partito: premi Prova Deep o Esegui Deep.', 'ok'); log('plane-splats-built', { particles: S.planeSplats.count, gridStep: S.planeSplats.gridStep, frames: S.planeSplats.frames });
 }
 
+function resetDeepWorker(reason = 'reset') {
+  const worker = S.deepWorker;
+  S.deepWorker = null;
+  if (worker) { try { worker.terminate(); } catch { /* already dead */ } }
+  const err = new Error(`Worker Deep reinizializzato: ${reason}`);
+  for (const p of S.deepWaiters.values()) { clearTimeout(p.timer); p.reject(err); }
+  S.deepWaiters.clear();
+  log('deep-worker-reset', { reason }, 'WARN');
+}
 async function ensureDeepWorker() {
   if (S.deepWorker) return S.deepWorker;
+  setActivity('DEEP · WORKER', 'Creo il worker e preparo il runtime WASM...', 'busy');
+  log('deep-worker-create', { build: BUILD_ID });
   const worker = new Worker(`./deep_depth_worker.js?v=${encodeURIComponent(BUILD_ID)}`, { type: 'module' }); S.deepWorker = worker;
   worker.onmessage = e => {
     const d = e.data || {};
-    if (d.type === 'deep-download-progress') { dom.runtimeStatus.textContent = `${d.label}: ${d.pct == null ? `${Math.round((d.received || 0) / 1048576)} MB` : `${d.pct}%`}`; return; }
-    if (d.type === 'deep-ready') { log('deep-worker-ready', { engine:d.engine, model:d.modelId, provider:d.provider, modelRaster:d.modelRaster }); return; }
+    if (d.type === 'deep-stage') {
+      ACTIVITY.deepHeartbeatAt = performance.now();
+      setActivity(`DEEP · ${d.stage || 'WORKER'}`, d.detail || 'operazione in corso...', d.state === 'error' ? 'error' : d.state === 'ok' ? 'ok' : 'busy');
+      dom.runtimeStatus.textContent = `Deep: ${d.stage || 'worker'} · ${d.detail || 'in corso'}`;
+      log('deep-stage', { stage:d.stage, detail:d.detail, elapsedMs:d.elapsedMs, data:d.data || null }, d.state === 'error' ? 'ERROR' : 'INFO');
+      return;
+    }
+    if (d.type === 'deep-heartbeat') {
+      ACTIVITY.deepHeartbeatAt = performance.now();
+      const sec = Number.isFinite(d.elapsedMs) ? Math.round(d.elapsedMs / 1000) : null;
+      if (dom.liveActivity) dom.liveActivity.textContent = `${d.detail || d.stage || 'Deep in corso'}${sec == null ? '' : ` · ${sec} s in questa fase`}`;
+      return;
+    }
+    if (d.type === 'deep-download-progress') {
+      ACTIVITY.deepHeartbeatAt = performance.now();
+      const amount = d.pct == null ? `${Math.round((d.received || 0) / 1048576)} MB` : `${d.pct}%`;
+      const text = `${d.label}: ${amount}`;
+      dom.runtimeStatus.textContent = text;
+      if (dom.liveActivity) dom.liveActivity.textContent = text;
+      return;
+    }
+    if (d.type === 'deep-ready') { setActivity('DEEP · PRONTO', `${d.engine} · ${d.provider} · ${d.modelRaster}`, 'ok'); log('deep-worker-ready', { engine:d.engine, model:d.modelId, provider:d.provider, modelRaster:d.modelRaster }); return; }
     if (d.type === 'deep-diag') { log(`deep-${d.event || 'diag'}`, { message: d.message, data:d.data }, d.level === 'warn' ? 'WARN' : 'INFO'); return; }
-    const pending = S.deepWaiters.get(String(d.jobId || '')); if (pending) { S.deepWaiters.delete(String(d.jobId)); clearTimeout(pending.timer); pending.resolve(d); }
+    const pending = S.deepWaiters.get(String(d.jobId || ''));
+    if (pending) { S.deepWaiters.delete(String(d.jobId)); clearTimeout(pending.timer); pending.resolve(d); }
   };
-  worker.onerror = e => { const err = new Error(e.message || 'errore worker Deep'); for (const p of S.deepWaiters.values()) { clearTimeout(p.timer); p.reject(err); } S.deepWaiters.clear(); log('deep-worker-error', { message: err.message }, 'ERROR'); };
+  worker.onerror = e => {
+    const err = new Error(e.message || 'errore worker Deep');
+    for (const p of S.deepWaiters.values()) { clearTimeout(p.timer); p.reject(err); }
+    S.deepWaiters.clear(); S.deepWorker = null;
+    setActivity('DEEP · ERRORE WORKER', err.message, 'error');
+    log('deep-worker-error', { message: err.message, filename:e.filename || null, lineno:e.lineno || null }, 'ERROR');
+    try { worker.terminate(); } catch { /* ignored */ }
+  };
   worker.postMessage({ type: 'init', config: {
     transformersUrl: 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0',
     localModelId: 'depth-anything-v2-small',
@@ -628,17 +702,30 @@ async function ensureDeepWorker() {
   } });
   return worker;
 }
-function deepRequest(message, timeout = 240000) {
+function deepRequest(message, timeout = 180000) {
   return new Promise(async (resolve, reject) => {
-    try { const worker = await ensureDeepWorker(), jobId = String(message.jobId); const timer = setTimeout(() => { S.deepWaiters.delete(jobId); reject(new Error(`timeout Deep (${Math.round(timeout / 1000)} s)`)); }, timeout); S.deepWaiters.set(jobId, { resolve, reject, timer }); worker.postMessage(message); }
-    catch (err) { reject(err); }
+    try {
+      const worker = await ensureDeepWorker(), jobId = String(message.jobId);
+      const timer = setTimeout(() => {
+        S.deepWaiters.delete(jobId);
+        const err = new Error(`timeout Deep (${Math.round(timeout / 1000)} s) durante ${ACTIVITY.phase}`);
+        setActivity('DEEP · TIMEOUT', err.message, 'error');
+        log('deep-request-timeout', { jobId, timeout, phase:ACTIVITY.phase, activity:ACTIVITY.detail }, 'ERROR');
+        resetDeepWorker('timeout richiesta Deep');
+        reject(err);
+      }, timeout);
+      S.deepWaiters.set(jobId, { resolve, reject, timer });
+      const transfer = [];
+      if (message.rgba?.buffer instanceof ArrayBuffer) transfer.push(message.rgba.buffer);
+      worker.postMessage(message, transfer);
+    } catch (err) { reject(err); }
   });
 }
 async function testDeep() {
   const frame = S.current; if (!frame) throw new Error('Nessun fotogramma acquisito disponibile per il test Deep.');
-  $('testDeepBtn').disabled = true; setGlobal('Test Deep…'); const jobId = `test-${Date.now()}`;
+  $('testDeepBtn').disabled = true; setGlobal('Test Deep…'); setActivity('DEEP · TEST', `Frame ${frame.id || 'corrente'} · preparo RGB ${frame.width}×${frame.height}`, 'busy'); const jobId = `test-${Date.now()}`;
   try {
-    const d = await deepRequest({ type: 'test', jobId, rgba: new Uint8ClampedArray(frame.rgba), width: W, height: H, frameId: jobId, frameAt: frame.at, refId: 'preflight' });
+    const d = await deepRequest({ type: 'test', jobId, rgba: new Uint8ClampedArray(frame.rgba), width: frame.width, height: frame.height, frameId: jobId, frameAt: frame.at, refId: 'preflight' });
     if (d.type === 'deep-error') throw new Error(d.message || 'inferenza Deep fallita');
     S.deepContract = d.modelContract || S.deepContract;
     const safeProvider = String(d.provider || '').includes('wasm');
@@ -648,9 +735,11 @@ async function testDeep() {
     if (!bad) drawDepth({ rawDepth: d.rawDepth, rawWidth: d.rawWidth, rawHeight: d.rawHeight });
     dom.runtimeStatus.textContent = `Deep ${bad ? 'NON superato' : 'OK'} · ${d.provider} · ${d.rawWidth}×${d.rawHeight} · ${fmt(d.totalMs || d.ms, 0)} ms · ${bad ? 'mappa incoerente: non verrà usata' : 'struttura coerente'}`;
     setGlobal(bad ? 'Test Deep non superato' : 'Test Deep completato', bad ? 'fail' : 'ok');
+    setActivity(bad ? 'DEEP · RIFIUTATO' : 'DEEP · TEST OK', bad ? 'La depth non ha superato i controlli: non verrà usata.' : `Depth ${d.rawWidth}×${d.rawHeight} validata in ${fmt(d.totalMs || d.ms,0)} ms`, bad ? 'error' : 'ok');
     log('deep-test', { provider:d.provider, safeProvider, spatialVerified, output:[d.rawWidth,d.rawHeight], ms:d.totalMs || d.ms, quality:d.quality, layout:d.layoutFix, input:d.inputPlan, modelContract:d.modelContract, flip:d.flipComparison, rasterProbe:d.rasterProbe, depthSignature:d.depthSignature }, bad ? 'WARN' : 'INFO');
     if (bad) throw new Error(`La mappa Deep è stata rifiutata: provider=${d.provider || '?'}; flip=${spatialVerified ? 'ok' : 'non verificato'}; qualità=${d.quality?.suspicious ? 'sospetta' : 'strutturata'}. La ricostruzione non userà profondità casuali.`);
   }
+  catch (err) { setActivity('DEEP · TEST FALLITO', errorText(err), 'error'); throw err; }
   finally { $('testDeepBtn').disabled = false; }
 }
 function selectDeepFrames() {
@@ -731,12 +820,14 @@ async function runDeep() {
 
   setBadge(dom.deepBadge, `Deep 0/${selected.length}`, 'warn');
   setGlobal('Inferenza Deep post-scan…');
+  setActivity('DEEP · BATCH', `Selezionate ${selected.length} viste; inizializzo il runtime...`, 'busy');
   log('deep-selection', { selected: selected.map(f => f.id), count: selected.length, rule: 'overlap keypoint >=10% + posa nuova' });
 
   try {
     for (let i = 0; i < selected.length; i++) {
       const f = selected[i], jobId = `deep-${f.id}-${Date.now()}`;
       dom.deepBadge.textContent = `Deep ${i + 1}/${selected.length}`;
+      setActivity('DEEP · INFERENZA', `Vista ${i + 1}/${selected.length} · ${f.id} · RGB ${f.width}×${f.height}`, 'busy');
       const d = await deepRequest({ type: 'infer', jobId, rgba: new Uint8ClampedArray(f.rgba), width: f.width, height: f.height, frameId: f.id, frameAt: f.at, refId: f.id });
       if (d.type === 'deep-error') throw new Error(`${f.id}: ${d.message || 'errore Deep'}`);
       S.deepContract = d.modelContract || S.deepContract;
@@ -782,6 +873,7 @@ async function runDeep() {
     setBadge(dom.deepBadge, `${selected.length} viste · ${best.convention}`, best.after.count ? 'ok' : 'warn');
     setGlobal('Profondità globali allineate', best.after.count ? 'ok' : '');
     setStep(6);
+    setActivity('DEEP · COMPLETATO', `${selected.length} viste allineate · convenzione ${best.convention}`, 'ok');
     log('depth-global-solve', { selected: selected.length, graphEdges: S.depthEdges.length, convention: best.convention, scales: Array.from(best.scales).map(v => +v.toFixed(4)), beforeMedian: best.before.median, afterMedian: best.after.median, residualCount: best.after.count });
   } catch (err) {
     S.deepDone = false;
@@ -790,6 +882,7 @@ async function runDeep() {
     $('depthPreviewBtn').disabled = true;
     setBadge(dom.deepBadge, 'Deep rifiutata', 'fail');
     setGlobal('Inferenza Deep rifiutata', 'fail');
+    setActivity('DEEP · BATCH FALLITO', errorText(err), 'error');
     log('depth-batch-rejected', { message: errorText(err), selected: selected.map(f => f.id) }, 'ERROR');
     throw err;
   } finally {
@@ -909,31 +1002,38 @@ function downloadDiagnostics() {
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })), a = document.createElement('a'); a.href = url; a.download = `scan-test-${Date.now()}-diagnostics.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); log('diagnostics-downloaded', { frames: S.frames.length });
 }
 function bind(id, fn) { $(id).addEventListener('click', () => Promise.resolve().then(fn).catch(err => { if (['offlineBtn', 'deepBtn'].includes(id)) $(id).disabled = false; setGlobal('Errore', 'fail'); log('ui-operation-failed', { operation: id, message: errorText(err) }, 'ERROR'); alert(errorText(err)); })); }
+async function fetchWithTimeout(url, { method = 'GET', timeoutMs = 5000 } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(`timeout ${timeoutMs} ms`), timeoutMs);
+  try {
+    const r = await fetch(url, { method, cache:'no-store', signal:controller.signal });
+    if (method === 'GET' && r.ok) await r.arrayBuffer();
+    return { ok:r.ok, status:r.status, bytes:Number(r.headers.get('content-length')) || null };
+  } finally { clearTimeout(timer); }
+}
 async function verifyDeployedBuild() {
   const sentinel = $('buildSentinel');
   const checks = [
-    ['worker', new URL(`./deep_depth_worker.js?v=${encodeURIComponent(BUILD_ID)}`, location.href).href, 'GET'],
-    ['model-config', new URL('./models/depth-anything-v2-small/config.json', location.href).href, 'GET'],
-    ['processor-config', new URL('./models/depth-anything-v2-small/preprocessor_config.json', location.href).href, 'GET'],
-    ['model-q4', new URL('./models/depth-anything-v2-small/onnx/model_q4.onnx', location.href).href, 'HEAD'],
+    ['worker', new URL(`./deep_depth_worker.js?v=${encodeURIComponent(BUILD_ID)}`, location.href).href],
+    ['model-config', new URL('./models/depth-anything-v2-small/config.json', location.href).href],
+    ['processor-config', new URL('./models/depth-anything-v2-small/preprocessor_config.json', location.href).href],
   ];
-  const results = [];
-  for (const [name,url,method] of checks) {
-    try {
-      const r = await fetch(url, { method, cache:'no-store' });
-      results.push({ name, ok:r.ok || (method === 'HEAD' && r.status === 405), status:r.status, bytes:Number(r.headers.get('content-length')) || null, url });
-      if (method === 'GET' && r.ok) await r.arrayBuffer();
-    } catch (err) { results.push({ name, ok:false, status:0, error:errorText(err), url }); }
-  }
-  const ok = results.every(x => x.ok);
+  setActivity('ASSET · SELF-CHECK', 'Verifico in parallelo solo i 3 asset piccoli (timeout 5 s). Il modello Q4 viene verificato al passo Deep.', 'busy');
+  const started = performance.now();
+  const results = await Promise.all(checks.map(async ([name,url]) => {
+    try { return { name, ...(await fetchWithTimeout(url, { timeoutMs:5000 })), url }; }
+    catch (err) { return { name, ok:false, status:0, timeout:err?.name === 'AbortError', error:errorText(err), url }; }
+  }));
+  const okCount = results.filter(x => x.ok).length, ok = okCount === results.length;
   if (sentinel) {
-    sentinel.textContent = `${BUILD_ID} · asset ${results.filter(x=>x.ok).length}/${results.length}${ok ? ' OK' : ' MANCANTI'}`;
-    sentinel.dataset.state = ok ? 'ok' : 'fail';
-    sentinel.style.borderColor = ok ? '#4be3a1' : '#ff6b78';
-    sentinel.style.color = ok ? '#b9ffdf' : '#ffd1d6';
+    sentinel.textContent = `${BUILD_ID} · asset piccoli ${okCount}/${results.length}${ok ? ' OK' : ' · controllo terminato con warning'} · Q4 al passo 5`;
+    sentinel.dataset.state = ok ? 'ok' : 'warn';
+    sentinel.style.borderColor = ok ? '#4be3a1' : '#ffc95e';
+    sentinel.style.color = ok ? '#b9ffdf' : '#ffe6a8';
   }
-  log('deployed-build-selfcheck', { build:BUILD_ID, results }, ok ? 'INFO' : 'ERROR');
-  if (!ok) dom.runtimeStatus.textContent = `Build ${BUILD_ID}: alcuni asset non sono serviti dal percorso attuale. Controlla il log prima di testare Deep.`;
+  setActivity(ok ? 'ASSET · OK' : 'ASSET · WARNING', ok ? `Self-check completato in ${Math.round(performance.now()-started)} ms. Pronto.` : 'Self-check terminato: almeno un asset piccolo non ha risposto entro 5 s. L’interfaccia resta utilizzabile; guarda il log.', ok ? 'ok' : 'warn');
+  log('deployed-build-selfcheck', { build:BUILD_ID, bounded:true, elapsedMs:Math.round(performance.now()-started), results }, ok ? 'INFO' : 'WARN');
+  if (!ok) dom.runtimeStatus.textContent = `Build ${BUILD_ID}: self-check terminato con warning; nessuna richiesta iniziale può restare appesa. Il modello Q4 sarà verificato solo quando avvii Deep.`;
   return { ok, results };
 }
 
@@ -942,8 +1042,11 @@ $('gridStep').addEventListener('input', () => { dom.gridStepOut.textContent = `$
 $('confidenceSlider').addEventListener('input', () => { if (S.viewToken) cancelAnimationFrame(S.viewToken); S.viewToken = requestAnimationFrame(() => { S.viewToken = 0; renderFinal(); }); });
 $('videoFile').addEventListener('change', e => chooseVideo(e.target.files?.[0]).catch(err => alert(errorText(err))));
 $('copyLogBtn').addEventListener('click', async () => { try { await navigator.clipboard.writeText(dom.log.textContent); } catch { /* Clipboard may be blocked on non-secure origins. */ } });
+if (dom.liveLogToggle) dom.liveLogToggle.addEventListener('click', () => { const compact = dom.liveLogDock.classList.toggle('compact'); dom.liveLogToggle.textContent = compact ? 'Espandi' : 'Riduci'; dom.liveLogToggle.setAttribute('aria-expanded', String(!compact)); });
+window.addEventListener('error', e => { log('window-error', { message:e.message || 'errore JS', filename:e.filename || null, lineno:e.lineno || null, colno:e.colno || null }, 'ERROR'); });
+window.addEventListener('unhandledrejection', e => { log('unhandled-rejection', { message:errorText(e.reason) }, 'ERROR'); });
 window.addEventListener('resize', () => { if (S.offlineDone) drawTrajectory(); if (S.planeSplats) renderIso(dom.planeCanvas, S.planeSplats); if (S.splats) renderFinal(); });
 window.addEventListener('beforeunload', () => { S.capture?.stop?.(); S.deepWorker?.terminate(); });
 
-setStep(1); dom.gridStepOut.textContent = `${$('gridStep').value} px`; dom.confidenceOut.textContent = '0%'; log('scan-test-ready', { build: BUILD_ID, analysisRaster: 'dynamic full-frame, long side 960', defaultSamplingHz: DEFAULT_ALVA_HZ, archiveDefaultHz: numberValue('archiveFps', DEFAULT_ALVA_HZ), deepModel: 'Depth Anything V2 Small Q4 via official Transformers.js depth-estimation pipeline + official RawImage cross-check' });
+setStep(1); setActivity('AVVIO', `Build ${BUILD_ID} caricata; avvio self-check con watchdog.`, 'busy'); dom.gridStepOut.textContent = `${$('gridStep').value} px`; dom.confidenceOut.textContent = '0%'; log('scan-test-ready', { build: BUILD_ID, analysisRaster: 'dynamic full-frame, long side 960', defaultSamplingHz: DEFAULT_ALVA_HZ, archiveDefaultHz: numberValue('archiveFps', DEFAULT_ALVA_HZ), deepModel: 'Depth Anything V2 Small Q4 via official Transformers.js depth-estimation pipeline + official RawImage cross-check' });
 void verifyDeployedBuild();

@@ -34,7 +34,7 @@ test('post-scan retains the large RGB archive while Deep uses the atomic MVS key
   assert.doesNotMatch(app,/processArchivedDeepAdaptive/);
   assert.match(app,/kind:'preview'.*frameId:survey\.frameId/s);
   assert.match(app,/registerDepthPlannedPhoto\(survey,\{source:'sharp-rgb-adaptive-candidate',optimize:false,render:false,adaptiveCandidate:true\}\)/);
-  assert.match(cfg,/sharpArchiveProcessMaxFrames:240/);
+  assert.match(cfg,/sharpArchiveProcessMaxFrames:60/);
 });
 
 test('suspect Alva jumps are visible and downweighted rather than silently trusted',()=>{

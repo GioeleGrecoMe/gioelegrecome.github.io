@@ -6,6 +6,7 @@ import {solveGlobalAffineDepthCalibration} from '../js/probabilistic/depth_calib
 import {classifyDenseDepthAuthority,evaluateDepthGeometryPolicy} from '../js/probabilistic/depth_commit_policy.js';
 import {evaluateFinalGeometryPolicy} from '../js/probabilistic/geometry_commit_policy.js';
 import {ProbabilisticFactorGraph} from '../js/probabilistic/factor_graph.js';
+import {StablePhotoBank} from '../js/reconstruction/stable_photo_bank.js';
 
 const K={fx:100,fy:100,cx:50,cy:40,width:100,height:80};
 const pose=x=>({p:[x,0,0],q:[0,0,0,1]});
@@ -72,4 +73,25 @@ test('production closure order freezes RGB poses before MVS and runs Deep on tho
   assert.ok(rgb>=0&&rgb<plan&&plan<mvs&&mvs<deep,{rgb,plan,mvs,deep});
   assert.match(finish,/missingDeep/);assert.match(finish,/poseFrozen:true/);
   assert.doesNotMatch(finish,/processArchivedDeepAdaptive/);
+});
+
+test('scale-free Alva translation cannot erase the RGB archive',()=>{
+  const bank=new StablePhotoBank({minIntervalMs:80,maxSide:100,minDetail:1,maxTranslationSpeedAlva:.01,maxAngularSpeedRad:1});
+  const a={...planFrame(0),width:100,height:80},b={...planFrame(1),width:100,height:80};a.at=100;b.at=300;b.pose=pose(50);
+  // Add visible detail; the deliberately absurd Alva translation gauge must not
+  // be interpreted as metres per second before the metric bridge is locked.
+  for(let i=0;i<a.gray.length;i++){a.gray[i]=(i*17)&255;b.gray[i]=(i*19)&255;}
+  assert.equal(bank.consider(a,{trackingValid:true,pose:a.pose},a.K,{metricLocked:false}).ok,true);
+  assert.equal(bank.consider(b,{trackingValid:true,pose:b.pose},b.K,{metricLocked:false}).ok,true);
+});
+
+test('finish cannot launch reconstruction from a one-pose trajectory',()=>{
+  const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8'),cfg=fs.readFileSync(new URL('../js/config.js',import.meta.url),'utf8'),finish=app.slice(app.indexOf('async function finishScan'),app.indexOf('async function persistCurrentSession'));
+  assert.match(cfg,/finishMinTrackedKeyframes:4/);assert.match(app,/finish-blocked-insufficient-alva-scaffold/);
+  assert.ok(finish.indexOf('finish-blocked-insufficient-alva-scaffold')<finish.indexOf('stopCaptureFastLane()'));
+});
+
+test('an observed baseline scaffold survives a worse recovery candidate',()=>{
+  const runtime=fs.readFileSync(new URL('../js/probabilistic/single_optimizer_runtime.js',import.meta.url),'utf8');
+  assert.match(runtime,/baselineAccepted=!!basePolicy\.observed/);assert.match(runtime,/selection=candidateAccepted\?'candidate':baselineAccepted\?'baseline-observed'/);assert.match(runtime,/selectedSnapshot=candidateAccepted\?candidateSnapshot:baseSnapshot/);assert.match(runtime,/candidateAccepted=safeReprojection&&safeMedian/);
 });

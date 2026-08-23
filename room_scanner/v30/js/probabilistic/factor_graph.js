@@ -6,6 +6,7 @@
  * association, Deep scale and surface estimates without needing all video frames.
  */
 import {canonicalizePhotoEdgeMatches} from './rgb_translation_direction.js?v=30.56.0';
+import {projectPoint} from '../slam/math.js?v=30.56.0';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
@@ -26,7 +27,7 @@ export class ProbabilisticFactorGraph{
     for(const s of seeds||[]){
       if(!Array.isArray(s.p)||!s.measurements?.length)continue;
       const candidate={id:s.trackId||`${refId}:L${this.landmarkFactors.length}`,refFrameId:refId,point:Array.from(s.p.slice(0,3),Number),covariance:cov6(s.covariance),probability:clamp(Number(s.geometryProbability??s.confidence??.1),.001,.999),relativeDepthSigma:Number(s.relativeDepthSigma??(s.sigmaDepth/Math.max(.05,s.depth))??.3),depth:+s.depth,calibrationWeight:+(s.calibrationWeight||0),triangulationAngleRad:finiteOrNull(s.angle),rayGap:finiteOrNull(s.rayGap),rayGapRatio:finiteOrNull(s.rayGapRatio),posteriorReprojectionPx:finiteOrNull(s.reprojectionPx),leaveOneViewOutReprojectionPx:finiteOrNull(s.leaveOneViewOutReprojectionPx),leaveOneViewOutReprojectionP90Px:finiteOrNull(s.leaveOneViewOutReprojectionP90Px),cheirality:s.cheirality!==false,descriptor:Array.isArray(s.referenceDesc||s.descriptor)?Array.from(s.referenceDesc||s.descriptor).slice(0,24).map(Number):[],measurements:s.measurements.map(m=>({frameId:String(m.frameId),u:+m.u,v:+m.v,probability:clamp(Number(m.probability??.1),.001,.999),epipolarPx:m.epipolarPx==null?null:+m.epipolarPx,zncc:m.zncc==null?null:+m.zncc})),sourceIds:(s.sourceIds||[]).map(String)};
-      const existing=this.findLandmarkByMeasurement(candidate.measurements);
+      const existing=this.findLandmarkByMeasurement(candidate.measurements,candidate);
       if(existing>=0){mergeLandmarkFactor(this.landmarkFactors[existing],candidate);this.indexLandmark(existing,this.landmarkFactors[existing]);}
       else{const idx=this.landmarkFactors.length;this.landmarkFactors.push(candidate);this.indexLandmark(idx,candidate);}
     }
@@ -88,7 +89,7 @@ export class ProbabilisticFactorGraph{
   reindex(){this.frameIndex.clear();this.frames.forEach((f,i)=>this.frameIndex.set(String(f.frameId),i));}
   indexLandmark(index,l){for(const m of l?.measurements||[]){const fid=String(m.frameId);for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const k=measurementKey(fid,m.u+dx*3,m.v+dy*3),a=this.measurementIndex.get(k)||[];if(!a.includes(index)){a.push(index);if(a.length>6)a.shift();this.measurementIndex.set(k,a);}}}}
   rebuildMeasurementIndex(){this.measurementIndex=new Map();this.landmarkFactors.forEach((l,i)=>this.indexLandmark(i,l));}
-  findLandmarkByMeasurement(ms){const votes=new Map();for(const m of ms||[]){for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const a=this.measurementIndex.get(measurementKey(String(m.frameId),m.u+dx*3,m.v+dy*3))||[];for(const i of a)votes.set(i,(votes.get(i)||0)+1);}}let best=-1,bv=0;for(const [i,v] of votes){const l=this.landmarkFactors[i];if(!l)continue;let exact=0;for(const a of l.measurements||[])for(const b of ms||[])if(String(a.frameId)===String(b.frameId)&&Math.hypot(a.u-b.u,a.v-b.v)<=3.5){exact++;break;}if(exact>bv){bv=exact;best=i;}}return bv>0?best:-1;}
+  findLandmarkByMeasurement(ms,candidate=null){const votes=new Map();for(const m of ms||[]){for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const a=this.measurementIndex.get(measurementKey(String(m.frameId),m.u+dx*3,m.v+dy*3))||[];for(const i of a)votes.set(i,(votes.get(i)||0)+1);}}let best=-1,bv=0;for(const [i,v] of votes){const l=this.landmarkFactors[i];if(!l||candidate&&!landmarkAssociationCompatible(l,candidate,this.frames,this.frameIndex))continue;let exact=0;for(const a of l.measurements||[])for(const b of ms||[])if(String(a.frameId)===String(b.frameId)&&Math.hypot(a.u-b.u,a.v-b.v)<=3.5){exact++;break;}if(exact>bv){bv=exact;best=i;}}return bv>0?best:-1;}
   pruneOrphans(){const live=new Set(this.frames.map(f=>String(f.frameId)));this.edgeFactors=this.edgeFactors.filter(e=>live.has(String(e.aId))&&live.has(String(e.bId)));this.alvaFactors=this.alvaFactors.filter(e=>live.has(String(e.aId))&&live.has(String(e.bId)));this.landmarkFactors=this.landmarkFactors.map(l=>({...l,measurements:(l.measurements||[]).filter(m=>live.has(String(m.frameId)))})).filter(l=>l.measurements.length>=2);this.deepFactors=this.deepFactors.filter(d=>live.has(String(d.frameId)));this.mvsFactors=this.mvsFactors.filter(d=>live.has(String(d.frameId)));this.rebuildMeasurementIndex();}
   static fromState(s){const g=new ProbabilisticFactorGraph();if(!s)return g;g.version=Math.max(8,s.version||1);g.createdAt=s.createdAt||Date.now();g.cameraModel=s.cameraModel||null;g.frames=s.frames||[];g.edgeFactors=s.edgeFactors||[];g.photoEdgeAudit=s.photoEdgeAudit||{inputEdges:g.edgeFactors.length,importedEdges:g.edgeFactors.length,unresolvedEdges:0,importFraction:1};g.alvaFactors=s.alvaFactors||[];g.landmarkFactors=s.landmarkFactors||[];g.deepFactors=s.deepFactors||[];g.mvsFactors=s.mvsFactors||[];g.reindex();g.canonicalizeLegacyPhotoEdges();g.rebuildMeasurementIndex();return g;}
 }
@@ -117,6 +118,17 @@ function downsamplePhoto(frame,maxSide,features){
 function sampleGrid(a,w,h,cols,rows){const out=new Float32Array(cols*rows);for(let y=0;y<rows;y++){const yy=Math.min(h-1,Math.round(y*(h-1)/Math.max(1,rows-1)));for(let x=0;x<cols;x++){const xx=Math.min(w-1,Math.round(x*(w-1)/Math.max(1,cols-1))),v=Number(a[yy*w+xx]);out[y*cols+x]=Number.isFinite(v)?v:0;}}return out;}
 
 function measurementKey(fid,u,v){return `${fid}:${Math.round((+u||0)/3)}:${Math.round((+v||0)/3)}`;}
+function landmarkAssociationCompatible(a,b,frames=[],frameIndex=new Map()){
+  const byFrame=new Map((a.measurements||[]).map(x=>[String(x.frameId),x]));
+  for(const x of b.measurements||[]){const old=byFrame.get(String(x.frameId));if(!old)continue;const d=Math.hypot((+old.u)-(+x.u),(+old.v)-(+x.v));if(d>4.5)return false;}
+  if(!Array.isArray(a.point)||!Array.isArray(b.point))return false;
+  const d=Math.hypot(a.point[0]-b.point[0],a.point[1]-b.point[1],a.point[2]-b.point[2]),scale=Math.max(.05,Math.min(Math.hypot(...a.point),Math.hypot(...b.point))),sa=Math.sqrt(Math.max(1e-10,covTrace(a.covariance))),sb=Math.sqrt(Math.max(1e-10,covTrace(b.covariance))),tol=Math.max(.004,Math.min(.08*scale,3*(sa+sb)));
+  if(d>tol)return false;
+  const wa=mixtureWeight(a),wb=mixtureWeight(b),s=wa+wb||1,p=[(wa*a.point[0]+wb*b.point[0])/s,(wa*a.point[1]+wb*b.point[1])/s,(wa*a.point[2]+wb*b.point[2])/s],measurements=new Map();
+  for(const x of [...(a.measurements||[]),...(b.measurements||[])]){const id=String(x.frameId),old=measurements.get(id);if(!old||(+x.probability||0)>(+old.probability||0))measurements.set(id,x);}
+  const residuals=[];for(const x of measurements.values()){const f=frames[frameIndex.get(String(x.frameId))];if(!f)continue;const q=projectPoint(f.poseEstimate||f.posePrior,f.K,p);if(q?.z>0)residuals.push(Math.hypot(q.u-x.u,q.v-x.v));}
+  if(residuals.length<2)return frames.length===0;residuals.sort((x,y)=>x-y);return residuals[Math.floor((residuals.length-1)*.5)]<=2.8&&residuals[Math.floor((residuals.length-1)*.9)]<=4.2;
+}
 function mergeLandmarkFactor(a,b){
   const wa=mixtureWeight(a),wb=mixtureWeight(b),s=wa+wb||1,alpha=wa/s,mu=a.point.slice(0,3),nu=b.point.slice(0,3),m=[alpha*mu[0]+(1-alpha)*nu[0],alpha*mu[1]+(1-alpha)*nu[1],alpha*mu[2]+(1-alpha)*nu[2]];
   a.covariance=mixtureCov(a.covariance,b.covariance,mu,nu,m,alpha);a.point=m;a.depth=alpha*(+a.depth||0)+(1-alpha)*(+b.depth||0);a.relativeDepthSigma=alpha*(+a.relativeDepthSigma||.3)+(1-alpha)*(+b.relativeDepthSigma||.3);a.triangulationAngleRad=Math.max(+a.triangulationAngleRad||0,+b.triangulationAngleRad||0)||null;a.rayGapRatio=minFinite(a.rayGapRatio,b.rayGapRatio);a.rayGap=minFinite(a.rayGap,b.rayGap);a.posteriorReprojectionPx=minFinite(a.posteriorReprojectionPx,b.posteriorReprojectionPx);a.leaveOneViewOutReprojectionPx=minFinite(a.leaveOneViewOutReprojectionPx,b.leaveOneViewOutReprojectionPx);a.leaveOneViewOutReprojectionP90Px=minFinite(a.leaveOneViewOutReprojectionP90Px,b.leaveOneViewOutReprojectionP90Px);a.cheirality=a.cheirality!==false&&b.cheirality!==false;if(!a.descriptor?.length&&b.descriptor?.length)a.descriptor=b.descriptor.slice();

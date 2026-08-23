@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
-  <title>Scan Test v3.3.0 · Alva + Deep splat</title>
-  <link rel="stylesheet" href="styles.css?v=scan-test-v3.3.0">
+  <title>Scan Test v3.4.0 · Alva + Deep splat</title>
+  <link rel="stylesheet" href="styles.css?v=scan-test-v3.4.0">
 </head>
 <body>
   <header class="topbar">
     <div>
-      <p class="eyebrow">ESPERIMENTO ISOLATO · VERSIONE v3.3.0 · build controllata · nessun filtro / nessuna mesh</p>
-      <h1>Scan Test <span class="tag ok">v3.3.0</span></h1>
-      <div id="buildSentinel" data-state="checking" style="margin:.7rem 0 0;padding:.55rem .75rem;border:1px solid #ffc95e;border-radius:.6rem;color:#ffe6a8;font:600 .82rem/1.35 ui-monospace,SFMono-Regular,Consolas,monospace">scan-test-v3.3.0-bootstrap-guard-depth-crosscheck · verifica asset in corso…</div>
+      <p class="eyebrow">ESPERIMENTO ISOLATO · VERSIONE v3.4.0 · build controllata · nessun filtro / nessuna mesh</p>
+      <h1>Scan Test <span class="tag ok">v3.4.0</span></h1>
+      <div id="buildSentinel" data-state="checking" style="margin:.7rem 0 0;padding:.55rem .75rem;border:1px solid #ffc95e;border-radius:.6rem;color:#ffe6a8;font:600 .82rem/1.35 ui-monospace,SFMono-Regular,Consolas,monospace">scan-test-v3.4.0-watchdog-live-log · verifica asset in corso…</div>
       <p class="lede">Posa AlvaAR → riesecuzione offline → profondità Deep globale → tutti i pixel come splat RGB.</p>
     </div>
     <div id="globalState" class="state-pill">Pronto</div>
@@ -52,7 +52,7 @@
         <button id="testDeepBtn" disabled>Prova Deep sul frame corrente</button>
         <button id="clearBtn" class="quiet">Azzera sessione</button>
       </div>
-      <p id="runtimeStatus" class="status">AlvaAR non inizializzato · Deep non caricato. Il raster Alva mantiene il frame completo e lo stesso aspect ratio/orientamento della sorgente. Deep usa esclusivamente la pipeline ufficiale Transformers.js depth-estimation su WASM/Q4: il codice non costruisce più manualmente tensor NCHW né interpreta manualmente l'output ONNX.</p>
+      <p id="runtimeStatus" class="status">AlvaAR non inizializzato · Deep non caricato. Il raster Alva mantiene il frame completo e lo stesso aspect ratio/orientamento della sorgente. Deep usa esclusivamente la pipeline Transformers.js depth-estimation su WASM/Q4. Il processor locale usa il profilo browser 336 px (aspect ratio preservato, multiplo di 14) per ridurre il carico mobile; il codice non costruisce manualmente tensor NCHW né interpreta manualmente l'output ONNX.</p>
     </section>
 
     <section class="capture-layout">
@@ -99,7 +99,7 @@
 
     <section class="card stage-card" aria-labelledby="deepTitle">
       <div class="section-title"><div><p class="eyebrow">5 · Unica ottimizzazione: profondità comune</p><h2 id="deepTitle">Deep sulle viste salienti e scala globale</h2></div><span id="deepBadge" class="tag">non avviata</span></div>
-      <p>Le viste Deep sono selezionate solo quando esiste un overlap di keypoint ≥ 10%. Deep usa la pipeline ufficiale Transformers.js `depth-estimation` su WASM/Q4. Il preprocessing DPT e la lettura di `predicted_depth` non sono più reimplementati nel progetto; il test confronta anche il tensore grezzo con la depth post-processata dalla pipeline, misura il rumore spaziale ad alta frequenza ed esegue una verifica sul frame specchiato. Per ogni match, i raggi RGB vengono trasformati con le intrinseche della foto, la dimensione nativa della mappa Deep e la posa camera. L'ottimizzatore modifica soltanto un fattore di profondità per vista.</p>
+      <p>Le viste Deep sono selezionate solo quando esiste un overlap di keypoint ≥ 10%. Deep usa la pipeline Transformers.js `depth-estimation` su WASM/Q4 con profilo browser DPT 336 px. Il preprocessing DPT e la lettura di `predicted_depth` non sono più reimplementati nel progetto; il test confronta anche il tensore grezzo con la depth post-processata dalla pipeline, misura il rumore spaziale ad alta frequenza ed esegue una verifica sul frame specchiato. Per ogni match, i raggi RGB vengono trasformati con le intrinseche della foto, la dimensione nativa della mappa Deep e la posa camera. L'ottimizzatore modifica soltanto un fattore di profondità per vista.</p>
       <div class="actions"><button id="deepBtn" disabled class="primary">5. Esegui Deep e allinea profondità</button><button id="depthPreviewBtn" disabled>Mostra ultima depth map</button></div>
       <div class="two-pane"><canvas id="depthCanvas" class="diagnostic-canvas" aria-label="Mappa di profondità Deep"></canvas><div id="deepMetrics" class="metric-list"><p class="empty">Il log mostrerà le dimensioni native Deep, la conversione coordinate, il verso profondità scelto e il residuo prima/dopo.</p></div></div>
       <div id="deepDiagnostic" class="deep-diagnostic" hidden>
@@ -131,7 +131,16 @@
       <pre id="log" aria-live="polite"></pre>
     </section>
   </main>
+  <aside id="liveLogDock" class="live-log-dock" aria-live="polite" aria-label="Attivita diagnostica in tempo reale">
+    <div class="live-log-head">
+      <strong id="livePhase">AVVIO</strong>
+      <span id="liveElapsed">0.0 s</span>
+      <button id="liveLogToggle" type="button" class="quiet live-log-toggle" aria-expanded="true">Riduci</button>
+    </div>
+    <div id="liveActivity" class="live-activity">Inizializzazione applicazione...</div>
+    <pre id="liveLogTail" class="live-log-tail">attendo primo evento...</pre>
+  </aside>
   <template id="frameTemplate"><button class="frame-thumb" type="button"><canvas width="160" height="120"></canvas><span></span></button></template>
-  <script type="module" src="app.js?v=scan-test-v3.3.0"></script>
+  <script type="module" src="app.js?v=scan-test-v3.4.0"></script>
 </body>
 </html>

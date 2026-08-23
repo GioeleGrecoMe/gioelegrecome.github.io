@@ -10,6 +10,6 @@
   "keep_aspect_ratio": true,
   "resample": 3,
   "rescale_factor": 0.00392156862745098,
-  "size": {"height": 518, "width": 518},
+  "size": {"height": 336, "width": 336},
   "size_divisor": null
 }

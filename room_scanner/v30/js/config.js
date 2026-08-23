@@ -30,6 +30,10 @@ export const CONFIG={
   analysisFps:8,
   cameraFovDeg:62,
   keyframeIntervalMs:900,
+  // Never enter expensive post-processing with a one-pose trajectory. Four
+  // temporally separated Alva keyframes provide the minimum ref + 2 sources
+  // geometry and one extra view for a meaningful consistency check.
+  finishMinTrackedKeyframes:4,
   // Independent tracking heartbeat: keep one compact camera observation per second even
   // before Alva has produced its first pose. Dense geometry still requires a valid pose.
   alvaObservationIntervalMs:900,
@@ -241,7 +245,10 @@ export const CONFIG={
   sharpArchiveJumpTranslation:0.80,
   sharpArchiveJumpRotationRad:0.78,
   sharpArchiveJumpWindowMs:2200,
-  sharpArchiveProcessMaxFrames:240,
+  // Keep the complete compressed archive, but solve the RGB scaffold on a
+  // geometrically distributed subset. Hundreds of near-duplicate photos make
+  // the edge-count policy stricter while adding almost no new parallax.
+  sharpArchiveProcessMaxFrames:60,
   sharpArchiveProcessingYieldEvery:3,
   sharpArchiveDeepFrameTimeoutMs:120000,
   sharpArchiveFlushTimeoutMs:20000,

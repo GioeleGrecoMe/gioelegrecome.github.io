@@ -27,10 +27,14 @@ export class StablePhotoBank{
     if(!frame?.frameId||!frame?.rgba?.length||!frame?.gray?.length||!K||!tracking?.trackingValid||!pose?.p||!pose?.q){this.rejectedTracking++;this._rememberMotion(pose,at);return {ok:false,reason:'tracking-invalid'};}
     const motion=this._motion(pose,at,metricLocked);this._rememberMotion(pose,at);
     if(at-(this.lastAcceptedAt||0)<this.minIntervalMs){this.rejectedInterval++;return {ok:false,reason:'interval',motion};}
-    if(motion.valid&&(motion.translationSpeed>motion.translationLimit||motion.angularSpeed>this.maxAngularSpeedRad)){this.rejectedMotion++;return {ok:false,reason:'camera-moving',motion};}
+    // Alva's translation gauge is arbitrary until the one-shot metric bridge
+    // exists. A fixed "metres/second-like" threshold in that space can reject
+    // every otherwise sharp frame on a perfectly valid scan. Before metric lock,
+    // angular speed + measured image detail are the scale-invariant blur gates.
+    if(motion.valid&&((metricLocked&&motion.translationSpeed>motion.translationLimit)||motion.angularSpeed>this.maxAngularSpeedRad)){this.rejectedMotion++;return {ok:false,reason:'camera-moving',motion};}
     const detail=gradientDetail(frame.gray,frame.width,frame.height);
     if(detail<this.minDetail){this.rejectedBlur++;return {ok:false,reason:'low-detail-or-blur',detail,motion};}
-    const compact=compactRaster(frame,this.maxSide,K),previous=this.frames[this.frames.length-1]||null,jump=poseJump(previous,pose,at,{translation:this.jumpTranslation,rotation:this.jumpRotationRad,windowMs:this.jumpWindowMs}),quality=stableQuality(detail,motion),entry={
+    const compact=compactRaster(frame,this.maxSide,K),previous=this.frames[this.frames.length-1]||null,jump=poseJump(previous,pose,at,{translation:metricLocked?this.jumpTranslation:Infinity,rotation:this.jumpRotationRad,windowMs:this.jumpWindowMs}),quality=stableQuality(detail,motion,metricLocked),entry={
       id:`stable-${frame.captureSeq||frame.frameId}`,frameId:String(frame.frameId),captureAt:at,at,
       pose:{p:[...pose.p],q:[...pose.q]},poseCov:tracking.poseCov||null,K:compact.K,width:compact.width,height:compact.height,
       gray:compact.gray,rgba:compact.rgba,features:tracking.featureObservations||tracking.newKeyframe?.features||[],metricLocked:!!metricLocked,
@@ -63,7 +67,7 @@ export function gradientDetail(gray,width,height){if(!gray?.length||width<3||hei
 export function quatAngle(a,b){if(!a||!b)return 0;const dot=Math.abs(Number(a[0])*Number(b[0])+Number(a[1])*Number(b[1])+Number(a[2])*Number(b[2])+Number(a[3])*Number(b[3]));return 2*Math.acos(clamp(dot,-1,1));}
 export function poseJump(previous,pose,at,{translation=.65,rotation=.70,windowMs=2200}={}){if(!previous?.pose?.p||!previous?.pose?.q)return {suspect:false,translation:0,rotationRad:0,dtMs:0};const dt=Math.max(0,at-(Number(previous.at)||at)),tr=distance3(previous.pose.p,pose.p),rot=quatAngle(previous.pose.q,pose.q),suspect=dt<=windowMs&&(tr>translation||rot>rotation);return {suspect,translation:tr,rotationRad:rot,dtMs:dt};}
 
-function stableQuality(detail,motion){const sharp=clamp((detail-2)/12,0,1),v=motion?.valid?clamp(1-(motion.translationSpeed/(motion.translationLimit||.3)),0,1):.7,w=motion?.valid?clamp(1-motion.angularSpeed/.8,0,1):.7;return .55*sharp+.25*v+.20*w;}
+function stableQuality(detail,motion,metricLocked=false){const sharp=clamp((detail-2)/12,0,1),v=metricLocked&&motion?.valid?clamp(1-(motion.translationSpeed/(motion.translationLimit||.3)),0,1):.7,w=motion?.valid?clamp(1-motion.angularSpeed/.8,0,1):.7;return .55*sharp+.25*v+.20*w;}
 function poseNovelty(a,b){if(!a?.pose?.p||!b?.pose?.p)return Infinity;return distance3(a.pose.p,b.pose.p)/.08+quatAngle(a.pose.q,b.pose.q)/.12;}
 function distance3(a,b){return Math.hypot(Number(a?.[0]||0)-Number(b?.[0]||0),Number(a?.[1]||0)-Number(b?.[1]||0),Number(a?.[2]||0)-Number(b?.[2]||0));}
 function frameBytes(f){return Number(f?.rgba?.byteLength||0)+Number(f?.gray?.byteLength||0);}
