@@ -50,12 +50,12 @@ let cfg = {
 
   // Live-safe mobile target: 16 ViT patches on the short side. The 12-patch
   // 168px profile was fast on the phone but produced global vertical bands.
-  preferredShortSide: 224,
-  compatibilityShortSide: 280,
+  preferredShortSide: 518,
+  compatibilityShortSide: 518,
   // Resolution quality ladder. 280 is the normal rescue; 336 is used only if
   // the global banding detector still sees a collapsed map.
-  qualityRescueShortSide: 280,
-  qualityMaxRescueShortSide: 336,
+  qualityRescueShortSide: 518,
+  qualityMaxRescueShortSide: 518,
   patchSize: 14,
   // 0 = let ORT Web choose its thread count. V30.20 forced one WASM thread.
   wasmNumThreads: 0,
@@ -521,6 +521,9 @@ async function ensureSession(source) {
       session = await runtime.InferenceSession.create(bytes, {
         executionProviders,
         graphOptimizationLevel: 'all',
+        // Depth is consumed immediately on the CPU. Requesting CPU output
+        // explicitly avoids driver-dependent GPU-buffer readback paths.
+        preferredOutputLocation: 'cpu',
       });
 
       sessionKey = sourceKey;
@@ -577,7 +580,7 @@ function roundToMultiple(value, multiple) {
  * Match the lower-bound DPT resize used for dynamic Depth Anything inputs:
  * preserve the camera aspect ratio, make the SHORT side reach the requested
  * ViT/14 patch budget, then round both axes to a patch multiple. This makes the
- * meaning of 224 -> 280 -> 336 deterministic on portrait and landscape frames.
+ * meaning of 336 -> 392 -> 518 deterministic on portrait and landscape frames.
  */
 function adaptiveInputGeometry(sourceWidth, sourceHeight, shortSide) {
   const sw = Math.max(2, sourceWidth | 0);
@@ -602,13 +605,12 @@ function inputPlans(spec, sourceWidth, sourceHeight, targetSide = null, { ignore
     return [{ width: spec.width, height: spec.height, mode: 'metadata-fixed' }];
   }
 
-  const preferred = positiveNumber(targetSide, positiveNumber(cfg.preferredShortSide, 224));
+  const preferred = positiveNumber(targetSide, positiveNumber(cfg.preferredShortSide, 518));
   const plans = [
     adaptiveInputGeometry(sourceWidth, sourceHeight, preferred),
-    // Do not jump directly from the 224-px fast path to 518 if an unusual export
-    // has a minimum dynamic shape. 280 px is still much cheaper and is tried only
-    // after the fast plan actually fails at the ONNX contract level.
-    adaptiveInputGeometry(sourceWidth, sourceHeight, positiveNumber(cfg.compatibilityShortSide, 280)),
+    // The official Depth Anything V2 target is 518 px on the short side.
+    // Keep this compatibility slot only so a custom model can override it.
+    adaptiveInputGeometry(sourceWidth, sourceHeight, positiveNumber(cfg.compatibilityShortSide, 518)),
     // Final dynamic compatibility target for historical/custom exports.
     adaptiveInputGeometry(sourceWidth, sourceHeight, positiveNumber(cfg.inputMaxSide, 518)),
     // Last compatibility fallback for old/static exports whose metadata is not
@@ -701,106 +703,81 @@ function tensorRgbPreview(values, width, height, layout = 'nchw') {
   return out;
 }
 
+/** Cubic kernel used by OpenCV INTER_CUBIC (A=-0.75). */
+function cubicWeight(x) {
+  const a = -0.75, t = Math.abs(x);
+  if (t <= 1) return (a + 2) * t * t * t - (a + 3) * t * t + 1;
+  if (t < 2) return a * t * t * t - 5 * a * t * t + 8 * a * t - 4 * a;
+  return 0;
+}
+
+function cubicAxis(sourceSize, targetSize) {
+  const index = new Int32Array(targetSize * 4), weight = new Float32Array(targetSize * 4);
+  const scale = sourceSize / targetSize;
+  for (let d = 0; d < targetSize; d++) {
+    const source = (d + 0.5) * scale - 0.5, base = Math.floor(source);
+    let sum = 0;
+    for (let k = 0; k < 4; k++) {
+      const raw = base + k - 1, w = cubicWeight(source - raw), j = d * 4 + k;
+      index[j] = Math.max(0, Math.min(sourceSize - 1, raw));
+      weight[j] = w; sum += w;
+    }
+    if (Math.abs(sum) > 1e-12) for (let k = 0; k < 4; k++) weight[d * 4 + k] /= sum;
+  }
+  return { index, weight };
+}
+
 /**
- * Explicit RGBA row-major -> RGB NCHW conversion with bilinear resize.
+ * Explicit RGBA row-major -> RGB NCHW conversion using the bicubic family used
+ * by the upstream Depth Anything V2 DPT resize.
  *
- * This intentionally does not use OffscreenCanvas.  The source byte index is
- * always ((y * sourceWidth + x) * 4 + channel), while the tensor index is
- * (channel * targetWidth * targetHeight + y * targetWidth + x).
+ * Source byte index: ((y * sourceWidth + x) * 4 + channel)
+ * Tensor index:      channel * (targetWidth*targetHeight) + y*targetWidth + x
  */
 async function prepareInput(rgba, width, height, spec, plan, forcedType = null, runtime = ort, captureDiagnostic = false) {
-  const started = performance.now();
-  const srcWidth = width | 0;
-  const srcHeight = height | 0;
+  const started = performance.now(), srcWidth = width | 0, srcHeight = height | 0;
   if (!(srcWidth > 1 && srcHeight > 1)) fail('dimensioni fotogramma RGBA non valide');
-
   const src = rgba instanceof Uint8ClampedArray ? rgba : new Uint8ClampedArray(rgba);
   const required = srcWidth * srcHeight * 4;
   if (src.length !== required) fail(`buffer RGBA con shape errata: ${src.length} byte, attesi esattamente ${required} per ${srcWidth}x${srcHeight}x4`);
 
-  const targetWidth = plan.width | 0;
-  const targetHeight = plan.height | 0;
+  const targetWidth = plan.width | 0, targetHeight = plan.height | 0;
   if (!(targetWidth > 1 && targetHeight > 1)) fail('shape input ONNX non valida');
   const patch = Math.max(1, cfg.patchSize | 0 || 14);
-  if (targetWidth % patch || targetHeight % patch) {
-    fail(`raster input non allineato ai patch ViT/${patch}: ${targetWidth}x${targetHeight}`);
-  }
-
-  // Q4/Q4F16 quantize model weights, not the camera contract. Depth Anything
-  // ONNX consumes pixel_values as float32 NCHW. Keeping this fixed removes one
-  // more dtype-dependent branch from the mobile camera path.
+  if (targetWidth % patch || targetHeight % patch) fail(`raster input non allineato ai patch ViT/${patch}: ${targetWidth}x${targetHeight}`);
   const tensorType = String(forcedType || spec.type || 'float32').toLowerCase();
-  if (tensorType !== 'float32' && !tensorType.includes('float')) {
-    fail(`pixel_values dtype non supportato: ${tensorType}`);
-  }
+  if (tensorType !== 'float32' && !tensorType.includes('float')) fail(`pixel_values dtype non supportato: ${tensorType}`);
 
-  // Authoritative row-major RGBA -> planar NCHW conversion. Do not replace this
-  // with Tensor.fromImage(ImageData): in ONNX Runtime Web it changes the output
-  // tensor metadata for resized ImageData but does not resample the input bytes.
-  // With a camera 320x480 -> model 350x518 this makes the model read a corrupt
-  // top-left slice as if it were a complete image, producing the observed bands.
-  const n = targetWidth * targetHeight;
-  const values = new Float32Array(n * 3);
-  const meanR = 0.485, meanG = 0.456, meanB = 0.406;
-  const stdR = 0.229, stdG = 0.224, stdB = 0.225;
-
-  const x0 = new Int32Array(targetWidth);
-  const x1 = new Int32Array(targetWidth);
-  const tx = new Float32Array(targetWidth);
-  const sxScale = srcWidth / targetWidth;
-  for (let x = 0; x < targetWidth; x++) {
-    const sx = Math.max(0, Math.min(srcWidth - 1, (x + 0.5) * sxScale - 0.5));
-    const a = Math.floor(sx);
-    x0[x] = a;
-    x1[x] = Math.min(srcWidth - 1, a + 1);
-    tx[x] = sx - a;
-  }
-
-  const syScale = srcHeight / targetHeight;
+  const n = targetWidth * targetHeight, values = new Float32Array(n * 3);
+  const mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225];
+  const xa = cubicAxis(srcWidth, targetWidth), ya = cubicAxis(srcHeight, targetHeight);
   for (let y = 0; y < targetHeight; y++) {
-    const sy = Math.max(0, Math.min(srcHeight - 1, (y + 0.5) * syScale - 0.5));
-    const y0 = Math.floor(sy);
-    const y1 = Math.min(srcHeight - 1, y0 + 1);
-    const wy = sy - y0;
-    const invWy = 1 - wy;
-    const row0 = y0 * srcWidth;
-    const row1 = y1 * srcWidth;
-    const dstRow = y * targetWidth;
+    const dstRow = y * targetWidth, yo = y * 4;
     for (let x = 0; x < targetWidth; x++) {
-      const wx = tx[x], invWx = 1 - wx;
-      const i00 = (row0 + x0[x]) * 4, i01 = (row0 + x1[x]) * 4;
-      const i10 = (row1 + x0[x]) * 4, i11 = (row1 + x1[x]) * 4;
-      const w00 = invWx * invWy, w01 = wx * invWy, w10 = invWx * wy, w11 = wx * wy;
-      const r = src[i00] * w00 + src[i01] * w01 + src[i10] * w10 + src[i11] * w11;
-      const g = src[i00 + 1] * w00 + src[i01 + 1] * w01 + src[i10 + 1] * w10 + src[i11 + 1] * w11;
-      const b = src[i00 + 2] * w00 + src[i01 + 2] * w01 + src[i10 + 2] * w10 + src[i11 + 2] * w11;
+      const xo = x * 4; let r = 0, g = 0, b = 0;
+      for (let ky = 0; ky < 4; ky++) {
+        const sy = ya.index[yo + ky], wy = ya.weight[yo + ky], srcRow = sy * srcWidth;
+        for (let kx = 0; kx < 4; kx++) {
+          const sx = xa.index[xo + kx], w = wy * xa.weight[xo + kx], si = (srcRow + sx) * 4;
+          r += src[si] * w; g += src[si + 1] * w; b += src[si + 2] * w;
+        }
+      }
       const i = dstRow + x;
-      values[i] = (r / 255 - meanR) / stdR;
-      values[n + i] = (g / 255 - meanG) / stdG;
-      values[2 * n + i] = (b / 255 - meanB) / stdB;
+      values[i] = (Math.max(0, Math.min(255, r)) / 255 - mean[0]) / std[0];
+      values[n + i] = (Math.max(0, Math.min(255, g)) / 255 - mean[1]) / std[1];
+      values[2 * n + i] = (Math.max(0, Math.min(255, b)) / 255 - mean[2]) / std[2];
     }
   }
-  const dims = [1, 3, targetHeight, targetWidth];
-  const tensor = new runtime.Tensor('float32', values, dims);
+  const dims = [1, 3, targetHeight, targetWidth], tensor = new runtime.Tensor('float32', values, dims);
   return {
-    tensor,
-    dims,
-    type: 'float32',
-    preprocessMs: performance.now() - started,
-    preprocessBackend: 'manual-rgba-nchw-bilinear',
-    plan,
-    rasterProbe: sourceRgbProbe(src, srcWidth, srcHeight),
-    inputRasterDiagnostic: captureDiagnostic ? {
-      sourcePreview: src.slice(0, required),
-      sourceWidth: srcWidth,
-      sourceHeight: srcHeight,
-      tensorNchwPreview: tensorRgbPreview(values, targetWidth, targetHeight, 'nchw'),
-      // V30.21 no longer spends another full raster pass constructing the hidden
-      // intentionally-wrong NHWC forensic image during the timing test.
-      tensorNhwcPreview: null,
-      tensorWidth: targetWidth,
-      tensorHeight: targetHeight,
-    } : null,
+    tensor, dims, type:'float32', preprocessMs:performance.now()-started,
+    preprocessBackend:'manual-rgba-nchw-opencv-bicubic', plan,
+    rasterProbe:sourceRgbProbe(src, srcWidth, srcHeight),
+    inputRasterDiagnostic:captureDiagnostic?{
+      sourcePreview:src.slice(0,required),sourceWidth:srcWidth,sourceHeight:srcHeight,
+      tensorNchwPreview:tensorRgbPreview(values,targetWidth,targetHeight,'nchw'),tensorNhwcPreview:null,
+      tensorWidth:targetWidth,tensorHeight:targetHeight,
+    }:null,
   };
 }
 
@@ -812,30 +789,22 @@ function scalarFromCpuBuffer(src, tensorType, index) {
 
 async function tensorCpuData(tensor) {
   if (!tensor) fail('tensore output ONNX mancante');
-
-  // IMPORTANT FOR WEBGPU:
-  // `tensor.data` is only guaranteed when the tensor is already CPU-resident.
-  // ONNX Runtime exposes getData() specifically to download gpu-buffer/texture
-  // outputs. Reading `.data` directly was the remaining path capable of
-  // producing a stable striped preview even while inference itself succeeded.
-  if (typeof tensor.getData === 'function') {
+  const location = String(tensor.location || '').toLowerCase();
+  // With preferredOutputLocation=cpu, the direct typed array is authoritative.
+  // Avoid forcing a device readback path for an already CPU-resident tensor.
+  if (!location || location === 'cpu' || location === 'cpu-pinned') {
     try {
-      const data = await tensor.getData(false);
-      if (data?.length) return { data, readback: 'getData', location: tensor.location || 'unknown' };
-    } catch (err) {
-      // Fall through only for runtimes that expose getData() but cannot use it
-      // for ordinary CPU outputs. The direct data accessor remains valid there.
-      try {
-        const data = tensor.data;
-        if (data?.length) return { data, readback: 'data-after-getData-error', location: tensor.location || 'cpu', getDataError: err?.message || String(err) };
-      } catch {}
-      throw err;
-    }
+      const data = tensor.data;
+      if (data?.length) return { data, readback:'cpu-data', location:location || 'cpu' };
+    } catch {}
   }
-
+  if (typeof tensor.getData === 'function') {
+    const data = await tensor.getData(false);
+    if (data?.length) return { data, readback:'getData', location:tensor.location || 'unknown' };
+  }
   const data = tensor.data;
   if (!data?.length) fail('output ONNX senza buffer CPU leggibile');
-  return { data, readback: 'data', location: tensor.location || 'cpu' };
+  return { data, readback:'data-fallback', location:tensor.location || 'cpu' };
 }
 
 function depthSpatialStats(depth, width, height) {
@@ -1173,7 +1142,11 @@ async function runWasmDiagnostic(d, reference) {
   let wasmSession = null;
   const started = performance.now();
   try {
-    wasmSession = await runtime.InferenceSession.create(modelBytes, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
+    wasmSession = await runtime.InferenceSession.create(modelBytes, {
+      executionProviders: ['wasm'],
+      graphOptimizationLevel: 'all',
+      preferredOutputLocation: 'cpu',
+    });
     const loadMs = performance.now() - started;
     const spec = inputSpec(wasmSession);
     const plan = reference.inputPlan;
@@ -1286,8 +1259,8 @@ function qualityScore(q) {
 async function maybeResolutionRescue(d, primary) {
   const primaryQuality = depthQualityDiagnosis(primary.spatialStats);
   const shortSide = Math.min(Number(primary.inputPlan?.width)||Infinity, Number(primary.inputPlan?.height)||Infinity);
-  const firstRescue = positiveNumber(cfg.qualityRescueShortSide, 280);
-  const maxRescue = positiveNumber(cfg.qualityMaxRescueShortSide, 336);
+  const firstRescue = positiveNumber(cfg.qualityRescueShortSide, 518);
+  const maxRescue = positiveNumber(cfg.qualityMaxRescueShortSide, 518);
   if (!primaryQuality.suspicious || !Number.isFinite(shortSide) || primary.inputPlan?.mode === 'metadata-fixed') {
     return { result: primary, attempted:false, accepted:false, primaryQuality, finalQuality:primaryQuality, attempts:[] };
   }
@@ -1308,8 +1281,8 @@ async function maybeResolutionRescue(d, primary) {
       if (score > bestScore + .15 || (!rescuedQuality.suspicious && bestQuality.suspicious)) {
         best = rescued; bestQuality = rescuedQuality; bestScore = score;
       }
-      // First structurally healthy raster wins. Avoid paying 336px after a good
-      // 280px map, keeping the steady-state mobile profile as light as possible.
+      // First structurally healthy raster wins. Avoid paying 518px after a good
+      // 392px map, keeping the steady-state mobile profile as light as possible.
       if (!rescuedQuality.suspicious) break;
     } catch (err) {
       attempts.push({side,failed:true,message:err?.message||String(err)});
@@ -1507,7 +1480,7 @@ async function handleWorkerMessage(d) {
     const firstRaw = await infer(d, { benchmark: d.type === 'test' });
     // V30.25: first distinguish a resolution-dependent DPT collapse from a genuine
     // WebGPU/Q4 problem. Phone screenshots at 112/168 px showed global bands; the
-    // same provider therefore climbs 224 -> 280 -> 336 only while the structural
+    // same provider therefore climbs 336 -> 392 -> 518 only while the structural
     // quality gate remains suspicious, before paying for a second WASM runtime.
     const resolutionRescue = await maybeResolutionRescue(d, firstRaw);
     const raw = resolutionRescue.result;

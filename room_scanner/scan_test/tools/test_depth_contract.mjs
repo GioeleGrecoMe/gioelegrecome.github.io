@@ -62,6 +62,26 @@ const prepared = await d.prepareInput(pixels, 2, 2, { type:'float32' }, { width:
 assert.equal(prepared.tensor.dims.join(','), '1,3,14,14');
 assert.equal(prepared.inputRasterDiagnostic.tensorNchwPreview[0], 255);
 assert.equal(prepared.inputRasterDiagnostic.tensorNchwPreview[1], 0);
+
+// Identity-size preprocessing must preserve the complete raster after
+// normalize -> diagnostic de-normalize. This catches RGB/BGR, NCHW/NHWC and
+// row/column-major regressions rather than checking only two pixels.
+const identityPixels = new Uint8ClampedArray(14 * 14 * 4);
+for (let y = 0; y < 14; y++) for (let x = 0; x < 14; x++) {
+  const i = (y * 14 + x) * 4;
+  identityPixels[i] = (17 * x + 3 * y) & 255;
+  identityPixels[i + 1] = (5 * x + 19 * y + 31) & 255;
+  identityPixels[i + 2] = (11 * x + 7 * y + 73) & 255;
+  identityPixels[i + 3] = 255;
+}
+const identity = await d.prepareInput(identityPixels, 14, 14, { type:'float32' }, { width:14, height:14 }, null, { Tensor:FakeTensor }, true);
+const preview = identity.inputRasterDiagnostic.tensorNchwPreview;
+for (let i = 0; i < 14 * 14; i++) {
+  assert.ok(Math.abs(preview[i * 4] - identityPixels[i * 4]) <= 1);
+  assert.ok(Math.abs(preview[i * 4 + 1] - identityPixels[i * 4 + 1]) <= 1);
+  assert.ok(Math.abs(preview[i * 4 + 2] - identityPixels[i * 4 + 2]) <= 1);
+  assert.equal(preview[i * 4 + 3], 255);
+}
 await assert.rejects(
   d.prepareInput(new Uint8ClampedArray(17), 2, 2, { type:'float32' }, { width:14, height:14 }, null, { Tensor:FakeTensor }),
   /shape errata/,
@@ -75,5 +95,6 @@ console.log(JSON.stringify({
   rowMajor:Array.from(rowMajor.rawDepth),
   strictOutputShape:true,
   strictRgbaShape:true,
+  fullRasterNchwRoundTrip:true,
   flipGate:true,
 }, null, 2));
