@@ -1,10 +1,10 @@
 // This identifier is deliberately present in the UI, diagnostic export and URLs.
 // It makes a stale GitHub Pages/service-worker cache immediately recognizable.
-const BUILD_ID = 'scan-test-v3.4.2-interactive-3d-viewer';
+const BUILD_ID = 'scan-test-v3.5.0-mobile-alva-two-pass-viewer';
 
-import { AlvaAR } from './vendor/alva_ar.js?v=scan-test-v3.4.2';
-import { CameraController, intrinsicsForCrop } from './camera.js?v=scan-test-v3.4.2';
-import { detectScanFeatures, matchArchivedFrames } from './feature_matching.js?v=scan-test-v3.4.2';
+import { AlvaAR } from './vendor/alva_ar.js?v=scan-test-v3.5.0';
+import { CameraController, intrinsicsForCrop } from './camera.js?v=scan-test-v3.5.0';
+import { detectScanFeatures, matchArchivedFrames } from './feature_matching.js?v=scan-test-v3.5.0';
 
 /*
  * Scan Test is deliberately separate from V30.  Its contract is intentionally
@@ -16,17 +16,32 @@ import { detectScanFeatures, matchArchivedFrames } from './feature_matching.js?v
 
 // Alva receives the complete source frame with its native orientation/aspect
 // ratio. Alva is much more stable when feature cells are not starved, so the
-// analysis raster uses a 960 px long side (upscaling low-resolution videos as
-// needed). Deep remains independent and performs a 336-px browser diagnostic profile
+// analysis raster uses 960 px for uploaded files on every platform. The live camera uses 960 px on desktop and 720 px on mobile.
+// Uploaded mobile videos use a deterministic capture-then-replay path, so the file can keep the more robust 960 px raster without dropping decoder frames.
+// Deep remains independent and performs a 336-px browser diagnostic profile
 // through DPTImageProcessor; this reduces mobile WASM work without touching Alva.
+function detectRuntimeProfile() {
+  const nav = typeof navigator !== 'undefined' ? navigator : {};
+  const ua = String(nav.userAgent || '');
+  const coarse = typeof matchMedia === 'function' && !!matchMedia('(pointer: coarse)').matches;
+  const mobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  const deviceMemory = Number(nav.deviceMemory) || null;
+  const hardwareConcurrency = Number(nav.hardwareConcurrency) || null;
+  const mobile = mobileUA || coarse;
+  // 720 is deliberate: in the bundled Alva tracker our regression sequence keeps
+  // the same valid-pose count as 960 while reducing the synchronous WASM cost.
+  // 640 can starve Alva's feature grid on some scenes, so we do not drop that far.
+  return Object.freeze({ mobile, mobileUA, coarse, deviceMemory, hardwareConcurrency, liveAlvaLongSide: mobile ? 720 : 960, fileAlvaLongSide: 960 });
+}
+const RUNTIME_PROFILE = detectRuntimeProfile();
 let W = 0;
 let H = 0;
 const ANALYSIS_LONG_SIDE = 960;
 const DEFAULT_ALVA_HZ = 12;
-// AlvaAR must receive the camera cadence, not the archive cadence. The camera
-// constraint is capped at 30 fps; using 60 here simply removes the controller's
-// software throttle so requestVideoFrameCallback can deliver every presented frame.
-const LIVE_TRACKER_HZ = 60;
+// A live camera cannot be replayed with back-pressure. Mobile therefore uses a
+// bounded 30 Hz request; uploaded mobile videos use the deterministic two-pass
+// path below and never execute Alva inside the decoder callback.
+const LIVE_TRACKER_HZ = RUNTIME_PROFILE.mobile ? 30 : 60;
 const LIVE_BOOTSTRAP_ARCHIVE_MAX_FRAMES = 24;
 // Uploaded videos are consumed by their actual decoded frame cadence when the
 // browser exposes requestVideoFrameCallback. This rate is only a compatibility
@@ -35,8 +50,9 @@ const FILE_FALLBACK_FPS = 30;
 const FILE_BOOTSTRAP_PLAYBACK_RATE = .0625;
 const FILE_STEADY_PLAYBACK_RATE = .25;
 const FILE_BOOTSTRAP_MEDIA_SECONDS = 2.0;
+const MOBILE_FILE_CAPTURE_RATE = .25;
 const PRE_ROLL_MAX_FRAMES = 12;
-const FILE_INIT_ARCHIVE_MAX_FRAMES = 90;
+const FILE_INIT_ARCHIVE_MAX_FRAMES = RUNTIME_PROFILE.mobile ? 60 : 90;
 const MAX_FRAME_MEMORY = 260 * 1024 * 1024;
 const $ = id => document.getElementById(id);
 const dom = Object.freeze({
@@ -62,6 +78,7 @@ const S = {
   deepWorker: null, deepWaiters: new Map(), deepContract: null, splats: null, planeSplats: null,
   lastDepthFrame: null, viewToken: 0, lastResult: null, fileDecodeStats: null,
   lastLiveArchiveAt: -Infinity, liveArchiveSamplesSinceRecord: 0, offlineFovDeg: null, trackerFovDeg: 45, trackerFovSweep: null,
+  alvaHealth: { status:0, resets:0, zeroStreak:0, lastPoints:0, emaMs:0, maxMs:0, lastPresentedFrames:null, skippedPresented:0, lastMediaTime:null, mediaGapMs:0 },
   viewer3d: { yaw: Math.PI / 4, pitch: -Math.atan(1 / Math.sqrt(2)), zoom: 1, panX: 0, panY: 0, cache: null, pointers: new Map(), gesture: null },
 };
 
@@ -154,10 +171,38 @@ function liveArchiveDue(raster) {
   S.liveArchiveSamplesSinceRecord++;
   return true;
 }
+function alvaStatusLabel(status) {
+  return status === 1 ? 'TRACKING' : status === 2 ? 'RESET' : 'INIT';
+}
 function sampleLiveTracker(raster, { archive = true } = {}) {
   let matrix = null, points = [];
-  try { const raw = S.alva?.findCameraPose(raster.imageData); if (raw?.length >= 16) matrix = Array.from(raw, Number).slice(0, 16); points = compactAlvaPoints(S.alva?.getFramePoints?.()); }
-  catch (err) { log('alvaar-live-call', { message: errorText(err) }, 'WARN'); }
+  const h = S.alvaHealth;
+  const t0 = performance.now();
+  try {
+    const raw = S.alva?.findCameraPose(raster.imageData);
+    if (raw?.length >= 16) matrix = Array.from(raw, Number).slice(0, 16);
+    points = compactAlvaPoints(S.alva?.getFramePoints?.());
+  } catch (err) {
+    log('alvaar-live-call', { message: errorText(err) }, 'WARN');
+  }
+  const elapsed = Math.max(0, performance.now() - t0);
+  const status = Number(S.alva?.lastStatus ?? S.alva?.getLastStatus?.() ?? (matrix ? 1 : 0));
+  const presented = Number(raster.presentedFrames);
+  let presentedGap = 0;
+  if (Number.isFinite(presented)) {
+    if (Number.isFinite(h.lastPresentedFrames)) presentedGap = Math.max(0, presented - h.lastPresentedFrames - 1);
+    h.lastPresentedFrames = presented;
+    h.skippedPresented += presentedGap;
+  }
+  const mediaTime = Number(raster.mediaTime);
+  if (Number.isFinite(mediaTime) && Number.isFinite(h.lastMediaTime)) h.mediaGapMs = Math.max(0, (mediaTime - h.lastMediaTime) * 1000);
+  if (Number.isFinite(mediaTime)) h.lastMediaTime = mediaTime;
+  h.emaMs = h.emaMs ? h.emaMs * .88 + elapsed * .12 : elapsed;
+  h.maxMs = Math.max(h.maxMs, elapsed);
+  h.status = status;
+  if (status === 2) h.resets++;
+  h.zeroStreak = points.length ? 0 : h.zeroStreak + 1;
+
   S.trackingSamples++;
   S.liveMatrix = matrix;
   S.livePose = alvaMatrixToPose(matrix);
@@ -165,12 +210,26 @@ function sampleLiveTracker(raster, { archive = true } = {}) {
   if (S.livePose) S.trackingPoses++;
   drawLiveOverlay(points, S.livePose);
   const init = !S.livePose && S.trackingPoses === 0;
-  setBadge(dom.trackingBadge, S.livePose ? `AlvaAR · ${points.length} punti` : init ? `AlvaAR inizializza · ${points.length} punti` : 'AlvaAR senza posa', S.livePose ? 'ok' : 'warn');
+  const statusText = alvaStatusLabel(status);
+  setBadge(dom.trackingBadge,
+    S.livePose ? `AlvaAR · ${points.length} punti · ${elapsed.toFixed(0)} ms`
+      : status === 2 ? `AlvaAR RESET · ${points.length} punti`
+      : init ? `AlvaAR inizializza · ${points.length} punti`
+      : `AlvaAR senza posa · ${points.length} punti`,
+    S.livePose ? 'ok' : 'warn');
   dom.liveFeatures.textContent = String(points.length);
+  if (dom.liveActivity && S.source === 'camera') {
+    dom.liveActivity.textContent = `ALVA ${statusText} · ${points.length} punti · ${elapsed.toFixed(0)} ms/frame · skip compositor ${h.skippedPresented} · reset ${h.resets}`;
+  }
+
+  if (status === 2) log('alvaar-tracking-reset', { sample:S.trackingSamples, points:points.length, elapsedMs:+elapsed.toFixed(2), mediaTime:raster.mediaTime, presentedFrames:raster.presentedFrames, skippedPresented:h.skippedPresented, resets:h.resets }, 'WARN');
+  if (!points.length && h.lastPoints > 0) log('alvaar-points-zero-transition', { sample:S.trackingSamples, previousPoints:h.lastPoints, status:statusText, elapsedMs:+elapsed.toFixed(2), presentedGap, mediaGapMs:+h.mediaGapMs.toFixed(1) }, status === 2 ? 'WARN' : 'INFO');
+  if (presentedGap > 0) log('alvaar-presented-frame-gap', { sample:S.trackingSamples, missed:presentedGap, totalMissed:h.skippedPresented, elapsedMs:+elapsed.toFixed(2), status:statusText }, 'WARN');
+  if (S.trackingSamples % 30 === 0) log('alvaar-health', { sample:S.trackingSamples, status:statusText, points:points.length, poses:S.trackingPoses, emaMs:+h.emaMs.toFixed(2), maxMs:+h.maxMs.toFixed(2), zeroStreak:h.zeroStreak, resets:h.resets, skippedPresented:h.skippedPresented, raster:[W,H], runtime:RUNTIME_PROFILE });
+  h.lastPoints = points.length;
+
   // Tracking cadence and storage cadence are deliberately decoupled. Alva sees
-  // every presented camera frame; only the immutable archive is throttled.
-  // Before the first pose we keep a short dense bootstrap so an offline tracker
-  // can reproduce initialization instead of receiving an 8–12 fps sequence.
+  // every frame selected by the controller; only the immutable archive is throttled.
   if (S.recording) { if (archive && liveArchiveDue(raster)) archiveFrame(raster, { phase: S.trackingPoses ? 'scan' : 'alva-warmup' }); }
   else rememberPreRoll(raster);
 }
@@ -200,22 +259,26 @@ function rememberPreRoll(raster) {
   S.preRoll.push({ ...raster, rgba: new Uint8ClampedArray(raster.rgba), gray: new Uint8Array(raster.gray), geometry: { ...raster.geometry }, ...snapshot });
   if (S.preRoll.length > PRE_ROLL_MAX_FRAMES) S.preRoll.shift();
 }
-function archiveFrame(raster, { phase = 'scan' } = {}) {
+function archiveFrame(raster, { phase = 'scan', deferFeatures = false, deferThumbnail = false } = {}) {
   if (S.frameBytes + raster.rgba.byteLength + raster.gray.byteLength > MAX_FRAME_MEMORY) {
     S.recording = false; $('stopBtn').disabled = true; $('recordBtn').disabled = true;
     dom.captureCoach.textContent = 'Limite di memoria raggiunto: immagini già archiviate e conservate. Procedi con la rielaborazione.';
     log('archive-memory-limit', { bytes: S.frameBytes, max: MAX_FRAME_MEMORY }, 'WARN'); return;
   }
   const alvaPoints = raster.alvaPoints?.map(p => ({ ...p })) || S.livePoints.map(p => ({ ...p }));
-  const features = detectScanFeatures(raster.gray, W, H, alvaPoints);
+  // During the first pass of an uploaded mobile video the decoder callback must
+  // stay as small as possible. Feature extraction and thumbnail rendering are
+  // deliberately deferred until the video has been paused and Alva replayed.
+  const features = deferFeatures ? [] : detectScanFeatures(raster.gray, W, H, alvaPoints);
   const index = S.frames.length;
   const frame = { id: `frame-${String(index).padStart(4, '0')}`, sourceFrameId: raster.frameId, index, at: raster.at, mediaTime: raster.mediaTime, width: W, height: H, source: raster.source || S.source,
     rgba: new Uint8ClampedArray(raster.rgba), gray: new Uint8Array(raster.gray), K: { ...S.K }, geometry: { ...raster.geometry },
-    phase, liveMatrix: raster.liveMatrix?.slice() || S.liveMatrix?.slice() || null, livePose: clonePose(raster.livePose || S.livePose), livePoints: alvaPoints.length, liveAlvaPoints: alvaPoints, features,
+    phase, liveMatrix: raster.liveMatrix?.slice() || S.liveMatrix?.slice() || null, livePose: clonePose(raster.livePose || S.livePose), livePoints: alvaPoints.length, liveAlvaPoints: alvaPoints, features, featuresDeferred:!!deferFeatures,
     offlineMatrix: null, offlinePose: null, offlinePoints: [], pose: null, poseSource: 'unresolved', poseConfidence: 0, deep: null };
   S.frames.push(frame); S.frameBytes += frame.rgba.byteLength + frame.gray.byteLength + features.length * 48;
-  appendThumb(frame); updateArchiveUi();
-  if (index % 8 === 0) log('frame-archived', { id: frame.id, phase, livePose: !!frame.livePose, alvaPoints: alvaPoints.length, features: features.length, total: S.frames.length });
+  if (!deferThumbnail) appendThumb(frame);
+  updateArchiveUi();
+  if (index % 8 === 0) log('frame-archived', { id: frame.id, phase, livePose: !!frame.livePose, alvaPoints: alvaPoints.length, features: features.length, deferredFeatures:!!deferFeatures, deferredThumbnail:!!deferThumbnail, total: S.frames.length });
 }
 function appendThumb(frame) {
   const node = dom.frameTemplate.content.firstElementChild.cloneNode(true), c = node.querySelector('canvas'), g = c.getContext('2d');
@@ -224,13 +287,19 @@ function appendThumb(frame) {
   g.fillStyle = '#050c15'; g.fillRect(0, 0, c.width, c.height);
   const scale = Math.min(c.width / frame.width, c.height / frame.height), dw = frame.width * scale, dh = frame.height * scale;
   g.drawImage(tmp, (c.width - dw) * .5, (c.height - dh) * .5, dw, dh);
-  node.querySelector('span').textContent = `${frame.index + 1} · ${frame.livePose ? 'P' : '—'} · ${frame.features.length}k`;
+  const measuredPose = frame.offlinePose || frame.livePose;
+  node.querySelector('span').textContent = `${frame.index + 1} · ${measuredPose ? 'P' : '—'} · ${frame.features.length}k`;
   node.addEventListener('click', () => { S.selectedFrame = frame.index; for (const x of dom.frameStrip.querySelectorAll('.selected')) x.classList.remove('selected'); node.classList.add('selected'); if (frame.deep) { S.lastDepthFrame = frame; drawDepth(frame.deep); } });
   dom.frameStrip.querySelector('.empty')?.remove(); dom.frameStrip.append(node);
 }
+function rebuildFrameStrip() {
+  dom.frameStrip.innerHTML = '';
+  for (const frame of S.frames) appendThumb(frame);
+  if (!S.frames.length) dom.frameStrip.innerHTML = '<p class="empty">L\'archivio comparirà qui. I fotogrammi sono mantenuti in memoria per la riesecuzione offline e Deep.</p>';
+}
 function updateArchiveUi() {
-  const poses = S.frames.filter(f => f.livePose).length;
-  dom.poseCount.textContent = String(S.trackingPoses); dom.frameCount.textContent = String(S.frames.length); dom.memoryCount.textContent = `${(S.frameBytes / 1048576).toFixed(1)} MB`;
+  const poses = S.offlineDone ? S.frames.filter(f => f.offlinePose || f.livePose).length : S.frames.filter(f => f.livePose).length;
+  dom.poseCount.textContent = String(S.offlineDone ? poses : S.trackingPoses); dom.frameCount.textContent = String(S.frames.length); dom.memoryCount.textContent = `${(S.frameBytes / 1048576).toFixed(1)} MB`;
   dom.archiveState.textContent = `${S.frames.length} / ${poses} pose`;
 }
 
@@ -242,17 +311,30 @@ async function startCaptureSource({ source, label, url = null, autoRecord = fals
   dom.runtimeStatus.textContent = `Preparo ${label}: prima leggo le dimensioni reali del video, poi inizializzo Alva sullo stesso aspect ratio.`;
   if (url) { dom.camera.srcObject = null; dom.camera.src = url; dom.camera.loop = false; dom.camera.muted = true; dom.camera.playsInline = true; }
   const archiveHz = clamp(numberValue('archiveFps', DEFAULT_ALVA_HZ), 3, 15);
-  const capture = new CameraController({ video: dom.camera, longSide: ANALYSIS_LONG_SIDE, fps: source === 'camera' ? LIVE_TRACKER_HZ : archiveHz, source, cameraAuthorized: source !== 'camera' || cameraAuthorized === true, log: { info: (event, data) => log(event, data), warn: (event, data) => log(event, data, 'WARN') } });
+  const sourceLongSide = source === 'camera' ? RUNTIME_PROFILE.liveAlvaLongSide : RUNTIME_PROFILE.fileAlvaLongSide;
+  const capture = new CameraController({ video: dom.camera, longSide: sourceLongSide, fps: source === 'camera' ? LIVE_TRACKER_HZ : archiveHz, source, cameraAuthorized: source !== 'camera' || cameraAuthorized === true, log: { info: (event, data) => log(event, data), warn: (event, data) => log(event, data, 'WARN') } });
   await capture.start({ autoplay: source !== 'file' });
   W = capture.width; H = capture.height;
   if (!(W >= 2 && H >= 2)) { capture.stop(); throw new Error(`Raster Alva non valido: ${W}×${H}`); }
   S.capture = capture; S.source = source; S.K = intrinsics(capture.geometry);
-  // Official AlvaAR usage: initialize on the exact raster that will be passed to
-  // findCameraPose(). Do not force portrait sources into a landscape 4:3 crop.
+  // On mobile uploaded files we intentionally do NOT run Alva while the decoder
+  // is advancing. requestVideoFrameCallback runs on the main thread, so a slow
+  // synchronous SLAM call can make the compositor skip the very frames required
+  // for bootstrap. We first capture a dense immutable sequence, stop the decoder,
+  // then replay that sequence through a fresh Alva instance with true back-pressure.
+  const deferFileTracking = source === 'file' && RUNTIME_PROFILE.mobile;
   S.trackerFovDeg = 45;
-  setActivity('ALVA · INIT', `Inizializzo AlvaAR su raster ${W}×${H} · fovA ${S.trackerFovDeg}°...`, 'busy');
-  S.alva = await AlvaAR.Initialize(W, H, S.trackerFovDeg);
-  if (!S.alva?.findCameraPose) { capture.stop(); S.capture = null; throw new Error('AlvaAR.Initialize non ha restituito un tracker valido.'); }
+  if (deferFileTracking) {
+    S.alva = null;
+    setActivity('VIDEO · PASSO 1/2', `Profilo mobile: acquisisco frame ${W}×${H}; Alva partirà a video fermo.`, 'busy');
+    setBadge(dom.trackingBadge, 'AlvaAR · differito (mobile)', 'warn');
+    dom.liveFeatures.textContent = '—';
+    log('alvaar-mobile-two-pass-enabled', { raster:[W,H], runtime:RUNTIME_PROFILE, reason:'avoid synchronous Alva inside requestVideoFrameCallback' });
+  } else {
+    setActivity('ALVA · INIT', `Inizializzo AlvaAR su raster ${W}×${H} · fovA ${S.trackerFovDeg}°...`, 'busy');
+    S.alva = await AlvaAR.Initialize(W, H, S.trackerFovDeg);
+    if (!S.alva?.findCameraPose) { capture.stop(); S.capture = null; throw new Error('AlvaAR.Initialize non ha restituito un tracker valido.'); }
+  }
   S.trackingStarted = true;
   capture.addEventListener('ended', () => {
     if (S.recording) stopRecording({ reason: 'video-ended' });
@@ -271,11 +353,15 @@ async function startCaptureSource({ source, label, url = null, autoRecord = fals
   } else capture.loop(handleCaptureFrame);
   $('openCameraBtn').disabled = true; $('fixtureBtn').disabled = true; $('videoFile').disabled = true; $('recordBtn').disabled = source === 'file' || S.recording; $('testDeepBtn').disabled = false; $('fovInput').disabled = true; $('archiveFps').disabled = true;
   const exactAspect = Math.abs((capture.geometry.sourceWidth / capture.geometry.sourceHeight) - (W / H)) < 1e-3;
-  dom.runtimeStatus.textContent = `${label} pronto · sorgente ${dom.camera.videoWidth}×${dom.camera.videoHeight} → Alva ${W}×${H} · frame completo, crop 0% · Deep su richiesta.`;
-  dom.captureCoach.textContent = source === 'file' ? 'Video caricato: ogni frame decodificato viene passato ad Alva nello stesso orientamento/aspect ratio del file. Deep non parte automaticamente: prima puoi verificare separatamente le pose.' : 'Muovi lentamente la camera con parallasse. Il raster Alva conserva orientamento e intero campo visivo della camera.';
-  setGlobal(`${label} + AlvaAR pronti`, 'ok'); setStep(2);
-  setActivity('ALVA · PRONTO', `${label} · raster ${W}×${H} · in attesa/acquisizione`, 'ok');
-  log('capture-source-ready', { source, K: S.K, trackerInit:'AlvaAR.Initialize(width,height,trackerFovDeg)', trackerFovDeg:S.trackerFovDeg, trackerRaster:[W,H], trackerTargetHz: source === 'camera' ? LIVE_TRACKER_HZ : 'continuous-native-decoder', archiveHz, geometry: capture.geometry, sourceVideo: { width: dom.camera.videoWidth, height: dom.camera.videoHeight }, exactAspectPreserved:exactAspect, autoRecord });
+  dom.runtimeStatus.textContent = deferFileTracking
+    ? `${label} pronto · sorgente ${dom.camera.videoWidth}×${dom.camera.videoHeight} → archivio mobile ${W}×${H} · Alva verrà eseguito dopo la decodifica.`
+    : `${label} pronto · sorgente ${dom.camera.videoWidth}×${dom.camera.videoHeight} → Alva ${W}×${H} · frame completo, crop 0% · Deep su richiesta.`;
+  dom.captureCoach.textContent = source === 'file'
+    ? (deferFileTracking ? 'Modalità mobile a due passaggi: prima acquisisco i frame senza bloccare il decoder; poi, a video fermo, Alva li elabora uno per uno.' : 'Video caricato: ogni frame decodificato viene passato ad Alva nello stesso orientamento/aspect ratio del file.')
+    : 'Muovi lentamente la camera con parallasse. Il raster Alva conserva orientamento e intero campo visivo della camera.';
+  setGlobal(deferFileTracking ? `${label} · acquisizione mobile pronta` : `${label} + AlvaAR pronti`, 'ok'); setStep(2);
+  setActivity(deferFileTracking ? 'VIDEO · PASSO 1/2' : 'ALVA · PRONTO', deferFileTracking ? `${label} · acquisizione frame ${W}×${H}` : `${label} · raster ${W}×${H} · in attesa/acquisizione`, 'ok');
+  log('capture-source-ready', { source, K: S.K, trackerInit:deferFileTracking?'deferred-until-decoder-stopped':'AlvaAR.Initialize(width,height,trackerFovDeg)', trackerFovDeg:S.trackerFovDeg, trackerRaster:[W,H], trackerTargetHz: source === 'camera' ? LIVE_TRACKER_HZ : (deferFileTracking?'two-pass-mobile':'continuous-native-decoder'), archiveHz, geometry: capture.geometry, sourceVideo: { width: dom.camera.videoWidth, height: dom.camera.videoHeight }, exactAspectPreserved:exactAspect, autoRecord, runtime:RUNTIME_PROFILE });
   if (autoRecord && !S.recording) startRecording();
 }
 async function openCamera() {
@@ -296,25 +382,28 @@ async function processUploadedVideo(capture) {
   video.pause();
   try { video.currentTime = 0; } catch {}
   const nativeFrames = typeof video.requestVideoFrameCallback === 'function';
+  const deferAlva = RUNTIME_PROFILE.mobile;
   const requestedArchiveFps = clamp(numberValue('archiveFps', DEFAULT_ALVA_HZ), 3, 15);
-  // Tracking and storage must not share the same cadence. A full analysis frame costs
-  // ~1.5 MB as RGBA+gray, so archiving every 30-fps decoded frame exhausts the
-  // 260 MB budget in only a few seconds. Alva still sees every unique decoded
-  // frame; we retain a dense bootstrap until its first pose and then adapt the
-  // archive cadence to the remaining memory and video duration.
   const estimatedFrameBytes = W * H * 5 + 720 * 48;
-  const maxArchiveFrames = Math.max(12, Math.floor(MAX_FRAME_MEMORY * .90 / estimatedFrameBytes));
+  const memoryArchiveFrames = Math.max(12, Math.floor(MAX_FRAME_MEMORY * .90 / estimatedFrameBytes));
+  // A 960px portrait frame is expensive (~3.5 MB for RGBA+gray before JS
+  // overhead). Keep a hard mobile ceiling so the deterministic bootstrap does
+  // not fix tracking at the price of exhausting the browser heap before Deep.
+  const maxArchiveFrames = RUNTIME_PROFILE.mobile ? Math.min(56, memoryArchiveFrames) : memoryArchiveFrames;
   const bootstrapCap = Math.max(8, Math.min(FILE_INIT_ARCHIVE_MAX_FRAMES, maxArchiveFrames - 8));
 
-  setGlobal('Video: decodifica sequenziale AlvaAR…', '');
-  setActivity('VIDEO · DECODIFICA', `Avvio decoder continuo · durata ${duration.toFixed(2)} s · Alva ${W}×${H}`, 'busy');
-  dom.runtimeStatus.textContent = nativeFrames
-    ? 'Leggo i frame realmente presentati dal decoder. AlvaAR vede ogni frame unico; l’archivio viene diradato solo dopo il bootstrap.'
-    : `requestVideoFrameCallback non disponibile: fallback seek a ${FILE_FALLBACK_FPS} fps con controllo firma frame.`;
-  log('uploaded-video-native-decode-start', { duration, mode:nativeFrames?'continuous-requestVideoFrameCallback':'seek-fallback', fallbackFps:FILE_FALLBACK_FPS, requestedArchiveFps, maxArchiveFrames, bootstrapCap, alvaRaster:[W,H], source:S.source });
+  setGlobal(deferAlva ? 'Video mobile: acquisizione frame…' : 'Video: decodifica sequenziale AlvaAR…', '');
+  setActivity(deferAlva ? 'VIDEO · PASSO 1/2' : 'VIDEO · DECODIFICA',
+    deferAlva ? `Acquisisco una sequenza densa ${W}×${H}; Alva è sospeso finché il decoder non si ferma.` : `Avvio decoder continuo · durata ${duration.toFixed(2)} s · Alva ${W}×${H}`, 'busy');
+  dom.runtimeStatus.textContent = deferAlva
+    ? 'Modalità mobile deterministica: il decoder salva prima i frame; Alva li elaborerà dopo, uno per uno, senza poter perdere il bootstrap.'
+    : (nativeFrames ? 'Leggo i frame realmente presentati dal decoder. AlvaAR vede ogni frame unico; l’archivio viene diradato solo dopo il bootstrap.' : `requestVideoFrameCallback non disponibile: fallback seek a ${FILE_FALLBACK_FPS} fps.`);
+  if (deferAlva) { setBadge(dom.trackingBadge, 'AlvaAR · attende fine decoder', 'warn'); dom.liveFeatures.textContent = '—'; }
+  log('uploaded-video-native-decode-start', { duration, mode:nativeFrames?'continuous-requestVideoFrameCallback':'seek-fallback', deferAlva, fallbackFps:FILE_FALLBACK_FPS, requestedArchiveFps, maxArchiveFrames, bootstrapCap, alvaRaster:[W,H], source:S.source, runtime:RUNTIME_PROFILE });
 
   let decodedCallbacks = 0, uniqueFrames = 0, lastMediaTime = -Infinity, lastSignature = null, repeatedContent = 0;
   let lastArchiveMediaTime = -Infinity, firstPoseDecodedFrame = null, firstPoseMediaTime = null;
+  let lastPresentedFrames = null, presentedFrameDrops = 0, capturePlaybackRate = deferAlva ? MOBILE_FILE_CAPTURE_RATE : FILE_BOOTSTRAP_PLAYBACK_RATE;
 
   const consumeFrame = (frame) => {
     decodedCallbacks++;
@@ -327,57 +416,87 @@ async function processUploadedVideo(capture) {
     lastMediaTime = frame.mediaTime;
     uniqueFrames++;
 
-    // Run Alva on every unique decoded frame, but defer the storage decision
-    // until after this call so the first valid pose is guaranteed to be saved.
-    handleCaptureFrame(frame, { archive:false });
-    const firstPoseNow = !!S.livePose && firstPoseDecodedFrame == null;
-    if (firstPoseNow) { firstPoseDecodedFrame = uniqueFrames; firstPoseMediaTime = frame.mediaTime; }
+    const pf = Number(frame.presentedFrames);
+    if (Number.isFinite(pf)) {
+      if (Number.isFinite(lastPresentedFrames)) {
+        const gap = Math.max(0, pf - lastPresentedFrames - 1);
+        if (gap) {
+          presentedFrameDrops += gap;
+          log('video-presented-frame-gap', { frame:uniqueFrames, missed:gap, totalMissed:presentedFrameDrops, mediaTime:frame.mediaTime, playbackRate:Number(video.playbackRate)||capturePlaybackRate }, 'WARN');
+          // The first pass is intentionally cheap. If the compositor still drops
+          // frames, slow the file further instead of silently accepting a sparse bootstrap.
+          if (deferAlva && nativeFrames && capturePlaybackRate > .125) {
+            capturePlaybackRate = Math.max(.125, capturePlaybackRate * .5);
+            try { video.playbackRate = capturePlaybackRate; } catch {}
+            log('video-mobile-capture-slowdown', { playbackRate:capturePlaybackRate, totalMissed:presentedFrameDrops }, 'WARN');
+          }
+        }
+      }
+      lastPresentedFrames = pf;
+    }
 
-    const bootstrap = firstPoseDecodedFrame == null && S.frames.length < bootstrapCap;
+    if (deferAlva) {
+      // Crucial mobile invariant: no findCameraPose() call is allowed while the
+      // file decoder is running. This keeps requestVideoFrameCallback lightweight.
+      S.current = frame;
+    } else {
+      handleCaptureFrame(frame, { archive:false });
+      const firstPoseNow = !!S.livePose && firstPoseDecodedFrame == null;
+      if (firstPoseNow) { firstPoseDecodedFrame = uniqueFrames; firstPoseMediaTime = frame.mediaTime; }
+    }
+
+    const bootstrap = deferAlva ? S.frames.length < bootstrapCap : (firstPoseDecodedFrame == null && S.frames.length < bootstrapCap);
     const remainingSlots = Math.max(0, maxArchiveFrames - S.frames.length);
     const remainingSeconds = Math.max(.05, duration - frame.mediaTime);
     const adaptiveFps = Math.max(.05, Math.min(requestedArchiveFps, remainingSlots / remainingSeconds));
     const archivePeriod = 1 / adaptiveFps;
+    const firstPoseNow = !deferAlva && !!S.livePose && firstPoseDecodedFrame === uniqueFrames;
     const due = firstPoseNow || bootstrap || !S.frames.length || frame.mediaTime - lastArchiveMediaTime >= archivePeriod * .92 || frame.mediaTime >= duration - .04;
     if (S.recording && remainingSlots > 0 && due) {
-      archiveFrame(frame, { phase:firstPoseDecodedFrame == null ? 'alva-warmup' : 'scan' });
+      archiveFrame(frame, {
+        phase:(deferAlva || firstPoseDecodedFrame == null) ? 'alva-warmup' : 'scan',
+        deferFeatures:deferAlva,
+        deferThumbnail:deferAlva,
+      });
       lastArchiveMediaTime = frame.mediaTime;
     }
     return true;
   };
 
   if (nativeFrames) {
-    // IMPORTANT: keep one playback session alive for the entire file. The old
-    // play()/pause() per-frame stepping can skip Alva's initialization frames.
-    // consumeDecodedFrames() also captures the already-decoded t=0 frame before
-    // calling play() and slows media time so synchronous Alva work can keep up.
-    // Mobile-safe bootstrap: requestVideoFrameCallback is a presentation callback,
-    // not a decoder queue. If synchronous Alva work blocks the main thread, frames
-    // can be skipped. Start extremely slowly for the first ~2 s of media (or until
-    // Alva has locked), then accelerate. This preserves the bootstrap sequence on
-    // Android without making the whole video 16x slower.
     const bootstrapMedia = Math.min(FILE_BOOTSTRAP_MEDIA_SECONDS, duration);
-    const timeoutMs = Math.max(45000, Math.ceil((bootstrapMedia / FILE_BOOTSTRAP_PLAYBACK_RATE + Math.max(0, duration - bootstrapMedia) / FILE_STEADY_PLAYBACK_RATE) * 1500 + 20000));
-    let playbackStage = 'bootstrap';
+    const initialRate = deferAlva ? MOBILE_FILE_CAPTURE_RATE : FILE_BOOTSTRAP_PLAYBACK_RATE;
+    capturePlaybackRate = initialRate;
+    const timeoutMs = Math.max(45000, Math.ceil((duration / Math.max(.0625, initialRate)) * 1700 + 30000));
+    let playbackStage = deferAlva ? 'capture-pass' : 'bootstrap';
     const decode = await capture.consumeDecodedFrames((frame) => {
       if (!S.recording) return;
       const consumed = consumeFrame(frame);
-      const bootstrapDone = S.trackingPoses >= 2 || frame.mediaTime >= bootstrapMedia;
-      if (bootstrapDone && playbackStage === 'bootstrap') {
-        playbackStage = 'steady';
-        try { video.playbackRate = FILE_STEADY_PLAYBACK_RATE; } catch {}
-        log('uploaded-video-playback-stage', { stage:'steady', mediaTime:frame.mediaTime, trackingPoses:S.trackingPoses, playbackRate:FILE_STEADY_PLAYBACK_RATE });
+      if (!deferAlva) {
+        const bootstrapDone = S.trackingPoses >= 2 || (frame.mediaTime >= bootstrapMedia && S.alvaHealth.status === 1);
+        if (bootstrapDone && playbackStage === 'bootstrap') {
+          playbackStage = 'steady';
+          try { video.playbackRate = FILE_STEADY_PLAYBACK_RATE; } catch {}
+          log('uploaded-video-playback-stage', { stage:'steady', mediaTime:frame.mediaTime, trackingPoses:S.trackingPoses, playbackRate:FILE_STEADY_PLAYBACK_RATE });
+        }
+      }
+      if (deferAlva && capturePlaybackRate < .5 && S.frames.length >= bootstrapCap && frame.mediaTime >= Math.min(FILE_BOOTSTRAP_MEDIA_SECONDS, duration)) {
+        capturePlaybackRate = .5;
+        try { video.playbackRate = capturePlaybackRate; } catch {}
+        log('video-mobile-capture-stage', { stage:'steady-capture', playbackRate:capturePlaybackRate, archived:S.frames.length, mediaTime:frame.mediaTime });
       }
       if (consumed && (uniqueFrames % 6 === 0 || frame.mediaTime >= duration - .05)) {
         const pct = Math.min(100, 100 * frame.mediaTime / duration);
-        const status = `AlvaAR ${playbackStage} ${uniqueFrames} · t=${frame.mediaTime.toFixed(2)}/${duration.toFixed(2)} s (${pct.toFixed(0)}%) · pose ${S.trackingPoses} · archivio ${S.frames.length}`;
+        const status = deferAlva
+          ? `PASSO 1/2 · frame ${uniqueFrames} · ${pct.toFixed(0)}% · archivio ${S.frames.length}/${maxArchiveFrames} · frame saltati ${presentedFrameDrops}`
+          : `AlvaAR ${playbackStage} ${uniqueFrames} · t=${frame.mediaTime.toFixed(2)}/${duration.toFixed(2)} s (${pct.toFixed(0)}%) · pose ${S.trackingPoses} · archivio ${S.frames.length}`;
         dom.runtimeStatus.textContent = status;
         if (dom.liveActivity) dom.liveActivity.textContent = status;
       }
-    }, { timeout:timeoutMs, playbackRate:FILE_BOOTSTRAP_PLAYBACK_RATE, includeInitial:true });
+    }, { timeout:timeoutMs, playbackRate:initialRate, includeInitial:true });
     repeatedContent += Number(decode?.duplicates) || 0;
     if (Number.isFinite(decode?.lastMediaTime)) lastMediaTime = Math.max(lastMediaTime, decode.lastMediaTime);
-    log('uploaded-video-continuous-decode', { ...decode, timeoutMs, callbacksAccepted:uniqueFrames, initialPlaybackRate:FILE_BOOTSTRAP_PLAYBACK_RATE, steadyPlaybackRate:FILE_STEADY_PLAYBACK_RATE, playbackStage });
+    log('uploaded-video-continuous-decode', { ...decode, timeoutMs, callbacksAccepted:uniqueFrames, initialPlaybackRate:initialRate, finalPlaybackRate:capturePlaybackRate, steadyPlaybackRate:deferAlva?null:FILE_STEADY_PLAYBACK_RATE, playbackStage, deferAlva, presentedFrameDrops });
   } else {
     const step = 1 / FILE_FALLBACK_FPS, total = Math.max(1, Math.ceil(duration * FILE_FALLBACK_FPS));
     for (let index = 0; index < total && S.recording; index++) {
@@ -388,39 +507,51 @@ async function processUploadedVideo(capture) {
       if (frame.mediaTime <= lastMediaTime + 1e-6 && uniqueFrames) continue;
       const consumed = consumeFrame(frame);
       if (consumed && (uniqueFrames % 6 === 0 || index + 1 === total)) {
-        dom.runtimeStatus.textContent = `Fallback video ${uniqueFrames} frame unici · t=${frame.mediaTime.toFixed(2)} s · pose ${S.trackingPoses} · archivio ${S.frames.length}`;
+        dom.runtimeStatus.textContent = deferAlva ? `PASSO 1/2 fallback · ${uniqueFrames} frame · archivio ${S.frames.length}` : `Fallback video ${uniqueFrames} frame unici · pose ${S.trackingPoses} · archivio ${S.frames.length}`;
         await nextPaint();
       }
     }
   }
 
-  if (!uniqueFrames) throw new Error('Il decoder non ha consegnato alcun frame univoco al canvas/AlvaAR.');
+  if (!uniqueFrames) throw new Error('Il decoder non ha consegnato alcun frame univoco al canvas.');
   S.fileDecodeStats = {
-    duration, mode:nativeFrames?'continuous-requestVideoFrameCallback':'seek-fallback', decodedCallbacks, uniqueFrames, repeatedContent,
-    firstPoseDecodedFrame, firstPoseMediaTime, trackingPoses:S.trackingPoses, archivedFrames:S.frames.length,
-    maxArchiveFrames, bootstrapCap, requestedArchiveFps, lastMediaTime,
+    duration, mode:nativeFrames?'continuous-requestVideoFrameCallback':'seek-fallback', deferredMobileTracking:deferAlva,
+    decodedCallbacks, uniqueFrames, repeatedContent, presentedFrameDrops,
+    firstPoseDecodedFrame, firstPoseMediaTime, liveTrackingPoses:S.trackingPoses, archivedFrames:S.frames.length,
+    maxArchiveFrames, bootstrapCap, requestedArchiveFps, lastMediaTime, capturePlaybackRate, runtime:RUNTIME_PROFILE,
   };
   if (S.recording) stopRecording({ reason:'file-native-decode-complete' });
   capture.stop({ clearVideo:false });
+
   setGlobal('Video: replay AlvaAR offline…', '');
-  dom.runtimeStatus.textContent = `Sequenza letta: ${uniqueFrames} frame unici realmente passati ad AlvaAR (${repeatedContent} duplicati esatti ignorati), ${S.frames.length} conservati. Replay offline in corso.`;
-  setActivity('VIDEO · REPLAY OFFLINE', `${uniqueFrames} frame unici letti; avvio replay Alva sull'archivio ${S.frames.length}.`, 'busy');
+  dom.runtimeStatus.textContent = deferAlva
+    ? `PASSO 2/2: decoder fermo. Ora AlvaAR riceve ${S.frames.length} frame archiviati uno per uno, senza frame persi dal decoder.`
+    : `Sequenza letta: ${uniqueFrames} frame unici, ${S.frames.length} conservati. Replay offline in corso.`;
+  setActivity('VIDEO · PASSO 2/2 · ALVA', deferAlva ? `Decoder fermo · replay deterministico su ${S.frames.length} frame.` : `${uniqueFrames} frame unici letti; avvio replay Alva sull'archivio ${S.frames.length}.`, 'busy');
+  setBadge(dom.trackingBadge, deferAlva ? 'AlvaAR · replay deterministico' : 'AlvaAR · replay offline', 'warn');
   log('uploaded-video-native-decode-complete', S.fileDecodeStats);
   try {
     await rerunOffline();
     const posed = S.frames.filter(f => f.pose).length;
+    const rawOffline = S.frames.filter(f => f.offlinePose).length;
+    S.fileDecodeStats.offlinePoseFrames = rawOffline;
+    S.fileDecodeStats.usablePoseFrames = posed;
     if (posed < 2) {
-      const message = `AlvaAR non ha prodotto pose sufficienti (${posed}/${S.frames.length}). Il decoder ha comunque consegnato ${uniqueFrames} frame unici: il problema è nel tracking/contenuto, non nell'ingresso video.`;
+      const message = `AlvaAR non ha prodotto pose sufficienti (${posed}/${S.frames.length}). Decoder: ${uniqueFrames} frame unici, skip presentazione rilevati: ${presentedFrameDrops}.`;
       dom.runtimeStatus.textContent = message;
-      log('uploaded-video-autoprocess-no-pose', { posed, frames:S.frames.length, uniqueFrames, repeatedContent, trackerRaster:[W,H], sourceVideo:[video.videoWidth,video.videoHeight] }, 'WARN');
+      setActivity('ALVA · NESSUN LOCK', message, 'fail');
+      log('uploaded-video-autoprocess-no-pose', { posed, rawOffline, frames:S.frames.length, uniqueFrames, repeatedContent, presentedFrameDrops, trackerRaster:[W,H], runtime:RUNTIME_PROFILE }, 'WARN');
       return;
     }
-    dom.runtimeStatus.textContent = `Video letto e Alva verificato: ${posed}/${S.frames.length} frame archiviati hanno una posa utilizzabile. Deep resta separato: usa “Prova Deep” o il passo 5.`;
-    setActivity('VIDEO · ALVA OK', `${posed}/${S.frames.length} frame archiviati con posa utilizzabile.`, 'ok');
-    log('uploaded-video-alva-complete', { posed, uniqueFrames, archivedFrames:S.frames.length, trackerRaster:[W,H] });
+    dom.runtimeStatus.textContent = `Video + Alva verificati: ${rawOffline} pose Alva misurate, ${posed}/${S.frames.length} frame con posa utilizzabile. Deep resta separato.`;
+    setActivity('VIDEO · ALVA OK', `${rawOffline} pose Alva misurate · ${posed}/${S.frames.length} frame utilizzabili.`, 'ok');
+    setBadge(dom.trackingBadge, `AlvaAR offline · ${rawOffline} pose`, 'ok');
+    dom.poseCount.textContent = String(rawOffline);
+    log('uploaded-video-alva-complete', { posed, rawOffline, uniqueFrames, archivedFrames:S.frames.length, trackerRaster:[W,H], presentedFrameDrops, deferredMobileTracking:deferAlva });
   } catch (err) {
     dom.runtimeStatus.textContent = `Elaborazione automatica del video interrotta: ${errorText(err)}`;
-    log('uploaded-video-autoprocess-failed', { message:errorText(err), uniqueFrames }, 'ERROR');
+    setActivity('ALVA · ERRORE', errorText(err), 'fail');
+    log('uploaded-video-autoprocess-failed', { message:errorText(err), uniqueFrames, deferAlva }, 'ERROR');
   }
 }
 function startRecording() {
@@ -429,7 +560,7 @@ function startRecording() {
   for (const raster of warmup) archiveFrame(raster, { phase: 'alva-warmup' });
   S.lastLiveArchiveAt = warmup.length ? Number(warmup[warmup.length - 1].at) : -Infinity;
   S.liveArchiveSamplesSinceRecord = 0;
-  S.recording = true; $('recordBtn').disabled = true; $('stopBtn').disabled = false; dom.captureCoach.textContent = S.source === 'file' ? `Replay attivo: Alva riceve ogni frame video unico; il bootstrap viene salvato fitto e l’archivio successivo è adattivo al budget di memoria.` : `Registrazione attiva: Alva continua a ricevere tutti i frame camera; l’archivio conserva ${warmup.length} frame di pre-roll e poi ${numberValue('archiveFps', DEFAULT_ALVA_HZ)} fps, salvo bootstrap fitto finché manca la prima posa.`;
+  S.recording = true; $('recordBtn').disabled = true; $('stopBtn').disabled = false; dom.captureCoach.textContent = S.source === 'file' ? (RUNTIME_PROFILE.mobile ? `Passo 1/2 mobile: salvo una sequenza iniziale densa senza chiamare Alva; a decoder fermo partirà il replay SLAM deterministico.` : `Replay attivo: Alva riceve ogni frame video unico; il bootstrap viene salvato fitto e l’archivio successivo è adattivo al budget di memoria.`) : `Registrazione attiva: Alva continua a ricevere i frame camera selezionati; l’archivio conserva ${warmup.length} frame di pre-roll e poi ${numberValue('archiveFps', DEFAULT_ALVA_HZ)} fps, salvo bootstrap fitto finché manca la prima posa.`;
   setGlobal('Registro immagini + pose', 'ok'); setActivity('ACQUISIZIONE', `Registrazione attiva · sorgente ${S.source || '?'} · archivio ${numberValue('archiveFps', DEFAULT_ALVA_HZ)} Hz`, 'busy'); log('recording-start', { samplingHz: numberValue('archiveFps', DEFAULT_ALVA_HZ), warmupFrames: warmup.length, contract: 'same exact RGB raster for Alva live, replay offline and correspondence' });
 }
 function stopRecording({ reason = 'manual' } = {}) {
@@ -438,7 +569,7 @@ function stopRecording({ reason = 'manual' } = {}) {
   setGlobal('Acquisizione completata'); setStep(3); setActivity('ACQUISIZIONE · FINE', `${S.frames.length} immagini archiviate · ${S.frames.filter(f=>f.livePose).length} con posa live`, 'ok'); log('recording-stop', { reason, source: S.source, frames: S.frames.length, livePoseFrames: S.frames.filter(f => f.livePose).length, imageBytes: S.frameBytes });
 }
 function disposeCaptureSource() {
-  S.capture?.stop?.(); S.capture = null; S.alva = null; S.K = null; W = 0; H = 0; S.current = null; S.livePose = null; S.liveMatrix = null; S.livePoints = []; S.trackingStarted = false; S.source = null; S.lastLiveArchiveAt = -Infinity; S.liveArchiveSamplesSinceRecord = 0; S.offlineFovDeg = null; S.trackerFovDeg = 45; S.trackerFovSweep = null;
+  S.capture?.stop?.(); S.capture = null; S.alva = null; S.K = null; W = 0; H = 0; S.current = null; S.livePose = null; S.liveMatrix = null; S.livePoints = []; S.trackingStarted = false; S.source = null; S.lastLiveArchiveAt = -Infinity; S.liveArchiveSamplesSinceRecord = 0; S.offlineFovDeg = null; S.trackerFovDeg = 45; S.trackerFovSweep = null; S.alvaHealth = { status:0, resets:0, zeroStreak:0, lastPoints:0, emaMs:0, maxMs:0, lastPresentedFrames:null, skippedPresented:0, lastMediaTime:null, mediaGapMs:0 };
   if (S.sourceObjectUrl) { URL.revokeObjectURL(S.sourceObjectUrl); S.sourceObjectUrl = null; }
   $('openCameraBtn').disabled = false; $('fixtureBtn').disabled = false; $('videoFile').disabled = false; $('fovInput').disabled = false; $('archiveFps').disabled = false; $('testDeepBtn').disabled = true;
 }
@@ -515,12 +646,13 @@ function buildOfflineEdges() {
 async function replayAlvaSequence(trackerFovDeg, { assign = true, limit = S.frames.length, label = 'AlvaAR offline' } = {}) {
   const fov = clamp(Number(trackerFovDeg) || 45, 28, 75);
   const tracker = await AlvaAR.Initialize(W, H, fov);
-  const pointCounts = [];
-  let poses = 0, firstPose = -1;
+  const pointCounts = [], timings = [];
+  let poses = 0, firstPose = -1, resets = 0, zeroFrames = 0;
   if (assign) S.offlineTrackerPoints.length = 0;
   const count = Math.min(S.frames.length, Math.max(1, limit | 0));
   for (let i = 0; i < count; i++) {
     const f = S.frames[i]; let raw = null, points = [];
+    const t0 = performance.now();
     try {
       const output = tracker.findCameraPose(new ImageData(new Uint8ClampedArray(f.rgba), W, H));
       if (output?.length >= 16) raw = Array.from(output, Number).slice(0, 16);
@@ -528,16 +660,24 @@ async function replayAlvaSequence(trackerFovDeg, { assign = true, limit = S.fram
     } catch (err) {
       if (assign) log('alvaar-offline-call', { frame: f.id, trackerRaster:[W,H], trackerFovDeg:fov, message: errorText(err) }, 'WARN');
     }
-    pointCounts.push(points.length);
+    const ms = Math.max(0, performance.now() - t0), status = Number(tracker.lastStatus ?? tracker.getLastStatus?.() ?? (raw ? 1 : 0));
+    timings.push(ms); pointCounts.push(points.length);
+    if (status === 2) resets++;
+    if (!points.length) zeroFrames++;
     if (raw) { poses++; if (firstPose < 0) firstPose = i; }
     if (assign) {
       f.offlineMatrix = raw; f.offlinePose = alvaMatrixToPose(raw); f.offlinePoints = points;
-      f.features = detectScanFeatures(f.gray, W, H, points);
+      f.features = detectScanFeatures(f.gray, W, H, points); f.featuresDeferred = false;
       S.offlineTrackerPoints.push(points.length);
-      if (i % 4 === 0 || i === count - 1) { dom.offlineBadge.textContent = `${label} ${i + 1}/${count} · ${W}×${H} · fovA ${fov.toFixed(0)}°`; await nextPaint(); }
+      if (status === 2) log('alvaar-offline-reset', { frame:f.id, index:i, fov, points:points.length, elapsedMs:+ms.toFixed(2) }, 'WARN');
+      if (i % 4 === 0 || i === count - 1) {
+        dom.offlineBadge.textContent = `${label} ${i + 1}/${count} · ${W}×${H} · ${points.length} pt · ${ms.toFixed(0)} ms · reset ${resets}`;
+        if (dom.liveActivity) dom.liveActivity.textContent = `ALVA replay ${i + 1}/${count} · ${points.length} punti · ${ms.toFixed(0)} ms/frame · pose ${poses} · reset ${resets}`;
+        await nextPaint();
+      }
     } else if (i % 12 === 0) await nextPaint();
   }
-  return { trackerFovDeg:fov, poses, firstPose, medianPoints: median(pointCounts), frames: count };
+  return { trackerFovDeg:fov, poses, firstPose, medianPoints: median(pointCounts), zeroFrames, resets, medianMs:median(timings), maxMs:timings.length?Math.max(...timings):0, frames: count };
 }
 function applyChosenHorizontalFov(horizontalFovDeg) {
   const deg = clamp(Number(horizontalFovDeg) || numberValue('fovInput', 60), 35, 110);
@@ -581,8 +721,15 @@ async function rerunOffline() {
   S.offlineFovDeg = projectionFov;
   S.edges = buildOfflineEdges();
   makeContinuousPoses(); S.offlineDone = true;
+  // Mobile uploaded-video pass intentionally skipped DOM thumbnails and BRIEF
+  // features while decoding. At this point the decoder is stopped, so rebuilding
+  // the strip cannot steal presentation time from Alva's input sequence.
+  if (S.source === 'file' && RUNTIME_PROFILE.mobile) {
+    rebuildFrameStrip();
+    log('mobile-two-pass-postprocess', { frames:S.frames.length, thumbnails:S.frames.length, featuresMedian:median(S.frames.map(f=>f.features.length)) });
+  }
   for (const edge of S.edges) { edge.poseBaseline = poseDistance(edge.a.pose, edge.b.pose); edge.poseAngle = poseAngle(edge.a.pose, edge.b.pose); }
-  drawTrajectory(); updateOfflineMetrics(); $('planeBtn').disabled = !S.frames.some(f => f.pose); $('deepBtn').disabled = !S.frames.some(f => f.pose); $('downloadBtn').disabled = false;
+  drawTrajectory(); updateArchiveUi(); updateOfflineMetrics(); $('planeBtn').disabled = !S.frames.some(f => f.pose); $('deepBtn').disabled = !S.frames.some(f => f.pose); $('downloadBtn').disabled = false;
   const rawPoses = S.frames.filter(f => f.offlinePose).length, interp = S.frames.filter(f => f.poseSource === 'interpolated-gap').length, overlap10 = S.edges.filter(e => e.overlap >= .10).length, matched = S.edges.filter(e => e.matches.length).length;
   const liveRescue = S.frames.filter(f => f.poseSource === 'alvaar-live-rescue').length;
   const measuredPoses = rawPoses + liveRescue;
@@ -590,7 +737,7 @@ async function rerunOffline() {
   setBadge(dom.offlineBadge, `pose misurate ${measuredPoses}/${S.frames.length} · offline ${rawPoses} · fovA ${S.trackerFovDeg.toFixed(0)}° · match ${matched}/${S.edges.length}`, offlineOk ? 'ok' : 'fail');
   setGlobal(offlineOk ? 'Replay Alva e corrispondenze pronti' : 'Replay Alva senza evidenza sufficiente', offlineOk ? 'ok' : 'fail'); setStep(4);
   setActivity(offlineOk ? 'ALVA · REPLAY OK' : 'ALVA · REPLAY DEBOLE', `${measuredPoses}/${S.frames.length} pose misurate · ${matched}/${S.edges.length} coppie con match`, offlineOk ? 'ok' : 'warn');
-  log('offline-complete', { frames:S.frames.length, trackerInit:'AlvaAR.Initialize(width,height,trackerFovDeg)', trackerRaster:[W,H], trackerFovDeg:S.trackerFovDeg, trackerFovSweep:S.trackerFovSweep, projectionHorizontalFovDeg:projectionFov, offlinePoses:rawPoses, firstOfflinePose:replay.firstPose, offlineAlvaPointsMedian:median(S.offlineTrackerPoints), liveRescue, interpolated:interp, edges:S.edges.length, matchedEdges:matched, overlapAtLeast10Pct:overlap10 }, offlineOk ? 'INFO' : 'WARN');
+  log('offline-complete', { frames:S.frames.length, trackerInit:RUNTIME_PROFILE.mobile&&S.source==='file'?'deferred file replay after decoder stop':'AlvaAR.Initialize(width,height,trackerFovDeg)', trackerRaster:[W,H], trackerFovDeg:S.trackerFovDeg, trackerFovSweep:S.trackerFovSweep, projectionHorizontalFovDeg:projectionFov, offlinePoses:rawPoses, firstOfflinePose:replay.firstPose, offlineAlvaPointsMedian:median(S.offlineTrackerPoints), liveRescue, interpolated:interp, edges:S.edges.length, matchedEdges:matched, overlapAtLeast10Pct:overlap10 }, offlineOk ? 'INFO' : 'WARN');
   if (!matched) log('offline-correspondence-zero', { reason:'nessuna associazione BRIEF+ZNCC dopo replay con preroll', featuresMedian:median(S.frames.map(f => f.features.length)), offlineAlvaPointsMedian:median(S.offlineTrackerPoints) }, 'WARN');
 }
 function setupCanvas(canvas) { const r = canvas.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1), w = Math.max(2, Math.round(r.width * d)), h = Math.max(2, Math.round(r.height * d)); if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; } const g = canvas.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); return { g, w: r.width, h: r.height }; }
@@ -1123,7 +1270,7 @@ function verifyGeometry() {
   log('geometry-verification', { reprojections: errors.length, medianPx: med, p90Px: p90, poseSources, note: 'verifica sola: nessuna posa e nessun pixel è stato scartato o riscritto' }); setGlobal(errors.length ? 'Verifica completata' : 'Verifica con pochi vincoli', errors.length ? 'ok' : '');
 }
 function downloadDiagnostics() {
-  const report = { format: 'SCAN-TEST-DIAGNOSTICS-3.4.2', build: BUILD_ID, createdAt: new Date().toISOString(), contract: { archivedImagesInMemory: true, allDecodedVideoFramesFedToAlva: true, alvaWarmupReplayed: true, alvaFileReplay: `continuous native decoded frames from t=0; ${FILE_FALLBACK_FPS} fps unique-frame seek fallback`, alvaRaster: [W, H], alvaRasterPolicy:'full-frame aspect-preserving; long side 960', trackerInit:'AlvaAR.Initialize(width,height,trackerFovDeg)', trackerFovDeg:S.trackerFovDeg, poseAuthority: 'AlvaAR only', correspondenceAuthority: 'archived RGB BRIEF+ZNCC, no synthetic pose', noSemanticFilters: true, onlyOptimizedQuantity: 'one relative-depth scale per Deep view', projection: 'orthographic-isometric', deepOnnx: S.deepContract }, intrinsics: S.K, archive: { trackerSamples: S.trackingSamples, trackerPoses: S.trackingPoses, trackerVsArchiveDecoupled: true, chosenOfflineFovDeg: S.offlineFovDeg, trackerFovDeg:S.trackerFovDeg, trackerFovSweep:S.trackerFovSweep, frames: S.frames.length, warmupFrames: S.frames.filter(f => f.phase === 'alva-warmup').length, bytes: S.frameBytes, analysisRaster: 'dynamic full-frame, long side 960', fileDecode: S.fileDecodeStats }, frames: S.frames.map(f => ({ id: f.id, phase: f.phase, at: f.at, livePose: f.livePose, offlinePose: f.offlinePose, chosenPose: f.pose, poseSource: f.poseSource, poseConfidence: f.poseConfidence, liveAlvaPoints: f.livePoints, offlineAlvaPoints: f.offlinePoints?.length || 0, features: f.features.length, deep: f.deep ? { rawSize: [f.deep.rawWidth, f.deep.rawHeight], provider: f.deep.provider, convention: f.deep.convention, depthScale: f.deep.depthScale, quality: f.deep.quality } : null })), edges: S.edges.map(e => ({ a: e.a.id, b: e.b.id, kind: e.kind, appearance: e.appearance, matches: e.matches.length, rawMatches: e.rawMatches, consensusMatches: e.consensusMatches, overlap: e.overlap, poseBaseline: e.poseBaseline, poseAngle: e.poseAngle })), depthEdges: S.depthEdges.map(e => ({ a: e.a.id, b: e.b.id, matches: e.matches.length, overlap: e.overlap })), splat: S.splats ? { count: S.splats.count, gridStep: S.splats.gridStep, deepPixels: S.splats.deepPixels, planePixels: S.splats.planePixels, depthRange: [S.splats.minDepth, S.splats.maxDepth] } : null };
+  const report = { format: 'SCAN-TEST-DIAGNOSTICS-3.5.0', build: BUILD_ID, createdAt: new Date().toISOString(), contract: { archivedImagesInMemory: true, allDecodedVideoFramesFedToAlva: !RUNTIME_PROFILE.mobile, alvaWarmupReplayed: true, alvaFileReplay: RUNTIME_PROFILE.mobile ? 'two-pass: dense decoded archive first, Alva replay after decoder stopped' : `continuous native decoded frames from t=0; ${FILE_FALLBACK_FPS} fps seek fallback`, alvaRaster: [W, H], alvaRasterPolicy:`full-frame aspect-preserving; active raster ${W}x${H}; file long side 960; live mobile 720`, trackerInit:RUNTIME_PROFILE.mobile&&S.source==='file'?'deferred file replay after decoder stop':'AlvaAR.Initialize(width,height,trackerFovDeg)', trackerFovDeg:S.trackerFovDeg, poseAuthority: 'AlvaAR only', correspondenceAuthority: 'archived RGB BRIEF+ZNCC, no synthetic pose', noSemanticFilters: true, onlyOptimizedQuantity: 'one relative-depth scale per Deep view', projection: 'interactive-orthographic', deepOnnx: S.deepContract }, runtimeProfile:RUNTIME_PROFILE, alvaHealth:{...S.alvaHealth}, intrinsics: S.K, archive: { trackerSamples: S.trackingSamples, trackerPoses: S.trackingPoses, trackerVsArchiveDecoupled: true, chosenOfflineFovDeg: S.offlineFovDeg, trackerFovDeg:S.trackerFovDeg, trackerFovSweep:S.trackerFovSweep, frames: S.frames.length, warmupFrames: S.frames.filter(f => f.phase === 'alva-warmup').length, bytes: S.frameBytes, analysisRaster: `dynamic full-frame active ${W}x${H}`, fileDecode: S.fileDecodeStats }, frames: S.frames.map(f => ({ id: f.id, phase: f.phase, at: f.at, livePose: f.livePose, offlinePose: f.offlinePose, chosenPose: f.pose, poseSource: f.poseSource, poseConfidence: f.poseConfidence, liveAlvaPoints: f.livePoints, offlineAlvaPoints: f.offlinePoints?.length || 0, features: f.features.length, deep: f.deep ? { rawSize: [f.deep.rawWidth, f.deep.rawHeight], provider: f.deep.provider, convention: f.deep.convention, depthScale: f.deep.depthScale, quality: f.deep.quality } : null })), edges: S.edges.map(e => ({ a: e.a.id, b: e.b.id, kind: e.kind, appearance: e.appearance, matches: e.matches.length, rawMatches: e.rawMatches, consensusMatches: e.consensusMatches, overlap: e.overlap, poseBaseline: e.poseBaseline, poseAngle: e.poseAngle })), depthEdges: S.depthEdges.map(e => ({ a: e.a.id, b: e.b.id, matches: e.matches.length, overlap: e.overlap })), splat: S.splats ? { count: S.splats.count, gridStep: S.splats.gridStep, deepPixels: S.splats.deepPixels, planePixels: S.splats.planePixels, depthRange: [S.splats.minDepth, S.splats.maxDepth] } : null };
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })), a = document.createElement('a'); a.href = url; a.download = `scan-test-${Date.now()}-diagnostics.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); log('diagnostics-downloaded', { frames: S.frames.length });
 }
 function bind(id, fn) { $(id).addEventListener('click', () => Promise.resolve().then(fn).catch(err => { if (['offlineBtn', 'deepBtn'].includes(id)) $(id).disabled = false; setGlobal('Errore', 'fail'); log('ui-operation-failed', { operation: id, message: errorText(err) }, 'ERROR'); alert(errorText(err)); })); }
@@ -1174,5 +1321,5 @@ window.addEventListener('resize', () => { if (S.offlineDone) drawTrajectory(); i
 window.addEventListener('beforeunload', () => { S.capture?.stop?.(); S.deepWorker?.terminate(); });
 
 installViewerNavigation(); updateViewerNavReadout();
-setStep(1); setActivity('AVVIO', `Build ${BUILD_ID} caricata; avvio self-check con watchdog.`, 'busy'); dom.gridStepOut.textContent = `${$('gridStep').value} px`; dom.confidenceOut.textContent = '0%'; log('scan-test-ready', { build: BUILD_ID, analysisRaster: 'dynamic full-frame, long side 960', defaultSamplingHz: DEFAULT_ALVA_HZ, archiveDefaultHz: numberValue('archiveFps', DEFAULT_ALVA_HZ), deepModel: 'Depth Anything V2 Small Q4 via official Transformers.js depth-estimation pipeline + official RawImage cross-check' });
+setStep(1); setActivity('AVVIO', `Build ${BUILD_ID} caricata; avvio self-check con watchdog.`, 'busy'); dom.gridStepOut.textContent = `${$('gridStep').value} px`; dom.confidenceOut.textContent = '0%'; log('scan-test-ready', { build: BUILD_ID, runtime:RUNTIME_PROFILE, analysisRaster: `dynamic full-frame active ${W}x${H}`, defaultSamplingHz: DEFAULT_ALVA_HZ, archiveDefaultHz: numberValue('archiveFps', DEFAULT_ALVA_HZ), deepModel: 'Depth Anything V2 Small Q4 via official Transformers.js depth-estimation pipeline + official RawImage cross-check' });
 void verifyDeployedBuild();

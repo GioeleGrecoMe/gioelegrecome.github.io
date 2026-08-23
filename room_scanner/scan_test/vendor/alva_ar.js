@@ -81,6 +81,7 @@ class AlvaAR
         this.memIMU = new SharedMemory( wasm.module, wasm.module.HEAPF64, 256 );
         this.memImg = new SharedMemory( wasm.module, wasm.module.HEAPU8, width * height * 4 );
 
+        this.lastStatus = -1;
         this.system = new wasm.module.System();
         this.system.configure(
             this.intrinsics.width,
@@ -169,6 +170,7 @@ class AlvaAR
         this.memIMU.write( imuData );
 
         const status = this.system.findCameraPoseWithIMU( this.memImg.heap.byteOffset, this.memIMU.heap.byteOffset, this.memCam.ptr );
+        this.lastStatus = status;
 
         if( status === 1 )
         {
@@ -190,6 +192,7 @@ class AlvaAR
         this.memImg.write( frame.data );
 
         const status = this.system.findCameraPose( this.memImg.heap.byteOffset, this.memCam.ptr );
+        this.lastStatus = status;
 
         if( status === 1 )
         {
@@ -245,8 +248,14 @@ class AlvaAR
         return points;
     }
 
+    getLastStatus()
+    {
+        return this.lastStatus;
+    }
+
     reset()
     {
+        this.lastStatus = -1;
         this.system.reset();
     }
 }

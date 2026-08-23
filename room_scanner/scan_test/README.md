@@ -1,41 +1,59 @@
-# Scan Test v3.4.2
+# Scan Test v3.5.0
 
-Build fingerprint: `scan-test-v3.4.2-interactive-3d-viewer`
+Build fingerprint: `scan-test-v3.5.0-mobile-alva-two-pass-viewer`
 
-Patch incrementale sopra v3.4.1. AlvaAR e Deep Anything non vengono modificati: la modifica riguarda soltanto il viewer del passo 6 e mantiene il dock diagnostico sempre visibile introdotto in v3.4.x.
+Patch incrementale sopra v3.4.1. Mantiene la correzione Deep/Transformers.js 3.8.1 e aggiunge due interventi separati:
 
-## Passo 6 - navigazione 3D
+1. tracking AlvaAR robusto per video caricati da smartphone;
+2. viewer 3D interattivo nel passo 6.
 
-Il vecchio rendering isometrico fisso e sostituito, solo nel passo 6, da una camera ortografica interattiva sullo stesso cloud/splat RGB gia costruito.
+## Perche il tracking mobile cambiava continuamente N -> 0 punti
 
-Controlli desktop:
-- trascinamento sinistro: orbita yaw/pitch;
+Il vecchio percorso eseguiva `AlvaAR.findCameraPose()` sincronicamente dentro la callback `requestVideoFrameCallback` del video. Su un telefono il costo WASM puo impedire al main thread di servire in tempo i frame successivi del decoder. Alva riceve quindi una sequenza discontinua proprio durante il bootstrap e puo tornare allo stato di inizializzazione/reset.
+
+La v3.5.0 usa per i video caricati su smartphone un percorso a due passaggi:
+
+- PASSO 1/2: il video viene decodificato senza chiamare Alva. Viene salvata una sequenza iniziale densa mantenendo raster completo, aspect ratio e orientamento. Feature BRIEF e miniature sono rinviate per non appesantire la callback del decoder.
+- PASSO 2/2: il video viene fermato. Una nuova istanza Alva riceve i frame archiviati uno per uno: il frame N+1 non puo essere elaborato finche non e terminato il frame N.
+
+Il raster dei file resta a lato lungo 960 px per non impoverire la griglia di feature. La camera live mobile usa 720 px, dato che non puo essere messa in pausa e rigiocata.
+
+Il primo passaggio parte a 0.25x. Se `presentedFrames` segnala frame persi, rallenta automaticamente a 0.125x. Dopo il bootstrap puo accelerare. Su mobile l'archivio file e limitato anche nel numero di frame per evitare di saturare la memoria prima di Deep.
+
+## Diagnostica Alva
+
+Il wrapper Alva espone ora lo stato interno dell'ultima chiamata. Il log sempre visibile mostra:
+
+- `initializing`, `tracking` o `reset`;
+- numero di punti;
+- ms/frame;
+- reset interni;
+- frame del compositor saltati;
+- transizioni N -> 0 punti.
+
+Per i video mobile, durante PASSO 1/2 non devono comparire punti Alva: il badge deve indicare che Alva e differito. I punti compaiono soltanto nel PASSO 2/2 a decoder fermo.
+
+## Passo 6 - viewer 3D
+
+Il viewer finale e navigabile:
+
+- trascinamento sinistro / un dito: orbita;
 - Shift + trascinamento, tasto destro o centrale: pan;
-- rotellina: zoom;
-- doppio click o pulsante `Reset / centra`: ripristino camera;
-- frecce: orbita;
-- Shift + frecce: pan;
-- `+` / `-`: zoom;
-- `R` o Home: reset.
+- rotellina o pinch: zoom;
+- due dita: pan + pinch;
+- preset Isometrica, Alto, Fronte, Lato;
+- Reset / centra;
+- tastiera: frecce, Shift+frecce, +/- e R/Home.
 
-Controlli touch:
-- un dito: orbita;
-- due dita: pinch zoom + pan simultaneo;
-- pulsante `Reset / centra` sempre disponibile.
-
-Sono presenti preset Isometrica, Alto, Fronte e Lato. La vista iniziale riproduce matematicamente la stessa proiezione isometrica usata dalla v3.4.1, quindi l'aspetto iniziale non cambia; cambia solo la possibilita di navigarlo.
-
-Durante il trascinamento, se il cloud e molto grande, il renderer usa temporaneamente un LOD visuale fino a circa 90k particelle per mantenere l'interazione fluida; al rilascio viene ridisegnato il cloud completo. Nessuna particella viene cancellata dai dati.
+Il cloud non viene modificato dai controlli di navigazione. Durante il trascinamento puo essere usato solo un LOD visuale temporaneo.
 
 ## Deploy
 
-Lo ZIP e flat. Copiare i file direttamente in `room_scanner/scan_test/` sovrascrivendo gli omonimi.
+Lo ZIP e flat. Estrarre direttamente il contenuto in:
 
-Dopo il deploy deve comparire il fingerprint:
-`scan-test-v3.4.2-interactive-3d-viewer`
+`room_scanner/scan_test/`
 
-## Test
+Dopo il deploy deve essere visibile il fingerprint:
 
-`node tools/test_v342_viewer_navigation.mjs`
+`scan-test-v3.5.0-mobile-alva-two-pass-viewer`
 
-Il test verifica orbit/pan/zoom/pinch, preset, touch-action, LOD interattivo e che la camera predefinita sia matematicamente equivalente alla precedente vista isometrica.

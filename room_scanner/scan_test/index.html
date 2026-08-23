@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
-  <title>Scan Test v3.4.2 · Alva + Deep splat</title>
-  <link rel="stylesheet" href="styles.css?v=scan-test-v3.4.2">
+  <title>Scan Test v3.5.0 · Alva + Deep splat</title>
+  <link rel="stylesheet" href="styles.css?v=scan-test-v3.5.0">
 </head>
 <body>
   <header class="topbar">
     <div>
-      <p class="eyebrow">ESPERIMENTO ISOLATO · VERSIONE v3.4.2 · build controllata · nessun filtro / nessuna mesh</p>
-      <h1>Scan Test <span class="tag ok">v3.4.2</span></h1>
-      <div id="buildSentinel" data-state="checking" style="margin:.7rem 0 0;padding:.55rem .75rem;border:1px solid #ffc95e;border-radius:.6rem;color:#ffe6a8;font:600 .82rem/1.35 ui-monospace,SFMono-Regular,Consolas,monospace">scan-test-v3.4.2-interactive-3d-viewer · verifica asset in corso…</div>
+      <p class="eyebrow">ESPERIMENTO ISOLATO · VERSIONE v3.5.0 · build controllata · nessun filtro / nessuna mesh</p>
+      <h1>Scan Test <span class="tag ok">v3.5.0</span></h1>
+      <div id="buildSentinel" data-state="checking" style="margin:.7rem 0 0;padding:.55rem .75rem;border:1px solid #ffc95e;border-radius:.6rem;color:#ffe6a8;font:600 .82rem/1.35 ui-monospace,SFMono-Regular,Consolas,monospace">scan-test-v3.5.0-mobile-alva-two-pass-viewer · verifica asset in corso…</div>
       <p class="lede">Posa AlvaAR → riesecuzione offline → profondità Deep globale → tutti i pixel come splat RGB.</p>
     </div>
     <div id="globalState" class="state-pill">Pronto</div>
@@ -44,7 +44,7 @@
         <label>Profondità piano iniziale (unità Alva)<input id="planeDistance" type="number" min="0.05" max="30" step="0.05" value="2"></label>
         <label>Massimo viste Deep<input id="deepLimit" type="number" min="2" max="48" step="1" value="18"></label>
       </div>
-      <p class="hint">Il FOV orizzontale qui serve alla ricostruzione/proiezione. Il parametro FOV interno di AlvaAR è distinto e viene sondato automaticamente nel replay offline se il bootstrap non produce pose. AlvaAR riceve tutti i frame presentati e usa un raster che conserva orientamento e aspect ratio della sorgente (lato lungo 960 px). Il valore fps pilota soltanto l'archivio fotografico. Per i video caricati vengono usati i frame nativi del decoder e Deep non parte automaticamente, così tracking e profondità restano diagnosticabili separatamente. Il valore “Scala Alva → metri” rende l'output metrico solo se conosci una distanza reale; altrimenti resta una scala globale coerente. La camera reale richiede sempre una conferma esplicita in questa pagina e poi il permesso del browser.</p>
+      <p class="hint">Il FOV orizzontale qui serve alla ricostruzione/proiezione. Il parametro FOV interno di AlvaAR è distinto e viene sondato automaticamente nel replay offline se il bootstrap non produce pose. AlvaAR conserva orientamento e aspect ratio della sorgente. I video caricati usano lato lungo 960 px anche su smartphone; solo la camera live mobile usa 720 px per contenere il costo realtime. Per i video caricati su smartphone il sito usa due passaggi: prima acquisisce una sequenza densa senza eseguire SLAM nel callback del decoder, poi ferma il video e passa i frame ad Alva uno per uno. In questo modo il costo WASM non può far saltare il bootstrap. Il valore fps pilota soltanto l'archivio fotografico. Per i video caricati Deep non parte automaticamente, così tracking e profondità restano diagnosticabili separatamente. Il log fisso mostra anche reset Alva, ms/frame e frame del compositor saltati. Il valore “Scala Alva → metri” rende l'output metrico solo se conosci una distanza reale; altrimenti resta una scala globale coerente. La camera reale richiede sempre una conferma esplicita in questa pagina e poi il permesso del browser.</p>
       <div class="actions">
         <button id="openCameraBtn" class="primary">1. Apri camera e AlvaAR</button>
         <button id="fixtureBtn">Simula con video di test</button>
@@ -52,7 +52,7 @@
         <button id="testDeepBtn" disabled>Prova Deep sul frame corrente</button>
         <button id="clearBtn" class="quiet">Azzera sessione</button>
       </div>
-      <p id="runtimeStatus" class="status">AlvaAR non inizializzato · Deep non caricato. Il raster Alva mantiene il frame completo e lo stesso aspect ratio/orientamento della sorgente. Deep usa esclusivamente la pipeline Transformers.js depth-estimation su WASM/Q4. Il processor locale usa il profilo browser 336 px (aspect ratio preservato, multiplo di 14) per ridurre il carico mobile; il codice non costruisce manualmente tensor NCHW né interpreta manualmente l'output ONNX.</p>
+      <p id="runtimeStatus" class="status">AlvaAR non inizializzato · Deep non caricato. Il raster Alva mantiene il frame completo e lo stesso aspect ratio/orientamento della sorgente; su smartphone il video file usa replay Alva deterministico a decoder fermo. Deep usa esclusivamente la pipeline Transformers.js depth-estimation su WASM/Q4. Il processor locale usa il profilo browser 336 px (aspect ratio preservato, multiplo di 14) per ridurre il carico mobile; il codice non costruisce manualmente tensor NCHW né interpreta manualmente l'output ONNX.</p>
     </section>
 
     <section class="capture-layout">
@@ -146,6 +146,6 @@
     <pre id="liveLogTail" class="live-log-tail">attendo primo evento...</pre>
   </aside>
   <template id="frameTemplate"><button class="frame-thumb" type="button"><canvas width="160" height="120"></canvas><span></span></button></template>
-  <script type="module" src="app.js?v=scan-test-v3.4.2"></script>
+  <script type="module" src="app.js?v=scan-test-v3.5.0"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
-Scan Test v3.4.2 - FLAT INTERACTIVE VIEWER PATCH
-Build: scan-test-v3.4.2-interactive-3d-viewer
+Scan Test v3.5.0 - FLAT MOBILE ALVA + 3D VIEWER PATCH
+Build: scan-test-v3.5.0-mobile-alva-two-pass-viewer
 
 Copy contents directly into room_scanner/scan_test/
 
@@ -7,16 +7,17 @@ MODIFIED:
   app.js
   index.html
   styles.css
+  vendor/alva_ar.js
   README.md
   VERIFICATION.md
 
 ADDED:
-  tools/test_v342_viewer_navigation.mjs
+  tools/test_v350_mobile_alva.mjs
+  tools/test_v350_mobile_alva_twopass.py
 
 UNCHANGED / NOT INCLUDED:
-  deep_depth_worker.js
+  deep_depth_worker.js  (keep v3.4.1)
   camera.js
   feature_matching.js
-  vendor/alva_ar.js
   models/*
   fixtures/*

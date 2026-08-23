@@ -85,3 +85,5 @@ kbd { padding:.08rem .3rem; border:1px solid #466684; border-bottom-width:2px; b
   .splat-canvas.interactive-3d { height:min(58vh,560px); min-height:340px; }
   .viewer-nav-readout { font-size:10.5px; }
 }
+
+/* Scan Test v3.5.0: mobile file tracking is two-pass; stage-6 navigation remains interactive. */

@@ -1,0 +1,27 @@
+import fs from 'node:fs';
+const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const vendor = fs.readFileSync(new URL('../vendor/alva_ar.js', import.meta.url), 'utf8');
+const css = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+const deep = fs.readFileSync(new URL('../deep_depth_worker.js', import.meta.url), 'utf8');
+const must = (ok, msg) => { if (!ok) throw new Error(msg); };
+
+must(app.includes("scan-test-v3.5.0-mobile-alva-two-pass-viewer"), 'build id v3.5 missing');
+must(/fileAlvaLongSide:\s*960/.test(app), 'file raster must remain 960');
+must(/liveAlvaLongSide:\s*mobile\s*\?\s*720\s*:\s*960/.test(app), 'mobile live raster policy missing');
+must(app.includes("const deferFileTracking = source === 'file' && RUNTIME_PROFILE.mobile"), 'mobile file tracking is not deferred');
+must(app.includes('avoid synchronous Alva inside requestVideoFrameCallback'), 'two-pass reason marker missing');
+must(app.includes('deferFeatures:deferAlva') && app.includes('deferThumbnail:deferAlva'), 'decoder callback still does heavy post-processing');
+must(app.includes("capture.stop({ clearVideo:false })") || app.includes("capture.stop({clearVideo:false})"), 'decoder is not stopped before replay');
+const stopPos = app.indexOf('capture.stop({ clearVideo:false })') >= 0 ? app.indexOf('capture.stop({ clearVideo:false })') : app.indexOf('capture.stop({clearVideo:false})');
+const replayPos = app.indexOf('await rerunOffline()', stopPos);
+must(stopPos >= 0 && replayPos > stopPos, 'offline Alva replay must start after decoder stop');
+must(app.includes("log('alvaar-offline-reset'") && app.includes("log('alvaar-points-zero-transition'"), 'Alva reset/zero diagnostics missing');
+must(vendor.includes('this.lastStatus = status') && vendor.includes('getLastStatus()'), 'bundled Alva status is not exposed');
+must(html.includes('liveLogDock') && html.includes('scan-test-v3.5.0-mobile-alva-two-pass-viewer'), 'always-visible log or fingerprint missing');
+must(html.includes('fitBtn') && html.includes('isoViewBtn') && html.includes('topViewBtn'), '3D viewer controls missing');
+must(app.includes('renderInteractive3D') && app.includes('viewerPointerMove') && app.includes('viewerWheel'), '3D navigation handlers missing');
+must(css.includes('touch-action:none') || css.includes('touch-action: none'), 'touch navigation CSS missing');
+must(deep.includes('@huggingface/transformers@3.8.1'), 'working Transformers.js 3.8.1 pin was lost');
+must(deep.includes("processorType !== 'function'"), 'Depth processor callable guard was lost');
+console.log('v3.5 mobile Alva + viewer contract: OK');
