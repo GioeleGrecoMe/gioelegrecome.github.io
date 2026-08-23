@@ -1,6 +1,6 @@
-# Scan Test v3.4.0 - verification record
+# Scan Test v3.4.1 - verification record
 
-Build: `scan-test-v3.4.0-watchdog-live-log`
+Build: `scan-test-v3.4.1-deep-processor-compat`
 
 ## Problemi riprodotti/individuati nella v3.3.0
 
@@ -14,7 +14,7 @@ Build: `scan-test-v3.4.0-watchdog-live-log`
 
 `test_v340_watchdog.mjs` verifica:
 
-- fingerprint v3.4.0;
+- fingerprint v3.4.1;
 - dock log fixed sempre presente;
 - self-check parallelo e bounded a 5 s;
 - nessun accesso al Q4 nel self-check iniziale;
@@ -52,4 +52,8 @@ Questo test serve a verificare che le modifiche di osservabilita/Deep non abbian
 
 ## Limite della verifica locale
 
-L'ambiente di packaging non riesce a raggiungere il deploy GitHub Pages fornito e non consente un test numerico completo della pipeline Transformers.js scaricata da CDN. Non viene quindi dichiarata una inferenza Deep end-to-end certificata in questo ambiente. Sul dispositivo target, il dock v3.4.0 rende ora esplicita la fase esatta e impone un timeout main-thread al job.
+L'ambiente di packaging non riesce a raggiungere il deploy GitHub Pages fornito e non consente un test numerico completo della pipeline Transformers.js scaricata da CDN. Non viene quindi dichiarata una inferenza Deep end-to-end certificata in questo ambiente. Sul dispositivo target, il dock v3.4.1 rende ora esplicita la fase esatta e impone un timeout main-thread al job.
+
+## v3.4.1 regression
+
+Aggiunto `tools/test_v341_processor_compat.mjs`: impedisce il ritorno a Transformers.js 4.2.0 per questo modello locale e richiede il controllo `typeof pipeline.processor === 'function'` prima dell'inferenza.

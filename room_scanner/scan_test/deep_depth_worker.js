@@ -1,5 +1,5 @@
 /*
- * Scan Test v3.4.0 - Depth Anything V2 reference path + independent output checks.
+ * Scan Test v3.4.1 - Depth Anything V2 reference path + independent output checks.
  *
  * Deliberately no hand-written ONNX tensor packing, output reshaping or WebGPU.
  * The official Transformers.js depth-estimation pipeline owns the
@@ -8,7 +8,7 @@
  * depth while still returning finite numbers.
  */
 
-const WORKER_BUILD = 'deep-worker-v3.4.0-watchdog-336';
+const WORKER_BUILD = 'deep-worker-v3.4.1-processor-compat-336';
 let config = null;
 let api = null;
 let pipe = null;
@@ -219,8 +219,15 @@ async function ensurePipeline() {
     }
     const t0 = now();
     setStage('MODELLO-Q4', 'Creo pipeline WASM e carico model_q4.onnx locale. Questa è la fase più pesante sul telefono.');
-    const pipelinePromise = pipeline('depth-estimation', config.localModelId, {
-      dtype: config.dtype || 'q4', device: config.device || 'wasm', local_files_only: true,
+    // The local Depth Anything repository is the legacy Transformers.js ONNX layout.
+    // Transformers.js 4.x can construct a DepthEstimationPipeline whose `processor`
+    // is not callable for this repository, then fail only at the first frame with
+    // `this.processor is not a function`. Pinning 3.8.1 restores the callable
+    // Processor contract used by this model. WASM is the browser default in v3,
+    // so do not pass the v4-style `device: 'wasm'` option.
+    const pipelineOptions = {
+      dtype: config.dtype || 'q4',
+      local_files_only: true,
       progress_callback: p => {
         if (!p) return;
         const pct = Number.isFinite(p.progress) ? Math.round(p.progress) : null;
@@ -228,11 +235,28 @@ async function ensurePipeline() {
         post('deep-download-progress', { label, pct, received: p.loaded || 0, total: p.total || 0 });
         activeStage.detail = `${label}${pct == null ? '' : ` · ${pct}%`}`;
       },
-    });
+    };
+    if (config.device && config.device !== 'wasm') pipelineOptions.device = config.device;
+    const pipelinePromise = pipeline('depth-estimation', config.localModelId, pipelineOptions);
     pipe = await withTimeout(pipelinePromise, 150000, 'Caricamento pipeline/model_q4.onnx');
-    diag('engine-load-complete', 'Pipeline depth-estimation pronta.', { ms: Math.round(now() - t0), modelId: config.localModelId });
+
+    const processorType = typeof pipe?.processor;
+    const pipelineType = typeof pipe;
+    const processorCtor = pipe?.processor?.constructor?.name || null;
+    const pipelineCtor = pipe?.constructor?.name || null;
+    diag('pipeline-contract', 'Controllo contratto runtime prima della prima inferenza.', {
+      transformersUrl: config.transformersUrl, pipelineType, pipelineCtor, processorType, processorCtor,
+      hasFeatureExtractor: !!pipe?.processor?.feature_extractor,
+    });
+    if (pipelineType !== 'function') {
+      throw new Error(`Pipeline depth-estimation non callable (typeof=${pipelineType}, ctor=${pipelineCtor || '?'}).`);
+    }
+    if (processorType !== 'function') {
+      throw new Error(`Processor Depth non callable (typeof=${processorType}, ctor=${processorCtor || '?'}). Runtime=${config.transformersUrl}. Questo e il contratto che causava "this.processor is not a function".`);
+    }
+    diag('engine-load-complete', 'Pipeline depth-estimation pronta e processor callable.', { ms: Math.round(now() - t0), modelId: config.localModelId, pipelineCtor, processorCtor });
     setStage('PIPELINE-PRONTA', `Pipeline WASM/Q4 pronta in ${Math.round(now()-t0)} ms.`, 'ok');
-    post('deep-ready', { engine: 'Transformers.js depth-estimation', modelId: config.localModelId, provider: PROVIDER, modelRaster: 'DPTImageProcessor 336, aspect-preserving' });
+    post('deep-ready', { engine: 'Transformers.js 3.8.1 depth-estimation', modelId: config.localModelId, provider: PROVIDER, modelRaster: 'DPTImageProcessor 336, aspect-preserving', processorType: typeof pipe?.processor, processorCtor: pipe?.processor?.constructor?.name || null });
     return pipe;
   })();
   try { return await loadPromise; }
@@ -346,7 +370,7 @@ self.onmessage = async event => {
   const message = event.data || {};
   if (message.type === 'init') {
     config = {
-      transformersUrl: message.config?.transformersUrl || 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0',
+      transformersUrl: message.config?.transformersUrl || 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1',
       localModelId: message.config?.localModelId || 'depth-anything-v2-small',
       localModelBase: message.config?.localModelBase || new URL('./models/', self.location.href).href,
       dtype: 'q4', device: 'wasm',

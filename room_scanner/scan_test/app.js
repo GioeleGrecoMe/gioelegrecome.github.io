@@ -1,10 +1,10 @@
 // This identifier is deliberately present in the UI, diagnostic export and URLs.
 // It makes a stale GitHub Pages/service-worker cache immediately recognizable.
-const BUILD_ID = 'scan-test-v3.4.0-watchdog-live-log';
+const BUILD_ID = 'scan-test-v3.4.1-deep-processor-compat';
 
-import { AlvaAR } from './vendor/alva_ar.js?v=scan-test-v3.4.0';
-import { CameraController, intrinsicsForCrop } from './camera.js?v=scan-test-v3.4.0';
-import { detectScanFeatures, matchArchivedFrames } from './feature_matching.js?v=scan-test-v3.4.0';
+import { AlvaAR } from './vendor/alva_ar.js?v=scan-test-v3.4.1';
+import { CameraController, intrinsicsForCrop } from './camera.js?v=scan-test-v3.4.1';
+import { detectScanFeatures, matchArchivedFrames } from './feature_matching.js?v=scan-test-v3.4.1';
 
 /*
  * Scan Test is deliberately separate from V30.  Its contract is intentionally
@@ -681,7 +681,7 @@ async function ensureDeepWorker() {
       if (dom.liveActivity) dom.liveActivity.textContent = text;
       return;
     }
-    if (d.type === 'deep-ready') { setActivity('DEEP · PRONTO', `${d.engine} · ${d.provider} · ${d.modelRaster}`, 'ok'); log('deep-worker-ready', { engine:d.engine, model:d.modelId, provider:d.provider, modelRaster:d.modelRaster }); return; }
+    if (d.type === 'deep-ready') { setActivity('DEEP · PRONTO', `${d.engine} · ${d.provider} · processor ${d.processorCtor || d.processorType || '?'}`, 'ok'); log('deep-worker-ready', { engine:d.engine, model:d.modelId, provider:d.provider, modelRaster:d.modelRaster, processorType:d.processorType, processorCtor:d.processorCtor }); return; }
     if (d.type === 'deep-diag') { log(`deep-${d.event || 'diag'}`, { message: d.message, data:d.data }, d.level === 'warn' ? 'WARN' : 'INFO'); return; }
     const pending = S.deepWaiters.get(String(d.jobId || ''));
     if (pending) { S.deepWaiters.delete(String(d.jobId)); clearTimeout(pending.timer); pending.resolve(d); }
@@ -695,10 +695,10 @@ async function ensureDeepWorker() {
     try { worker.terminate(); } catch { /* ignored */ }
   };
   worker.postMessage({ type: 'init', config: {
-    transformersUrl: 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0',
+    transformersUrl: 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1',
     localModelId: 'depth-anything-v2-small',
     localModelBase: new URL('./models/', location.href).href,
-    dtype: 'q4', device: 'wasm'
+    dtype: 'q4', device: null
   } });
   return worker;
 }

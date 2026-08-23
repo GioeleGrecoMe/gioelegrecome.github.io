@@ -1,6 +1,6 @@
-# Scan Test v3.4.0
+# Scan Test v3.4.1
 
-Build fingerprint: `scan-test-v3.4.0-watchdog-live-log`
+Build fingerprint: `scan-test-v3.4.1-deep-processor-compat`
 
 Questa patch corregge due blocchi osservati nella v3.3.0 senza cambiare la pipeline Alva gia validata.
 
@@ -63,7 +63,7 @@ sovrascrivendo i file omonimi. Non creare `scan_test/scan_test/`.
 
 Dopo il deploy la pagina deve mostrare:
 
-`scan-test-v3.4.0-watchdog-live-log`
+`scan-test-v3.4.1-deep-processor-compat`
 
 Il banner iniziale deve terminare entro pochi secondi con `asset piccoli 3/3 OK` oppure con un warning bounded; non deve poter restare indefinitamente `in corso`.
 
@@ -76,3 +76,7 @@ Il banner iniziale deve terminare entro pochi secondi con `asset piccoli 3/3 OK`
 - `python3 tools/test_alva_browser_path.py fixtures/external_hallway_validation.mp4 1 1.0`
 
 Il test Deep numerico completo richiede un browser in grado di caricare Transformers.js/ONNX Runtime WASM; l'ambiente di packaging non consente di certificare quell'inferenza end-to-end dalla rete esterna. Il nuovo log e i watchdog sono stati aggiunti proprio per rendere distinguibili import runtime, model load e inferenza sul dispositivo target.
+
+## v3.4.1 - processor compatibility
+
+Correzione mirata al crash `this.processor is not a function`: il worker Deep usa Transformers.js 3.8.1, compatibile con il repository ONNX legacy incluso, non passa esplicitamente `device: 'wasm'` (WASM e il default browser della serie v3) e verifica che `pipeline.processor` sia callable prima di accettare il primo frame. Il live log mostra anche il costruttore del processor quando la pipeline diventa pronta.

@@ -1,5 +1,5 @@
-Scan Test v3.4.0 - FLAT WATCHDOG PATCH
-Build: scan-test-v3.4.0-watchdog-live-log
+Scan Test v3.4.1 - FLAT WATCHDOG PATCH
+Build: scan-test-v3.4.1-deep-processor-compat
 
 Copy contents directly into room_scanner/scan_test/
 
@@ -24,3 +24,5 @@ UNCHANGED / NOT INCLUDED:
   models/depth-anything-v2-small/onnx/model_q4.onnx
   models/depth-anything-v2-small/config.json
   fixtures/*
+
+  tools/test_v341_processor_compat.mjs
