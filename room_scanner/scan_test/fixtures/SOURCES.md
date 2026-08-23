@@ -22,3 +22,7 @@ Clip di validazione ricavata dal pannello RGB di `figures/demo.gif` del reposito
 - Demo: https://github.com/raahimnawaz/monocular-vo/blob/main/figures/demo.mp4
 
 La clip inclusa e usata esclusivamente come regressione esterna per verificare che AlvaAR non dipenda dal fixture sintetico.
+
+## `alva_dynamic_portrait_regression.mp4`
+
+Versione portrait del fixture sintetico, usata per verificare che il percorso camera/video non converta implicitamente 480x640 in un raster landscape 4:3. Serve solo come regressione del data-flow/orientamento.

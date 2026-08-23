@@ -1,86 +1,147 @@
-# Scan Test v2.4.0 - verification record
+# Scan Test v3.2.1 - verification record
 
-Build: `scan-test-v2.4.0-native-tracker-safe-depth`
+Build: `scan-test-v3.2.1-continuous-native-depth-pipeline`
 
-## Evidence from the supplied failing MHT
+## Root causes corrected
 
-The captured browser session reports:
+1. **File-upload ordering race:** `startRecording()` now executes before `processUploadedVideo()`.
+2. **Invalid frame stepping:** the uploaded-file path no longer resumes/pauses playback once per frame. It captures t=0 and then runs one continuous `requestVideoFrameCallback` chain with a single `play()` call.
+3. **Aspect/orientation destruction:** Alva gets a full-frame aspect-preserving raster with 960 px long side; portrait remains portrait and widescreen remains widescreen.
+4. **Tracker/archive coupling:** all unique decoded frames go to Alva while archive retention is independently rate/memory limited.
+5. **Manual Depth tensor path removed:** the worker uses Transformers.js `depth-estimation`, Q4, WASM and the model's official `DPTImageProcessor`.
+6. **Depth fail-closed:** provider/numerical/flip checks execute before frame assignment; one failed map clears the whole partial batch and disables preview/final geometry.
 
-- Alva raster: 320x240
-- camera source raster: 480x640
-- recording/tracker sampling: 8 Hz
-- archived frames: 107
-- Alva offline poses: 0
-- Deep provider: WebGPU
-- Deep output: 294x224
-- Deep input mode: `dpt-aspect-224`
-- the old quality gate accepted the visually random map as non-suspicious
-
-This is the v2.2 execution path, not the corrected v2.4 path.
-
-## Root causes addressed in v2.4
-
-1. Live Alva tracking cadence was still coupled to archive cadence. The archive slider no longer throttles the tracker; camera frames are delivered at presentation cadence.
-2. The visual-SLAM raster is 640x480 rather than the old 320x240 path visible in the failing capture.
-3. Uploaded video uses native decoded-frame stepping through `requestVideoFrameCallback` and `mediaTime`, with a unique-frame seek fallback.
-4. A dynamic Alva fixture is actually shipped with the patch and is referenced by the UI.
-5. Offline replay can probe plausible FOV values only when the requested FOV yields exactly zero poses; a candidate is accepted only if Alva itself measures poses.
-6. Deep preflight and reconstruction share one 518-pixel short-side preprocessing contract.
-7. This diagnostic build forces WASM, requests CPU output, and requires flip-equivariance before a depth map may be used.
-8. Version labels and module/worker query strings are all v2.4.0 so stale/partial deployment is visible immediately.
-
-## Executed regressions on the delivered files
+## Executed checks on delivered files
 
 ### JavaScript syntax
 
-`node --check` passes for:
+PASS:
 
-- `app.js`
-- `camera.js`
-- `deep_depth_worker.js`
+```text
+node --check app.js
+node --check camera.js
+node --check deep_depth_worker.js
+```
 
-### Alva old-path reproduction / resolution regression
+### Application contract
 
-Same dynamic fixture:
+Command:
 
-- v2.2-like 320x240 at 8 fps: 32 frames, 0 poses
-- 320x240 at 30 fps: 120 frames, 0 poses
-- corrected 640x480 at 30 fps: 120 frames, 76 poses, first pose frame 44
+```text
+node tools/test_app_contract.mjs
+```
 
-This is important: simply increasing temporal cadence does not repair the reproduced failure at 320x240. The 640x480 SLAM raster is a functional fix, not a cosmetic resolution increase.
+PASS:
 
-### Alva direct MP4 regression
+```json
+{
+  "build": "v3.2.1",
+  "recordingBeforeDecode": true,
+  "continuousRvfc": true,
+  "t0FrameExplicit": true,
+  "singlePlaySession": true,
+  "alvaLongSide": 960,
+  "deepAssignmentAfterGate": true,
+  "deepPartialBatchClearedOnReject": true,
+  "deepUiFailClosed": true
+}
+```
 
-Dynamic fixture, 640x480, horizontal FOV 60 deg:
+### AlvaAR browser path - landscape fixture
 
-- frames: 120
-- valid poses: 76
-- pose ratio: 0.6333
-- first pose: frame 44
-- median frame points: 35 in the latest run
+Command:
 
-### Alva browser MediaStream regression
+```text
+python3 tools/test_alva_browser_path.py fixtures/alva_dynamic_regression.mp4 20 .25
+```
 
-The dynamic MP4 was exposed to `CameraController` as a live `MediaStream`, with the controller configured so archive cadence cannot throttle Alva:
+Result:
 
-- tracking callbacks: 121
-- valid poses: 69
-- first pose: callback 52
-- median Alva frame points: 70
-- `requestVideoFrameCallback`: available
+```text
+source       640x480
+Alva raster  960x720
+decoded      120
+poses        94/120 (78.3%)
+first pose   26
+duplicates   0
+last time    3.966667 s
+median gap   0.033333 s
+```
 
-### Depth static/contract regression
+The first decoded times were `0, 0.033333, 0.066667, 0.1, 0.133333, ...`.
 
-`test_depth_contract.mjs` passes:
+### AlvaAR browser path - portrait fixture
 
-- model input: `pixel_values`, float32, NCHW, dynamic H/W
-- model output: `predicted_depth`, float32, H/W preserved at ViT patch granularity
-- test input tensor: 1x3x518x518
-- strict output shape: PASS
-- strict RGBA shape: PASS
-- full raster RGB/NCHW round-trip: PASS
-- flip gate helper: PASS
+Command:
 
-## Explicit Depth limitation
+```text
+python3 tools/test_alva_browser_path.py fixtures/alva_dynamic_portrait_regression.mp4 20 .25
+```
 
-A true numerical ONNX Runtime WASM inference could not be executed inside this sandbox because ORT is not installed locally and the sandbox cannot resolve/download the CDN runtime artifacts. No numeric Deep success is claimed. The delivered browser code is deliberately fail-closed: it will not accept the noisy WebGPU path seen in the supplied MHT, and it will expose provider/flip failure in diagnostics rather than constructing geometry from it.
+Result:
+
+```text
+source       480x640
+Alva raster  720x960
+decoded      118
+poses        94/118 (79.7%)
+first pose   24
+duplicates   0
+last time    3.966667 s
+```
+
+This specifically guards against the previous portrait-to-landscape 4:3 conversion.
+
+### AlvaAR browser path - independent hallway clip
+
+Command:
+
+```text
+python3 tools/test_alva_browser_path.py fixtures/external_hallway_validation.mp4 1 .25
+```
+
+Result:
+
+```text
+source       480x270
+Alva raster  960x540
+decoded      50/50
+poses        45/50 (90%)
+first pose   5
+duplicates   0
+last time    7.84 s
+median gap   0.16 s
+```
+
+This clip is independent of the synthetic regression fixture and is used only to verify initialization/data flow, not geometric accuracy.
+
+### Depth contract / fail-closed regression
+
+Command:
+
+```text
+node tools/test_depth_contract.mjs
+```
+
+PASS verifies:
+
+- local Q4 SHA-256 `5d55b02762e1907589158af3e366bd61ddf648155852a07bbf5e3a074639fcf8`;
+- ONNX input `pixel_values`, float32, NCHW/dynamic H/W;
+- ONNX output `predicted_depth`, float32;
+- official `DPTImageProcessor` config: 518, keep-aspect-ratio, multiple of 14, bicubic, ImageNet normalization;
+- Transformers.js `depth-estimation` path;
+- WASM + Q4 only;
+- no manual `InferenceSession.create` / hand-built `ort.Tensor` in the worker;
+- mirrored-frame spatial validation;
+- rejected depth is gated before `f.deep` assignment;
+- a failed frame clears all already accepted maps in that Deep batch.
+
+## Browser sandbox limitation for Deep
+
+A numerical Transformers.js/ONNX Runtime WASM inference was not executable in this build environment because the hardened Chromium sandbox blocks localhost navigation and the runtime cannot fetch its CDN module/artifacts. Therefore no numerical Deep success is claimed here.
+
+The delivered browser path is intentionally fail-closed: it cannot turn an unverified/random-looking output into geometry. The definitive runtime check on GitHub Pages is the explicit `Test Deep` preflight; only a WASM/Q4 result that also passes the mirrored-frame spatial check is accepted.
+
+## Full-app localhost test limitation
+
+`tools/test_app_file_video.py` was also attempted against the final directory, but hardened Chromium returned `net::ERR_BLOCKED_BY_ADMINISTRATOR` for `http://127.0.0.1:<port>/index.html`. The lower-level browser regression still executes the same delivered `camera.js` and bundled `vendor/alva_ar.js`, including real `<input type=file>`, decoded video frames, `requestVideoFrameCallback` and `AlvaAR.findCameraPose()`.

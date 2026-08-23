@@ -1,95 +1,163 @@
-# Scan Test v2.4.0
+# Scan Test v3.2.1
 
-Banco di prova indipendente da `v30`: camera reale, fixture e video locale convergono sullo stesso raster 640x480 consegnato ad AlvaAR; Depth Anything usa lo stesso frame RGB congelato.
+Build: `scan-test-v3.2.1-continuous-native-depth-pipeline`
 
-Aprire `scan_test/index.html` tramite HTTPS o `localhost` (non `file://`). Per esempio, dalla cartella che contiene `scan_test`:
+Questa build sostituisce i due percorsi che nelle versioni precedenti potevano produrre, rispettivamente, video apparentemente caricato ma non realmente processato da AlvaAR e depth map numericamente finite ma visivamente simili a rumore.
 
-```sh
-python3 -m http.server 4173
-```
+## Correzioni effettive
 
-Poi aprire `http://localhost:4173/scan_test/`.
+### 1. Il video entra nello stato di registrazione prima che inizi il decoder
 
-## Perche la cattura v2.2.0 allegata non poteva funzionare
+Nel percorso file la v2.x poteva chiamare il ciclo di elaborazione prima di impostare `S.recording=true`. Poiche il ciclo dipendeva da quello stato, era possibile terminare senza elaborare davvero i frame.
 
-Il salvataggio MHT della sessione reale mostra contemporaneamente:
+In v3.2.1 l'ordine e esplicito e sottoposto a test automatico:
 
-- build visualizzata v2.2.0;
-- raster Alva 320x240;
-- campionamento del tracker accoppiato all'archivio a 8 Hz;
-- 107 frame, 0 pose Alva, pur con molte feature e overlap fotografico;
-- Deep eseguito con provider `webgpu` e input 294x224 (`dpt-aspect-224`);
-- una mappa Deep finita ma visivamente simile a rumore accettata dal vecchio gate come `struttura coerente`.
+1. inizializzazione della sorgente e di AlvaAR;
+2. `startRecording()`;
+3. avvio di `processUploadedVideo()`.
 
-La v2.4.0 cambia quindi i due percorsi che erano ancora sbagliati, invece di limitarsi ad alzare soglie diagnostiche.
+### 2. Niente piu play/pause per simulare il frame stepping
 
-## Correzioni v2.4.0
+`play() -> requestVideoFrameCallback -> pause() -> play()` non garantisce di ricevere ogni frame. Chromium puo avanzare il decoder tra una ripresa e l'altra, e il bootstrap di AlvaAR e particolarmente sensibile ai primi frame mancanti.
 
-### 1. Alva live non e piu campionato alla frequenza dell'archivio
+Il percorso file adesso usa una singola riproduzione continua a velocita ridotta (`0.25x`):
 
-Il valore `archiveFps` controlla soltanto quante immagini vengono conservate. Per la camera live, `CameraController` non introduce piu il vecchio throttle 8/12 Hz: quando `requestVideoFrameCallback` e disponibile, Alva riceve ogni frame presentato dalla camera (normalmente fino al frame-rate reale, tipicamente 30 fps).
+- il frame gia decodificato a `t=0` viene acquisito esplicitamente;
+- `play()` viene chiamato una sola volta;
+- una catena continua di `requestVideoFrameCallback` consegna i frame presentati dal decoder;
+- `mediaTime` e una firma del raster impediscono duplicati;
+- AlvaAR riceve tutti i frame unici; l'archivio fotografico puo invece essere diradato indipendentemente.
 
-Il raster SLAM e 640x480. Prima della prima posa viene inoltre conservato un bootstrap piu fitto, cosi il replay offline vede una sequenza utile invece di una sottosequenza troppo rada.
+Il fallback a seek viene usato solo quando `requestVideoFrameCallback` non esiste.
 
-La diagnostica esporta separatamente `trackerSamples`, `trackerPoses`, `archive.frames`, `trackerVsArchiveDecoupled` e la frequenza di archivio.
+### 3. AlvaAR conserva orientamento e aspect ratio della sorgente
 
-### 2. Video locale realmente frame-by-frame
+La vecchia conversione obbligatoria 4:3 poteva tagliare una sorgente widescreen o ruotata/portrait. In v3.2.1 il raster Alva usa l'intero fotogramma e mantiene il rapporto originale, con lato lungo di analisi pari a **960 px**.
 
-Un file caricato non viene simulato con seek periodici. Con `requestVideoFrameCallback`, `CameraController.nextDecodedFrame()` usa i frame realmente presentati e `mediaTime`; ogni frame univoco arriva ad Alva. Il fallback a seek rimane soltanto per browser privi di rVFC e controlla anche la firma del raster per scartare duplicati.
+Esempi:
 
-Il codice continua a separare tracking e memoria: Alva vede ogni frame decodificato, mentre l'archivio viene diradato solo dopo il bootstrap per non superare il budget della sessione.
+- sorgente 640x480 -> Alva 960x720;
+- sorgente 480x640 -> Alva 720x960;
+- sorgente 480x270 -> Alva 960x540.
 
-### 3. Replay Alva con rescue della calibrazione FOV
+`AlvaAR.Initialize(width,height)` riceve esattamente le stesse dimensioni del `ImageData` passato a `findCameraPose()`.
 
-Il campo FOV dell'interfaccia e orizzontale. Il wrapper Alva incluso riceve l'argomento corretto per il raster landscape 640x480. Se il replay produce esattamente zero pose nonostante una sequenza sufficientemente lunga, viene eseguito un piccolo probe di FOV plausibili sul bootstrap. Un FOV alternativo viene accettato solo se produce pose Alva misurate; non vengono mai inventate pose da feature matching.
+### 4. Replay offline: nessuna posa inventata
 
-### 4. Deep Anything: niente piu WebGPU non verificato in questo banco diagnostico
+Le pose restano di autorita AlvaAR. Se il replay offline non recupera una posa ma il tracking live l'aveva misurata, quella misura reale puo essere mantenuta ed e marcata esplicitamente come rescue live. Il feature matching non crea pose artificiali.
 
-La sessione MHT reale ha prodotto il rumore con `provider=webgpu` e input corto 224 px. In v2.4.0 il banco diagnostico forza WASM e usa un unico contratto 518 px per preflight e inferenza reale:
+### 5. Depth Anything: eliminato il tensor packing scritto a mano
 
-- input `float32 [1,3,H,W]`;
-- RGB, non BGR;
-- normalizzazione ImageNet;
-- resize aspect-preserving;
+Il worker non costruisce piu manualmente il tensore ONNX e non interpreta manualmente un output WebGPU. Usa la pipeline ufficiale Transformers.js:
+
+`pipeline('depth-estimation', 'depth-anything-v2-small', { dtype:'q4', device:'wasm' })`
+
+con modello Q4 locale. Il `DPTImageProcessor` ufficiale possiede preprocessing e layout:
+
+- resize target 518;
+- aspect ratio preservato;
 - dimensioni multiple di 14;
-- interpolazione bicubica compatibile con OpenCV `INTER_CUBIC`;
-- layout NCHW planare;
-- output `predicted_depth [1,H,W]` row-major;
-- output richiesto in memoria CPU;
-- controllo rigoroso di shape e lunghezza buffer.
+- bicubica;
+- RGB + rescale 1/255;
+- normalizzazione ImageNet;
+- output `predicted_depth` letto dal tensore restituito dalla pipeline.
 
-Il preflight esegue anche una seconda inferenza sul frame ribaltato orizzontalmente. Dopo aver ripristinato l'orientamento, le due mappe devono essere fortemente correlate. Se provider, shape, flip-equivariance o qualita falliscono, la depth viene marcata come NON superata e non puo entrare nella ricostruzione.
+Il modello locale incluso in `models/depth-anything-v2-small/onnx/model_q4.onnx` e byte-per-byte uguale al Q4 gia presente nel progetto. SHA-256:
 
-## Fixture e test Alva inclusi
+`5d55b02762e1907589158af3e366bd61ddf648155852a07bbf5e3a074639fcf8`
 
-Il precedente fixture quasi statico non puo validare un visual SLAM. La v2.4.0 include `fixtures/alva_dynamic_regression.mp4`, usato anche dal pulsante `Simula con video di test`.
+### 6. Deep e fail-closed
 
-Test diretto del tracker:
+Una depth non entra nella ricostruzione solo perche contiene numeri finiti. Il worker ripete l'inferenza sul frame specchiato orizzontalmente, riporta la seconda depth nell'orientamento originale e verifica la correlazione spaziale.
 
-```sh
-node scan_test/tools/test_alva_video.mjs scan_test/fixtures/alva_dynamic_regression.mp4 60 120
-```
+Per accettare una mappa devono essere contemporaneamente veri:
 
-Regressione eseguita sulla build consegnata: 120 frame, 76 pose valide, prima posa al frame 44.
+- backend WASM/Q4;
+- valori numericamente validi;
+- controllo flip-equivariance superato;
+- nessun flag `suspicious`.
 
-Il test `tools/test_alva_resolution_regression.mjs` riproduce anche il guasto v2.2: sullo stesso fixture il percorso 320x240 produce 0 pose sia a 8 fps sia a 30 fps, mentre il percorso 640x480 produce 76/120 pose. Questo isola la risoluzione SLAM insufficiente come causa concreta del comportamento zero-pose riprodotto, oltre alla separazione necessaria fra tracking e archivio.
+Se un singolo frame del batch fallisce, **l'intero batch Deep viene cancellato**, il preview viene disabilitato e nessuna depth parziale puo arrivare alla geometria finale. Anche il test Deep non mostra piu la mappa rifiutata: al suo posto compare il messaggio `DEPTH RIFIUTATA`.
 
-```sh
-node scan_test/tools/test_alva_resolution_regression.mjs
-```
+## Regressioni eseguite sulla build consegnata
 
-E stato anche eseguito un test browser del percorso camera live usando una `MediaStream` video: 121 callback di tracking, 69 pose Alva, prima posa alla callback 52. Questo verifica specificamente che il tracker non sia piu limitato dalla frequenza di archivio.
-
-## Test del contratto Depth
+### Contratto app
 
 ```sh
-node scan_test/tools/test_depth_contract.mjs
+node tools/test_app_contract.mjs
 ```
 
-Il test verifica l'interfaccia ONNX del modello incluso, input NCHW 518x518, output HxW row-major, lunghezza RGBA, round-trip RGB/NCHW su tutto il raster sintetico e gate di flip.
+Verifica fra le altre cose: recording prima del decoder, playback rVFC continuo da t=0, singola `play()`, raster 960, assegnazione Deep solo dopo il gate e cancellazione del batch parziale su errore.
 
-Limite esplicito: nel sandbox usato per questa revisione non era disponibile un ONNX Runtime eseguibile localmente e il runner non poteva scaricare gli artefatti WASM da CDN. Non viene quindi dichiarata una falsa inferenza numerica Depth end-to-end nel sandbox. La sessione reale allegata dimostra invece che il vecchio percorso WebGPU/224 era effettivamente quello eseguito sul telefono; la v2.4.0 lo rimuove dal percorso accettabile e fallisce in modo esplicito se WASM/flip non sono verificati.
+### AlvaAR - fixture landscape
 
-## Verifica immediata dopo il deploy
+```sh
+python3 tools/test_alva_browser_path.py fixtures/alva_dynamic_regression.mp4 20 .25
+```
 
-Dopo aver sostituito i file, la pagina deve mostrare **v2.4.0** sia nel titolo sia nel badge superiore. Nel log iniziale deve comparire `build: scan-test-v2.4.0-native-tracker-safe-depth`. Se compare ancora v2.2.0, 320x240, `samplingHz:8` come contratto Alva o `provider:webgpu` per Deep, il browser/GitHub Pages sta ancora servendo file precedenti.
+Ultima esecuzione sulla build consegnata:
+
+- sorgente: 640x480;
+- raster Alva: 960x720;
+- frame consegnati: **120**;
+- duplicati: **0**;
+- pose Alva valide: **94/120 (78.3%)**;
+- prima posa: frame 26;
+- timestamp iniziali: `0, 0.033333, 0.066667, 0.1, ...`.
+
+### AlvaAR - fixture portrait
+
+```sh
+python3 tools/test_alva_browser_path.py fixtures/alva_dynamic_portrait_regression.mp4 20 .25
+```
+
+Ultima esecuzione:
+
+- sorgente: 480x640;
+- raster Alva: 720x960;
+- frame consegnati: **118**;
+- duplicati: **0**;
+- pose Alva valide: **94/118 (79.7%)**;
+- prima posa: frame 24.
+
+### AlvaAR - video esterno di corridoio
+
+```sh
+python3 tools/test_alva_browser_path.py fixtures/external_hallway_validation.mp4 1 .25
+```
+
+Ultima esecuzione:
+
+- sorgente: 480x270;
+- raster Alva: 960x540;
+- frame consegnati: **50/50**;
+- duplicati: **0**;
+- pose Alva valide: **45/50 (90%)**;
+- prima posa: frame 5;
+- timestamp: `0, 0.16, 0.32, ... 7.84`.
+
+Il video esterno non e usato come misura di accuratezza geometrica: serve a verificare che il risultato non dipenda dal fixture sintetico.
+
+### Contratto Depth Anything
+
+```sh
+node tools/test_depth_contract.mjs
+```
+
+Il test controlla il modello ONNX locale, SHA-256, nomi/shape input-output, `preprocessor_config.json`, uso della pipeline ufficiale, WASM/Q4, assenza del vecchio `InferenceSession.create` manuale, gate flip e comportamento fail-closed dell'app.
+
+## Limite della verifica Deep in questo ambiente
+
+Il sandbox usato per preparare questa patch blocca la navigazione localhost di Chromium e non consente al runtime browser di raggiungere il CDN di Transformers.js/ONNX Runtime. Per questo **non dichiaro eseguita qui una inferenza numerica Deep WASM end-to-end**.
+
+Quello che e stato verificato localmente e il modello Q4, il suo contratto ONNX, il processor ufficiale, il routing del worker e soprattutto il fatto che una mappa che non supera la verifica indipendente non possa piu essere mostrata/assegnata/usata come geometria. Sul sito HTTPS il test `Test Deep` e quindi il controllo runtime definitivo: deve indicare `transformers.js-wasm-q4` e flip verificato prima di abilitare la depth.
+
+## Deploy
+
+Sovrascrivere i file del pacchetto nella cartella `scan_test/`, mantenendo le sottocartelle. Dopo il deploy fare un hard refresh/cancellazione cache.
+
+La pagina corretta deve mostrare **v3.2.1**. Nel log iniziale deve comparire:
+
+`scan-test-v3.2.1-continuous-native-depth-pipeline`
+
+Se compare una versione v2.x, un raster fisso 320x240/640x480 o `provider:webgpu`, e ancora in esecuzione almeno un file precedente.

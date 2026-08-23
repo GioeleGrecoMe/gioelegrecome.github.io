@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
-  <title>Scan Test v2.4.0 · Alva + Deep splat</title>
+  <title>Scan Test v3.2.1 · Alva + Deep splat</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="topbar">
     <div>
-      <p class="eyebrow">ESPERIMENTO ISOLATO · VERSIONE v2.4.0 · build controllata · nessun filtro / nessuna mesh</p>
-      <h1>Scan Test <span class="tag ok">v2.4.0</span></h1>
+      <p class="eyebrow">ESPERIMENTO ISOLATO · VERSIONE v3.2.1 · build controllata · nessun filtro / nessuna mesh</p>
+      <h1>Scan Test <span class="tag ok">v3.2.1</span></h1>
       <p class="lede">Posa AlvaAR → riesecuzione offline → profondità Deep globale → tutti i pixel come splat RGB.</p>
     </div>
     <div id="globalState" class="state-pill">Pronto</div>
@@ -38,13 +38,12 @@
       <div class="section-title"><div><p class="eyebrow">0 · Contratto geometrico</p><h2 id="setupTitle">Camera, intrinseche e modello</h2></div><span class="tag">scala Alva libera finché non la calibri</span></div>
       <div class="control-grid">
         <label>FOV orizzontale (°)<input id="fovInput" type="number" min="35" max="110" step="1" value="60"></label>
-        <label>Campionamento Alva + archivio (fps)<input id="archiveFps" type="number" min="3" max="15" step="1" value="8"></label>
+        <label>Archivio fotografico (fps)<input id="archiveFps" type="number" min="3" max="15" step="1" value="8"></label>
         <label>Scala Alva → metri<input id="metricScale" type="number" min="0.001" max="100" step="0.001" value="1"></label>
         <label>Profondità piano iniziale (unità Alva)<input id="planeDistance" type="number" min="0.05" max="30" step="0.05" value="2"></label>
-        <label>Modello Deep ONNX (opzionale)<input id="modelFile" type="file" accept=".onnx,application/onnx"></label>
         <label>Massimo viste Deep<input id="deepLimit" type="number" min="2" max="48" step="1" value="18"></label>
       </div>
-      <p class="hint">Il valore FOV è l'unica intrinseca manuale: prima prova 60°. Se linee e vista RGB non combaciano, calibra la camera o correggi questo valore. Con camera live AlvaAR riceve tutti i frame presentati (fino a 30 fps); il campionamento selezionato pilota solo l'archivio fotografico. Con un video caricato Alva riceve invece tutti i frame nativi: il bootstrap viene conservato fitto e, dopo la prima posa, l'archivio viene diradato automaticamente per restare entro il budget di memoria. Il valore “Scala Alva → metri” rende l'output metrico solo se conosci una distanza reale; altrimenti resta una scala globale coerente. La camera reale richiede sempre una conferma esplicita in questa pagina e poi il permesso del browser.</p>
+      <p class="hint">Il valore FOV è l'unica intrinseca manuale: prima prova 60°. Se linee e vista RGB non combaciano, calibra la camera o correggi questo valore. AlvaAR riceve tutti i frame presentati e usa un raster che conserva orientamento e aspect ratio della sorgente (lato lungo 960 px). Il valore fps pilota soltanto l'archivio fotografico. Per i video caricati vengono usati i frame nativi del decoder e Deep non parte automaticamente, così tracking e profondità restano diagnosticabili separatamente. Il valore “Scala Alva → metri” rende l'output metrico solo se conosci una distanza reale; altrimenti resta una scala globale coerente. La camera reale richiede sempre una conferma esplicita in questa pagina e poi il permesso del browser.</p>
       <div class="actions">
         <button id="openCameraBtn" class="primary">1. Apri camera e AlvaAR</button>
         <button id="fixtureBtn">Simula con video di test</button>
@@ -52,7 +51,7 @@
         <button id="testDeepBtn" disabled>Prova Deep sul frame corrente</button>
         <button id="clearBtn" class="quiet">Azzera sessione</button>
       </div>
-      <p id="runtimeStatus" class="status">AlvaAR non inizializzato · Deep non caricato. Un video locale viene letto sui frame realmente presentati dal decoder; il fallback a seek viene usato solo nei browser senza requestVideoFrameCallback. Deep usa il preprocessing ufficiale a 518 px sul lato corto, RGB→NCHW float32 e resize bicubico.</p>
+      <p id="runtimeStatus" class="status">AlvaAR non inizializzato · Deep non caricato. Il raster Alva mantiene il frame completo e lo stesso aspect ratio/orientamento della sorgente. Deep usa esclusivamente la pipeline ufficiale Transformers.js depth-estimation su WASM/Q4: il codice non costruisce più manualmente tensor NCHW né interpreta manualmente l'output ONNX.</p>
     </section>
 
     <section class="capture-layout">
@@ -99,15 +98,15 @@
 
     <section class="card stage-card" aria-labelledby="deepTitle">
       <div class="section-title"><div><p class="eyebrow">5 · Unica ottimizzazione: profondità comune</p><h2 id="deepTitle">Deep sulle viste salienti e scala globale</h2></div><span id="deepBadge" class="tag">non avviata</span></div>
-      <p>Le viste Deep sono selezionate solo quando esiste un overlap di keypoint ≥ 10%. Il test usa WASM in modo deterministico: è più lento di WebGPU, ma evita che un driver mobile produca una mappa apparentemente valida e invece casuale. Per ogni match, i raggi RGB vengono trasformati con le intrinseche della foto, la dimensione nativa della mappa Deep e la posa camera. L'ottimizzatore modifica soltanto un fattore di profondità per vista.</p>
+      <p>Le viste Deep sono selezionate solo quando esiste un overlap di keypoint ≥ 10%. Deep usa la pipeline ufficiale Transformers.js `depth-estimation` su WASM/Q4. Il preprocessing DPT e la lettura di `predicted_depth` non sono più reimplementati nel progetto; il primo test esegue anche una verifica sul frame specchiato per intercettare output casuali. Per ogni match, i raggi RGB vengono trasformati con le intrinseche della foto, la dimensione nativa della mappa Deep e la posa camera. L'ottimizzatore modifica soltanto un fattore di profondità per vista.</p>
       <div class="actions"><button id="deepBtn" disabled class="primary">5. Esegui Deep e allinea profondità</button><button id="depthPreviewBtn" disabled>Mostra ultima depth map</button></div>
       <div class="two-pane"><canvas id="depthCanvas" class="diagnostic-canvas" aria-label="Mappa di profondità Deep"></canvas><div id="deepMetrics" class="metric-list"><p class="empty">Il log mostrerà le dimensioni native Deep, la conversione coordinate, il verso profondità scelto e il residuo prima/dopo.</p></div></div>
       <div id="deepDiagnostic" class="deep-diagnostic" hidden>
-        <p class="hint">Controllo del contratto: i primi due riquadri devono mostrare la stessa scena. L'ultimo è l'unica mappa Deep usata dal sistema, in ordine ufficiale H×W/row-major; non sono mostrate letture NHWC o column-major intenzionalmente errate.</p>
+        <p class="hint">Controllo del contratto: il primo riquadro è l'RGBA passato direttamente a `RawImage`; il secondo conferma la stessa sorgente ma il vero DPTImageProcessor è interno a Transformers.js e non viene duplicato. Il terzo è `predicted_depth`, l'unico output usato.</p>
         <div class="deep-diagnostic-grid">
           <figure><figcaption>1 · Camera RGBA acquisita</figcaption><canvas id="deepSourceCanvas" class="diagnostic-canvas" aria-label="Frame RGB passato a Deep"></canvas></figure>
-          <figure><figcaption>2 · Tensor RGB/NCHW ricostruito</figcaption><canvas id="deepTensorCanvas" class="diagnostic-canvas" aria-label="Tensor NCHW ricostruito in RGB"></canvas></figure>
-          <figure><figcaption>3 · Depth H×W ufficiale</figcaption><canvas id="deepOutputCanvas" class="diagnostic-canvas" aria-label="Output ufficiale della depth map"></canvas></figure>
+          <figure><figcaption>2 · Input affidato al DPTImageProcessor</figcaption><canvas id="deepTensorCanvas" class="diagnostic-canvas" aria-label="Frame affidato al processor ufficiale"></canvas></figure>
+          <figure><figcaption>3 · predicted_depth ufficiale</figcaption><canvas id="deepOutputCanvas" class="diagnostic-canvas" aria-label="Output ufficiale della depth map"></canvas></figure>
         </div>
         <pre id="deepReport" class="deep-report">Esegui “Prova Deep sul frame corrente” per verificare il percorso completo.</pre>
       </div>
@@ -132,6 +131,6 @@
     </section>
   </main>
   <template id="frameTemplate"><button class="frame-thumb" type="button"><canvas width="160" height="120"></canvas><span></span></button></template>
-  <script type="module" src="app.js?v=scan-test-v2.4.0"></script>
+  <script type="module" src="app.js?v=scan-test-v3.2.1"></script>
 </body>
 </html>

@@ -8,9 +8,29 @@ export function coverCrop(sourceWidth,sourceHeight,targetWidth,targetHeight){
   return {sx,sy,sw:cropW,sh:cropH,sourceWidth:sw,sourceHeight:sh,targetWidth:tw,targetHeight:th};
 }
 
+/**
+ * Choose the Alva analysis raster without changing orientation or aspect ratio.
+ * Alva is extremely sensitive to throwing away spatial resolution: the long
+ * side is configurable (the scan test uses 960 px), while every source pixel remains represented.
+ */
+export function analysisRasterForSource(sourceWidth,sourceHeight,{longSide=960}={}){
+  const sw=Math.max(1,Math.round(Number(sourceWidth)||1)),sh=Math.max(1,Math.round(Number(sourceHeight)||1));
+  const side=Math.max(320,Math.round(Number(longSide)||960));
+  const scale=side/Math.max(sw,sh);
+  const width=Math.max(2,Math.round(sw*scale));
+  const height=Math.max(2,Math.round(sh*scale));
+  return {width,height,scale,sourceWidth:sw,sourceHeight:sh,orientation:width>=height?'landscape':'portrait'};
+}
+
+/** Full-frame geometry: no centre crop and no forced 4:3 distortion. */
+export function fullFrameGeometry(sourceWidth,sourceHeight,targetWidth,targetHeight){
+  const sw=Math.max(1,Number(sourceWidth)||1),sh=Math.max(1,Number(sourceHeight)||1),tw=Math.max(1,Number(targetWidth)||1),th=Math.max(1,Number(targetHeight)||1);
+  return {sx:0,sy:0,sw,sh,sourceWidth:sw,sourceHeight:sh,targetWidth:tw,targetHeight:th,croppedFraction:0};
+}
+
 /** Map normalized full-sensor intrinsics into the exact analysis crop. */
 export function intrinsicsForCrop(intrinsicsNorm,geometry,{fallbackFovDeg=62}={}){
-  const g=geometry||coverCrop(1,1,1,1),W=g.targetWidth,H=g.targetHeight;
+  const g=geometry||fullFrameGeometry(1,1,1,1),W=g.targetWidth,H=g.targetHeight;
   if(intrinsicsNorm&&[intrinsicsNorm.fxN,intrinsicsNorm.fyN,intrinsicsNorm.cxN,intrinsicsNorm.cyN].every(Number.isFinite)){
     const fxFull=intrinsicsNorm.fxN*g.sourceWidth,fyFull=intrinsicsNorm.fyN*g.sourceHeight,cxFull=intrinsicsNorm.cxN*g.sourceWidth,cyFull=intrinsicsNorm.cyN*g.sourceHeight;
     return {fx:fxFull*W/g.sw,fy:fyFull*H/g.sh,cx:(cxFull-g.sx)*W/g.sw,cy:(cyFull-g.sy)*H/g.sh,width:W,height:H};
@@ -72,14 +92,15 @@ function sampledRgbaSignature(rgba,width,height){
  * Uploaded files are deliberately decoded differently from a live camera. A
  * fixed "seek every 1/30 s" loop is not frame accurate (especially for 24/25
  * fps H.264), and `seeked` does not guarantee that drawImage() sees the newly
- * presented frame. `nextDecodedFrame()` advances through actual compositor
- * frames via requestVideoFrameCallback and returns decoder `mediaTime`.
+ * presented frame. Uploaded files therefore use one continuous playback pass:
+ * capture t=0 first, then keep a single requestVideoFrameCallback chain alive.
+ * This avoids the play/pause frame-step race that can drop Alva's bootstrap frames.
  */
 export class CameraController extends EventTarget{
-  constructor({video,width=320,height=240,fps=8,log=null,stream=null,source='camera',cameraAuthorized=false}={}){
-    super();this.video=video;this.width=width;this.height=height;this.fps=fps;this.log=log;this.stream=stream;this.source=source;
+  constructor({video,width=null,height=null,longSide=960,fps=8,log=null,stream=null,source='camera',cameraAuthorized=false}={}){
+    super();this.video=video;this.width=Number(width)||0;this.height=Number(height)||0;this.longSide=Math.max(320,Math.round(Number(longSide)||960));this.fps=fps;this.log=log;this.stream=stream;this.source=source;
     this.cameraAuthorized=cameraAuthorized===true;
-    this.canvas=document.createElement('canvas');this.canvas.width=width;this.canvas.height=height;this.ctx=this.canvas.getContext('2d',{willReadFrequently:true});
+    this.canvas=document.createElement('canvas');this.canvas.width=Math.max(2,this.width||2);this.canvas.height=Math.max(2,this.height||2);this.ctx=this.canvas.getContext('2d',{willReadFrequently:true});
     this.running=false;this._timer=0;this._videoFrameHandle=0;this.geometry=null;this.frameSeq=0;this.lastDeliveredMediaTime=-Infinity;
     this.frameEpoch=`capture-${Date.now().toString(36)}`;this._onEnded=()=>this._finishExternal();
   }
@@ -88,7 +109,7 @@ export class CameraController extends EventTarget{
     if(!this.video)throw new Error('elemento video mancante');
     if(this.source==='camera'){
       if(!this.cameraAuthorized)throw new Error('La camera reale richiede una conferma esplicita dell’utente prima di richiedere getUserMedia.');
-      if(!this.stream){const constraints={audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:640},height:{ideal:480},frameRate:{ideal:30,max:30}}};this.stream=await navigator.mediaDevices.getUserMedia(constraints);}
+      if(!this.stream){const constraints={audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30,max:30}}};this.stream=await navigator.mediaDevices.getUserMedia(constraints);}
       if(this.video.srcObject!==this.stream)this.video.srcObject=this.stream;
     }else{
       if(!this.video.src)throw new Error('video di simulazione non impostato');
@@ -103,16 +124,20 @@ export class CameraController extends EventTarget{
     const ready=await waitVideoReady(this.video,{requireDuration:this.source==='file'});
     if(!ready)throw new Error(`il video ${this.source} non ha fornito un frame decodificabile`);
     if(autoplay){try{await this.video.play();}catch(err){throw new Error(`Impossibile avviare video ${this.source}: ${err?.message||err}`);}}
-    this.geometry=coverCrop(this.video.videoWidth,this.video.videoHeight,this.width,this.height);this.running=true;
-    this.log?.info?.('capture-source-started',{source:this.source,geometry:this.geometry,video:[this.video.videoWidth,this.video.videoHeight],duration:Number(this.video.duration)||null,readyState:this.video.readyState,rvfc:typeof this.video.requestVideoFrameCallback==='function',tracks:(this.stream?.getVideoTracks?.()||[]).map(t=>({label:t.label,settings:t.getSettings?.()}))});
+    const raster=analysisRasterForSource(this.video.videoWidth,this.video.videoHeight,{longSide:this.longSide});
+    this.width=raster.width;this.height=raster.height;this.canvas.width=this.width;this.canvas.height=this.height;
+    this.geometry=fullFrameGeometry(this.video.videoWidth,this.video.videoHeight,this.width,this.height);this.running=true;
+    this.log?.info?.('capture-source-started',{source:this.source,geometry:this.geometry,analysisRaster:[this.width,this.height],video:[this.video.videoWidth,this.video.videoHeight],duration:Number(this.video.duration)||null,readyState:this.video.readyState,rvfc:typeof this.video.requestVideoFrameCallback==='function',tracks:(this.stream?.getVideoTracks?.()||[]).map(t=>({label:t.label,settings:t.getSettings?.()}))});
     this.dispatchEvent(new Event('started'));return this;
   }
   _finishExternal(){if(this.source==='camera')return;this.running=false;clearTimeout(this._timer);if(this._videoFrameHandle)this.video?.cancelVideoFrameCallback?.(this._videoFrameHandle);this._videoFrameHandle=0;this.dispatchEvent(new CustomEvent('ended',{detail:{source:this.source,frames:this.frameSeq}}));}
   stop({clearVideo=true}={}){this.running=false;clearTimeout(this._timer);if(this._videoFrameHandle)this.video?.cancelVideoFrameCallback?.(this._videoFrameHandle);this._videoFrameHandle=0;this.video?.removeEventListener('ended',this._onEnded);for(const t of this.stream?.getTracks?.()||[])try{t.stop()}catch{}this.stream=null;if(this.video){this.video.pause();this.video.srcObject=null;if(clearVideo&&this.source!=='camera'){this.video.removeAttribute('src');this.video.load();}}this.dispatchEvent(new Event('stopped'));}
   capture({mediaTime=null,presentedFrames=null}={}){
     if(!this.video||this.video.readyState<2||!this.ctx)return null;
-    const vw=this.video.videoWidth,vh=this.video.videoHeight,g=coverCrop(vw,vh,this.width,this.height);this.geometry=g;
-    this.ctx.drawImage(this.video,g.sx,g.sy,g.sw,g.sh,0,0,this.width,this.height);
+    const vw=this.video.videoWidth,vh=this.video.videoHeight,g=fullFrameGeometry(vw,vh,this.width,this.height);this.geometry=g;
+    // Preserve the complete source image. Resizing is isotropic because target
+    // width/height have the same aspect ratio as the source.
+    this.ctx.drawImage(this.video,0,0,vw,vh,0,0,this.width,this.height);
     const image=this.ctx.getImageData(0,0,this.width,this.height),gray=new Uint8Array(this.width*this.height),d=image.data;
     for(let i=0,j=0;i<d.length;i+=4,j++)gray[j]=(d[i]*77+d[i+1]*150+d[i+2]*29)>>8;
     const at=nowMs(),captureSeq=++this.frameSeq,frameId=`${this.frameEpoch}-${captureSeq}`;
@@ -120,7 +145,73 @@ export class CameraController extends EventTarget{
     return {frameId,captureSeq,at,mediaTime:mt,presentedFrames:Number.isFinite(Number(presentedFrames))?Number(presentedFrames):null,width:this.width,height:this.height,gray,rgba:image.data,imageData:image,frameSignature:sampledRgbaSignature(image.data,this.width,this.height),geometry:g,source:this.source};
   }
 
-  /** Advance an uploaded file by one actual decoded/presented frame. */
+  /**
+   * Consume an uploaded video in one continuous decoder pass.
+   *
+   * Why this exists: repeatedly calling play()/pause() for every rVFC callback
+   * is not frame stepping. Chromium may advance several frames while playback is
+   * being resumed, and AlvaAR can fail initialization if even one of the first
+   * frames is missing. We instead capture the already-decoded t=0 frame, start
+   * playback exactly once, and keep the rVFC chain active until EOF.
+   *
+   * playbackRate is deliberately below 1 for offline analysis. Alva + feature
+   * extraction are synchronous JavaScript/WASM work; slowing media time gives
+   * the main thread enough wall-clock time to service every presented frame
+   * instead of letting the video clock run ahead while processing.
+   */
+  async consumeDecodedFrames(onFrame,{timeout=120000,playbackRate=.25,includeInitial=true}={}){
+    const video=this.video;if(!video||!this.running)throw new Error('controller video non attivo');
+    if(typeof onFrame!=='function')throw new Error('callback frame mancante');
+    if(typeof video.requestVideoFrameCallback!=='function')return {supported:false,frames:0,duplicates:0,lastMediaTime:null};
+
+    video.pause();
+    const previousRate=Number(video.playbackRate)||1;
+    const safeRate=Math.max(.0625,Math.min(1,Number(playbackRate)||.25));
+    video.playbackRate=safeRate;
+    try{
+      if(Math.abs((Number(video.currentTime)||0))>1e-4){
+        await this.seekDecodedFrame(0,{timeout:5000});
+      }
+      // waitVideoReady() guarantees a drawable first frame, but a paint turn
+      // makes the t=0 canvas read deterministic after an explicit seek.
+      await new Promise(resolve=>(typeof requestAnimationFrame==='function'?requestAnimationFrame(resolve):setTimeout(resolve,0)));
+
+      let delivered=0,duplicates=0,lastMediaTime=-Infinity,lastSignature=null,finished=false,handle=0,timer=0;
+      const deliver=(meta={})=>{
+        const frame=this.capture({mediaTime:Number.isFinite(Number(meta.mediaTime))?Number(meta.mediaTime):(Number(video.currentTime)||0),presentedFrames:meta.presentedFrames});
+        if(!frame)return false;
+        const sameTime=Number.isFinite(lastMediaTime)&&Math.abs(frame.mediaTime-lastMediaTime)<1e-7;
+        const samePixels=lastSignature!=null&&frame.frameSignature===lastSignature;
+        if((sameTime&&samePixels)||(samePixels&&frame.mediaTime<=lastMediaTime+1e-7)){duplicates++;return false;}
+        lastMediaTime=frame.mediaTime;lastSignature=frame.frameSignature;delivered++;onFrame(frame,meta);return true;
+      };
+
+      if(includeInitial)deliver({mediaTime:Number(video.currentTime)||0,presentedFrames:0,initial:true});
+
+      const result=await new Promise((resolve,reject)=>{
+        const cleanup=()=>{if(timer)clearTimeout(timer);if(handle)try{video.cancelVideoFrameCallback?.(handle)}catch{};this._videoFrameHandle=0;video.removeEventListener('ended',onEnded);video.removeEventListener('error',onError);};
+        const finish=(err=null)=>{if(finished)return;finished=true;cleanup();err?reject(err):resolve({supported:true,frames:delivered,duplicates,lastMediaTime:Number.isFinite(lastMediaTime)?lastMediaTime:null,playbackRate:safeRate});};
+        const onEnded=()=>finish();
+        const onError=()=>finish(new Error(`decoder video: ${video.error?.message||'errore media'}`));
+        const tick=(now,meta={})=>{
+          if(finished)return;
+          try{deliver(meta);}catch(err){finish(err);return;}
+          if(video.ended){finish();return;}
+          handle=video.requestVideoFrameCallback(tick);this._videoFrameHandle=handle;
+        };
+        video.addEventListener('ended',onEnded,{once:true});video.addEventListener('error',onError,{once:true});
+        handle=video.requestVideoFrameCallback(tick);this._videoFrameHandle=handle;
+        timer=setTimeout(()=>finish(new Error(`timeout decodifica continua dopo ${Math.round(timeout/1000)} s`)),Math.max(1000,Number(timeout)||120000));
+        Promise.resolve(video.play()).catch(err=>finish(new Error(`playback continuo fallito: ${err?.message||err}`)));
+      });
+      return result;
+    }finally{
+      try{video.pause();}catch{}
+      try{video.playbackRate=previousRate;}catch{}
+    }
+  }
+
+  /** Legacy one-frame helper kept only for diagnostics/fallback comparisons. */
   async nextDecodedFrame(previousMediaTime=-Infinity,{timeout=5000}={}){
     const video=this.video;if(!video||!this.running)return null;
     if(typeof video.requestVideoFrameCallback!=='function')return null;

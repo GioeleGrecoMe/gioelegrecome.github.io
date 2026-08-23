@@ -1,100 +1,91 @@
 #!/usr/bin/env node
-// Regression tests for the exact camera/ONNX raster contract used by Scan Test.
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { spawnSync } from 'node:child_process';
 
+const root = new URL('../', import.meta.url);
+const model = new URL('../models/depth-anything-v2-small/onnx/model_q4.onnx', import.meta.url);
+const config = JSON.parse(fs.readFileSync(new URL('../models/depth-anything-v2-small/config.json', import.meta.url), 'utf8'));
+const processor = JSON.parse(fs.readFileSync(new URL('../models/depth-anything-v2-small/preprocessor_config.json', import.meta.url), 'utf8'));
 const workerPath = new URL('../deep_depth_worker.js', import.meta.url);
-let source = fs.readFileSync(workerPath, 'utf8');
-source += '\n;globalThis.__depthTest={inspectDepthModelContract,inputSpec,readOutput,prepareInput,assessFlipComparison,setContract:(v)=>{bundledModelContract=v;}};';
+const appPath = new URL('../app.js', import.meta.url);
 
+const bytes = fs.readFileSync(model);
+const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
+assert.equal(sha256, '5d55b02762e1907589158af3e366bd61ddf648155852a07bbf5e3a074639fcf8');
+assert.equal(config.model_type, 'depth_anything');
+assert.equal(processor.image_processor_type, 'DPTImageProcessor');
+assert.equal(processor.do_resize, true);
+assert.equal(processor.keep_aspect_ratio, true);
+assert.equal(processor.ensure_multiple_of, 14);
+assert.equal(processor.resample, 3);
+assert.deepEqual(processor.size, { height: 518, width: 518 });
+assert.deepEqual(processor.image_mean, [0.485, 0.456, 0.406]);
+assert.deepEqual(processor.image_std, [0.229, 0.224, 0.225]);
+
+const inspect = spawnSync(process.execPath, [new URL('./inspect_onnx_contract.mjs', import.meta.url).pathname, model.pathname], { encoding: 'utf8' });
+assert.equal(inspect.status, 0, inspect.stderr);
+const onnx = JSON.parse(inspect.stdout);
+assert.equal(onnx.depthAnythingV2Contract, true);
+assert.equal(onnx.inputs[0].name, 'pixel_values');
+assert.equal(onnx.inputs[0].dataType, 'float32');
+assert.equal(onnx.inputs[0].shape[1], 3);
+assert.equal(onnx.outputs[0].name, 'predicted_depth');
+assert.equal(onnx.outputs[0].dataType, 'float32');
+
+let workerSource = fs.readFileSync(workerPath, 'utf8');
+workerSource += '\n;globalThis.__depthTest={finiteStats,pearson,flipRgbaHorizontal,flipDepthHorizontal};';
 const context = {
   console,
-  performance:{ now:() => 0 },
-  navigator:{},
-  postMessage(){},
-  self:{},
-  TextDecoder,
-  Uint8Array, Uint8ClampedArray, Uint16Array, Uint32Array,
-  Float32Array, Float64Array, Int32Array,
-  ArrayBuffer, BigInt, Math, Number, Array, Object, String, Set, Map,
-  Error, TypeError, Infinity, NaN,
+  performance: { now: () => 0 },
+  self: { postMessage(){}, location: { href: 'https://example.invalid/scan_test/deep_depth_worker.js' } },
+  Uint8Array, Uint8ClampedArray, Uint32Array, Float32Array, Float64Array,
+  ArrayBuffer, Math, Number, Array, Object, String, Set, Map, Error, TypeError, Infinity, NaN,
 };
 vm.createContext(context);
-vm.runInContext(source, context, { filename:'scan_test/deep_depth_worker.js' });
+vm.runInContext(workerSource, context, { filename: 'deep_depth_worker.js' });
 const d = context.__depthTest;
+const depth = Float32Array.from({length: 20}, (_, i) => i * 0.25 + (i % 4));
+const flipped = d.flipDepthHorizontal(depth, 5, 4);
+const restored = d.flipDepthHorizontal(flipped, 5, 4);
+assert.deepEqual(Array.from(restored), Array.from(depth));
+const corr = d.pearson(depth, restored);
+assert.ok(corr.correlation > 0.999999);
+const stats = d.finiteStats(depth);
+assert.equal(stats.finiteRatio, 1);
+assert.ok(stats.robustRange > 0);
 
-const bytes = fs.readFileSync(new URL('../models/model_q4.onnx', import.meta.url));
-const contract = d.inspectDepthModelContract(bytes);
-assert.equal(contract.input.name, 'pixel_values');
-assert.equal(contract.input.type, 'float32');
-assert.deepEqual(Array.from(contract.input.shape), ['batch_size', 3, 'height', 'width']);
-assert.equal(contract.output.name, 'predicted_depth');
-assert.equal(contract.output.type, 'float32');
-assert.equal(contract.output.shape.length, 3);
-d.setContract(contract);
-
-const fakeSession = {
-  inputNames:['pixel_values'], outputNames:['predicted_depth'],
-  inputMetadata:{ pixel_values:{ type:'float32', shape:['batch_size', 3, 'height', 'width'] } },
-  outputMetadata:{ predicted_depth:{ type:'float32', shape:['batch_size', 'height', 'width'] } },
-};
-const spec = d.inputSpec(fakeSession);
-assert.deepEqual(Array.from(spec.dims), [1, 3, 518, 518]);
-
-const rowMajor = await d.readOutput({ predicted_depth:{ dims:[1, 2, 3], type:'float32', data:new Float32Array([1,2,3,4,5,6]) } }, { width:3, height:2 }, fakeSession);
-assert.deepEqual(Array.from(rowMajor.rawDepth), [1,2,3,4,5,6]);
-await assert.rejects(
-  d.readOutput({ predicted_depth:{ dims:[1, 1, 2, 3], type:'float32', data:new Float32Array(6) } }, { width:3, height:2 }, fakeSession),
-  /deve essere \[1,H,W\]/,
-);
-await assert.rejects(
-  d.readOutput({ predicted_depth:{ dims:[1, 2, 3], type:'float32', data:new Float32Array(7) } }, { width:3, height:2 }, fakeSession),
-  /buffer incoerente/,
-);
-
-class FakeTensor { constructor(type, data, dims) { this.type = type; this.data = data; this.dims = dims; } }
-const pixels = new Uint8ClampedArray([
-  255,0,0,255, 0,255,0,255,
-  0,0,255,255, 255,255,255,255,
-]);
-const prepared = await d.prepareInput(pixels, 2, 2, { type:'float32' }, { width:14, height:14 }, null, { Tensor:FakeTensor }, true);
-assert.equal(prepared.tensor.dims.join(','), '1,3,14,14');
-assert.equal(prepared.inputRasterDiagnostic.tensorNchwPreview[0], 255);
-assert.equal(prepared.inputRasterDiagnostic.tensorNchwPreview[1], 0);
-
-// Identity-size preprocessing must preserve the complete raster after
-// normalize -> diagnostic de-normalize. This catches RGB/BGR, NCHW/NHWC and
-// row/column-major regressions rather than checking only two pixels.
-const identityPixels = new Uint8ClampedArray(14 * 14 * 4);
-for (let y = 0; y < 14; y++) for (let x = 0; x < 14; x++) {
-  const i = (y * 14 + x) * 4;
-  identityPixels[i] = (17 * x + 3 * y) & 255;
-  identityPixels[i + 1] = (5 * x + 19 * y + 31) & 255;
-  identityPixels[i + 2] = (11 * x + 7 * y + 73) & 255;
-  identityPixels[i + 3] = 255;
-}
-const identity = await d.prepareInput(identityPixels, 14, 14, { type:'float32' }, { width:14, height:14 }, null, { Tensor:FakeTensor }, true);
-const preview = identity.inputRasterDiagnostic.tensorNchwPreview;
-for (let i = 0; i < 14 * 14; i++) {
-  assert.ok(Math.abs(preview[i * 4] - identityPixels[i * 4]) <= 1);
-  assert.ok(Math.abs(preview[i * 4 + 1] - identityPixels[i * 4 + 1]) <= 1);
-  assert.ok(Math.abs(preview[i * 4 + 2] - identityPixels[i * 4 + 2]) <= 1);
-  assert.equal(preview[i * 4 + 3], 255);
-}
-await assert.rejects(
-  d.prepareInput(new Uint8ClampedArray(17), 2, 2, { type:'float32' }, { width:14, height:14 }, null, { Tensor:FakeTensor }),
-  /shape errata/,
-);
-assert.equal(d.assessFlipComparison({ comparable:true, correlation:.97, nrmse:.1, samples:100 }).verified, true);
-assert.equal(d.assessFlipComparison({ comparable:true, correlation:.2, nrmse:1, samples:100 }).suspicious, true);
+const workerText = fs.readFileSync(workerPath, 'utf8');
+const appText = fs.readFileSync(appPath, 'utf8');
+assert.match(workerText, /pipeline\('depth-estimation'/);
+assert.match(workerText, /device:\s*'wasm'/);
+assert.match(workerText, /dtype:\s*'q4'/);
+assert.match(workerText, /new api\.RawImage/);
+assert.doesNotMatch(workerText, /InferenceSession\.create|new\s+ort\.Tensor/);
+assert.match(workerText, /predicted_depth/);
+assert.match(workerText, /validateSpatial/);
+assert.match(appText, /includes\('wasm'\)/);
+assert.match(appText, /spatialContract\?\.verified === true/);
+assert.match(appText, /!d\.quality\?\.suspicious/);
+assert.match(appText, /FAIL-CLOSED/);
+assert.match(appText, /f\.deep = null/);
+assert.match(appText, /renderDeepDiagnostic\(d, \{ showDepth: !bad \}\)/);
+const gatePos = appText.indexOf("const deepSafe = String(d.provider || '').includes('wasm')");
+const assignPos = appText.indexOf('f.deep = { rawDepth: d.rawDepth', gatePos);
+assert.ok(gatePos >= 0 && assignPos > gatePos, 'depth must be gated before frame assignment');
+assert.match(workerText, /spatialValidation\.verified !== true/);
 
 console.log(JSON.stringify({
-  model:{ input:contract.input, output:contract.output },
-  inputTensor:spec.dims,
-  rowMajor:Array.from(rowMajor.rawDepth),
-  strictOutputShape:true,
-  strictRgbaShape:true,
-  fullRasterNchwRoundTrip:true,
-  flipGate:true,
+  modelSha256: sha256,
+  onnxInput: onnx.inputs[0],
+  onnxOutput: onnx.outputs[0],
+  processor,
+  officialPipelineOwnedPreprocessing: true,
+  wasmQ4Only: true,
+  flipGateHelpers: true,
+  appFailClosedGate: true,
+  numericRuntimeExecuted: false,
+  numericRuntimeReason: 'Transformers.js/onnxruntime-web CDN is unreachable from this sandbox; browser runtime remains gated and cannot accept a map unless the mirrored inference check passes.'
 }, null, 2));
