@@ -52,7 +52,7 @@
         <button id="testDeepBtn" disabled>Prova Deep sul frame corrente</button>
         <button id="clearBtn" class="quiet">Azzera sessione</button>
       </div>
-      <p id="runtimeStatus" class="status">AlvaAR non inizializzato · Deep non caricato. Un video locale viene archiviato, rigiocato con AlvaAR e poi inviato a Deep sulle sole pose valide; il fixture statico esercita invece soltanto l'acquisizione.</p>
+      <p id="runtimeStatus" class="status">AlvaAR non inizializzato · Deep non caricato. Un video locale viene rigiocato a 30 fps con avanzamento controllato per AlvaAR; Deep riceve poi solo le viste con posa valida e ridimensiona internamente il raster. Il fixture statico esercita invece soltanto l'acquisizione.</p>
     </section>
 
     <section class="capture-layout">

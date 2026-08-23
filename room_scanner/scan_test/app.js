@@ -16,6 +16,10 @@ import { detectScanFeatures, matchArchivedFrames } from './feature_matching.js';
 const W = 640;
 const H = 480;
 const DEFAULT_ALVA_HZ = 12;
+// File video are not live camera feeds.  AlvaAR must see their consecutive
+// visual sequence: the stock-video regression initializes at 30 fps but not
+// at 15 fps, therefore this is deliberately independent from archiveFps.
+const FILE_ALVA_FPS = 30;
 const PRE_ROLL_MAX_FRAMES = 48;
 const MAX_FRAME_MEMORY = 260 * 1024 * 1024;
 const $ = id => document.getElementById(id);
@@ -234,11 +238,11 @@ function waitForVideoSeek(video, time) {
   });
 }
 async function processUploadedVideo(capture) {
-  const video = dom.camera, duration = Number(video.duration), fps = clamp(numberValue('archiveFps', DEFAULT_ALVA_HZ), 8, 15);
+  const video = dom.camera, duration = Number(video.duration), fps = FILE_ALVA_FPS;
   if (!(duration > 0 && Number.isFinite(duration))) throw new Error('Il file video non espone una durata valida.');
   const step = 1 / fps, total = Math.max(1, Math.floor(duration * fps));
   setGlobal('Video: estrazione controllata AlvaAR…', '');
-  dom.runtimeStatus.textContent = `Estraggo ${total} frame regolari a ${fps} fps: il video resta fermo finché AlvaAR non ha elaborato il frame corrente.`;
+  dom.runtimeStatus.textContent = `Estraggo tutti i frame di tracking a ${fps} fps: il video resta fermo finché AlvaAR non ha elaborato il frame corrente. Deep userà poi un proprio raster ridotto.`;
   log('uploaded-video-controlled-decode-start', { duration, fps, total, alvaRaster:[W,H], source:S.source });
   for (let index = 0; index < total && S.recording; index++) {
     const time = Math.min(duration - .0001, index * step);
