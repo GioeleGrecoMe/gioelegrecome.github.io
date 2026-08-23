@@ -59,3 +59,29 @@ body { padding-bottom: min(220px, 24vh); }
   #liveElapsed { grid-column: 2; grid-row: 1; }
   .live-log-toggle { display: none; }
 }
+
+/* Scan Test v3.4.2: interactive stage-6 3D viewer. */
+.splat-canvas.interactive-3d {
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+}
+.splat-canvas.interactive-3d.dragging { cursor: grabbing; }
+.splat-canvas.interactive-3d:focus-visible { box-shadow: 0 0 0 2px #7cc5ff, 0 0 0 5px rgba(124,197,255,.18); }
+.viewer-nav-readout {
+  margin-top: .55rem;
+  padding: .48rem .65rem;
+  border: 1px solid #284766;
+  border-radius: .55rem;
+  background: #081423;
+  color: #b9d7f1;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+kbd { padding:.08rem .3rem; border:1px solid #466684; border-bottom-width:2px; border-radius:.3rem; background:#102033; color:#edf6ff; font:inherit; }
+@media (max-width:680px) {
+  .splat-canvas.interactive-3d { height:min(58vh,560px); min-height:340px; }
+  .viewer-nav-readout { font-size:10.5px; }
+}

@@ -1,59 +1,24 @@
-# Scan Test v3.4.1 - verification record
+# Scan Test v3.4.2 - verification
 
-Build: `scan-test-v3.4.1-deep-processor-compat`
+Build: `scan-test-v3.4.2-interactive-3d-viewer`
 
-## Problemi riprodotti/individuati nella v3.3.0
+## Ambito
 
-1. `verifyDeployedBuild()` eseguiva fetch sequenziali senza timeout e includeva `HEAD` di `model_q4.onnx`. Una richiesta pendente lasciava il banner `verifica asset in corso` senza limite.
-2. Durante il passo Deep, import del runtime, model load, creazione sessione e inferenze potevano trascorrere molto tempo senza uno stato persistente visibile.
-3. Il buffer RGB di ogni job Deep veniva structured-cloned al worker, aumentando picco di memoria su mobile.
-4. Il test Deep usava le dimensioni globali `W,H` invece delle dimensioni archiviate sul frame corrente.
-5. Il profilo DPT locale a 518 era costoso per il banco mobile; il modello incluso usa shape dinamiche nel percorso gia validato dal progetto, quindi il processor locale viene portato a 336 mantenendo il vincolo multiplo di 14.
+Nessuna modifica a tracking AlvaAR, ingestione video, Deep worker, modello ONNX o ottimizzazione di profondita. Solo viewer finale del passo 6.
 
-## Regressioni statiche
+## Verifiche eseguite
 
-`test_v340_watchdog.mjs` verifica:
+- `node --check app.js`: OK.
+- `node tools/test_v342_viewer_navigation.mjs`: OK.
+- la vista iniziale usa yaw 45 deg e pitch -35.264 deg; il test numerico verifica che produca gli stessi assi 2D della precedente funzione isometrica;
+- stage 4 continua ad usare `renderIso()` fisso;
+- stage 6 usa `renderInteractive3D()`;
+- Pointer Events: orbit, pan e multi-touch;
+- wheel con `passive:false` per zoom senza scroll della pagina;
+- `touch-action:none` sul solo canvas 3D;
+- preset Isometrica/Alto/Fronte/Lato;
+- tastiera e reset;
+- logging della camera al termine di una gesture;
+- LOD temporaneo durante drag per evitare che cloud grandi blocchino il telefono; ridisegno completo al rilascio.
 
-- fingerprint v3.4.1;
-- dock log fixed sempre presente;
-- self-check parallelo e bounded a 5 s;
-- nessun accesso al Q4 nel self-check iniziale;
-- stage + heartbeat del worker;
-- timeout import runtime e pipeline;
-- assenza di `HEAD` sul Q4 nel worker;
-- trasferimento ownership del buffer RGBA;
-- dimensioni Deep prese dal frame;
-- profilo DPT 336.
-
-`test_app_contract.mjs` continua a verificare:
-
-- registrazione attiva prima del decoder file;
-- `requestVideoFrameCallback` continuo;
-- frame t=0 esplicito;
-- singola sessione `play()`;
-- raster Alva long-side 960;
-- gate Deep prima di assegnare depth;
-- cancellazione completa di batch Deep rifiutati.
-
-`test_depth_noise_gate.mjs` continua a separare una matrice casuale ad alta frequenza da una depth spazialmente liscia.
-
-## Browser regression Alva
-
-Sul fixture indipendente `external_hallway_validation.mp4`, attraverso `CameraController.consumeDecodedFrames` e il tracker Alva bundled, il test eseguito a playback 1.0 ha prodotto:
-
-- source: 480x270;
-- raster Alva: 960x540;
-- frame consegnati: 48;
-- duplicati: 0;
-- pose: 43/48 = 89.6%;
-- prima posa: frame 5.
-
-Questo test serve a verificare che le modifiche di osservabilita/Deep non abbiano rotto il percorso Alva.
-
-## Limite della verifica locale
-
-L'ambiente di packaging non riesce a raggiungere il deploy GitHub Pages fornito e non consente un test numerico completo della pipeline Transformers.js scaricata da CDN. Non viene quindi dichiarata una inferenza Deep end-to-end certificata in questo ambiente. Sul dispositivo target, il dock v3.4.1 rende ora esplicita la fase esatta e impone un timeout main-thread al job.
-
-## v3.4.1 regression
-
-Aggiunto `tools/test_v341_processor_compat.mjs`: impedisce il ritorno a Transformers.js 4.2.0 per questo modello locale e richiede il controllo `typeof pipeline.processor === 'function'` prima dell'inferenza.
+Il dock log v3.4.x rimane invariato e sempre visibile.

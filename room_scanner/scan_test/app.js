@@ -1,10 +1,10 @@
 // This identifier is deliberately present in the UI, diagnostic export and URLs.
 // It makes a stale GitHub Pages/service-worker cache immediately recognizable.
-const BUILD_ID = 'scan-test-v3.4.1-deep-processor-compat';
+const BUILD_ID = 'scan-test-v3.4.2-interactive-3d-viewer';
 
-import { AlvaAR } from './vendor/alva_ar.js?v=scan-test-v3.4.1';
-import { CameraController, intrinsicsForCrop } from './camera.js?v=scan-test-v3.4.1';
-import { detectScanFeatures, matchArchivedFrames } from './feature_matching.js?v=scan-test-v3.4.1';
+import { AlvaAR } from './vendor/alva_ar.js?v=scan-test-v3.4.2';
+import { CameraController, intrinsicsForCrop } from './camera.js?v=scan-test-v3.4.2';
+import { detectScanFeatures, matchArchivedFrames } from './feature_matching.js?v=scan-test-v3.4.2';
 
 /*
  * Scan Test is deliberately separate from V30.  Its contract is intentionally
@@ -48,7 +48,7 @@ const dom = Object.freeze({
   planeBadge: $('planeBadge'), planeMetrics: $('planeMetrics'), planeCanvas: $('planeCanvas'),
   deepBadge: $('deepBadge'), deepMetrics: $('deepMetrics'), depthCanvas: $('depthCanvas'),
   deepDiagnostic: $('deepDiagnostic'), deepSourceCanvas: $('deepSourceCanvas'), deepTensorCanvas: $('deepTensorCanvas'), deepOutputCanvas: $('deepOutputCanvas'), deepReport: $('deepReport'),
-  viewerBadge: $('viewerBadge'), viewerMetrics: $('viewerMetrics'), splatCanvas: $('splatCanvas'),
+  viewerBadge: $('viewerBadge'), viewerMetrics: $('viewerMetrics'), splatCanvas: $('splatCanvas'), viewerNavReadout: $('viewerNavReadout'),
   gridStepOut: $('gridStepOut'), confidenceOut: $('confidenceOut'),
   liveLogDock: $('liveLogDock'), livePhase: $('livePhase'), liveElapsed: $('liveElapsed'), liveActivity: $('liveActivity'), liveLogTail: $('liveLogTail'), liveLogToggle: $('liveLogToggle'),
 });
@@ -62,6 +62,7 @@ const S = {
   deepWorker: null, deepWaiters: new Map(), deepContract: null, splats: null, planeSplats: null,
   lastDepthFrame: null, viewToken: 0, lastResult: null, fileDecodeStats: null,
   lastLiveArchiveAt: -Infinity, liveArchiveSamplesSinceRecord: 0, offlineFovDeg: null, trackerFovDeg: 45, trackerFovSweep: null,
+  viewer3d: { yaw: Math.PI / 4, pitch: -Math.atan(1 / Math.sqrt(2)), zoom: 1, panX: 0, panY: 0, cache: null, pointers: new Map(), gesture: null },
 };
 
 function nowText() { return new Date().toLocaleTimeString('it-IT', { hour12: false }); }
@@ -443,7 +444,7 @@ function disposeCaptureSource() {
 }
 function clearSession() {
   if (S.recording) throw new Error('Ferma prima la registrazione.');
-  disposeCaptureSource(); S.frames.length = 0; S.preRoll.length = 0; S.edges.length = 0; S.depthEdges.length = 0; S.offlineTrackerPoints.length = 0; S.frameBytes = 0; S.offlineDone = S.deepDone = S.finalDone = false; S.splats = S.planeSplats = null; S.lastDepthFrame = null; S.deepContract = null; S.fileDecodeStats = null;
+  disposeCaptureSource(); S.frames.length = 0; S.preRoll.length = 0; S.edges.length = 0; S.depthEdges.length = 0; S.offlineTrackerPoints.length = 0; S.frameBytes = 0; S.offlineDone = S.deepDone = S.finalDone = false; S.splats = S.planeSplats = null; S.viewer3d.cache = null; resetViewer3D({ render:false, logEvent:false }); updateViewerNavReadout(); S.lastDepthFrame = null; S.deepContract = null; S.fileDecodeStats = null;
   dom.frameStrip.innerHTML = '<p class="empty">L\'archivio comparirà qui. I fotogrammi sono mantenuti in memoria per la riesecuzione offline e Deep.</p>';
   updateArchiveUi(); setBadge(dom.offlineBadge, 'non avviata'); setBadge(dom.planeBadge, 'in attesa'); setBadge(dom.deepBadge, 'non avviata'); setBadge(dom.viewerBadge, 'nessuna particella');
   dom.deepDiagnostic.hidden = true; dom.deepReport.textContent = 'Esegui “Prova Deep sul frame corrente” per verificare il percorso completo.';
@@ -628,13 +629,137 @@ function buildSplats({ useDeep = false } = {}) {
   return { positions, colors, confidence, source, depth, count: n, gridStep: step, frames: frames.length, deepPixels, planePixels, minDepth, maxDepth, mode: useDeep ? 'deep+plane-fallback' : 'plane' };
 }
 function isoCoordinates(x, y, z) { return [.70710678 * (x - z), .40824829 * (x + z) + .81649658 * y, .57735027 * (x - y + z)]; }
+function ensureViewerCache(splats) {
+  const view = S.viewer3d;
+  if (view.cache?.splats === splats) return view.cache;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (let i = 0; i < splats.count; i++) {
+    const k = i * 3, x = splats.positions[k], y = splats.positions[k + 1], z = splats.positions[k + 2];
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
+  }
+  const center = [(minX + maxX) * .5, (minY + maxY) * .5, (minZ + maxZ) * .5];
+  const hx = Math.max(.0001, (maxX - minX) * .5), hy = Math.max(.0001, (maxY - minY) * .5), hz = Math.max(.0001, (maxZ - minZ) * .5);
+  const radius = Math.max(.0001, Math.hypot(hx, hy, hz));
+  view.cache = { splats, center, radius, bounds: [minX, maxX, minY, maxY, minZ, maxZ] };
+  return view.cache;
+}
+function resetViewer3D({ render = true, logEvent = true } = {}) {
+  const view = S.viewer3d;
+  view.yaw = Math.PI / 4;
+  view.pitch = -Math.atan(1 / Math.sqrt(2));
+  view.zoom = 1;
+  view.panX = 0;
+  view.panY = 0;
+  view.gesture = null;
+  view.pointers.clear();
+  if (logEvent) log('viewer-camera-reset', { yawDeg:45, pitchDeg:-35.264, zoom:1 });
+  if (render) requestViewerRender();
+}
+function setViewerPreset(name) {
+  const v = S.viewer3d;
+  if (name === 'top') { v.yaw = 0; v.pitch = -Math.PI / 2 + .001; }
+  else if (name === 'front') { v.yaw = 0; v.pitch = 0; }
+  else if (name === 'side') { v.yaw = Math.PI / 2; v.pitch = 0; }
+  else { v.yaw = Math.PI / 4; v.pitch = -Math.atan(1 / Math.sqrt(2)); }
+  v.panX = 0; v.panY = 0; v.zoom = 1;
+  log('viewer-preset', { preset:name, yawDeg:v.yaw * 180 / Math.PI, pitchDeg:v.pitch * 180 / Math.PI });
+  requestViewerRender();
+}
+function updateViewerNavReadout(shown = null) {
+  if (!dom.viewerNavReadout) return;
+  const v = S.viewer3d;
+  const yaw = ((v.yaw * 180 / Math.PI) % 360 + 360) % 360, pitch = v.pitch * 180 / Math.PI;
+  dom.viewerNavReadout.textContent = `orbita ${yaw.toFixed(1)}° / ${pitch.toFixed(1)}° · zoom ${v.zoom.toFixed(2)}× · pan ${Math.round(v.panX)}, ${Math.round(v.panY)} px${shown == null ? '' : ` · ${shown.toLocaleString('it-IT')} splat`}`;
+}
+function requestViewerRender() {
+  if (!S.splats || S.viewToken) return;
+  S.viewToken = requestAnimationFrame(() => { S.viewToken = 0; renderFinal(); });
+}
+function renderInteractive3D(canvas, splats, minConfidence = 0) {
+  const { g, w, h } = setupCanvas(canvas); g.fillStyle = '#050c15'; g.fillRect(0, 0, w, h); if (!splats?.count) return { shown:0 };
+  const cache = ensureViewerCache(splats), v = S.viewer3d;
+  const cy = Math.cos(v.yaw), sy = Math.sin(v.yaw), cp = Math.cos(v.pitch), sp = Math.sin(v.pitch);
+  const scale = .82 * Math.min(w, h) / (2 * cache.radius) * v.zoom, cx = w * .5 + v.panX, cyp = h * .5 + v.panY;
+  const dpr = Math.min(2, devicePixelRatio || 1), pw = canvas.width, ph = canvas.height, img = g.createImageData(pw, ph), pix = img.data; let shown = 0;
+  const [ox, oy, oz] = cache.center;
+  const interactionStride = v.pointers.size ? Math.max(1, Math.ceil(splats.count / 90000)) : 1;
+  for (let i = 0; i < splats.count; i += interactionStride) {
+    if (splats.confidence[i] < minConfidence) continue;
+    const k = i * 3, dx = splats.positions[k] - ox, dy = splats.positions[k + 1] - oy, dz = splats.positions[k + 2] - oz;
+    const rx = cy * dx - sy * dz, rz = sy * dx + cy * dz, ry = cp * dy - sp * rz;
+    const x = Math.round((cx + rx * scale) * dpr), y = Math.round((cyp + ry * scale) * dpr);
+    if (x < 1 || y < 1 || x >= pw - 1 || y >= ph - 1) continue;
+    const r = splats.colors[k], gg = splats.colors[k + 1], b = splats.colors[k + 2], alpha = Math.round(100 + splats.confidence[i] * 110), a = alpha / 255;
+    for (let yy = -1; yy <= 1; yy++) for (let xx = -1; xx <= 1; xx++) { const q = ((y + yy) * pw + x + xx) * 4; pix[q] = pix[q] * (1 - a) + r * a; pix[q + 1] = pix[q + 1] * (1 - a) + gg * a; pix[q + 2] = pix[q + 2] * (1 - a) + b * a; pix[q + 3] = Math.min(255, pix[q + 3] + alpha); }
+    shown++;
+  }
+  g.putImageData(img, 0, 0);
+  g.fillStyle = '#d3e6f8'; g.font = '12px system-ui';
+  g.fillText(`viewer 3D ortografico · ${shown.toLocaleString('it-IT')} particelle · trascina=orbita · Shift/destro=pan · rotella/pinch=zoom`, 9, 18);
+  // Small camera-orientation triad in the lower-left corner.
+  const triad = [[1,0,0,'X','#ff8a96'],[0,1,0,'Y','#72e7a8'],[0,0,1,'Z','#75bcff']], tx = 34, ty = h - 34, tl = 22;
+  g.lineWidth = 2; g.font = '10px system-ui';
+  for (const [ax, ay, az, label, color] of triad) { const rx = cy * ax - sy * az, rz = sy * ax + cy * az, ry = cp * ay - sp * rz; g.strokeStyle = color; g.fillStyle = color; g.beginPath(); g.moveTo(tx, ty); g.lineTo(tx + rx * tl, ty + ry * tl); g.stroke(); g.fillText(label, tx + rx * tl + 3, ty + ry * tl + 3); }
+  updateViewerNavReadout(shown);
+  return { shown, scale, interactionStride };
+}
+function viewerPointerMode(e) { return e.button === 1 || e.button === 2 || e.shiftKey || e.altKey || e.ctrlKey ? 'pan' : 'orbit'; }
+function viewerPointerSnapshot() { return Array.from(S.viewer3d.pointers.values()); }
+function viewerDistance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function viewerMidpoint(a, b) { return { x:(a.x+b.x)*.5, y:(a.y+b.y)*.5 }; }
+function viewerPointerDown(e) {
+  if (!S.splats) return;
+  e.preventDefault(); try { dom.splatCanvas.focus({ preventScroll:true }); } catch { dom.splatCanvas.focus(); } dom.splatCanvas.setPointerCapture?.(e.pointerId);
+  S.viewer3d.pointers.set(e.pointerId, { x:e.clientX, y:e.clientY, mode:viewerPointerMode(e) });
+  const pts = viewerPointerSnapshot();
+  if (pts.length >= 2) { const mid = viewerMidpoint(pts[0], pts[1]); S.viewer3d.gesture = { type:'pinch', dist:Math.max(1, viewerDistance(pts[0], pts[1])), mid, zoom:S.viewer3d.zoom, panX:S.viewer3d.panX, panY:S.viewer3d.panY }; }
+  else S.viewer3d.gesture = { type:pts[0].mode, x:pts[0].x, y:pts[0].y, yaw:S.viewer3d.yaw, pitch:S.viewer3d.pitch, panX:S.viewer3d.panX, panY:S.viewer3d.panY };
+  dom.splatCanvas.classList.add('dragging');
+}
+function viewerPointerMove(e) {
+  const v = S.viewer3d, p = v.pointers.get(e.pointerId); if (!p || !S.splats) return; e.preventDefault(); p.x = e.clientX; p.y = e.clientY;
+  const pts = viewerPointerSnapshot();
+  if (pts.length >= 2) {
+    if (v.gesture?.type !== 'pinch') { const mid = viewerMidpoint(pts[0], pts[1]); v.gesture = { type:'pinch', dist:Math.max(1, viewerDistance(pts[0], pts[1])), mid, zoom:v.zoom, panX:v.panX, panY:v.panY }; }
+    const mid = viewerMidpoint(pts[0], pts[1]), ratio = Math.max(.05, viewerDistance(pts[0], pts[1])) / v.gesture.dist;
+    v.zoom = clamp(v.gesture.zoom * ratio, .08, 30); v.panX = v.gesture.panX + (mid.x - v.gesture.mid.x); v.panY = v.gesture.panY + (mid.y - v.gesture.mid.y);
+  } else if (v.gesture?.type === 'pan') { v.panX = v.gesture.panX + (p.x - v.gesture.x); v.panY = v.gesture.panY + (p.y - v.gesture.y); }
+  else if (v.gesture) { v.yaw = v.gesture.yaw + (p.x - v.gesture.x) * .008; v.pitch = clamp(v.gesture.pitch + (p.y - v.gesture.y) * .008, -Math.PI / 2 + .015, Math.PI / 2 - .015); }
+  requestViewerRender();
+}
+function viewerPointerUp(e) {
+  const v = S.viewer3d; if (!v.pointers.has(e.pointerId)) return; v.pointers.delete(e.pointerId); try { dom.splatCanvas.releasePointerCapture?.(e.pointerId); } catch { /* not captured */ }
+  const pts = viewerPointerSnapshot();
+  if (pts.length === 1) { const p = pts[0]; v.gesture = { type:p.mode, x:p.x, y:p.y, yaw:v.yaw, pitch:v.pitch, panX:v.panX, panY:v.panY }; }
+  else if (!pts.length) { v.gesture = null; dom.splatCanvas.classList.remove('dragging'); requestViewerRender(); log('viewer-camera-changed', { yawDeg:v.yaw*180/Math.PI, pitchDeg:v.pitch*180/Math.PI, zoom:v.zoom, pan:[v.panX,v.panY] }); }
+}
+function viewerWheel(e) { if (!S.splats) return; e.preventDefault(); const v = S.viewer3d, old = v.zoom, factor = Math.exp(-e.deltaY * .0015); v.zoom = clamp(v.zoom * factor, .08, 30); if (Math.abs(v.zoom-old) > .0001) requestViewerRender(); }
+function viewerKeyDown(e) {
+  if (!S.splats) return; const v = S.viewer3d, step = e.shiftKey ? 28 : .08; let handled = true;
+  if (e.key === 'ArrowLeft') e.shiftKey ? v.panX -= step : v.yaw -= step;
+  else if (e.key === 'ArrowRight') e.shiftKey ? v.panX += step : v.yaw += step;
+  else if (e.key === 'ArrowUp') e.shiftKey ? v.panY -= step : v.pitch = clamp(v.pitch - step, -Math.PI/2+.015, Math.PI/2-.015);
+  else if (e.key === 'ArrowDown') e.shiftKey ? v.panY += step : v.pitch = clamp(v.pitch + step, -Math.PI/2+.015, Math.PI/2-.015);
+  else if (e.key === '+' || e.key === '=') v.zoom = clamp(v.zoom * 1.15, .08, 30);
+  else if (e.key === '-' || e.key === '_') v.zoom = clamp(v.zoom / 1.15, .08, 30);
+  else if (e.key.toLowerCase() === 'r' || e.key === 'Home') { resetViewer3D({ logEvent:false }); return; }
+  else handled = false;
+  if (handled) { e.preventDefault(); requestViewerRender(); }
+}
+function installViewerNavigation() {
+  const c = dom.splatCanvas; if (!c || c.dataset.navInstalled) return; c.dataset.navInstalled = '1'; c.tabIndex = 0;
+  c.addEventListener('pointerdown', viewerPointerDown); c.addEventListener('pointermove', viewerPointerMove); c.addEventListener('pointerup', viewerPointerUp); c.addEventListener('pointercancel', viewerPointerUp); c.addEventListener('lostpointercapture', viewerPointerUp);
+  c.addEventListener('wheel', viewerWheel, { passive:false }); c.addEventListener('contextmenu', e => e.preventDefault()); c.addEventListener('dblclick', () => resetViewer3D()); c.addEventListener('keydown', viewerKeyDown);
+  log('viewer-navigation-installed', { controls:'drag orbit; shift/right drag pan; wheel pinch zoom; two-finger pan; keyboard arrows/shift/+/-/R' });
+}
 function renderIso(canvas, splats, minConfidence = 0) {
+  // Stage 4 retains the fixed diagnostic isometric projection; stage 6 uses the interactive camera.
   const { g, w, h } = setupCanvas(canvas); g.fillStyle = '#050c15'; g.fillRect(0, 0, w, h); if (!splats?.count) return { shown: 0 };
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (let i = 0; i < splats.count; i++) { const k = i * 3, [x, y] = isoCoordinates(splats.positions[k], splats.positions[k + 1], splats.positions[k + 2]); minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
-  const scale = .91 * Math.min(w / Math.max(.0001, maxX - minX), h / Math.max(.0001, maxY - minY)), cx = w * .5 - (minX + maxX) * .5 * scale, cy = h * .5 - (minY + maxY) * .5 * scale;
+  const scale = .91 * Math.min(w / Math.max(.0001, maxX - minX), h / Math.max(.0001, maxY - minY)), cx = w * .5 - (minX + maxX) * .5 * scale, cy0 = h * .5 - (minY + maxY) * .5 * scale;
   const d = Math.min(2, devicePixelRatio || 1), pw = canvas.width, ph = canvas.height, img = g.createImageData(pw, ph), pix = img.data; let shown = 0;
-  for (let i = 0; i < splats.count; i++) { if (splats.confidence[i] < minConfidence) continue; const k = i * 3, [ix, iy] = isoCoordinates(splats.positions[k], splats.positions[k + 1], splats.positions[k + 2]), x = Math.round((cx + ix * scale) * d), y = Math.round((cy + iy * scale) * d); if (x < 1 || y < 1 || x >= pw - 1 || y >= ph - 1) continue; const r = splats.colors[k], gg = splats.colors[k + 1], b = splats.colors[k + 2], alpha = Math.round(100 + splats.confidence[i] * 110); for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) { const q = ((y + oy) * pw + x + ox) * 4, a = alpha / 255; pix[q] = pix[q] * (1 - a) + r * a; pix[q + 1] = pix[q + 1] * (1 - a) + gg * a; pix[q + 2] = pix[q + 2] * (1 - a) + b * a; pix[q + 3] = Math.min(255, pix[q + 3] + alpha); } shown++; }
+  for (let i = 0; i < splats.count; i++) { if (splats.confidence[i] < minConfidence) continue; const k = i * 3, [ix, iy] = isoCoordinates(splats.positions[k], splats.positions[k + 1], splats.positions[k + 2]), x = Math.round((cx + ix * scale) * d), y = Math.round((cy0 + iy * scale) * d); if (x < 1 || y < 1 || x >= pw - 1 || y >= ph - 1) continue; const r = splats.colors[k], gg = splats.colors[k + 1], b = splats.colors[k + 2], alpha = Math.round(100 + splats.confidence[i] * 110); for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) { const q = ((y + oy) * pw + x + ox) * 4, a = alpha / 255; pix[q] = pix[q] * (1 - a) + r * a; pix[q + 1] = pix[q + 1] * (1 - a) + gg * a; pix[q + 2] = pix[q + 2] * (1 - a) + b * a; pix[q + 3] = Math.min(255, pix[q + 3] + alpha); } shown++; }
   g.putImageData(img, 0, 0); g.fillStyle = '#d3e6f8'; g.font = '12px system-ui'; g.fillText(`ortografica/isometrica · ${shown.toLocaleString('it-IT')} particelle visibili · disco identico 3×3 px`, 9, 18); return { shown, scale };
 }
 function buildPlane() {
@@ -980,10 +1105,10 @@ function updateDeepMetrics(selected, best, direct, inverse) {
   ]);
 }
 function buildFinal() {
-  if (!S.deepDone) throw new Error('Prima esegui Deep e l’allineamento globale.'); S.splats = buildSplats({ useDeep: true }); S.finalDone = true; $('verifyBtn').disabled = false; renderFinal();
+  if (!S.deepDone) throw new Error('Prima esegui Deep e l’allineamento globale.'); S.splats = buildSplats({ useDeep: true }); S.viewer3d.cache = null; resetViewer3D({ render:false, logEvent:false }); S.finalDone = true; $('verifyBtn').disabled = false; renderFinal();
   setBadge(dom.viewerBadge, `${S.splats.count.toLocaleString('it-IT')} pixel`, 'ok'); updateViewerMetrics(); setGlobal('Splat 3D RGB visibile', 'ok'); log('final-splats-built', { particles: S.splats.count, deepPixels: S.splats.deepPixels, planeFallbackPixels: S.splats.planePixels, gridStep: S.splats.gridStep, depthRange: [S.splats.minDepth, S.splats.maxDepth] });
 }
-function renderFinal() { if (!S.splats) return; const min = Number($('confidenceSlider').value) / 100, r = renderIso(dom.splatCanvas, S.splats, min); dom.confidenceOut.textContent = `${Math.round(min * 100)}% · ${r.shown.toLocaleString('it-IT')}`; }
+function renderFinal() { if (!S.splats) return; const min = Number($('confidenceSlider').value) / 100, r = renderInteractive3D(dom.splatCanvas, S.splats, min); dom.confidenceOut.textContent = `${Math.round(min * 100)}% · ${r.shown.toLocaleString('it-IT')}`; }
 function updateViewerMetrics(extra = []) {
   if (!S.splats) return; dom.viewerMetrics.innerHTML = metricsHtml([
     ['Particelle conservate', S.splats.count.toLocaleString('it-IT'), 'good'], ['Da pixel con Deep', S.splats.deepPixels.toLocaleString('it-IT'), 'good'], ['Fallback piano (foto non Deep)', S.splats.planePixels.toLocaleString('it-IT'), 'warn'], ['Decimazione ammessa', `griglia fissa ${S.splats.gridStep}×${S.splats.gridStep}`], ['Filtri geometrici/semantici', 'nessuno', 'good'], ['Dimensione di ogni splat', '3×3 px uniforme nella vista'], ['Range profondità globale', `${fmt(S.splats.minDepth, 3)} – ${fmt(S.splats.maxDepth, 3)}`], ['Camera', `K ${fmt(S.K.fx, 1)}, ${fmt(S.K.fy, 1)} · FOV ${fmt(S.K.fovDeg, 1)}°`], ...extra
@@ -998,7 +1123,7 @@ function verifyGeometry() {
   log('geometry-verification', { reprojections: errors.length, medianPx: med, p90Px: p90, poseSources, note: 'verifica sola: nessuna posa e nessun pixel è stato scartato o riscritto' }); setGlobal(errors.length ? 'Verifica completata' : 'Verifica con pochi vincoli', errors.length ? 'ok' : '');
 }
 function downloadDiagnostics() {
-  const report = { format: 'SCAN-TEST-DIAGNOSTICS-3.3', build: BUILD_ID, createdAt: new Date().toISOString(), contract: { archivedImagesInMemory: true, allDecodedVideoFramesFedToAlva: true, alvaWarmupReplayed: true, alvaFileReplay: `continuous native decoded frames from t=0; ${FILE_FALLBACK_FPS} fps unique-frame seek fallback`, alvaRaster: [W, H], alvaRasterPolicy:'full-frame aspect-preserving; long side 960', trackerInit:'AlvaAR.Initialize(width,height,trackerFovDeg)', trackerFovDeg:S.trackerFovDeg, poseAuthority: 'AlvaAR only', correspondenceAuthority: 'archived RGB BRIEF+ZNCC, no synthetic pose', noSemanticFilters: true, onlyOptimizedQuantity: 'one relative-depth scale per Deep view', projection: 'orthographic-isometric', deepOnnx: S.deepContract }, intrinsics: S.K, archive: { trackerSamples: S.trackingSamples, trackerPoses: S.trackingPoses, trackerVsArchiveDecoupled: true, chosenOfflineFovDeg: S.offlineFovDeg, trackerFovDeg:S.trackerFovDeg, trackerFovSweep:S.trackerFovSweep, frames: S.frames.length, warmupFrames: S.frames.filter(f => f.phase === 'alva-warmup').length, bytes: S.frameBytes, analysisRaster: 'dynamic full-frame, long side 960', fileDecode: S.fileDecodeStats }, frames: S.frames.map(f => ({ id: f.id, phase: f.phase, at: f.at, livePose: f.livePose, offlinePose: f.offlinePose, chosenPose: f.pose, poseSource: f.poseSource, poseConfidence: f.poseConfidence, liveAlvaPoints: f.livePoints, offlineAlvaPoints: f.offlinePoints?.length || 0, features: f.features.length, deep: f.deep ? { rawSize: [f.deep.rawWidth, f.deep.rawHeight], provider: f.deep.provider, convention: f.deep.convention, depthScale: f.deep.depthScale, quality: f.deep.quality } : null })), edges: S.edges.map(e => ({ a: e.a.id, b: e.b.id, kind: e.kind, appearance: e.appearance, matches: e.matches.length, rawMatches: e.rawMatches, consensusMatches: e.consensusMatches, overlap: e.overlap, poseBaseline: e.poseBaseline, poseAngle: e.poseAngle })), depthEdges: S.depthEdges.map(e => ({ a: e.a.id, b: e.b.id, matches: e.matches.length, overlap: e.overlap })), splat: S.splats ? { count: S.splats.count, gridStep: S.splats.gridStep, deepPixels: S.splats.deepPixels, planePixels: S.splats.planePixels, depthRange: [S.splats.minDepth, S.splats.maxDepth] } : null };
+  const report = { format: 'SCAN-TEST-DIAGNOSTICS-3.4.2', build: BUILD_ID, createdAt: new Date().toISOString(), contract: { archivedImagesInMemory: true, allDecodedVideoFramesFedToAlva: true, alvaWarmupReplayed: true, alvaFileReplay: `continuous native decoded frames from t=0; ${FILE_FALLBACK_FPS} fps unique-frame seek fallback`, alvaRaster: [W, H], alvaRasterPolicy:'full-frame aspect-preserving; long side 960', trackerInit:'AlvaAR.Initialize(width,height,trackerFovDeg)', trackerFovDeg:S.trackerFovDeg, poseAuthority: 'AlvaAR only', correspondenceAuthority: 'archived RGB BRIEF+ZNCC, no synthetic pose', noSemanticFilters: true, onlyOptimizedQuantity: 'one relative-depth scale per Deep view', projection: 'orthographic-isometric', deepOnnx: S.deepContract }, intrinsics: S.K, archive: { trackerSamples: S.trackingSamples, trackerPoses: S.trackingPoses, trackerVsArchiveDecoupled: true, chosenOfflineFovDeg: S.offlineFovDeg, trackerFovDeg:S.trackerFovDeg, trackerFovSweep:S.trackerFovSweep, frames: S.frames.length, warmupFrames: S.frames.filter(f => f.phase === 'alva-warmup').length, bytes: S.frameBytes, analysisRaster: 'dynamic full-frame, long side 960', fileDecode: S.fileDecodeStats }, frames: S.frames.map(f => ({ id: f.id, phase: f.phase, at: f.at, livePose: f.livePose, offlinePose: f.offlinePose, chosenPose: f.pose, poseSource: f.poseSource, poseConfidence: f.poseConfidence, liveAlvaPoints: f.livePoints, offlineAlvaPoints: f.offlinePoints?.length || 0, features: f.features.length, deep: f.deep ? { rawSize: [f.deep.rawWidth, f.deep.rawHeight], provider: f.deep.provider, convention: f.deep.convention, depthScale: f.deep.depthScale, quality: f.deep.quality } : null })), edges: S.edges.map(e => ({ a: e.a.id, b: e.b.id, kind: e.kind, appearance: e.appearance, matches: e.matches.length, rawMatches: e.rawMatches, consensusMatches: e.consensusMatches, overlap: e.overlap, poseBaseline: e.poseBaseline, poseAngle: e.poseAngle })), depthEdges: S.depthEdges.map(e => ({ a: e.a.id, b: e.b.id, matches: e.matches.length, overlap: e.overlap })), splat: S.splats ? { count: S.splats.count, gridStep: S.splats.gridStep, deepPixels: S.splats.deepPixels, planePixels: S.splats.planePixels, depthRange: [S.splats.minDepth, S.splats.maxDepth] } : null };
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })), a = document.createElement('a'); a.href = url; a.download = `scan-test-${Date.now()}-diagnostics.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); log('diagnostics-downloaded', { frames: S.frames.length });
 }
 function bind(id, fn) { $(id).addEventListener('click', () => Promise.resolve().then(fn).catch(err => { if (['offlineBtn', 'deepBtn'].includes(id)) $(id).disabled = false; setGlobal('Errore', 'fail'); log('ui-operation-failed', { operation: id, message: errorText(err) }, 'ERROR'); alert(errorText(err)); })); }
@@ -1037,16 +1162,17 @@ async function verifyDeployedBuild() {
   return { ok, results };
 }
 
-bind('openCameraBtn', openCamera); bind('fixtureBtn', startFixture); bind('recordBtn', startRecording); bind('stopBtn', stopRecording); bind('clearBtn', clearSession); bind('offlineBtn', rerunOffline); bind('planeBtn', buildPlane); bind('testDeepBtn', testDeep); bind('deepBtn', runDeep); bind('depthPreviewBtn', () => { if (S.lastDepthFrame?.deep) drawDepth(S.lastDepthFrame.deep); }); bind('finalBtn', buildFinal); bind('verifyBtn', verifyGeometry); bind('downloadBtn', downloadDiagnostics); bind('fitBtn', renderFinal);
+bind('openCameraBtn', openCamera); bind('fixtureBtn', startFixture); bind('recordBtn', startRecording); bind('stopBtn', stopRecording); bind('clearBtn', clearSession); bind('offlineBtn', rerunOffline); bind('planeBtn', buildPlane); bind('testDeepBtn', testDeep); bind('deepBtn', runDeep); bind('depthPreviewBtn', () => { if (S.lastDepthFrame?.deep) drawDepth(S.lastDepthFrame.deep); }); bind('finalBtn', buildFinal); bind('verifyBtn', verifyGeometry); bind('downloadBtn', downloadDiagnostics); bind('fitBtn', () => resetViewer3D()); bind('isoViewBtn', () => setViewerPreset('iso')); bind('topViewBtn', () => setViewerPreset('top')); bind('frontViewBtn', () => setViewerPreset('front')); bind('sideViewBtn', () => setViewerPreset('side'));
 $('gridStep').addEventListener('input', () => { dom.gridStepOut.textContent = `${$('gridStep').value} px`; });
-$('confidenceSlider').addEventListener('input', () => { if (S.viewToken) cancelAnimationFrame(S.viewToken); S.viewToken = requestAnimationFrame(() => { S.viewToken = 0; renderFinal(); }); });
+$('confidenceSlider').addEventListener('input', requestViewerRender);
 $('videoFile').addEventListener('change', e => chooseVideo(e.target.files?.[0]).catch(err => alert(errorText(err))));
 $('copyLogBtn').addEventListener('click', async () => { try { await navigator.clipboard.writeText(dom.log.textContent); } catch { /* Clipboard may be blocked on non-secure origins. */ } });
 if (dom.liveLogToggle) dom.liveLogToggle.addEventListener('click', () => { const compact = dom.liveLogDock.classList.toggle('compact'); dom.liveLogToggle.textContent = compact ? 'Espandi' : 'Riduci'; dom.liveLogToggle.setAttribute('aria-expanded', String(!compact)); });
 window.addEventListener('error', e => { log('window-error', { message:e.message || 'errore JS', filename:e.filename || null, lineno:e.lineno || null, colno:e.colno || null }, 'ERROR'); });
 window.addEventListener('unhandledrejection', e => { log('unhandled-rejection', { message:errorText(e.reason) }, 'ERROR'); });
-window.addEventListener('resize', () => { if (S.offlineDone) drawTrajectory(); if (S.planeSplats) renderIso(dom.planeCanvas, S.planeSplats); if (S.splats) renderFinal(); });
+window.addEventListener('resize', () => { if (S.offlineDone) drawTrajectory(); if (S.planeSplats) renderIso(dom.planeCanvas, S.planeSplats); if (S.splats) requestViewerRender(); });
 window.addEventListener('beforeunload', () => { S.capture?.stop?.(); S.deepWorker?.terminate(); });
 
+installViewerNavigation(); updateViewerNavReadout();
 setStep(1); setActivity('AVVIO', `Build ${BUILD_ID} caricata; avvio self-check con watchdog.`, 'busy'); dom.gridStepOut.textContent = `${$('gridStep').value} px`; dom.confidenceOut.textContent = '0%'; log('scan-test-ready', { build: BUILD_ID, analysisRaster: 'dynamic full-frame, long side 960', defaultSamplingHz: DEFAULT_ALVA_HZ, archiveDefaultHz: numberValue('archiveFps', DEFAULT_ALVA_HZ), deepModel: 'Depth Anything V2 Small Q4 via official Transformers.js depth-estimation pipeline + official RawImage cross-check' });
 void verifyDeployedBuild();

@@ -1,28 +1,22 @@
-Scan Test v3.4.1 - FLAT WATCHDOG PATCH
-Build: scan-test-v3.4.1-deep-processor-compat
+Scan Test v3.4.2 - FLAT INTERACTIVE VIEWER PATCH
+Build: scan-test-v3.4.2-interactive-3d-viewer
 
 Copy contents directly into room_scanner/scan_test/
 
 MODIFIED:
+  app.js
   index.html
   styles.css
-  app.js
-  deep_depth_worker.js
-  models/depth-anything-v2-small/preprocessor_config.json
   README.md
   VERIFICATION.md
-  tools/test_app_contract.mjs
-  tools/test_v330_deep_assets.mjs
 
 ADDED:
-  tools/test_v340_watchdog.mjs
+  tools/test_v342_viewer_navigation.mjs
 
 UNCHANGED / NOT INCLUDED:
+  deep_depth_worker.js
   camera.js
   feature_matching.js
   vendor/alva_ar.js
-  models/depth-anything-v2-small/onnx/model_q4.onnx
-  models/depth-anything-v2-small/config.json
+  models/*
   fixtures/*
-
-  tools/test_v341_processor_compat.mjs

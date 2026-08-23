@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
-  <title>Scan Test v3.4.1 · Alva + Deep splat</title>
-  <link rel="stylesheet" href="styles.css?v=scan-test-v3.4.1">
+  <title>Scan Test v3.4.2 · Alva + Deep splat</title>
+  <link rel="stylesheet" href="styles.css?v=scan-test-v3.4.2">
 </head>
 <body>
   <header class="topbar">
     <div>
-      <p class="eyebrow">ESPERIMENTO ISOLATO · VERSIONE v3.4.1 · build controllata · nessun filtro / nessuna mesh</p>
-      <h1>Scan Test <span class="tag ok">v3.4.1</span></h1>
-      <div id="buildSentinel" data-state="checking" style="margin:.7rem 0 0;padding:.55rem .75rem;border:1px solid #ffc95e;border-radius:.6rem;color:#ffe6a8;font:600 .82rem/1.35 ui-monospace,SFMono-Regular,Consolas,monospace">scan-test-v3.4.1-deep-processor-compat · verifica asset in corso…</div>
+      <p class="eyebrow">ESPERIMENTO ISOLATO · VERSIONE v3.4.2 · build controllata · nessun filtro / nessuna mesh</p>
+      <h1>Scan Test <span class="tag ok">v3.4.2</span></h1>
+      <div id="buildSentinel" data-state="checking" style="margin:.7rem 0 0;padding:.55rem .75rem;border:1px solid #ffc95e;border-radius:.6rem;color:#ffe6a8;font:600 .82rem/1.35 ui-monospace,SFMono-Regular,Consolas,monospace">scan-test-v3.4.2-interactive-3d-viewer · verifica asset in corso…</div>
       <p class="lede">Posa AlvaAR → riesecuzione offline → profondità Deep globale → tutti i pixel come splat RGB.</p>
     </div>
     <div id="globalState" class="state-pill">Pronto</div>
@@ -114,15 +114,20 @@
     </section>
 
     <section class="card viewer-card" aria-labelledby="viewerTitle">
-      <div class="section-title"><div><p class="eyebrow">6 · Output non filtrato</p><h2 id="viewerTitle">Gaussian splat RGB · isometrico ortografico</h2></div><span id="viewerBadge" class="tag">nessuna particella</span></div>
+      <div class="section-title"><div><p class="eyebrow">6 · Output non filtrato · navigazione 3D</p><h2 id="viewerTitle">Gaussian splat RGB · viewer 3D interattivo</h2></div><span id="viewerBadge" class="tag">nessuna particella</span></div>
       <div class="viewer-controls">
         <label>Mostra affidabilità ≥ <input id="confidenceSlider" type="range" min="0" max="100" value="0"><output id="confidenceOut">0%</output></label>
         <button id="finalBtn" disabled class="primary">6. Costruisci splat 3D</button>
         <button id="verifyBtn" disabled>Verifica proiezioni e pose</button>
-        <button id="fitBtn" class="quiet">Centra vista</button>
+        <button id="fitBtn" class="quiet">Reset / centra</button>
+        <button id="isoViewBtn" class="quiet">Isometrica</button>
+        <button id="topViewBtn" class="quiet">Alto</button>
+        <button id="frontViewBtn" class="quiet">Fronte</button>
+        <button id="sideViewBtn" class="quiet">Lato</button>
       </div>
-      <p class="hint">Lo slider nasconde solo per la visualizzazione: non cancella o comprime alcuna particella. Ogni disco ha la stessa dimensione, la proiezione è ortografica/isometrica e non usa prospettiva.</p>
-      <canvas id="splatCanvas" class="splat-canvas" aria-label="Gaussian splat 3D isometrico"></canvas>
+      <p class="hint"><strong>Navigazione 3D:</strong> trascina con mouse/dito per ruotare; Shift + trascina oppure tasto destro/centrale per spostare; rotellina o pinch a due dita per zoom; due dita spostano anche la vista. Doppio click o <kbd>R</kbd> resetta; su touch usa anche il pulsante Reset / centra. Frecce = orbita, Shift+frecce = pan, +/- = zoom.</p>
+      <div id="viewerNavReadout" class="viewer-nav-readout" aria-live="polite">orbita 45.0° / -35.3° · zoom 1.00× · pan 0, 0 px</div>
+      <canvas id="splatCanvas" class="splat-canvas interactive-3d" tabindex="0" aria-label="Gaussian splat 3D navigabile: trascina per ruotare, Shift trascina per spostare, rotellina o pinch per zoom"></canvas>
       <div id="viewerMetrics" class="metric-list"><p class="empty">Dopo Deep, qui troverai il conteggio pixel, piani di fallback, range di profondità, residuo dei punti comuni e test di riproiezione.</p></div>
     </section>
 
@@ -141,6 +146,6 @@
     <pre id="liveLogTail" class="live-log-tail">attendo primo evento...</pre>
   </aside>
   <template id="frameTemplate"><button class="frame-thumb" type="button"><canvas width="160" height="120"></canvas><span></span></button></template>
-  <script type="module" src="app.js?v=scan-test-v3.4.1"></script>
+  <script type="module" src="app.js?v=scan-test-v3.4.2"></script>
 </body>
 </html>
