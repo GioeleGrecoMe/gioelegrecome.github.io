@@ -10,8 +10,11 @@ import { detectScanFeatures, matchArchivedFrames } from './feature_matching.js';
  * confidence-driven culling in this experiment.
  */
 
-const W = 320;
-const H = 240;
+// Alva receives a dedicated 640×480 visual-SLAM raster. Deep keeps its own
+// compact dynamic input inside its worker, so SLAM is no longer starved by the
+// former 320×240 raster just to make depth inference cheaper.
+const W = 640;
+const H = 480;
 const DEFAULT_ALVA_HZ = 12;
 const PRE_ROLL_MAX_FRAMES = 48;
 const MAX_FRAME_MEMORY = 260 * 1024 * 1024;
@@ -189,7 +192,7 @@ async function startCaptureSource({ source, label, url = null, autoRecord = fals
   setGlobal(`Apro ${label}…`); dom.runtimeStatus.textContent = `Preparo ${label} usando il controller di acquisizione V30 (crop coerente + frame ID).`;
   if (url) { dom.camera.srcObject = null; dom.camera.src = url; dom.camera.loop = false; dom.camera.muted = true; dom.camera.playsInline = true; }
   const capture = new CameraController({ video: dom.camera, width: W, height: H, fps: clamp(numberValue('archiveFps', DEFAULT_ALVA_HZ), 8, 15), source, cameraAuthorized: source !== 'camera' || cameraAuthorized === true, log: { info: (event, data) => log(event, data), warn: (event, data) => log(event, data, 'WARN') } });
-  await capture.start();
+  await capture.start({ autoplay: source !== 'file' });
   S.capture = capture; S.source = source; S.K = intrinsics(capture.geometry); const trackerFov = alvaFovDeg(S.K.fovDeg); S.alva = await AlvaAR.Initialize(W, H, trackerFov);
   if (!S.alva?.findCameraPose) { capture.stop(); S.capture = null; throw new Error('AlvaAR.Initialize non ha restituito un tracker valido.'); }
   S.trackingStarted = true;
@@ -198,14 +201,16 @@ async function startCaptureSource({ source, label, url = null, autoRecord = fals
     $('recordBtn').disabled = true;
     dom.captureCoach.textContent = `Il video è terminato: ${S.frames.length} frame esatti sono disponibili per la riesecuzione offline.`;
     setGlobal('Video terminato · archivio pronto'); log('capture-source-ended', { source, frames: S.frames.length });
-    if (source === 'file' && S.frames.length >= 2) void processUploadedVideo();
   });
-  capture.loop(handleCaptureFrame);
+  if (source === 'file') {
+    startRecording();
+    void processUploadedVideo(capture);
+  } else capture.loop(handleCaptureFrame);
   $('openCameraBtn').disabled = true; $('fixtureBtn').disabled = true; $('videoFile').disabled = true; $('recordBtn').disabled = false; $('testDeepBtn').disabled = false; $('fovInput').disabled = true; $('archiveFps').disabled = true;
   dom.runtimeStatus.textContent = `${label} pronto · ${W}×${H} · FOV ${S.K.fovDeg.toFixed(1)}° · crop ${fmt(capture.geometry.sw, 0)}×${fmt(capture.geometry.sh, 0)} · Deep su richiesta.`;
   dom.captureCoach.textContent = source === 'fixture' ? 'Fixture decoder attiva. È un’immagine statica animata: verifica archivio/crop/stop senza aspettarti una posa AlvaAR.' : source === 'file' ? 'Video caricato: la registrazione parte automaticamente. Ogni frame campionato viene passato a AlvaAR e archiviato per replay offline e Deep.' : 'Muovi lentamente la camera con parallasse. “Inizializza” prima della prima posa non equivale a traccia persa.';
   setGlobal(`${label} + AlvaAR pronti`, 'ok'); setStep(2); log('capture-source-ready', { source, K: S.K, alvaFovVerticalDeg: trackerFov, geometry: capture.geometry, video: { width: dom.camera.videoWidth, height: dom.camera.videoHeight }, autoRecord });
-  if (autoRecord) startRecording();
+  if (autoRecord && !S.recording) startRecording();
 }
 async function openCamera() {
   const approved = window.confirm('Vuoi autorizzare l’uso della camera posteriore per questa sessione? Verrà chiesto anche il permesso dal browser. Il video non viene caricato automaticamente: resta nella memoria della sessione finché non scarichi una diagnostica.');
@@ -219,10 +224,38 @@ async function chooseVideo(file) {
   try { await startCaptureSource({ source: 'file', label: `video ${file.name}`, url, autoRecord: true }); }
   catch (err) { URL.revokeObjectURL(url); S.sourceObjectUrl = null; throw err; }
 }
-async function processUploadedVideo() {
+function waitForVideoSeek(video, time) {
+  return new Promise((resolve, reject) => {
+    const done = () => { cleanup(); resolve(); };
+    const fail = () => { cleanup(); reject(new Error('seek video fallito')); };
+    const cleanup = () => { video.removeEventListener('seeked', done); video.removeEventListener('error', fail); };
+    video.addEventListener('seeked', done, { once:true }); video.addEventListener('error', fail, { once:true });
+    if (Math.abs(video.currentTime - time) < .0005) queueMicrotask(done); else video.currentTime = time;
+  });
+}
+async function processUploadedVideo(capture) {
+  const video = dom.camera, duration = Number(video.duration), fps = clamp(numberValue('archiveFps', DEFAULT_ALVA_HZ), 8, 15);
+  if (!(duration > 0 && Number.isFinite(duration))) throw new Error('Il file video non espone una durata valida.');
+  const step = 1 / fps, total = Math.max(1, Math.floor(duration * fps));
+  setGlobal('Video: estrazione controllata AlvaAR…', '');
+  dom.runtimeStatus.textContent = `Estraggo ${total} frame regolari a ${fps} fps: il video resta fermo finché AlvaAR non ha elaborato il frame corrente.`;
+  log('uploaded-video-controlled-decode-start', { duration, fps, total, alvaRaster:[W,H], source:S.source });
+  for (let index = 0; index < total && S.recording; index++) {
+    const time = Math.min(duration - .0001, index * step);
+    await waitForVideoSeek(video, time);
+    const frame = capture.capture();
+    if (!frame) throw new Error(`frame video non decodificabile al tempo ${time.toFixed(3)} s`);
+    handleCaptureFrame(frame);
+    if (index % 3 === 0 || index + 1 === total) {
+      dom.runtimeStatus.textContent = `AlvaAR controllato ${index + 1}/${total} · t=${time.toFixed(2)} s · pose ${S.trackingPoses}`;
+      await nextPaint();
+    }
+  }
+  if (S.recording) stopRecording({ reason:'file-controlled-decode-complete' });
+  capture.stop({ clearVideo:false });
   setGlobal('Video: replay AlvaAR offline…', '');
-  dom.runtimeStatus.textContent = `Video concluso: rieseguo AlvaAR su ${S.frames.length} frame archiviati, poi Deep soltanto sulle pose valide.`;
-  log('uploaded-video-autoprocess-start', { frames:S.frames.length, source:S.source });
+  dom.runtimeStatus.textContent = `Sequenza immutabile estratta: rieseguo AlvaAR su ${S.frames.length} frame, poi Deep soltanto sulle pose valide.`;
+  log('uploaded-video-controlled-decode-complete', { frames:S.frames.length, livePoses:S.frames.filter(f => f.livePose).length });
   try {
     await rerunOffline();
     const posed = S.frames.filter(f => f.pose).length;

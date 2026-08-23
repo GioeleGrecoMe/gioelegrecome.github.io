@@ -1,6 +1,6 @@
 # Scan Test
 
-Pagina corrente: **v2** (la stessa etichetta è visibile nell'intestazione HTML). Ogni apertura della camera reale richiede prima una conferma esplicita nella pagina e poi il permesso nativo del browser; fixture e video locale non richiedono accesso alla camera.
+Pagina corrente: **v2.1** (la stessa etichetta è visibile nell'intestazione HTML). Ogni apertura della camera reale richiede prima una conferma esplicita nella pagina e poi il permesso nativo del browser; fixture e video locale non richiedono accesso alla camera.
 
 Banco di prova indipendente da `v30`: non modifica né carica i suoi moduli applicativi.
 
@@ -12,7 +12,7 @@ python3 -m http.server 4173
 
 Poi aprire `http://localhost:4173/scan_test/`.
 
-La pagina ha due sorgenti senza permesso camera: “Simula con video di test” riproduce `fixtures/tum_freiburg1_xyz_debug_replay.mp4`, mentre “Carica video · elabora” accetta un filmato locale, avvia subito l'archivio e alla fine rigioca AlvaAR offline; se esistono almeno due pose, avvia anche Deep sulle viste selezionate. Entrambe percorrono esattamente il controller di acquisizione derivato da V30: stesso `coverCrop`, stesso raster RGBA/gray, stesso frame ID e stessa geometria salvata con la posa. Il fixture incluso è intenzionalmente una singola immagine ripetuta: deve verificare decoder, crop, archivio e chiusura della ripresa, **non** produrre pose AlvaAR o una ricostruzione 3D.
+La pagina ha due sorgenti senza permesso camera: “Simula con video di test” riproduce `fixtures/tum_freiburg1_xyz_debug_replay.mp4`, mentre “Carica video · replay controllato” accetta un filmato locale. Per il file non esiste playback autonomo: a ogni intervallo regolare la pagina fa seek, attende il frame decodificato, lo consegna ad AlvaAR e solo allora avanza al successivo. Alla fine rigioca AlvaAR offline; se esistono almeno due pose, avvia anche Deep sulle viste selezionate. Alva riceve 640×480, mentre Deep ridimensiona internamente il suo input dinamico. Il fixture incluso è intenzionalmente una singola immagine ripetuta: deve verificare decoder, crop, archivio e chiusura della ripresa, **non** produrre pose AlvaAR o una ricostruzione 3D.
 
 Il campo FOV dell'interfaccia è orizzontale. Prima di inizializzare AlvaAR viene convertito nel valore atteso dal suo wrapper quando il raster è orizzontale; quel wrapper moltiplica linearmente il valore ricevuto per l'aspect ratio. Per esempio 60° orizzontali a 320×240 diventano 45° per AlvaAR, che li ricostruisce come 60° orizzontali. Passare 60 direttamente faceva invece calibrare Alva come 80° orizzontali e può impedire sia tracking live sia replay offline.
 

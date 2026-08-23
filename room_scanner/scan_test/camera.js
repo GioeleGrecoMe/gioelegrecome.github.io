@@ -48,7 +48,7 @@ export class CameraController extends EventTarget{
     this.canvas=document.createElement('canvas');this.canvas.width=width;this.canvas.height=height;this.ctx=this.canvas.getContext('2d',{willReadFrequently:true});this.running=false;this._timer=0;this.geometry=null;this.frameSeq=0;this.lastDeliveredMediaTime=-Infinity;this.frameEpoch=`capture-${Date.now().toString(36)}`;this._onEnded=()=>this._finishExternal();
   }
   adoptStream(stream){if(this.stream&&this.stream!==stream)for(const t of this.stream.getTracks?.()||[])try{t.stop()}catch{}this.stream=stream||null;this.source='camera';return this;}
-  async start(){
+  async start({autoplay=true}={}){
     if(!this.video)throw new Error('elemento video mancante');
     if(this.source==='camera'){
       if(!this.cameraAuthorized)throw new Error('La camera reale richiede una conferma esplicita dell’utente prima di richiedere getUserMedia.');
@@ -56,7 +56,7 @@ export class CameraController extends EventTarget{
       if(this.video.srcObject!==this.stream)this.video.srcObject=this.stream;
     }else if(!this.video.src){throw new Error('video di simulazione non impostato');}
     this.video.addEventListener('ended',this._onEnded,{once:true});
-    try{await this.video.play();}catch(err){throw new Error(`Impossibile avviare video ${this.source}: ${err?.message||err}`);}
+    if(autoplay){try{await this.video.play();}catch(err){throw new Error(`Impossibile avviare video ${this.source}: ${err?.message||err}`);}}
     const ready=await waitVideoDimensions(this.video);if(!ready)throw new Error(`il video ${this.source} non ha fornito dimensioni valide`);
     this.geometry=coverCrop(this.video.videoWidth,this.video.videoHeight,this.width,this.height);this.running=true;
     this.log?.info?.('capture-source-started',{source:this.source,geometry:this.geometry,video:[this.video.videoWidth,this.video.videoHeight],tracks:(this.stream?.getVideoTracks?.()||[]).map(t=>({label:t.label,settings:t.getSettings?.()}))});this.dispatchEvent(new Event('started'));return this;
