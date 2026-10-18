@@ -1,0 +1,172 @@
+[
+  {
+    "mode": "meditate",
+    "body": "A",
+    "n": 31,
+    "bar": 9,
+    "theme": [
+      0,
+      1,
+      0,
+      2,
+      1,
+      -1,
+      0,
+      -2
+    ],
+    "wrongNotes": 0,
+    "modeInteraction": "solo",
+    "peak": 0.4054861068725586
+  },
+  {
+    "mode": "meditate",
+    "body": "B",
+    "n": 30,
+    "bar": 9,
+    "theme": [
+      0,
+      2,
+      1,
+      3,
+      1,
+      -2,
+      -1,
+      -3
+    ],
+    "wrongNotes": 0,
+    "modeInteraction": "dialogue",
+    "peak": 0.40618211030960083
+  },
+  {
+    "mode": "wake",
+    "body": "A",
+    "n": 44,
+    "bar": 10,
+    "theme": [
+      0,
+      1,
+      0,
+      2,
+      1,
+      -1,
+      0,
+      -2
+    ],
+    "wrongNotes": 0,
+    "modeInteraction": "ensemble",
+    "peak": 0.3853111267089844
+  },
+  {
+    "mode": "wake",
+    "body": "B",
+    "n": 42,
+    "bar": 10,
+    "theme": [
+      0,
+      3,
+      2,
+      3,
+      1,
+      -2,
+      -2,
+      -4
+    ],
+    "wrongNotes": 0,
+    "modeInteraction": "dialogue",
+    "peak": 0.4375052750110626
+  },
+  {
+    "mode": "activate",
+    "body": "A",
+    "n": 81,
+    "bar": 15,
+    "theme": [
+      0,
+      1,
+      0,
+      2,
+      1,
+      -1,
+      0,
+      -2
+    ],
+    "wrongNotes": 0,
+    "modeInteraction": "ensemble",
+    "peak": 0.5882567763328552
+  },
+  {
+    "mode": "activate",
+    "body": "B",
+    "n": 75,
+    "bar": 14,
+    "theme": [
+      0,
+      3,
+      1,
+      2,
+      1,
+      -2,
+      -1,
+      -3
+    ],
+    "wrongNotes": 0,
+    "modeInteraction": "dialogue",
+    "peak": 0.48572275042533875
+  },
+  {
+    "mode": "sleep",
+    "body": "A",
+    "n": 12,
+    "bar": 6,
+    "theme": [
+      0,
+      1,
+      0,
+      2,
+      1,
+      -1,
+      0,
+      -2
+    ],
+    "wrongNotes": 0,
+    "modeInteraction": "solo",
+    "peak": 0.27331578731536865
+  },
+  {
+    "mode": "sleep",
+    "body": "B",
+    "n": 10,
+    "bar": 6,
+    "theme": [
+      0,
+      3,
+      2,
+      3,
+      1,
+      -2,
+      -2,
+      -3
+    ],
+    "wrongNotes": 0,
+    "modeInteraction": "solo",
+    "peak": 0.3118939995765686
+  },
+  {
+    "test": "quality gating",
+    "beats": 25,
+    "signature": false,
+    "notes": 0
+  },
+  {
+    "test": "signal loss",
+    "notesBefore": 27,
+    "notesAfter": 27,
+    "added": 0
+  },
+  {
+    "test": "change goal",
+    "notesBefore": 11,
+    "notesAfter": 36,
+    "currentChord": "i(add9)"
+  }
+]

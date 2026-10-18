@@ -1,0 +1,26 @@
+PASS: DSP no mic, A/B off, two PPG sympathetic voices max, octave tracking, shared composition, decay, incompatibility, quality gate
+{
+  "reference": {
+    "peak": 0.39047154784202576,
+    "invalid": 0,
+    "rms": 0.07221291787813608
+  },
+  "enhanced": {
+    "peak": 0.39060506224632263,
+    "invalid": 0,
+    "rms": 0.07223227491512756
+  },
+  "active": [
+    {
+      "id": 2,
+      "hz": 392,
+      "level": 0.025998936772567406
+    },
+    {
+      "id": 3,
+      "hz": 392,
+      "level": 0.025842266308750833
+    }
+  ],
+  "notes": 25
+}
