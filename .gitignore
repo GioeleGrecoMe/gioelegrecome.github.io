@@ -15,5 +15,3 @@ venv/
 backup_before_*/
 *.bak
 
-# Log dello script di sincronizzazione
-.sync.log
