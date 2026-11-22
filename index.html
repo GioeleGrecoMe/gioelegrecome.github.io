@@ -12,7 +12,7 @@
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Gioele Greco">
     <meta property="og:title" content="Gioele Greco | Acoustic Signal Processing &amp; Spatial Audio">
-    <meta property="og:description" content="Research portfolio: sound source localization, distributed microphone arrays, spatial audio and musical acoustics at Politecnico di Milano.">
+    <meta property="og:description" content="Selected papers, datasets and demos on spatial audio, sound source localization and musical acoustics.">
     <meta property="og:url" content="https://gioelegrecome.github.io/">
     <meta property="og:image" content="https://gioelegrecome.github.io/assets/og-cover.png">
     <meta property="og:image:width" content="1200">
@@ -24,8 +24,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="assets/theme.css?v=10">
-    <link rel="stylesheet" href="styles.css?v=7">
+    <link rel="stylesheet" href="assets/theme.css?v=11">
+    <link rel="stylesheet" href="styles.css?v=12">
 
     <script type="application/ld+json">
     {
@@ -53,540 +53,351 @@
         <div class="site-nav__inner">
             <a href="#top" class="site-nav__brand"><img src="assets/favicon.svg" alt="" width="26" height="26"><span>Gioele Greco</span></a>
             <ul class="site-nav__links">
-                <li><a href="#about">About</a></li>
-                <li><a href="#projects">Research</a></li>
+                <li class="nav-optional"><a href="#expertise">Expertise</a></li>
+                <li><a href="#works">Works</a></li>
+                <li><a href="#tools">Tools</a></li>
                 <li class="nav-optional"><a href="#publications">Publications</a></li>
-                <li class="nav-optional"><a href="#other-projects">Projects</a></li>
                 <li><a href="#contact">Contact</a></li>
             </ul>
         </div>
     </nav>
 
-    <header class="hero" id="top">
-        <canvas id="signalCanvas" aria-hidden="true"></canvas>
-        <div class="hero__inner">
-            <p class="hero__eyebrow">Research Fellow · ISPL · Politecnico di Milano</p>
-            <h1>Gioele Greco</h1>
-            <p class="hero__tagline">Acoustic signal processing and machine learning for spatial audio, from field measurements to physical and data-driven models.</p>
-            <ul class="hero__chips" aria-label="Specialties">
-                <li>Spatial &amp; immersive audio</li>
-                <li>Acoustic measurements</li>
-                <li>Array processing</li>
-                <li>Musical acoustics</li>
-                <li>Machine learning for acoustics</li>
-            </ul>
-            <div class="hero__actions">
-                <a href="#projects" class="button button--light">View research <i class="fas fa-arrow-down" aria-hidden="true"></i></a>
-                <a href="mailto:gioele.greco@polimi.it" class="button button--ghost"><i class="far fa-envelope" aria-hidden="true"></i> Get in touch</a>
+    <header class="intro" id="top">
+        <div class="intro__inner">
+            <div class="intro__text">
+                <p class="intro__eyebrow">Research Fellow · Politecnico di Milano</p>
+                <h1>Gioele Greco</h1>
+                <p class="intro__lead">I build methods and datasets for spatial audio: from measurement campaigns in theatres and concert halls to machine-learning models that render and localize sound.</p>
+                <div class="intro__actions">
+                    <a href="mailto:gioele.greco@polimi.it" class="button button--light"><i class="far fa-envelope" aria-hidden="true"></i> Get in touch</a>
+                    <a href="https://www.linkedin.com/in/gioele-greco-ba265718b" class="button button--ghost" target="_blank" rel="noopener"><i class="fab fa-linkedin-in" aria-hidden="true"></i> LinkedIn</a>
+                    <a href="https://orcid.org/0009-0004-5094-4701" class="button button--ghost" target="_blank" rel="noopener"><i class="fab fa-orcid" aria-hidden="true"></i> ORCID</a>
+                </div>
             </div>
-            <div class="hero__latest">
-                <span class="hero__latest-label">Latest</span>
-                <a href="project6/project6.html">DAME published in IEEE OJSP</a>
-                <a href="project7/project7.html">GNN for 6DoF audio, IWAENC 2026</a>
-                <a href="project8/project8.html">Instrument directivity, ISMA 2026</a>
-            </div>
-            <div class="hero__social">
-                <a href="https://github.com/GioeleGrecoMe" aria-label="GitHub" rel="noopener" target="_blank"><i class="fab fa-github"></i></a>
-                <a href="https://www.linkedin.com/in/gioele-greco-ba265718b" aria-label="LinkedIn" rel="noopener" target="_blank"><i class="fab fa-linkedin-in"></i></a>
-                <a href="https://www.kaggle.com/datasets/gioelegreco" aria-label="Kaggle" rel="noopener" target="_blank"><i class="fab fa-kaggle"></i></a>
-                <a href="https://orcid.org/0009-0004-5094-4701" aria-label="ORCID" rel="noopener" target="_blank"><i class="fab fa-orcid"></i></a>
-            </div>
+            <picture class="intro__photo">
+                <source srcset="bio.webp" type="image/webp">
+                <img src="bio.jpg" alt="Portrait of Gioele Greco" width="640" height="594">
+            </picture>
         </div>
     </header>
 
     <main id="main">
+        <section class="block" id="works">
+            <div class="block__inner">
+                <h2>Featured work</h2>
+                <div class="carousel" data-loop>
+                    <button type="button" class="carousel__btn carousel__btn--prev" aria-label="Previous works"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
+                    <div class="carousel__track" tabindex="0">
+            <article class="card card--featured">
+                <a class="card__media card__media--contain" href="project6/project6.html" tabindex="-1" aria-hidden="true"><img src="project6/fig/f2_pipeline.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">IEEE Open Journal of Signal Processing · 2026</p>
+                    <h3><a href="project6/project6.html">DAME: Distributed Acoustic Mixture-of-Experts for Spatial Sound Estimation</a></h3>
+                    <p class="card__text">A distributed mixture-of-experts that reconstructs sound fields over large areas and grows without retraining. Best listening-test scores among all compared methods.</p>
+                    <p class="card__links"><a href="project6/project6.html">Details <i class="fas fa-arrow-right" aria-hidden="true"></i></a><a href="https://ieeexplore.ieee.org/document/11520266" target="_blank" rel="noopener">Paper <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a></p>
+                </div>
+            </article>
+            <article class="card card--featured">
+                <a class="card__media card__media--contain" href="project7/project7.html" tabindex="-1" aria-hidden="true"><img src="project7/radiation_pattern.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">IWAENC · 2026</p>
+                    <h3><a href="project7/project7.html">Graph Neural Network for Wide-Area 6DoF Ambisonic Rendering</a></h3>
+                    <p class="card__text">A compact graph network that improves wide-area 6DoF rendering from sparse Ambisonic recordings, released as an open-source real-time plug-in.</p>
+                    <p class="card__links"><a href="project7/project7.html">Details <i class="fas fa-arrow-right" aria-hidden="true"></i></a><a href="https://arxiv.org/abs/2610.35741" target="_blank" rel="noopener">arXiv <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a><a href="https://github.com/GioeleGrecoMe/GNN4FOA-realtime-6dof-rendering" target="_blank" rel="noopener">Code <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a></p>
+                </div>
+            </article>
+            <article class="card card--featured">
+                <a class="card__media card__media--cover" href="project10/project10.html" tabindex="-1" aria-hidden="true"><img src="project10/auditorium.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">Open dataset · IWAENC 2026</p>
+                    <h3><a href="project10/project10.html">The Sound of the Violin’s Home: A Higher-Order RIR Dataset of the Arvedi Auditorium</a></h3>
+                    <p class="card__text">325 spatial room impulse responses measured in a concert hall in Cremona and released openly, with code.</p>
+                    <p class="card__links"><a href="project10/project10.html">Details <i class="fas fa-arrow-right" aria-hidden="true"></i></a><a href="https://doi.org/10.5281/zenodo.20098847" target="_blank" rel="noopener">Dataset <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a><a href="https://github.com/polimi-ispl/arverir" target="_blank" rel="noopener">Code <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a></p>
+                </div>
+            </article>
+            <article class="card card--featured">
+                <a class="card__media card__media--contain" href="project8/project8.html" tabindex="-1" aria-hidden="true"><img src="project8/distance_matrices.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">ISMA · 2026</p>
+                    <h3><a href="project8/project8.html">A Compact Statistical View of Musical-Instrument Directivity</a></h3>
+                    <p class="card__text">Describes how instruments radiate sound with a few interpretable lobes per band, about five times more compact than the full data.</p>
+                    <p class="card__links"><a href="project8/project8.html">Details <i class="fas fa-arrow-right" aria-hidden="true"></i></a><a href="https://arxiv.org/abs/2611.02927" target="_blank" rel="noopener">arXiv <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a></p>
+                </div>
+            </article>
+            <article class="card card--featured">
+                <a class="card__media card__media--cover" href="membrane_1_DOF.html" tabindex="-1" aria-hidden="true"><img src="assets/thumbs/membrane-models.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">ISMA · 2026</p>
+                    <h3><a href="membrane_1_DOF.html">Understanding Oscillation in Membrane-Based Mouthpiece Models</a></h3>
+                    <p class="card__text">A physical model of how a tunable membrane, airflow and a resonator start a sustained tone, with interactive animations.</p>
+                    <p class="card__links"><a href="membrane_1_DOF.html">Details <i class="fas fa-arrow-right" aria-hidden="true"></i></a></p>
+                </div>
+            </article>
+            <article class="card card--featured">
+                <a class="card__media card__media--contain" href="project9/project9.html" tabindex="-1" aria-hidden="true"><img src="project9/fig/f1.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">Pediatric Research · 2026</p>
+                    <h3><a href="project9/project9.html">Data-Driven Murmur Detection for Pediatric Cardiac Tele-Auscultation</a></h3>
+                    <p class="card__text">Denoising and machine learning on phonocardiograms to detect pathological heart murmurs in children, toward tele-consultation.</p>
+                    <p class="card__links"><a href="project9/project9.html">Details <i class="fas fa-arrow-right" aria-hidden="true"></i></a><a href="https://doi.org/10.1038/s41390-026-05349-x" target="_blank" rel="noopener">Article <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a></p>
+                </div>
+            </article>
+            <article class="card card--featured">
+                <a class="card__media card__media--contain" href="project2/project2.html" tabindex="-1" aria-hidden="true"><img src="project2/beampattern.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">EURASIP JASMP · 2026</p>
+                    <h3><a href="project2/project2.html">ParaDER: Sound Field Reconstruction with Early Reflection Modeling</a></h3>
+                    <p class="card__text">Reconstructs direct sound, early reflections and reverberation from few microphones, for 6DoF audio.</p>
+                    <p class="card__links"><a href="project2/project2.html">Details <i class="fas fa-arrow-right" aria-hidden="true"></i></a><a href="https://doi.org/10.1186/s13636-025-00437-y" target="_blank" rel="noopener">Paper <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a></p>
+                </div>
+            </article>
+            <article class="card card--featured">
+                <a class="card__media card__media--contain" href="project5/project5.html" tabindex="-1" aria-hidden="true"><img src="project5/RH-CED.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">EUSIPCO · 2025</p>
+                    <h3><a href="project5/project5.html">RHC-ED: Dereverberation of Relative Harmonic Coefficients via CNNs for DOA Estimation</a></h3>
+                    <p class="card__text">A convolutional encoder-decoder that restores reverberant spatial descriptors and lowers direction-of-arrival error in real rooms.</p>
+                    <p class="card__links"><a href="project5/project5.html">Details <i class="fas fa-arrow-right" aria-hidden="true"></i></a><a href="https://ieeexplore.ieee.org/abstract/document/11226374/" target="_blank" rel="noopener">Paper <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a></p>
+                </div>
+            </article>
+            <article class="card card--featured">
+                <a class="card__media card__media--contain" href="project3/project3.html" tabindex="-1" aria-hidden="true"><img src="project3/mouthpieceMesh.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">Forum Acusticum · 2025</p>
+                    <h3><a href="project3/project3.html">A Data-Driven Transfer Matrix Model for the Design of Saxophone Mouthpieces</a></h3>
+                    <p class="card__text">Predicts the transfer matrix of saxophone mouthpieces from their geometry, using FEM simulations and neural networks.</p>
+                    <p class="card__links"><a href="project3/project3.html">Details <i class="fas fa-arrow-right" aria-hidden="true"></i></a><a href="https://dael.euracoustics.org/confs/fa2025/data/articles/000009.pdf" target="_blank" rel="noopener">Paper <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a></p>
+                </div>
+            </article>
+            <article class="card card--featured">
+                <a class="card__media card__media--cover" href="project11/project11.html" tabindex="-1" aria-hidden="true"><img src="project11/fig/f1.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">Open dataset · Forum Acusticum 2025</p>
+                    <h3><a href="project11/project11.html">IR64-CAR: Impulse Responses with a 64-Capsule Spherical Array for Automotive Acoustics</a></h3>
+                    <p class="card__text">Impulse responses inside a car cabin from eight external directions, recorded with a 64-capsule array.</p>
+                    <p class="card__links"><a href="project11/project11.html">Details <i class="fas fa-arrow-right" aria-hidden="true"></i></a><a href="https://doi.org/10.61782/fa.2025.0508" target="_blank" rel="noopener">Paper <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a></p>
+                </div>
+            </article>
+            <article class="card card--featured">
+                <a class="card__media card__media--contain" href="project1/project1.html" tabindex="-1" aria-hidden="true"><img src="Network.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">Sensors · 2025</p>
+                    <h3><a href="project1/project1.html">Diffusion-Based Sound Source Localization Using a Distributed Network of Microphone Arrays</a></h3>
+                    <p class="card__text">A diffusion strategy lets a network of microphone arrays localize a source without a central node.</p>
+                    <p class="card__links"><a href="project1/project1.html">Details <i class="fas fa-arrow-right" aria-hidden="true"></i></a><a href="https://doi.org/10.3390/s25072078" target="_blank" rel="noopener">Paper <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a></p>
+                </div>
+            </article>
+                    </div>
+                    <button type="button" class="carousel__btn carousel__btn--next" aria-label="Next works"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+                </div>
+            </div>
+        </section>
 
-    <section id="about" class="section">
-        <div class="section__inner about">
-            <div class="about__photo reveal">
-                <picture>
-                    <source srcset="bio.webp" type="image/webp">
-                    <img src="bio.jpg" alt="Portrait of Gioele Greco" width="640" height="594">
-                </picture>
+        <section class="block block--alt" id="expertise">
+            <div class="block__inner">
+                <h2>What I do</h2>
+                <div class="expertise">
+                    <div><h3>Spatial &amp; immersive audio</h3><p>Sound-field reconstruction, Ambisonics and 6DoF rendering from a few microphones.</p></div>
+                    <div><h3>Acoustic measurements &amp; datasets</h3><p>Campaigns in theatres and concert halls, spherical arrays up to 64 channels, open RIR datasets.</p></div>
+                    <div><h3>Localization &amp; array processing</h3><p>Direction-of-arrival estimation and distributed localization with networks of microphone arrays.</p></div>
+                    <div><h3>Physical &amp; data-driven models</h3><p>FEM and transfer-matrix modeling of instruments, instrument directivity, neural networks and NMF for acoustic and biomedical signals.</p></div>
+                </div>
             </div>
-            <div class="about__text reveal">
-                <p class="section__eyebrow">About</p>
-                <h2>I study how sound lives in space</h2>
-                <p>I am a researcher in acoustic signal processing at the Image and Sound Processing Lab of Politecnico di Milano, where I completed my Ph.D. in 2026 and now continue as a Research Fellow.</p>
-                <p>My work sits where physics and data meet: rebuilding a sound field from a few microphones, rendering spatial audio for a moving listener, localizing sources with networks of sensors and understanding how musical instruments radiate sound. I measure real rooms, from theatres to concert halls, and share what I build as papers, datasets, code and demos.</p>
-                <p>I am also a classical saxophonist, so musical acoustics is where my two backgrounds meet. I teach acoustics and enjoy helping students turn a curiosity into a project.</p>
-                <p class="about__links"><a href="#publications">Read the publications <i class="fas fa-arrow-right" aria-hidden="true"></i></a><a href="#other-projects">Try the demos <i class="fas fa-arrow-right" aria-hidden="true"></i></a></p>
-            </div>
-        </div>
-    </section>
+        </section>
 
-    <section id="expertise" class="section section--alt">
-        <div class="section__inner">
-            <div class="section__head">
-                <p class="section__eyebrow">Expertise</p>
-                <h2>Core Expertise</h2>
+        <section class="block block--alt" id="tools">
+            <div class="block__inner">
+                <h2>Tools &amp; demos</h2>
+                <div class="carousel" data-loop>
+                    <button type="button" class="carousel__btn carousel__btn--prev" aria-label="Previous works"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
+                    <div class="carousel__track" tabindex="0">
+            <article class="card card--small">
+                <a class="card__media card__media--cover" href="project4/project4.html" tabindex="-1" aria-hidden="true"><img src="assets/thumbs/fruit-ripeness.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">Web tool · Italian</p>
+                    <h3><a href="project4/project4.html">Fruit Ripeness Tool</a></h3>
+                    <p class="card__text">Measures an impulse response with the phone speaker and microphone to relate fruit ripeness to acoustics.</p>
+                </div>
+            </article>
+            <article class="card card--small">
+                <a class="card__media card__media--cover" href="directivity_ISMA.html" tabindex="-1" aria-hidden="true"><img src="assets/thumbs/directivity-explorer.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">Interactive demo</p>
+                    <h3><a href="directivity_ISMA.html">Instrument Directivity Explorer</a></h3>
+                    <p class="card__text">Browse 41 orchestral instruments and their compact directivity models.</p>
+                </div>
+            </article>
+            <article class="card card--small">
+                <a class="card__media card__media--cover" href="fisica_suono_sax.html" tabindex="-1" aria-hidden="true"><img src="assets/thumbs/sax-acoustics.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">Interactive slides · Italian</p>
+                    <h3><a href="fisica_suono_sax.html">Saxophone Acoustics for Musicians</a></h3>
+                    <p class="card__text">Thirty slides with live applets on how the saxophone makes its sound.</p>
+                </div>
+            </article>
+            <article class="card card--small">
+                <a class="card__media card__media--cover" href="AudioAdaptiveCorrection/index.html" tabindex="-1" aria-hidden="true"><img src="assets/thumbs/room-eq.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">Web audio prototype</p>
+                    <h3><a href="AudioAdaptiveCorrection/index.html">Adaptive Room Equalizer</a></h3>
+                    <p class="card__text">A 12-band equalizer that listens to the room and corrects it in real time.</p>
+                </div>
+            </article>
+            <article class="card card--small">
+                <a class="card__media card__media--cover" href="GP_music/GP_music.html" tabindex="-1" aria-hidden="true"><img src="assets/thumbs/sax-electronics.webp" alt="" loading="lazy" decoding="async"></a>
+                <div class="card__body">
+                    <p class="card__meta">Music · Italian</p>
+                    <h3><a href="GP_music/GP_music.html">Saxophone and Live Electronics</a></h3>
+                    <p class="card__text">My musician profile: saxophone, live electronics and new technologies.</p>
+                </div>
+            </article>
+                    </div>
+                    <button type="button" class="carousel__btn carousel__btn--next" aria-label="Next works"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+                </div>
             </div>
-            <div class="expertise-grid">
-                <article class="expertise-card reveal">
-                    <span class="expertise-card__icon"><i class="fas fa-headphones" aria-hidden="true"></i></span>
-                    <h3>Spatial &amp; Immersive Audio</h3>
-                    <ul>
-                        <li>Ambisonics and spherical harmonics</li>
-                        <li>Wide-area 6DoF rendering with DirAC</li>
-                        <li>Parametric virtual microphones: direct sound, early reflections, reverberation</li>
-                        <li>Binaural rendering with HRTFs</li>
-                    </ul>
-                </article>
-                <article class="expertise-card reveal">
-                    <span class="expertise-card__icon"><i class="fas fa-ruler-combined" aria-hidden="true"></i></span>
-                    <h3>Acoustic Measurements</h3>
-                    <ul>
-                        <li>Measurement campaigns in theatres and concert halls</li>
-                        <li>Log-sweep RIR extraction and multichannel Dante acquisition</li>
-                        <li>Spherical, linear and planar arrays, up to 64 channels</li>
-                        <li>Room acoustic metrics: T20/T30, EDT, C50/C80, DRR</li>
-                    </ul>
-                </article>
-                <article class="expertise-card reveal">
-                    <span class="expertise-card__icon"><i class="fas fa-location-crosshairs" aria-hidden="true"></i></span>
-                    <h3>Array Processing &amp; Localization</h3>
-                    <ul>
-                        <li>Direction-of-arrival estimation in reverberant rooms</li>
-                        <li>Distributed estimation in acoustic sensor networks</li>
-                        <li>Sound field reconstruction from sparse measurements</li>
-                        <li>Dereverberation of spatial descriptors</li>
-                    </ul>
-                </article>
-                <article class="expertise-card reveal">
-                    <span class="expertise-card__icon"><i class="fas fa-music" aria-hidden="true"></i></span>
-                    <h3>Musical &amp; Physical Acoustics</h3>
-                    <ul>
-                        <li>Musical-instrument directivity</li>
-                        <li>Saxophone mouthpiece modeling with FEM and transfer matrices</li>
-                        <li>Nonlinear membrane–resonator models</li>
-                        <li>3D-printed prototypes</li>
-                    </ul>
-                </article>
-                <article class="expertise-card reveal">
-                    <span class="expertise-card__icon"><i class="fas fa-diagram-project" aria-hidden="true"></i></span>
-                    <h3>Machine Learning for Acoustics</h3>
-                    <ul>
-                        <li>Graph neural networks and mixture-of-experts</li>
-                        <li>CNN encoder–decoders</li>
-                        <li>NMF and SVM for signal isolation and classification</li>
-                        <li>Dataset design, acquisition and evaluation</li>
-                    </ul>
-                </article>
-                <article class="expertise-card reveal">
-                    <span class="expertise-card__icon"><i class="fas fa-heart-pulse" aria-hidden="true"></i></span>
-                    <h3>Biomedical Signals</h3>
-                    <ul>
-                        <li>Heart-sound denoising</li>
-                        <li>Pathological murmur detection</li>
-                        <li>Pediatric tele-auscultation</li>
-                    </ul>
-                </article>
-            </div>
-        </div>
-    </section>
-
-    <section id="projects" class="section">
-        <div class="section__inner">
-            <div class="section__head">
-                <p class="section__eyebrow">Research</p>
-                <h2>Featured Projects</h2>
-                <p class="section__lead">Research on spatial audio, sound source localization, musical acoustics and biomedical signals, with papers, code, datasets and demos.</p>
-            </div>
-
-            <div class="projects-grid">
-                <article class="project-card reveal">
-                    <a href="project6/project6.html" class="project-card__media project-card__media--contain" tabindex="-1" aria-hidden="true">
-                        <span class="badge badge--journal">Journal</span>
-                        <img src="project6/fig/f2_pipeline.webp" alt="" loading="lazy" decoding="async">
-                    </a>
-                    <div class="project-card__body">
-                        <p class="project-card__meta">IEEE OJSP 2026 · Spatial audio</p>
-                        <h3><a href="project6/project6.html">DAME: Distributed Acoustic Mixture-of-Experts for Spatial Sound Estimation</a></h3>
-                        <p>Large-area sound field reconstruction with compact local experts and a gating network; new regions are added without retraining the whole model.</p>
-                        <div class="project-card__links">
-                            <a href="project6/project6.html" class="link-arrow">Read more <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
-                            <a href="https://ieeexplore.ieee.org/document/11520266" class="link-arrow link-arrow--muted" target="_blank" rel="noopener">Paper <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-                        </div>
-                    </div>
-                </article>
-                <article class="project-card reveal">
-                    <a href="project7/project7.html" class="project-card__media project-card__media--contain" tabindex="-1" aria-hidden="true">
-                        <span class="badge badge--conference">Conference</span>
-                        <img src="project7/radiation_pattern.webp" alt="" loading="lazy" decoding="async">
-                    </a>
-                    <div class="project-card__body">
-                        <p class="project-card__meta">IWAENC 2026 · 6DoF audio</p>
-                        <h3><a href="project7/project7.html">Graph Neural Network for Wide-Area 6DoF Ambisonic Rendering</a></h3>
-                        <p>A lightweight GNN learns scene-dependent DirAC interpolation weights from sparse Ambisonic recordings, released as a real-time plug-in.</p>
-                        <div class="project-card__links">
-                            <a href="project7/project7.html" class="link-arrow">Read more <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
-                            <a href="https://arxiv.org/abs/2610.35741" class="link-arrow link-arrow--muted" target="_blank" rel="noopener">arXiv <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-                            <a href="https://github.com/GioeleGrecoMe/GNN4FOA-realtime-6dof-rendering" class="link-arrow link-arrow--muted" target="_blank" rel="noopener">Code <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-                        </div>
-                    </div>
-                </article>
-                <article class="project-card reveal">
-                    <a href="project8/project8.html" class="project-card__media project-card__media--contain" tabindex="-1" aria-hidden="true">
-                        <span class="badge badge--conference">Conference</span>
-                        <img src="project8/distance_matrices.webp" alt="" loading="lazy" decoding="async">
-                    </a>
-                    <div class="project-card__body">
-                        <p class="project-card__meta">ISMA 2026 · Musical acoustics</p>
-                        <h3><a href="project8/project8.html">A Compact Statistical View of Musical-Instrument Directivity</a></h3>
-                        <p>Von Mises-Fisher mixtures summarize instrument directivity in a few interpretable lobes per band, about five times more compact.</p>
-                        <div class="project-card__links">
-                            <a href="project8/project8.html" class="link-arrow">Read more <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
-                            <a href="https://arxiv.org/abs/2611.02927" class="link-arrow link-arrow--muted" target="_blank" rel="noopener">arXiv <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-                            <a href="directivity_ISMA.html" class="link-arrow link-arrow--muted" target="_blank" rel="noopener">Demo <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-                        </div>
-                    </div>
-                </article>
-                <article class="project-card reveal">
-                    <a href="project10/project10.html" class="project-card__media" tabindex="-1" aria-hidden="true">
-                        <span class="badge badge--dataset">Dataset</span>
-                        <img src="project10/auditorium.webp" alt="" loading="lazy" decoding="async">
-                    </a>
-                    <div class="project-card__body">
-                        <p class="project-card__meta">IWAENC 2026 · Open dataset</p>
-                        <h3><a href="project10/project10.html">ARVERIR: Higher-Order RIR Dataset of the Arvedi Auditorium</a></h3>
-                        <p>325 spatial room impulse responses measured with higher-order microphones in the concert hall of the Museo del Violino, Cremona.</p>
-                        <div class="project-card__links">
-                            <a href="project10/project10.html" class="link-arrow">Read more <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
-                            <a href="https://doi.org/10.5281/zenodo.20098847" class="link-arrow link-arrow--muted" target="_blank" rel="noopener">Dataset <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-                            <a href="https://github.com/polimi-ispl/arverir" class="link-arrow link-arrow--muted" target="_blank" rel="noopener">Code <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-                        </div>
-                    </div>
-                </article>
-                <article class="project-card reveal">
-                    <a href="project9/project9.html" class="project-card__media project-card__media--contain" tabindex="-1" aria-hidden="true">
-                        <span class="badge badge--journal">Journal</span>
-                        <img src="project9/fig/f1.webp" alt="" loading="lazy" decoding="async">
-                    </a>
-                    <div class="project-card__body">
-                        <p class="project-card__meta">Pediatric Research 2026 · Biomedical</p>
-                        <h3><a href="project9/project9.html">Data-Driven Murmur Detection for Pediatric Tele-Auscultation</a></h3>
-                        <p>NMF denoising and machine learning on phonocardiograms to detect pathological heart murmurs in children.</p>
-                        <div class="project-card__links">
-                            <a href="project9/project9.html" class="link-arrow">Read more <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
-                            <a href="https://doi.org/10.1038/s41390-026-05349-x" class="link-arrow link-arrow--muted" target="_blank" rel="noopener">Article <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-                        </div>
-                    </div>
-                </article>
-                <article class="project-card reveal">
-                    <a href="project2/project2.html" class="project-card__media project-card__media--contain" tabindex="-1" aria-hidden="true">
-                        <span class="badge badge--journal">Journal</span>
-                        <img src="project2/beampattern.webp" alt="" loading="lazy" decoding="async">
-                    </a>
-                    <div class="project-card__body">
-                        <p class="project-card__meta">EURASIP JASMP 2026 · IWSSPA 2024</p>
-                        <h3><a href="project2/project2.html">ParaDER: Sound Field Reconstruction with Early Reflection Modeling</a></h3>
-                        <p>Direct sound, early reflections as image sources and diffuse reverberation reconstructed from few measurements for realistic 6DoF audio.</p>
-                        <div class="project-card__links">
-                            <a href="project2/project2.html" class="link-arrow">Read more <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
-                            <a href="https://doi.org/10.1186/s13636-025-00437-y" class="link-arrow link-arrow--muted" target="_blank" rel="noopener">Paper <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-                        </div>
-                    </div>
-                </article>
-                <article class="project-card reveal">
-                    <a href="project5/project5.html" class="project-card__media project-card__media--contain" tabindex="-1" aria-hidden="true">
-                        <span class="badge badge--conference">Conference</span>
-                        <img src="project5/RH-CED.webp" alt="" loading="lazy" decoding="async">
-                    </a>
-                    <div class="project-card__body">
-                        <p class="project-card__meta">EUSIPCO 2025 · Deep learning</p>
-                        <h3><a href="project5/project5.html">RHC-ED: Dereverberation via CNNs for Acoustic Source DOA Estimation</a></h3>
-                        <p>A convolutional encoder-decoder restores relative harmonic coefficients for robust localization in noisy, reverberant rooms.</p>
-                        <div class="project-card__links">
-                            <a href="project5/project5.html" class="link-arrow">Read more <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
-                            <a href="https://ieeexplore.ieee.org/abstract/document/11226374/" class="link-arrow link-arrow--muted" target="_blank" rel="noopener">Paper <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-                        </div>
-                    </div>
-                </article>
-                <article class="project-card reveal">
-                    <a href="project3/project3.html" class="project-card__media project-card__media--contain" tabindex="-1" aria-hidden="true">
-                        <span class="badge badge--conference">Conference</span>
-                        <img src="project3/mouthpieceMesh.webp" alt="" loading="lazy" decoding="async">
-                    </a>
-                    <div class="project-card__body">
-                        <p class="project-card__meta">Forum Acusticum 2025 · Musical acoustics</p>
-                        <h3><a href="project3/project3.html">Data-Driven Transfer Matrix Model for Saxophone Mouthpiece Design</a></h3>
-                        <p>FEM simulations and neural networks predict the transfer matrix of saxophone mouthpieces from their geometry.</p>
-                        <div class="project-card__links">
-                            <a href="project3/project3.html" class="link-arrow">Read more <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
-                            <a href="https://doi.org/10.61782/fa.2025.0009" class="link-arrow link-arrow--muted" target="_blank" rel="noopener">Paper <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-                            <a href="https://www.kaggle.com/datasets/gioelegreco/saxophone-mouthpiece-tm/data" class="link-arrow link-arrow--muted" target="_blank" rel="noopener">Dataset <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-                        </div>
-                    </div>
-                </article>
-                <article class="project-card reveal">
-                    <a href="project11/project11.html" class="project-card__media" tabindex="-1" aria-hidden="true">
-                        <span class="badge badge--dataset">Dataset</span>
-                        <img src="project11/fig/f1.webp" alt="" loading="lazy" decoding="async">
-                    </a>
-                    <div class="project-card__body">
-                        <p class="project-card__meta">Forum Acusticum 2025 · Open dataset</p>
-                        <h3><a href="project11/project11.html">IR64-CAR: Automotive Impulse Responses with a 64-Capsule Spherical Array</a></h3>
-                        <p>Impulse responses inside a car cabin from eight external directions, for in-vehicle audio, localization and ADAS research.</p>
-                        <div class="project-card__links">
-                            <a href="project11/project11.html" class="link-arrow">Read more <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
-                            <a href="https://doi.org/10.61782/fa.2025.0508" class="link-arrow link-arrow--muted" target="_blank" rel="noopener">Paper <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-                        </div>
-                    </div>
-                </article>
-                <article class="project-card reveal">
-                    <a href="project1/project1.html" class="project-card__media project-card__media--contain" tabindex="-1" aria-hidden="true">
-                        <span class="badge badge--journal">Journal</span>
-                        <img src="Network.webp" alt="" loading="lazy" decoding="async">
-                    </a>
-                    <div class="project-card__body">
-                        <p class="project-card__meta">Sensors 2025 · ICASSP 2023</p>
-                        <h3><a href="project1/project1.html">Diffusion-Based Sound Source Localization with Distributed Microphone Arrays</a></h3>
-                        <p>Adapt-Then-Combine diffusion lets a network of arrays cooperate to localize sources without a central node.</p>
-                        <div class="project-card__links">
-                            <a href="project1/project1.html" class="link-arrow">Read more <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
-                            <a href="https://www.mdpi.com/1424-8220/25/7/2078" class="link-arrow link-arrow--muted" target="_blank" rel="noopener">Paper <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-                        </div>
-                    </div>
-                </article>
-            </div>
-        </div>
-    </section>
-
-    <section id="publications" class="section section--alt">
-        <div class="section__inner">
-            <div class="section__head">
-                <p class="section__eyebrow">Publications</p>
+        </section>
+        <section class="block" id="publications">
+            <div class="block__inner">
                 <h2>Publications</h2>
-                <p class="section__lead">Journal articles, conference papers and datasets, most recent first.</p>
+                <ul class="pubs">
+                    <li class="pub">
+                        <span class="pub__year">2026</span>
+                        <div class="pub__main">
+                            <p class="pub__title">Distributed Acoustic Mixture-of-Experts for Spatial Sound Estimation <span class="oa">Open access</span></p>
+                            <p class="pub__meta"><strong>G. Greco</strong>, D. Zhang, M. Pezzoli, F. Antonacci · <em>IEEE Open Journal of Signal Processing 7, 569–580</em></p>
+                        </div>
+                        <p class="pub__links"><a href="https://ieeexplore.ieee.org/document/11520266" target="_blank" rel="noopener">Paper</a><a href="project6/project6.html">Page</a></p>
+                    </li>
+                    <li class="pub">
+                        <span class="pub__year">2026</span>
+                        <div class="pub__main">
+                            <p class="pub__title">Graph Neural Network for Wide-Area 6DoF Ambisonic Rendering <span class="oa">Open access</span></p>
+                            <p class="pub__meta"><strong>G. Greco</strong>, F. Marri, M. Pezzoli, F. Antonacci · <em>IWAENC 2026</em></p>
+                        </div>
+                        <p class="pub__links"><a href="https://arxiv.org/abs/2610.35741" target="_blank" rel="noopener">arXiv</a><a href="https://github.com/GioeleGrecoMe/GNN4FOA-realtime-6dof-rendering" target="_blank" rel="noopener">Code</a><a href="project7/project7.html">Page</a></p>
+                    </li>
+                    <li class="pub">
+                        <span class="pub__year">2026</span>
+                        <div class="pub__main">
+                            <p class="pub__title">A Compact Statistical View of Musical-Instrument Directivity <span class="oa">Open access</span></p>
+                            <p class="pub__meta"><strong>G. Greco</strong>, M. Pezzoli, R. Malvermi, G. M. Ricci, F. Antonacci · <em>ISMA 2026</em></p>
+                        </div>
+                        <p class="pub__links"><a href="https://arxiv.org/abs/2611.02927" target="_blank" rel="noopener">arXiv</a><a href="project8/project8.html">Page</a></p>
+                    </li>
+                    <li class="pub">
+                        <span class="pub__year">2026</span>
+                        <div class="pub__main">
+                            <p class="pub__title">Understanding Oscillation in Membrane-Based Mouthpiece Models</p>
+                            <p class="pub__meta"><strong>G. Greco</strong>, V. Freour, F. Soares, J.-B. Doc, C. Vergez, M. Pezzoli, F. Antonacci · <em>ISMA 2026 (presented, in publication)</em></p>
+                        </div>
+                        <p class="pub__links"><a href="membrane_1_DOF.html">Companion page</a></p>
+                    </li>
+                    <li class="pub">
+                        <span class="pub__year">2026</span>
+                        <div class="pub__main">
+                            <p class="pub__title">The Sound of the Violin’s Home: A Higher-Order RIR Dataset of the Arvedi Auditorium in Cremona <span class="oa">Open access</span></p>
+                            <p class="pub__meta">F. Miotello, <strong>G. Greco</strong>, P. Ostan, F. Del Gaudio, L. Comanducci, R. Malvermi, M. Pezzoli, F. Antonacci · <em>Dataset, Zenodo</em></p>
+                        </div>
+                        <p class="pub__links"><a href="https://doi.org/10.5281/zenodo.20098847" target="_blank" rel="noopener">Dataset</a><a href="https://github.com/polimi-ispl/arverir" target="_blank" rel="noopener">Code</a><a href="project10/project10.html">Page</a></p>
+                    </li>
+                    <li class="pub">
+                        <span class="pub__year">2026</span>
+                        <div class="pub__main">
+                            <p class="pub__title">Enhancing pediatric cardiac auscultation with data-driven murmur detection: toward tele-consultation applications <span class="oa">Open access</span></p>
+                            <p class="pub__meta">R. Malvermi, S. Mannarino, V. Garella, <strong>G. Greco</strong> et al. · <em>Pediatric Research</em></p>
+                        </div>
+                        <p class="pub__links"><a href="https://doi.org/10.1038/s41390-026-05349-x" target="_blank" rel="noopener">Article</a><a href="project9/project9.html">Page</a></p>
+                    </li>
+                    <li class="pub">
+                        <span class="pub__year">2026</span>
+                        <div class="pub__main">
+                            <p class="pub__title">Parametric virtual microphone techniques for sound field reconstruction with early reflection modeling <span class="oa">Open access</span></p>
+                            <p class="pub__meta"><strong>G. Greco</strong>, M. Pezzoli, F. Antonacci, A. Sarti · <em>EURASIP Journal on Audio, Speech, and Music Processing</em></p>
+                        </div>
+                        <p class="pub__links"><a href="https://doi.org/10.1186/s13636-025-00437-y" target="_blank" rel="noopener">Paper</a><a href="project2/project2.html">Page</a></p>
+                    </li>
+                    <li class="pub">
+                        <span class="pub__year">2025</span>
+                        <div class="pub__main">
+                            <p class="pub__title">Dereverberation of Relative Harmonic Coefficients via CNNs for Acoustic Source DOA Estimation</p>
+                            <p class="pub__meta"><strong>G. Greco</strong>, S. Messana, M. Pezzoli, M. Cobos, F. Antonacci · <em>EUSIPCO 2025</em></p>
+                        </div>
+                        <p class="pub__links"><a href="https://ieeexplore.ieee.org/abstract/document/11226374/" target="_blank" rel="noopener">Paper</a><a href="project5/project5.html">Page</a></p>
+                    </li>
+                    <li class="pub">
+                        <span class="pub__year">2025</span>
+                        <div class="pub__main">
+                            <p class="pub__title">A Data-Driven Transfer Matrix Model for the Design of Saxophone Mouthpieces <span class="oa">Open access</span></p>
+                            <p class="pub__meta"><strong>G. Greco</strong>, X. Luan, A. Bernardini, F. Antonacci, A. Sarti · <em>Forum Acusticum / EuroNoise 2025</em></p>
+                        </div>
+                        <p class="pub__links"><a href="https://dael.euracoustics.org/confs/fa2025/data/articles/000009.pdf" target="_blank" rel="noopener">PDF</a><a href="https://www.kaggle.com/datasets/gioelegreco/saxophone-mouthpiece-tm/data" target="_blank" rel="noopener">Dataset</a><a href="project3/project3.html">Page</a></p>
+                    </li>
+                    <li class="pub">
+                        <span class="pub__year">2025</span>
+                        <div class="pub__main">
+                            <p class="pub__title">IR64-CAR: A Dataset of Impulse Responses Captured with a Spherical Microphone Array for Automotive Acoustic Research <span class="oa">Open access</span></p>
+                            <p class="pub__meta">J. López-Ballester, <strong>G. Greco</strong>, S. Roger, J. J. López, F. J. Ferri, M. Cobos · <em>Forum Acusticum / EuroNoise 2025</em></p>
+                        </div>
+                        <p class="pub__links"><a href="https://dael.euracoustics.org/confs/fa2025/data/articles/000508.pdf" target="_blank" rel="noopener">PDF</a><a href="project11/project11.html">Page</a></p>
+                    </li>
+                    <li class="pub">
+                        <span class="pub__year">2025</span>
+                        <div class="pub__main">
+                            <p class="pub__title">Diffusion-Based Sound Source Localization Using a Distributed Network of Microphone Arrays <span class="oa">Open access</span></p>
+                            <p class="pub__meta">D. Albertini, A. Bernardini, <strong>G. Greco</strong>, A. Sarti · <em>Sensors 25(7), 2078</em></p>
+                        </div>
+                        <p class="pub__links"><a href="https://doi.org/10.3390/s25072078" target="_blank" rel="noopener">Paper</a><a href="project1/project1.html">Page</a></p>
+                    </li>
+                    <li class="pub">
+                        <span class="pub__year">2024</span>
+                        <div class="pub__main">
+                            <p class="pub__title">Early Reverberation Estimation for Room Impulse Response Reconstruction</p>
+                            <p class="pub__meta"><strong>G. Greco</strong>, M. Pezzoli, F. Antonacci · <em>IWSSPA 2024</em></p>
+                        </div>
+                        <p class="pub__links"><a href="project2/project2.html">Page</a></p>
+                    </li>
+                    <li class="pub">
+                        <span class="pub__year">2023</span>
+                        <div class="pub__main">
+                            <p class="pub__title">Diffusion-Based Sound Source Localization Using Networks of Planar Microphone Arrays</p>
+                            <p class="pub__meta">D. Albertini, <strong>G. Greco</strong>, A. Bernardini, A. Sarti · <em>IEEE ICASSP 2023</em></p>
+                        </div>
+                        <p class="pub__links"><a href="https://doi.org/10.1109/ICASSP49357.2023.10095405" target="_blank" rel="noopener">Paper</a><a href="project1/project1.html">Page</a></p>
+                    </li>
+                </ul>
             </div>
-            <div class="filters" role="group" aria-label="Filter publications">
-                <button type="button" class="filter is-active" data-filter="all">All</button>
-                <button type="button" class="filter" data-filter="journal">Journals</button>
-                <button type="button" class="filter" data-filter="conference">Conferences</button>
-                <button type="button" class="filter" data-filter="dataset">Datasets</button>
-            </div>
-            <div class="pubs-wrap">
-                <h3 class="pubs__year">2026</h3>
-                <ol class="pubs">
-                    <li class="pub" data-kind="conference">
-                        <span class="pub__kind pub__kind--conference">Conference</span>
-                        <div>
-                            <p class="pub__title"><a href="membrane_1_DOF.html">Understanding Oscillation in Membrane-Based Mouthpiece Models</a></p>
-                            <p class="pub__meta"><strong>G. Greco</strong>, V. Freour, F. Soares, J.-B. Doc, C. Vergez, M. Pezzoli, F. Antonacci · <em>International Conference on Noise and Vibration Engineering (ISMA)</em>, 2026. Presented; in publication. <a href="membrane_1_DOF.html" class="pub__page">Companion page</a></p>
-                        </div>
-                    </li>
-                    <li class="pub" data-kind="conference">
-                        <span class="pub__kind pub__kind--conference">Conference</span>
-                        <div>
-                            <p class="pub__title"><a href="https://arxiv.org/abs/2611.02927" target="_blank" rel="noopener">A Compact Statistical View of Musical-Instrument Directivity</a></p>
-                            <p class="pub__meta"><strong>G. Greco</strong>, M. Pezzoli, R. Malvermi, G. M. Ricci, F. Antonacci · <em>International Symposium on Musical Acoustics (ISMA), Helsinki</em>, 2026. <a href="project8/project8.html" class="pub__page">Project page</a></p>
-                        </div>
-                    </li>
-                    <li class="pub" data-kind="conference">
-                        <span class="pub__kind pub__kind--conference">Conference</span>
-                        <div>
-                            <p class="pub__title"><a href="https://arxiv.org/abs/2610.35741" target="_blank" rel="noopener">Graph Neural Network for Wide-Area 6DoF Ambisonic Rendering</a></p>
-                            <p class="pub__meta"><strong>G. Greco</strong>, F. Marri, M. Pezzoli, F. Antonacci · <em>International Workshop on Acoustic Signal Enhancement (IWAENC)</em>, 2026. <a href="project7/project7.html" class="pub__page">Project page</a></p>
-                        </div>
-                    </li>
-                    <li class="pub" data-kind="dataset">
-                        <span class="pub__kind pub__kind--dataset">Dataset</span>
-                        <div>
-                            <p class="pub__title"><a href="https://doi.org/10.5281/zenodo.20098847" target="_blank" rel="noopener">The Sound of the Violin's Home: A Higher-Order Room Impulse Response Dataset of the Arvedi Auditorium in Cremona</a></p>
-                            <p class="pub__meta">F. Miotello, <strong>G. Greco</strong>, P. Ostan, F. Del Gaudio, L. Comanducci, R. Malvermi, M. Pezzoli, F. Antonacci · <em>IWAENC (paper) · Zenodo (dataset)</em>, 2026. <a href="project10/project10.html" class="pub__page">Project page</a></p>
-                        </div>
-                    </li>
-                    <li class="pub" data-kind="journal">
-                        <span class="pub__kind pub__kind--journal">Journal</span>
-                        <div>
-                            <p class="pub__title"><a href="https://doi.org/10.1038/s41390-026-05349-x" target="_blank" rel="noopener">Enhancing pediatric cardiac auscultation with data-driven murmur detection: toward tele-consultation applications</a></p>
-                            <p class="pub__meta">R. Malvermi, S. Mannarino, V. Garella, <strong>G. Greco</strong>, G. Fini, B. Baj, F. Antonacci, V. Calcaterra, G. Zuccotti · <em>Pediatric Research</em>, 2026. <a href="project9/project9.html" class="pub__page">Project page</a></p>
-                        </div>
-                    </li>
-                    <li class="pub" data-kind="journal">
-                        <span class="pub__kind pub__kind--journal">Journal</span>
-                        <div>
-                            <p class="pub__title"><a href="https://doi.org/10.1109/OJSP.2026.3693608" target="_blank" rel="noopener">Distributed Acoustic Mixture-of-Experts for Spatial Sound Estimation</a></p>
-                            <p class="pub__meta"><strong>G. Greco</strong>, D. Zhang, M. Pezzoli, F. Antonacci · <em>IEEE Open Journal of Signal Processing, vol. 7, pp. 569–580</em>, 2026. <a href="project6/project6.html" class="pub__page">Project page</a></p>
-                        </div>
-                    </li>
-                    <li class="pub" data-kind="journal">
-                        <span class="pub__kind pub__kind--journal">Journal</span>
-                        <div>
-                            <p class="pub__title"><a href="https://doi.org/10.1186/s13636-025-00437-y" target="_blank" rel="noopener">Parametric virtual microphone techniques for sound field reconstruction with early reflection modeling</a></p>
-                            <p class="pub__meta"><strong>G. Greco</strong>, M. Pezzoli, F. Antonacci, A. Sarti · <em>EURASIP Journal on Audio, Speech, and Music Processing, art. 4</em>, 2026. <a href="project2/project2.html" class="pub__page">Project page</a></p>
-                        </div>
-                    </li>
-                </ol>
-                <h3 class="pubs__year">2025</h3>
-                <ol class="pubs">
-                    <li class="pub" data-kind="conference">
-                        <span class="pub__kind pub__kind--conference">Conference</span>
-                        <div>
-                            <p class="pub__title"><a href="https://doi.org/10.23919/EUSIPCO63237.2025.11226374" target="_blank" rel="noopener">Dereverberation of Relative Harmonic Coefficients via CNNs for Acoustic Source DOA Estimation</a></p>
-                            <p class="pub__meta"><strong>G. Greco</strong>, S. Messana, M. Pezzoli, M. Cobos, F. Antonacci · <em>33rd European Signal Processing Conference (EUSIPCO), Palermo</em>, 2025. <a href="project5/project5.html" class="pub__page">Project page</a></p>
-                        </div>
-                    </li>
-                    <li class="pub" data-kind="conference">
-                        <span class="pub__kind pub__kind--conference">Conference</span>
-                        <div>
-                            <p class="pub__title"><a href="https://doi.org/10.61782/fa.2025.0009" target="_blank" rel="noopener">A Data-Driven Transfer Matrix Model for the Design of Saxophone Mouthpieces</a></p>
-                            <p class="pub__meta"><strong>G. Greco</strong>, X. Luan, A. Bernardini, F. Antonacci, A. Sarti · <em>Forum Acusticum / EuroNoise, Málaga</em>, 2025. <a href="project3/project3.html" class="pub__page">Project page</a></p>
-                        </div>
-                    </li>
-                    <li class="pub" data-kind="conference">
-                        <span class="pub__kind pub__kind--conference">Conference</span>
-                        <div>
-                            <p class="pub__title"><a href="https://doi.org/10.61782/fa.2025.0508" target="_blank" rel="noopener">IR64-CAR: A Dataset of Impulse Responses Captured with a Spherical Microphone Array for Automotive Acoustic Research</a></p>
-                            <p class="pub__meta">J. López-Ballester, <strong>G. Greco</strong>, S. Roger, J. J. López, F. J. Ferri, M. Cobos · <em>Forum Acusticum / EuroNoise, Málaga</em>, 2025. <a href="project11/project11.html" class="pub__page">Project page</a></p>
-                        </div>
-                    </li>
-                    <li class="pub" data-kind="journal">
-                        <span class="pub__kind pub__kind--journal">Journal</span>
-                        <div>
-                            <p class="pub__title"><a href="https://doi.org/10.3390/s25072078" target="_blank" rel="noopener">Diffusion-Based Sound Source Localization Using a Distributed Network of Microphone Arrays</a></p>
-                            <p class="pub__meta">D. Albertini, A. Bernardini, <strong>G. Greco</strong>, A. Sarti · <em>Sensors, vol. 25, no. 7, 2078</em>, 2025. <a href="project1/project1.html" class="pub__page">Project page</a></p>
-                        </div>
-                    </li>
-                    <li class="pub" data-kind="dataset">
-                        <span class="pub__kind pub__kind--dataset">Dataset</span>
-                        <div>
-                            <p class="pub__title"><a href="https://doi.org/10.34740/kaggle/dsv/11008015" target="_blank" rel="noopener">Saxophone Mouthpiece TM</a></p>
-                            <p class="pub__meta"><strong>G. Greco</strong>, X. Luan, A. Bernardini, F. Antonacci, A. Sarti · <em>Kaggle</em>, 2025. <a href="project3/project3.html" class="pub__page">Project page</a></p>
-                        </div>
-                    </li>
-                </ol>
-                <h3 class="pubs__year">2024</h3>
-                <ol class="pubs">
-                    <li class="pub" data-kind="conference">
-                        <span class="pub__kind pub__kind--conference">Conference</span>
-                        <div>
-                            <p class="pub__title"><a href="project2/project2.html">Early Reverberation Estimation for Room Impulse Response Reconstruction</a></p>
-                            <p class="pub__meta"><strong>G. Greco</strong>, M. Pezzoli, F. Antonacci · <em>IWSSPA</em>, 2024.</p>
-                        </div>
-                    </li>
-                </ol>
-                <h3 class="pubs__year">2023</h3>
-                <ol class="pubs">
-                    <li class="pub" data-kind="conference">
-                        <span class="pub__kind pub__kind--conference">Conference</span>
-                        <div>
-                            <p class="pub__title"><a href="https://doi.org/10.1109/ICASSP49357.2023.10095405" target="_blank" rel="noopener">Diffusion-Based Sound Source Localization Using Networks of Planar Microphone Arrays</a></p>
-                            <p class="pub__meta">D. Albertini, <strong>G. Greco</strong>, A. Bernardini, A. Sarti · <em>IEEE ICASSP</em>, 2023. <a href="project1/project1.html" class="pub__page">Project page</a></p>
-                        </div>
-                    </li>
-                </ol>
-            </div>
-        </div>
-    </section>
+        </section>
 
-    <section id="ongoing" class="section">
-        <div class="section__inner">
-            <div class="section__head">
-                <p class="section__eyebrow">Work in progress</p>
-                <h2>Ongoing Research</h2>
+        <section class="block block--alt" aria-label="At a glance">
+            <div class="block__inner">
+                <ul class="glance">
+                    <li><b>Ph.D. 2026</b><span>Politecnico di Milano, spatial audio and acoustic signal processing</span></li>
+                    <li><b>Journal articles</b><span>IEEE OJSP, EURASIP JASMP, Sensors, Pediatric Research</span></li>
+                    <li><b>Open datasets</b><span>A concert hall, a car cabin and saxophone mouthpieces</span></li>
+                    <li><b>EU-funded research</b><span><a href="https://repertorium.eu" target="_blank" rel="noopener">REPERTORIUM</a> (Horizon Europe) and <a href="https://musascarl.it/" target="_blank" rel="noopener">MUSA</a></span></li>
+                    <li><b>Research stays</b><span>Yamaha R&amp;D / LMA Marseille and Universitat de València</span></li>
+                </ul>
             </div>
-            <div class="ongoing-grid">
-                <article class="ongoing-card reveal">
-                    <span class="ongoing-card__icon"><i class="fas fa-building" aria-hidden="true"></i></span>
-                    <div>
-                        <h3>Distributed Acoustic Sensing for Smart Buildings</h3>
-                        <p>A network of low-cost acoustic sensors for occupancy detection, activity recognition and environmental monitoring, combining signal processing and machine learning.</p>
-                        <p class="ongoing-card__tags">IoT · Acoustic sensing · Machine learning</p>
-                    </div>
-                </article>
-            </div>
-        </div>
-    </section>
+        </section>
+    </main>
 
-    <section id="other-projects" class="section section--alt">
-        <div class="section__inner">
-            <div class="section__head">
-                <p class="section__eyebrow">Tools, demos &amp; side projects</p>
-                <h2>Other Projects</h2>
-                <p class="section__lead">Small tools, demos and experiments that run in the browser. Some pages are in Italian.</p>
+    <footer class="site-foot" id="contact">
+        <div class="site-foot__inner">
+            <div>
+                <p class="site-foot__title">Get in touch</p>
+                <a class="site-foot__mail" href="mailto:gioele.greco@polimi.it">gioele.greco@polimi.it</a>
             </div>
-            <div class="other-grid">
-                <article class="other-card reveal">
-                    <a href="project4/project4.html" class="other-card__media" tabindex="-1" aria-hidden="true"><img src="assets/thumbs/fruit-ripeness.webp" alt="" loading="lazy" decoding="async" width="800" height="500"></a>
-                    <div class="other-card__body">
-                        <p class="other-card__kind"><span>Web tool</span><span class="chip chip--lang">Italian</span></p>
-                        <h3><a href="project4/project4.html">Fruit Ripeness Tool</a></h3>
-                        <p>Measures a room impulse response with the phone speaker and microphone, using a sine sweep, to relate fruit ripeness to simple acoustic properties.</p>
-                    </div>
-                </article>
-                <article class="other-card reveal">
-                    <a href="membrane_1_DOF.html" class="other-card__media" tabindex="-1" aria-hidden="true"><img src="assets/thumbs/membrane-models.webp" alt="" loading="lazy" decoding="async" width="800" height="500"></a>
-                    <div class="other-card__body">
-                        <p class="other-card__kind"><span>Paper companion</span></p>
-                        <h3><a href="membrane_1_DOF.html">Membrane-Based Mouthpiece Models</a></h3>
-                        <p>How a tunable membrane, nonlinear airflow and a resonator turn steady blowing into sound. Presented at ISMA 2026, in publication.</p>
-                    </div>
-                </article>
-                <article class="other-card reveal">
-                    <a href="directivity_ISMA.html" class="other-card__media" tabindex="-1" aria-hidden="true"><img src="assets/thumbs/directivity-explorer.webp" alt="" loading="lazy" decoding="async" width="800" height="500"></a>
-                    <div class="other-card__body">
-                        <p class="other-card__kind"><span>Interactive demo</span></p>
-                        <h3><a href="directivity_ISMA.html">Instrument Directivity Explorer</a></h3>
-                        <p>Browse 41 orchestral instruments and see how a few von Mises-Fisher lobes summarize their directivity.</p>
-                    </div>
-                </article>
-                <article class="other-card reveal">
-                    <a href="fisica_suono_sax.html" class="other-card__media" tabindex="-1" aria-hidden="true"><img src="assets/thumbs/sax-acoustics.webp" alt="" loading="lazy" decoding="async" width="800" height="500"></a>
-                    <div class="other-card__body">
-                        <p class="other-card__kind"><span>Interactive slides</span><span class="chip chip--lang">Italian</span></p>
-                        <h3><a href="fisica_suono_sax.html">Saxophone Acoustics for Musicians</a></h3>
-                        <p>Thirty slides with live applets on how reed, bore, mouthpiece and vocal tract shape the sound of the saxophone.</p>
-                    </div>
-                </article>
-                <article class="other-card reveal">
-                    <a href="AudioAdaptiveCorrection/index.html" class="other-card__media" tabindex="-1" aria-hidden="true"><img src="assets/thumbs/room-eq.webp" alt="" loading="lazy" decoding="async" width="800" height="500"></a>
-                    <div class="other-card__body">
-                        <p class="other-card__kind"><span>Web audio prototype</span></p>
-                        <h3><a href="AudioAdaptiveCorrection/index.html">Adaptive Room Equalizer</a></h3>
-                        <p>A 12-band equalizer that plays a reference, listens through the microphone and corrects the room response in real time.</p>
-                    </div>
-                </article>
-                <article class="other-card reveal">
-                    <a href="GP_music/GP_music.html" class="other-card__media" tabindex="-1" aria-hidden="true"><img src="assets/thumbs/sax-electronics.webp" alt="" loading="lazy" decoding="async" width="800" height="500"></a>
-                    <div class="other-card__body">
-                        <p class="other-card__kind"><span>Music</span><span class="chip chip--lang">Italian</span></p>
-                        <h3><a href="GP_music/GP_music.html">Saxophone and Live Electronics</a></h3>
-                        <p>My musician profile: saxophone, live electronics and new technologies for audio and music.</p>
-                    </div>
-                </article>
-            </div>
-        </div>
-    </section>
-
-    <section id="contact" class="section contact">
-        <div class="section__inner contact__inner">
-            <p class="section__eyebrow">Contact</p>
-            <h2>Get In Touch</h2>
-            <p>I'm always interested in hearing about new signal processing challenges and collaboration opportunities. Whether you have a question or just want to say hi, I'll do my best to get back to you.</p>
-            <div class="contact__actions">
-                <a href="mailto:gioele.greco@polimi.it" class="button button--light"><i class="far fa-envelope" aria-hidden="true"></i> gioele.greco@polimi.it</a>
-            </div>
-            <div class="contact__social">
+            <div class="site-foot__social">
                 <a href="https://github.com/GioeleGrecoMe" aria-label="GitHub" rel="noopener" target="_blank"><i class="fab fa-github"></i></a>
                 <a href="https://www.linkedin.com/in/gioele-greco-ba265718b" aria-label="LinkedIn" rel="noopener" target="_blank"><i class="fab fa-linkedin-in"></i></a>
                 <a href="https://www.kaggle.com/datasets/gioelegreco" aria-label="Kaggle" rel="noopener" target="_blank"><i class="fab fa-kaggle"></i></a>
                 <a href="https://orcid.org/0009-0004-5094-4701" aria-label="ORCID" rel="noopener" target="_blank"><i class="fab fa-orcid"></i></a>
             </div>
         </div>
-    </section>
-
-    </main>
-
-    <footer class="site-footer">
-        <div class="site-footer__inner">
-            <p>&copy; <span id="year">2026</span> Gioele Greco · Politecnico di Milano</p>
-            <p class="site-footer__links"><a href="#about">About</a><a href="#projects">Research</a><a href="#publications">Publications</a><a href="#other-projects">Projects</a><a href="#contact">Contact</a></p>
-        </div>
+        <p class="site-foot__copy">&copy; <span id="year">2026</span> Gioele Greco</p>
     </footer>
-    <a href="#top" class="to-top" aria-label="Back to top"><i class="fas fa-arrow-up" aria-hidden="true"></i></a>
 
-    <script src="script.js?v=6"></script>
-<script src="assets/analytics.js?v=2" defer></script>
+    <script src="script.js?v=11"></script>
+    <script src="assets/analytics.js?v=2" defer></script>
 </body>
 </html>
