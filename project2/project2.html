@@ -3,165 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Early Reverberation Estimation | Politecnico di Milano</title>
+    <title>ParaDER: Sound Field Reconstruction with Early Reflections | Gioele Greco</title>
+    <meta name="description" content="ParaDER reconstructs direct sound, early reflections and diffuse reverberation from few microphones for 6DoF audio. EURASIP JASMP 2026, extending IWSSPA 2024 work on early reverberation estimation.">
+    <meta name="author" content="Gioele Greco">
+    <link rel="canonical" href="https://gioelegrecome.github.io/project2/project2.html">
+    <meta name="theme-color" content="#0b1324">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Gioele Greco">
+    <meta property="og:title" content="ParaDER: Sound Field Reconstruction with Early Reflection Modeling">
+    <meta property="og:description" content="ParaDER reconstructs direct sound, early reflections and diffuse reverberation from few microphones for 6DoF audio. EURASIP JASMP 2026, extending IWSSPA 2024 work on early reverberation estimation.">
+    <meta property="og:url" content="https://gioelegrecome.github.io/project2/project2.html">
+    <meta property="og:image" content="https://gioelegrecome.github.io/project2/beampattern.webp">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css">
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="../assets/theme.css?v=10">
+    <link rel="stylesheet" href="../assets/paper.css?v=10">
 </head>
-
-<body>
-    <nav id="navbar">
-        <a href="../index.html" class="logo">Acoustic Research<span>Innovative Sound Solutions</span></a>
-        <ul class="nav-links">
-            <li><a href="../index.html#about">About</a></li>
-            <li><a href="../index.html#projects">Projects</a></li>
-            <li><a href="../index.html#contact">Contact</a></li>
-        </ul>
+<body class="paper">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <nav class="site-nav solid" aria-label="Main">
+        <div class="site-nav__inner">
+            <a href="../index.html" class="site-nav__brand"><img src="../assets/favicon.svg" alt="" width="26" height="26"><span>Gioele Greco</span></a>
+            <ul class="site-nav__links">
+                <li><a href="../index.html#about">About</a></li>
+                <li><a href="../index.html#projects">Research</a></li>
+                <li class="nav-optional"><a href="../index.html#publications">Publications</a></li>
+                <li><a href="../index.html#contact">Contact</a></li>
+            </ul>
+        </div>
     </nav>
 
-    <section class="project-detail">
-        <div class="container">
-            <a href="../index.html#projects" class="back-button">
-                <i class="fas fa-arrow-left"></i> Back to Projects
-            </a>
-            <h1>Early Reverberation Estimation for Room Impulse Response Reconstruction</h1>
-
-            <div class="project-meta">
-                <span class="date">Presented at: IWSSPA 2024, July 2-5</span>
-                <span class="tags">
-                    <span class="tag">Acoustic Signal Processing</span>
-                    <span class="tag">Virtual Sources</span>
-                    <span class="tag">RIR Reconstruction</span>
-                </span>
-            </div>
-
-
-            <div class="project-content">
-                <div class="project-section" id="about">
-                    <h2>Project Overview</h2>
-                    <p>This research introduces a novel method to extend parametric sound field reconstruction by modeling early reverberation through virtual sources, enabling more realistic acoustic scene reproduction for VR/AR applications.</p>
-
-                    <div class="overview-grid">
-                        <div class="overview-card">
-                            <i class="fas fa-microphone-alt"></i>
-                            <h3>HOM Array</h3>
-                            <p>4 Higher Order Microphones with 8 capsules each</p>
-                        </div>
-                        <div class="overview-card">
-                            <i class="fas fa-brain"></i>
-                            <h3>Gaussian Model</h3>
-                            <p>Early reflections modeled as sum of Gaussian functions</p>
-                        </div>
-                        <div class="overview-card">
-                            <i class="fas fa-wave-square"></i>
-                            <h3>Virtual Sources</h3>
-                            <p>Reflections localized through combinatorial optimization</p>
-                        </div>
-                        <div class="overview-card">
-                            <i class="fas fa-chart-line"></i>
-                            <h3>Performance</h3>
-                            <p>-54 dB average NMSE in simulated environment</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="project-section" id="simulation">
-                    <h2>Acoustic Simulation</h2>
-                    <p>Interactive simulation showing the reconstruction of early reflections using virtual sources:</p>
-
-                    <div class="simulation-container">
-                        <header>
-                            <h3>Room Acoustic Simulation</h3>
-                            <p class="tagline">Sound intensity heatmap based on image source theory</p>
-                        </header>
-
-                        <main>
-                            <div id="simulation-container">
-                                <canvas id="simulationCanvas"></canvas>
-                                <div id="controls">
-                                    <label for="reflectionOrder">Reflection Order (n):</label>
-                                    <input type="number" id="reflectionOrder" value="3" min="0" max="20">
-                                    <p id="info-text">Click inside the room to position the sound source</p>
-                                    <div class="control-group">
-                                        <label for="absorptionCoefficient">Absorption Coefficient (0-1):</label>
-                                        <input type="range" id="absorptionCoefficient" min="0" max="0.99" step="0.01" value="0.3">
-                                    </div>
-                                </div>
-                            </div>
-                        </main>
-
-                        <footer>
-                            <p>A 2D acoustic propagation simulation showing early reflections as virtual sources.</p>
-                        </footer>
-                    </div>
-                </div>
-
-                <div class="project-section" id="details">
-                    <h2>Technical Details</h2>
-                    <div class="tech-specs">
-                        <div class="spec">
-                            <h3>Signal Acquisition</h3>
-                            <p>Sound scenes acquired using K Higher Order Microphones (HOMs) with M capsules each</p>
-                        </div>
-                        <div class="spec">
-                            <h3>RIR Estimation</h3>
-                            <p>Generalized Cross Correlation (GCC) between capsules and source signal</p>
-                        </div>
-                        <div class="spec">
-                            <h3>Reflection Model</h3>
-                           <p>Early reflections modeled as sum of Gaussian functions: \( g(t) = a \cdot \exp \left( - \frac{(t - \tau)^2}{2 \sigma^2} \right) \)</p>
-                         </div>
-                    </div>
-
-                    <div class="results-gallery">
-                        <!-- This will fully replace your <figure> block -->
-                        <div id="plot" style="width: 100%; height: 400px; margin: auto;"></div>
-
-                        <!-- Load Plotly -->
-                        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-
-                        <!-- Load MathJax for rendering LaTeX -->
-                        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
-
-
-                         <div id="plotEDT" style="width: 100%; height: 400px; margin: auto;"></div>
-
-                    </div>
-                </div>
-
-               <div class="research-team-container" style="display: none;">
-                    <h2>Research Team</h2>
-                    <div class="team-grid">
-                        <div class="team-member">
-                            <h3>Gioele Greco <span class="role">Lead Researcher</span></h3>
-                            <p class="email">gioele.greco@polimi.it</p>
-                        </div>
-                        <div class="team-member">
-                            <h3>Mirco Pezzoli <span class="role">Methodology</span></h3>
-                            <p class="email">mirco.pezzoli@polimi.it</p>
-                        </div>
-                        <div class="team-member">
-                            <h3>Fabio Antonacci <span class="role">Principal Investigator</span></h3>
-                            <p class="email">fabio.antonacci@polimi.it</p>
-                        </div>
-                    </div>
-                </div>
-
-
-                    <div class="acknowledgment">
-                        <h3>Acknowledgments</h3>
-                        <p>This work has been funded by the REPERTORIUM project (Grant agreement number 101095065), Horizon Europe, and the NextGenerationEU partnership on "Telecommunications of the Future".</p>
-                    </div>
-                </div>
-            </div>
+    <header class="ph">
+        <div class="ph__inner">
+            <a href="../index.html#projects" class="ph__back"><i class="fas fa-arrow-left" aria-hidden="true"></i> All research</a>
+            <div><span class="ph__venue">EURASIP JASMP 2026 · IWSSPA 2024</span></div>
+            <h1>ParaDER: Sound Field Reconstruction with Early Reflection Modeling</h1>
+            <p class="ph__lead">From early reverberation estimation for RIR reconstruction (IWSSPA 2024) to parametric virtual microphones with early reflection modeling (EURASIP JASMP 2026).</p>
+            <p class="ph__authors"><strong>Gioele Greco</strong>, Mirco Pezzoli, Fabio Antonacci, Augusto Sarti</p>
+            <p class="ph__affil">Dipartimento di Elettronica, Informazione e Bioingegneria, Politecnico di Milano, Italy</p>
+            <div class="ph__actions"><a href="https://doi.org/10.1186/s13636-025-00437-y" target="_blank" rel="noopener" class="button button--light"><i class="fas fa-file-lines" aria-hidden="true"></i> Journal article (open access)</a><a href="#demo" class="button button--ghost"><i class="fas fa-play" aria-hidden="true"></i> Interactive demo</a><a href="#cite" class="button button--ghost"><i class="fas fa-quote-right" aria-hidden="true"></i> Cite</a></div>
         </div>
-    </section>
+    </header>
 
-    <footer>
-        <p>&copy; <span id="year"></span> Politecnico di Milano - Department of Electronics, Information and Bioengineering</p>
+    <div class="teaser"><figure><img src="beampattern.webp" alt="Beam pattern of a higher-order microphone pointing to the source and to a virtual source" width="1400" height="826"><figcaption><b>Figure 1.</b> Beam pattern of a higher-order microphone: the direct path points to the source, an early reflection to a virtual (image) source (VS).</figcaption></figure></div>
+
+    <div class="pl">
+        <nav class="toc" aria-label="On this page"><p>On this page</p><ol><li><a href="#abstract">Abstract</a></li><li><a href="#method">Method</a></li><li><a href="#demo">Interactive demo</a></li><li><a href="#cite">Cite</a></li></ol></nav>
+        <main id="main" class="pm">
+<section class="ps" id="abstract"><h2>Abstract</h2>
+<p class="abstract">Six-degrees-of-freedom audio in virtual reality, augmented reality and teleconferencing needs accurate reconstruction of the direct sound, the early reflections and the diffuse field, which is hard with few measurements. <strong>ParaDER</strong> (Parametric modeling of Direct sound, Early reflections and Reverberation) is a unified parametric framework that separates and reconstructs these three components from a minimal set of microphones. Because the pipeline uses only a few source and image-source parameters, it preserves the timing and direction of early reflections, key cues for depth and localization.</p><div class="stats"><div class="stat"><b>4 × 8</b><span>higher-order microphones × capsules in the IWSSPA setup</span></div><div class="stat"><b>−54 dB</b><span>average NMSE in the simulated environment (IWSSPA 2024)</span></div><div class="stat"><b>3 stages</b><span>direct sound, early reflections, diffuse reverberation</span></div></div>
+</section>
+<section class="ps" id="method"><h2>Method</h2>
+<ul class="points"><li><h3>1 · Direct sound</h3><p>Sources are localized by a sparse, regularized optimization that yields low-order spherical-harmonic coefficients.</p></li><li><h3>2 · Early reflections</h3><p>The estimated RIR is segmented into a few early reflections, each modeled as an image source whose position and amplitude are fitted to the data.</p></li><li><h3>3 · Reverberation</h3><p>Direct and early parts are propagated analytically to virtual microphones; the remaining energy is synthesized as isotropic diffuse reverberation.</p></li><li><h3>IWSSPA 2024 model</h3><p>Early reflections modeled as a sum of Gaussian pulses g(t) = a·exp(−(t−τ)²/2σ²), localized as virtual sources by combinatorial optimization.</p></li></ul>
+</section>
+<section class="ps" id="demo"><h2>Interactive demo</h2>
+<p>A 2D image-source simulation: click inside the room to place the source, then change the reflection order and the wall absorption to see how early reflections build up the sound field.</p><div class="demo-box"><div class="demo-box__bar"><label for="reflectionOrder">Reflection order <input type="number" id="reflectionOrder" value="3" min="0" max="20"></label><label for="absorptionCoefficient">Absorption <input type="range" id="absorptionCoefficient" min="0" max="0.99" step="0.01" value="0.3"> <b id="absorptionValue">0.30</b></label></div><canvas id="simulationCanvas" aria-label="Image-source room simulation"></canvas><p class="demo-box__hint" id="info-text">Click inside the room to position the sound source</p></div><h3>Reconstruction example</h3><p>Ideal and reconstructed room impulse response and energy decay at one virtual microphone.</p><div class="fig"><div id="plot" class="plot"></div></div><div class="fig"><div id="plotEDT" class="plot"></div></div>
+</section>
+<section class="ps" id="cite"><h2>Cite this work</h2>
+<p class="cite-text">G. Greco, M. Pezzoli, F. Antonacci, and A. Sarti, “Parametric virtual microphone techniques for sound field reconstruction with early reflection modeling,” <em>EURASIP Journal on Audio, Speech, and Music Processing</em>, vol. 2026, art. 4, 2026. doi: <a href="https://doi.org/10.1186/s13636-025-00437-y" target="_blank" rel="noopener">10.1186/s13636-025-00437-y</a></p><div class="bib"><pre>@article{greco2026parader,
+  title   = {Parametric virtual microphone techniques for sound field reconstruction with early reflection modeling},
+  author  = {Greco, Gioele and Pezzoli, Mirco and Antonacci, Fabio and Sarti, Augusto},
+  journal = {EURASIP Journal on Audio, Speech, and Music Processing},
+  volume  = {2026},
+  pages   = {4},
+  year    = {2026},
+  doi     = {10.1186/s13636-025-00437-y}
+}</pre><button type="button">Copy</button></div><h3>Related publication</h3><p class="cite-text">“Early Reverberation Estimation for Room Impulse Response Reconstruction,” presented at IWSSPA 2024, July 2–5.</p><p class="ack" style="margin-top:14px">Funded by the REPERTORIUM project (Horizon Europe, grant 101095065) and the NextGenerationEU partnership “Telecommunications of the Future”.</p>
+</section>
+        </main>
+    </div>
+
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+            <p>&copy; <span id="year">2026</span> Gioele Greco · Politecnico di Milano</p>
+            <p class="site-footer__links"><a href="../index.html">Home</a><a href="../index.html#publications">Publications</a><a href="mailto:gioele.greco@polimi.it">Contact</a></p>
+        </div>
     </footer>
-
-    <script src="script.js"></script>
+    <script src="../assets/paper.js?v=8"></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script src="script.js?v=8"></script>
+<script src="../assets/analytics.js?v=2" defer></script>
 </body>
 </html>

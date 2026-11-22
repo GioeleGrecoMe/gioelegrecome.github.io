@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GNN for Wide-Area 6DoF Ambisonic Rendering | Gioele Greco</title>
+    <meta name="description" content="A lightweight graph neural network that learns scene-dependent DirAC interpolation weights for wide-area 6DoF rendering from sparse Ambisonic recordings. IWAENC 2026, with an open-source real-time plug-in.">
+    <meta name="author" content="Gioele Greco">
+    <link rel="canonical" href="https://gioelegrecome.github.io/project7/project7.html">
+    <meta name="theme-color" content="#0b1324">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Gioele Greco">
+    <meta property="og:title" content="Graph Neural Network for Wide-Area 6DoF Ambisonic Rendering">
+    <meta property="og:description" content="A lightweight graph neural network that learns scene-dependent DirAC interpolation weights for wide-area 6DoF rendering from sparse Ambisonic recordings. IWAENC 2026, with an open-source real-time plug-in.">
+    <meta property="og:url" content="https://gioelegrecome.github.io/project7/project7.html">
+    <meta property="og:image" content="https://gioelegrecome.github.io/project7/radiation_pattern.webp">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/theme.css?v=10">
+    <link rel="stylesheet" href="../assets/paper.css?v=10">
+</head>
+<body class="paper">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <nav class="site-nav solid" aria-label="Main">
+        <div class="site-nav__inner">
+            <a href="../index.html" class="site-nav__brand"><img src="../assets/favicon.svg" alt="" width="26" height="26"><span>Gioele Greco</span></a>
+            <ul class="site-nav__links">
+                <li><a href="../index.html#about">About</a></li>
+                <li><a href="../index.html#projects">Research</a></li>
+                <li class="nav-optional"><a href="../index.html#publications">Publications</a></li>
+                <li><a href="../index.html#contact">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <header class="ph">
+        <div class="ph__inner">
+            <a href="../index.html#projects" class="ph__back"><i class="fas fa-arrow-left" aria-hidden="true"></i> All research</a>
+            <div><span class="ph__venue">IWAENC 2026 · Accepted</span></div>
+            <h1>Graph Neural Network for Wide-Area 6DoF Ambisonic Rendering</h1>
+            
+            <p class="ph__authors"><strong>Gioele Greco</strong>, Filippo Marri, Mirco Pezzoli, Fabio Antonacci</p>
+            <p class="ph__affil">Image and Sound Processing Lab (ISPL), Politecnico di Milano, Italy</p>
+            <div class="ph__actions"><a href="https://arxiv.org/abs/2610.35741" target="_blank" rel="noopener" class="button button--light"><i class="fas fa-file-lines" aria-hidden="true"></i> arXiv</a><a href="https://github.com/GioeleGrecoMe/GNN4FOA-realtime-6dof-rendering" target="_blank" rel="noopener" class="button button--ghost"><i class="fab fa-github" aria-hidden="true"></i> Code &amp; plug-in</a><a href="#cite" class="button button--ghost"><i class="fas fa-quote-right" aria-hidden="true"></i> Cite</a></div>
+        </div>
+    </header>
+
+    <div class="teaser"><figure><img src="radiation_pattern.webp" alt="Ground truth, Delaunay baseline and GNN radiation patterns" width="1052" height="364"><figcaption><b>Figure 1.</b> Reconstructed first-order radiation pattern at one query position and frequency band: ground truth, Delaunay baseline and the proposed GNN. Color is normalized energy in dB.</figcaption></figure></div>
+
+    <div class="pl">
+        <nav class="toc" aria-label="On this page"><p>On this page</p><ol><li><a href="#abstract">Abstract</a></li><li><a href="#method">Method</a></li><li><a href="#results">Results</a></li><li><a href="#plugin">Plug-in</a></li><li><a href="#cite">Cite</a></li></ol></nav>
+        <main id="main" class="pm">
+<section class="ps" id="abstract"><h2>Abstract</h2>
+<p class="abstract">Wide-area 6DoF rendering from sparse Ambisonic recordings is usually done by interpolating parametric DirAC descriptors rather than waveforms, which keeps the fidelity of a nearby recording and avoids phase artifacts. Existing approaches, however, use geometric weights that ignore the acoustic scene the microphones observe. We propose a lightweight graph neural network that refines only this interpolation stage: the arrays and the listener position form a graph whose nodes carry local DirAC features and whose edges encode distances and directional relations. The network predicts positive, query-conditioned weights, and energy, diffuseness and direction of arrival are reconstructed by an analytical DirAC layer.</p><div class="stats"><div class="stat"><b>≈3 dB</b><span>local gain in energy NMSE over Delaunay interpolation</span></div><div class="stat"><b>27k</b><span>trainable parameters, two message-passing layers</span></div><div class="stat"><b>Unseen</b><span>rooms, speech signals and array layouts in the test set</span></div></div>
+</section>
+<section class="ps" id="method"><h2>Method</h2>
+<ul class="points"><li><h3>Coordinate-free graph</h3><p>Absolute positions are excluded from node features; geometry enters only through the edges, so the model handles different layouts and numbers of arrays.</p></li><li><h3>Frequency-wise inference</h3><p>The graph is evaluated independently for each time-frequency bin with a normalized frequency tag, which keeps the model compact and parallel.</p></li><li><h3>Interpretable output</h3><p>The network outputs positive weights over the measured arrays; the target DirAC parameters are then computed analytically.</p></li><li><h3>Training data</h3><p>First-order subset of the HARP simulated Ambisonic RIR dataset, convolved with TIMIT speech, with randomized rooms and receiver grids.</p></li></ul>
+</section>
+<section class="ps" id="results"><h2>Results</h2>
+<p>The GNN improves energy reconstruction over a large part of the evaluated region, with local gains of about 3 dB and only small, localized regions where the baseline is better. For diffuseness, which is bounded and varies smoothly, the GNN closely matches the already strong Delaunay baseline. Radiation-pattern similarity also improves, showing that learned weights correct part of the mismatch between geometric proximity and actual acoustic variation.</p>
+</section>
+<section class="ps" id="plugin"><h2>Real-time plug-in: GNN4FOA</h2>
+<p>The method is released as <strong>GNN4FOA</strong>, an open-source JUCE plug-in that reconstructs a first-order Ambisonic signal at a movable listener position from up to ten FOA recordings. You can switch between the Delaunay/DirAC baseline and the learned GNN, move nodes on a spatial map and watch the learned weights live. A macOS installer and the full source are on GitHub.</p><figure class="fig"><img src="gnn4foa_banner.webp" alt="GNN4FOA banner" loading="lazy" decoding="async" width="1800" height="170"><figcaption><b>Figure 2.</b> GNN4FOA, developed at the Image and Sound Processing Lab, Politecnico di Milano.</figcaption></figure><div class="res"><a href="https://github.com/GioeleGrecoMe/GNN4FOA-realtime-6dof-rendering" target="_blank" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i><span><b>GNN4FOA on GitHub</b><small>Source code and macOS installer</small></span></a><a href="https://arxiv.org/abs/2610.35741" target="_blank" rel="noopener"><i class="fas fa-file-lines" aria-hidden="true"></i><span><b>Paper on arXiv</b><small>2610.35741</small></span></a></div>
+</section>
+<section class="ps" id="cite"><h2>Cite this work</h2>
+<p class="cite-text">G. Greco, F. Marri, M. Pezzoli, and F. Antonacci, “Graph Neural Network for Wide-Area 6DoF Ambisonic Rendering,” accepted at the International Workshop on Acoustic Signal Enhancement (IWAENC), 2026. arXiv: <a href="https://doi.org/10.48550/arXiv.2610.35741" target="_blank" rel="noopener">10.48550/arXiv.2610.35741</a></p><div class="bib"><pre>@inproceedings{greco2026gnn6dof,
+  title     = {Graph Neural Network for Wide-Area 6DoF Ambisonic Rendering},
+  author    = {Greco, Gioele and Marri, Filippo and Pezzoli, Mirco and Antonacci, Fabio},
+  booktitle = {Proc. International Workshop on Acoustic Signal Enhancement (IWAENC)},
+  year      = {2026},
+  note      = {arXiv:2610.35741}
+}</pre><button type="button">Copy</button></div>
+</section>
+        </main>
+    </div>
+
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+            <p>&copy; <span id="year">2026</span> Gioele Greco · Politecnico di Milano</p>
+            <p class="site-footer__links"><a href="../index.html">Home</a><a href="../index.html#publications">Publications</a><a href="mailto:gioele.greco@polimi.it">Contact</a></p>
+        </div>
+    </footer>
+    <script src="../assets/paper.js?v=8"></script>
+<script src="../assets/analytics.js?v=2" defer></script>
+</body>
+</html>

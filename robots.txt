@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://gioelegrecome.github.io/sitemap.xml

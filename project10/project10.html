@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARVERIR: Arvedi Auditorium RIR Dataset | Gioele Greco</title>
+    <meta name="description" content="ARVERIR, an open dataset of 325 spatial room impulse responses measured with higher-order microphones in the Arvedi Auditorium, Museo del Violino, Cremona. IWAENC 2026.">
+    <meta name="author" content="Gioele Greco">
+    <link rel="canonical" href="https://gioelegrecome.github.io/project10/project10.html">
+    <meta name="theme-color" content="#0b1324">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Gioele Greco">
+    <meta property="og:title" content="The Sound of the Violin’s Home: A Higher-Order RIR Dataset of the Arvedi Auditorium in Cremona">
+    <meta property="og:description" content="ARVERIR, an open dataset of 325 spatial room impulse responses measured with higher-order microphones in the Arvedi Auditorium, Museo del Violino, Cremona. IWAENC 2026.">
+    <meta property="og:url" content="https://gioelegrecome.github.io/project10/project10.html">
+    <meta property="og:image" content="https://gioelegrecome.github.io/project10/auditorium.webp">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/theme.css?v=10">
+    <link rel="stylesheet" href="../assets/paper.css?v=10">
+</head>
+<body class="paper">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <nav class="site-nav solid" aria-label="Main">
+        <div class="site-nav__inner">
+            <a href="../index.html" class="site-nav__brand"><img src="../assets/favicon.svg" alt="" width="26" height="26"><span>Gioele Greco</span></a>
+            <ul class="site-nav__links">
+                <li><a href="../index.html#about">About</a></li>
+                <li><a href="../index.html#projects">Research</a></li>
+                <li class="nav-optional"><a href="../index.html#publications">Publications</a></li>
+                <li><a href="../index.html#contact">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <header class="ph">
+        <div class="ph__inner">
+            <a href="../index.html#projects" class="ph__back"><i class="fas fa-arrow-left" aria-hidden="true"></i> All research</a>
+            <div><span class="ph__venue">IWAENC 2026 · Open dataset</span></div>
+            <h1>The Sound of the Violin’s Home: A Higher-Order RIR Dataset of the Arvedi Auditorium in Cremona</h1>
+            
+            <p class="ph__authors">Federico Miotello, <strong>Gioele Greco</strong>, Paolo Ostan, Francesca Del Gaudio, Luca Comanducci, Raffaele Malvermi, Mirco Pezzoli, Fabio Antonacci</p>
+            <p class="ph__affil">Politecnico di Milano, Italy</p>
+            <div class="ph__actions"><a href="https://doi.org/10.5281/zenodo.20098847" target="_blank" rel="noopener" class="button button--light"><i class="fas fa-database" aria-hidden="true"></i> Download (Zenodo)</a><a href="https://github.com/polimi-ispl/arverir" target="_blank" rel="noopener" class="button button--ghost"><i class="fab fa-github" aria-hidden="true"></i> Code</a><a href="#cite" class="button button--ghost"><i class="fas fa-quote-right" aria-hidden="true"></i> Cite</a></div>
+        </div>
+    </header>
+
+    <div class="teaser"><figure><img src="auditorium.webp" alt="The Arvedi Auditorium during the measurement campaign" class="is-photo" width="1400" height="1018"><figcaption><b>Figure 1.</b> The Arvedi Auditorium in the Museo del Violino, Cremona, during the measurement campaign.</figcaption></figure></div>
+
+    <div class="pl">
+        <nav class="toc" aria-label="On this page"><p>On this page</p><ol><li><a href="#abstract">Overview</a></li><li><a href="#setup">Setup</a></li><li><a href="#resources">Resources</a></li><li><a href="#cite">Cite</a></li></ol></nav>
+        <main id="main" class="pm">
+<section class="ps" id="abstract"><h2>Overview</h2>
+<p class="abstract">ARVERIR is an open dataset of spatial room impulse responses measured in the Giovanni Arvedi Auditorium in Cremona, a contemporary concert hall dedicated to the performance and recording of string instruments. Five sources were placed on stage, an omnidirectional reference and four directional loudspeakers at the positions of a string quartet, and eight-capsule spherical microphones recorded the responses at 65 seats.</p><div class="stats"><div class="stat"><b>325</b><span>spatial RIRs: 5 sources × 65 receivers</span></div><div class="stat"><b>8 ch · 48 kHz</b><span>32-bit WAV, 2 s, from 10 s log sweeps (50 Hz–22 kHz)</span></div><div class="stat"><b>904 MB</b><span>on Zenodo, CC BY 4.0, with MATLAB and Python loaders</span></div></div>
+</section>
+<section class="ps" id="setup"><h2>Measurement setup</h2>
+<ul class="points"><li><h3>Sources</h3><p>S0: B&amp;K OmniPower 4292-L at the stage center. S1–S4: Genelec 8020C at first violin, second violin, viola and cello.</p></li><li><h3>Receivers</h3><p>Voyage Audio Spatial Mic, 8 cardioid capsules on a rigid sphere (Ambisonics up to 2nd order), 1.16 m above each seat.</p></li><li><h3>Audience coverage</h3><p>Sector A, five rows of 10, 12, 14, 16 and 12 seats, plus one off-grid position to validate interpolation methods.</p></li><li><h3>Geometry</h3><p>Calibrated positions of sources, array centers and every capsule, provided as CSV files.</p></li></ul><figure class="fig"><img src="layout.webp" alt="Layout of sources on stage and receivers in the audience" loading="lazy" decoding="async" width="1300" height="767"><figcaption><b>Figure 2.</b> Layout of the five sources on stage and the 65 receiver positions in the audience area.</figcaption></figure>
+</section>
+<section class="ps" id="resources"><h2>Resources</h2>
+<div class="res"><a href="https://doi.org/10.5281/zenodo.20098847" target="_blank" rel="noopener"><i class="fas fa-database" aria-hidden="true"></i><span><b>Dataset on Zenodo</b><small>doi 10.5281/zenodo.20098847</small></span></a><a href="https://github.com/polimi-ispl/arverir" target="_blank" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i><span><b>GitHub repository</b><small>MATLAB and Python sample code</small></span></a></div><p class="ack" style="margin-top:14px">The accompanying paper will appear at IWAENC 2026.</p>
+</section>
+<section class="ps" id="cite"><h2>Cite this dataset</h2>
+<p class="cite-text">F. Miotello, G. Greco, P. Ostan, F. Del Gaudio, L. Comanducci, R. Malvermi, M. Pezzoli, and F. Antonacci, “The Sound of the Violin’s Home: A Higher-Order Room Impulse Response Dataset of the Arvedi Auditorium in Cremona,” Zenodo, 2026. doi: <a href="https://doi.org/10.5281/zenodo.20098847" target="_blank" rel="noopener">10.5281/zenodo.20098847</a></p><div class="bib"><pre>@misc{miotello2026arverir,
+  title     = {The Sound of the Violin&#x27;s Home: A Higher-Order Room Impulse Response Dataset of the Arvedi Auditorium in Cremona},
+  author    = {Miotello, Federico and Greco, Gioele and Ostan, Paolo and Del Gaudio, Francesca and Comanducci, Luca and Malvermi, Raffaele and Pezzoli, Mirco and Antonacci, Fabio},
+  publisher = {Zenodo},
+  year      = {2026},
+  doi       = {10.5281/zenodo.20098847}
+}</pre><button type="button">Copy</button></div>
+</section>
+        </main>
+    </div>
+
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+            <p>&copy; <span id="year">2026</span> Gioele Greco · Politecnico di Milano</p>
+            <p class="site-footer__links"><a href="../index.html">Home</a><a href="../index.html#publications">Publications</a><a href="mailto:gioele.greco@polimi.it">Contact</a></p>
+        </div>
+    </footer>
+    <script src="../assets/paper.js?v=8"></script>
+<script src="../assets/analytics.js?v=2" defer></script>
+</body>
+</html>

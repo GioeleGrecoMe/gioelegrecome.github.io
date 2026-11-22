@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compact Statistical View of Musical-Instrument Directivity | Gioele Greco</title>
+    <meta name="description" content="A statistical description of frequency-dependent musical-instrument directivity based on von Mises-Fisher mixtures, compressing a 41-instrument corpus about five times. ISMA 2026, Helsinki.">
+    <meta name="author" content="Gioele Greco">
+    <link rel="canonical" href="https://gioelegrecome.github.io/project8/project8.html">
+    <meta name="theme-color" content="#0b1324">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Gioele Greco">
+    <meta property="og:title" content="A Compact Statistical View of Musical-Instrument Directivity">
+    <meta property="og:description" content="A statistical description of frequency-dependent musical-instrument directivity based on von Mises-Fisher mixtures, compressing a 41-instrument corpus about five times. ISMA 2026, Helsinki.">
+    <meta property="og:url" content="https://gioelegrecome.github.io/project8/project8.html">
+    <meta property="og:image" content="https://gioelegrecome.github.io/project8/distance_matrices.webp">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/theme.css?v=10">
+    <link rel="stylesheet" href="../assets/paper.css?v=10">
+</head>
+<body class="paper">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <nav class="site-nav solid" aria-label="Main">
+        <div class="site-nav__inner">
+            <a href="../index.html" class="site-nav__brand"><img src="../assets/favicon.svg" alt="" width="26" height="26"><span>Gioele Greco</span></a>
+            <ul class="site-nav__links">
+                <li><a href="../index.html#about">About</a></li>
+                <li><a href="../index.html#projects">Research</a></li>
+                <li class="nav-optional"><a href="../index.html#publications">Publications</a></li>
+                <li><a href="../index.html#contact">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <header class="ph">
+        <div class="ph__inner">
+            <a href="../index.html#projects" class="ph__back"><i class="fas fa-arrow-left" aria-hidden="true"></i> All research</a>
+            <div><span class="ph__venue">ISMA 2026 · Helsinki</span></div>
+            <h1>A Compact Statistical View of Musical-Instrument Directivity</h1>
+            
+            <p class="ph__authors"><strong>Gioele Greco</strong>, Mirco Pezzoli, Raffaele Malvermi, Gian Marco Ricci, Fabio Antonacci</p>
+            <p class="ph__affil">Politecnico di Milano, Italy</p>
+            <div class="ph__actions"><a href="https://arxiv.org/abs/2611.02927" target="_blank" rel="noopener" class="button button--light"><i class="fas fa-file-lines" aria-hidden="true"></i> arXiv</a><a href="../directivity_ISMA.html" target="_blank" rel="noopener" class="button button--ghost"><i class="fas fa-cube" aria-hidden="true"></i> Interactive demo</a><a href="#cite" class="button button--ghost"><i class="fas fa-quote-right" aria-hidden="true"></i> Cite</a></div>
+        </div>
+    </header>
+
+    <div class="teaser"><figure><img src="compression.webp" alt="Compression factor and number of vMF components per band" width="1600" height="488"><figcaption><b>Figure 1.</b> Compression–fidelity trade-off: mean compression factor (left) and mean minimum number of von Mises-Fisher components per one-third-octave band (right), for different target similarities.</figcaption></figure></div>
+
+    <div class="pl">
+        <nav class="toc" aria-label="On this page"><p>On this page</p><ol><li><a href="#abstract">Abstract</a></li><li><a href="#method">Method</a></li><li><a href="#results">Results</a></li><li><a href="#demo">Demo</a></li><li><a href="#cite">Cite</a></li></ol></nav>
+        <main id="main" class="pm">
+<section class="ps" id="abstract"><h2>Abstract</h2>
+<p class="abstract">Directivity is a defining feature of musical-instrument radiation and changes strongly with frequency. Measured directivity datasets are now used in sound-field simulation and spatial audio, but full spherical maps are heavy to store, hard to browse and costly to compare. We describe the directional energy in each band as a distribution on the sphere and fit it with a small mixture of von Mises-Fisher lobes, with complexity set by a target similarity. The result is a compact, interpretable representation that can be compared across instruments and bands, even when radiation has no single dominant direction.</p><div class="stats"><div class="stat"><b>41</b><span>orchestral instruments, order-4 SH, 30 one-third-octave bands</span></div><div class="stat"><b>492 → 100 kB</b><span>corpus size at the 70% similarity operating point</span></div><div class="stat"><b>2–3</b><span>vMF lobes per band instead of 25 complex SH coefficients</span></div></div>
+</section>
+<section class="ps" id="method"><h2>Method</h2>
+<p>Directivity is expanded in spherical harmonics up to order 4, as supported by a 32-channel spherical array, and converted into a nonnegative energy pattern for each band. The pattern is normalized into a distribution on the sphere and fitted with the smallest mixture of von Mises-Fisher components that reaches a target similarity. Each component is a lobe with a direction, a concentration and a weight.</p><figure class="fig"><img src="directivity_example.webp" alt="Directivity pattern of a loudspeaker with -3 dB contour" loading="lazy" decoding="async" width="1600" height="436"><figcaption><b>Figure 2.</b> Example directivity pattern (Genelec 8030A at 1.4 kHz) with the −3 dB contour and the center of mass, and the reference system.</figcaption></figure>
+</section>
+<section class="ps" id="results"><h2>Results</h2>
+<p>On the TU Berlin database of 41 modern and historical orchestral instruments, the mean compression factor is about 6.3 at 50% target similarity, 4.9 at 70%, 2.5 at 90% and 1.7 at 95%. Below a few hundred hertz one component is usually enough; complexity grows above about 1 kHz, where secondary lobes appear. At the 70% operating point the pairwise distances between instruments are preserved with high correlation.</p><figure class="fig"><img src="distance_matrices.webp" alt="Distance matrices from raw and compact representations" loading="lazy" decoding="async" width="1800" height="575"><figcaption><b>Figure 3.</b> Pairwise Jensen-Shannon distances at the 70% operating point: raw directivity (left) and compact vMF representation (right).</figcaption></figure>
+</section>
+<section class="ps" id="demo"><h2>Interactive demo</h2>
+<p>The companion page explains the method step by step, lets you browse the instrument corpus, compare compression against target similarity and inspect the 3D vMF approximation of each instrument.</p><div class="res"><a href="../directivity_ISMA.html"><i class="fas fa-cube" aria-hidden="true"></i><span><b>Open the interactive demo</b><small>Directivity explorer</small></span></a><a href="https://arxiv.org/abs/2611.02927" target="_blank" rel="noopener"><i class="fas fa-file-lines" aria-hidden="true"></i><span><b>Paper on arXiv</b><small>2611.02927</small></span></a></div>
+</section>
+<section class="ps" id="cite"><h2>Cite this work</h2>
+<p class="cite-text">G. Greco, M. Pezzoli, R. Malvermi, G. M. Ricci, and F. Antonacci, “A Compact Statistical View of Musical-Instrument Directivity,” presented at the International Symposium on Musical Acoustics (ISMA), Helsinki, 2026. arXiv: <a href="https://doi.org/10.48550/arXiv.2611.02927" target="_blank" rel="noopener">10.48550/arXiv.2611.02927</a></p><div class="bib"><pre>@inproceedings{greco2026directivity,
+  title     = {A Compact Statistical View of Musical-Instrument Directivity},
+  author    = {Greco, Gioele and Pezzoli, Mirco and Malvermi, Raffaele and Ricci, Gian Marco and Antonacci, Fabio},
+  booktitle = {Proc. International Symposium on Musical Acoustics (ISMA)},
+  address   = {Helsinki, Finland},
+  year      = {2026},
+  note      = {arXiv:2611.02927}
+}</pre><button type="button">Copy</button></div>
+</section>
+        </main>
+    </div>
+
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+            <p>&copy; <span id="year">2026</span> Gioele Greco · Politecnico di Milano</p>
+            <p class="site-footer__links"><a href="../index.html">Home</a><a href="../index.html#publications">Publications</a><a href="mailto:gioele.greco@polimi.it">Contact</a></p>
+        </div>
+    </footer>
+    <script src="../assets/paper.js?v=8"></script>
+<script src="../assets/analytics.js?v=2" defer></script>
+</body>
+</html>

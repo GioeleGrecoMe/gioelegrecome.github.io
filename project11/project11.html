@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IR64-CAR Automotive RIR Dataset | Gioele Greco</title>
+    <meta name="description" content="IR64-CAR, a dataset of impulse responses recorded with a 64-capsule Eigenmike inside a car cabin from eight external source directions. Forum Acusticum / EuroNoise 2025.">
+    <meta name="author" content="Gioele Greco">
+    <link rel="canonical" href="https://gioelegrecome.github.io/project11/project11.html">
+    <meta name="theme-color" content="#0b1324">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Gioele Greco">
+    <meta property="og:title" content="IR64-CAR: Impulse Responses with a 64-Capsule Spherical Array for Automotive Acoustic Research">
+    <meta property="og:description" content="IR64-CAR, a dataset of impulse responses recorded with a 64-capsule Eigenmike inside a car cabin from eight external source directions. Forum Acusticum / EuroNoise 2025.">
+    <meta property="og:url" content="https://gioelegrecome.github.io/project11/project11.html">
+    <meta property="og:image" content="https://gioelegrecome.github.io/project11/fig/f1.webp">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/theme.css?v=10">
+    <link rel="stylesheet" href="../assets/paper.css?v=10">
+</head>
+<body class="paper">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <nav class="site-nav solid" aria-label="Main">
+        <div class="site-nav__inner">
+            <a href="../index.html" class="site-nav__brand"><img src="../assets/favicon.svg" alt="" width="26" height="26"><span>Gioele Greco</span></a>
+            <ul class="site-nav__links">
+                <li><a href="../index.html#about">About</a></li>
+                <li><a href="../index.html#projects">Research</a></li>
+                <li class="nav-optional"><a href="../index.html#publications">Publications</a></li>
+                <li><a href="../index.html#contact">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <header class="ph">
+        <div class="ph__inner">
+            <a href="../index.html#projects" class="ph__back"><i class="fas fa-arrow-left" aria-hidden="true"></i> All research</a>
+            <div><span class="ph__venue">Forum Acusticum / EuroNoise 2025 · Málaga</span></div>
+            <h1>IR64-CAR: Impulse Responses with a 64-Capsule Spherical Array for Automotive Acoustic Research</h1>
+            
+            <p class="ph__authors">Jesús López-Ballester<sup>1</sup>, <strong>Gioele Greco</strong><sup>2</sup>, Sandra Roger<sup>1</sup>, José J. López<sup>3</sup>, Francesc J. Ferri<sup>1</sup>, Máximo Cobos<sup>1</sup></p>
+            <p class="ph__affil"><sup>1</sup>Universitat de València · <sup>2</sup>Politecnico di Milano · <sup>3</sup>iTEAM, Universitat Politècnica de València</p>
+            <div class="ph__actions"><a href="https://dael.euracoustics.org/confs/fa2025/data/articles/000508.pdf" target="_blank" rel="noopener" class="button button--light"><i class="fas fa-file-lines" aria-hidden="true"></i> Paper (open access)</a><a href="#cite" class="button button--ghost"><i class="fas fa-quote-right" aria-hidden="true"></i> Cite</a></div>
+        </div>
+    </header>
+
+    <div class="teaser"><figure><img src="fig/f3.webp" alt="The eight measured source directions around the car" width="685" height="686"><figcaption><b>Figure 1.</b> Measured source positions: eight directions around the car, every 45°, with the spherical array at the center of the cabin.</figcaption></figure></div>
+
+    <div class="pl">
+        <nav class="toc" aria-label="On this page"><p>On this page</p><ol><li><a href="#abstract">Abstract</a></li><li><a href="#setup">Setup</a></li><li><a href="#results">Analysis</a></li><li><a href="#cite">Cite</a></li></ol></nav>
+        <main id="main" class="pm">
+<section class="ps" id="abstract"><h2>Abstract</h2>
+<p class="abstract">Automotive audio research, spatial audio and machine learning need realistic acoustic data from inside vehicles. IR64-CAR provides impulse responses measured with a 64-capsule spherical microphone array (Eigenmike 64) at the center of a car cabin, with sources at eight directions around the car and the windows closed as in normal driving. The data show how external sound propagates, reflects and penetrates into the cabin, and support in-vehicle simulation, source localization, spatial filtering and driver-assistance systems.</p><div class="stats"><div class="stat"><b>64</b><span>capsules (Eigenmike 64) at the center of the cabin</span></div><div class="stat"><b>8</b><span>external source directions, every 45°</span></div><div class="stat"><b>Windows closed</b><span>standard driving isolation conditions</span></div></div>
+</section>
+<section class="ps" id="setup"><h2>Measurement setup</h2>
+<div class="figs"><figure class="fig fig--photo"><img src="fig/f1.webp" alt="Spherical microphone array placed inside the car" loading="lazy" decoding="async" width="685" height="515"><figcaption><b>Figure 2.</b> EM64 placement inside the car.</figcaption></figure><figure class="fig fig--photo"><img src="fig/f2.webp" alt="Loudspeaker and car in the outdoor recording environment" loading="lazy" decoding="async" width="685" height="518"><figcaption><b>Figure 3.</b> Recording environment: an open area with clear line of sight in all horizontal directions.</figcaption></figure></div>
+</section>
+<section class="ps" id="results"><h2>Acoustic analysis</h2>
+<p>Calibration and validation procedures were applied to the whole dataset. The analysis reports reverberation time, frequency responses across all channels, impulse responses for lateral directions and the spectral energy per direction.</p><div class="figs"><figure class="fig"><img src="fig/f4.webp" alt="T20 reverberation time per source direction" loading="lazy" decoding="async" width="694" height="557"><figcaption><b>Figure 4.</b> T20 reverberation time for each source direction.</figcaption></figure><figure class="fig"><img src="fig/f5.webp" alt="Frequency responses of all 64 channels" loading="lazy" decoding="async" width="624" height="511"><figcaption><b>Figure 5.</b> Frequency responses of all 64 channels for the 90° source.</figcaption></figure></div><div class="figs"><figure class="fig"><img src="fig/f6.webp" alt="Impulse responses for 90 and 270 degrees" loading="lazy" decoding="async" width="714" height="592"><figcaption><b>Figure 6.</b> Impulse responses for the two lateral directions, 90° and 270°.</figcaption></figure><figure class="fig"><img src="fig/f7.webp" alt="Spectral energy per direction and frequency band" loading="lazy" decoding="async" width="721" height="544"><figcaption><b>Figure 7.</b> Spectral energy per direction across frequency bands, averaged over channels.</figcaption></figure></div>
+</section>
+<section class="ps" id="cite"><h2>Cite this work</h2>
+<p class="cite-text">J. López-Ballester, G. Greco, S. Roger, J. J. López, F. J. Ferri, and M. Cobos, “IR64-CAR: A Dataset of Impulse Responses Captured with a Spherical Microphone Array for Automotive Acoustic Research,” in <em>Proc. Forum Acusticum / EuroNoise 2025</em>, Málaga, pp. 6385–6391. doi: <a href="https://doi.org/10.61782/fa.2025.0508" target="_blank" rel="noopener">10.61782/fa.2025.0508</a></p><div class="bib"><pre>@inproceedings{lopezballester2025ir64car,
+  title     = {IR64-CAR: A Dataset of Impulse Responses Captured with a Spherical Microphone Array for Automotive Acoustic Research},
+  author    = {L{\&#x27;o}pez-Ballester, Jes{\&#x27;u}s and Greco, Gioele and Roger, Sandra and L{\&#x27;o}pez, Jos{\&#x27;e} J. and Ferri, Francesc J. and Cobos, M{\&#x27;a}ximo},
+  booktitle = {Proc. 11th Convention of the European Acoustics Association, Forum Acusticum / EuroNoise},
+  pages     = {6385--6391},
+  year      = {2025},
+  doi       = {10.61782/fa.2025.0508}
+}</pre><button type="button">Copy</button></div><p class="ack">Figures are reproduced from the open-access proceedings paper.</p>
+</section>
+        </main>
+    </div>
+
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+            <p>&copy; <span id="year">2026</span> Gioele Greco · Politecnico di Milano</p>
+            <p class="site-footer__links"><a href="../index.html">Home</a><a href="../index.html#publications">Publications</a><a href="mailto:gioele.greco@polimi.it">Contact</a></p>
+        </div>
+    </footer>
+    <script src="../assets/paper.js?v=8"></script>
+<script src="../assets/analytics.js?v=2" defer></script>
+</body>
+</html>

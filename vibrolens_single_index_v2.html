@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="it">
 <head>
+<meta name="robots" content="noindex">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#111827">
@@ -693,8 +694,10 @@
       const params = getFilterParams(dtSec);
       const filterKey = `${state.width}x${state.height}:${params.lowCut.toFixed(2)}:${params.highCut.toFixed(2)}`;
       if (!state.lowFast || !state.lowSlow || state.lastFilterKey !== filterKey) {
-        state.lastFilterKey = filterKey;
+        // resetFilter() clears lastFilterKey, so the new key must be stored AFTER the reset;
+        // otherwise the filter would be re-initialised on every frame and never amplify anything.
         resetFilter('filter parameters changed');
+        state.lastFilterKey = filterKey;
       }
 
       workCtx.drawImage(els.video, 0, 0, state.width, state.height);

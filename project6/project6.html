@@ -3,432 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Distributed Mixture-of-Experts for Efficient Spatial Acoustic Characterization</title>
-    <style>
-        :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #3498db;
-            --accent-color: #e74c3c;
-            --light-color: #ecf0f1;
-            --dark-color: #2c3e50;
-            --text-color: #333;
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Helvetica', 'Arial', sans-serif;
-            line-height: 1.6;
-            color: var(--text-color);
-            background-color: #f9f9f9;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        header {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            color: white;
-            padding: 2rem 0;
-            text-align: center;
-            margin-bottom: 2rem;
-            box-shadow: var(--shadow);
-        }
-
-        .back-button {
-            display: inline-block;
-            margin-bottom: 20px;
-            padding: 10px 20px;
-            background-color: var(--primary-color);
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            transition: background-color 0.3s;
-        }
-
-        .back-button:hover {
-            background-color: var(--secondary-color);
-        }
-
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-        }
-
-        h2 {
-            font-size: 1.8rem;
-            margin: 2rem 0 1rem;
-            color: var(--primary-color);
-            border-bottom: 2px solid var(--secondary-color);
-            padding-bottom: 0.5rem;
-        }
-
-        h3 {
-            font-size: 1.4rem;
-            margin: 1.5rem 0 1rem;
-            color: var(--secondary-color);
-        }
-
-        h4 {
-            font-size: 1.2rem;
-            margin: 1rem 0;
-            color: var(--dark-color);
-        }
-
-        .authors {
-            font-style: italic;
-            margin-bottom: 1rem;
-        }
-
-        .abstract {
-            background-color: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: var(--shadow);
-            margin-bottom: 2rem;
-        }
-
-        .abstract h2 {
-            margin-top: 0;
-        }
-
-        .section {
-            background-color: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: var(--shadow);
-            margin-bottom: 2rem;
-        }
-
-        .demo-container {
-            margin: 1.5rem 0;
-        }
-
-        .room-map {
-            width: 100%;
-            max-width: 600px;
-            margin: 1rem auto;
-            display: block;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-
-        .audio-demo {
-            background-color: #f8f9fa;
-            padding: 1rem;
-            border-radius: 8px;
-            margin: 1rem 0;
-            border-left: 4px solid var(--secondary-color);
-        }
-
-        .audio-player {
-            width: 100%;
-            margin: 0.5rem 0;
-        }
-
-        .caption {
-            font-style: italic;
-            color: #666;
-            font-size: 0.9rem;
-            margin-top: 0.5rem;
-        }
-
-        .note {
-            background-color: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 1rem;
-            margin: 1rem 0;
-            border-radius: 4px;
-        }
-
-        .reference {
-            font-size: 0.9rem;
-            margin: 0.5rem 0;
-            padding-left: 1.5rem;
-            text-indent: -1.5rem;
-        }
-
-        footer {
-            text-align: center;
-            margin-top: 3rem;
-            padding: 1rem;
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 10px;
-            }
-
-            h1 {
-                font-size: 2rem;
-            }
-
-            h2 {
-                font-size: 1.5rem;
-            }
-        }
-    </style>
+    <title>DAME: Distributed Acoustic Mixture-of-Experts | Gioele Greco</title>
+    <meta name="description" content="DAME, a distributed acoustic mixture-of-experts for large-area spatial sound field reconstruction from sparse HOA room impulse responses. IEEE Open Journal of Signal Processing, 2026.">
+    <meta name="author" content="Gioele Greco">
+    <link rel="canonical" href="https://gioelegrecome.github.io/project6/project6.html">
+    <meta name="theme-color" content="#0b1324">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Gioele Greco">
+    <meta property="og:title" content="DAME: Distributed Acoustic Mixture-of-Experts for Spatial Sound Estimation">
+    <meta property="og:description" content="DAME, a distributed acoustic mixture-of-experts for large-area spatial sound field reconstruction from sparse HOA room impulse responses. IEEE Open Journal of Signal Processing, 2026.">
+    <meta property="og:url" content="https://gioelegrecome.github.io/project6/project6.html">
+    <meta property="og:image" content="https://gioelegrecome.github.io/project6/fig/f2_pipeline.webp">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/theme.css?v=10">
+    <link rel="stylesheet" href="../assets/paper.css?v=10">
 </head>
-<body>
-    <header>
-        <div class="container">
-            <h1>Distributed Mixture-of-Experts for Efficient Spatial Acoustic Characterization</h1>
-            <p class="authors">Gioele Greco¹, Dongzhe Zhang², Mirco Pezzoli¹, Member, IEEE, and Fabio Antonacci¹</p>
-            <p>¹Politecnico di Milano, Italy | ²Northwestern Polytechnical University, China</p>
+<body class="paper">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <nav class="site-nav solid" aria-label="Main">
+        <div class="site-nav__inner">
+            <a href="../index.html" class="site-nav__brand"><img src="../assets/favicon.svg" alt="" width="26" height="26"><span>Gioele Greco</span></a>
+            <ul class="site-nav__links">
+                <li><a href="../index.html#about">About</a></li>
+                <li><a href="../index.html#projects">Research</a></li>
+                <li class="nav-optional"><a href="../index.html#publications">Publications</a></li>
+                <li><a href="../index.html#contact">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <header class="ph">
+        <div class="ph__inner">
+            <a href="../index.html#projects" class="ph__back"><i class="fas fa-arrow-left" aria-hidden="true"></i> All research</a>
+            <div><span class="ph__venue">IEEE Open Journal of Signal Processing · 2026</span></div>
+            <h1>DAME: Distributed Acoustic Mixture-of-Experts for Spatial Sound Estimation</h1>
+            
+            <p class="ph__authors"><strong>Gioele Greco</strong><sup>1</sup>, Dongzhe Zhang<sup>1,2</sup>, Mirco Pezzoli<sup>1</sup>, Fabio Antonacci<sup>1</sup></p>
+            <p class="ph__affil"><sup>1</sup>Politecnico di Milano, Italy · <sup>2</sup>Northwestern Polytechnical University, China</p>
+            <div class="ph__actions"><a href="https://ieeexplore.ieee.org/document/11520266" target="_blank" rel="noopener" class="button button--light"><i class="fas fa-file-lines" aria-hidden="true"></i> Paper (open access)</a><a href="https://doi.org/10.36227/techrxiv.176049751.14301049/v1" target="_blank" rel="noopener" class="button button--ghost"><i class="fas fa-file-pdf" aria-hidden="true"></i> Preprint</a><a href="#demos" class="button button--ghost"><i class="fas fa-headphones" aria-hidden="true"></i> Audio demos</a><a href="#cite" class="button button--ghost"><i class="fas fa-quote-right" aria-hidden="true"></i> Cite</a></div>
         </div>
     </header>
 
-    <div class="container">
-        <a href="https://gioelegrecome.github.io/" class="back-button">← Back to Main Page</a>
+    <div class="teaser"><figure><img src="fig/f2_pipeline.webp" alt="DAME data pipeline: Fourier-feature embedding, K experts and a gating network" width="1444" height="569"><figcaption><b>Figure 1.</b> Data pipeline of DAME. A receiver position is mapped to a Fourier-feature embedding, processed by K compact experts, and their outputs are combined with the weights predicted by the gating network to estimate the HOA RIR.</figcaption></figure></div>
 
-        <div class="abstract">
-            <h2>Abstract</h2>
-            <img src="DAME.png" alt="DAME" class="room-map">
-
-            <p>Accurate and efficient spatial acoustic characterization is crucial for immersive audio applications, such as virtual and augmented reality, which require real-time, high-fidelity rendering of sound fields. Traditional methods, including physics-based simulations and centralized deep learning models, face significant challenges in scalability, data efficiency, and generalization under sparse measurement conditions. This paper introduces DAME, a Distributed Acoustic Mixture-of-Experts framework designed for large-area spatial acoustic modeling. DAME decomposes the global sound field reconstruction task into localized sub-problems, each handled by a specialized neural network expert trained on region-specific data. A lightweight gating network intelligently combines these experts' predictions based on spatial queries, enabling seamless integration of new measurements without full retraining.</p>
-        </div>
-
-        <div class="section">
-            <h2>Introduction</h2>
-            <p>The spatial room impulse response (RIR) encapsulates how an acoustic environment transforms sound from a fixed source to a receiver location. Predicting these source-specific responses across large spatial regions is fundamental for six degrees of freedom (6DoF) audio rendering in virtual and augmented reality [1], architectural acoustics, and immersive audio applications. The challenge lies in modeling complex wave phenomena with strong spatial dependencies while maintaining real-time computational efficiency for streaming applications.</p>
-
-            <p>We propose DAME a Distributed Experts Learning framework for higher-order Ambisonic sound field reconstruction that addresses these scalability challenges. Following the standard approach in spatial RIR modeling, our method learns the mapping from receiver positions to HOA RIRs for a given source location.</p>
-        </div>
-
-        <div class="section">
-            <h2>Audio Demonstrations</h2>
-            <div class="note">
-                <p><strong>Note:</strong> For optimal experience, please use earphones when listening to the audio demonstrations. The spatial audio effects are best perceived with headphones.</p>
-            </div>
-
-            <h3>Source 1</h3>
-
-            <h4>Test Position 1</h4>
-            <div class="demo-container">
-                <img src="room_map_source1_pos1.png" alt="Room map for Source 1, Test Position 1" class="room-map">
-                <p class="caption">Figure: Room layout with Source 1 and Test Position 1</p>
-
-                <div class="audio-demo">
-                    <p><strong>Original Recording:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/GT3.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-
-                <div class="audio-demo">
-                    <p><strong>DAME Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/DAME3.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-
-                <div class="audio-demo">
-                    <p><strong>PINN Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/PINN3.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-                <div class="audio-demo">
-                    <p><strong>PVM Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/VM3.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-                <div class="audio-demo">
-                    <p><strong>PCKI Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/kernel3.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-            </div>
-
-            <h4>Test Position 1</h4>
-            <div class="demo-container">
-                <img src="room_map_source1_pos2.png" alt="Room map for Source 1, Test Position 1" class="room-map">
-                <p class="caption">Figure: Room layout with Source 1 and Test Position 2</p>
-
-                <div class="audio-demo">
-                    <p><strong>Original Recording:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/GT20.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-
-                <div class="audio-demo">
-                    <p><strong>DAME Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/DAME20.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-
-                <div class="audio-demo">
-                    <p><strong>PINN Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/PINN20.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-                <div class="audio-demo">
-                    <p><strong>PVM Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/VM20.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-                <div class="audio-demo">
-                    <p><strong>PCKI Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/Kernel20.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-            </div>
-
-            <h3>Source 2</h3>
-
-            <h4>Test Position 1</h4>
-            <div class="demo-container">
-                <img src="room_map_source2_pos1.png" alt="Room map for Source 2, Test Position 1" class="room-map">
-                <p class="caption">Figure: Room layout with Source 2 and Test Position 1</p>
-
-                <div class="audio-demo">
-                    <p><strong>Original Recording:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/GT28.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-
-                <div class="audio-demo">
-                    <p><strong>DAME Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/DAME28.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-
-                <div class="audio-demo">
-                    <p><strong>PINN Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/PINN28.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-                <div class="audio-demo">
-                    <p><strong>PVM Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/VM28.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-                <div class="audio-demo">
-                    <p><strong>PCKI Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/Kernel28.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-            </div>
-
-            <h4>Test Position 2</h4>
-            <div class="demo-container">
-                <img src="room_map_source2_pos2.png" alt="Room map for Source 2, Test Position 2" class="room-map">
-                <p class="caption">Figure: Room layout with Source 2 and Test Position 2</p>
-
-                <div class="audio-demo">
-                    <p><strong>Original Recording:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/GT45.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-
-                <div class="audio-demo">
-                    <p><strong>DAME Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/DAME45.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-
-                <div class="audio-demo">
-                    <p><strong>PINN Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/PINN45.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-                <div class="audio-demo">
-                    <p><strong>PVM Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/VM45.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-                <div class="audio-demo">
-                    <p><strong>PCKI Reconstruction:</strong></p>
-                    <audio controls class="audio-player">
-                        <source src="audio/Kernel45.mp3" type="audio/wav">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-            </div>
-        </div>
-
-        <div class="section">
-            <h2>Method Overview</h2>
-            <p>DAME decomposes the global sound field reconstruction task into localized sub-problems, each handled by a specialized neural network expert trained on region-specific data. A lightweight gating network intelligently combines these experts' predictions based on spatial queries, enabling seamless integration of new measurements without full retraining.</p>
-
-            <p>Our Distributed setup assumes that the measuring space is spatially partitioned into K non-overlapping subsets corresponding to distinct receiver regions. Each expert network learns the local mapping from coordinates to the preprocessed, normalized HOA RIR.</p>
-        </div>
-
-        <div class="section">
-            <h2>Results</h2>
-            <p>Evaluated on a benchmark dataset of higher-order ambisonic room impulse responses [10], DAME significantly outperforms state-of-the-art baselines in reconstruction accuracy, directional error, and energy decay preservation. The framework offers a scalable, data-efficient solution for real-time spatial audio applications, supporting incremental expansion and robust performance in sparse-data regimes.</p>
-
-            <p>Key advantages of DAME:</p>
-            <ul>
-                <li>Scalable deployment - new spatial regions can be incorporated without retraining existing models</li>
-                <li>Real-time estimation capabilities with lightweight expert networks</li>
-                <li>Straightforward implementation with modular design</li>
-                <li>Superior spatial extrapolation compared to monolithic models</li>
-            </ul>
-        </div>
-
-        <div class="section">
-            <h2>References</h2>
-            <p class="reference">[1] M. Ralph et al., "A survey of spatial audio in virtual and augmented reality," in Proc. IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP). IEEE, 2020, pp. 4362-4366.</p>
-            <p class="reference">[10] F. Mioltello et al., "Homma RIR dataset: A comprehensive collection of higher-order ambisonic room impulse responses," Journal of Audio Engineering Society, vol. 72, no. 4, pp. 122-135, 2024.</p>
-            <p class="reference">[11] J. G. C. Ribeiro, Shoichi Koyama, Ryosuke Horiuchi, and Hiroshi Saruwatari, "Sound field estimation based on physics-constrained kernel interpolation adapted to environment," IEEE/ACM Transactions on Audio, Speech, and Language Processing, vol. 32, pp. 4369-4383, 2024.</p>
-            <p class="reference">[12] Xenofon Karakonstantis, Diego Caviedes-Nozal, Antoine Richard, and Efrem Fernandez-Graude, "Room impulse response reconstruction with physics-informed deep learning," The Journal of the Acoustical Society of America, vol. 155, no. 2, pp. 1048-1059, 02 2024.</p>
-            <p class="reference">[13] Mirco Pezzoli, Federico Borra, Fabio Antonacci, Stefano Tubaro, and Augusto Sarti, "A parametric approach to virtual mixing for sources of arbitrary directivity," IEEE/ACM Transactions on Audio, Speech, and Language Processing, vol. 28, pp. 2333-2348, 2020.</p>
-        </div>
-
-        <a href="https://gioelegrecome.github.io/" class="back-button">← Back to Main Page</a>
+    <div class="pl">
+        <nav class="toc" aria-label="On this page"><p>On this page</p><ol><li><a href="#abstract">Abstract</a></li><li><a href="#method">Method</a></li><li><a href="#results">Results</a></li><li><a href="#demos">Audio demos</a></li><li><a href="#cite">Cite</a></li></ol></nav>
+        <main id="main" class="pm">
+<section class="ps" id="abstract"><h2>Abstract</h2>
+<p class="abstract">Immersive audio for virtual and augmented reality needs accurate, low-latency rendering of sound fields across large areas. Physics-based simulations and centralized deep learning models struggle with scalability, data efficiency and robustness when measurements are sparse, and usually need retraining whenever new measurements arrive. <strong>DAME</strong> (Distributed Acoustic Mixture-of-Experts) splits the global reconstruction task into local sub-problems: each region is handled by a compact neural expert trained on its own data, and a lightweight gating network combines their predictions for any queried position. New experts can be added for newly measured regions by updating only the gate, so the model grows without forgetting.</p><div class="stats"><div class="stat"><b>81 / 80</b><span>MUSHRA scores for audio and spatial quality, best among all methods</span></div><div class="stat"><b>3</b><span>baselines outperformed: parametric (PVM), kernel-based (PCKI), physics-informed (PINN)</span></div><div class="stat"><b>Gate only</b><span>retrained when a new measurement region is added</span></div></div>
+</section>
+<section class="ps" id="method"><h2>Method</h2>
+<p>The measured space is partitioned into K receiver regions. Each expert learns the mapping from Fourier-embedded receiver coordinates to the normalized HOA room impulse responses of its region; the gating network estimates how much each expert should contribute at a given position, producing a consistent global reconstruction.</p><p>The paper makes three contributions: a distributed mixture-of-experts for large-area HOA sound fields, a Fourier-feature embedding of receiver coordinates that needs no environment-specific parameters, and an incremental expansion protocol that adds new measurement regions without retraining the full model.</p><div class="figs"><figure class="fig"><img src="fig/f1_setup.webp" alt="Microphone arrays grouped into expert sets" loading="lazy" decoding="async" width="684" height="337"><figcaption><b>Figure 2.</b> Setup: microphone arrays in the measurement space, grouped into the expert sets I<sub>k</sub>; the blue receiver is a queried position.</figcaption></figure><figure class="fig"><img src="fig/f3_validity.webp" alt="Regions of validity of the experts in a simulated room" loading="lazy" decoding="async" width="831" height="482"><figcaption><b>Figure 3.</b> Region of validity of each expert in a simulated room (K = 5 experts, three measurements each).</figcaption></figure></div><figure class="fig fig--narrow"><img src="fig/f4_dataset.webp" alt="HOMULA-RIR measurement layout with the three expert sets" loading="lazy" decoding="async" width="801" height="386"><figcaption><b>Figure 4.</b> Real-room dataset (HOMULA-RIR): training measurements and the three expert sets in red, violet and orange.</figcaption></figure>
+</section>
+<section class="ps" id="results"><h2>Results</h2>
+<p>DAME was evaluated on simulated data and on real-world HOA RIRs from the HOMULA-RIR dataset [2], against parametric virtual miking (PVM) [3], physics-constrained kernel interpolation (PCKI) [4] and a physics-informed neural network (PINN) [5]. It achieves the lowest reconstruction error, direction-of-arrival error and DRR error, and keeps its advantage across spherical-harmonic orders.</p><figure class="fig"><img src="fig/f5_metrics.webp" alt="Box plots of NMSE, DoA error and DRR error for PVM, PCKI, DAME and PINN" loading="lazy" decoding="async" width="1600" height="461"><figcaption><b>Figure 5.</b> Performance on the real-room dataset: NMSE (reconstruction accuracy), DoA error (spatial accuracy) and DRR error. Lower is better; black dots are mean values.</figcaption></figure><div class="figs"><figure class="fig"><img src="fig/f6_orders_bar.webp" alt="NMSE per spherical-harmonic order for each method" loading="lazy" decoding="async" width="802" height="456"><figcaption><b>Figure 6.</b> NMSE on zero-, first- and second-order HOA RIR estimation.</figcaption></figure><figure class="fig"><img src="fig/f8_numexperts.webp" alt="NMSE versus number of experts" loading="lazy" decoding="async" width="763" height="494"><figcaption><b>Figure 7.</b> Simulated grid: signal and pseudospectrum NMSE as the number of experts grows; gains saturate for moderately large K.</figcaption></figure></div><div class="figs"><figure class="fig"><img src="fig/f9_gating.webp" alt="Gating weights of the three experts mapped to RGB" loading="lazy" decoding="async" width="661" height="418"><figcaption><b>Figure 8.</b> Gating weights of the three experts on the real room, mapped to the red, green and blue channels.</figcaption></figure><figure class="fig"><img src="fig/f10_mushra.webp" alt="MUSHRA box plots for basic audio quality and spatial quality" loading="lazy" decoding="async" width="817" height="530"><figcaption><b>Figure 9.</b> Listening test (webMUSHRA): DAME obtains the highest basic audio quality (81) and spatial quality (80) scores.</figcaption></figure></div><figure class="fig fig--tall"><img src="fig/f7_sh_orders.webp" alt="NMSE across frequency for SH orders 0, 1 and 2 with 1 to 3 experts" loading="lazy" decoding="async" width="824" height="1306"><figcaption><b>Figure 10.</b> NMSE across frequency for SH orders 0–2 with one, two and three experts: median and interquartile range.</figcaption></figure>
+</section>
+<section class="ps" id="demos"><h2>Audio demonstrations</h2>
+<p class="note"><i class="fas fa-headphones" aria-hidden="true"></i>Use headphones: the spatial differences between methods are much easier to hear.</p><div class="demo-pos"><div><h3>Source 1 · Position 1</h3><img src="room_map_source1_pos1.png" alt="Room map, source 1, test position 1" loading="lazy" width="662" height="308"></div><div class="players"><div class="player"><span>Measured<small>ground truth</small></span><audio controls preload="none"><source src="audio/GT3.mp3" type="audio/mpeg"></audio></div><div class="player is-ours"><span>DAME<small>proposed</small></span><audio controls preload="none"><source src="audio/FAME3.mp3" type="audio/mpeg"></audio></div><div class="player"><span>PINN<small>physics-informed</small></span><audio controls preload="none"><source src="audio/PINN3.mp3" type="audio/mpeg"></audio></div><div class="player"><span>PVM<small>parametric</small></span><audio controls preload="none"><source src="audio/VM3.mp3" type="audio/mpeg"></audio></div><div class="player"><span>PCKI<small>kernel-based</small></span><audio controls preload="none"><source src="audio/kernel3.mp3" type="audio/mpeg"></audio></div></div></div><div class="demo-pos"><div><h3>Source 1 · Position 2</h3><img src="room_map_source1_pos2.png" alt="Room map, source 1, test position 2" loading="lazy" width="662" height="308"></div><div class="players"><div class="player"><span>Measured<small>ground truth</small></span><audio controls preload="none"><source src="audio/GT20.mp3" type="audio/mpeg"></audio></div><div class="player is-ours"><span>DAME<small>proposed</small></span><audio controls preload="none"><source src="audio/FAME20.mp3" type="audio/mpeg"></audio></div><div class="player"><span>PINN<small>physics-informed</small></span><audio controls preload="none"><source src="audio/PINN20.mp3" type="audio/mpeg"></audio></div><div class="player"><span>PVM<small>parametric</small></span><audio controls preload="none"><source src="audio/VM20.mp3" type="audio/mpeg"></audio></div><div class="player"><span>PCKI<small>kernel-based</small></span><audio controls preload="none"><source src="audio/Kernel20.mp3" type="audio/mpeg"></audio></div></div></div><div class="demo-pos"><div><h3>Source 2 · Position 1</h3><img src="room_map_source2_pos1.png" alt="Room map, source 2, test position 1" loading="lazy" width="662" height="308"></div><div class="players"><div class="player"><span>Measured<small>ground truth</small></span><audio controls preload="none"><source src="audio/GT28.mp3" type="audio/mpeg"></audio></div><div class="player is-ours"><span>DAME<small>proposed</small></span><audio controls preload="none"><source src="audio/FAME28.mp3" type="audio/mpeg"></audio></div><div class="player"><span>PINN<small>physics-informed</small></span><audio controls preload="none"><source src="audio/PINN28.mp3" type="audio/mpeg"></audio></div><div class="player"><span>PVM<small>parametric</small></span><audio controls preload="none"><source src="audio/VM28.mp3" type="audio/mpeg"></audio></div><div class="player"><span>PCKI<small>kernel-based</small></span><audio controls preload="none"><source src="audio/Kernel28.mp3" type="audio/mpeg"></audio></div></div></div><div class="demo-pos"><div><h3>Source 2 · Position 2</h3><img src="room_map_source2_pos2.png" alt="Room map, source 2, test position 2" loading="lazy" width="662" height="308"></div><div class="players"><div class="player"><span>Measured<small>ground truth</small></span><audio controls preload="none"><source src="audio/GT45.mp3" type="audio/mpeg"></audio></div><div class="player is-ours"><span>DAME<small>proposed</small></span><audio controls preload="none"><source src="audio/FAME45.mp3" type="audio/mpeg"></audio></div><div class="player"><span>PINN<small>physics-informed</small></span><audio controls preload="none"><source src="audio/PINN45.mp3" type="audio/mpeg"></audio></div><div class="player"><span>PVM<small>parametric</small></span><audio controls preload="none"><source src="audio/VM45.mp3" type="audio/mpeg"></audio></div><div class="player"><span>PCKI<small>kernel-based</small></span><audio controls preload="none"><source src="audio/Kernel45.mp3" type="audio/mpeg"></audio></div></div></div>
+</section>
+<section class="ps" id="cite"><h2>Cite this work</h2>
+<p class="cite-text">G. Greco, D. Zhang, M. Pezzoli, and F. Antonacci, “Distributed Acoustic Mixture-of-Experts for Spatial Sound Estimation,” <em>IEEE Open Journal of Signal Processing</em>, vol. 7, pp. 569–580, 2026. doi: <a href="https://doi.org/10.1109/OJSP.2026.3693608" target="_blank" rel="noopener">10.1109/OJSP.2026.3693608</a></p><div class="bib"><pre>@article{greco2026dame,
+  title   = {Distributed Acoustic Mixture-of-Experts for Spatial Sound Estimation},
+  author  = {Greco, Gioele and Zhang, Dongzhe and Pezzoli, Mirco and Antonacci, Fabio},
+  journal = {IEEE Open Journal of Signal Processing},
+  volume  = {7},
+  pages   = {569--580},
+  year    = {2026},
+  doi     = {10.1109/OJSP.2026.3693608}
+}</pre><button type="button">Copy</button></div><h3>Selected references</h3><ol class="refs"><li><span>[1]</span>S. Giacomelli et al., “Remote immersive audio production: State of the art implementation, challenges, and improvements,” <em>Proc. IEEE Int. Symp. Internet of Sounds</em>, 2024.</li><li><span>[2]</span>F. Miotello et al., “HOMULA-RIR: A room impulse response dataset for teleconferencing and spatial audio applications acquired through higher-order microphones and uniform linear microphone arrays,” <em>Proc. IEEE ICASSP Workshops</em>, 2024. doi: <a href="https://doi.org/10.1109/ICASSPW62465.2024.10626753" target="_blank" rel="noopener">10.1109/ICASSPW62465.2024.10626753</a></li><li><span>[3]</span>M. Pezzoli, F. Borra, F. Antonacci, S. Tubaro, and A. Sarti, “A parametric approach to virtual miking for sources of arbitrary directivity,” <em>IEEE/ACM TASLP</em>, vol. 28, pp. 2333–2348, 2020.</li><li><span>[4]</span>J. G. C. Ribeiro, S. Koyama, R. Horiuchi, and H. Saruwatari, “Sound field estimation based on physics-constrained kernel interpolation adapted to environment,” <em>IEEE/ACM TASLP</em>, vol. 32, pp. 4369–4383, 2024.</li><li><span>[5]</span>X. Karakonstantis, D. Caviedes-Nozal, A. Richard, and E. Fernandez-Grande, “Room impulse response reconstruction with physics-informed deep learning,” <em>J. Acoust. Soc. Am.</em>, vol. 155, pp. 1048–1059, 2024.</li></ol>
+</section>
+        </main>
     </div>
 
-    <footer>
-        <div class="container">
-            <p>© 2024 Gioele Greco | Politecnico di Milano</p>
-            <p>For more information, please contact: gioele.greco@polimi.it</p>
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+            <p>&copy; <span id="year">2026</span> Gioele Greco · Politecnico di Milano</p>
+            <p class="site-footer__links"><a href="../index.html">Home</a><a href="../index.html#publications">Publications</a><a href="mailto:gioele.greco@polimi.it">Contact</a></p>
         </div>
     </footer>
+    <script src="../assets/paper.js?v=8"></script>
+<script src="../assets/analytics.js?v=2" defer></script>
 </body>
 </html>

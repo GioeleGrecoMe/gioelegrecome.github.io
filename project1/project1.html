@@ -1,191 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Distributed Adaptive Learning in WSN | SignalPro Engineer</title>
+    <title>Diffusion-Based Sound Source Localization | Gioele Greco</title>
+    <meta name="description" content="Distributed 3D sound source localization with networks of microphone arrays using an Adapt-Then-Combine diffusion strategy. Sensors 2025 and ICASSP 2023.">
+    <meta name="author" content="Gioele Greco">
+    <link rel="canonical" href="https://gioelegrecome.github.io/project1/project1.html">
+    <meta name="theme-color" content="#0b1324">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Gioele Greco">
+    <meta property="og:title" content="Diffusion-Based Sound Source Localization Using a Distributed Network of Microphone Arrays">
+    <meta property="og:description" content="Distributed 3D sound source localization with networks of microphone arrays using an Adapt-Then-Combine diffusion strategy. Sensors 2025 and ICASSP 2023.">
+    <meta property="og:url" content="https://gioelegrecome.github.io/project1/project1.html">
+    <meta property="og:image" content="https://gioelegrecome.github.io/project1/networkTop.webp">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="../assets/theme.css?v=10">
+    <link rel="stylesheet" href="../assets/paper.css?v=10">
 </head>
-
-<body>
-    <nav id="navbar">
-        <a href="../index.html" class="logo">SignalPro<span>Engineer</span></a>
-        <ul class="nav-links">
-            <li><a href="../index.html#about">About</a></li>
-            <li><a href="../index.html#projects">Projects</a></li>
-            <li><a href="../index.html#contact">Contact</a></li>
-        </ul>
+<body class="paper">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <nav class="site-nav solid" aria-label="Main">
+        <div class="site-nav__inner">
+            <a href="../index.html" class="site-nav__brand"><img src="../assets/favicon.svg" alt="" width="26" height="26"><span>Gioele Greco</span></a>
+            <ul class="site-nav__links">
+                <li><a href="../index.html#about">About</a></li>
+                <li><a href="../index.html#projects">Research</a></li>
+                <li class="nav-optional"><a href="../index.html#publications">Publications</a></li>
+                <li><a href="../index.html#contact">Contact</a></li>
+            </ul>
+        </div>
     </nav>
 
-    <section class="project-detail">
-        <div class="container">
-            <a href="../index.html#projects" class="back-button">
-                <i class="fas fa-arrow-left"></i> Back to Projects
-            </a>
-
-            <h1>Diffusion‑Based Sound Source Localization Using a Distributed Network of Microphone Arrays</h1>
-
-            <div class="project-meta">
-                <span class="date">Completed: 2025</span>
-                <span class="tags">
-                    <span class="tag">Distributed Processing</span>
-                    <span class="tag">Wireless Sensor Networks</span>
-                    <span class="tag">Diffusion Strategy</span>
-                </span>
-            </div>
-
-            <div class="project-hero">
-                <div class="project-links">
-                    <a href="https://doi.org/10.3390/s25072078" target="_blank" class="btn">
-                        <i class="fas fa-file-pdf"></i> Research Paper
-                    </a>
-                </div>
-            </div>
-
-            <div class="project-content">
-
-                <div class="project-section">
-                    <h2>Project Overview</h2>
-                    <p>This project implements a distributed adaptive learning algorithm in Wireless Sensor Networks (WSNs) using an Adapt-Then-Combine (ATC) diffusion strategy. The goal is to enable real-time distributed parameter estimation while reducing communication costs and improving energy efficiency. The solution builds on the methodology and results presented in "Distributed Adaptive Learning via Diffusion Strategy for Wireless Sensor Networks" (Sensors 2023, 25, 2078).</p>
-                </div>
-
-                <header>
-                        <h1>Interactive Network Visualization</h1>
-                        <p class="subtitle">Click anywhere to place signal sources. Agents will collaboratively estimate source locations through distributed coordination.</p>
-                    </header>
-
-                    <div class="container">
-                        <div class="visualization-panel">
-                            <canvas id="networkCanvas"></canvas>
-                        </div>
-
-                        <div class="controls">
-                            <h2 class="panel-title">Simulation Controls</h2>
-
-                            <div class="button-group">
-                                <button id="resetBtn" class="btn" hidden>Reset Simulation</button>
-                                <button id="addAgentBtn" class="btn" hidden>Add Agent</button>
-                                <button id="removeAgentBtn" class="btn">Renew Agent</button>
-                                <button id="clearSourcesBtn" class="btn">Clear Sources</button>
-                            </div>
-
-                            <div class="stats">
-                                <div class="stat-card">
-                                    <div class="stat-value" id="agentCount">12</div>
-                                    <div class="stat-label">Active Agents</div>
-                                </div>
-                                <div class="stat-card">
-                                    <div class="stat-value" id="sourceCount">0</div>
-                                    <div class="stat-label">Signal Sources</div>
-                                </div>
-                            </div>
-
-                            <div class="status">
-                                <p>Click anywhere on the canvas to place signal sources (max 2).</p>
-                                <p>Agents will estimate source locations and coordinate with neighbors.</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <footer>
-                        Network Visualization System &copy; <span id="year"></span>
-                    </footer>
-
-
-                <div class="project-section">
-                    <h2>Technical Details</h2>
-                    <div class="tech-specs">
-                        <div class="spec">
-                            <h3>Algorithm</h3>
-                            <p>The Adapt-Then-Combine (ATC) diffusion strategy is used for distributed adaptive estimation, allowing each node to locally update its estimate and then combine it with neighbors to achieve network-wide consensus.</p>
-                        </div>
-                        <div class="spec">
-                            <h3>Network Model</h3>
-                            <p>The system models a dynamic Wireless Sensor Network where nodes collaboratively estimate unknown parameters with a focus on low-latency and energy-efficient communication.</p>
-                        </div>
-                        <div class="spec">
-                            <h3>Performance</h3>
-                            <p>The diffusion-based approach demonstrates fast convergence, robust tracking under changing conditions, and significantly reduced Mean Square Deviation (MSD) compared to non-cooperative strategies.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="project-section">
-                    <h2>Results</h2>
-                    <div class="results-gallery">
-                        <figure>
-                            <img src="networkTop.png" alt="WSN topology simulation" style="cursor: zoom-in;" onclick="openModal('networkTop.png');">
-                            <figcaption>Wireless Sensor Network topology used in the distributed learning simulation.</figcaption>
-                        </figure>
-
-
-                        <figure>
-                            <img src="stanza.png" alt="WSN topology simulation" style="cursor: zoom-in;" onclick="openModal('stanza.png');">
-                            <figcaption>Wireless Sensor Network path distributed learning simulation.</figcaption>
-                        </figure>
-
-                        <figure>
-                            <img src="results.png" alt="Performance metrics" style="cursor: zoom-in;" onclick="openModal('results.png');">
-                            <figcaption>Comparison of Mean Square Deviation (MSD) between cooperative and non-cooperative learning strategies.</figcaption>
-                        </figure>
-                        <!-- Modal container -->
-                        <div id="imgModal" class="modal" onclick="closeModal();">
-                            <span class="close">&times;</span>
-                            <img class="modal-content" id="modalImage">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="project-section">
-                    <h2>Challenges and Solutions</h2>
-                    <p>The project addressed several practical challenges during implementation:</p>
-                    <ul>
-                        <li><strong>Challenge 1:</strong> Efficient communication in a distributed setting. <br> <strong>Solution:</strong> Implemented the ATC diffusion strategy to minimize information exchange while preserving estimation accuracy.</li>
-                        <li><strong>Challenge 2:</strong> Robustness under node or link failures. <br> <strong>Solution:</strong> The adaptive nature of the algorithm ensures that the network can continue learning and tracking even in dynamic topologies.</li>
-                    </ul>
-                </div>
-
-                <div class="project-section">
-                    <h2>Future Work & Improvements</h2>
-                    <p>Potential directions for future research and enhancement include:</p>
-                    <ul>
-                        <li>Integration of more complex network models, such as mobile nodes or energy-harvesting sensors.</li>
-                        <li>Application of the diffusion strategy to large-scale networks with real-time deployment constraints.</li>
-                    </ul>
-                </div>
-
-                <div class="project-sectionr" style="display: none;">
-                  <h2>Authors and Acknowledgments</h2>
-                  <h3>Authors:</h3>
-                  <ul>
-                    <li>Davide Albertini – Dipartimento di Elettronica, Informazione e Bioingegneria, Politecnico di Milano</li>
-                    <li>Alberto Bernardini – Dipartimento di Elettronica, Informazione e Bioingegneria, Politecnico di Milano (Corresponding Author)</li>
-                    <li>Gioele Greco – Dipartimento di Elettronica, Informazione e Bioingegneria, Politecnico di Milano</li>
-                    <li>Augusto Sarti – Dipartimento di Elettronica, Informazione e Bioingegneria, Politecnico di Milano</li>
-                  </ul>
-                  <h3>Acknowledgments:</h3>
-                  <p>Authors acknowledge support from Dipartimento di Elettronica, Informazione e Bioingegneria, Politecnico di Milano.</p>
-                </div>
-
-                <div class="project-section">
-                  <h2>Literature & References</h2>
-                  <p>Key reference:</p>
-                  <ol>
-                    <li>Albertini, D.; Bernardini, A.; Greco, G.; Sarti, A. Diffusion‑Based Sound Source Localization Using a Distributed Network of Microphone Arrays. <em>Sensors</em> 2025, 25(7), 2078. https://doi.org/10.3390/s25072078</li>
-                  </ol>
-                </div>
-
-            </div>
+    <header class="ph">
+        <div class="ph__inner">
+            <a href="../index.html#projects" class="ph__back"><i class="fas fa-arrow-left" aria-hidden="true"></i> All research</a>
+            <div><span class="ph__venue">Sensors 2025 · ICASSP 2023</span></div>
+            <h1>Diffusion-Based Sound Source Localization Using a Distributed Network of Microphone Arrays</h1>
+            
+            <p class="ph__authors">Davide Albertini, Alberto Bernardini, <strong>Gioele Greco</strong>, Augusto Sarti</p>
+            <p class="ph__affil">Dipartimento di Elettronica, Informazione e Bioingegneria, Politecnico di Milano, Italy</p>
+            <div class="ph__actions"><a href="https://doi.org/10.3390/s25072078" target="_blank" rel="noopener" class="button button--light"><i class="fas fa-file-lines" aria-hidden="true"></i> Sensors 2025 (open access)</a><a href="https://doi.org/10.1109/ICASSP49357.2023.10095405" target="_blank" rel="noopener" class="button button--ghost"><i class="fas fa-file-lines" aria-hidden="true"></i> ICASSP 2023</a><a href="#demo" class="button button--ghost"><i class="fas fa-play" aria-hidden="true"></i> Interactive demo</a><a href="#cite" class="button button--ghost"><i class="fas fa-quote-right" aria-hidden="true"></i> Cite</a></div>
         </div>
-    </section>
+    </header>
 
-    <footer>
-        <p>&copy; <span id="year"></span> SignalPro Engineer. All rights reserved.</p>
+    <div class="teaser"><figure><img src="networkTop.webp" alt="Network of agents and the ATC diffusion update at agent k" width="1400" height="1406"><figcaption><b>Figure 1.</b> Network of agents and the Adapt-Then-Combine update at agent k: a local stochastic-gradient adapt step, then a combine step with adaptive combination weights over the neighborhood N<sub>k</sub>.</figcaption></figure></div>
+
+    <div class="pl">
+        <nav class="toc" aria-label="On this page"><p>On this page</p><ol><li><a href="#abstract">Abstract</a></li><li><a href="#method">Method</a></li><li><a href="#demo">Interactive demo</a></li><li><a href="#results">Results</a></li><li><a href="#cite">Cite</a></li></ol></nav>
+        <main id="main" class="pm">
+<section class="ps" id="abstract"><h2>Abstract</h2>
+<p class="abstract">Microphone-array networks for 3D sound source localization usually rely on centralized processing, which limits scalability and robustness. We recast localization with a network of arrays as a distributed optimization problem and compare a computationally centralized solution with a fully distributed one based on an Adapt-Then-Combine (ATC) diffusion strategy. Each linear array estimates a stream of 2D directions of arrival, and arrays cooperate with their neighbors to localize a single source. Adaptive cooperation strategies penalize the arrays that degrade accuracy the most, and the method stays accurate and stable even in sparsely connected networks.</p>
+</section>
+<section class="ps" id="method"><h2>Method</h2>
+<ul class="points"><li><h3>ATC diffusion</h3><p>Each node updates its estimate locally with a stochastic gradient step, then combines it with its neighbors’ estimates; no fusion center is needed.</p></li><li><h3>Cooperation penalties</h3><p>Error-based and distance-based penalties lower the weight of arrays whose DoA estimates are noisy or unreliable.</p></li><li><h3>From planar to linear arrays</h3><p>ICASSP 2023 introduced the approach with planar arrays estimating 2D DoAs; the Sensors article extends it to networks of linear arrays.</p></li><li><h3>Evaluation</h3><p>Increasingly complex DoA stream models in simulated rooms with different reverberation and SNR, plus an analysis of network connectivity.</p></li></ul>
+</section>
+<section class="ps" id="demo"><h2>Interactive demo</h2>
+<p>Click on the canvas to place up to two sources. Agents estimate the source positions and exchange their estimates with neighbors; thicker links mean stronger cooperation.</p><div class="demo-box"><div class="demo-box__bar"><button id="removeAgentBtn" type="button">Renew agents</button><button id="clearSourcesBtn" type="button">Clear sources</button><button id="resetBtn" type="button" hidden>Reset</button><button id="addAgentBtn" type="button" hidden>Add agent</button><span class="stat-inline">Agents: <b id="agentCount">12</b></span><span class="stat-inline">Sources: <b id="sourceCount">0</b></span></div><canvas id="networkCanvas" aria-label="Interactive simulation of a sensor network localizing sources"></canvas><p class="demo-box__hint">Illustrative browser simulation of cooperative localization.</p></div><div id="imgModal" hidden><img id="modalImage" alt=""></div>
+</section>
+<section class="ps" id="results"><h2>Results</h2>
+<p>The cooperative strategies reduce the localization error over the whole room with respect to cooperation without penalties, and the method keeps high accuracy and stability as the network becomes sparser.</p><div class="figs"><figure class="fig"><img src="stanza.webp" alt="Estimated source trajectories for different penalty factors" loading="lazy" decoding="async" width="1400" height="1047"><figcaption><b>Figure 2.</b> Estimated source trajectories in a 3D room with no, distance, error and cost penalty factors. Blue dots are the arrays, the star is the source.</figcaption></figure><figure class="fig"><img src="results.webp" alt="Localization error maps for different penalty factors" loading="lazy" decoding="async" width="1400" height="642"><figcaption><b>Figure 3.</b> Localization error maps over the source position for different penalty factors (none, distance, error and loss).</figcaption></figure></div>
+</section>
+<section class="ps" id="cite"><h2>Cite this work</h2>
+<p class="cite-text">D. Albertini, A. Bernardini, G. Greco, and A. Sarti, “Diffusion-Based Sound Source Localization Using a Distributed Network of Microphone Arrays,” <em>Sensors</em>, vol. 25, no. 7, p. 2078, 2025. doi: <a href="https://doi.org/10.3390/s25072078" target="_blank" rel="noopener">10.3390/s25072078</a></p><div class="bib"><pre>@article{albertini2025diffusion,
+  title   = {Diffusion-Based Sound Source Localization Using a Distributed Network of Microphone Arrays},
+  author  = {Albertini, Davide and Bernardini, Alberto and Greco, Gioele and Sarti, Augusto},
+  journal = {Sensors},
+  volume  = {25},
+  number  = {7},
+  pages   = {2078},
+  year    = {2025},
+  doi     = {10.3390/s25072078}
+}</pre><button type="button">Copy</button></div><h3>Related publication</h3><p class="cite-text">D. Albertini, G. Greco, A. Bernardini, and A. Sarti, “Diffusion-Based Sound Source Localization Using Networks of Planar Microphone Arrays,” in <em>Proc. IEEE ICASSP</em>, 2023. doi: <a href="https://doi.org/10.1109/ICASSP49357.2023.10095405" target="_blank" rel="noopener">10.1109/ICASSP49357.2023.10095405</a></p>
+</section>
+        </main>
+    </div>
+
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+            <p>&copy; <span id="year">2026</span> Gioele Greco · Politecnico di Milano</p>
+            <p class="site-footer__links"><a href="../index.html">Home</a><a href="../index.html#publications">Publications</a><a href="mailto:gioele.greco@polimi.it">Contact</a></p>
+        </div>
     </footer>
-
-    <script src="script.js"></script>
+    <script src="../assets/paper.js?v=8"></script>
+    <script src="script.js?v=8"></script>
+<script src="../assets/analytics.js?v=2" defer></script>
 </body>
-
 </html>

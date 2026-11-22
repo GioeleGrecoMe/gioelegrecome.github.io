@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pediatric Murmur Detection | Gioele Greco</title>
+    <meta name="description" content="Denoising with permutation-enhanced NMF and SVM classification of phonocardiograms to detect pathological heart murmurs in children, toward tele-consultation. Pediatric Research, 2026.">
+    <meta name="author" content="Gioele Greco">
+    <link rel="canonical" href="https://gioelegrecome.github.io/project9/project9.html">
+    <meta name="theme-color" content="#0b1324">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Gioele Greco">
+    <meta property="og:title" content="Data-Driven Murmur Detection for Pediatric Cardiac Tele-Auscultation">
+    <meta property="og:description" content="Denoising with permutation-enhanced NMF and SVM classification of phonocardiograms to detect pathological heart murmurs in children, toward tele-consultation. Pediatric Research, 2026.">
+    <meta property="og:url" content="https://gioelegrecome.github.io/project9/project9.html">
+    <meta property="og:image" content="https://gioelegrecome.github.io/project9/fig/f1.webp">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/theme.css?v=10">
+    <link rel="stylesheet" href="../assets/paper.css?v=10">
+</head>
+<body class="paper">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <nav class="site-nav solid" aria-label="Main">
+        <div class="site-nav__inner">
+            <a href="../index.html" class="site-nav__brand"><img src="../assets/favicon.svg" alt="" width="26" height="26"><span>Gioele Greco</span></a>
+            <ul class="site-nav__links">
+                <li><a href="../index.html#about">About</a></li>
+                <li><a href="../index.html#projects">Research</a></li>
+                <li class="nav-optional"><a href="../index.html#publications">Publications</a></li>
+                <li><a href="../index.html#contact">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <header class="ph">
+        <div class="ph__inner">
+            <a href="../index.html#projects" class="ph__back"><i class="fas fa-arrow-left" aria-hidden="true"></i> All research</a>
+            <div><span class="ph__venue">Pediatric Research · 2026</span></div>
+            <h1>Data-Driven Murmur Detection for Pediatric Cardiac Tele-Auscultation</h1>
+            
+            <p class="ph__authors">Raffaele Malvermi<sup>1</sup>, Savina Mannarino<sup>2</sup>, Vittoria Garella<sup>2</sup>, <strong>Gioele Greco</strong><sup>1</sup>, Giulia Fini<sup>2</sup>, Beatrice Baj<sup>2</sup>, Fabio Antonacci<sup>1</sup>, Valeria Calcaterra<sup>3,4</sup>, Gianvincenzo Zuccotti<sup>4,5</sup></p>
+            <p class="ph__affil"><sup>1</sup>DEIB, Politecnico di Milano · <sup>2</sup>Pediatric Cardiology, Buzzi Children’s Hospital and University of Milano · <sup>3</sup>University of Pavia · <sup>4</sup>Buzzi Children’s Hospital · <sup>5</sup>University of Milano</p>
+            <div class="ph__actions"><a href="https://doi.org/10.1038/s41390-026-05349-x" target="_blank" rel="noopener" class="button button--light"><i class="fas fa-file-lines" aria-hidden="true"></i> Article (open access)</a><a href="#cite" class="button button--ghost"><i class="fas fa-quote-right" aria-hidden="true"></i> Cite</a></div>
+        </div>
+    </header>
+
+    <div class="teaser"><figure><img src="fig/f1.webp" alt="Diagram of the PCG segmentation and NMF denoising pipeline" width="724" height="522"><figcaption><b>Figure 1.</b> Phonocardiogram segmentation and denoising pipeline: heart sounds are segmented and permuted to learn the NMF basis, then hard thresholding separates the heart signal from noise. Figure from the article (CC BY).</figcaption></figure></div>
+
+    <div class="pl">
+        <nav class="toc" aria-label="On this page"><p>On this page</p><ol><li><a href="#abstract">Abstract</a></li><li><a href="#method">Method</a></li><li><a href="#results">Results</a></li><li><a href="#cite">Cite</a></li></ol></nav>
+        <main id="main" class="pm">
+<section class="ps" id="abstract"><h2>Abstract</h2>
+<p class="abstract">Remote auscultation of children’s hearts is often limited by poor signal quality: breathing, movement and background noise mask the heart sounds, and telling pathological murmurs from innocent ones is difficult and operator-dependent, which leads to unnecessary referrals. In this clinical study, 135 children were examined with a digital stethoscope and echocardiography, and 90 with a confirmed diagnosis were included. Phonocardiograms were segmented and denoised with permutation-enhanced non-negative matrix factorization, and time-frequency features were used to train a support vector machine for each auscultation site.</p><div class="stats"><div class="stat"><b>90</b><span>pediatric patients with echocardiography-confirmed diagnosis</span></div><div class="stat"><b>5</b><span>auscultation sites, one classifier each</span></div><div class="stat"><b>77.4%</b><span>combined accuracy (specificity 81.8%, sensitivity 66.7%)</span></div></div>
+</section>
+<section class="ps" id="method"><h2>Method</h2>
+<p>Each recording is segmented into heart cycles. Permuting the segmented beats provides the data to learn a non-negative matrix factorization basis of heart sounds; projecting the noisy spectrogram on this basis and thresholding the activations separates the heart signal from respiratory, motion and environmental noise. Spectral features of the systolic phase (HTS and HPS) are then extracted and classified.</p><figure class="fig"><img src="fig/f2.webp" alt="PCG signal and spectrogram before and after denoising" loading="lazy" decoding="async" width="1503" height="831"><figcaption><b>Figure 2.</b> A phonocardiogram before (a, b) and after (c, d) segmentation and denoising, in the time domain and as a spectrogram.</figcaption></figure><figure class="fig"><img src="fig/f3.webp" alt="HTS and HPS features on systolic phases" loading="lazy" decoding="async" width="1026" height="361"><figcaption><b>Figure 3.</b> HTS and HPS features computed on the systolic phases of a patient without a heart murmur.</figcaption></figure>
+</section>
+<section class="ps" id="results"><h2>Results</h2>
+<p>Across the five sites, specificity ranged from 70.4% to 100%, sensitivity from 25% to 75% and accuracy from 71.0% to 95.7%. Specificity was at least 88.2% at every site except the upper right sternal border. Combined, the classifiers reached 81.8% specificity, 66.7% sensitivity and 77.4% accuracy. The study shows that improving signal quality is a prerequisite for reliable automated murmur detection in tele-auscultation.</p><figure class="fig"><img src="fig/f4.webp" alt="Feature statistics and PCA of the two classes" loading="lazy" decoding="async" width="1547" height="820"><figcaption><b>Figure 4.</b> Feature analysis at the upper left sternal border: mean and standard deviation of the features per class (a) and principal components (b).</figcaption></figure><figure class="fig"><img src="fig/f5.webp" alt="SVM decision regions on principal components" loading="lazy" decoding="async" width="1211" height="373"><figcaption><b>Figure 5.</b> SVM decision regions for systolic phases at the upper left sternal border, on the principal components.</figcaption></figure>
+</section>
+<section class="ps" id="cite"><h2>Cite this work</h2>
+<p class="cite-text">R. Malvermi, S. Mannarino, V. Garella, G. Greco, G. Fini, B. Baj, F. Antonacci, V. Calcaterra, and G. Zuccotti, “Enhancing pediatric cardiac auscultation with data-driven murmur detection: toward tele-consultation applications,” <em>Pediatric Research</em>, 2026. doi: <a href="https://doi.org/10.1038/s41390-026-05349-x" target="_blank" rel="noopener">10.1038/s41390-026-05349-x</a></p><div class="bib"><pre>@article{malvermi2026murmur,
+  title   = {Enhancing pediatric cardiac auscultation with data-driven murmur detection: toward tele-consultation applications},
+  author  = {Malvermi, Raffaele and Mannarino, Savina and Garella, Vittoria and Greco, Gioele and Fini, Giulia and Baj, Beatrice and Antonacci, Fabio and Calcaterra, Valeria and Zuccotti, Gianvincenzo},
+  journal = {Pediatric Research},
+  year    = {2026},
+  doi     = {10.1038/s41390-026-05349-x}
+}</pre><button type="button">Copy</button></div><p class="ack">Figures are reproduced from the open-access article (© The Authors, CC BY 4.0).</p>
+</section>
+        </main>
+    </div>
+
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+            <p>&copy; <span id="year">2026</span> Gioele Greco · Politecnico di Milano</p>
+            <p class="site-footer__links"><a href="../index.html">Home</a><a href="../index.html#publications">Publications</a><a href="mailto:gioele.greco@polimi.it">Contact</a></p>
+        </div>
+    </footer>
+    <script src="../assets/paper.js?v=8"></script>
+<script src="../assets/analytics.js?v=2" defer></script>
+</body>
+</html>
