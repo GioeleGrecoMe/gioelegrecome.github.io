@@ -70,7 +70,7 @@ p { margin: 0; }
 .grid--small .card h3 { font-size: 1rem; margin-bottom: 12px; }
 
 /* ---------- Footer ---------- */
-.site-foot { background: var(--ink); color: rgba(255, 255, 255, .7); padding: 56px 24px 76px; }
+.site-foot { background: var(--ink); color: rgba(255, 255, 255, .7); padding: 56px 24px 40px; }
 .site-foot__inner { max-width: var(--maxw); margin: 0 auto; display: flex; flex-wrap: wrap; gap: 24px 40px; align-items: center; justify-content: space-between; }
 .site-foot__title { font: 500 .75rem/1.4 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: #7dd3fc; margin-bottom: 6px; }
 .site-foot__mail { color: #fff; font-size: 1.3rem; font-weight: 600; text-decoration: none; letter-spacing: -.01em; }

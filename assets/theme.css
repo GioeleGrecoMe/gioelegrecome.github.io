@@ -326,8 +326,8 @@ body.project-page .page-body > .section > h2 { margin-top: 0; }
 body.project-page .page-hero .button--ghost { color: #fff; }
 @media (max-width: 600px) { .site-nav__links .nav-optional { display: none; } }
 
-/* Visit counter (assets/analytics.js) */
-.visit-counter { position: fixed; right: 16px; bottom: 16px; z-index: 950; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; background: rgba(11, 19, 36, .88); color: rgba(255, 255, 255, .8); font: 500 .78rem/1 var(--font-sans); box-shadow: var(--shadow-md); backdrop-filter: blur(6px); pointer-events: none; }
-.visit-counter b { color: #fff; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Visit counter (assets/analytics.js): shown at the bottom of the footer */
+.visit-counter { margin: 14px auto 0; max-width: var(--maxw); font: 500 .8rem/1.4 var(--font-sans); color: rgba(255, 255, 255, .5); }
+.visit-counter b { color: rgba(255, 255, 255, .85); font-weight: 600; font-variant-numeric: tabular-nums; }
+.visit-counter i { margin-right: 4px; }
 .visit-counter[hidden] { display: none; }
-.site-footer { padding-bottom: 72px; }

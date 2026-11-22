@@ -20,15 +20,15 @@
     s.setAttribute('data-goatcounter', 'https://' + CODE + '.goatcounter.com/count');
     document.head.appendChild(s);
 
-    // 2. Show the total number of views, bottom right (home and project pages only)
+    // 2. Show the total number of views at the very bottom of the page (footer), home and project pages only
     var b = document.body;
-    if (!(document.getElementById('top') || b.classList.contains('paper'))) return;
-    var el = document.createElement('div');
+    var foot = document.querySelector('.site-foot, .site-footer');
+    if (!foot || !(document.getElementById('top') || b.classList.contains('paper'))) return;
+    var el = document.createElement('p');
     el.className = 'visit-counter';
     el.hidden = true;
-    el.setAttribute('title', 'Total page views');
-    el.innerHTML = '<i class="far fa-eye" aria-hidden="true"></i> <span>Visits</span> <b></b>';
-    b.appendChild(el);
+    el.innerHTML = '<i class="far fa-eye" aria-hidden="true"></i> Visits <b></b>';
+    foot.appendChild(el);
     var xhr = new XMLHttpRequest();
     xhr.addEventListener('load', function () {
         try {
