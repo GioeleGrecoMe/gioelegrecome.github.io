@@ -3,3 +3,17 @@ __pycache__/
 *.pyc
 *.log
 soma31/ui_static_*.png
+
+# Ambienti e cache locali
+.venv/
+venv/
+*.pyc
+.idea/
+.vscode/
+
+# Backup locali
+backup_before_*/
+*.bak
+
+# Log dello script di sincronizzazione
+.sync.log
