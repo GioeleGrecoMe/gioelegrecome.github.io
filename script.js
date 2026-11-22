@@ -81,3 +81,55 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
         });
     });
 })();
+
+// Intro waveform: soft animated signal waves behind the introduction
+(function () {
+    var canvas = document.getElementById('signalCanvas');
+    if (!canvas) return;
+    var host = canvas.parentElement;
+    var ctx = canvas.getContext('2d');
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = 0, h = 0, t = 0, running = true;
+    var waves = [
+        { amp: 36, freq: 0.0062, speed: 0.010, color: 'rgba(56, 189, 248, 0.46)', width: 1.6 },
+        { amp: 52, freq: 0.0042, speed: 0.007, color: 'rgba(125, 211, 252, 0.28)', width: 1.2 },
+        { amp: 24, freq: 0.0115, speed: 0.016, color: 'rgba(147, 197, 253, 0.34)', width: 1 }
+    ];
+    function resize() {
+        w = host.offsetWidth; h = host.offsetHeight;
+        canvas.width = w * dpr; canvas.height = h * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    function draw() {
+        ctx.clearRect(0, 0, w, h);
+        var base = h * 0.8;
+        waves.forEach(function (wv, i) {
+            ctx.beginPath();
+            ctx.strokeStyle = wv.color;
+            ctx.lineWidth = wv.width;
+            for (var x = 0; x <= w; x += 3) {
+                var env = 0.55 + 0.45 * Math.sin(x * 0.0016 + t * 0.004 + i);
+                var y = base + env * wv.amp * Math.sin(x * wv.freq + t * wv.speed + i * 1.7) + 6 * Math.sin(x * 0.03 + t * 0.03);
+                if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        });
+    }
+    function loop() {
+        if (!running) return;
+        t += 1;
+        draw();
+        requestAnimationFrame(loop);
+    }
+    resize();
+    if (reduce) { draw(); } else { loop(); }
+    window.addEventListener('resize', function () { resize(); draw(); });
+    if ('IntersectionObserver' in window && !reduce) {
+        new IntersectionObserver(function (e) {
+            var vis = e[0].isIntersecting;
+            if (vis && !running) { running = true; loop(); }
+            else if (!vis) { running = false; }
+        }).observe(host);
+    }
+})();
